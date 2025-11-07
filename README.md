@@ -6,9 +6,13 @@
 
 ![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot.png?raw=true "Optional Title")
 
-A simple Vala/GTK news app. See the Build dependencies section below for distro-specific install commands.
+## About
+A simple Vala/GTK news app. I built this app because I wanted to have a simple, but beautiful native GTK4 news application. Feel free to test, change, and contribute back to this project.
 
-Build dependencies
+### --Warning--
+This app is very much so in an alpha state. It will definitely eat your dogs and throw your kittens outside. It's functional, but it's still very much so a WIP.
+
+## Build dependencies
 This project declares several dependencies in `meson.build` (gtk4, libadwaita, libsoup, json-glib, gdk-pixbuf, libxml2, gee) plus the Vala toolchain and the usual build tools (Meson, Ninja, a C compiler and pkg-config).
 
 Common distro install commands are provided below.
@@ -18,8 +22,8 @@ Common distro install commands are provided below.
 - Libsoup dev (2.4): libsoup2.4-dev
 - JSON-GLib dev: libjson-glib-dev
 
-
-Common distro install commands
+## Building
+Common distro install commands:
 
 Debian / Ubuntu (example):
 
@@ -58,7 +62,7 @@ meson compile -C build
 ./build/paperboy
 ```
 
-Install system-wide (optional)
+## Installing system-wide (optional)
 
 ```bash
 # from the project root
