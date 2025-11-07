@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://github.com/thecalamityjoe87/paperboy/blob/main/data/icons/256x256/paperboy.png?raw=true"/>
+</p>
+
 # **Paperboy (Vala + GTK)**
 
 ![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot.png?raw=true "Optional Title")
