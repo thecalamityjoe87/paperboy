@@ -605,7 +605,10 @@ public class NewsWindow : Adw.ApplicationWindow {
             string? multi_icon = find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
             if (multi_icon != null) {
                 try {
-                    var pix = new Gdk.Pixbuf.from_file_at_size(multi_icon, 32, 32);
+                    // Prefer a white variant in dark mode if available
+                    string? use_path = multi_icon;
+                    try { if (is_dark_mode()) { string? white = ensure_white_icon_for(multi_icon); if (white != null) use_path = white; } } catch (GLib.Error e) { }
+                    var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
                     if (pix != null) {
                         var tex = Gdk.Texture.for_pixbuf(pix);
                         source_logo.set_from_paintable(tex);
@@ -1310,7 +1313,18 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Listen for theme changes to live-switch custom icons
         var sm = Adw.StyleManager.get_default();
         if (sm != null) {
-            sm.notify["dark"].connect(() => { update_sidebar_icons_for_theme(); });
+            // When the theme's dark property changes, update sidebar icons
+            // and the source/logo in the header so bundled mono icons
+            // (including the multi-source icon) can be swapped for their
+            // white variants or back to the original variant as appropriate.
+            sm.notify["dark"].connect(() => {
+                try {
+                    update_sidebar_icons_for_theme();
+                    // Update the top-right source logo to pick the correct
+                    // white or normal variant based on the new theme.
+                    try { update_source_info(); } catch (GLib.Error e) { }
+                } catch (GLib.Error e) { }
+            });
         }
 
         // initial state and fetch
@@ -3379,16 +3393,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                 string? multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
                 if (multi_icon != null) {
                     try {
-                        var pix = new Gdk.Pixbuf.from_file_at_size(multi_icon, 32, 32);
-                        if (pix != null) {
-                            var tex = Gdk.Texture.for_pixbuf(pix);
-                            self_ref.source_logo.set_from_paintable(tex);
-                        } else {
-                            self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
+                            // Prefer white variant when in dark mode
+                            string? use_path = multi_icon;
+                            try { if (self_ref.is_dark_mode()) { string? white = self_ref.ensure_white_icon_for(multi_icon); if (white != null) use_path = white; } } catch (GLib.Error e) { }
+                            var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
+                            if (pix != null) {
+                                var tex = Gdk.Texture.for_pixbuf(pix);
+                                self_ref.source_logo.set_from_paintable(tex);
+                            } else {
+                                self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
+                            }
+                        } catch (GLib.Error e) {
+                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
                         }
-                    } catch (GLib.Error e) {
-                        try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
-                    }
                 } else {
                     try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
                 }
