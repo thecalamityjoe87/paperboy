@@ -79,7 +79,7 @@ public class PrefsDialog : GLib.Object {
             body_text
         );
         dialog.set_body_use_markup(true);
-        dialog.add_response("browse", "Switch Source");
+    dialog.add_response("browse", "Set Source Options");
         dialog.add_response("ok", "OK");
         dialog.set_default_response("ok");
         dialog.set_close_response("ok");
@@ -187,6 +187,12 @@ public class PrefsDialog : GLib.Object {
         
     // Track whether any source switches changed while the dialog is open.
     bool sources_changed = false;
+    // Track whether any personalized category switches changed while the dialog
+    // is open so we can apply a single refresh when the dialog closes.
+    bool categories_changed = false;
+    // Track whether the personalized_feed_enabled toggle changed so we can
+    // update the main view after the dialog closes (avoid refreshing mid-edit).
+    bool personalization_toggled = false;
 
     // Add The Guardian (multi-select)
         var guardian_row = new Adw.ActionRow();
@@ -482,15 +488,16 @@ public class PrefsDialog : GLib.Object {
 
         // When toggled, persist the preference immediately and update
         // the sensitivity of the settings button so it's only clickable
-        // when personalization is enabled. Also notify the main window so
-        // it can show/hide the personalized-feed message overlay.
+        // when personalization is enabled. Don't refresh the main view
+        // immediately; instead mark the change and apply it when the
+        // dialog closes so the user can make multiple edits before a
+        // single refresh occurs.
         personalized_switch.state_set.connect((sw, state) => {
             prefs.personalized_feed_enabled = state;
             prefs.save_config();
             settings_btn.set_sensitive(state);
             try {
-                // Notify the parent window (if it's a NewsWindow) to update UI
-                if (win != null) win.update_personalization_ui();
+                if (win != null) personalization_toggled = true;
             } catch (GLib.Error e) { /* ignore if parent doesn't implement it */ }
             return false; // allow the state change to proceed
         });
@@ -582,44 +589,120 @@ public class PrefsDialog : GLib.Object {
             return img2;
         }
 
-        // Build category list depending on source
-        string[] cat_ids;
-        string[] cat_titles;
-        if (prefs.news_source == NewsSource.BLOOMBERG) {
-            cat_ids = { "markets", "industries", "economics", "wealth", "green", "technology", "politics" };
-            cat_titles = { "Markets", "Industries", "Economics", "Wealth", "Green", "Technology", "Politics" };
-        } else {
-            /* Exclude 'all' and 'myfeed' from the categories pane per UX request */
-            cat_ids = { "general", "us", "technology", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
-            cat_titles = { "World News", "US News", "Technology", "Science", "Sports", "Health", "Entertainment", "Politics", "Lifestyle" };
+        // Helper to (re)build the categories list based on current prefs.
+        void rebuild_cats_list() {
+            // Clear existing rows
+            Gtk.Widget? child = cats_list.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                cats_list.remove(child);
+                child = next;
+            }
+
+            // Decide whether to show Bloomberg-specific categories. Treat
+            // the multi-select `preferred_sources` as authoritative when it
+            // contains any entries; only fall back to the legacy single
+            // `news_source` when no `preferred_sources` are present. This
+            // ensures that if the user unchecks Bloomberg in the multi-select
+            // UI, Bloomberg-specific categories are hidden even if a legacy
+            // `news_source` value remained set from earlier runs.
+            bool is_bloomberg_selected;
+            if (prefs.preferred_sources != null && prefs.preferred_sources.size > 0) {
+                is_bloomberg_selected = prefs.preferred_source_enabled("bloomberg");
+            } else {
+                is_bloomberg_selected = (prefs.news_source == NewsSource.BLOOMBERG);
+            }
+
+            // Build a merged list of categories. If Bloomberg is the ONLY
+            // selected preferred source, show only Bloomberg-specific
+            // categories. Otherwise include the base (common) categories and
+            // add Bloomberg sections when Bloomberg is selected among others.
+            var cat_ids_list = new Gee.ArrayList<string>();
+            var cat_titles_list = new Gee.ArrayList<string>();
+
+            // Decide if Bloomberg is the sole enabled source
+            bool bloomberg_only = false;
+            if (prefs.preferred_sources != null && prefs.preferred_sources.size > 0) {
+                bloomberg_only = (prefs.preferred_sources.size == 1 && prefs.preferred_source_enabled("bloomberg"));
+            } else {
+                bloomberg_only = (prefs.news_source == NewsSource.BLOOMBERG);
+            }
+
+            // Bloomberg-specific IDs/titles (used in both bloomberg-only and mixed modes)
+            string[] bb_ids = { "markets", "industries", "economics", "wealth", "green", "technology", "politics" };
+            string[] bb_titles = { "Markets", "Industries", "Economics", "Wealth", "Green", "Technology", "Politics" };
+
+            if (bloomberg_only) {
+                // If Bloomberg is the only source, present only Bloomberg
+                // categories so the UI and saved preferences can't pick
+                // non-Bloomberg categories.
+                for (int j = 0; j < bb_ids.length; j++) {
+                    cat_ids_list.add(bb_ids[j]);
+                    cat_titles_list.add(bb_titles[j]);
+                }
+            } else {
+                // Base (common) categories - keep these visible normally
+                string[] base_ids = { "general", "us", "technology", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
+                string[] base_titles = { "World News", "US News", "Technology", "Science", "Sports", "Health", "Entertainment", "Politics", "Lifestyle" };
+                for (int i = 0; i < base_ids.length; i++) {
+                    cat_ids_list.add(base_ids[i]);
+                    cat_titles_list.add(base_titles[i]);
+                }
+
+                if (is_bloomberg_selected) {
+                    // Add Bloomberg-specific additional categories; avoid
+                    // adding duplicates if they overlap with base categories.
+                    for (int j = 0; j < bb_ids.length; j++) {
+                        string bid = bb_ids[j];
+                        bool exists = false;
+                        for (int k = 0; k < cat_ids_list.size; k++) {
+                            if (cat_ids_list.get(k) == bid) { exists = true; break; }
+                        }
+                        if (!exists) {
+                            cat_ids_list.add(bid);
+                            cat_titles_list.add(bb_titles[j]);
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < cat_ids_list.size; i++) {
+                string cat_id = cat_ids_list.get(i);
+                string cat_title = cat_titles_list.get(i);
+                var crow = new Adw.ActionRow();
+                crow.set_title(cat_title);
+                var prefix = create_category_icon_local(cat_id);
+                if (prefix != null) crow.add_prefix(prefix);
+                var cswitch = new Gtk.Switch();
+                cswitch.set_active(prefs.personalized_category_enabled(cat_id));
+                /* Ensure the per-category switch does not expand vertically
+                 * or otherwise get sized taller than the row. Align it to the
+                 * center and disable expansion so it stays compact. */
+                cswitch.set_halign(Gtk.Align.END);
+                cswitch.set_valign(Gtk.Align.CENTER);
+                cswitch.set_hexpand(false);
+                cswitch.set_vexpand(false);
+                cswitch.set_margin_top(0);
+                cswitch.set_margin_bottom(0);
+                // Capture cat_id for the closure
+                string _cid = cat_id;
+                cswitch.state_set.connect((sw, state) => {
+                    prefs.set_personalized_category_enabled(_cid, state);
+                    prefs.save_config();
+                    // Mark that categories changed; apply a single refresh when
+                    // the dialog closes so the user can make multiple edits.
+                    try {
+                        categories_changed = true;
+                    } catch (GLib.Error e) { }
+                    return false;
+                });
+                crow.add_suffix(cswitch);
+                cats_list.append(crow);
+            }
         }
 
-        for (int i = 0; i < cat_ids.length; i++) {
-            string cat_id = cat_ids[i];
-            string cat_title = cat_titles[i];
-            var crow = new Adw.ActionRow();
-            crow.set_title(cat_title);
-            var prefix = create_category_icon_local(cat_id);
-            if (prefix != null) crow.add_prefix(prefix);
-            var cswitch = new Gtk.Switch();
-            cswitch.set_active(prefs.personalized_category_enabled(cat_id));
-            /* Ensure the per-category switch does not expand vertically
-             * or otherwise get sized taller than the row. Align it to the
-             * center and disable expansion so it stays compact. */
-            cswitch.set_halign(Gtk.Align.END);
-            cswitch.set_valign(Gtk.Align.CENTER);
-            cswitch.set_hexpand(false);
-            cswitch.set_vexpand(false);
-            cswitch.set_margin_top(0);
-            cswitch.set_margin_bottom(0);
-            cswitch.state_set.connect((sw, state) => {
-                prefs.set_personalized_category_enabled(cat_id, state);
-                prefs.save_config();
-                return false;
-            });
-            crow.add_suffix(cswitch);
-            cats_list.append(crow);
-        }
+        // Build initial categories list
+        rebuild_cats_list();
 
         scroller.set_child(cats_list);
         categories_container.append(scroller);
@@ -635,8 +718,10 @@ public class PrefsDialog : GLib.Object {
             stack.set_visible_child_name("main");
         });
 
-        // Wire settings button to show categories pane
+        // Wire settings button to rebuild categories (reflecting any switch
+        // changes) then show the categories pane.
         settings_btn.clicked.connect(() => {
+            rebuild_cats_list();
             stack.set_visible_child_name("cats");
         });
 
@@ -678,11 +763,35 @@ public class PrefsDialog : GLib.Object {
                         foreach (var sid in check_prefs.preferred_sources) {
                             if (sid == "bloomberg") { has_bb = true; break; }
                         }
-                        if (has_bb) {
-                            check_prefs.news_source = NewsSource.BLOOMBERG;
-                            check_prefs.save_config();
-                            did_change_news_source = true;
-                        }
+                                if (has_bb) {
+                                    // If Bloomberg is one of several preferred sources,
+                                    // persist a sensible single `news_source` for legacy
+                                    // compatibility: prefer the first non-Bloomberg
+                                    // preferred source so we don't force Bloomberg-only
+                                    // category semantics (which would disable "My Feed").
+                                    string chosen = "";
+                                    foreach (var sid in check_prefs.preferred_sources) {
+                                        if (sid != "bloomberg") { chosen = sid; break; }
+                                    }
+                                    if (chosen.length == 0) {
+                                        // All enabled sources are Bloomberg (edge-case) - keep Bloomberg
+                                        check_prefs.news_source = NewsSource.BLOOMBERG;
+                                    } else {
+                                        switch (chosen) {
+                                            case "guardian": check_prefs.news_source = NewsSource.GUARDIAN; break;
+                                            case "reddit": check_prefs.news_source = NewsSource.REDDIT; break;
+                                            case "bbc": check_prefs.news_source = NewsSource.BBC; break;
+                                            case "nytimes": check_prefs.news_source = NewsSource.NEW_YORK_TIMES; break;
+                                            case "wsj": check_prefs.news_source = NewsSource.WALL_STREET_JOURNAL; break;
+                                            case "reuters": check_prefs.news_source = NewsSource.REUTERS; break;
+                                            case "npr": check_prefs.news_source = NewsSource.NPR; break;
+                                            case "fox": check_prefs.news_source = NewsSource.FOX; break;
+                                            default: /* leave as-is for unknown ids */ break;
+                                        }
+                                    }
+                                    check_prefs.save_config();
+                                    did_change_news_source = true;
+                                }
                     }
                 } catch (GLib.Error e) { /* best-effort only */ }
 
@@ -693,7 +802,11 @@ public class PrefsDialog : GLib.Object {
                         // Only refresh once: if sources changed while dialog
                         // was open or we auto-enabled Guardian, or we changed
                         // the persisted news_source, trigger a single fetch.
-                        if (sources_changed || did_auto_enable || did_change_news_source) {
+                        if (sources_changed || did_auto_enable || did_change_news_source || categories_changed || personalization_toggled) {
+                            // If personalization or categories changed, update overlay
+                            // state first so the UI reflects the new settings quickly,
+                            // then re-run the fetch once to refresh articles.
+                            try { parent_win.update_personalization_ui(); } catch (GLib.Error e) { }
                             parent_win.fetch_news();
                         }
                     }

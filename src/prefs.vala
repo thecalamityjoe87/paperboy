@@ -148,16 +148,38 @@ public class NewsPreferences : GLib.Object {
             
             config.set_string("preferences", "news_source", source_name);
             // Ensure we don't persist a category incompatible with the
-            // selected news source (e.g., a Bloomberg-only category for other
-            // sources). Normalize to a sensible default if necessary.
-            if (!category_valid_for_source(news_source, category)) {
-                // Use the neutral "all" view as a safe persisted default
-                category = "all";
+            // selected news source. When the user has enabled multiple
+            // `preferred_sources` we treat the multi-select as authoritative
+            // and avoid coercing `category` here (the UI and fetch code will
+            // handle combining categories). Only enforce compatibility when
+            // operating in legacy/single-source mode.
+            if (preferred_sources == null || preferred_sources.size <= 1) {
+                // Allow the special "myfeed" category to persist when the
+                // personalized feed is enabled even in single-source mode.
+                if (!(category == "myfeed" && personalized_feed_enabled)) {
+                    if (!category_valid_for_source(news_source, category)) {
+                        // Use the neutral "all" view as a safe persisted default
+                        category = "all";
+                    }
+                }
             }
             config.set_string("preferences", "category", category);
             // Persist the personalized feed toggle
             config.set_boolean("preferences", "personalized_feed_enabled", personalized_feed_enabled);
             // Persist personalized categories list
+            // If Bloomberg is not enabled in preferred_sources, strip any
+            // Bloomberg-only categories so the saved personalized feed will
+            // not attempt to show Bloomberg categories when the source is
+            // disabled.
+            if (!preferred_source_enabled("bloomberg") && personalized_categories != null) {
+                string[] bb = { "markets", "industries", "economics", "wealth", "green", "politics", "technology" };
+                var to_remove = new Gee.ArrayList<string>();
+                foreach (var c in personalized_categories) {
+                    foreach (var b in bb) if (c == b) to_remove.add(c);
+                }
+                foreach (var r in to_remove) personalized_categories.remove(r);
+            }
+
             if (personalized_categories != null) {
                 // Convert Gee.ArrayList to string[]
                 string[] arr = new string[personalized_categories.size];
@@ -233,20 +255,26 @@ public class NewsPreferences : GLib.Object {
                 }
             }
             
-            // Load category and normalize it against the loaded news source.
+            // Load category (normalization is applied after reading the
+            // personalized_feed flag so we can preserve "myfeed" when the
+            // user has enabled personalization).
             if (config.has_key("preferences", "category")) {
                 category = config.get_string("preferences", "category");
-                if (!category_valid_for_source(news_source, category)) {
-                    // Don't try to force a Bloomberg-only category for other sources.
-                    // Use neutral "all" view so UI shows something valid.
-                    category = "all";
-                }
             }
             // Load personalized feed flag if present
             if (config.has_key("preferences", "personalized_feed_enabled")) {
                 try {
                     personalized_feed_enabled = config.get_boolean("preferences", "personalized_feed_enabled");
                 } catch (GLib.Error e) { /* ignore and keep default */ }
+            }
+            // After knowing whether personalization is enabled, normalize
+            // the category. Allow "myfeed" to survive normalization when
+            // personalization is enabled so users can select a personalized
+            // feed even when the effective single source is Bloomberg.
+            if (!category_valid_for_source(news_source, category)) {
+                if (!(category == "myfeed" && personalized_feed_enabled)) {
+                    category = "all";
+                }
             }
             // Load personalized categories list if present
             if (config.has_key("preferences", "personalized_categories")) {

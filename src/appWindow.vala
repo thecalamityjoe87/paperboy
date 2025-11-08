@@ -243,6 +243,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Box? loading_container = null;
     // Message box shown in main content when personalized feed is disabled
     private Gtk.Box? personalized_message_box = null;
+    // Label and action button inside the personalized message overlay
+    private Gtk.Label? personalized_message_label = null;
+    private Gtk.Button? personalized_message_action = null;
     // Initial-load gating: wait for hero (or timeout) before revealing main content
     private bool initial_phase = false;
     private bool hero_image_loaded = false;
@@ -1168,17 +1171,35 @@ public class NewsWindow : Adw.ApplicationWindow {
     inner_center.set_halign(Gtk.Align.CENTER);
     inner_center.set_valign(Gtk.Align.CENTER);
 
-    var p_label = new Gtk.Label("Enable this option in settings to get a personalized feed...");
-    p_label.add_css_class("dim-label");
-    p_label.add_css_class("title-4");
-    // Center the label inside the inner container
-    p_label.set_halign(Gtk.Align.CENTER);
-    p_label.set_valign(Gtk.Align.CENTER);
+    // Create a reusable label that we'll update depending on state
+    personalized_message_label = new Gtk.Label("");
+    personalized_message_label.add_css_class("dim-label");
+    personalized_message_label.add_css_class("title-4");
+    personalized_message_label.set_halign(Gtk.Align.CENTER);
+    personalized_message_label.set_valign(Gtk.Align.CENTER);
+    // Center-justify and allow wrapping so multi-line instructions are centered
+    try { personalized_message_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
+    try { personalized_message_label.set_xalign(0.5f); } catch (GLib.Error e) { }
+    try { personalized_message_label.set_wrap(true); } catch (GLib.Error e) { }
+    try { personalized_message_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR); } catch (GLib.Error e) { }
+    inner_center.append(personalized_message_label);
 
-    inner_center.append(p_label);
+    // Action button to open the preferences dialog when helpful
+    personalized_message_action = new Gtk.Button.with_label("Open Preferences");
+    personalized_message_action.set_halign(Gtk.Align.CENTER);
+    personalized_message_action.set_valign(Gtk.Align.CENTER);
+    personalized_message_action.set_margin_top(8);
+    // Connect to preferences dialog (open the sources/settings dialog)
+    personalized_message_action.clicked.connect(() => {
+        try {
+            PrefsDialog.show_source_dialog(this);
+        } catch (GLib.Error e) { }
+    });
+    // Start hidden; we'll show it only when appropriate
+    personalized_message_action.set_visible(false);
+    inner_center.append(personalized_message_action);
+
     personalized_message_box.append(inner_center);
-    // Visible only when personalization is disabled
-    if (prefs.personalized_feed_enabled) personalized_message_box.set_visible(false); else personalized_message_box.set_visible(true);
     // Do NOT add the personalized message to the inner main_overlay (it lives
     // inside the scrolled content). We'll add it to a root overlay that wraps
     // the navigation view so it can center over the visible viewport.
@@ -1312,31 +1333,48 @@ public class NewsWindow : Adw.ApplicationWindow {
         var prefs = NewsPreferences.get_instance();
         bool enabled = prefs.personalized_feed_enabled;
         bool is_myfeed = prefs.category == "myfeed";
+        // Determine if the user has chosen any personalized categories
+        bool has_personalized = prefs.personalized_categories != null && prefs.personalized_categories.size > 0;
 
-        /*
-         * Show the centered personalized-feed message only when the
-         * personalized feed is disabled and the user has selected
-         * the "My Feed" category. For other categories, always show
-         * the main content so category clicks act independently.
-         */
-        bool show_message = !enabled && is_myfeed;
-        personalized_message_box.set_visible(show_message);
-
+        // We show a centered overlay in two cases when the user has selected
+        // the "My Feed" category:
+        //  1) Personalization is disabled: instruct how to enable it.
+        //  2) Personalization is enabled but no categories were chosen: instruct
+        //     the user to open preferences and pick categories (provide a button).
+        bool show_message = false;
         try {
+            if (is_myfeed) {
+                if (!enabled) {
+                    // Prompt to enable personalization (add actionable hint beneath)
+                    if (personalized_message_label != null) personalized_message_label.set_text("Enable this option in settings to get a personalized feed.");
+                    // Show the action button so users can jump straight to prefs
+                    if (personalized_message_action != null) personalized_message_action.set_visible(true);
+                    show_message = true;
+                } else if (enabled && !has_personalized) {
+                    // Personalization enabled but no categories selected
+                    if (personalized_message_label != null) personalized_message_label.set_text("Personalized Feed is enabled but no categories are selected. \nOpen Preferences → Personalized Feed and choose categories to enable My Feed.");
+                    if (personalized_message_action != null) personalized_message_action.set_visible(true);
+                    show_message = true;
+                } else {
+                    // Personalization enabled and categories selected -> show content
+                    show_message = false;
+                }
+            } else {
+                // For non-MyFeed categories, never show the personalized overlay
+                show_message = false;
+            }
+
+            personalized_message_box.set_visible(show_message);
+
             if (main_content_container != null) {
-                // Show main content when personalization is enabled OR
-                // when the selected category isn't "myfeed".
-                main_content_container.set_visible(enabled || !is_myfeed);
+                // Show main content when we are not showing the overlay
+                main_content_container.set_visible(!show_message);
             }
         } catch (GLib.Error e) { }
 
         // If the message is visible, hide the loading spinner; otherwise
         // leave the spinner state alone (it may be controlled by fetch logic).
         try {
-            // Only forcibly hide the loading container when the personalized
-            // message is visible. Otherwise, leave the spinner visibility
-            // alone so fetch logic (show_loading_spinner/hide_loading_spinner)
-            // can control it during network activity.
             if (loading_container != null && show_message) {
                 loading_container.set_visible(false);
             }
@@ -3360,13 +3398,30 @@ public class NewsWindow : Adw.ApplicationWindow {
                 );
             } else {
                 // Filter the selected sources to those that actually support
-                // the chosen category. For example, if the user selected a
-                // category Bloomerg doesn't provide, exclude Bloomberg and
-                // query only the remaining sources.
+                // the requested category. Special-case the personalized
+                // My Feed mode: prefs.category == "myfeed" is not a real
+                // provider category, so check per-personalized-category
+                // support (e.g., Bloomberg supports markets/industries but
+                // not a generic "myfeed"). This ensures Bloomberg isn't
+                // excluded from the combined fetch when the user has
+                // selected Bloomberg-specific personalized categories.
                 var filtered = new Gee.ArrayList<NewsSource>();
                 foreach (var s in srcs) {
                     try {
-                        if (NewsSources.supports_category(s, prefs.category)) filtered.add(s);
+                        bool include = false;
+                        if (is_myfeed_mode) {
+                            // If no personalized categories selected, be permissive
+                            if (myfeed_cats == null || myfeed_cats.length == 0) {
+                                include = true;
+                            } else {
+                                foreach (var cat in myfeed_cats) {
+                                    if (NewsSources.supports_category(s, cat)) { include = true; break; }
+                                }
+                            }
+                        } else {
+                            if (NewsSources.supports_category(s, prefs.category)) include = true;
+                        }
+                        if (include) filtered.add(s);
                     } catch (GLib.Error e) {
                         // If something goes wrong querying support, include the source
                         filtered.add(s);
