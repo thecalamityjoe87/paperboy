@@ -670,24 +670,16 @@ public class PrefsDialog : GLib.Object {
                 // read `prefs.news_source` behave sensibly.
                 try {
                     if (check_prefs.preferred_sources != null && check_prefs.preferred_sources.size > 1) {
+                        // If Bloomberg is one of the enabled preferred sources,
+                        // prefer persisting the single `news_source` value as
+                        // Bloomberg so legacy code paths that read
+                        // `prefs.news_source` reflect the user's selection.
                         bool has_bb = false;
-                        string first_non_bb = "";
                         foreach (var sid in check_prefs.preferred_sources) {
-                            if (sid == "bloomberg") { has_bb = true; continue; }
-                            if (first_non_bb == "") first_non_bb = sid;
+                            if (sid == "bloomberg") { has_bb = true; break; }
                         }
-                        if (has_bb && first_non_bb != "") {
-                            switch (first_non_bb) {
-                                case "guardian": check_prefs.news_source = NewsSource.GUARDIAN; break;
-                                case "reddit": check_prefs.news_source = NewsSource.REDDIT; break;
-                                case "bbc": check_prefs.news_source = NewsSource.BBC; break;
-                                case "nytimes": check_prefs.news_source = NewsSource.NEW_YORK_TIMES; break;
-                                case "wsj": check_prefs.news_source = NewsSource.WALL_STREET_JOURNAL; break;
-                                case "reuters": check_prefs.news_source = NewsSource.REUTERS; break;
-                                case "npr": check_prefs.news_source = NewsSource.NPR; break;
-                                case "fox": check_prefs.news_source = NewsSource.FOX; break;
-                                default: /* leave as-is for unknown ids */ break;
-                            }
+                        if (has_bb) {
+                            check_prefs.news_source = NewsSource.BLOOMBERG;
                             check_prefs.save_config();
                             did_change_news_source = true;
                         }

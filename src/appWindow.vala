@@ -1479,13 +1479,71 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
 
         // If the user has switched categories since this fetch began, ignore
-        // articles that don't belong to the current view, unless we're in
-        // "all" view which accepts everything.
+        // articles that don't belong to the current view. Treat the special
+        // "myfeed" view as a personalized union of categories when the
+        // personalized feed is enabled.
         string view_category = prefs.category;
-        if (view_category != "all" && view_category != category_id) {
-            // Drop stale article for a different category
-            if (debug_enabled()) warning("Dropping stale article for category %s (view=%s)", category_id, view_category);
-            return;
+        if (view_category == "myfeed") {
+            // If personalization is enabled, accept only articles that match
+            // one of the user's personalized categories (if any). If no
+            // personalized categories are selected, accept everything so the
+            // fallback fetches (which may request a default category) still
+            // populate the view.
+            if (prefs.personalized_feed_enabled) {
+                bool has_personalized = prefs.personalized_categories != null && prefs.personalized_categories.size > 0;
+                if (has_personalized) {
+                    bool match = false;
+                    foreach (var pc in prefs.personalized_categories) if (pc == category_id) { match = true; break; }
+                    if (!match) {
+                        if (debug_enabled()) warning("Dropping non-personalized article for My Feed: article_cat=%s title=%s", category_id, title);
+                        return;
+                    }
+                }
+                // else: no personalized categories selected -> accept all
+            } else {
+                // Personalized feed not enabled: don't populate My Feed
+                if (debug_enabled()) warning("Dropping article because My Feed personalization is disabled: article_cat=%s title=%s", category_id, title);
+                return;
+            }
+        } else {
+            if (view_category != "all" && view_category != category_id) {
+                // Drop stale article for a different category
+                if (debug_enabled()) warning("Dropping stale article for category %s (view=%s)", category_id, view_category);
+                return;
+            }
+        }
+
+        // Enforce that articles originate from the user's selected sources.
+        // Map the inferred source to the preference id strings and drop any
+        // articles that come from sources the user hasn't enabled. This
+        // protects against fetchers that may return cross-domain results.
+        if (prefs.preferred_sources != null && prefs.preferred_sources.size > 0) {
+            NewsSource article_src = infer_source_from_url(url);
+            string article_src_id = "";
+            switch (article_src) {
+                case NewsSource.GUARDIAN: article_src_id = "guardian"; break;
+                case NewsSource.REDDIT: article_src_id = "reddit"; break;
+                case NewsSource.BBC: article_src_id = "bbc"; break;
+                case NewsSource.NEW_YORK_TIMES: article_src_id = "nytimes"; break;
+                case NewsSource.WALL_STREET_JOURNAL: article_src_id = "wsj"; break;
+                case NewsSource.BLOOMBERG: article_src_id = "bloomberg"; break;
+                case NewsSource.REUTERS: article_src_id = "reuters"; break;
+                case NewsSource.NPR: article_src_id = "npr"; break;
+                case NewsSource.FOX: article_src_id = "fox"; break;
+                default: article_src_id = ""; break;
+            }
+
+            if (article_src_id.length > 0) {
+                bool allowed_src = false;
+                foreach (var ps in prefs.preferred_sources) {
+                    if (ps == article_src_id) { allowed_src = true; break; }
+                }
+                if (!allowed_src) {
+                    if (debug_enabled()) warning("Dropping article from unselected source %s title=%s", article_src_id, title);
+                    return;
+                }
+            }
+            // If we couldn't infer a source id, conservatively accept the article.
         }
 
         // If multiple preferred sources are selected and this article's
@@ -1922,8 +1980,26 @@ public class NewsWindow : Adw.ApplicationWindow {
             // current behaviour for the mixed "all" view.
             bool allow_slide = false;
             if (prefs.category == "all") {
+                // In "all" mode, only append slides that match the seeded featured category
                 allow_slide = (featured_carousel_category != null && featured_carousel_category == category_id);
+            } else if (prefs.category == "myfeed" && prefs.personalized_feed_enabled) {
+                // In My Feed personalization mode, allow slides that either match the
+                // featured category or belong to one of the user's personalized categories.
+                if (featured_carousel_category != null && featured_carousel_category == category_id) {
+                    allow_slide = true;
+                } else {
+                    bool has_personalized = prefs.personalized_categories != null && prefs.personalized_categories.size > 0;
+                    if (!has_personalized) {
+                        // No personalized categories selected -> accept any category
+                        allow_slide = true;
+                    } else {
+                        foreach (var pc in prefs.personalized_categories) {
+                            if (pc == category_id) { allow_slide = true; break; }
+                        }
+                    }
+                }
             } else {
+                // For specific single-category views, only allow slides that match the view
                 allow_slide = (category_id == prefs.category);
             }
             if (!allow_slide) {
@@ -3231,6 +3307,21 @@ public class NewsWindow : Adw.ApplicationWindow {
         // we only clear the UI once (for the first fetch) so subsequent
         // fetches append their results.
         bool used_multi = false;
+        // Support personalized "My Feed" mode: when the user has selected
+        // the sidebar "My Feed" category and enabled personalization, we
+        // should fetch each personalized category separately and combine
+        // the results. Build the list of categories to request here.
+        bool is_myfeed_mode = (prefs.category == "myfeed" && prefs.personalized_feed_enabled);
+        string[] myfeed_cats = new string[0];
+        if (is_myfeed_mode) {
+            if (prefs.personalized_categories != null && prefs.personalized_categories.size > 0) {
+                myfeed_cats = new string[prefs.personalized_categories.size];
+                for (int i = 0; i < prefs.personalized_categories.size; i++) myfeed_cats[i] = prefs.personalized_categories.get(i);
+            } else {
+                // No personalized categories selected: fall back to a sane default
+                myfeed_cats = { "general" };
+            }
+        }
         if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
             // Display a combined label and generic logo for multi-source mode
             try {
@@ -3293,33 +3384,57 @@ public class NewsWindow : Adw.ApplicationWindow {
 
                 // Use a no-op clear for all individual fetches since we've
                 // already cleared above. Keep a combined label while in multi
-                // source mode.
+                // source mode. If we're in My Feed personalized mode, request
+                // each personalized category separately and combine results.
                 ClearItemsFunc no_op_clear = () => { };
                 SetLabelFunc label_fn = (text) => {
                     string src_label = "Multiple Sources";
+                    string display_cat = is_myfeed_mode ? "My Feed" : category_display_name_for(prefs.category);
                     if (current_search_query.length > 0) {
-                        self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in " + category_display_name_for(prefs.category) + " — " + src_label);
+                        self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in " + display_cat + " — " + src_label);
                     } else {
-                        self_ref.category_label.set_text(category_display_name_for(prefs.category) + " — " + src_label);
+                        self_ref.category_label.set_text(display_cat + " — " + src_label);
                     }
                 };
                 foreach (var s in use_srcs) {
-                    NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                    if (is_myfeed_mode) {
+                        foreach (var cat in myfeed_cats) {
+                            NewsSources.fetch(s, cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                        }
+                    } else {
+                        NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                    }
                 }
             }
         } else {
             // Single-source path: keep existing behavior. Use the
             // effective source so a single selected preferred_source is
             // respected without requiring prefs.news_source to be changed.
-            NewsSources.fetch(
-                effective_news_source(),
-                prefs.category,
-                current_search_query,
-                session,
-                wrapped_set_label,
-                wrapped_clear,
-                wrapped_add
-            );
+            if (is_myfeed_mode) {
+                // Fetch each personalized category for the single effective source
+                try { wrapped_clear(); } catch (GLib.Error e) { }
+                SetLabelFunc label_fn = (text) => {
+                    string src_label = get_source_name(effective_news_source());
+                    if (current_search_query.length > 0) {
+                        self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in My Feed — " + src_label);
+                    } else {
+                        self_ref.category_label.set_text("My Feed — " + src_label);
+                    }
+                };
+                foreach (var cat in myfeed_cats) {
+                    NewsSources.fetch(effective_news_source(), cat, current_search_query, session, label_fn, wrapped_clear, wrapped_add);
+                }
+            } else {
+                NewsSources.fetch(
+                    effective_news_source(),
+                    prefs.category,
+                    current_search_query,
+                    session,
+                    wrapped_set_label,
+                    wrapped_clear,
+                    wrapped_add
+                );
+            }
         }
     }
 
