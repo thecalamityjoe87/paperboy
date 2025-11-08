@@ -223,8 +223,15 @@ public class PrefsDialog : GLib.Object {
         }
         bb_row.activatable = true;
         bb_row.activated.connect(() => {
+            // Persist the news source change, but avoid writing a
+            // temporary category to config.ini. We want the category
+            // reset to be session-only so we don't overwrite the user's
+            // previously saved category.
             prefs.news_source = NewsSource.BLOOMBERG;
             prefs.save_config();
+            // In-memory reset so the UI/fetch logic shows Bloomberg-compatible content
+            // immediately, but the change is not persisted to config.ini.
+            prefs.category = "markets";
             sources_dialog.close();
             win.fetch_news();
         });

@@ -26,6 +26,21 @@ public class NewsPreferences : GLib.Object {
     public NewsSource news_source { get; set; default = NewsSource.GUARDIAN; }
     public string category { get; set; default = "all"; }
 
+    // Return true if the provided category is valid for the given source
+    private bool category_valid_for_source(NewsSource source, string cat) {
+        if (cat == "all") return true; // "All News" is supported by every source
+        switch (source) {
+            case NewsSource.BLOOMBERG:
+                string[] bb = { "markets", "industries", "economics", "wealth", "green", "politics", "technology" };
+                foreach (var b in bb) if (b == cat) return true;
+                return false;
+            default:
+                string[] def = { "general", "us", "technology", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
+                foreach (var d in def) if (d == cat) return true;
+                return false;
+        }
+    }
+
     private NewsPreferences() {
         config = new GLib.KeyFile();
         config_path = get_config_file_path();
@@ -60,6 +75,13 @@ public class NewsPreferences : GLib.Object {
             }
             
             config.set_string("preferences", "news_source", source_name);
+            // Ensure we don't persist a category incompatible with the
+            // selected news source (e.g., a Bloomberg-only category for other
+            // sources). Normalize to a sensible default if necessary.
+            if (!category_valid_for_source(news_source, category)) {
+                // Use the neutral "all" view as a safe persisted default
+                category = "all";
+            }
             config.set_string("preferences", "category", category);
             
             string config_data = config.to_data();
@@ -94,9 +116,14 @@ public class NewsPreferences : GLib.Object {
                 }
             }
             
-            // Load category
+            // Load category and normalize it against the loaded news source.
             if (config.has_key("preferences", "category")) {
                 category = config.get_string("preferences", "category");
+                if (!category_valid_for_source(news_source, category)) {
+                    // Don't try to force a Bloomberg-only category for other sources.
+                    // Use neutral "all" view so UI shows something valid.
+                    category = "all";
+                }
             }
         } catch (GLib.Error e) {
             warning("Failed to load config: %s", e.message);
