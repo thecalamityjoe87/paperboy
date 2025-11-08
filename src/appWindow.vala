@@ -601,6 +601,18 @@ public class NewsWindow : Adw.ApplicationWindow {
         // If multiple preferred sources are selected, show a combined label
         if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
             source_label.set_text("Multiple Sources");
+            // Prefer a bundled monochrome multiple-sources icon when available
+            string? multi_icon = find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+            if (multi_icon != null) {
+                try {
+                    var pix = new Gdk.Pixbuf.from_file_at_size(multi_icon, 32, 32);
+                    if (pix != null) {
+                        var tex = Gdk.Texture.for_pixbuf(pix);
+                        source_logo.set_from_paintable(tex);
+                        return;
+                    }
+                } catch (GLib.Error e) { /* fall back to symbolic icon below */ }
+            }
             try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
             return;
         }
@@ -3361,10 +3373,25 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         }
         if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
-            // Display a combined label and generic logo for multi-source mode
+            // Display a combined label and bundled monochrome logo for multi-source mode
             try {
                 self_ref.source_label.set_text("Multiple Sources");
-                self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
+                string? multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                if (multi_icon != null) {
+                    try {
+                        var pix = new Gdk.Pixbuf.from_file_at_size(multi_icon, 32, 32);
+                        if (pix != null) {
+                            var tex = Gdk.Texture.for_pixbuf(pix);
+                            self_ref.source_logo.set_from_paintable(tex);
+                        } else {
+                            self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
+                        }
+                    } catch (GLib.Error e) {
+                        try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                    }
+                } else {
+                    try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
+                }
             } catch (GLib.Error e) { }
             used_multi = true;
 
