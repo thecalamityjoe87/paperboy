@@ -555,29 +555,87 @@ public class NewsWindow : Adw.ApplicationWindow {
             string svg;
             GLib.FileUtils.get_contents(original_path, out svg);
 
-            // Best-effort recolor to white
+            // Best-effort recolor to white. We'll perform broader replacements so
+            // icons using various black/near-black values or inline styles are
+            // converted to white for dark mode.
             string white = svg;
-            // Common attribute patterns
-            white = white.replace("fill=\"#000000\"", "fill=\"#ffffff\"");
-            white = white.replace("fill=\"#000\"", "fill=\"#ffffff\"");
-            white = white.replace("fill=\"black\"", "fill=\"#ffffff\"");
-            white = white.replace("stroke=\"#000000\"", "stroke=\"#ffffff\"");
-            white = white.replace("stroke=\"#000\"", "stroke=\"#ffffff\"");
-            white = white.replace("stroke=\"black\"", "stroke=\"#ffffff\"");
-            // CSS-like style patterns
-            white = white.replace("fill:#000000", "fill:#ffffff");
-            white = white.replace("fill:#000;", "fill:#ffffff;");
-            white = white.replace("fill:black", "fill:#ffffff");
-            white = white.replace("stroke:#000000", "stroke:#ffffff");
-            white = white.replace("stroke:#000;", "stroke:#ffffff;");
-            white = white.replace("stroke:black", "stroke:#ffffff");
 
-            // If the icon uses currentColor, set the root color to white
+            // 1) Replace explicit fill/stroke attributes unless they are 'none' or a URL reference
+            int pos = 0;
+            while ((pos = white.index_of("fill=\"", pos)) >= 0) {
+                int start = pos + 6; // after 'fill="'
+                int end = white.index_of("\"", start);
+                if (end < 0) break;
+                string val = white.substring(start, end - start);
+                string val_l = val.down().strip();
+                if (val_l != "none" && !val_l.has_prefix("url(")) {
+                    white = white.substring(0, start) + "#ffffff" + white.substring(end);
+                    pos = start + 7; // move past inserted value
+                } else {
+                    pos = end + 1;
+                }
+            }
+            pos = 0;
+            while ((pos = white.index_of("stroke=\"", pos)) >= 0) {
+                int start = pos + 8; // after 'stroke="'
+                int end = white.index_of("\"", start);
+                if (end < 0) break;
+                string val = white.substring(start, end - start);
+                string val_l = val.down().strip();
+                if (val_l != "none" && !val_l.has_prefix("url(")) {
+                    white = white.substring(0, start) + "#ffffff" + white.substring(end);
+                    pos = start + 7;
+                } else {
+                    pos = end + 1;
+                }
+            }
+
+            // 2) Replace occurrences inside style="..." attributes for fill and stroke
+            pos = 0;
+            while ((pos = white.index_of("style=\"", pos)) >= 0) {
+                int start = pos + 7;
+                int end = white.index_of("\"", start);
+                if (end < 0) break;
+                string style = white.substring(start, end - start);
+                string new_style = style;
+                // Replace fill:...; patterns
+                int s_pos = 0;
+                while ((s_pos = new_style.index_of("fill:", s_pos)) >= 0) {
+                    int vstart = s_pos + 5;
+                    int vend = new_style.index_of(";", vstart);
+                    if (vend < 0) vend = new_style.length;
+                    string v = new_style.substring(vstart, vend - vstart).strip();
+                    if (v.down() != "none" && !v.has_prefix("url(")) {
+                        new_style = new_style.substring(0, vstart) + "#ffffff" + new_style.substring(vend);
+                        s_pos = vstart + 7;
+                    } else {
+                        s_pos = vend + 1;
+                    }
+                }
+                // Replace stroke:...; patterns
+                s_pos = 0;
+                while ((s_pos = new_style.index_of("stroke:", s_pos)) >= 0) {
+                    int vstart = s_pos + 7;
+                    int vend = new_style.index_of(";", vstart);
+                    if (vend < 0) vend = new_style.length;
+                    string v = new_style.substring(vstart, vend - vstart).strip();
+                    if (v.down() != "none" && !v.has_prefix("url(")) {
+                        new_style = new_style.substring(0, vstart) + "#ffffff" + new_style.substring(vend);
+                        s_pos = vstart + 7;
+                    } else {
+                        s_pos = vend + 1;
+                    }
+                }
+                // Replace the full style attribute
+                white = white.substring(0, start) + new_style + white.substring(end);
+                pos = start + new_style.length + 1;
+            }
+
+            // 3) If the icon uses currentColor, set the root color to white
             if (white.index_of("currentColor") >= 0) {
-                // Inject color attribute on the root <svg ...>
                 int idx = white.index_of("<svg");
                 if (idx >= 0) {
-                    int end = white.index_of(">");
+                    int end = white.index_of(">", idx);
                     if (end > idx) {
                         var head = white.substring(0, end);
                         var tail = white.substring(end);
