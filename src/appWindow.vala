@@ -65,6 +65,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Featured hero container for the first story
     private Gtk.Box featured_box;
     private bool featured_used = false;
+    // Carousel for featured/top stories (up to 5)
+    private Gee.ArrayList<ArticleItem> featured_carousel_items;
+    private Gtk.Stack? featured_carousel_stack;
+    private Gtk.Box? featured_carousel_dots_box;
+    private int featured_carousel_index = 0;
+    private uint featured_carousel_timeout_id = 0;
+    private string? featured_carousel_category = null;
+    private Gee.ArrayList<Gtk.Label> featured_carousel_dot_widgets;
     // Hero container reference for responsive sizing
     private Gtk.Box hero_container;
     // Main content container that holds both hero and columns
@@ -143,6 +151,49 @@ public class NewsWindow : Adw.ApplicationWindow {
             u = u.down();
         }
         return u;
+    }
+
+    // Update the visible state of the carousel dots based on the active index.
+    private void update_carousel_dots(int active_index) {
+        if (featured_carousel_dot_widgets == null) return;
+        int total = featured_carousel_items != null ? featured_carousel_items.size : 0;
+        for (int i = 0; i < featured_carousel_dot_widgets.size; i++) {
+            var dot = featured_carousel_dot_widgets[i];
+            // Dim dots that represent slides not yet populated
+            if (i >= total) {
+                dot.add_css_class("inactive");
+                dot.remove_css_class("active");
+            } else {
+                dot.remove_css_class("inactive");
+                if (i == active_index) {
+                    dot.add_css_class("active");
+                } else {
+                    dot.remove_css_class("active");
+                }
+            }
+        }
+    }
+
+    // Move carousel to the next slide
+    private void carousel_next() {
+        if (featured_carousel_stack == null) return;
+        int total = featured_carousel_items != null ? featured_carousel_items.size : 0;
+        if (total <= 1) return;
+        featured_carousel_index = (featured_carousel_index + 1) % total;
+        string name = "%d".printf(featured_carousel_index);
+        featured_carousel_stack.set_visible_child_name(name);
+        update_carousel_dots(featured_carousel_index);
+    }
+
+    // Move carousel to the previous slide
+    private void carousel_prev() {
+        if (featured_carousel_stack == null) return;
+        int total = featured_carousel_items != null ? featured_carousel_items.size : 0;
+        if (total <= 1) return;
+        featured_carousel_index = (featured_carousel_index - 1 + total) % total;
+        string name = "%d".printf(featured_carousel_index);
+        featured_carousel_stack.set_visible_child_name(name);
+        update_carousel_dots(featured_carousel_index);
     }
     
     // Remaining articles after hitting the Load More limit
@@ -1240,8 +1291,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         if (should_be_hero) {
             var hero = new Gtk.Box(Orientation.VERTICAL, 0);
-            hero.add_css_class("card");
-            hero.add_css_class("card-featured");
             
             // Let the container control the width, only constrain height
             int max_hero_height = 350; // Maximum total height
@@ -1301,13 +1350,6 @@ public class NewsWindow : Adw.ApplicationWindow {
             hero_title_box.set_margin_bottom(16);
             hero_title_box.set_vexpand(true);
 
-            // Add a small badge indicating this is the top story
-            var hero_badge = new Gtk.Label("Top story");
-            hero_badge.set_xalign(0);
-            hero_badge.add_css_class("dim-label");
-            hero_badge.add_css_class("top-story-badge");
-            hero_title_box.append(hero_badge);
-
             var hero_label = new Gtk.Label(title);
             hero_label.set_ellipsize(Pango.EllipsizeMode.END);
             hero_label.set_xalign(0);
@@ -1316,6 +1358,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             hero_label.set_lines(8);
             hero_label.set_max_width_chars(88);
             hero_title_box.append(hero_label);
+
             hero.append(hero_title_box);
 
             var hero_click = new Gtk.GestureClick();
@@ -1329,10 +1372,199 @@ public class NewsWindow : Adw.ApplicationWindow {
             hero_motion.leave.connect(() => { hero.remove_css_class("card-hover"); });
             hero.add_controller(hero_motion);
 
-            featured_box.append(hero);
+            // Build the featured carousel container and add the first slide.
+            // Use an explicit title above the carousel for accessibility.
+            var top_stories_title = new Gtk.Label("Top Stories");
+            top_stories_title.set_xalign(0);
+            top_stories_title.add_css_class("top-stories-title");
+            top_stories_title.set_margin_bottom(6);
+            featured_box.append(top_stories_title);
+
+            // Initialize carousel state
+            if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
+            featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id));
+            featured_carousel_category = category_id;
+
+            // Create a stack to hold up to 5 slides
+            featured_carousel_stack = new Gtk.Stack();
+            featured_carousel_stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT);
+            featured_carousel_stack.set_halign(Gtk.Align.FILL);
+            featured_carousel_stack.set_hexpand(true);
+
+            // Add the first slide (we'll add more slides as subsequent articles arrive)
+            featured_carousel_stack.add_named(hero, "0");
+
+            // Wrap the stack and the dots in a single container so the dots
+            // appear as part of the hero card itself.
+            var carousel_container = new Gtk.Box(Orientation.VERTICAL, 0);
+            carousel_container.add_css_class("card");
+            carousel_container.add_css_class("card-featured");
+            carousel_container.set_halign(Gtk.Align.FILL);
+            carousel_container.set_hexpand(true);
+
+            // Add stack into the carousel container
+            // Wrap the stack in an overlay so we can place nav buttons over the image
+            var carousel_overlay = new Gtk.Overlay();
+            carousel_overlay.set_child(featured_carousel_stack);
+
+            // Left navigation button
+            var left_btn = new Gtk.Button.from_icon_name("go-previous-symbolic");
+            left_btn.add_css_class("carousel-nav");
+            left_btn.add_css_class("carousel-nav-left");
+            left_btn.set_halign(Gtk.Align.START);
+            left_btn.set_valign(Gtk.Align.CENTER);
+            left_btn.set_margin_start(8);
+            left_btn.set_margin_end(8);
+            left_btn.set_margin_top(0);
+            left_btn.set_margin_bottom(0);
+            carousel_overlay.add_overlay(left_btn);
+            left_btn.clicked.connect(() => { carousel_prev(); });
+
+            // Right navigation button
+            var right_btn = new Gtk.Button.from_icon_name("go-next-symbolic");
+            right_btn.add_css_class("carousel-nav");
+            right_btn.add_css_class("carousel-nav-right");
+            right_btn.set_halign(Gtk.Align.END);
+            right_btn.set_valign(Gtk.Align.CENTER);
+            right_btn.set_margin_start(8);
+            right_btn.set_margin_end(8);
+            right_btn.set_margin_top(0);
+            right_btn.set_margin_bottom(0);
+            carousel_overlay.add_overlay(right_btn);
+            right_btn.clicked.connect(() => { carousel_next(); });
+
+            carousel_container.append(carousel_overlay);
+
+            // Create a single dots row under the carousel (keeps dots visually under
+            // the article title while remaining easy to update). We show up to 5 dots
+            // regardless of how many slides are currently available; inactive
+            // ones will be dimmed.
+            var global_dots = new Gtk.Box(Orientation.HORIZONTAL, 6);
+            global_dots.set_halign(Gtk.Align.CENTER);
+            global_dots.set_margin_top(6);
+            if (featured_carousel_dot_widgets == null) featured_carousel_dot_widgets = new Gee.ArrayList<Gtk.Label>();
+            for (int d = 0; d < 5; d++) {
+                var dot = new Gtk.Label("•");
+                dot.add_css_class("carousel-dot");
+                if (d == 0) dot.add_css_class("active");
+                dot.set_valign(Gtk.Align.CENTER);
+                // Force a larger glyph size using Pango attributes so themes
+                // that ignore label font-size in CSS still show bigger dots.
+                var dot_attrs = new Pango.AttrList();
+                // Scale relative to the default font size (1.35 = 35% larger)
+                dot_attrs.insert(Pango.attr_scale_new(1.35));
+                dot.set_attributes(dot_attrs);
+                global_dots.append(dot);
+                featured_carousel_dot_widgets.add(dot);
+            }
+            featured_carousel_dots_box = global_dots;
+
+            // Add the dots row into the same carousel container so they are visually
+            // contained within the hero card.
+            carousel_container.append(global_dots);
+
+            // Append the carousel container (stack + dots) to the featured box
+            featured_box.append(carousel_container);
+
+            // Start cycling through slides every 5 seconds
+            featured_carousel_index = 0;
+            if (featured_carousel_timeout_id != 0) {
+                Source.remove(featured_carousel_timeout_id);
+                featured_carousel_timeout_id = 0;
+            }
+            featured_carousel_timeout_id = Timeout.add_seconds(5, () => {
+                if (featured_carousel_stack == null) return false;
+                int total = featured_carousel_items != null ? featured_carousel_items.size : 0;
+                if (total <= 1) return true; // keep running until there are more slides
+                featured_carousel_index = (featured_carousel_index + 1) % total;
+                string name = "%d".printf(featured_carousel_index);
+                featured_carousel_stack.set_visible_child_name(name);
+                // Update dots in the visible slide
+                update_carousel_dots(featured_carousel_index);
+                return true; // continue timeout
+            });
+
             featured_used = true;
             // Mark that initial items exist so the spinner can be hidden
             if (initial_phase) mark_initial_items_populated();
+            return;
+        }
+
+        // If a featured carousel is active and we haven't reached 5 slides yet,
+        // collect additional articles that match the featured category and add
+        // them as slides to the carousel instead of rendering normal cards.
+        if (featured_carousel_stack != null && featured_carousel_items != null &&
+            featured_carousel_items.size < 5 && featured_carousel_category != null &&
+            featured_carousel_category == category_id) {
+
+            // Build a slide similar to the hero we create above
+            var slide = new Gtk.Box(Orientation.VERTICAL, 0);
+
+            int max_hero_height = 350;
+            slide.set_size_request(-1, max_hero_height);
+            slide.set_hexpand(true);
+            slide.set_vexpand(false);
+            slide.set_halign(Gtk.Align.FILL);
+            slide.set_valign(Gtk.Align.START);
+            slide.set_margin_start(0);
+            slide.set_margin_end(0);
+
+            var slide_image = new Gtk.Picture();
+            slide_image.set_halign(Gtk.Align.FILL);
+            slide_image.set_hexpand(true);
+            slide_image.set_size_request(-1, 250);
+            slide_image.set_content_fit(Gtk.ContentFit.COVER);
+            slide_image.set_can_shrink(true);
+
+            var slide_overlay = new Gtk.Overlay();
+            slide_overlay.set_child(slide_image);
+            var slide_chip = build_category_chip(category_id);
+            slide_overlay.add_overlay(slide_chip);
+
+            int default_w = estimate_content_width();
+            int default_h = 250;
+            set_placeholder_image(slide_image, default_w, default_h);
+            if (thumbnail_url != null && thumbnail_url.length > 0 &&
+                (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
+                int multiplier = (prefs.news_source == NewsSource.REDDIT) ? 2 : 4;
+                if (initial_phase) pending_images++;
+                load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier);
+                hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));
+                url_to_picture.set(normalize_article_url(url), slide_image);
+            }
+            slide.append(slide_overlay);
+
+            var slide_title_box = new Gtk.Box(Orientation.VERTICAL, 8);
+            slide_title_box.set_margin_start(16);
+            slide_title_box.set_margin_end(16);
+            slide_title_box.set_margin_top(16);
+            slide_title_box.set_margin_bottom(16);
+            slide_title_box.set_vexpand(true);
+
+            var slide_label = new Gtk.Label(title);
+            slide_label.set_ellipsize(Pango.EllipsizeMode.END);
+            slide_label.set_xalign(0);
+            slide_label.set_wrap(true);
+            slide_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
+            slide_label.set_lines(8);
+            slide_label.set_max_width_chars(88);
+            slide_title_box.append(slide_label);
+            slide.append(slide_title_box);
+
+            var slide_click = new Gtk.GestureClick();
+            slide_click.released.connect(() => {
+                article_window.show_article_preview(title, url, thumbnail_url);
+            });
+            slide.add_controller(slide_click);
+
+            // Add slide to stack and to our item list
+            int new_index = featured_carousel_items.size;
+            featured_carousel_stack.add_named(slide, "%d".printf(new_index));
+            featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id));
+
+            // Ensure dots array exists and update their state
+            if (featured_carousel_dot_widgets != null) update_carousel_dots(featured_carousel_index);
+
             return;
         }
 
@@ -2108,6 +2340,19 @@ public class NewsWindow : Adw.ApplicationWindow {
             fchild = next;
         }
         featured_used = false;
+        // Reset featured carousel state so new category fetches start fresh
+        if (featured_carousel_timeout_id != 0) {
+            Source.remove(featured_carousel_timeout_id);
+            featured_carousel_timeout_id = 0;
+        }
+        if (featured_carousel_items != null) {
+            featured_carousel_items.clear();
+        }
+        featured_carousel_stack = null;
+        featured_carousel_dots_box = null;
+        featured_carousel_index = 0;
+        featured_carousel_category = null;
+        if (featured_carousel_dot_widgets != null) featured_carousel_dot_widgets.clear();
         rebuild_columns(3);
         // Reset category distribution tracking for new content
         category_column_counts.clear();

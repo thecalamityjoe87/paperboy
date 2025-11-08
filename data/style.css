@@ -72,6 +72,76 @@
     overflow-wrap: break-word;
 }
 
+/* Title shown above the featured (hero) card */
+.top-stories-title {
+    /* Slightly larger to stand out but still match other headings */
+    font-size: 1.15em;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    /* Use the inherited label color so it matches other text in the UI */
+    color: inherit;
+    text-align: left;
+    letter-spacing: 0.02em;
+}
+
+/* Fallback: if markup isn't available, render a "Top Stories" label above
+   the featured card by using a pseudo-element. This keeps the title
+   left-justified and visually separated from the card. If you prefer an
+   explicit element, add `<div class="top-stories-title">Top Stories</div>`
+   immediately before the featured card in the DOM and the `.top-stories-title`
+   rule above will style it.
+*/
+.card-featured {
+    /* ensure normal flow spacing when an explicit title widget is used */
+    position: relative;
+    /* reduce the top gap now that an explicit title widget is inserted */
+    margin-top: 8px;
+}
+
+/* Carousel dots shown under the featured hero title */
+.carousel-dot {
+    /* Bigger, clearer dots; base (inactive) color is lighter */
+    font-size: 22px; /* increased from 18px */
+    line-height: 1;
+    padding: 3px 6px;
+    color: alpha(@borders, 0.45); /* light/dim by default */
+    transition: color 180ms ease, transform 160ms ease;
+}
+.carousel-dot.inactive {
+    color: alpha(@borders, 0.3);
+    transform: scale(1);
+    opacity: 0.9;
+}
+.carousel-dot.active {
+    /* Active dot: darker and more prominent; no background */
+    color: alpha(black, 0.9);
+    font-weight: 800;
+    transform: scale(1.35);
+    opacity: 1;
+}
+
+/* Navigation arrow buttons that appear on hover */
+.carousel-nav {
+    /* Larger, higher-contrast nav buttons */
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 9999px;
+    padding: 8px;
+    min-width: 52px;
+    min-height: 52px;
+    font-size: 20px; /* helps symbolic icons scale */
+    opacity: 0;
+    transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+.carousel-nav:hover {
+    transform: scale(1.08);
+}
+/* Show nav buttons when hovering the featured card */
+.card-featured:hover .carousel-nav {
+    opacity: 1;
+    background-color: alpha(black, 0.72);
+}
+
 /* (size variant styles removed) */
 
 .sidebar {
