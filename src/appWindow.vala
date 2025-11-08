@@ -224,6 +224,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Loading spinner for initial content load
     private Gtk.Spinner? loading_spinner = null;
     private Gtk.Box? loading_container = null;
+    // Message box shown in main content when personalized feed is disabled
+    private Gtk.Box? personalized_message_box = null;
     // Initial-load gating: wait for hero (or timeout) before revealing main content
     private bool initial_phase = false;
     private bool hero_image_loaded = false;
@@ -270,6 +272,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         string? filename = null;
         switch (cat) {
             case "all": filename = "all-mono.svg"; break;
+            case "myfeed": filename = "myfeed-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
             case "markets": filename = "markets-mono.svg"; break;
             case "industries": filename = "industries-mono.svg"; break;
@@ -402,7 +405,8 @@ public class NewsWindow : Adw.ApplicationWindow {
             child = next;
         }
 
-    // Categories header, then include the "All Categories" option under it
+    // Place "My Feed" above the Categories header, then include the "All Categories" option
+    sidebar_add_row("My Feed", "myfeed", prefs.category == "myfeed");
     sidebar_add_header("Categories");
     sidebar_add_row("All Categories", "all", prefs.category == "all");
 
@@ -794,7 +798,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     sidebar_list.set_selection_mode(SelectionMode.SINGLE);
     sidebar_list.set_activate_on_single_click(true);
 
-    // Populate sidebar using helper methods: show header first, then "All Categories"
+    // Place "My Feed" above the Categories header, then include the "All Categories" option
+    sidebar_add_row("My Feed", "myfeed", prefs.category == "myfeed");
     sidebar_add_header("Categories");
     sidebar_add_row("All Categories", "all", prefs.category == "all");
         // Default site categories (will be rebuilt for sources like Bloomberg)
@@ -946,6 +951,38 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         // Add loading spinner as overlay on top of main content area
         main_overlay.add_overlay(loading_container);
+
+    // Personalized feed disabled message (centered). This overlays the
+    // main content area and is visible only when the personalized feed
+    // option is turned off.
+    personalized_message_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
+    // Fill the available main content area so we can center contents inside it
+    personalized_message_box.set_halign(Gtk.Align.FILL);
+    personalized_message_box.set_valign(Gtk.Align.FILL);
+    personalized_message_box.set_hexpand(true);
+    personalized_message_box.set_vexpand(true);
+
+    // Inner full-size container that centers its child both horizontally
+    // and vertically. This ensures the label is dead-center regardless of
+    // how the overlay or parent containers allocate space.
+    var inner_center = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+    inner_center.set_hexpand(true);
+    inner_center.set_vexpand(true);
+    inner_center.set_halign(Gtk.Align.CENTER);
+    inner_center.set_valign(Gtk.Align.CENTER);
+
+    var p_label = new Gtk.Label("Enable this option in settings to get a personalized feed...");
+    p_label.add_css_class("dim-label");
+    p_label.add_css_class("title-4");
+    // Center the label inside the inner container
+    p_label.set_halign(Gtk.Align.CENTER);
+    p_label.set_valign(Gtk.Align.CENTER);
+
+    inner_center.append(p_label);
+    personalized_message_box.append(inner_center);
+    // Visible only when personalization is disabled
+    if (prefs.personalized_feed_enabled) personalized_message_box.set_visible(false); else personalized_message_box.set_visible(true);
+    main_overlay.add_overlay(personalized_message_box);
         content_box.append(main_overlay);
         
         // Add content_box to content_area and set up proper containment
@@ -1038,6 +1075,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         update_sidebar_for_source();
         fetch_news();
 
+    // Ensure the personalized message visibility is correct at startup
+    update_personalization_ui();
+
         // Clear on-disk cache when the window is closed to avoid disk clutter.
         // This is best-effort and will not prevent the window from closing.
         this.close_request.connect(() => {
@@ -1054,6 +1094,20 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (nav_view != null) nav_view.pop();
             back_btn.set_visible(false);
         }
+    }
+
+    // Public helper to update personalized-feed UI state -- shows or hides
+    // the centered message overlay depending on the preference.
+    public void update_personalization_ui() {
+        if (personalized_message_box == null) return;
+        var prefs = NewsPreferences.get_instance();
+        bool enabled = prefs.personalized_feed_enabled;
+    // Show/hide the centered message
+    personalized_message_box.set_visible(!enabled);
+    // Hide the entire main content container when personalization is disabled
+    try { if (main_content_container != null) main_content_container.set_visible(enabled); } catch (GLib.Error e) { }
+    // Also hide the loading container while the message is shown
+    try { if (loading_container != null) loading_container.set_visible(false); } catch (GLib.Error e) { }
     }
 
     private bool source_has_categories(NewsSource s) {
@@ -1115,6 +1169,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     private string category_display_name_for(string cat) {
         switch (cat) {
             case "all": return "All Categories";
+            case "myfeed": return "My Feed";
             case "general": return "World News";
             case "us": return "US News";
             case "technology": return "Technology";

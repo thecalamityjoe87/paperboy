@@ -216,6 +216,7 @@ public class NewsSources {
     private static string category_display_name(string cat) {
         switch (cat) {
             case "all": return "All Categories";
+            case "myfeed": return "My Feed";
             case "general": return "World News";
             case "us": return "US News";
             case "technology": return "Technology";

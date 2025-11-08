@@ -25,6 +25,30 @@ public class NewsPreferences : GLib.Object {
 
     public NewsSource news_source { get; set; default = NewsSource.GUARDIAN; }
     public string category { get; set; default = "all"; }
+    public bool personalized_feed_enabled { get; set; default = false; }
+    // Categories included in the personalized feed (by id)
+    public Gee.ArrayList<string> personalized_categories { get; set; }
+
+    // Convenience helpers for managing personalized categories
+    public bool personalized_category_enabled(string cat) {
+        if (personalized_categories == null) return false;
+        foreach (var c in personalized_categories) if (c == cat) return true;
+        return false;
+    }
+
+    public void set_personalized_category_enabled(string cat, bool enabled) {
+        if (personalized_categories == null) personalized_categories = new Gee.ArrayList<string>();
+        if (enabled) {
+            if (!personalized_category_enabled(cat)) personalized_categories.add(cat);
+        } else {
+            if (personalized_category_enabled(cat)) {
+                // remove all occurrences
+                var to_remove = new Gee.ArrayList<string>();
+                foreach (var c in personalized_categories) if (c == cat) to_remove.add(c);
+                foreach (var r in to_remove) personalized_categories.remove(r);
+            }
+        }
+    }
 
     // Return true if the provided category is valid for the given source
     private bool category_valid_for_source(NewsSource source, string cat) {
@@ -35,7 +59,7 @@ public class NewsPreferences : GLib.Object {
                 foreach (var b in bb) if (b == cat) return true;
                 return false;
             default:
-                string[] def = { "general", "us", "technology", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
+                string[] def = { "general", "us", "technology", "science", "sports", "health", "entertainment", "politics", "lifestyle", "myfeed" };
                 foreach (var d in def) if (d == cat) return true;
                 return false;
         }
@@ -83,6 +107,17 @@ public class NewsPreferences : GLib.Object {
                 category = "all";
             }
             config.set_string("preferences", "category", category);
+            // Persist the personalized feed toggle
+            config.set_boolean("preferences", "personalized_feed_enabled", personalized_feed_enabled);
+            // Persist personalized categories list
+            if (personalized_categories != null) {
+                // Convert Gee.ArrayList to string[]
+                string[] arr = new string[personalized_categories.size];
+                for (int i = 0; i < personalized_categories.size; i++) arr[i] = personalized_categories.get(i);
+                config.set_string_list("preferences", "personalized_categories", arr);
+            } else {
+                config.set_string_list("preferences", "personalized_categories", new string[0]);
+            }
             
             string config_data = config.to_data();
             GLib.FileUtils.set_contents(config_path, config_data);
@@ -124,6 +159,22 @@ public class NewsPreferences : GLib.Object {
                     // Use neutral "all" view so UI shows something valid.
                     category = "all";
                 }
+            }
+            // Load personalized feed flag if present
+            if (config.has_key("preferences", "personalized_feed_enabled")) {
+                try {
+                    personalized_feed_enabled = config.get_boolean("preferences", "personalized_feed_enabled");
+                } catch (GLib.Error e) { /* ignore and keep default */ }
+            }
+            // Load personalized categories list if present
+            if (config.has_key("preferences", "personalized_categories")) {
+                try {
+                    string[] arr = config.get_string_list("preferences", "personalized_categories");
+                    personalized_categories = new Gee.ArrayList<string>();
+                    foreach (var s in arr) personalized_categories.add(s);
+                } catch (GLib.Error e) { personalized_categories = new Gee.ArrayList<string>(); }
+            } else {
+                personalized_categories = new Gee.ArrayList<string>();
             }
         } catch (GLib.Error e) {
             warning("Failed to load config: %s", e.message);

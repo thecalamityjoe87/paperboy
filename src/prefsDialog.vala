@@ -317,7 +317,227 @@ public class PrefsDialog : GLib.Object {
         });
         list_box.append(fox_row);
 
-        sources_dialog.set_extra_child(list_box);
+    // Build the main container that shows the source list and the
+    // personalized toggle; we'll place that inside a Gtk.Stack so we
+    // can slide in a categories pane on demand.
+    var main_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+    main_container.set_margin_top(6);
+    main_container.set_margin_bottom(6);
+    main_container.append(list_box);
+
+    var sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+    sep.set_margin_top(6);
+    sep.set_margin_bottom(6);
+    main_container.append(sep);
+
+    // Personalized feed toggle (separate from the source list)
+        var personalized_row = new Adw.ActionRow();
+        personalized_row.set_title("Enable Personalized Feed");
+        personalized_row.set_subtitle("Enable a personalized feed based on your reading habits");
+        var personalized_switch = new Gtk.Switch();
+        personalized_switch.set_active(prefs.personalized_feed_enabled);
+    // Ensure the switch uses normal sizing inside the ActionRow suffix
+    personalized_switch.set_halign(Gtk.Align.END);
+    personalized_switch.set_valign(Gtk.Align.CENTER);
+    personalized_switch.set_hexpand(false);
+    personalized_switch.set_vexpand(false);
+    personalized_switch.set_margin_top(0);
+    personalized_switch.set_margin_bottom(0);
+        // When toggled, we'll persist the preference and update the
+        // settings button and main window UI below (handler attached
+        // after the settings button is created).
+        // Build a compact suffix containing the switch and a small
+        // settings button so the two appear together on the right.
+        var suffix_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        suffix_box.set_valign(Gtk.Align.CENTER);
+
+        // Ensure switch uses normal sizing
+        personalized_switch.set_halign(Gtk.Align.END);
+        personalized_switch.set_valign(Gtk.Align.CENTER);
+        personalized_switch.set_hexpand(false);
+        personalized_switch.set_vexpand(false);
+        personalized_switch.set_margin_top(0);
+        personalized_switch.set_margin_bottom(0);
+
+        // Create the settings button early so the switch's handler can
+        // enable/disable it when the preference changes.
+        var settings_btn = new Gtk.Button();
+        settings_btn.set_valign(Gtk.Align.CENTER);
+        settings_btn.set_halign(Gtk.Align.END);
+        settings_btn.set_hexpand(false);
+        settings_btn.set_vexpand(false);
+        settings_btn.set_has_frame(false);
+        var settings_icon = new Gtk.Image.from_icon_name("settings-symbolic");
+        settings_icon.set_pixel_size(16);
+        settings_btn.set_child(settings_icon);
+        settings_btn.set_tooltip_text("Personalized feed settings");
+        // Initially sensitive only if the personalized feed is enabled
+        settings_btn.set_sensitive(prefs.personalized_feed_enabled);
+
+        suffix_box.append(personalized_switch);
+        suffix_box.append(settings_btn);
+
+        // When toggled, persist the preference immediately and update
+        // the sensitivity of the settings button so it's only clickable
+        // when personalization is enabled. Also notify the main window so
+        // it can show/hide the personalized-feed message overlay.
+        personalized_switch.state_set.connect((sw, state) => {
+            prefs.personalized_feed_enabled = state;
+            prefs.save_config();
+            settings_btn.set_sensitive(state);
+            try {
+                // Notify the parent window (if it's a NewsWindow) to update UI
+                if (win != null) win.update_personalization_ui();
+            } catch (GLib.Error e) { /* ignore if parent doesn't implement it */ }
+            return false; // allow the state change to proceed
+        });
+
+        personalized_row.add_suffix(suffix_box);
+        main_container.append(personalized_row);
+
+        // Create categories pane (initially hidden) that slides in over main
+        var categories_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+        categories_container.set_margin_top(6);
+        categories_container.set_margin_bottom(6);
+
+        // Header with back button
+        var header_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var back_btn = new Gtk.Button();
+        var back_icon = new Gtk.Image.from_icon_name("go-previous-symbolic");
+        back_icon.set_pixel_size(16);
+        back_btn.set_child(back_icon);
+        back_btn.set_tooltip_text("Back");
+        header_box.append(back_btn);
+        var header_label = new Gtk.Label("Categories");
+        header_label.set_halign(Gtk.Align.START);
+        header_label.set_valign(Gtk.Align.CENTER);
+        header_box.append(header_label);
+        categories_container.append(header_box);
+
+        // Scrolled list for categories (in case there are many)
+        var scroller = new Gtk.ScrolledWindow();
+        scroller.set_vexpand(true);
+        scroller.set_hexpand(true);
+        var cats_list = new Gtk.ListBox();
+        cats_list.set_selection_mode(Gtk.SelectionMode.NONE);
+
+        // Helper: find data file for bundled icons (copied minimal logic)
+        string? find_data_file_local(string relative) {
+            string[] dev_prefixes = { "data", "../data" };
+            foreach (var prefix in dev_prefixes) {
+                var path = GLib.Path.build_filename(prefix, relative);
+                if (GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) return path;
+            }
+            var user_data = GLib.Environment.get_user_data_dir();
+            if (user_data != null && user_data.length > 0) {
+                var user_path = GLib.Path.build_filename(user_data, "paperboy", relative);
+                if (GLib.FileUtils.test(user_path, GLib.FileTest.EXISTS)) return user_path;
+            }
+            var sys_dirs = GLib.Environment.get_system_data_dirs();
+            foreach (var dir in sys_dirs) {
+                var sys_path = GLib.Path.build_filename(dir, "paperboy", relative);
+                if (GLib.FileUtils.test(sys_path, GLib.FileTest.EXISTS)) return sys_path;
+            }
+            return null;
+        }
+
+        // Local helper to create the category icon (tries bundled mono icons then theme fallbacks)
+        Gtk.Widget? create_category_icon_local(string cat) {
+            string? filename = null;
+            switch (cat) {
+                case "all": filename = "all-mono.svg"; break;
+                case "myfeed": filename = "myfeed-mono.svg"; break;
+                case "general": filename = "world-mono.svg"; break;
+                case "markets": filename = "markets-mono.svg"; break;
+                case "industries": filename = "industries-mono.svg"; break;
+                case "economics": filename = "economics-mono.svg"; break;
+                case "wealth": filename = "wealth-mono.svg"; break;
+                case "green": filename = "green-mono.svg"; break;
+                case "us": filename = "us-mono.svg"; break;
+                case "technology": filename = "technology-mono.svg"; break;
+                case "science": filename = "science-mono.svg"; break;
+                case "sports": filename = "sports-mono.svg"; break;
+                case "health": filename = "health-mono.svg"; break;
+                case "entertainment": filename = "entertainment-mono.svg"; break;
+                case "politics": filename = "politics-mono.svg"; break;
+                case "lifestyle": filename = "lifestyle-mono.svg"; break;
+                default: filename = null; break;
+            }
+            if (filename != null) {
+                var icon_path = find_data_file_local(GLib.Path.build_filename("icons", filename));
+                if (icon_path != null) {
+                    try {
+                        var img = new Gtk.Image.from_file(icon_path);
+                        img.set_pixel_size(16);
+                        return img;
+                    } catch (GLib.Error e) { }
+                }
+            }
+            // Fallback: simple symbolic icon
+            var img2 = new Gtk.Image.from_icon_name("tag-symbolic");
+            img2.set_pixel_size(16);
+            return img2;
+        }
+
+        // Build category list depending on source
+        string[] cat_ids;
+        string[] cat_titles;
+        if (prefs.news_source == NewsSource.BLOOMBERG) {
+            cat_ids = { "markets", "industries", "economics", "wealth", "green", "technology", "politics" };
+            cat_titles = { "Markets", "Industries", "Economics", "Wealth", "Green", "Technology", "Politics" };
+        } else {
+            /* Exclude 'all' and 'myfeed' from the categories pane per UX request */
+            cat_ids = { "general", "us", "technology", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
+            cat_titles = { "World News", "US News", "Technology", "Science", "Sports", "Health", "Entertainment", "Politics", "Lifestyle" };
+        }
+
+        for (int i = 0; i < cat_ids.length; i++) {
+            string cat_id = cat_ids[i];
+            string cat_title = cat_titles[i];
+            var crow = new Adw.ActionRow();
+            crow.set_title(cat_title);
+            var prefix = create_category_icon_local(cat_id);
+            if (prefix != null) crow.add_prefix(prefix);
+            var cswitch = new Gtk.Switch();
+            cswitch.set_active(prefs.personalized_category_enabled(cat_id));
+            /* Ensure the per-category switch does not expand vertically
+             * or otherwise get sized taller than the row. Align it to the
+             * center and disable expansion so it stays compact. */
+            cswitch.set_halign(Gtk.Align.END);
+            cswitch.set_valign(Gtk.Align.CENTER);
+            cswitch.set_hexpand(false);
+            cswitch.set_vexpand(false);
+            cswitch.set_margin_top(0);
+            cswitch.set_margin_bottom(0);
+            cswitch.state_set.connect((sw, state) => {
+                prefs.set_personalized_category_enabled(cat_id, state);
+                prefs.save_config();
+                return false;
+            });
+            crow.add_suffix(cswitch);
+            cats_list.append(crow);
+        }
+
+        scroller.set_child(cats_list);
+        categories_container.append(scroller);
+
+        // Create a stack to slide between main and categories views
+        var stack = new Gtk.Stack();
+        stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT);
+        stack.add_titled(main_container, "main", "Main");
+        stack.add_titled(categories_container, "cats", "Categories");
+
+        // Wire back button to return to main view
+        back_btn.clicked.connect(() => {
+            stack.set_visible_child_name("main");
+        });
+
+        // Wire settings button to show categories pane
+        settings_btn.clicked.connect(() => {
+            stack.set_visible_child_name("cats");
+        });
+
+        sources_dialog.set_extra_child(stack);
         sources_dialog.add_response("close", "Close");
         sources_dialog.set_default_response("close");
         sources_dialog.set_close_response("close");
