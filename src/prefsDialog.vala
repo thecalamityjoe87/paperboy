@@ -60,9 +60,23 @@ public class PrefsDialog : GLib.Object {
                 break;
         }
         
+        // If multiple preferred sources are enabled, show that instead
+        string body_text;
+        try {
+            var p = NewsPreferences.get_instance();
+            int enabled_count = p.preferred_sources != null ? p.preferred_sources.size : 0;
+            if (enabled_count > 1) {
+                body_text = "Currently using <b>Multiple Sources</b> as the news source.";
+            } else {
+                body_text = "Currently using <b>" + GLib.Markup.escape_text(current_source_name) + "</b> as the news source.";
+            }
+        } catch (GLib.Error e) {
+            body_text = "Currently using <b>" + GLib.Markup.escape_text(current_source_name) + "</b> as the news source.";
+        }
+
         var dialog = new Adw.AlertDialog(
             "News Source",
-            @"Currently using <b>$(current_source_name)</b> as the news source."
+            body_text
         );
         dialog.set_body_use_markup(true);
         dialog.add_response("browse", "Switch Source");
@@ -91,6 +105,47 @@ public class PrefsDialog : GLib.Object {
         var list_box = new Gtk.ListBox();
         list_box.set_selection_mode(Gtk.SelectionMode.NONE);
         list_box.add_css_class("boxed-list");
+
+        // Selection summary label and helpers (declare early so switch handlers
+        // can call update_selection_label while building the rows).
+        var selection_label = new Gtk.Label("");
+        selection_label.set_use_markup(true);
+        selection_label.set_halign(Gtk.Align.START);
+        selection_label.set_valign(Gtk.Align.CENTER);
+        selection_label.set_margin_start(8);
+        selection_label.set_margin_bottom(6);
+
+        string source_id_to_name(string id) {
+            switch (id) {
+                case "guardian": return "The Guardian";
+                case "reddit": return "Reddit";
+                case "bbc": return "BBC News";
+                case "nytimes": return "New York Times";
+                case "bloomberg": return "Bloomberg";
+                case "reuters": return "Reuters";
+                case "npr": return "NPR";
+                case "fox": return "Fox News";
+                case "wsj": return "Wall Street Journal";
+                default: return "News";
+            }
+        }
+
+        void update_selection_label() {
+            try {
+                var cp = NewsPreferences.get_instance();
+                int cnt = cp.preferred_sources != null ? cp.preferred_sources.size : 0;
+                if (cnt > 1) {
+                    selection_label.set_markup("<b>Multiple Sources</b>");
+                } else if (cnt == 1) {
+                    string id = cp.preferred_sources.get(0);
+                    selection_label.set_text(source_id_to_name(id));
+                } else {
+                    selection_label.set_text("No source selected");
+                }
+            } catch (GLib.Error e) {
+                selection_label.set_text("");
+            }
+        }
 
         // Helper: async load favicon into provided Gtk.Image
         void load_favicon(Gtk.Image image, string url) {
@@ -147,6 +202,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("guardian", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         guardian_row.add_suffix(guardian_switch);
@@ -173,6 +229,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("reddit", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         reddit_row.add_suffix(reddit_switch);
@@ -197,6 +254,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("bbc", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         bbc_row.add_suffix(bbc_switch);
@@ -221,6 +279,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("nytimes", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         nyt_row.add_suffix(nyt_switch);
@@ -245,6 +304,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("bloomberg", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         bb_row.add_suffix(bb_switch);
@@ -269,6 +329,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("wsj", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         wsj_row.add_suffix(wsj_switch);
@@ -293,6 +354,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("reuters", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         reuters_row.add_suffix(reuters_switch);
@@ -317,6 +379,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("npr", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         npr_row.add_suffix(npr_switch);
@@ -341,6 +404,7 @@ public class PrefsDialog : GLib.Object {
             prefs.set_preferred_source_enabled("fox", state);
             prefs.save_config();
             try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            update_selection_label();
             return false;
         });
         fox_row.add_suffix(fox_switch);
@@ -354,7 +418,12 @@ public class PrefsDialog : GLib.Object {
     var main_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
     main_container.set_margin_top(6);
     main_container.set_margin_bottom(6);
+
+    // Append the selection label (declared above) and the list box
+    main_container.append(selection_label);
     main_container.append(list_box);
+    // Initialize selection label text according to current prefs
+    update_selection_label();
 
     var sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
     sep.set_margin_top(6);
