@@ -267,6 +267,19 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
+    // Small helper to join a Gee.ArrayList<string> for debug output
+    private string array_join(Gee.ArrayList<string>? list) {
+        if (list == null) return "(null)";
+        string out = "";
+        try {
+            foreach (var s in list) {
+                if (out.length > 0) out += ",";
+                out += s;
+            }
+        } catch (GLib.Error e) { return "(error)"; }
+        return out;
+    }
+
     // Locate data files both in development tree (data/...) and installed locations
     private string? find_data_file(string relative) {
         // Development-time paths (running from project or build dir)
@@ -417,28 +430,74 @@ public class NewsWindow : Adw.ApplicationWindow {
         sidebar_icon_holders.set(cat, holder);
 
         row.activated.connect(() => {
+            // Debug: log sidebar activations when debug env var is set
+            try {
+                string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                if (_dbg != null && _dbg.length > 0) {
+                    append_debug_log("sidebar_activate: category=" + cat + " title=" + title);
+                }
+            } catch (GLib.Error e) { }
+            // Persist selection immediately and update UI selection synchronously
             prefs.category = cat;
+            try {
+                string? _dbg3 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                if (_dbg3 != null && _dbg3.length > 0) append_debug_log("activation_set_prefs: prefs.category=" + prefs.category);
+            } catch (GLib.Error e) { }
             prefs.save_config();
-            fetch_news();
-            sidebar_list.select_row(row);
-            // Ensure the main window updates the personalized-feed UI after
-            // the category changes so clicks on normal categories show
-            // articles regardless of the personalized-feed setting.
-            try { update_personalization_ui(); } catch (GLib.Error e) { }
+            try { sidebar_list.select_row(row); } catch (GLib.Error e) { }
+
+            // Defer the fetch to the main loop to avoid re-entrant rebuilds
+            // that remove the row while the handler is still running. Set
+            // the preference again inside the Idle callback to avoid race
+            // conditions with other scheduled work that may overwrite it.
+            Idle.add(() => {
+                try {
+                    prefs.category = cat;
+                    prefs.save_config();
+                } catch (GLib.Error e) { }
+                // Debug: note that the deferred callback is running and what
+                // category we'll fetch for
+                try {
+                    string? _dbg2 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                    if (_dbg2 != null && _dbg2.length > 0) append_debug_log("idle_fetch: scheduled_category=" + prefs.category);
+                } catch (GLib.Error e) { }
+                try { fetch_news(); } catch (GLib.Error e) { }
+                try { update_personalization_ui(); } catch (GLib.Error e) { }
+                return false;
+            });
         });
         sidebar_list.append(row);
+        // Debug: record row additions
+        try {
+            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            if (_dbg != null && _dbg.length > 0) append_debug_log("sidebar_add_row: cat=" + cat + " title=" + title + " selected=" + (selected ? "yes" : "no"));
+        } catch (GLib.Error e) { }
         if (selected) sidebar_list.select_row(row);
     }
 
     // Rebuild the sidebar rows according to the currently selected source
     private void rebuild_sidebar_rows_for_source() {
+        // Debug: log sidebar rebuild and preferred sources for tracing
+        try {
+            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                if (_dbg != null && _dbg.length > 0) {
+                    string pref = array_join(prefs.preferred_sources);
+                    append_debug_log("rebuild_sidebar: preferred_sources=" + pref + " current_category=" + prefs.category);
+                }
+        } catch (GLib.Error e) { }
         // Clear existing rows
+        int removed = 0;
         Gtk.Widget? child = sidebar_list.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
-            sidebar_list.remove(child);
+            try { sidebar_list.remove(child); } catch (GLib.Error e) { }
             child = next;
+            removed++;
         }
+        try {
+            string? _dbg2 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            if (_dbg2 != null && _dbg2.length > 0) append_debug_log("rebuild_sidebar: removed_rows=" + removed.to_string());
+        } catch (GLib.Error e) { }
 
     // Place "My Feed" above the Categories header, then include the "All Categories" option
     sidebar_add_row("My Feed", "myfeed", prefs.category == "myfeed");
@@ -1428,13 +1487,34 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (debug_enabled()) warning("Dropping stale article for category %s (view=%s)", category_id, view_category);
             return;
         }
+
+        // If multiple preferred sources are selected and this article's
+        // category is one of Bloomberg's unique categories, only accept
+        // articles that actually originate from Bloomberg. This prevents
+        // other sources from supplying results into Bloomberg-only rows
+        // (e.g., markets, industries).
+        if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
+            string[] bloomberg_only = { "markets", "industries", "economics", "wealth", "green" };
+            bool is_bloomberg_cat = false;
+            foreach (var bc in bloomberg_only) if (bc == category_id) { is_bloomberg_cat = true; break; }
+            if (is_bloomberg_cat) {
+                NewsSource article_src = infer_source_from_url(url);
+                if (article_src != NewsSource.BLOOMBERG) {
+                    if (debug_enabled()) warning("Dropping non-Bloomberg article for Bloomberg-only category %s title=%s", category_id, title);
+                    return;
+                }
+            }
+        }
         
         if (prefs.category == "all") {
-            // If the user selected "All Categories" but the active source is
-            // Bloomberg, only accept articles whose category is one of
-            // Bloomberg's available categories. This prevents showing
-            // unrelated categories that Bloomberg doesn't provide.
-            if (prefs.news_source == NewsSource.BLOOMBERG) {
+            // If the user selected "All Categories" but the EFFECTIVE single
+            // source is Bloomberg (i.e. single-source Bloomberg mode), only
+            // accept articles whose category is one of Bloomberg's available
+            // categories. When in multi-source mode we must NOT apply this
+            // restriction because the combined view should show the union
+            // of categories from all enabled sources.
+            NewsSource eff = effective_news_source();
+            if (eff == NewsSource.BLOOMBERG && (prefs.preferred_sources == null || prefs.preferred_sources.size <= 1)) {
                 string[] bloomberg_cats = { "markets", "industries", "economics", "wealth", "green", "politics", "technology" };
                 bool allowed = false;
                 foreach (string bc in bloomberg_cats) {
@@ -1443,7 +1523,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 if (!allowed) {
                     // Drop articles from categories Bloomberg doesn't have
                     if (debug_enabled()) {
-                        warning("Dropping article for Bloomber g: view=all source=Bloomberg article_cat=%s title=%s", category_id, title);
+                        warning("Dropping article for Bloomberg (single-source): view=all source=Bloomberg article_cat=%s title=%s", category_id, title);
                     }
                     return;
                 }
@@ -2969,6 +3049,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     public void fetch_news() {
+        // Debug: log fetch_news invocation and current sequence
+        try {
+            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            if (_dbg != null && _dbg.length > 0) {
+                append_debug_log("fetch_news: entering seq=" + fetch_sequence.to_string() + " category=" + prefs.category + " preferred_sources=" + array_join(prefs.preferred_sources));
+            }
+        } catch (GLib.Error e) { }
+
         // Ensure sidebar visibility reflects current source
         update_sidebar_for_source();
         // Clear featured hero and randomize columns count per fetch between 2 and 4 for extra variety
@@ -3046,8 +3134,13 @@ public class NewsWindow : Adw.ApplicationWindow {
         });
         
         // Bump fetch_sequence so callbacks from older fetches are ignored
+        uint before_seq = fetch_sequence;
         fetch_sequence += 1;
         uint my_seq = fetch_sequence;
+        try {
+            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            if (_dbg != null && _dbg.length > 0) append_debug_log("fetch_news: bumped fetch_sequence " + before_seq.to_string() + " -> " + fetch_sequence.to_string());
+        } catch (GLib.Error e) { }
 
         // Capture a strong reference to `this` so the wrapped callbacks hold
         // the NewsWindow alive while they're queued. Without this the window
@@ -3067,7 +3160,10 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Wrapped set_label: only update if this fetch is still current
     SetLabelFunc wrapped_set_label = (text) => {
-            if (my_seq != self_ref.fetch_sequence) return;
+            if (my_seq != self_ref.fetch_sequence) {
+                try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_set_label: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string()); } catch (GLib.Error e) { }
+                return;
+            }
             // Extract just the category part before the " — " separator
             string category_part = text;
             int separator_pos = text.index_of(" — ");
@@ -3079,7 +3175,10 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Wrapped clear_items: only clear if this fetch is still current
         ClearItemsFunc wrapped_clear = () => {
-            if (my_seq != self_ref.fetch_sequence) return;
+                if (my_seq != self_ref.fetch_sequence) {
+                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_clear: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string()); } catch (GLib.Error e) { }
+                    return;
+                }
             // Clearing was already done above in fetch_news(), but some sources
             // call clear_items again from worker threads; guard to avoid
             // clearing content created by a newer fetch.
@@ -3118,7 +3217,10 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Wrapped add_item: ignore items from stale fetches
     AddItemFunc wrapped_add = (title, url, thumbnail, category_id) => {
-            if (my_seq != self_ref.fetch_sequence) return;
+            if (my_seq != self_ref.fetch_sequence) {
+                try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_add: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string() + " article_cat=" + category_id); } catch (GLib.Error e) { }
+                return;
+            }
             self_ref.add_item(title, url, thumbnail, category_id);
         };
 
@@ -3166,26 +3268,43 @@ public class NewsWindow : Adw.ApplicationWindow {
                     wrapped_add
                 );
             } else {
-                // For the first source we pass the real clear_items so the UI is
-                // reset. For subsequent sources, pass a no-op clear to avoid
-                // wiping already-added articles.
-                bool first = true;
-                ClearItemsFunc no_op_clear = () => { };
+                // Filter the selected sources to those that actually support
+                // the chosen category. For example, if the user selected a
+                // category Bloomerg doesn't provide, exclude Bloomberg and
+                // query only the remaining sources.
+                var filtered = new Gee.ArrayList<NewsSource>();
                 foreach (var s in srcs) {
-                    ClearItemsFunc clear_fn = first ? wrapped_clear : no_op_clear;
-                    // Use a set_label that keeps the combined label when in multi mode
-                    SetLabelFunc label_fn = (text) => {
-                        // keep combined header but include category if present
-                        string src_label = "Multiple Sources";
-                        if (current_search_query.length > 0) {
-                            self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in " + category_display_name_for(prefs.category) + " — " + src_label);
-                        } else {
-                            self_ref.category_label.set_text(category_display_name_for(prefs.category) + " — " + src_label);
-                        }
-                    };
+                    try {
+                        if (NewsSources.supports_category(s, prefs.category)) filtered.add(s);
+                    } catch (GLib.Error e) {
+                        // If something goes wrong querying support, include the source
+                        filtered.add(s);
+                    }
+                }
 
-                    NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, clear_fn, wrapped_add);
-                    first = false;
+                // If filtering removed all sources (unlikely), fall back to original
+                // list so we at least attempt to fetch something.
+                var use_srcs = filtered.size > 0 ? filtered : srcs;
+
+                // Clear the UI once up-front so we don't race with asynchronous
+                // fetch completions (a later-completing fetch shouldn't be able
+                // to wipe results added by an earlier one).
+                try { wrapped_clear(); } catch (GLib.Error e) { }
+
+                // Use a no-op clear for all individual fetches since we've
+                // already cleared above. Keep a combined label while in multi
+                // source mode.
+                ClearItemsFunc no_op_clear = () => { };
+                SetLabelFunc label_fn = (text) => {
+                    string src_label = "Multiple Sources";
+                    if (current_search_query.length > 0) {
+                        self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in " + category_display_name_for(prefs.category) + " — " + src_label);
+                    } else {
+                        self_ref.category_label.set_text(category_display_name_for(prefs.category) + " — " + src_label);
+                    }
+                };
+                foreach (var s in use_srcs) {
+                    NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, no_op_clear, wrapped_add);
                 }
             }
         } else {

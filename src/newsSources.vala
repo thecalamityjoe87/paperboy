@@ -260,6 +260,32 @@ public class NewsSources {
         }
     }
 
+    // Return whether a given NewsSource can provide articles for the
+    // requested category. This is used by the UI when multiple sources are
+    // selected: if a category (e.g. "markets") is chosen that some sources
+    // don't support (Bloomberg-specific sections), we exclude those sources
+    // from the multi-source fetch so only compatible sources are queried.
+    public static bool supports_category(NewsSource source, string category) {
+        // Only Bloomberg needs special handling: it exposes a narrower set
+        // of dedicated sections. All other sources can be considered to
+        // support the common categories (and many use site-search fallbacks).
+        if (source == NewsSource.BLOOMBERG) {
+            switch (category) {
+                case "markets":
+                case "industries":
+                case "economics":
+                case "wealth":
+                case "green":
+                case "politics":
+                case "technology":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        return true;
+    }
+
 
     private static void fetch_google_domain(
         string current_category,

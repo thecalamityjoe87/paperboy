@@ -185,7 +185,10 @@ public class PrefsDialog : GLib.Object {
             });
         }
         
-        // Add The Guardian (multi-select)
+    // Track whether any source switches changed while the dialog is open.
+    bool sources_changed = false;
+
+    // Add The Guardian (multi-select)
         var guardian_row = new Adw.ActionRow();
         guardian_row.set_title("The Guardian");
         guardian_row.set_subtitle("World news with multiple categories");
@@ -201,7 +204,7 @@ public class PrefsDialog : GLib.Object {
         guardian_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("guardian", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -228,7 +231,7 @@ public class PrefsDialog : GLib.Object {
         reddit_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("reddit", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -253,7 +256,7 @@ public class PrefsDialog : GLib.Object {
         bbc_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("bbc", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -278,7 +281,7 @@ public class PrefsDialog : GLib.Object {
         nyt_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("nytimes", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -303,7 +306,7 @@ public class PrefsDialog : GLib.Object {
         bb_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("bloomberg", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -328,7 +331,7 @@ public class PrefsDialog : GLib.Object {
         wsj_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("wsj", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -353,7 +356,7 @@ public class PrefsDialog : GLib.Object {
         reuters_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("reuters", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -378,7 +381,7 @@ public class PrefsDialog : GLib.Object {
         npr_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("npr", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -403,7 +406,7 @@ public class PrefsDialog : GLib.Object {
         fox_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("fox", state);
             prefs.save_config();
-            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
+            sources_changed = true;
             update_selection_label();
             return false;
         });
@@ -651,20 +654,58 @@ public class PrefsDialog : GLib.Object {
             try {
                 // Re-read prefs instance in case handlers mutated it
                 var check_prefs = NewsPreferences.get_instance();
+                bool did_auto_enable = false;
+                bool did_change_news_source = false;
                 if (check_prefs.preferred_sources == null || check_prefs.preferred_sources.size == 0) {
                     // Enable guardian and persist immediately
                     check_prefs.set_preferred_source_enabled("guardian", true);
                     check_prefs.save_config();
-                    // If parent is NewsWindow, refresh its UI to reflect the change
-                    try {
-                        var parent_win = parent as NewsWindow;
-                        if (parent_win != null) {
-                            // Call the public fetch entrypoint which will update
-                            // the sidebar/source info as needed.
+                    did_auto_enable = true;
+                }
+
+                // Quick workaround: if Bloomberg is enabled together with other
+                // preferred sources, ensure the persisted single `news_source`
+                // isn't left pointing at Bloomberg. Pick the first non-Bloomberg
+                // preferred source and persist it so legacy checks that still
+                // read `prefs.news_source` behave sensibly.
+                try {
+                    if (check_prefs.preferred_sources != null && check_prefs.preferred_sources.size > 1) {
+                        bool has_bb = false;
+                        string first_non_bb = "";
+                        foreach (var sid in check_prefs.preferred_sources) {
+                            if (sid == "bloomberg") { has_bb = true; continue; }
+                            if (first_non_bb == "") first_non_bb = sid;
+                        }
+                        if (has_bb && first_non_bb != "") {
+                            switch (first_non_bb) {
+                                case "guardian": check_prefs.news_source = NewsSource.GUARDIAN; break;
+                                case "reddit": check_prefs.news_source = NewsSource.REDDIT; break;
+                                case "bbc": check_prefs.news_source = NewsSource.BBC; break;
+                                case "nytimes": check_prefs.news_source = NewsSource.NEW_YORK_TIMES; break;
+                                case "wsj": check_prefs.news_source = NewsSource.WALL_STREET_JOURNAL; break;
+                                case "reuters": check_prefs.news_source = NewsSource.REUTERS; break;
+                                case "npr": check_prefs.news_source = NewsSource.NPR; break;
+                                case "fox": check_prefs.news_source = NewsSource.FOX; break;
+                                default: /* leave as-is for unknown ids */ break;
+                            }
+                            check_prefs.save_config();
+                            did_change_news_source = true;
+                        }
+                    }
+                } catch (GLib.Error e) { /* best-effort only */ }
+
+                // If parent is NewsWindow, refresh its UI to reflect the change
+                try {
+                    var parent_win = parent as NewsWindow;
+                    if (parent_win != null) {
+                        // Only refresh once: if sources changed while dialog
+                        // was open or we auto-enabled Guardian, or we changed
+                        // the persisted news_source, trigger a single fetch.
+                        if (sources_changed || did_auto_enable || did_change_news_source) {
                             parent_win.fetch_news();
                         }
-                    } catch (GLib.Error e) { }
-                }
+                    }
+                } catch (GLib.Error e) { }
             } catch (GLib.Error e) {
                 // best-effort only; nothing sensible to do on error
             }
