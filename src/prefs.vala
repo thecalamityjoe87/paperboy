@@ -28,6 +28,28 @@ public class NewsPreferences : GLib.Object {
     public bool personalized_feed_enabled { get; set; default = false; }
     // Categories included in the personalized feed (by id)
     public Gee.ArrayList<string> personalized_categories { get; set; }
+    // Preferred news sources (string ids such as "guardian", "reddit")
+    public Gee.ArrayList<string> preferred_sources { get; set; }
+
+    // Convenience helpers for managing preferred sources
+    public bool preferred_source_enabled(string id) {
+        if (preferred_sources == null) return false;
+        foreach (var s in preferred_sources) if (s == id) return true;
+        return false;
+    }
+
+    public void set_preferred_source_enabled(string id, bool enabled) {
+        if (preferred_sources == null) preferred_sources = new Gee.ArrayList<string>();
+        if (enabled) {
+            if (!preferred_source_enabled(id)) preferred_sources.add(id);
+        } else {
+            if (preferred_source_enabled(id)) {
+                var to_remove = new Gee.ArrayList<string>();
+                foreach (var s in preferred_sources) if (s == id) to_remove.add(s);
+                foreach (var r in to_remove) preferred_sources.remove(r);
+            }
+        }
+    }
 
     // Convenience helpers for managing personalized categories
     public bool personalized_category_enabled(string cat) {
@@ -118,6 +140,16 @@ public class NewsPreferences : GLib.Object {
             } else {
                 config.set_string_list("preferences", "personalized_categories", new string[0]);
             }
+            // Persist preferred sources (if present)
+            if (preferred_sources != null) {
+                string[] parr = new string[preferred_sources.size];
+                for (int i = 0; i < preferred_sources.size; i++) parr[i] = preferred_sources.get(i);
+                config.set_string_list("preferences", "preferred_sources", parr);
+            } else {
+                // Fall back to single news_source if preferred_sources not yet set
+                string[] fallback = { source_name };
+                config.set_string_list("preferences", "preferred_sources", fallback);
+            }
             
             string config_data = config.to_data();
             GLib.FileUtils.set_contents(config_path, config_data);
@@ -148,6 +180,30 @@ public class NewsPreferences : GLib.Object {
                     case "google": news_source = NewsSource.GUARDIAN; break; // Migrate from removed Google News
                     case "bloomberg": news_source = NewsSource.BLOOMBERG; break;
                     default: news_source = NewsSource.GUARDIAN; break;
+                }
+            }
+
+            // Load preferred sources list if present; otherwise seed from news_source
+            if (config.has_key("preferences", "preferred_sources")) {
+                try {
+                    string[] parr = config.get_string_list("preferences", "preferred_sources");
+                    preferred_sources = new Gee.ArrayList<string>();
+                    foreach (var s in parr) preferred_sources.add(s);
+                } catch (GLib.Error e) { preferred_sources = new Gee.ArrayList<string>(); }
+            } else {
+                preferred_sources = new Gee.ArrayList<string>();
+                // Seed with the single news_source value for backward compatibility
+                switch (news_source) {
+                    case NewsSource.GUARDIAN: preferred_sources.add("guardian"); break;
+                    case NewsSource.REDDIT: preferred_sources.add("reddit"); break;
+                    case NewsSource.BBC: preferred_sources.add("bbc"); break;
+                    case NewsSource.WALL_STREET_JOURNAL: preferred_sources.add("wsj"); break;
+                    case NewsSource.NEW_YORK_TIMES: preferred_sources.add("nytimes"); break;
+                    case NewsSource.BLOOMBERG: preferred_sources.add("bloomberg"); break;
+                    case NewsSource.REUTERS: preferred_sources.add("reuters"); break;
+                    case NewsSource.NPR: preferred_sources.add("npr"); break;
+                    case NewsSource.FOX: preferred_sources.add("fox"); break;
+                    default: preferred_sources.add("guardian"); break;
                 }
             }
             

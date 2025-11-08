@@ -130,191 +130,213 @@ public class PrefsDialog : GLib.Object {
             });
         }
         
-        // Add The Guardian
+        // Add The Guardian (multi-select)
         var guardian_row = new Adw.ActionRow();
         guardian_row.set_title("The Guardian");
         guardian_row.set_subtitle("World news with multiple categories");
         var guardian_icon = new Gtk.Image.from_icon_name("globe-symbolic");
         guardian_row.add_prefix(guardian_icon);
         load_favicon(guardian_icon, "https://www.theguardian.com/favicon.ico");
-        if (prefs.news_source == NewsSource.GUARDIAN) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            guardian_row.add_suffix(check);
-        }
+        var guardian_switch = new Gtk.Switch();
+        guardian_switch.set_active(prefs.preferred_source_enabled("guardian"));
+        guardian_switch.set_halign(Gtk.Align.END);
+        guardian_switch.set_valign(Gtk.Align.CENTER);
+        guardian_switch.set_hexpand(false);
+        guardian_switch.set_vexpand(false);
+        guardian_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("guardian", state);
+            prefs.save_config();
+            return false;
+        });
+        guardian_row.add_suffix(guardian_switch);
         guardian_row.activatable = true;
         guardian_row.activated.connect(() => {
-            prefs.news_source = NewsSource.GUARDIAN;
-            prefs.save_config();
-            sources_dialog.close();
-            win.fetch_news();
+            guardian_switch.set_active(!guardian_switch.get_active());
         });
         list_box.append(guardian_row);
         
-        // Add Reddit
+        // Add Reddit (multi-select)
         var reddit_row = new Adw.ActionRow();
         reddit_row.set_title("Reddit");
         reddit_row.set_subtitle("Popular posts from subreddits");
         var reddit_icon = new Gtk.Image.from_icon_name("internet-chat-symbolic");
         reddit_row.add_prefix(reddit_icon);
         load_favicon(reddit_icon, "https://www.reddit.com/favicon.ico");
-        if (prefs.news_source == NewsSource.REDDIT) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            reddit_row.add_suffix(check);
-        }
-        reddit_row.activatable = true;
-        reddit_row.activated.connect(() => {
-            prefs.news_source = NewsSource.REDDIT;
+        var reddit_switch = new Gtk.Switch();
+        reddit_switch.set_active(prefs.preferred_source_enabled("reddit"));
+        reddit_switch.set_halign(Gtk.Align.END);
+        reddit_switch.set_valign(Gtk.Align.CENTER);
+        reddit_switch.set_hexpand(false);
+        reddit_switch.set_vexpand(false);
+        reddit_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("reddit", state);
             prefs.save_config();
-            sources_dialog.close();
-            win.fetch_news();
+            return false;
         });
+        reddit_row.add_suffix(reddit_switch);
+        reddit_row.activatable = true;
+        reddit_row.activated.connect(() => { reddit_switch.set_active(!reddit_switch.get_active()); });
         list_box.append(reddit_row);
         
-        // Add BBC
+        // Add BBC (multi-select)
         var bbc_row = new Adw.ActionRow();
         bbc_row.set_title("BBC News");
         bbc_row.set_subtitle("Global news and categories");
         var bbc_icon = new Gtk.Image.from_icon_name("globe-symbolic");
         bbc_row.add_prefix(bbc_icon);
         load_favicon(bbc_icon, "https://www.bbc.co.uk/favicon.ico");
-        if (prefs.news_source == NewsSource.BBC) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            bbc_row.add_suffix(check);
-        }
-        bbc_row.activatable = true;
-        bbc_row.activated.connect(() => {
-            prefs.news_source = NewsSource.BBC;
+        var bbc_switch = new Gtk.Switch();
+        bbc_switch.set_active(prefs.preferred_source_enabled("bbc"));
+        bbc_switch.set_halign(Gtk.Align.END);
+        bbc_switch.set_valign(Gtk.Align.CENTER);
+        bbc_switch.set_hexpand(false);
+        bbc_switch.set_vexpand(false);
+        bbc_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("bbc", state);
             prefs.save_config();
-            sources_dialog.close();
-            win.fetch_news();
+            return false;
         });
+        bbc_row.add_suffix(bbc_switch);
+        bbc_row.activatable = true;
+        bbc_row.activated.connect(() => { bbc_switch.set_active(!bbc_switch.get_active()); });
         list_box.append(bbc_row);
 
-        // Add New York Times
+        // Add New York Times (multi-select)
         var nyt_row = new Adw.ActionRow();
         nyt_row.set_title("New York Times");
         nyt_row.set_subtitle("NYT RSS feeds by section");
         var nyt_icon = new Gtk.Image.from_icon_name("emblem-documents-symbolic");
         nyt_row.add_prefix(nyt_icon);
         load_favicon(nyt_icon, "https://www.nytimes.com/favicon.ico");
-        if (prefs.news_source == NewsSource.NEW_YORK_TIMES) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            nyt_row.add_suffix(check);
-        }
-        nyt_row.activatable = true;
-        nyt_row.activated.connect(() => {
-            prefs.news_source = NewsSource.NEW_YORK_TIMES;
+        var nyt_switch = new Gtk.Switch();
+        nyt_switch.set_active(prefs.preferred_source_enabled("nytimes"));
+        nyt_switch.set_halign(Gtk.Align.END);
+        nyt_switch.set_valign(Gtk.Align.CENTER);
+        nyt_switch.set_hexpand(false);
+        nyt_switch.set_vexpand(false);
+        nyt_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("nytimes", state);
             prefs.save_config();
-            sources_dialog.close();
-            win.fetch_news();
+            return false;
         });
+        nyt_row.add_suffix(nyt_switch);
+        nyt_row.activatable = true;
+        nyt_row.activated.connect(() => { nyt_switch.set_active(!nyt_switch.get_active()); });
         list_box.append(nyt_row);
 
-        // Add Bloomberg
+        // Add Bloomberg (multi-select)
         var bb_row = new Adw.ActionRow();
         bb_row.set_title("Bloomberg");
         bb_row.set_subtitle("Financial and business news");
         var bb_icon = new Gtk.Image.from_icon_name("emblem-money-symbolic");
         bb_row.add_prefix(bb_icon);
         load_favicon(bb_icon, "https://www.bloomberg.com/favicon.ico");
-        if (prefs.news_source == NewsSource.BLOOMBERG) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            bb_row.add_suffix(check);
-        }
-        bb_row.activatable = true;
-        bb_row.activated.connect(() => {
-            // Persist the news source change, but avoid writing a
-            // temporary category to config.ini. We want the category
-            // reset to be session-only so we don't overwrite the user's
-            // previously saved category.
-            prefs.news_source = NewsSource.BLOOMBERG;
+        var bb_switch = new Gtk.Switch();
+        bb_switch.set_active(prefs.preferred_source_enabled("bloomberg"));
+        bb_switch.set_halign(Gtk.Align.END);
+        bb_switch.set_valign(Gtk.Align.CENTER);
+        bb_switch.set_hexpand(false);
+        bb_switch.set_vexpand(false);
+        bb_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("bloomberg", state);
             prefs.save_config();
-            // In-memory reset so the UI/fetch logic shows Bloomberg-compatible content
-            // immediately, but the change is not persisted to config.ini.
-            prefs.category = "markets";
-            sources_dialog.close();
-            win.fetch_news();
+            return false;
         });
+        bb_row.add_suffix(bb_switch);
+        bb_row.activatable = true;
+        bb_row.activated.connect(() => { bb_switch.set_active(!bb_switch.get_active()); });
         list_box.append(bb_row);
 
-        // Add Wall Street Journal
+        // Add Wall Street Journal (multi-select)
         var wsj_row = new Adw.ActionRow();
         wsj_row.set_title("Wall Street Journal");
         wsj_row.set_subtitle("Business and financial news (site search)");
         var wsj_icon = new Gtk.Image.from_icon_name("emblem-documents-symbolic");
         wsj_row.add_prefix(wsj_icon);
         load_favicon(wsj_icon, "https://www.wsj.com/favicon.ico");
-        if (prefs.news_source == NewsSource.WALL_STREET_JOURNAL) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            wsj_row.add_suffix(check);
-        }
-        wsj_row.activatable = true;
-        wsj_row.activated.connect(() => {
-            prefs.news_source = NewsSource.WALL_STREET_JOURNAL;
+        var wsj_switch = new Gtk.Switch();
+        wsj_switch.set_active(prefs.preferred_source_enabled("wsj"));
+        wsj_switch.set_halign(Gtk.Align.END);
+        wsj_switch.set_valign(Gtk.Align.CENTER);
+        wsj_switch.set_hexpand(false);
+        wsj_switch.set_vexpand(false);
+        wsj_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("wsj", state);
             prefs.save_config();
-            sources_dialog.close();
-            win.fetch_news();
+            return false;
         });
+        wsj_row.add_suffix(wsj_switch);
+        wsj_row.activatable = true;
+        wsj_row.activated.connect(() => { wsj_switch.set_active(!wsj_switch.get_active()); });
         list_box.append(wsj_row);
 
-        // Add Reuters
+        // Add Reuters (multi-select)
         var reuters_row = new Adw.ActionRow();
         reuters_row.set_title("Reuters");
         reuters_row.set_subtitle("International news wire service");
         var reuters_icon = new Gtk.Image.from_icon_name("globe-symbolic");
         reuters_row.add_prefix(reuters_icon);
         load_favicon(reuters_icon, "https://www.reuters.com/favicon.ico");
-        if (prefs.news_source == NewsSource.REUTERS) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            reuters_row.add_suffix(check);
-        }
-        reuters_row.activatable = true;
-        reuters_row.activated.connect(() => {
-            prefs.news_source = NewsSource.REUTERS;
+        var reuters_switch = new Gtk.Switch();
+        reuters_switch.set_active(prefs.preferred_source_enabled("reuters"));
+        reuters_switch.set_halign(Gtk.Align.END);
+        reuters_switch.set_valign(Gtk.Align.CENTER);
+        reuters_switch.set_hexpand(false);
+        reuters_switch.set_vexpand(false);
+        reuters_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("reuters", state);
             prefs.save_config();
-            sources_dialog.close();
-            win.fetch_news();
+            return false;
         });
+        reuters_row.add_suffix(reuters_switch);
+        reuters_row.activatable = true;
+        reuters_row.activated.connect(() => { reuters_switch.set_active(!reuters_switch.get_active()); });
         list_box.append(reuters_row);
 
-        // Add NPR
+        // Add NPR (multi-select)
         var npr_row = new Adw.ActionRow();
         npr_row.set_title("NPR");
         npr_row.set_subtitle("National Public Radio news");
         var npr_icon = new Gtk.Image.from_icon_name("audio-card-symbolic");
         npr_row.add_prefix(npr_icon);
         load_favicon(npr_icon, "https://www.npr.org/favicon.ico");
-        if (prefs.news_source == NewsSource.NPR) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            npr_row.add_suffix(check);
-        }
-        npr_row.activatable = true;
-        npr_row.activated.connect(() => {
-            prefs.news_source = NewsSource.NPR;
+        var npr_switch = new Gtk.Switch();
+        npr_switch.set_active(prefs.preferred_source_enabled("npr"));
+        npr_switch.set_halign(Gtk.Align.END);
+        npr_switch.set_valign(Gtk.Align.CENTER);
+        npr_switch.set_hexpand(false);
+        npr_switch.set_vexpand(false);
+        npr_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("npr", state);
             prefs.save_config();
-            sources_dialog.close();
-            win.fetch_news();
+            return false;
         });
+        npr_row.add_suffix(npr_switch);
+        npr_row.activatable = true;
+        npr_row.activated.connect(() => { npr_switch.set_active(!npr_switch.get_active()); });
         list_box.append(npr_row);
 
-        // Add Fox News
+        // Add Fox News (multi-select)
         var fox_row = new Adw.ActionRow();
         fox_row.set_title("Fox News");
         fox_row.set_subtitle("Conservative news and commentary");
         var fox_icon = new Gtk.Image.from_icon_name("emblem-documents-symbolic");
         fox_row.add_prefix(fox_icon);
         load_favicon(fox_icon, "https://www.foxnews.com/favicon.ico");
-        if (prefs.news_source == NewsSource.FOX) {
-            var check = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            fox_row.add_suffix(check);
-        }
-        fox_row.activatable = true;
-        fox_row.activated.connect(() => {
-            prefs.news_source = NewsSource.FOX;
+        var fox_switch = new Gtk.Switch();
+        fox_switch.set_active(prefs.preferred_source_enabled("fox"));
+        fox_switch.set_halign(Gtk.Align.END);
+        fox_switch.set_valign(Gtk.Align.CENTER);
+        fox_switch.set_hexpand(false);
+        fox_switch.set_vexpand(false);
+        fox_switch.state_set.connect((sw, state) => {
+            prefs.set_preferred_source_enabled("fox", state);
             prefs.save_config();
-            sources_dialog.close();
-            win.fetch_news();
+            return false;
         });
+        fox_row.add_suffix(fox_switch);
+        fox_row.activatable = true;
+        fox_row.activated.connect(() => { fox_switch.set_active(!fox_switch.get_active()); });
         list_box.append(fox_row);
 
     // Build the main container that shows the source list and the

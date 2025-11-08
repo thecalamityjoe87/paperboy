@@ -390,6 +390,10 @@ public class NewsWindow : Adw.ApplicationWindow {
             prefs.save_config();
             fetch_news();
             sidebar_list.select_row(row);
+            // Ensure the main window updates the personalized-feed UI after
+            // the category changes so clicks on normal categories show
+            // articles regardless of the personalized-feed setting.
+            try { update_personalization_ui(); } catch (GLib.Error e) { }
         });
         sidebar_list.append(row);
         if (selected) sidebar_list.select_row(row);
@@ -982,21 +986,33 @@ public class NewsWindow : Adw.ApplicationWindow {
     personalized_message_box.append(inner_center);
     // Visible only when personalization is disabled
     if (prefs.personalized_feed_enabled) personalized_message_box.set_visible(false); else personalized_message_box.set_visible(true);
-    main_overlay.add_overlay(personalized_message_box);
-        content_box.append(main_overlay);
+    // Do NOT add the personalized message to the inner main_overlay (it lives
+    // inside the scrolled content). We'll add it to a root overlay that wraps
+    // the navigation view so it can center over the visible viewport.
+    content_box.append(main_overlay);
         
         // Add content_box to content_area and set up proper containment
         content_area.append(content_box);
         scrolled.set_child(content_area);
 
-        // Split view: sidebar + content with collapsible sidebar
-        split_view = new Adw.OverlaySplitView();
-        split_view.set_sidebar(sidebar_scrolled);
-        // Wrap content in a NavigationView so we can slide in a preview page
-        nav_view = new Adw.NavigationView();
-        var main_page = new Adw.NavigationPage(scrolled, "Main");
-        nav_view.push(main_page);
-        split_view.set_content(nav_view);
+    // Split view: sidebar + content with collapsible sidebar
+    split_view = new Adw.OverlaySplitView();
+    split_view.set_sidebar(sidebar_scrolled);
+    // Wrap content in a NavigationView so we can slide in a preview page
+    nav_view = new Adw.NavigationView();
+    var main_page = new Adw.NavigationPage(scrolled, "Main");
+    nav_view.push(main_page);
+
+    // Create a root overlay that wraps the NavigationView so we can
+    // overlay the personalized-message box across the entire visible
+    // viewport (not just the inner scrolled content). This makes centering
+    // reliable regardless of scroll/content size.
+    var root_overlay = new Gtk.Overlay();
+    root_overlay.set_child(nav_view);
+    // Add the personalized message overlay on top of the root overlay
+    root_overlay.add_overlay(personalized_message_box);
+
+    split_view.set_content(root_overlay);
         split_view.set_show_sidebar(true);
 
         // Connect toggle after split view exists
@@ -1102,12 +1118,36 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (personalized_message_box == null) return;
         var prefs = NewsPreferences.get_instance();
         bool enabled = prefs.personalized_feed_enabled;
-    // Show/hide the centered message
-    personalized_message_box.set_visible(!enabled);
-    // Hide the entire main content container when personalization is disabled
-    try { if (main_content_container != null) main_content_container.set_visible(enabled); } catch (GLib.Error e) { }
-    // Also hide the loading container while the message is shown
-    try { if (loading_container != null) loading_container.set_visible(false); } catch (GLib.Error e) { }
+        bool is_myfeed = prefs.category == "myfeed";
+
+        /*
+         * Show the centered personalized-feed message only when the
+         * personalized feed is disabled and the user has selected
+         * the "My Feed" category. For other categories, always show
+         * the main content so category clicks act independently.
+         */
+        bool show_message = !enabled && is_myfeed;
+        personalized_message_box.set_visible(show_message);
+
+        try {
+            if (main_content_container != null) {
+                // Show main content when personalization is enabled OR
+                // when the selected category isn't "myfeed".
+                main_content_container.set_visible(enabled || !is_myfeed);
+            }
+        } catch (GLib.Error e) { }
+
+        // If the message is visible, hide the loading spinner; otherwise
+        // leave the spinner state alone (it may be controlled by fetch logic).
+        try {
+            // Only forcibly hide the loading container when the personalized
+            // message is visible. Otherwise, leave the spinner visibility
+            // alone so fetch logic (show_loading_spinner/hide_loading_spinner)
+            // can control it during network activity.
+            if (loading_container != null && show_message) {
+                loading_container.set_visible(false);
+            }
+        } catch (GLib.Error e) { }
     }
 
     private bool source_has_categories(NewsSource s) {
