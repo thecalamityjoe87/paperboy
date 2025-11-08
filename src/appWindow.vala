@@ -983,7 +983,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         // Add hamburger menu
         var menu = new Menu();
-        menu.append("Change News Source", "app.change-source");
+        menu.append("Preferences", "app.change-source");
         menu.append("About Paperboy", "app.about");
         
         var menu_button = new Gtk.MenuButton();

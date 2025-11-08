@@ -113,6 +113,16 @@ public class NewsPreferences : GLib.Object {
         // is created by save_config()).
         personalized_categories = new Gee.ArrayList<string>();
         preferred_sources = new Gee.ArrayList<string>();
+        // First-run convenience: if no config exists yet, seed the
+        // preferred_sources with Guardian so the Guardian toggle is
+        // enabled by default on first run. This keeps the UI toggled
+        // appropriately until the user persists a config.
+        try {
+            if (!GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
+                preferred_sources.add("guardian");
+            }
+        } catch (GLib.Error e) { }
+        // Preferred sources and other defaults will be seeded by load_config()/save_config().
         // Don't seed preferred_sources here. Load configuration first so
         // pre-existing user choices are respected. If no config exists,
         // load_config() will create one and seed defaults appropriately.
