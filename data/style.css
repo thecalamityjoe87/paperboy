@@ -47,6 +47,42 @@
     font-weight: 600;
 }
 
+/* Source badge (icon + short name) shown on cards and hero slides */
+.source-badge {
+    background-color: rgba(0, 0, 0, 0.6); /* black at 60% */
+    color: white;
+    border-radius: 9999px;
+    padding: 4px 8px;
+    margin-bottom: 8px;
+    margin-end: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82em;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.source-badge-label {
+    color: white;
+    white-space: nowrap;
+    max-width: 10ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Smaller, lifted badge variant for hero/slide cards so long titles
+   don't overlap the badge. We increase the bottom margin (distance
+   from the widget bottom) which effectively lifts the badge up, and
+   reduce font/padding to keep it unobtrusive. */
+.hero-badge {
+    font-size: 0.75em;
+    padding: 2px 6px;
+    margin-bottom: 44px; /* lift up to avoid crowded titles */
+    gap: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+}
+
 /* Badge for the top story hero card */
 .top-story-badge {
     text-transform: uppercase;

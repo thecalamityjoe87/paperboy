@@ -146,6 +146,7 @@ public class PrefsDialog : GLib.Object {
         guardian_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("guardian", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         guardian_row.add_suffix(guardian_switch);
@@ -171,6 +172,7 @@ public class PrefsDialog : GLib.Object {
         reddit_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("reddit", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         reddit_row.add_suffix(reddit_switch);
@@ -194,6 +196,7 @@ public class PrefsDialog : GLib.Object {
         bbc_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("bbc", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         bbc_row.add_suffix(bbc_switch);
@@ -217,6 +220,7 @@ public class PrefsDialog : GLib.Object {
         nyt_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("nytimes", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         nyt_row.add_suffix(nyt_switch);
@@ -240,6 +244,7 @@ public class PrefsDialog : GLib.Object {
         bb_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("bloomberg", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         bb_row.add_suffix(bb_switch);
@@ -263,6 +268,7 @@ public class PrefsDialog : GLib.Object {
         wsj_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("wsj", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         wsj_row.add_suffix(wsj_switch);
@@ -286,6 +292,7 @@ public class PrefsDialog : GLib.Object {
         reuters_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("reuters", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         reuters_row.add_suffix(reuters_switch);
@@ -309,6 +316,7 @@ public class PrefsDialog : GLib.Object {
         npr_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("npr", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         npr_row.add_suffix(npr_switch);
@@ -332,6 +340,7 @@ public class PrefsDialog : GLib.Object {
         fox_switch.state_set.connect((sw, state) => {
             prefs.set_preferred_source_enabled("fox", state);
             prefs.save_config();
+            try { if (win != null) win.fetch_news(); } catch (GLib.Error e) { }
             return false;
         });
         fox_row.add_suffix(fox_switch);
@@ -564,6 +573,33 @@ public class PrefsDialog : GLib.Object {
         sources_dialog.set_default_response("close");
         sources_dialog.set_close_response("close");
         sources_dialog.present(parent);
+
+        // Ensure at least one source is selected when the dialog closes.
+        // If the user managed to disable all sources (or closed without
+        // selecting any), auto-enable Guardian and persist the change so
+        // the app always has a valid source to fetch from.
+        sources_dialog.destroy.connect(() => {
+            try {
+                // Re-read prefs instance in case handlers mutated it
+                var check_prefs = NewsPreferences.get_instance();
+                if (check_prefs.preferred_sources == null || check_prefs.preferred_sources.size == 0) {
+                    // Enable guardian and persist immediately
+                    check_prefs.set_preferred_source_enabled("guardian", true);
+                    check_prefs.save_config();
+                    // If parent is NewsWindow, refresh its UI to reflect the change
+                    try {
+                        var parent_win = parent as NewsWindow;
+                        if (parent_win != null) {
+                            // Call the public fetch entrypoint which will update
+                            // the sidebar/source info as needed.
+                            parent_win.fetch_news();
+                        }
+                    } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) {
+                // best-effort only; nothing sensible to do on error
+            }
+        });
     }
     
     public static void show_about_dialog(Gtk.Window parent) {

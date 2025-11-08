@@ -448,7 +448,6 @@ public class NewsSources {
                     } else {
                         set_label(@"$(category_name) — The Guardian");
                     }
-                    clear_items();
                     uint len = results.get_length();
                     for (uint i = 0; i < len; i++) {
                         var article = results.get_element(i).get_object();
@@ -558,7 +557,6 @@ public class NewsSources {
                     } else {
                         set_label(category_name);
                     }
-                    clear_items();
                     uint len = children.get_length();
                     for (uint i = 0; i < len; i++) {
                         var post = children.get_element(i).get_object();
@@ -752,7 +750,6 @@ public class NewsSources {
                 if (current_search_query.length > 0) {
                     Idle.add(() => {
                         set_label(@"No Fox News results for search: \"$(current_search_query)\"");
-                        clear_items();
                         return false;
                     });
                     return null;
@@ -767,7 +764,6 @@ public class NewsSources {
                     } else {
                         set_label(category_name);
                     }
-                    clear_items();
                     int ui_limit = 16;
                     int ui_count = 0;
                     int total = articles.size;
@@ -785,11 +781,10 @@ public class NewsSources {
                 });
             } catch (GLib.Error e) {
                 warning("Error parsing Fox News HTML: %s", e.message);
-                Idle.add(() => {
-                    set_label("Fox News: Error loading articles");
-                    clear_items();
-                    return false;
-                });
+                    Idle.add(() => {
+                        set_label("Fox News: Error loading articles");
+                        return false;
+                    });
             }
             return null;
         });

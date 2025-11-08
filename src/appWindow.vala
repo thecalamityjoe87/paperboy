@@ -73,6 +73,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     private uint featured_carousel_timeout_id = 0;
     private string? featured_carousel_category = null;
     private Gee.ArrayList<Gtk.Label> featured_carousel_dot_widgets;
+    private Gee.ArrayList<Gtk.Widget> featured_carousel_widgets;
     // Hero container reference for responsive sizing
     private Gtk.Box hero_container;
     // Main content container that holds both hero and columns
@@ -183,23 +184,39 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Move carousel to the next slide
     private void carousel_next() {
         if (featured_carousel_stack == null) return;
-        int total = featured_carousel_items != null ? featured_carousel_items.size : 0;
+        int total = featured_carousel_widgets != null ? featured_carousel_widgets.size : 0;
         if (total <= 1) return;
+        // Advance index and select next widget that is actually in the stack
         featured_carousel_index = (featured_carousel_index + 1) % total;
-        string name = "%d".printf(featured_carousel_index);
-        featured_carousel_stack.set_visible_child_name(name);
-        update_carousel_dots(featured_carousel_index);
+        for (int i = 0; i < total; i++) {
+            var child = featured_carousel_widgets.get(featured_carousel_index) as Gtk.Widget;
+            if (child != null && child.get_parent() == featured_carousel_stack) {
+                featured_carousel_stack.set_visible_child(child);
+                update_carousel_dots(featured_carousel_index);
+                return;
+            }
+            featured_carousel_index = (featured_carousel_index + 1) % total;
+        }
+        append_debug_log("carousel_next: no valid child found for stack");
     }
 
     // Move carousel to the previous slide
     private void carousel_prev() {
         if (featured_carousel_stack == null) return;
-        int total = featured_carousel_items != null ? featured_carousel_items.size : 0;
+        int total = featured_carousel_widgets != null ? featured_carousel_widgets.size : 0;
         if (total <= 1) return;
+        // Move backwards and pick a valid widget actually present in the stack
         featured_carousel_index = (featured_carousel_index - 1 + total) % total;
-        string name = "%d".printf(featured_carousel_index);
-        featured_carousel_stack.set_visible_child_name(name);
-        update_carousel_dots(featured_carousel_index);
+        for (int i = 0; i < total; i++) {
+            var child = featured_carousel_widgets.get(featured_carousel_index) as Gtk.Widget;
+            if (child != null && child.get_parent() == featured_carousel_stack) {
+                featured_carousel_stack.set_visible_child(child);
+                update_carousel_dots(featured_carousel_index);
+                return;
+            }
+            featured_carousel_index = (featured_carousel_index - 1 + total) % total;
+        }
+        append_debug_log("carousel_prev: no valid child found for stack");
     }
     
     // Remaining articles after hitting the Load More limit
@@ -235,6 +252,20 @@ public class NewsWindow : Adw.ApplicationWindow {
     private int pending_images = 0;
     private bool initial_items_populated = false;
     private const int INITIAL_MAX_WAIT_MS = 5000; // maximum time to wait for images
+    // Debug log path (written when PAPERBOY_DEBUG is set)
+    private string debug_log_path = "/tmp/paperboy-debug.log";
+
+    private void append_debug_log(string line) {
+        try {
+            string path = debug_log_path;
+            string old = "";
+            try { GLib.FileUtils.get_contents(path, out old); } catch (GLib.Error e) { old = ""; }
+            string outc = old + line + "\n";
+            GLib.FileUtils.set_contents(path, outc);
+        } catch (GLib.Error e) {
+            // best-effort logging only
+        }
+    }
 
     // Locate data files both in development tree (data/...) and installed locations
     private string? find_data_file(string relative) {
@@ -414,37 +445,114 @@ public class NewsWindow : Adw.ApplicationWindow {
     sidebar_add_header("Categories");
     sidebar_add_row("All Categories", "all", prefs.category == "all");
 
-        if (prefs.news_source == NewsSource.BLOOMBERG) {
-            // Bloomberg-specific categories
-            sidebar_add_row("Markets", "markets", prefs.category == "markets");
-            sidebar_add_row("Industries", "industries", prefs.category == "industries");
-            sidebar_add_row("Economics", "economics", prefs.category == "economics");
-            sidebar_add_row("Wealth", "wealth", prefs.category == "wealth");
-            sidebar_add_row("Green", "green", prefs.category == "green");
-            // Keep technology for Bloomberg as well
-            sidebar_add_row("Technology", "technology", prefs.category == "technology");
-            // Also expose politics for completeness
-            sidebar_add_row("Politics", "politics", prefs.category == "politics");
-        } else {
-            // Default set used for most sources
-            sidebar_add_row("World News", "general", prefs.category == "general");
-            sidebar_add_row("US News", "us", prefs.category == "us");
-            sidebar_add_row("Technology", "technology", prefs.category == "technology");
-            sidebar_add_row("Science", "science", prefs.category == "science");
-            sidebar_add_row("Sports", "sports", prefs.category == "sports");
-            sidebar_add_row("Health", "health", prefs.category == "health");
-            sidebar_add_row("Entertainment", "entertainment", prefs.category == "entertainment");
-            sidebar_add_row("Politics", "politics", prefs.category == "politics");
-            sidebar_add_row("Lifestyle", "lifestyle", prefs.category == "lifestyle");
+    // If multiple preferred sources are selected, build the union of
+    // categories supported by those sources and show only those rows.
+    if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
+        var allowed = new Gee.HashMap<string, bool>();
+        // Default fallback categories most sources support
+        string[] default_cats = { "general", "us", "technology", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
+        // Add defaults for any multi-source selection, then add source-specific ones
+        foreach (var c in default_cats) allowed.set(c, true);
+
+        foreach (var id in prefs.preferred_sources) {
+            switch (id) {
+                case "bloomberg": {
+                    allowed.set("markets", true);
+                    allowed.set("industries", true);
+                    allowed.set("economics", true);
+                    allowed.set("wealth", true);
+                    allowed.set("green", true);
+                    // Bloomberg also has technology & politics which are already allowed above
+                }
+                break;
+                case "guardian": {
+                    // Guardian covers the default set; no-op
+                }
+                break;
+                case "nytimes": {
+                    // NYT uses defaults but lacks a dedicated 'lifestyle' feed in some cases
+                }
+                break;
+                case "reddit": {
+                    // Reddit can supply most categories via subreddits
+                }
+                break;
+                case "wsj": {
+                    // WSJ supports world, tech, sports, health, etc.
+                }
+                break;
+                case "bbc": {
+                    // BBC supports the default set
+                }
+                break;
+                default: {
+                    // Unknown sources: assume defaults
+                }
+                break;
+            }
         }
+
+        // Display categories in a stable, prioritized order
+        string[] priority = { "general", "us", "technology", "science", "markets", "industries", "economics", "wealth", "green", "sports", "health", "entertainment", "politics", "lifestyle" };
+        foreach (var cat in priority) {
+            bool present = false;
+            // Gee.HashMap<bool> returns a bool for get; avoid comparing to null.
+            // Iterate entries to safely detect presence and truthiness.
+            foreach (var kv in allowed.entries) {
+                if (kv.key == cat) { present = kv.value; break; }
+            }
+            if (present) sidebar_add_row(category_display_name_for(cat), cat, prefs.category == cat);
+        }
+        return;
+    }
+
+    // Single-source path: show categories appropriate to the selected source
+    // Use the effective source (honour a single-item preferred_sources list)
+    NewsSource sidebar_eff = effective_news_source();
+    if (sidebar_eff == NewsSource.BLOOMBERG) {
+        // Bloomberg-specific categories
+        sidebar_add_row("Markets", "markets", prefs.category == "markets");
+        sidebar_add_row("Industries", "industries", prefs.category == "industries");
+        sidebar_add_row("Economics", "economics", prefs.category == "economics");
+        sidebar_add_row("Wealth", "wealth", prefs.category == "wealth");
+        sidebar_add_row("Green", "green", prefs.category == "green");
+        // Keep technology for Bloomberg as well
+        sidebar_add_row("Technology", "technology", prefs.category == "technology");
+        // Also expose politics for completeness
+        sidebar_add_row("Politics", "politics", prefs.category == "politics");
+    } else {
+        // Default set used for most sources
+        sidebar_add_row("World News", "general", prefs.category == "general");
+        sidebar_add_row("US News", "us", prefs.category == "us");
+        sidebar_add_row("Technology", "technology", prefs.category == "technology");
+        sidebar_add_row("Science", "science", prefs.category == "science");
+        sidebar_add_row("Sports", "sports", prefs.category == "sports");
+        sidebar_add_row("Health", "health", prefs.category == "health");
+        sidebar_add_row("Entertainment", "entertainment", prefs.category == "entertainment");
+        sidebar_add_row("Politics", "politics", prefs.category == "politics");
+        sidebar_add_row("Lifestyle", "lifestyle", prefs.category == "lifestyle");
+    }
     }
 
     // Update the source logo and label based on current news source
     private void update_source_info() {
-        string source_name = "";
-        string? logo_file = null;
+        // If multiple preferred sources are selected, show a combined label
+        if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
+            source_label.set_text("Multiple Sources");
+            try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
+            return;
+        }
+
+    // Determine effective single source (if the user enabled exactly one
+    // preferred source, treat that as the active source). This lets the
+    // multi-select preferences influence the single-source UI when the
+    // user chooses exactly one source via the preferences dialog.
+    NewsSource eff = effective_news_source();
+
+    string source_name = "";
+    string? logo_file = null;
         
-        switch (prefs.news_source) {
+    switch (eff) {
             case NewsSource.GUARDIAN:
                 source_name = "The Guardian";
                 logo_file = "guardian-logo.png";
@@ -533,6 +641,32 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         // Fallback to symbolic icon (this will respect set_pixel_size)
         source_logo.set_from_icon_name("application-rss+xml-symbolic");
+    }
+
+    // Return the NewsSource the UI should treat as "active". If the
+    // user has enabled exactly one preferred source, map that id to the
+    // corresponding enum; otherwise use the explicit prefs.news_source.
+    private NewsSource effective_news_source() {
+        if (prefs.preferred_sources != null && prefs.preferred_sources.size == 1) {
+            try {
+                string id = prefs.preferred_sources.get(0);
+                switch (id) {
+                    case "guardian": return NewsSource.GUARDIAN;
+                    case "reddit": return NewsSource.REDDIT;
+                    case "bbc": return NewsSource.BBC;
+                    case "nytimes": return NewsSource.NEW_YORK_TIMES;
+                    case "wsj": return NewsSource.WALL_STREET_JOURNAL;
+                    case "bloomberg": return NewsSource.BLOOMBERG;
+                    case "reuters": return NewsSource.REUTERS;
+                    case "npr": return NewsSource.NPR;
+                    case "fox": return NewsSource.FOX;
+                    default: return prefs.news_source;
+                }
+            } catch (GLib.Error e) {
+                return prefs.news_source;
+            }
+        }
+        return prefs.news_source;
     }
 
     // Determine if the system is currently using dark mode
@@ -1247,6 +1381,14 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (debug_enabled()) {
             warning("add_item called: current_view=%s article_cat=%s title=%s", prefs.category, category_id, title);
         }
+        // Persist debug trace to file when enabled so we can inspect logs even
+        // if the GUI detaches from the terminal.
+        try {
+            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            if (_dbg != null && _dbg.length > 0) {
+                append_debug_log("add_item: view=" + prefs.category + " article_cat=" + category_id + " title=" + title);
+            }
+        } catch (GLib.Error e) { }
         // Do not hide the initial loading spinner here; we'll reveal content
         // once the hero image is ready or after a short timeout to avoid jarring.
         // If we already have a picture registered for this URL, treat this as an image update
@@ -1493,6 +1635,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             hero_overlay.set_child(hero_image);
             var hero_chip = build_category_chip(category_id);
             hero_overlay.add_overlay(hero_chip);
+            // No source badge on hero cards (keep hero area clean)
 
             // Use reasonable defaults for placeholder and loading since hero will be responsive
             // Estimate hero width from current content width so we request an appropriately-sized image
@@ -1559,8 +1702,18 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             // Initialize carousel state
             if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
+            if (featured_carousel_widgets == null) featured_carousel_widgets = new Gee.ArrayList<Gtk.Widget>();
             featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id));
             featured_carousel_category = category_id;
+
+            // Debug: log hero creation when debug env var is set (also write to file)
+            try {
+                string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                if (_dbg != null && _dbg.length > 0) {
+                    print("DEBUG: created hero for category=%s title=%s\n", category_id, title);
+                    append_debug_log("hero_created: category=" + category_id + " title=" + title);
+                }
+            } catch (GLib.Error e) { }
 
             // Create a stack to hold up to 5 slides
             featured_carousel_stack = new Gtk.Stack();
@@ -1570,6 +1723,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             // Add the first slide (we'll add more slides as subsequent articles arrive)
             featured_carousel_stack.add_named(hero, "0");
+            featured_carousel_widgets.add(hero);
 
             // Wrap the stack and the dots in a single container so the dots
             // appear as part of the hero card itself.
@@ -1651,14 +1805,21 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
             featured_carousel_timeout_id = Timeout.add_seconds(5, () => {
                 if (featured_carousel_stack == null) return false;
-                int total = featured_carousel_items != null ? featured_carousel_items.size : 0;
+                int total = featured_carousel_widgets != null ? featured_carousel_widgets.size : 0;
                 if (total <= 1) return true; // keep running until there are more slides
+                // Advance index and pick a child that is present in the stack
                 featured_carousel_index = (featured_carousel_index + 1) % total;
-                string name = "%d".printf(featured_carousel_index);
-                featured_carousel_stack.set_visible_child_name(name);
-                // Update dots in the visible slide
-                update_carousel_dots(featured_carousel_index);
-                return true; // continue timeout
+                for (int i = 0; i < total; i++) {
+                    var child = featured_carousel_widgets.get(featured_carousel_index) as Gtk.Widget;
+                    if (child != null && child.get_parent() == featured_carousel_stack) {
+                        featured_carousel_stack.set_visible_child(child);
+                        update_carousel_dots(featured_carousel_index);
+                        return true; // continue timeout
+                    }
+                    featured_carousel_index = (featured_carousel_index + 1) % total;
+                }
+                append_debug_log("carousel_timer: no valid child found for stack");
+                return true; // keep trying later
             });
 
             featured_used = true;
@@ -1670,9 +1831,24 @@ public class NewsWindow : Adw.ApplicationWindow {
         // If a featured carousel is active and we haven't reached 5 slides yet,
         // collect additional articles that match the featured category and add
         // them as slides to the carousel instead of rendering normal cards.
-        if (featured_carousel_stack != null && featured_carousel_items != null &&
-            featured_carousel_items.size < 5 && featured_carousel_category != null &&
-            featured_carousel_category == category_id) {
+            if (featured_carousel_stack != null && featured_carousel_items != null &&
+            featured_carousel_items.size < 5) {
+            // In "all" mode we only append slides that match the featured
+            // category (the carousel is seeded with a category). For
+            // specific-category views, prefer using the current view
+            // (`prefs.category`) as the authority since some fetchers may
+            // return slightly different category ids. This makes the
+            // carousel robust for non-"all" categories while preserving
+            // current behaviour for the mixed "all" view.
+            bool allow_slide = false;
+            if (prefs.category == "all") {
+                allow_slide = (featured_carousel_category != null && featured_carousel_category == category_id);
+            } else {
+                allow_slide = (category_id == prefs.category);
+            }
+            if (!allow_slide) {
+                return;
+            }
 
             // Build a slide similar to the hero we create above
             var slide = new Gtk.Box(Orientation.VERTICAL, 0);
@@ -1697,6 +1873,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             slide_overlay.set_child(slide_image);
             var slide_chip = build_category_chip(category_id);
             slide_overlay.add_overlay(slide_chip);
+            // No source badge on carousel slides to keep the hero area clean
 
             int default_w = estimate_content_width();
             int default_h = 250;
@@ -1737,7 +1914,17 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Add slide to stack and to our item list
             int new_index = featured_carousel_items.size;
             featured_carousel_stack.add_named(slide, "%d".printf(new_index));
+            featured_carousel_widgets.add(slide);
             featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id));
+
+            // Debug: log slide addition when debug env var is set (also write to file)
+            try {
+                string? _dbg2 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                if (_dbg2 != null && _dbg2.length > 0) {
+                    print("DEBUG: added slide idx=%d category=%s title=%s\n", new_index, category_id, title);
+                    append_debug_log("slide_added: idx=" + new_index.to_string() + " category=" + category_id + " title=" + title);
+                }
+            } catch (GLib.Error e) { }
 
             // Ensure dots array exists and update their state
             if (featured_carousel_dot_widgets != null) update_carousel_dots(featured_carousel_index);
@@ -1793,6 +1980,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         overlay.set_child(image);
         var chip = build_category_chip(category_id);
         overlay.add_overlay(chip);
+    // Add source badge to normal card
+    NewsSource card_src = infer_source_from_url(url);
+    var card_badge = build_source_badge(card_src);
+    overlay.add_overlay(card_badge);
 
         // Always set placeholder first
         set_placeholder_image(image, img_w, img_h);
@@ -2256,6 +2447,63 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Try to find icon in data directory
         string icon_path = find_data_file("icons/" + icon_filename);
         return icon_path;
+    }
+
+    // Infer source from a URL by checking known domain substrings. Falls back
+    // to the current prefs.news_source when uncertain.
+    private NewsSource infer_source_from_url(string? url) {
+        if (url == null || url.length == 0) return prefs.news_source;
+    string low = url.down();
+        if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) return NewsSource.GUARDIAN;
+        if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) return NewsSource.BBC;
+        if (low.index_of("reddit.com") >= 0 || low.index_of("redd.it") >= 0) return NewsSource.REDDIT;
+        if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) return NewsSource.NEW_YORK_TIMES;
+        if (low.index_of("wsj.com") >= 0 || low.index_of("dowjones") >= 0) return NewsSource.WALL_STREET_JOURNAL;
+        if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
+        if (low.index_of("reuters") >= 0) return NewsSource.REUTERS;
+        if (low.index_of("npr.org") >= 0) return NewsSource.NPR;
+        if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) return NewsSource.FOX;
+        // Unknown, return preference as a sensible default
+        return prefs.news_source;
+    }
+
+    // Build a small source badge widget (icon + short name) to place in the
+    // top-right corner of cards and hero slides.
+    private Gtk.Widget build_source_badge(NewsSource source) {
+        var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
+        box.add_css_class("source-badge");
+    // Position badge at the bottom-right of the overlay
+    box.set_margin_bottom(8);
+    box.set_margin_end(8);
+    box.set_valign(Gtk.Align.END);
+    box.set_halign(Gtk.Align.END);
+
+        // Try to load an icon image for the source
+        string? path = get_source_icon_path(source);
+        if (path != null) {
+            try {
+                var pix = new Gdk.Pixbuf.from_file_at_size(path, 20, 20);
+                if (pix != null) {
+                    var pic = new Gtk.Picture();
+                    var tex = Gdk.Texture.for_pixbuf(pix);
+                    pic.set_paintable(tex);
+                    pic.set_size_request(20, 20);
+                    box.append(pic);
+                }
+            } catch (GLib.Error e) {
+                // ignore and fall back to text
+            }
+        }
+
+        var lbl = new Gtk.Label(get_source_name(source));
+        lbl.add_css_class("source-badge-label");
+        lbl.set_valign(Gtk.Align.CENTER);
+    lbl.set_xalign(0.5f);
+        lbl.set_ellipsize(Pango.EllipsizeMode.END);
+        lbl.set_max_width_chars(12);
+        box.append(lbl);
+
+        return box;
     }
 
     private void create_icon_placeholder(Gtk.Picture image, string icon_path, int width, int height) {
@@ -2741,6 +2989,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             featured_carousel_items.clear();
         }
         featured_carousel_stack = null;
+        if (featured_carousel_widgets != null) featured_carousel_widgets.clear();
         featured_carousel_dots_box = null;
         featured_carousel_index = 0;
         featured_carousel_category = null;
@@ -2873,15 +3122,86 @@ public class NewsWindow : Adw.ApplicationWindow {
             self_ref.add_item(title, url, thumbnail, category_id);
         };
 
-        NewsSources.fetch(
-            prefs.news_source,
-            prefs.category,
-            current_search_query,
-            session,
-            wrapped_set_label,
-            wrapped_clear,
-            wrapped_add
-        );
+        // Support fetching from multiple preferred sources when the user
+        // has enabled more than one in preferences. The preferences store
+        // string ids (e.g. "guardian", "reddit"). Map those to the
+        // NewsSource enum and invoke NewsSources.fetch for each. Ensure
+        // we only clear the UI once (for the first fetch) so subsequent
+        // fetches append their results.
+        bool used_multi = false;
+        if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
+            // Display a combined label and generic logo for multi-source mode
+            try {
+                self_ref.source_label.set_text("Multiple Sources");
+                self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
+            } catch (GLib.Error e) { }
+            used_multi = true;
+
+            // Build list of NewsSource enums from preferred_sources strings
+            Gee.ArrayList<NewsSource> srcs = new Gee.ArrayList<NewsSource>();
+            foreach (var id in prefs.preferred_sources) {
+                switch (id) {
+                    case "guardian": srcs.add(NewsSource.GUARDIAN); break;
+                    case "reddit": srcs.add(NewsSource.REDDIT); break;
+                    case "bbc": srcs.add(NewsSource.BBC); break;
+                    case "nytimes": srcs.add(NewsSource.NEW_YORK_TIMES); break;
+                    case "wsj": srcs.add(NewsSource.WALL_STREET_JOURNAL); break;
+                    case "bloomberg": srcs.add(NewsSource.BLOOMBERG); break;
+                    case "reuters": srcs.add(NewsSource.REUTERS); break;
+                    case "npr": srcs.add(NewsSource.NPR); break;
+                    case "fox": srcs.add(NewsSource.FOX); break;
+                    default: /* ignore unknown ids */ break;
+                }
+            }
+
+            // If mapping failed or produced no sources, fall back to single source
+            if (srcs.size == 0) {
+                NewsSources.fetch(
+                    prefs.news_source,
+                    prefs.category,
+                    current_search_query,
+                    session,
+                    wrapped_set_label,
+                    wrapped_clear,
+                    wrapped_add
+                );
+            } else {
+                // For the first source we pass the real clear_items so the UI is
+                // reset. For subsequent sources, pass a no-op clear to avoid
+                // wiping already-added articles.
+                bool first = true;
+                ClearItemsFunc no_op_clear = () => { };
+                foreach (var s in srcs) {
+                    ClearItemsFunc clear_fn = first ? wrapped_clear : no_op_clear;
+                    // Use a set_label that keeps the combined label when in multi mode
+                    SetLabelFunc label_fn = (text) => {
+                        // keep combined header but include category if present
+                        string src_label = "Multiple Sources";
+                        if (current_search_query.length > 0) {
+                            self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in " + category_display_name_for(prefs.category) + " — " + src_label);
+                        } else {
+                            self_ref.category_label.set_text(category_display_name_for(prefs.category) + " — " + src_label);
+                        }
+                    };
+
+                    NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, clear_fn, wrapped_add);
+                    first = false;
+                }
+            }
+        } else {
+            // Single-source path: keep existing behavior. Use the
+            // effective source so a single selected preferred_source is
+            // respected without requiring prefs.news_source to be changed.
+            NewsSources.fetch(
+                effective_news_source(),
+                prefs.category,
+                current_search_query,
+                session,
+                wrapped_set_label,
+                wrapped_clear,
+                wrapped_add
+            );
+        }
     }
 
     private void show_load_more_button() {

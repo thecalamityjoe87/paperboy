@@ -49,6 +49,24 @@ public class NewsPreferences : GLib.Object {
                 foreach (var r in to_remove) preferred_sources.remove(r);
             }
         }
+        // If the user has enabled exactly one preferred source, keep the
+        // single-source `news_source` value in sync so code that still
+        // reads `prefs.news_source` will reflect the user's intent.
+        if (preferred_sources != null && preferred_sources.size == 1) {
+            string only = preferred_sources.get(0);
+            switch (only) {
+                case "guardian": news_source = NewsSource.GUARDIAN; break;
+                case "reddit": news_source = NewsSource.REDDIT; break;
+                case "bbc": news_source = NewsSource.BBC; break;
+                case "nytimes": news_source = NewsSource.NEW_YORK_TIMES; break;
+                case "wsj": news_source = NewsSource.WALL_STREET_JOURNAL; break;
+                case "bloomberg": news_source = NewsSource.BLOOMBERG; break;
+                case "reuters": news_source = NewsSource.REUTERS; break;
+                case "npr": news_source = NewsSource.NPR; break;
+                case "fox": news_source = NewsSource.FOX; break;
+                default: /* leave news_source unchanged for unknown ids */ break;
+            }
+        }
     }
 
     // Convenience helpers for managing personalized categories
@@ -90,6 +108,14 @@ public class NewsPreferences : GLib.Object {
     private NewsPreferences() {
         config = new GLib.KeyFile();
         config_path = get_config_file_path();
+        // Ensure in-memory defaults are initialized so the UI reflects
+        // the intended defaults on first run (before a config file
+        // is created by save_config()).
+        personalized_categories = new Gee.ArrayList<string>();
+        preferred_sources = new Gee.ArrayList<string>();
+        // Don't seed preferred_sources here. Load configuration first so
+        // pre-existing user choices are respected. If no config exists,
+        // load_config() will create one and seed defaults appropriately.
         load_config();
     }
 

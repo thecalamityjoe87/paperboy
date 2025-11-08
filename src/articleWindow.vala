@@ -77,7 +77,11 @@ public class ArticleWindow : GLib.Object {
         title_wrap.append(meta_label);
         outer.append(title_wrap);
 
-        // Image (constrained)
+    // Infer source for this article so previews show correct branding when
+    // multiple preferred sources are enabled.
+    NewsSource article_src = infer_source_from_url(url);
+
+    // Image (constrained)
         int img_w = estimate_content_width();
         int img_h = clampi((int)(img_w * 9.0 / 16.0), 240, 420);
         var pic_box = new Gtk.Box(Orientation.VERTICAL, 0);
@@ -94,10 +98,12 @@ public class ArticleWindow : GLib.Object {
         pic.set_margin_end(16);
         pic.set_margin_top(8);
         pic.set_margin_bottom(8);
-        set_placeholder_image(pic, img_w, img_h);
+        // Use an article-specific placeholder (so the preview shows the correct
+        // source branding even when the user's global prefs include multiple
+        // sources).
+        set_placeholder_image_for_source(pic, img_w, img_h, article_src);
         if (thumbnail_url != null && thumbnail_url.length > 0 && (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
-            var prefs = NewsPreferences.get_instance();
-            int multiplier = (prefs.news_source == NewsSource.REDDIT) ? 2 : 3;
+            int multiplier = (article_src == NewsSource.REDDIT) ? 2 : 3;
             int target_w = img_w * multiplier;
             int target_h = img_h * multiplier;
             load_image_async(pic, thumbnail_url, target_w, target_h);
@@ -154,7 +160,7 @@ public class ArticleWindow : GLib.Object {
         nav_view.push(page);
         back_btn.set_visible(true);
         // Try to set metadata from any cached article entry (source + published time)
-        var prefs = NewsPreferences.get_instance();
+    var prefs = NewsPreferences.get_instance();
         string? homepage_published_any = null;
         foreach (var item in parent_window.article_buffer) {
             if (item.url == url && item.get_type().name() == "Paperboy.NewsArticle") {
@@ -164,13 +170,13 @@ public class ArticleWindow : GLib.Object {
             }
         }
         if (homepage_published_any != null && homepage_published_any.length > 0) {
-            meta_label.set_text(get_source_name(prefs.news_source) + " • " + format_published(homepage_published_any));
+            meta_label.set_text(get_source_name(article_src) + " • " + format_published(homepage_published_any));
         } else {
-            meta_label.set_text(get_source_name(prefs.news_source));
+            meta_label.set_text(get_source_name(article_src));
         }
 
         // Use homepage snippet for Fox News if available
-        if (prefs.news_source == NewsSource.FOX) {
+    if (article_src == NewsSource.FOX) {
             // Try to get snippet from parent_window/article_buffer
             string? homepage_snippet = null;
             string? homepage_published = null;
@@ -183,10 +189,10 @@ public class ArticleWindow : GLib.Object {
                 }
             }
             if (homepage_published != null && homepage_published.length > 0) {
-                meta_label.set_text(get_source_name(prefs.news_source) + " • " + format_published(homepage_published));
+                meta_label.set_text(get_source_name(article_src) + " • " + format_published(homepage_published));
             } else {
                 // show just source name
-                meta_label.set_text(get_source_name(prefs.news_source));
+                meta_label.set_text(get_source_name(article_src));
             }
 
             if (homepage_snippet != null && homepage_snippet.length > 0) {
@@ -198,7 +204,7 @@ public class ArticleWindow : GLib.Object {
         fetch_snippet_async(url, (text) => {
             string to_show = text.length > 0 ? text : "No preview available. Open the article to read more.";
             snippet_label.set_text(to_show);
-        }, meta_label);
+        }, meta_label, article_src);
         
     }
 
@@ -329,6 +335,26 @@ public class ArticleWindow : GLib.Object {
                 return "News";
         }
     }
+
+        // Infer source from a URL by checking known domain substrings. Falls back
+        // to the current prefs.news_source when uncertain. This mirrors the
+        // helper in appWindow so ArticleWindow can decide branding independently.
+        private NewsSource infer_source_from_url(string? url) {
+            var prefs = NewsPreferences.get_instance();
+            if (url == null || url.length == 0) return prefs.news_source;
+            string low = url.down();
+            if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) return NewsSource.GUARDIAN;
+            if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) return NewsSource.BBC;
+            if (low.index_of("reddit.com") >= 0 || low.index_of("redd.it") >= 0) return NewsSource.REDDIT;
+            if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) return NewsSource.NEW_YORK_TIMES;
+            if (low.index_of("wsj.com") >= 0 || low.index_of("dowjones") >= 0) return NewsSource.WALL_STREET_JOURNAL;
+            if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
+            if (low.index_of("reuters") >= 0) return NewsSource.REUTERS;
+            if (low.index_of("npr.org") >= 0) return NewsSource.NPR;
+            if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) return NewsSource.FOX;
+            // Unknown, return preference as a sensible default
+            return prefs.news_source;
+        }
 
     private string? get_source_icon_path(NewsSource source) {
         string icon_filename;
@@ -557,6 +583,19 @@ public class ArticleWindow : GLib.Object {
         }
     }
 
+    // Variant of set_placeholder_image that honors an explicit NewsSource. This
+    // lets previews and other per-article UI show the correct branding even
+    // when the user's preferences are set to "multiple sources".
+    private void set_placeholder_image_for_source(Gtk.Picture image, int width, int height, NewsSource source) {
+        string? icon_path = get_source_icon_path(source);
+        string source_name = get_source_name(source);
+        if (icon_path != null) {
+            create_icon_placeholder(image, icon_path, source, width, height);
+        } else {
+            create_source_text_placeholder(image, source_name, source, width, height);
+        }
+    }
+
     private void set_placeholder_image(Gtk.Picture image, int width, int height) {
         // Get source icon and create branded placeholder
         var prefs = NewsPreferences.get_instance();
@@ -672,7 +711,7 @@ public class ArticleWindow : GLib.Object {
     }
 
     // Fetch a short snippet from an article URL using common meta tags or first paragraph
-    private void fetch_snippet_async(string url, SnippetCallback on_done, Gtk.Label? meta_label = null) {
+    private void fetch_snippet_async(string url, SnippetCallback on_done, Gtk.Label? meta_label, NewsSource source) {
         new Thread<void*>("snippet-fetch", () => {
             string result = "";
             string published = "";
@@ -730,9 +769,11 @@ public class ArticleWindow : GLib.Object {
             }
             string final = result;
             Idle.add(() => {
-                // If we discovered a published time, set the meta label too
+                // If we discovered a published time, set the meta label too using the
+                // explicit source provided by the caller so previews show the correct
+                // source name even when multiple sources are enabled.
                 if (meta_label != null && published.length > 0) {
-                    meta_label.set_text(get_source_name(NewsPreferences.get_instance().news_source) + " • " + format_published(published));
+                    meta_label.set_text(get_source_name(source) + " • " + format_published(published));
                 }
                 on_done(final);
                 return false;
