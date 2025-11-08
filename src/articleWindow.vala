@@ -744,6 +744,14 @@ public class ArticleWindow : GLib.Object {
         out = out.replace("&#x2014;", "—"); // em dash
         out = out.replace("&#X2014;", "—"); // em dash (uppercase)
 
+        // Common invisible / zero-width characters that appear in some feeds
+        out = out.replace("&#x200B;", ""); // zero-width space
+        out = out.replace("&#X200B;", ""); // zero-width space (uppercase X)
+        out = out.replace("&#8203;", ""); // zero-width space (decimal)
+        // Also remove any literal ZERO WIDTH chars that may have survived
+        out = out.replace("\u200B", "");
+        out = out.replace("\uFEFF", ""); // zero-width no-break space / BOM
+
         // Then decode named HTML entities
         out = out.replace("&amp;", "&");
         out = out.replace("&lt;", "<");
