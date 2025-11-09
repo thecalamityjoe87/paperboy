@@ -551,118 +551,6 @@ public class PrefsDialog : GLib.Object {
             return null;
         }
 
-        // Ensure a white-variant SVG exists for the given custom icon and return its path, else null
-        string? ensure_white_icon_for_local(string original_path) {
-            try {
-                var user_data = GLib.Environment.get_user_data_dir();
-                if (user_data == null || user_data.length == 0) return null;
-                var out_dir = GLib.Path.build_filename(user_data, "paperboy", "icons");
-                GLib.DirUtils.create_with_parents(out_dir, 0755);
-
-                var basename = GLib.Path.get_basename(original_path);
-                string out_name;
-                if (basename.has_suffix(".svg")) {
-                    out_name = basename.substring(0, basename.length - 4) + "-white.svg";
-                } else {
-                    out_name = basename + "-white.svg";
-                }
-                var out_path = GLib.Path.build_filename(out_dir, out_name);
-
-                if (GLib.FileUtils.test(out_path, GLib.FileTest.EXISTS)) return out_path;
-
-                string svg;
-                GLib.FileUtils.get_contents(original_path, out svg);
-
-                string white = svg;
-
-                int pos = 0;
-                while ((pos = white.index_of("fill=\"", pos)) >= 0) {
-                    int start = pos + 6;
-                    int end = white.index_of("\"", start);
-                    if (end < 0) break;
-                    string val = white.substring(start, end - start);
-                    string val_l = val.down().strip();
-                    if (val_l != "none" && !val_l.has_prefix("url(")) {
-                        white = white.substring(0, start) + "#ffffff" + white.substring(end);
-                        pos = start + 7;
-                    } else {
-                        pos = end + 1;
-                    }
-                }
-                pos = 0;
-                while ((pos = white.index_of("stroke=\"", pos)) >= 0) {
-                    int start = pos + 8;
-                    int end = white.index_of("\"", start);
-                    if (end < 0) break;
-                    string val = white.substring(start, end - start);
-                    string val_l = val.down().strip();
-                    if (val_l != "none" && !val_l.has_prefix("url(")) {
-                        white = white.substring(0, start) + "#ffffff" + white.substring(end);
-                        pos = start + 7;
-                    } else {
-                        pos = end + 1;
-                    }
-                }
-
-                pos = 0;
-                while ((pos = white.index_of("style=\"", pos)) >= 0) {
-                    int start = pos + 7;
-                    int end = white.index_of("\"", start);
-                    if (end < 0) break;
-                    string style = white.substring(start, end - start);
-                    string new_style = style;
-                    int s_pos = 0;
-                    while ((s_pos = new_style.index_of("fill:", s_pos)) >= 0) {
-                        int vstart = s_pos + 5;
-                        int vend = new_style.index_of(";", vstart);
-                        if (vend < 0) vend = new_style.length;
-                        string v = new_style.substring(vstart, vend - vstart).strip();
-                        if (v.down() != "none" && !v.has_prefix("url(")) {
-                            new_style = new_style.substring(0, vstart) + "#ffffff" + new_style.substring(vend);
-                            s_pos = vstart + 7;
-                        } else {
-                            s_pos = vend + 1;
-                        }
-                    }
-                    s_pos = 0;
-                    while ((s_pos = new_style.index_of("stroke:", s_pos)) >= 0) {
-                        int vstart = s_pos + 7;
-                        int vend = new_style.index_of(";", vstart);
-                        if (vend < 0) vend = new_style.length;
-                        string v = new_style.substring(vstart, vend - vstart).strip();
-                        if (v.down() != "none" && !v.has_prefix("url(")) {
-                            new_style = new_style.substring(0, vstart) + "#ffffff" + new_style.substring(vend);
-                            s_pos = vstart + 7;
-                        } else {
-                            s_pos = vend + 1;
-                        }
-                    }
-                    white = white.substring(0, start) + new_style + white.substring(end);
-                    pos = start + new_style.length + 1;
-                }
-
-                if (white.index_of("currentColor") >= 0) {
-                    int idx = white.index_of("<svg");
-                    if (idx >= 0) {
-                        int end = white.index_of(">", idx);
-                        if (end > idx) {
-                            var head = white.substring(0, end);
-                            var tail = white.substring(end);
-                            if (head.index_of(" color=") < 0) {
-                                head += " color=\"#ffffff\"";
-                                white = head + tail;
-                            }
-                        }
-                    }
-                }
-
-                GLib.FileUtils.set_contents(out_path, white);
-                return out_path;
-            } catch (GLib.Error e) {
-                return null;
-            }
-        }
-
         // Local helper to create the category icon (tries bundled mono icons then theme fallbacks)
         Gtk.Widget? create_category_icon_local(string cat) {
             string? filename = null;
@@ -686,17 +574,33 @@ public class PrefsDialog : GLib.Object {
                 default: filename = null; break;
             }
             if (filename != null) {
-                var icon_path = find_data_file_local(GLib.Path.build_filename("icons", filename));
+                // Prefer pre-bundled symbolic mono icons inside data/icons/symbolic/
+                string[] candidates = {
+                    GLib.Path.build_filename("icons", "symbolic", filename),
+                    GLib.Path.build_filename("icons", filename)
+                };
+                string? icon_path = null;
+                foreach (var c in candidates) {
+                    icon_path = find_data_file_local(c);
+                    if (icon_path != null) break;
+                }
+
                 if (icon_path != null) {
                     try {
-                        // If the system is in dark mode, prefer a white variant
                         bool dark = false;
                         var sm = Adw.StyleManager.get_default();
                         if (sm != null) dark = sm.dark;
                         string use_path = icon_path;
                         if (dark) {
-                            string? white = ensure_white_icon_for_local(icon_path);
-                            if (white != null) use_path = white;
+                            string alt_name;
+                            if (filename.has_suffix(".svg"))
+                                alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                            else
+                                alt_name = filename + "-white.svg";
+
+                            string? white_candidate = find_data_file_local(GLib.Path.build_filename("icons", "symbolic", alt_name));
+                            if (white_candidate == null) white_candidate = find_data_file_local(GLib.Path.build_filename("icons", alt_name));
+                            if (white_candidate != null) use_path = white_candidate;
                         }
                         var img = new Gtk.Image.from_file(use_path);
                         img.set_pixel_size(16);

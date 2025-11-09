@@ -338,18 +338,39 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
 
         if (filename != null) {
-            var icon_path = find_data_file(GLib.Path.build_filename("icons", filename));
+            // Prefer pre-bundled symbolic mono icons (both black and white
+            // variants live in data/icons/symbolic/). Fall back to the
+            // original data/icons/ location for compatibility.
+            string[] candidates = {
+                GLib.Path.build_filename("icons", "symbolic", filename),
+                GLib.Path.build_filename("icons", filename)
+            };
+            string? icon_path = null;
+            foreach (var c in candidates) {
+                icon_path = find_data_file(c);
+                if (icon_path != null) break;
+            }
+
             if (icon_path != null) {
                 try {
-                    // If we're in dark mode and the icon has colors tuned for light
-                    // backgrounds, produce/get a white variant to improve contrast.
-                    string? maybe_white = null;
+                    // If we're in dark mode, prefer a bundled white variant
+                    // shipped alongside the symbolic icons: <name>-white.svg.
+                    string use_path = icon_path;
                     if (is_dark_mode()) {
-                        maybe_white = ensure_white_icon_for(icon_path);
+                        string alt_name;
+                        if (filename.has_suffix(".svg"))
+                            alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                        else
+                            alt_name = filename + "-white.svg";
+
+                        string? white_candidate = null;
+                        // Check the symbolic folder first for the white asset
+                        white_candidate = find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
+                        if (white_candidate == null) white_candidate = find_data_file(GLib.Path.build_filename("icons", alt_name));
+                        if (white_candidate != null) use_path = white_candidate;
                     }
-                    var load_path = maybe_white != null ? maybe_white : icon_path;
-                    // Load the image directly from the data directory and size it
-                    var img = new Gtk.Image.from_file(load_path);
+
+                    var img = new Gtk.Image.from_file(use_path);
                     img.set_pixel_size(SIDEBAR_ICON_SIZE);
                     return img;
                 } catch (GLib.Error e) {
@@ -601,13 +622,19 @@ public class NewsWindow : Adw.ApplicationWindow {
         // If multiple preferred sources are selected, show a combined label
         if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
             source_label.set_text("Multiple Sources");
-            // Prefer a bundled monochrome multiple-sources icon when available
-            string? multi_icon = find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+            // Prefer the pre-bundled symbolic mono icons (symbolic/)
+            string? multi_icon = find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+            if (multi_icon == null) multi_icon = find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
             if (multi_icon != null) {
                 try {
-                    // Prefer a white variant in dark mode if available
-                    string? use_path = multi_icon;
-                    try { if (is_dark_mode()) { string? white = ensure_white_icon_for(multi_icon); if (white != null) use_path = white; } } catch (GLib.Error e) { }
+                    string use_path = multi_icon;
+                    try {
+                        if (is_dark_mode()) {
+                            string? white_candidate = find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_candidate == null) white_candidate = find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            if (white_candidate != null) use_path = white_candidate;
+                        }
+                    } catch (GLib.Error e) { }
                     var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
                     if (pix != null) {
                         var tex = Gdk.Texture.for_pixbuf(pix);
@@ -750,134 +777,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     private bool is_dark_mode() {
         var sm = Adw.StyleManager.get_default();
         return sm != null ? sm.dark : false;
-    }
-
-    // Ensure a white-variant SVG exists for the given custom icon and return its path, else null
-    private string? ensure_white_icon_for(string original_path) {
-        try {
-            // Write white variants to user data dir to avoid modifying install tree
-            var user_data = GLib.Environment.get_user_data_dir();
-            if (user_data == null || user_data.length == 0) return null;
-            var out_dir = GLib.Path.build_filename(user_data, "paperboy", "icons");
-            GLib.DirUtils.create_with_parents(out_dir, 0755);
-
-            var basename = GLib.Path.get_basename(original_path);
-            // Build output name: append -white before .svg if present
-            string out_name;
-            if (basename.has_suffix(".svg")) {
-                out_name = basename.substring(0, basename.length - 4) + "-white.svg";
-            } else {
-                out_name = basename + "-white.svg";
-            }
-            var out_path = GLib.Path.build_filename(out_dir, out_name);
-
-            // If already exists, return it
-            if (GLib.FileUtils.test(out_path, GLib.FileTest.EXISTS)) {
-                return out_path;
-            }
-
-            // Read original SVG
-            string svg;
-            GLib.FileUtils.get_contents(original_path, out svg);
-
-            // Best-effort recolor to white. We'll perform broader replacements so
-            // icons using various black/near-black values or inline styles are
-            // converted to white for dark mode.
-            string white = svg;
-
-            // 1) Replace explicit fill/stroke attributes unless they are 'none' or a URL reference
-            int pos = 0;
-            while ((pos = white.index_of("fill=\"", pos)) >= 0) {
-                int start = pos + 6; // after 'fill="'
-                int end = white.index_of("\"", start);
-                if (end < 0) break;
-                string val = white.substring(start, end - start);
-                string val_l = val.down().strip();
-                if (val_l != "none" && !val_l.has_prefix("url(")) {
-                    white = white.substring(0, start) + "#ffffff" + white.substring(end);
-                    pos = start + 7; // move past inserted value
-                } else {
-                    pos = end + 1;
-                }
-            }
-            pos = 0;
-            while ((pos = white.index_of("stroke=\"", pos)) >= 0) {
-                int start = pos + 8; // after 'stroke="'
-                int end = white.index_of("\"", start);
-                if (end < 0) break;
-                string val = white.substring(start, end - start);
-                string val_l = val.down().strip();
-                if (val_l != "none" && !val_l.has_prefix("url(")) {
-                    white = white.substring(0, start) + "#ffffff" + white.substring(end);
-                    pos = start + 7;
-                } else {
-                    pos = end + 1;
-                }
-            }
-
-            // 2) Replace occurrences inside style="..." attributes for fill and stroke
-            pos = 0;
-            while ((pos = white.index_of("style=\"", pos)) >= 0) {
-                int start = pos + 7;
-                int end = white.index_of("\"", start);
-                if (end < 0) break;
-                string style = white.substring(start, end - start);
-                string new_style = style;
-                // Replace fill:...; patterns
-                int s_pos = 0;
-                while ((s_pos = new_style.index_of("fill:", s_pos)) >= 0) {
-                    int vstart = s_pos + 5;
-                    int vend = new_style.index_of(";", vstart);
-                    if (vend < 0) vend = new_style.length;
-                    string v = new_style.substring(vstart, vend - vstart).strip();
-                    if (v.down() != "none" && !v.has_prefix("url(")) {
-                        new_style = new_style.substring(0, vstart) + "#ffffff" + new_style.substring(vend);
-                        s_pos = vstart + 7;
-                    } else {
-                        s_pos = vend + 1;
-                    }
-                }
-                // Replace stroke:...; patterns
-                s_pos = 0;
-                while ((s_pos = new_style.index_of("stroke:", s_pos)) >= 0) {
-                    int vstart = s_pos + 7;
-                    int vend = new_style.index_of(";", vstart);
-                    if (vend < 0) vend = new_style.length;
-                    string v = new_style.substring(vstart, vend - vstart).strip();
-                    if (v.down() != "none" && !v.has_prefix("url(")) {
-                        new_style = new_style.substring(0, vstart) + "#ffffff" + new_style.substring(vend);
-                        s_pos = vstart + 7;
-                    } else {
-                        s_pos = vend + 1;
-                    }
-                }
-                // Replace the full style attribute
-                white = white.substring(0, start) + new_style + white.substring(end);
-                pos = start + new_style.length + 1;
-            }
-
-            // 3) If the icon uses currentColor, set the root color to white
-            if (white.index_of("currentColor") >= 0) {
-                int idx = white.index_of("<svg");
-                if (idx >= 0) {
-                    int end = white.index_of(">", idx);
-                    if (end > idx) {
-                        var head = white.substring(0, end);
-                        var tail = white.substring(end);
-                        if (head.index_of(" color=") < 0) {
-                            head += " color=\"#ffffff\"";
-                            white = head + tail;
-                        }
-                    }
-                }
-            }
-
-            GLib.FileUtils.set_contents(out_path, white);
-            return out_path;
-        } catch (GLib.Error e) {
-            // On failure, fall back to original
-            return null;
-        }
     }
 
     public NewsWindow(Adw.Application app) {
@@ -3390,22 +3289,30 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Display a combined label and bundled monochrome logo for multi-source mode
             try {
                 self_ref.source_label.set_text("Multiple Sources");
-                string? multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                // Try symbolic first (includes -white variants), then fall back
+                // to the old location for compatibility.
+                string? multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                if (multi_icon == null) multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
                 if (multi_icon != null) {
                     try {
-                            // Prefer white variant when in dark mode
-                            string? use_path = multi_icon;
-                            try { if (self_ref.is_dark_mode()) { string? white = self_ref.ensure_white_icon_for(multi_icon); if (white != null) use_path = white; } } catch (GLib.Error e) { }
-                            var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                            if (pix != null) {
-                                var tex = Gdk.Texture.for_pixbuf(pix);
-                                self_ref.source_logo.set_from_paintable(tex);
-                            } else {
-                                self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
+                        string use_path = multi_icon;
+                        try {
+                            if (self_ref.is_dark_mode()) {
+                                string? white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                                if (white_cand == null) white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                                if (white_cand != null) use_path = white_cand;
                             }
-                        } catch (GLib.Error e) {
-                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                        } catch (GLib.Error e) { }
+                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
+                        if (pix != null) {
+                            var tex = Gdk.Texture.for_pixbuf(pix);
+                            self_ref.source_logo.set_from_paintable(tex);
+                        } else {
+                            self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
                         }
+                    } catch (GLib.Error e) {
+                        try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                    }
                 } else {
                     try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
                 }
