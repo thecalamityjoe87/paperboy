@@ -3489,10 +3489,16 @@ public class NewsWindow : Adw.ApplicationWindow {
                 SetLabelFunc label_fn = (text) => {
                     string src_label = "Multiple Sources";
                     string display_cat = is_myfeed_mode ? "My Feed" : category_display_name_for(prefs.category);
+                    // Avoid appending the generic "Multiple Sources" suffix to the
+                    // left-side category title since it is redundant. Only include
+                    // the source name when it is a specific source.
+                    string left_label = display_cat;
+                    if (src_label != "Multiple Sources") left_label = display_cat + " — " + src_label;
+
                     if (current_search_query.length > 0) {
-                        self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in " + display_cat + " — " + src_label);
+                        self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in " + left_label);
                     } else {
-                        self_ref.category_label.set_text(display_cat + " — " + src_label);
+                        self_ref.category_label.set_text(left_label);
                     }
                 };
                 foreach (var s in use_srcs) {
