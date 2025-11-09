@@ -1554,6 +1554,29 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     private void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
+        // Ensure we have a sensible per-item source name. If callers didn't
+        // provide one, infer from the URL. For Local News items prefer the
+        // user-configured city name when available so previews/readers show
+        // a meaningful local label.
+        string? final_source_name = source_name;
+        try {
+            var prefs_local = NewsPreferences.get_instance();
+            if (final_source_name == null || final_source_name.length == 0) {
+                if (category_id == "local_news") {
+                    if (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
+                        final_source_name = prefs_local.user_location_city;
+                    else
+                        final_source_name = "Local News";
+                } else {
+                    NewsSource inferred = infer_source_from_url(url);
+                    final_source_name = get_source_name(inferred);
+                }
+            }
+        } catch (GLib.Error e) {
+            // Best-effort: leave final_source_name as provided (may be null)
+            final_source_name = source_name;
+        }
+
         // Debug helper: print when enabled via env var
         bool debug_enabled() {
             // Use GLib.Environment-compatible accessor for environment variables
@@ -1590,7 +1613,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             }
         }
-        if (existing != null && thumbnail_url != null && thumbnail_url.length > 0) {
+    if (existing != null && thumbnail_url != null && thumbnail_url.length > 0) {
                 // Determine target size from hero_requests (if this is a hero) or column width
                 var info = hero_requests.get(existing);
                 int target_w = info != null ? info.last_requested_w : estimate_column_width(columns_count);
@@ -1688,7 +1711,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         }
         
-        if (prefs.category == "all") {
+    if (prefs.category == "all") {
             // If the user selected "All Categories" but the EFFECTIVE single
             // source is Bloomberg (i.e. single-source Bloomberg mode), only
             // accept articles whose category is one of Bloomberg's available
@@ -1712,7 +1735,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
 
         // For "All Categories", add to buffer for later shuffling
-            var item = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
+            var item = new ArticleItem(title, url, thumbnail_url, category_id, final_source_name);
             article_buffer.add(item);
             
             // Schedule buffer flush (reset timer each time an article is added)
@@ -1904,7 +1927,11 @@ public class NewsWindow : Adw.ApplicationWindow {
             int default_hero_w = estimate_content_width();
             int default_hero_h = 250; // Match the image height we set above
             
-            set_placeholder_image(hero_image, default_hero_w, default_hero_h);
+            if (category_id == "local_news") {
+                set_local_placeholder_image(hero_image, default_hero_w, default_hero_h);
+            } else {
+                set_placeholder_image(hero_image, default_hero_w, default_hero_h);
+            }
             if (thumbnail_url != null && thumbnail_url.length > 0 &&
                 (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
                 // Use different resolution multiplier based on source - Reddit images are typically larger

@@ -37,6 +37,22 @@ public class ArticleWindow : GLib.Object {
         parent_window = window;
     }
 
+    // Local debug logger: write lightweight traces to /tmp/paperboy-debug.log
+    // This mirrors the debug helper in NewsWindow but is kept private so
+    // the ArticleWindow can emit logs without accessing NewsWindow's private
+    // members.
+    private void append_debug_log(string line) {
+        try {
+            string path = "/tmp/paperboy-debug.log";
+            string old = "";
+            try { GLib.FileUtils.get_contents(path, out old); } catch (GLib.Error e) { old = ""; }
+            string outc = old + line + "\n";
+            GLib.FileUtils.set_contents(path, outc);
+        } catch (GLib.Error e) {
+            // best-effort logging only
+        }
+    }
+
     // Show a modal preview with image and a small snippet
     // `category_id` is optional; when it's "local_news" we prefer the
     // app-local placeholder so previews for Local News items match the
@@ -196,18 +212,57 @@ public class ArticleWindow : GLib.Object {
                 // Continue searching to prefer a Paperboy.NewsArticle published time if present
             }
         }
+    // Choose a sensible display name for the source. Prefer an explicit
+    // per-item source when present. Otherwise, derive a friendly name
+    // from the inferred NewsSource. If inference fell back to the
+    // user's default (e.g. NewsPreferences.news_source) while multiple
+    // preferred sources are enabled, try to derive a host-based name
+    // from the article URL so we don't incorrectly show a specific
+    // provider like "The Guardian".
+        string display_source = null;
         if (explicit_source_name != null && explicit_source_name.length > 0) {
-            if (homepage_published_any != null && homepage_published_any.length > 0)
-                meta_label.set_text(explicit_source_name + " • " + format_published(homepage_published_any));
-            else
-                meta_label.set_text(explicit_source_name);
+            display_source = explicit_source_name;
         } else {
-            if (homepage_published_any != null && homepage_published_any.length > 0) {
-                meta_label.set_text(get_source_name(article_src) + " • " + format_published(homepage_published_any));
+            // Local News should prefer a user-friendly local label (city)
+            // when available so previews don't show unrelated provider names.
+            if (category_id != null && category_id == "local_news") {
+                if (prefs.user_location_city != null && prefs.user_location_city.length > 0)
+                    display_source = prefs.user_location_city;
+                else
+                    display_source = "Local News";
             } else {
-                meta_label.set_text(get_source_name(article_src));
+                // If inference fell back to the user's global default (e.g. the
+                // user has set a single preferred source) but the article URL
+                // is from an unknown host, prefer a host-derived friendly name
+                // instead of always showing the global provider (avoids "The Guardian"
+                // appearing for local or miscellaneous feeds).
+                if (article_src == prefs.news_source) {
+                    string host = extract_host_from_url(url);
+                    if (host != null && host.length > 0) display_source = prettify_host(host);
+                }
+                if (display_source == null) display_source = get_source_name(article_src);
             }
         }
+
+                // Debug trace the decision so we can inspect runtime behavior when
+                // PAPERBOY_DEBUG is enabled. This helps explain cases where the
+                // preview label is repainted unexpectedly.
+                try {
+            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            if (_dbg != null && _dbg.length > 0) {
+                try { append_debug_log("show_article_preview: explicit_source=" + (explicit_source_name != null ? explicit_source_name : "(null)") +
+                                 " inferred=" + get_source_name(article_src) +
+                                 " prefs_news_source=" + get_source_name(prefs.news_source) +
+                                 " category=" + (category_id != null ? category_id : "(null)") +
+                                 " host=" + extract_host_from_url(url) +
+                                 " display_source=" + display_source); } catch (GLib.Error ee) { }
+            }
+        } catch (GLib.Error e) { }
+
+                if (homepage_published_any != null && homepage_published_any.length > 0)
+                    meta_label.set_text(display_source + " • " + format_published(homepage_published_any));
+                else
+                    meta_label.set_text(display_source);
 
         // Use homepage snippet for Fox News if available
     if (article_src == NewsSource.FOX) {
@@ -235,10 +290,13 @@ public class ArticleWindow : GLib.Object {
             }
         }
         // Otherwise, fetch snippet asynchronously
+        // Pass the already-chosen friendly display_source into the snippet
+        // fetcher so it doesn't overwrite our localized/host-derived label
+        // with the (potentially incorrect) global provider name.
         fetch_snippet_async(url, (text) => {
             string to_show = text.length > 0 ? text : "No preview available. Open the article to read more.";
             snippet_label.set_text(to_show);
-        }, meta_label, article_src);
+        }, meta_label, article_src, display_source);
         
     }
 
@@ -389,6 +447,78 @@ public class ArticleWindow : GLib.Object {
             // Unknown, return preference as a sensible default
             return prefs.news_source;
         }
+
+    // Extract host portion from a URL (e.g., "https://www.example.com/path" -> "example.com").
+        private string extract_host_from_url(string? url) {
+            if (url == null) return "";
+            string u = url.strip();
+            if (u.length == 0) return "";
+            // Strip scheme
+            int scheme_end = u.index_of("://");
+            if (scheme_end >= 0) u = u.substring(scheme_end + 3);
+            // Cut at first slash
+        int slash = u.index_of("/");
+            if (slash >= 0) u = u.substring(0, slash);
+            // Remove port if present
+        int colon = u.index_of(":");
+            if (colon >= 0) u = u.substring(0, colon);
+            u = u.down();
+            // Strip common www prefix
+            if (u.has_prefix("www.")) u = u.substring(4);
+            return u;
+        }
+
+        // Turn a host like "example-news.co.uk" into a friendly display string
+        // such as "Example News". This is intentionally simple and is only
+        // used as a fallback when no explicit source name is available.
+    private string prettify_host(string host) {
+            if (host == null) return "News";
+            string h = host.strip();
+            if (h.length == 0) return "News";
+            // Take left-most label as the short name (e.g., "example-news")
+            int dot = h.index_of(".");
+            if (dot >= 0) h = h.substring(0, dot);
+            // Replace hyphens/underscores with spaces and split into words
+            h = h.replace("-", " ");
+            h = h.replace("_", " ");
+            // Capitalize words (ASCII-safe simple capitalization)
+            string out = "";
+            string[] parts = h.split(" ");
+            foreach (var p in parts) {
+                if (p.length == 0) continue;
+                string w = ascii_capitalize(p);
+                out += (out.length > 0 ? " " : "") + w;
+            }
+            // Handle common host-name quirks and a couple of branded exceptions
+            // e.g. "theguardian" -> "The Guardian", "nytimes" -> "NY Times"
+            string lower_out = out.down();
+            if (lower_out.has_prefix("the") && lower_out.length > 3 && lower_out.index_of(" ") < 0) {
+                // Split off the leading "the" into a separate word
+                string rest = lower_out.substring(3);
+                if (rest.length > 0) {
+                    // Capitalize the remainder nicely and return
+                    return "The " + ascii_capitalize(rest);
+                }
+            }
+            // Small exceptions map for well-known sites that are commonly
+            // concatenated in hosts.
+            if (lower_out == "nytimes" || lower_out == "ny time") return "NY Times";
+            if (lower_out == "wsj" || lower_out == "wallstreetjournal" || lower_out == "wallstreet") return "Wall Street Journal";
+            if (out.length == 0) return "News";
+            return out;
+        }
+
+    // Simple ASCII capitalization helper: first char upper, remainder lower.
+    private string ascii_capitalize(string s) {
+        if (s == null) return "";
+        if (s.length == 0) return s;
+        char c = s[0];
+        char up = c;
+        if (c >= 'a' && c <= 'z') up = (char)(c - 32);
+        string first = "%c".printf(up);
+        string rest = s.length > 1 ? s.substring(1).down() : "";
+        return first + rest;
+    }
 
     private string? get_source_icon_path(NewsSource source) {
         string icon_filename;
@@ -745,7 +875,7 @@ public class ArticleWindow : GLib.Object {
     }
 
     // Fetch a short snippet from an article URL using common meta tags or first paragraph
-    private void fetch_snippet_async(string url, SnippetCallback on_done, Gtk.Label? meta_label, NewsSource source) {
+    private void fetch_snippet_async(string url, SnippetCallback on_done, Gtk.Label? meta_label, NewsSource source, string? display_source) {
         new Thread<void*>("snippet-fetch", () => {
             string result = "";
             string published = "";
@@ -803,11 +933,18 @@ public class ArticleWindow : GLib.Object {
             }
             string final = result;
             Idle.add(() => {
-                // If we discovered a published time, set the meta label too using the
-                // explicit source provided by the caller so previews show the correct
-                // source name even when multiple sources are enabled.
+                // If we discovered a published time, set the meta label too.
+                // Use the display_source chosen by the preview logic when
+                // available so that the snippet fetcher doesn't overwrite a
+                // more specific/local label (for example the user's city for
+                // Local News) with the application's global source name.
                 if (meta_label != null && published.length > 0) {
-                    meta_label.set_text(get_source_name(source) + " • " + format_published(published));
+                    string label_to_use = (display_source != null && display_source.length > 0) ? display_source : get_source_name(source);
+                    try {
+                        string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                        if (_dbg != null && _dbg.length > 0) append_debug_log("fetch_snippet_async: url=" + url + " published=" + published + " label=" + label_to_use);
+                    } catch (GLib.Error e) { }
+                    meta_label.set_text(label_to_use + " • " + format_published(published));
                 }
                 on_done(final);
                 return false;
