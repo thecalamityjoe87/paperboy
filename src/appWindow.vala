@@ -1179,7 +1179,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     inner_center.append(personalized_message_sub_label);
 
     // Action button to open the preferences dialog when helpful
-    personalized_message_action = new Gtk.Button.with_label("Open Preferences");
+    personalized_message_action = new Gtk.Button.with_label("Set Source Options");
     personalized_message_action.set_halign(Gtk.Align.CENTER);
     personalized_message_action.set_valign(Gtk.Align.CENTER);
     personalized_message_action.set_margin_top(8);

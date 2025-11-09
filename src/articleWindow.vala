@@ -238,7 +238,17 @@ public class ArticleWindow : GLib.Object {
                 // appearing for local or miscellaneous feeds).
                 if (article_src == prefs.news_source) {
                     string host = extract_host_from_url(url);
-                    if (host != null && host.length > 0) display_source = prettify_host(host);
+                    if (host != null && host.length > 0) {
+                        // If the host clearly indicates a well-known provider (e.g. bbc,
+                        // guardian, nytimes), prefer the canonical brand name rather
+                        // than prettifying the host (which would turn "bbc" -> "Bbc").
+                        string lowhost = host.down();
+                        if (lowhost.index_of("bbc") >= 0 || lowhost.index_of("guardian") >= 0 || lowhost.index_of("nytimes") >= 0 || lowhost.index_of("wsj") >= 0 || lowhost.index_of("bloomberg") >= 0 || lowhost.index_of("reuters") >= 0 || lowhost.index_of("npr") >= 0 || lowhost.index_of("fox") >= 0) {
+                            display_source = get_source_name(article_src);
+                        } else {
+                            display_source = prettify_host(host);
+                        }
+                    }
                 }
                 if (display_source == null) display_source = get_source_name(article_src);
             }
