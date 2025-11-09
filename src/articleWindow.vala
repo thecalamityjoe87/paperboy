@@ -38,7 +38,10 @@ public class ArticleWindow : GLib.Object {
     }
 
     // Show a modal preview with image and a small snippet
-    public void show_article_preview(string title, string url, string? thumbnail_url) {
+    // `category_id` is optional; when it's "local_news" we prefer the
+    // app-local placeholder so previews for Local News items match the
+    // card/hero placeholders used in the main UI.
+    public void show_article_preview(string title, string url, string? thumbnail_url, string? category_id = null) {
         // Build a scrolling preview page with a max height constraint
         var outer = new Gtk.Box(Orientation.VERTICAL, 0);
 
@@ -98,10 +101,25 @@ public class ArticleWindow : GLib.Object {
         pic.set_margin_end(16);
         pic.set_margin_top(8);
         pic.set_margin_bottom(8);
-        // Use an article-specific placeholder (so the preview shows the correct
-        // source branding even when the user's global prefs include multiple
-        // sources).
-        set_placeholder_image_for_source(pic, img_w, img_h, article_src);
+        // Use the Local News placeholder when the article belongs to the
+        // Local News category so previews match the feed cards. Otherwise
+        // fall back to the source-specific placeholder.
+        if (category_id != null && category_id == "local_news") {
+            try {
+                // Delegate to the main window's local placeholder routine so
+                // the styling is consistent across the app.
+                parent_window.set_local_placeholder_image(pic, img_w, img_h);
+            } catch (GLib.Error e) {
+                // If for some reason the parent can't render the local
+                // placeholder, fall back to the per-source placeholder.
+                set_placeholder_image_for_source(pic, img_w, img_h, article_src);
+            }
+        } else {
+            // Use an article-specific placeholder (so the preview shows the correct
+            // source branding even when the user's global prefs include multiple
+            // sources).
+            set_placeholder_image_for_source(pic, img_w, img_h, article_src);
+        }
         if (thumbnail_url != null && thumbnail_url.length > 0 && (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
             int multiplier = (article_src == NewsSource.REDDIT) ? 2 : 3;
             int target_w = img_w * multiplier;
@@ -162,17 +180,33 @@ public class ArticleWindow : GLib.Object {
         // Try to set metadata from any cached article entry (source + published time)
     var prefs = NewsPreferences.get_instance();
         string? homepage_published_any = null;
+        string? explicit_source_name = null;
         foreach (var item in parent_window.article_buffer) {
-            if (item.url == url && item.get_type().name() == "Paperboy.NewsArticle") {
-                var na = (Paperboy.NewsArticle)item;
-                homepage_published_any = na.published;
-                break;
+            if (item.url == url) {
+                // Prefer explicit per-item source name when available (ArticleItem)
+                try {
+                    if (item is ArticleItem) {
+                        var ai = (ArticleItem) item;
+                        explicit_source_name = ai.source_name;
+                    } else if (item.get_type().name() == "Paperboy.NewsArticle") {
+                        var na = (Paperboy.NewsArticle)item;
+                        homepage_published_any = na.published;
+                    }
+                } catch (GLib.Error e) { }
+                // Continue searching to prefer a Paperboy.NewsArticle published time if present
             }
         }
-        if (homepage_published_any != null && homepage_published_any.length > 0) {
-            meta_label.set_text(get_source_name(article_src) + " • " + format_published(homepage_published_any));
+        if (explicit_source_name != null && explicit_source_name.length > 0) {
+            if (homepage_published_any != null && homepage_published_any.length > 0)
+                meta_label.set_text(explicit_source_name + " • " + format_published(homepage_published_any));
+            else
+                meta_label.set_text(explicit_source_name);
         } else {
-            meta_label.set_text(get_source_name(article_src));
+            if (homepage_published_any != null && homepage_published_any.length > 0) {
+                meta_label.set_text(get_source_name(article_src) + " • " + format_published(homepage_published_any));
+            } else {
+                meta_label.set_text(get_source_name(article_src));
+            }
         }
 
         // Use homepage snippet for Fox News if available

@@ -148,7 +148,7 @@ public class RssParser {
 
                 clear_items();
                 foreach (var row in items) {
-                    add_item(row[0] ?? "No title", row[1] ?? "", row[2], category_id);
+                    add_item(row[0] ?? "No title", row[1] ?? "", row[2], category_id, source_name);
                 }
                 return false;
             });

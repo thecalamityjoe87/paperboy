@@ -25,12 +25,14 @@ public class ArticleItem : GLib.Object {
     public string url { get; set; }
     public string? thumbnail_url { get; set; }
     public string category_id { get; set; }
+    public string? source_name { get; set; }
     
-    public ArticleItem(string title, string url, string? thumbnail_url, string category_id) {
+    public ArticleItem(string title, string url, string? thumbnail_url, string category_id, string? source_name = null) {
         this.title = title;
         this.url = url;
         this.thumbnail_url = thumbnail_url;
         this.category_id = category_id;
+        this.source_name = source_name;
     }
 }
  
@@ -828,6 +830,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         return sm != null ? sm.dark : false;
     }
 
+    private Gtk.Label? personalized_message_sub_label;
+
     public NewsWindow(Adw.Application app) {
         GLib.Object(application: app);
         title = "Paperboy";
@@ -1150,6 +1154,20 @@ public class NewsWindow : Adw.ApplicationWindow {
     try { personalized_message_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR); } catch (GLib.Error e) { }
     inner_center.append(personalized_message_label);
 
+    // Secondary label: smaller and dimmer, kept as a second-line text
+    personalized_message_sub_label = new Gtk.Label("");
+    personalized_message_sub_label.add_css_class("dim-label");
+    personalized_message_sub_label.add_css_class("caption");
+    personalized_message_sub_label.set_halign(Gtk.Align.CENTER);
+    personalized_message_sub_label.set_valign(Gtk.Align.CENTER);
+    try { personalized_message_sub_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
+    try { personalized_message_sub_label.set_wrap(true); } catch (GLib.Error e) { }
+    try { personalized_message_sub_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR); } catch (GLib.Error e) { }
+    personalized_message_sub_label.set_margin_top(6);
+    // Start hidden; we show/set it only when we have a second-line hint
+    personalized_message_sub_label.set_visible(false);
+    inner_center.append(personalized_message_sub_label);
+
     // Action button to open the preferences dialog when helpful
     personalized_message_action = new Gtk.Button.with_label("Open Preferences");
     personalized_message_action.set_halign(Gtk.Align.CENTER);
@@ -1158,7 +1176,10 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Connect to preferences dialog (open the sources/settings dialog)
     personalized_message_action.clicked.connect(() => {
         try {
-            PrefsDialog.show_source_dialog(this);
+            // Open the full sources list dialog (with toggles) rather than
+            // the brief alert-style dialog so users can adjust sources
+            // immediately from the personalized message action.
+            PrefsDialog.show_sources_list_dialog(this);
         } catch (GLib.Error e) { }
     });
     // Start hidden; we'll show it only when appropriate
@@ -1325,7 +1346,15 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // initial state and fetch
         update_sidebar_for_source();
-        fetch_news();
+        // If this is the user's first run, the preferences dialog will be
+        // presented from main.activate(). Defer the initial network fetch
+        // so the dialog can appear and the user can adjust sources first.
+        try {
+            var prefs_local = NewsPreferences.get_instance();
+            if (prefs_local == null || !prefs_local.first_run) {
+                fetch_news();
+            }
+        } catch (GLib.Error e) { fetch_news(); }
 
     // Ensure the personalized message visibility is correct at startup
     update_personalization_ui();
@@ -1367,14 +1396,22 @@ public class NewsWindow : Adw.ApplicationWindow {
         try {
             if (is_myfeed) {
                 if (!enabled) {
-                    // Prompt to enable personalization (add actionable hint beneath)
+                    // Prompt to enable personalization (main line + smaller hint beneath)
                     if (personalized_message_label != null) personalized_message_label.set_text("Enable this option in settings to get a personalized feed.");
+                    if (personalized_message_sub_label != null) {
+                        personalized_message_sub_label.set_text("Open the main menu (☰) and choose 'Preferences' → 'Set Source Options' and toggle 'Enable Personalized Feed'");
+                        personalized_message_sub_label.set_visible(true);
+                    }
                     // Show the action button so users can jump straight to prefs
                     if (personalized_message_action != null) personalized_message_action.set_visible(true);
                     show_message = true;
                 } else if (enabled && !has_personalized) {
-                    // Personalization enabled but no categories selected
-                    if (personalized_message_label != null) personalized_message_label.set_text("Personalized Feed is enabled but no categories are selected. \nOpen Preferences → Personalized Feed and choose categories to enable My Feed.");
+                    // Personalization enabled but no categories selected: provide a smaller hint line beneath
+                    if (personalized_message_label != null) personalized_message_label.set_text("Personalized Feed is enabled but no categories are selected.");
+                    if (personalized_message_sub_label != null) {
+                        personalized_message_sub_label.set_text("Open Preferences → Personalized Feed and choose categories to enable My Feed.");
+                        personalized_message_sub_label.set_visible(true);
+                    }
                     if (personalized_message_action != null) personalized_message_action.set_visible(true);
                     show_message = true;
                 } else {
@@ -1400,6 +1437,11 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (loading_container != null && show_message) {
                 loading_container.set_visible(false);
             }
+        } catch (GLib.Error e) { }
+
+        // Ensure the secondary hint label is hidden when the overlay is not shown
+        try {
+            if (personalized_message_sub_label != null && !show_message) personalized_message_sub_label.set_visible(false);
         } catch (GLib.Error e) { }
 
         // Also update local-news guidance overlay state in case the user
@@ -1511,7 +1553,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         return chip;
     }
 
-    private void add_item(string title, string url, string? thumbnail_url, string category_id) {
+    private void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
         // Debug helper: print when enabled via env var
         bool debug_enabled() {
             // Use GLib.Environment-compatible accessor for environment variables
@@ -1670,7 +1712,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
 
         // For "All Categories", add to buffer for later shuffling
-            var item = new ArticleItem(title, url, thumbnail_url, category_id);
+            var item = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
             article_buffer.add(item);
             
             // Schedule buffer flush (reset timer each time an article is added)
@@ -1684,7 +1726,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             });
         } else {
             // For specific categories, add directly
-            add_item_immediate_to_column(title, url, thumbnail_url, category_id);
+            add_item_immediate_to_column(title, url, thumbnail_url, category_id, -1, null, source_name);
         }
     }
     
@@ -1733,7 +1775,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
             
             var article = articles[i];
-            add_item_shuffled(article.title, article.url, article.thumbnail_url, article.category_id);
+            add_item_shuffled(article.title, article.url, article.thumbnail_url, article.category_id, article.source_name);
             articles_added++;
         }
         
@@ -1748,7 +1790,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
     
-    private void add_item_shuffled(string title, string url, string? thumbnail_url, string category_id) {
+    private void add_item_shuffled(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
         // Simple round-robin distribution for shuffled articles  
         int target_col = next_column_index;
         next_column_index = (next_column_index + 1) % columns.length;
@@ -1756,11 +1798,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Temporarily override category to force immediate placement
         string saved_category = prefs.category;
         prefs.category = category_id; // Set to non-"all" to skip buffering logic
-        add_item_immediate_to_column(title, url, thumbnail_url, category_id, target_col, saved_category);
+        add_item_immediate_to_column(title, url, thumbnail_url, category_id, target_col, saved_category, source_name);
         prefs.category = saved_category; // Restore
     }
     
-    private void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null) {
+    private void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null, string? source_name = null) {
     // Check article limit for "All Categories" mode FIRST
         // Use original_category if provided (for when category is temporarily overridden)
         string check_category = original_category ?? prefs.category;
@@ -1903,7 +1945,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             var hero_click = new Gtk.GestureClick();
             hero_click.released.connect(() => {
-                article_window.show_article_preview(title, url, thumbnail_url);
+                article_window.show_article_preview(title, url, thumbnail_url, category_id);
             });
             hero.add_controller(hero_click);
 
@@ -1923,7 +1965,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Initialize carousel state
             if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
             if (featured_carousel_widgets == null) featured_carousel_widgets = new Gee.ArrayList<Gtk.Widget>();
-            featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id));
+            featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
             featured_carousel_category = category_id;
 
             // Debug: log hero creation when debug env var is set (also write to file)
@@ -2149,7 +2191,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             var slide_click = new Gtk.GestureClick();
             slide_click.released.connect(() => {
-                article_window.show_article_preview(title, url, thumbnail_url);
+                article_window.show_article_preview(title, url, thumbnail_url, category_id);
             });
             slide.add_controller(slide_click);
 
@@ -2157,7 +2199,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             int new_index = featured_carousel_items.size;
             featured_carousel_stack.add_named(slide, "%d".printf(new_index));
             featured_carousel_widgets.add(slide);
-            featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id));
+            featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
 
             // Debug: log slide addition when debug env var is set (also write to file)
             try {
@@ -2278,8 +2320,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         card.append(title_box);
         
         // Make the whole card clickable
-        var gesture = new Gtk.GestureClick();
-        gesture.released.connect(() => { article_window.show_article_preview(title, url, thumbnail_url); });
+    var gesture = new Gtk.GestureClick();
+    gesture.released.connect(() => { article_window.show_article_preview(title, url, thumbnail_url, category_id); });
         card.add_controller(gesture);
         
         // Add hover effect
@@ -2949,7 +2991,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Local-news specific placeholder that uses the app-local mono icon
     // (symbolic) and prefers a white variant in dark mode.
-    private void set_local_placeholder_image(Gtk.Picture image, int width, int height) {
+    public void set_local_placeholder_image(Gtk.Picture image, int width, int height) {
         try {
             string? local_icon = find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
             if (local_icon == null) local_icon = find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
@@ -3364,6 +3406,18 @@ public class NewsWindow : Adw.ApplicationWindow {
             load_more_button = null;
         }
         
+        // If the user selected "My Feed" but personalization is disabled,
+        // do not show the loading spinner or attempt to fetch content here.
+        // Instead, ensure the personalized overlay is updated and return.
+        bool is_myfeed_disabled = (prefs.category == "myfeed" && !prefs.personalized_feed_enabled);
+        if (is_myfeed_disabled) {
+            try { if (current_search_query.length > 0) category_label.set_text("Search Results: \"" + current_search_query + "\" in My Feed"); else category_label.set_text("My Feed"); } catch (GLib.Error e) { }
+            try { update_personalization_ui(); } catch (GLib.Error e) { }
+            // Ensure any spinner is hidden and don't proceed to fetch
+            hide_loading_spinner();
+            return;
+        }
+
         // Show loading spinner while fetching content
         show_loading_spinner();
 
@@ -3467,12 +3521,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         };
 
         // Wrapped add_item: ignore items from stale fetches
-    AddItemFunc wrapped_add = (title, url, thumbnail, category_id) => {
+    AddItemFunc wrapped_add = (title, url, thumbnail, category_id, source_name) => {
             if (my_seq != self_ref.fetch_sequence) {
                 try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_add: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string() + " article_cat=" + category_id); } catch (GLib.Error e) { }
                 return;
             }
-            self_ref.add_item(title, url, thumbnail, category_id);
+            self_ref.add_item(title, url, thumbnail, category_id, source_name);
         };
 
         // Support fetching from multiple preferred sources when the user
@@ -3493,8 +3547,13 @@ public class NewsWindow : Adw.ApplicationWindow {
                 myfeed_cats = new string[prefs.personalized_categories.size];
                 for (int i = 0; i < prefs.personalized_categories.size; i++) myfeed_cats[i] = prefs.personalized_categories.get(i);
             } else {
-                // No personalized categories selected: fall back to a sane default
-                myfeed_cats = { "general" };
+                // Personalization enabled but no categories selected: do not fall
+                // back to a default. Instead, avoid fetching content so the
+                // personalized overlay (shown elsewhere) can be displayed.
+                try { wrapped_clear(); } catch (GLib.Error e) { }
+                try { wrapped_set_label("My Feed — No personalized categories selected"); } catch (GLib.Error e) { }
+                hide_loading_spinner();
+                return;
             }
         }
 
@@ -3800,7 +3859,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         for (int i = 0; i < articles_to_load; i++) {
             var article = remaining_articles[remaining_articles_index + i];
-            add_item_shuffled(article.title, article.url, article.thumbnail_url, article.category_id);
+            add_item_shuffled(article.title, article.url, article.thumbnail_url, article.category_id, article.source_name);
         }
         
         remaining_articles_index += articles_to_load;

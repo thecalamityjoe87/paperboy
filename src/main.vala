@@ -36,6 +36,15 @@ public class PaperboyApp : Adw.Application {
         // database is ready by the time the user opens the Set Location
         // dialog.
         try { ZipLookup.get_instance(); } catch (GLib.Error e) { }
+        // If this is the user's first time running the app, show the
+        // source-selection dialog so they can adjust sources immediately.
+        try {
+            var prefs = NewsPreferences.get_instance();
+            // On first run, show the full sources list dialog (with toggles)
+            // instead of the brief 'News Source' alert so users can immediately
+            // enable/disable individual providers.
+            if (prefs.first_run) PrefsDialog.show_sources_list_dialog(win);
+        } catch (GLib.Error e) { }
         
         var change_source_action = new SimpleAction("change-source", null);
         change_source_action.activate.connect(() => {

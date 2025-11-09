@@ -130,7 +130,7 @@ public class ImageParser {
 
 	// Fetch Open Graph image and title from an article page and call add_item
 	// to silently update the UI (same behavior previously implemented inline).
-	public static void fetch_open_graph_image(string article_url, Soup.Session session, AddItemFunc add_item, string current_category) {
+	public static void fetch_open_graph_image(string article_url, Soup.Session session, AddItemFunc add_item, string current_category, string? source_name) {
 		new Thread<void*>("fetch-og-image", () => {
 			try {
 				var msg = new Soup.Message("GET", article_url);
@@ -159,7 +159,7 @@ public class ImageParser {
 						if (title.length == 0) title = article_url;
 
 						Idle.add(() => {
-							add_item(title, article_url, image_url, current_category);
+							add_item(title, article_url, image_url, current_category, source_name);
 							return false;
 						});
 					}

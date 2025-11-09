@@ -33,7 +33,7 @@ public enum NewsSource {
 
 public delegate void SetLabelFunc(string text);
 public delegate void ClearItemsFunc();
-public delegate void AddItemFunc(string title, string url, string? thumbnail_url, string category_id);
+public delegate void AddItemFunc(string title, string url, string? thumbnail_url, string category_id, string? source_name);
 
 public class NewsSources {
     // Entry point
@@ -486,7 +486,7 @@ public class NewsSources {
                                 thumbnail = fields.get_string_member("thumbnail");
                             }
                         }
-                        add_item(title, article_url, thumbnail, current_category);
+                        add_item(title, article_url, thumbnail, current_category, "The Guardian");
                     }
                     // Attempt to fetch higher-quality images (OG images) for Guardian articles
                     fetch_guardian_article_images(results, session, add_item, current_category);
@@ -618,7 +618,7 @@ public class NewsSources {
                             }
                         }
                         
-                        add_item(title, post_url, thumbnail, current_category);
+                        add_item(title, post_url, thumbnail, current_category, "Reddit");
                     }
                     return false;
                 });
@@ -797,7 +797,7 @@ public class NewsSources {
                     foreach (var article in articles) {
                         if (count >= ui_limit) break;
                         Idle.add(() => {
-                            add_item(article.title, article.url, article.image_url, current_category);
+                            add_item(article.title, article.url, article.image_url, current_category, "Fox News");
                             return false;
                         });
                         count++;
@@ -836,7 +836,7 @@ public class NewsSources {
         int count = 0;
         foreach (var article in articles) {
             if (article.image_url == null && count < 6 && article.url != null) {
-                Tools.ImageParser.fetch_open_graph_image(article.url, session, add_item, current_category);
+                Tools.ImageParser.fetch_open_graph_image(article.url, session, add_item, current_category, "Fox News");
                 count++;
             }
             if (count >= 6) break;
@@ -860,7 +860,7 @@ public class NewsSources {
             if (article.has_member("webUrl")) {
                 string url = article.get_string_member("webUrl");
                 // Delegate OG image fetching to Tools.ImageParser
-                Tools.ImageParser.fetch_open_graph_image(url, session, add_item, current_category);
+                Tools.ImageParser.fetch_open_graph_image(url, session, add_item, current_category, "The Guardian");
                 count++;
             }
         }

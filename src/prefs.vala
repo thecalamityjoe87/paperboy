@@ -34,6 +34,8 @@ public class NewsPreferences : GLib.Object {
     public Gee.ArrayList<string> personalized_categories { get; set; }
     // Preferred news sources (string ids such as "guardian", "reddit")
     public Gee.ArrayList<string> preferred_sources { get; set; }
+    // True when the config did not exist at startup (first run)
+    public bool first_run { get; private set; }
 
     // Convenience helpers for managing preferred sources
     public bool preferred_source_enabled(string id) {
@@ -115,20 +117,25 @@ public class NewsPreferences : GLib.Object {
     private NewsPreferences() {
         config = new GLib.KeyFile();
         config_path = get_config_file_path();
+        // Detect whether a configuration already exists so callers can
+        // present first-run flows (dialogs, onboarding) when appropriate.
+        try {
+            bool exists = GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS);
+            first_run = !exists;
+        } catch (GLib.Error e) { first_run = false; }
         // Ensure in-memory defaults are initialized so the UI reflects
         // the intended defaults on first run (before a config file
         // is created by save_config()).
         personalized_categories = new Gee.ArrayList<string>();
         preferred_sources = new Gee.ArrayList<string>();
         // First-run convenience: if no config exists yet, seed the
-        // preferred_sources with Guardian so the Guardian toggle is
-        // enabled by default on first run. This keeps the UI toggled
-        // appropriately until the user persists a config.
-        try {
-            if (!GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
-                preferred_sources.add("guardian");
-            }
-        } catch (GLib.Error e) { }
+        // preferred_sources with a sane default set. Historically we
+        // enabled Guardian only; prefer enabling all sources by default
+        // so users can unchoose what they don't want.
+        if (first_run) {
+            string[] all = { "guardian", "reddit", "bbc", "nytimes", "wsj", "bloomberg", "reuters", "npr", "fox" };
+            foreach (var s in all) preferred_sources.add(s);
+        }
         // Preferred sources and other defaults will be seeded by load_config()/save_config().
         // Don't seed preferred_sources here. Load configuration first so
         // pre-existing user choices are respected. If no config exists,
