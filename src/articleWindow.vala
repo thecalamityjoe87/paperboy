@@ -26,6 +26,9 @@ public class ArticleWindow : GLib.Object {
     private Gtk.Button back_btn;
     private Soup.Session session;
     private NewsWindow parent_window;
+    // In-memory cache for article preview textures (url@WxH -> Gdk.Texture).
+    // Kept local to ArticleWindow to avoid touching NewsWindow's private cache.
+    private static Gee.HashMap<string, Gdk.Texture>? preview_cache = null;
     // Track a per-preview handler so we can attach a one-shot click
     // listener to the shared header back button and disconnect it when
     // the preview is closed. This avoids leaving stale handlers that
@@ -40,6 +43,8 @@ public class ArticleWindow : GLib.Object {
         back_btn = back_button;
         session = soup_session;
         parent_window = window;
+        // Initialize preview cache on first construction
+        if (preview_cache == null) preview_cache = new Gee.HashMap<string, Gdk.Texture>();
     }
 
     // Local debug logger: write lightweight traces to /tmp/paperboy-debug.log
@@ -158,7 +163,21 @@ public class ArticleWindow : GLib.Object {
             int multiplier = (article_src == NewsSource.REDDIT) ? 2 : 3;
             int target_w = img_w * multiplier;
             int target_h = img_h * multiplier;
-            load_image_async(pic, thumbnail_url, target_w, target_h);
+            // Try to serve a cached preview texture synchronously for snappy
+            // preview opens. The cache key includes the requested size so we
+            // can store scaled variants separately.
+            bool loaded_from_cache = false;
+            try {
+                string key = make_preview_cache_key(thumbnail_url, target_w, target_h);
+                if (preview_cache != null) {
+                    var cached = preview_cache.get(key);
+                    if (cached != null) {
+                        try { pic.set_paintable(cached); } catch (GLib.Error e) { }
+                        loaded_from_cache = true;
+                    }
+                }
+            } catch (GLib.Error e) { /* ignore cache errors and continue to load */ }
+            if (!loaded_from_cache) load_image_async(pic, thumbnail_url, target_w, target_h);
         }
         pic_box.append(pic);
         outer.append(pic_box);
@@ -350,6 +369,11 @@ public class ArticleWindow : GLib.Object {
     }
 
     private void load_image_async(Gtk.Picture image, string url, int target_w, int target_h) {
+        // Helper for preview cache keys
+        string make_preview_cache_key(string u, int w, int h) {
+            return u + "@" + w.to_string() + "x" + h.to_string();
+        }
+
         new Thread<void*>("load-image", () => {
             try {
                 // download initiated
@@ -442,6 +466,12 @@ public class ArticleWindow : GLib.Object {
                                 // has sufficient resolution.
                                 var texture = Gdk.Texture.for_pixbuf(pixbuf);
                                 image.set_paintable(texture);
+                                // Cache the texture for faster future preview opens.
+                                try {
+                                    string key = make_preview_cache_key(url, target_w, target_h);
+                                    if (preview_cache == null) preview_cache = new Gee.HashMap<string, Gdk.Texture>();
+                                    preview_cache.set(key, texture);
+                                } catch (GLib.Error e) { /* best-effort cache */ }
                             } else {
                                 // pixbuf null -> use placeholder
                                 set_placeholder_image(image, target_w, target_h);
@@ -1161,5 +1191,10 @@ public class ArticleWindow : GLib.Object {
         // Use the same margins as the main window
         const int H_MARGIN = 12;
         return clampi(w - (H_MARGIN * 2), 600, 4096);
+    }
+
+    // Generate a cache key for preview textures (url + requested size)
+    private string make_preview_cache_key(string u, int w, int h) {
+        return u + "@" + w.to_string() + "x" + h.to_string();
     }
 }
