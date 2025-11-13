@@ -125,26 +125,36 @@ public class ArticleWindow : GLib.Object {
         pic.set_margin_end(16);
         pic.set_margin_top(8);
         pic.set_margin_bottom(8);
-        // Use the Local News placeholder when the article belongs to the
-        // Local News category so previews match the feed cards. Otherwise
-        // fall back to the source-specific placeholder.
-        if (category_id != null && category_id == "local_news") {
-            try {
-                // Delegate to the main window's local placeholder routine so
-                // the styling is consistent across the app.
-                parent_window.set_local_placeholder_image(pic, img_w, img_h);
-            } catch (GLib.Error e) {
-                // If for some reason the parent can't render the local
-                // placeholder, fall back to the per-source placeholder.
+        // If a thumbnail URL will be requested, skip painting any branded
+        // placeholder now to avoid briefly showing a logo before the real
+        // image loads. The async loader will paint a placeholder on failure
+        // or when it decides a placeholder is preferable (e.g., very large
+        // images). If no thumbnail URL is available, paint the usual
+        // source/local placeholder immediately.
+        bool will_load_image = thumbnail_url != null && thumbnail_url.length > 0 && (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+        if (!will_load_image) {
+            // Use the Local News placeholder when the article belongs to the
+            // Local News category so previews match the feed cards. Otherwise
+            // fall back to the source-specific placeholder.
+            if (category_id != null && category_id == "local_news") {
+                try {
+                    // Delegate to the main window's local placeholder routine so
+                    // the styling is consistent across the app.
+                    parent_window.set_local_placeholder_image(pic, img_w, img_h);
+                } catch (GLib.Error e) {
+                    // If for some reason the parent can't render the local
+                    // placeholder, fall back to the per-source placeholder.
+                    set_placeholder_image_for_source(pic, img_w, img_h, article_src);
+                }
+            } else {
+                // Use an article-specific placeholder (so the preview shows the correct
+                // source branding even when the user's global prefs include multiple
+                // sources).
                 set_placeholder_image_for_source(pic, img_w, img_h, article_src);
             }
-        } else {
-            // Use an article-specific placeholder (so the preview shows the correct
-            // source branding even when the user's global prefs include multiple
-            // sources).
-            set_placeholder_image_for_source(pic, img_w, img_h, article_src);
         }
-        if (thumbnail_url != null && thumbnail_url.length > 0 && (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
+
+        if (will_load_image) {
             int multiplier = (article_src == NewsSource.REDDIT) ? 2 : 3;
             int target_w = img_w * multiplier;
             int target_h = img_h * multiplier;

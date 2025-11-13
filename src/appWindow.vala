@@ -2130,16 +2130,23 @@ public class NewsWindow : Adw.ApplicationWindow {
             int default_hero_w = estimate_content_width();
             int default_hero_h = 250; // Match the image height we set above
             
-            if (category_id == "local_news") {
-                set_local_placeholder_image(hero_image, default_hero_w, default_hero_h);
-            } else {
-                // Use a per-article source-branded placeholder instead of the
-                // global prefs.news_source so search results that include
-                // multiple providers show the correct branding.
-                set_placeholder_image_for_source(hero_image, default_hero_w, default_hero_h, resolve_source(source_name, url));
+            bool hero_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
+                (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+            // Only paint a branded placeholder when we will NOT request an image.
+            // If we will fetch an image, defer painting to the loader to avoid
+            // briefly flashing a placeholder/logo before the real image appears.
+            if (!hero_will_load) {
+                if (category_id == "local_news") {
+                    set_local_placeholder_image(hero_image, default_hero_w, default_hero_h);
+                } else {
+                    // Use a per-article source-branded placeholder instead of the
+                    // global prefs.news_source so search results that include
+                    // multiple providers show the correct branding.
+                    set_placeholder_image_for_source(hero_image, default_hero_w, default_hero_h, resolve_source(source_name, url));
+                }
             }
-            if (thumbnail_url != null && thumbnail_url.length > 0 &&
-                (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
+
+            if (hero_will_load) {
                 // Use different resolution multiplier based on source - Reddit images are typically larger
                 int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 4); // smaller during initial phase
                 if (initial_phase) pending_images++;
@@ -2413,13 +2420,16 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             int default_w = estimate_content_width();
             int default_h = 250;
-            if (category_id == "local_news") {
-                set_local_placeholder_image(slide_image, default_w, default_h);
-            } else {
-                set_placeholder_image_for_source(slide_image, default_w, default_h, resolve_source(source_name, url));
+            bool slide_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
+                (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+            if (!slide_will_load) {
+                if (category_id == "local_news") {
+                    set_local_placeholder_image(slide_image, default_w, default_h);
+                } else {
+                    set_placeholder_image_for_source(slide_image, default_w, default_h, resolve_source(source_name, url));
+                }
             }
-            if (thumbnail_url != null && thumbnail_url.length > 0 &&
-                (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
+            if (slide_will_load) {
                 int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 4);
                 if (initial_phase) pending_images++;
                 load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier);
@@ -2553,21 +2563,25 @@ public class NewsWindow : Adw.ApplicationWindow {
         overlay.add_overlay(card_badge);
     }
 
-        // Always set placeholder first. For local-news articles use the
-        // app-local mono icon as the placeholder so cards visually match
-        // the Local News source affordance.
-        if (category_id == "local_news") {
-            set_local_placeholder_image(image, img_w, img_h);
-        } else {
-            // Use per-article source placeholder so cards reflect their
-            // inferred provider when multiple sources are enabled.
-            set_placeholder_image_for_source(image, img_w, img_h, resolve_source(source_name, url));
+        // Only paint a placeholder immediately when there is no image URL to
+        // request. If an image will be loaded, let the async loader set the
+        // image or fall back to a placeholder on failure to avoid a brief
+        // placeholder/logo flash during load.
+        bool card_will_load = thumbnail_url != null && thumbnail_url.length > 0 && 
+            (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+        if (!card_will_load) {
+            if (category_id == "local_news") {
+                set_local_placeholder_image(image, img_w, img_h);
+            } else {
+                // Use per-article source placeholder so cards reflect their
+                // inferred provider when multiple sources are enabled.
+                set_placeholder_image_for_source(image, img_w, img_h, resolve_source(source_name, url));
+            }
         }
-        
+
         string _norm = normalize_article_url(url);
 
-        if (thumbnail_url != null && thumbnail_url.length > 0 && 
-            (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
+        if (card_will_load) {
             // Use different resolution multiplier based on source - Reddit images are typically larger
             int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 3);
             if (initial_phase) pending_images++;
