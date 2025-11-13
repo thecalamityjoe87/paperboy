@@ -1281,7 +1281,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (show) {
                 sidebar_spacer.set_size_request(100, -1); // Position at right edge of sidebar
             } else {
-                sidebar_spacer.set_size_request(20, -1);  // Move to left edge when hidden
+                sidebar_spacer.set_size_request(0, -1);  // No spacing when hidden
             }
             
             // Add/remove CSS class to style header over sidebar
@@ -1637,8 +1637,8 @@ public class NewsWindow : Adw.ApplicationWindow {
             sidebar_toggle.set_active(false);
             sidebar_toggle.set_sensitive(false);
             sidebar_toggle.set_tooltip_text("Sidebar not available for this source");
-            // Move button to left edge when sidebar is hidden
-            sidebar_spacer.set_size_request(20, -1);
+            // No spacing when sidebar is hidden
+            sidebar_spacer.set_size_request(0, -1);
         } else {
             // Show and enable sidebar controls
             sidebar_toggle.set_sensitive(true);
