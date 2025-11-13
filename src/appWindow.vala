@@ -1147,7 +1147,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // changes.
         category_icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         try {
-            var initial_cat_icon = create_category_header_icon(prefs.category, 128);
+            // Request the header-sized icon initially to avoid a visual resize
+            // when the UI finishes loading. Use 36px (the intended header size)
+            // rather than a large 128px asset so GTK won't rescale it later.
+            var initial_cat_icon = create_category_header_icon(prefs.category, 36);
             if (initial_cat_icon != null) {
                 category_icon_holder.append(initial_cat_icon);
             }
