@@ -63,6 +63,46 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
 
+/* Circular wrapper for dynamic remote source logos used by dynamic badges.
+   Ensures logos are clipped to a circle and scale to fill the area. */
+/* Make wrapper and its direct image children clipped circles. We target
+   the wrapper, the internal picture/image nodes, and all descendants to
+   increase specificity and avoid theme overrides. */
+.source-badge .circular-logo,
+.source-badge .circular-logo picture,
+.source-badge .circular-logo image,
+.source-badge .circular-logo * {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.source-badge .circular-logo {
+    padding: 0;
+    box-sizing: border-box;
+}
+.source-badge .circular-logo picture,
+.source-badge .circular-logo image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+/* Small visual treatment to help circular logos stand out on light/dark
+   backgrounds: subtle border and shadow. Kept low-contrast to avoid
+   fighting brand logos. */
+.source-badge .circular-logo {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.06);
+    background-clip: padding-box; /* ensure border doesn't overlay the image */
+}
+
 .source-badge-label {
     color: white;
     white-space: nowrap;

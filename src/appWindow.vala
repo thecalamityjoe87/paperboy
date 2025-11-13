@@ -353,6 +353,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         string? filename = null;
         switch (cat) {
             case "all": filename = "all-mono.svg"; break;
+            case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
             case "markets": filename = "markets-mono.svg"; break;
@@ -1658,7 +1659,44 @@ public class NewsWindow : Adw.ApplicationWindow {
             case "politics": return "Politics";
             case "lifestyle": return "Lifestyle";
         }
-        return "News";
+        // Fallback: humanize unknown slugs into a readable label
+        if (cat == null || cat.length == 0) return "News";
+        string s = cat.strip();
+        if (s.length == 0) return "News";
+        s = s.replace("_", " ").replace("-", " ");
+        // Strip leading/trailing non-alphanumeric characters (colons, punctuation)
+        int st = 0;
+        while (st < s.length) {
+            char ch = s[st];
+            bool is_alnum = ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'));
+            if (is_alnum) break;
+            st++;
+        }
+        if (st > 0) s = s.substring(st);
+        int en = s.length - 1;
+        while (en >= 0) {
+            char ch = s[en];
+            bool is_alnum = ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'));
+            if (is_alnum) break;
+            en--;
+        }
+        if (en < s.length - 1) s = s.substring(0, en + 1);
+        // Capitalize words ASCII-safely
+        string out = "";
+        string[] parts = s.split(" ");
+        foreach (var p in parts) {
+            if (p.length == 0) continue;
+            // ASCII capitalize: upper first char, lower the remainder
+            string w = p;
+            char c = w[0];
+            char up = c;
+            if (c >= 'a' && c <= 'z') up = (char)(c - 32);
+            string first = "%c".printf(up);
+            string rest = w.length > 1 ? w.substring(1).down() : "";
+            out += (out.length > 0 ? " " : "") + first + rest;
+        }
+        if (out.length == 0) return "News";
+        return out;
     }
 
     private Gtk.Widget build_category_chip(string category_id) {
@@ -1746,7 +1784,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // "myfeed" view as a personalized union of categories when the
         // personalized feed is enabled.
         string view_category = prefs.category;
-        if (view_category == "myfeed") {
+    if (view_category == "myfeed") {
             // If personalization is enabled, accept only articles that match
             // one of the user's personalized categories (if any). If no
             // personalized categories are selected, accept everything so the
@@ -1769,7 +1807,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                 return;
             }
         } else {
-            if (view_category != "all" && view_category != category_id) {
+            // Treat the special 'frontpage' view as an aggregator: accept
+            // articles of any category when the user is viewing the frontpage.
+            // This allows frontpage fetchers to supply per-article category
+            // metadata (for chips) without causing the UI to drop items.
+            if (view_category != "all" && view_category != "frontpage" && view_category != category_id) {
                 // Drop stale article for a different category
                 if (debug_enabled()) warning("Dropping stale article for category %s (view=%s)", category_id, view_category);
                 return;
@@ -2045,7 +2087,21 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Overlay with category chip for hero image
             var hero_overlay = new Gtk.Overlay();
             hero_overlay.set_child(hero_image);
-            var hero_chip = build_category_chip(category_id);
+            // Allow frontpage items to carry a hidden category token in
+            // the source_name/display string (encoded by the fetcher). If
+            // present, use that for the visible chip while preserving the
+            // category param for filtering logic.
+            string hero_display_cat = category_id;
+            try {
+                if (hero_display_cat == "frontpage" && source_name != null) {
+                    // token format appended by fetcher: "...##category::slug"
+                    int idx = source_name.index_of("##category::");
+                    if (idx >= 0) {
+                        hero_display_cat = source_name.substring(idx + 11).strip();
+                    }
+                }
+            } catch (GLib.Error e) { }
+            var hero_chip = build_category_chip(hero_display_cat);
             hero_overlay.add_overlay(hero_chip);
             // No source badge on hero cards (keep hero area clean)
 
@@ -2311,7 +2367,14 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             var slide_overlay = new Gtk.Overlay();
             slide_overlay.set_child(slide_image);
-            var slide_chip = build_category_chip(category_id);
+            string slide_display_cat = category_id;
+            try {
+                if (slide_display_cat == "frontpage" && source_name != null) {
+                    int idx2 = source_name.index_of("##category::");
+                    if (idx2 >= 0) slide_display_cat = source_name.substring(idx2 + 11).strip();
+                }
+            } catch (GLib.Error e) { }
+            var slide_chip = build_category_chip(slide_display_cat);
             slide_overlay.add_overlay(slide_chip);
             // No source badge on carousel slides to keep the hero area clean
 
@@ -2421,10 +2484,18 @@ public class NewsWindow : Adw.ApplicationWindow {
         image.set_content_fit(Gtk.ContentFit.COVER);
         image.set_can_shrink(true);
 
-        // Overlay with category chip
+        // Overlay with category chip. For frontpage we may have an encoded
+        // per-article category embedded in the source_name/display string.
         var overlay = new Gtk.Overlay();
         overlay.set_child(image);
-        var chip = build_category_chip(category_id);
+        string card_display_cat = category_id;
+        try {
+            if (card_display_cat == "frontpage" && source_name != null) {
+                int idx3 = source_name.index_of("##category::");
+                if (idx3 >= 0) card_display_cat = source_name.substring(idx3 + 11).strip();
+            }
+        } catch (GLib.Error e) { }
+        var chip = build_category_chip(card_display_cat);
         overlay.add_overlay(chip);
     // Add source badge to normal card. For local feeds we don't show a
     // provider badge because the feed may represent many sources or
@@ -3219,14 +3290,29 @@ public class NewsWindow : Adw.ApplicationWindow {
                 box.set_valign(Gtk.Align.END);
                 box.set_halign(Gtk.Align.END);
 
+                // Circular wrapper for remote logo so dynamic logos appear as
+                // rounded avatars consistent with the app's visual language.
+                var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
+                logo_wrapper.add_css_class("circular-logo");
+                // Ensure the wrapper has a stable size so CSS can clip the child
+                logo_wrapper.set_size_request(20, 20);
+                logo_wrapper.set_valign(Gtk.Align.CENTER);
+                logo_wrapper.set_halign(Gtk.Align.CENTER);
+
                 // Picture for the remote logo (will be updated from cache or download)
                 var pic = new Gtk.Picture();
+                // Force a fixed size so the wrapper is always square and the
+                // image is clipped to a perfect circle instead of stretching.
                 pic.set_size_request(20, 20);
+                pic.set_valign(Gtk.Align.CENTER);
+                pic.set_halign(Gtk.Align.CENTER);
                 // Start async load which will use memory_meta_cache/meta_cache and
                 // pending_downloads to dedupe and persist the image.
                 try { load_image_async(pic, provided_logo_url, 20, 20); } catch (GLib.Error e) { }
 
-                box.append(pic);
+                logo_wrapper.append(pic);
+                box.append(logo_wrapper);
+
                 var lbl = new Gtk.Label(display_name);
                 lbl.add_css_class("source-badge-label");
                 lbl.set_valign(Gtk.Align.CENTER);
@@ -3259,13 +3345,36 @@ public class NewsWindow : Adw.ApplicationWindow {
                         box.set_halign(Gtk.Align.END);
 
                         try {
-                            var pix = new Gdk.Pixbuf.from_file_at_size(full, 20, 20);
-                            if (pix != null) {
+                            var icon_pix = new Gdk.Pixbuf.from_file(full);
+                            if (icon_pix != null) {
+                                // Create a 20x20 surface and draw the image scaled-to-cover
+                                int orig_w = icon_pix.get_width();
+                                int orig_h = icon_pix.get_height();
+                                double scale = 1.0;
+                                if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
+                                int sw = (int)(orig_w * scale);
+                                int sh = (int)(orig_h * scale);
+                                var scaled_icon = icon_pix.scale_simple(sw, sh, Gdk.InterpType.BILINEAR);
+
+                                var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
+                                var cr = new Cairo.Context(surface);
+                                int x = (20 - sw) / 2;
+                                int y = (20 - sh) / 2;
+                                try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
+                                var tex = Gdk.Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, 20, 20));
+
                                 var pic = new Gtk.Picture();
-                                var tex = Gdk.Texture.for_pixbuf(pix);
                                 pic.set_paintable(tex);
                                 pic.set_size_request(20, 20);
-                                box.append(pic);
+
+                                // Wrap known/local icon in circular wrapper to match dynamic badges
+                                var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
+                                logo_wrapper.add_css_class("circular-logo");
+                                logo_wrapper.set_size_request(20, 20);
+                                logo_wrapper.set_valign(Gtk.Align.CENTER);
+                                logo_wrapper.set_halign(Gtk.Align.CENTER);
+                                logo_wrapper.append(pic);
+                                box.append(logo_wrapper);
                             }
                         } catch (GLib.Error e) { /* ignore icon load failure */ }
 
@@ -3313,18 +3422,40 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Try to load an icon image for the source
         string? path = get_source_icon_path(source);
         if (path != null) {
-            try {
-                var pix = new Gdk.Pixbuf.from_file_at_size(path, 20, 20);
-                if (pix != null) {
-                    var pic = new Gtk.Picture();
-                    var tex = Gdk.Texture.for_pixbuf(pix);
-                    pic.set_paintable(tex);
-                    pic.set_size_request(20, 20);
-                    box.append(pic);
+                try {
+                    var icon_pix = new Gdk.Pixbuf.from_file(path);
+                    if (icon_pix != null) {
+                        int orig_w = icon_pix.get_width();
+                        int orig_h = icon_pix.get_height();
+                        double scale = 1.0;
+                        if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
+                        int sw = (int)(orig_w * scale);
+                        int sh = (int)(orig_h * scale);
+                        var scaled_icon = icon_pix.scale_simple(sw, sh, Gdk.InterpType.BILINEAR);
+
+                        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
+                        var cr = new Cairo.Context(surface);
+                        int x = (20 - sw) / 2;
+                        int y = (20 - sh) / 2;
+                        try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
+                        var tex = Gdk.Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, 20, 20));
+
+                        var pic = new Gtk.Picture();
+                        pic.set_paintable(tex);
+                        pic.set_size_request(20, 20);
+
+                        // Wrap bundled source icons in the same circular wrapper
+                        var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
+                        logo_wrapper.add_css_class("circular-logo");
+                        logo_wrapper.set_size_request(20, 20);
+                        logo_wrapper.set_valign(Gtk.Align.CENTER);
+                        logo_wrapper.set_halign(Gtk.Align.CENTER);
+                        logo_wrapper.append(pic);
+                        box.append(logo_wrapper);
+                    }
+                } catch (GLib.Error e) {
+                    // ignore and fall back to text
                 }
-            } catch (GLib.Error e) {
-                // ignore and fall back to text
-            }
         }
 
         var lbl = new Gtk.Label(get_source_name(source));

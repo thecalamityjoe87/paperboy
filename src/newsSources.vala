@@ -352,6 +352,61 @@ public class NewsSources {
                             display_source = source_name + "||" + logo_url;
                         }
 
+                        // Extract per-article category/type from the JSON when provided
+                        // so frontpage items can show the real category chip instead of
+                        // a generic "frontpage" label. We try several common field
+                        // names returned by different backends and normalize the
+                        // resulting string into a slug-like id (lowercase, underscores).
+                        string category_id = "frontpage";
+                        string? cat_raw = null;
+                        // Helper to extract a string from a possible VALUE or OBJECT node
+                        // (object may contain id/slug/name fields).
+                        string? extract_from_node(Json.Node? node) {
+                            if (node == null) return null;
+                            try {
+                                if (node.get_node_type() == Json.NodeType.VALUE) {
+                                    try { return node.get_string(); } catch (GLib.Error e) { return null; }
+                                } else if (node.get_node_type() == Json.NodeType.OBJECT) {
+                                    var o = node.get_object();
+                                    // Try common fields in order of preference
+                                    string? v = json_get_string_safe(o, "id");
+                                    if (v != null) return v;
+                                    v = json_get_string_safe(o, "slug");
+                                    if (v != null) return v;
+                                    v = json_get_string_safe(o, "name");
+                                    if (v != null) return v;
+                                    // some providers use 'title'
+                                    v = json_get_string_safe(o, "title");
+                                    if (v != null) return v;
+                                }
+                            } catch (GLib.Error e) { }
+                            return null;
+                        }
+
+                        // Try common simple members first
+                        if (art.has_member("category")) cat_raw = extract_from_node(art.get_member("category"));
+                        if (cat_raw == null && art.has_member("section")) cat_raw = extract_from_node(art.get_member("section"));
+                        if (cat_raw == null && art.has_member("type")) cat_raw = extract_from_node(art.get_member("type"));
+                        if (cat_raw == null && art.has_member("category_id")) cat_raw = extract_from_node(art.get_member("category_id"));
+
+                        // If there's a tags array, inspect its first element (may be VALUE or OBJECT)
+                        if (cat_raw == null && art.has_member("tags")) {
+                            var tags_node = art.get_member("tags");
+                            if (tags_node != null && tags_node.get_node_type() == Json.NodeType.ARRAY) {
+                                var tags_arr = tags_node.get_array();
+                                if (tags_arr.get_length() > 0) {
+                                    var first = tags_arr.get_element(0);
+                                    cat_raw = extract_from_node(first);
+                                }
+                            }
+                        }
+
+                        if (cat_raw != null && cat_raw.length > 0) {
+                            // Normalize to a simple slug: lowercase, spaces/dashes -> underscore
+                            string s_raw = (string) cat_raw;
+                            category_id = s_raw.down().replace(" ", "_").replace("-", "_").strip();
+                        }
+
                         // Write a concise per-article debug line so we can inspect
                         // what the backend provided and confirm logos are parsed.
                         try {
@@ -377,6 +432,13 @@ public class NewsSources {
                             string outc = old + "frontpage_parsed: title='" + title.replace("\n", " ").replace("\r", " ") + "' url='" + article_url + "' display_source='" + (display_source != null ? display_source : "<null>") + "'\n";
                             try { GLib.FileUtils.set_contents("/tmp/paperboy-debug.log", outc); } catch (GLib.Error ee) { }
                         } catch (GLib.Error e) { }
+
+                        // Encode the detected category into the display_source so the UI
+                        // can show the real category label while we still pass the
+                        // special "frontpage" view token to `add_item` (keeps
+                        // filtering/placement logic unchanged).
+                        if (display_source == null) display_source = "";
+                        display_source = display_source + "##category::" + category_id;
 
                         add_item(title, article_url, thumbnail, "frontpage", display_source);
                     }
