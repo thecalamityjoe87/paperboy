@@ -294,6 +294,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Label? local_news_title = null;
     private Gtk.Label? local_news_hint = null;
     private Gtk.Button? local_news_button = null;
+    // Error message overlay (shown when article fetching fails)
+    private Gtk.Box? error_message_box = null;
+    private Gtk.Image? error_icon = null;
+    private Gtk.Label? error_message_label = null;
+    private Gtk.Button? error_retry_button = null;
     // Initial-load gating: wait for hero (or timeout) before revealing main content
     private bool initial_phase = false;
     private bool hero_image_loaded = false;
@@ -1136,6 +1141,10 @@ public class NewsWindow : Adw.ApplicationWindow {
     local_news_title = content_view.local_news_title;
     local_news_hint = content_view.local_news_hint;
     local_news_button = content_view.local_news_button;
+    error_message_box = content_view.error_message_box;
+    error_icon = content_view.error_icon;
+    error_message_label = content_view.error_message_label;
+    error_retry_button = content_view.error_retry_button;
 
     // Split view: sidebar + content with collapsible sidebar
     split_view = new Adw.OverlaySplitView();
@@ -1267,6 +1276,15 @@ public class NewsWindow : Adw.ApplicationWindow {
     local_news_message_box.append(ln_inner);
     local_news_message_box.set_visible(false);
     root_overlay.add_overlay(local_news_message_box);
+
+    // Add error message overlay and wire up retry button
+    error_retry_button.clicked.connect(() => {
+        try { 
+            error_message_box.set_visible(false);
+            fetch_news(); 
+        } catch (GLib.Error e) { }
+    });
+    root_overlay.add_overlay(error_message_box);
 
     split_view.set_content(article_preview_split); // Wrap with article preview overlay
         split_view.set_show_sidebar(true);
@@ -4290,6 +4308,23 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
+    private void show_error_message() {
+        if (error_message_box != null) {
+            // Hide loading spinner and other overlays
+            try { hide_loading_spinner(); } catch (GLib.Error e) { }
+            try { if (personalized_message_box != null) personalized_message_box.set_visible(false); } catch (GLib.Error e) { }
+            try { if (local_news_message_box != null) local_news_message_box.set_visible(false); } catch (GLib.Error e) { }
+            try { if (main_content_container != null) main_content_container.set_visible(false); } catch (GLib.Error e) { }
+            error_message_box.set_visible(true);
+        }
+    }
+
+    private void hide_error_message() {
+        if (error_message_box != null) {
+            error_message_box.set_visible(false);
+        }
+    }
+
     // Reveal main content (stop showing the loading spinner)
     private void reveal_initial_content() {
         if (!initial_phase) return;
@@ -4524,6 +4559,9 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Show loading spinner while fetching content
         show_loading_spinner();
+        
+        // Hide error message if it was visible from a previous failed fetch
+        hide_error_message();
 
         // Start initial-phase gating: wait for initial items and their images
         initial_phase = true;
@@ -4534,11 +4572,30 @@ public class NewsWindow : Adw.ApplicationWindow {
             Source.remove(initial_reveal_timeout_id);
             initial_reveal_timeout_id = 0;
         }
+        
+        // Capture a strong reference to `this` so the wrapped callbacks hold
+        // the NewsWindow alive while they're queued. Without this the window
+        // may be freed before the callback runs and member access will crash.
+        var self_ref = this;
+        // Explicitly bump the GLib reference count for the duration of this
+        // fetch. We'll unref after a short safety timeout so we don't leak
+        // refs if something goes wrong. This prevents callbacks from racing
+        // against object destruction.
+        // Increase and later decrease the object's reference count so the
+        // callbacks won't race with object destruction.
+        self_ref.ref();
+        
         // Safety timeout: reveal after a reasonable maximum to avoid blocking forever
         initial_reveal_timeout_id = Timeout.add(INITIAL_MAX_WAIT_MS, () => {
-            // Timeout reached; reveal content even if some images haven't finished
-            reveal_initial_content();
-            initial_reveal_timeout_id = 0;
+            // Timeout reached; check if we got any items
+            if (!self_ref.initial_items_populated) {
+                // No articles received - show error
+                try { self_ref.show_error_message(); } catch (GLib.Error e) { }
+            } else {
+                // Reveal content even if some images haven't finished
+                self_ref.reveal_initial_content();
+            }
+            self_ref.initial_reveal_timeout_id = 0;
             return false;
         });
         
@@ -4551,17 +4608,6 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (_dbg != null && _dbg.length > 0) append_debug_log("fetch_news: bumped fetch_sequence " + before_seq.to_string() + " -> " + fetch_sequence.to_string());
         } catch (GLib.Error e) { }
 
-        // Capture a strong reference to `this` so the wrapped callbacks hold
-        // the NewsWindow alive while they're queued. Without this the window
-        // may be freed before the callback runs and member access will crash.
-        var self_ref = this;
-        // Explicitly bump the GLib reference count for the duration of this
-        // fetch. We'll unref after a short safety timeout so we don't leak
-        // refs if something goes wrong. This prevents callbacks from racing
-        // against object destruction.
-        // Increase and later decrease the object's reference count so the
-        // callbacks won't race with object destruction.
-        self_ref.ref();
         Timeout.add(INITIAL_MAX_WAIT_MS + 2000, () => {
             try { self_ref.unref(); } catch (GLib.Error e) { }
             return false;

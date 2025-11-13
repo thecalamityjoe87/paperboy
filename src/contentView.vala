@@ -43,6 +43,10 @@ public class ContentView : GLib.Object {
     public Gtk.Label local_news_title;
     public Gtk.Label local_news_hint;
     public Gtk.Button local_news_button;
+    public Gtk.Box error_message_box;
+    public Gtk.Image error_icon;
+    public Gtk.Label error_message_label;
+    public Gtk.Button error_retry_button;
 
     public ContentView(NewsPreferences prefs) {
         // Scrolled viewport that will be pushed into the NavigationPage by the caller
@@ -266,6 +270,41 @@ public class ContentView : GLib.Object {
 
         local_news_message_box.append(ln_inner);
         local_news_message_box.set_visible(false);
+
+        // Error message overlay (for fetch failures)
+        error_message_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
+        error_message_box.set_halign(Gtk.Align.FILL);
+        error_message_box.set_valign(Gtk.Align.FILL);
+        error_message_box.set_hexpand(true);
+        error_message_box.set_vexpand(true);
+
+        var error_inner = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
+        error_inner.set_hexpand(true);
+        error_inner.set_vexpand(true);
+        error_inner.set_halign(Gtk.Align.CENTER);
+        error_inner.set_valign(Gtk.Align.CENTER);
+
+        error_icon = new Gtk.Image.from_icon_name("dialog-error-symbolic");
+        error_icon.set_pixel_size(48);
+        error_icon.set_halign(Gtk.Align.CENTER);
+        error_inner.append(error_icon);
+
+        error_message_label = new Gtk.Label("Something went wrong. Try refreshing...");
+        error_message_label.add_css_class("title-4");
+        error_message_label.set_halign(Gtk.Align.CENTER);
+        error_message_label.set_valign(Gtk.Align.CENTER);
+        try { error_message_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
+        try { error_message_label.set_wrap(true); } catch (GLib.Error e) { }
+        error_inner.append(error_message_label);
+
+        error_retry_button = new Gtk.Button.with_label("Refresh");
+        error_retry_button.set_halign(Gtk.Align.CENTER);
+        error_retry_button.set_valign(Gtk.Align.CENTER);
+        error_retry_button.add_css_class("suggested-action");
+        error_inner.append(error_retry_button);
+
+        error_message_box.append(error_inner);
+        error_message_box.set_visible(false);
 
         // Compose content area
         // Ensure the main content (wrapped in an overlay) is part of the
