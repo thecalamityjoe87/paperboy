@@ -3516,26 +3516,41 @@ public class NewsWindow : Adw.ApplicationWindow {
         try { last_previewed_url = null; } catch (GLib.Error e) { }
         // Hide dim overlay
         if (dim_overlay != null) dim_overlay.set_visible(false);
-        try { append_debug_log("preview_closed: " + (url != null ? url : "<null>")); } catch (GLib.Error e) { }
+        try { append_debug_log("preview_closed: " + (url != null ? url : "<null>") + " scroll_to_restore=" + last_scroll_value.to_string()); } catch (GLib.Error e) { }
         // Mark viewed immediately
         try { if (url != null) mark_article_viewed(url); } catch (GLib.Error e) { }
-        // Restore previous scroll offset after the preview is popped. Use idle so any layout/navigation
-        // changes complete first and don't stomp our restored value.
+        // Restore previous scroll offset after the preview is popped. Use idle with higher priority
+        // and multiple attempts to ensure it takes effect after any layout changes.
+        double saved_scroll = last_scroll_value;
         try {
-            if (main_scrolled != null && last_scroll_value >= 0.0) {
+            if (main_scrolled != null && saved_scroll >= 0.0) {
+                // First attempt immediately
                 Idle.add(() => {
                     try {
                         var adj = main_scrolled.get_vadjustment();
                         if (adj != null) {
-                            adj.set_value(last_scroll_value);
+                            adj.set_value(saved_scroll);
+                            try { append_debug_log("scroll restored (immediate): " + saved_scroll.to_string()); } catch (GLib.Error e) { }
                         }
                     } catch (GLib.Error e) { }
-                    // Reset stored value
-                    last_scroll_value = -1.0;
+                    return false;
+                }, Priority.HIGH);
+                
+                // Second attempt with slight delay to catch any late resets
+                Timeout.add(50, () => {
+                    try {
+                        var adj = main_scrolled.get_vadjustment();
+                        if (adj != null) {
+                            adj.set_value(saved_scroll);
+                            try { append_debug_log("scroll restored (delayed): " + saved_scroll.to_string()); } catch (GLib.Error e) { }
+                        }
+                    } catch (GLib.Error e) { }
                     return false;
                 });
             }
-        } catch (GLib.Error e) { last_scroll_value = -1.0; }
+        } catch (GLib.Error e) { }
+        // Reset stored value
+        last_scroll_value = -1.0;
     }
 
     private void create_icon_placeholder(Gtk.Picture image, string icon_path, int width, int height) {
