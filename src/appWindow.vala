@@ -139,8 +139,15 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gee.HashMap<Gtk.Picture, HeroRequest> hero_requests;
     // Map article URL -> picture widget so we can update images in-place when higher-res images arrive
     private Gee.HashMap<string, Gtk.Picture> url_to_picture;
+    // Map article URL -> card/hero widget so we can add overlays (e.g., viewed badge)
+    private Gee.HashMap<string, Gtk.Widget> url_to_card;
     // Map normalized article URL -> original request URL (so upgrades use the real remote URL)
     private Gee.HashMap<string, string> normalized_to_url;
+    // Track which normalized URLs the user has viewed during this session
+    private Gee.HashSet<string> viewed_articles;
+    // Remember the URL of the currently-open preview so keyboard/escape handlers
+    // can mark viewed when the user returns to the main view
+    private string? last_previewed_url;
     private MetaCache? meta_cache;
 
     // In-memory image cache (URL -> Gdk.Texture) to avoid repeated decodes during a session
@@ -945,7 +952,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Initialize hero request tracking map
     hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
     url_to_picture = new Gee.HashMap<string, Gtk.Picture>();
+    // Map of normalized article URL -> card/hero widget (used for overlays like Viewed)
+    url_to_card = new Gee.HashMap<string, Gtk.Widget>();
     normalized_to_url = new Gee.HashMap<string, string>();
+    // Track viewed articles in this session
+    viewed_articles = new Gee.HashSet<string>();
     // Initialize in-memory cache and pending-downloads map
     memory_meta_cache = new Gee.HashMap<string, Gdk.Texture>();
     requested_image_sizes = new Gee.HashMap<string, string>();
@@ -1011,7 +1022,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         back_btn = new Gtk.Button.from_icon_name("go-previous-symbolic");
         back_btn.set_visible(false);
         back_btn.set_tooltip_text("Back");
-        back_btn.clicked.connect(() => { if (nav_view != null) { nav_view.pop(); back_btn.set_visible(false); } });
+        back_btn.clicked.connect(() => {
+            if (nav_view != null) {
+                nav_view.pop();
+                back_btn.set_visible(false);
+            }
+        });
         header.pack_start(back_btn);
 
         // Search bar in the center (offset 50px to the right)
@@ -1422,6 +1438,10 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // Close article preview if it's open
                 nav_view.pop();
                 back_btn.set_visible(false);
+                // If we have a record of the last previewed URL, mark it viewed
+                try {
+                    if (last_previewed_url != null && last_previewed_url.length > 0) mark_article_viewed(last_previewed_url);
+                } catch (GLib.Error e) { }
                 return true;
             }
             return false;
@@ -1471,11 +1491,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Ensure the personalized message visibility is correct at startup
     update_personalization_ui();
 
-        // Clear on-disk cache when the window is closed to avoid disk clutter.
-        // This is best-effort and will not prevent the window from closing.
+        // Clear only cached images on window close to avoid disk clutter
+        // while preserving per-article metadata (e.g., viewed flags).
         this.close_request.connect(() => {
             if (meta_cache != null) {
-                try { meta_cache.clear(); } catch (GLib.Error e) { }
+                try { meta_cache.clear_images(); } catch (GLib.Error e) { }
             }
             return false; // allow default handler to run
         });
@@ -2131,6 +2151,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                 url_to_picture.set(_norm, hero_image);
                 // Remember original URL so background upgrades use the real network URL
                 normalized_to_url.set(_norm, url);
+                    // Also map the normalized URL to the hero widget so we can
+                    // decorate it later (e.g., add a Viewed badge)
+                    url_to_card.set(_norm, hero);
+                        try { append_debug_log("url_to_card.set: hero mapping url=" + _norm + " widget=hero"); } catch (GLib.Error e) { }
+                    // If the on-disk cache already marks this article viewed, ensure the UI shows the badge
+                    try {
+                        if (meta_cache != null) {
+                            bool was = false;
+                            try { was = meta_cache.is_viewed(_norm); } catch (GLib.Error e) { was = false; }
+                            try { append_debug_log("meta_check: hero url=" + _norm + " was=" + (was ? "true" : "false")); } catch (GLib.Error e) { }
+                            if (was) { try { mark_article_viewed(_norm); } catch (GLib.Error e) { } }
+                        }
+                    } catch (GLib.Error e) { }
                 // Schedule a short delayed re-check in case layout finalizes after creation
                 Timeout.add(300, () => { 
                     // Attempt one re-check shortly after creation
@@ -2394,6 +2427,17 @@ public class NewsWindow : Adw.ApplicationWindow {
                 string _norm = normalize_article_url(url);
                 url_to_picture.set(_norm, slide_image);
                 normalized_to_url.set(_norm, url);
+                // Map slide to URL for viewed badge support
+                url_to_card.set(_norm, slide);
+                try { append_debug_log("url_to_card.set: slide mapping url=" + _norm + " widget=slide"); } catch (GLib.Error e) { }
+                try {
+                    if (meta_cache != null) {
+                        bool was = false;
+                        try { was = meta_cache.is_viewed(_norm); } catch (GLib.Error e) { was = false; }
+                        try { append_debug_log("meta_check: slide url=" + _norm + " was=" + (was ? "true" : "false")); } catch (GLib.Error e) { }
+                        if (was) { try { mark_article_viewed(_norm); } catch (GLib.Error e) { } }
+                    }
+                } catch (GLib.Error e) { }
             }
             slide.append(slide_overlay);
 
@@ -2520,6 +2564,8 @@ public class NewsWindow : Adw.ApplicationWindow {
             set_placeholder_image_for_source(image, img_w, img_h, resolve_source(source_name, url));
         }
         
+        string _norm = normalize_article_url(url);
+
         if (thumbnail_url != null && thumbnail_url.length > 0 && 
             (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"))) {
             // Use different resolution multiplier based on source - Reddit images are typically larger
@@ -2527,12 +2573,29 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (initial_phase) pending_images++;
             load_image_async(image, thumbnail_url, img_w * multiplier, img_h * multiplier);
             // Register card image for in-place updates when higher-res images arrive later
-            string _norm = normalize_article_url(url);
             url_to_picture.set(_norm, image);
             normalized_to_url.set(_norm, url);
         }
         
         card.append(overlay);
+
+        // Now that the overlay is appended to the card, map the normalized
+        // URL to the card widget and consult per-article metadata so any
+        // persisted "viewed" badge can be shown immediately. The mapping
+        // must happen after appending the overlay so mark_article_viewed()
+        // can find and add the badge overlay synchronously.
+        try {
+            url_to_card.set(_norm, card);
+        } catch (GLib.Error e) { }
+        try { append_debug_log("url_to_card.set: card mapping url=" + _norm + " widget=card"); } catch (GLib.Error e) { }
+        try {
+            if (meta_cache != null) {
+                bool was = false;
+                try { was = meta_cache.is_viewed(_norm); } catch (GLib.Error e) { was = false; }
+                try { append_debug_log("meta_check: card url=" + _norm + " was=" + (was ? "true" : "false")); } catch (GLib.Error e) { }
+                if (was) { try { mark_article_viewed(_norm); } catch (GLib.Error e) { } }
+            }
+        } catch (GLib.Error e) { }
         
         // Title container
         var title_box = new Gtk.Box(Orientation.VERTICAL, 6);
@@ -3467,6 +3530,102 @@ public class NewsWindow : Adw.ApplicationWindow {
         box.append(lbl);
 
         return box;
+    }
+
+    // Build a small 'Viewed' badge with a check icon to place in the top-right
+    // corner of a card/hero when the user has already opened the preview.
+    private Gtk.Widget build_viewed_badge() {
+        var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
+        box.add_css_class("viewed-badge");
+        box.set_valign(Gtk.Align.START);
+        box.set_halign(Gtk.Align.END);
+        box.set_margin_top(8);
+        box.set_margin_end(8);
+
+        try {
+            var icon = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
+            icon.set_pixel_size(14);
+            box.append(icon);
+        } catch (GLib.Error e) { }
+
+    var lbl = new Gtk.Label("Viewed");
+    // Avoid using the theme's dim label class so the text remains bright.
+    // Add a dedicated class we can target from CSS for any further tweaks.
+    try { lbl.get_style_context().remove_class("dim-label"); } catch (GLib.Error e) { }
+    lbl.add_css_class("viewed-badge-label");
+    lbl.add_css_class("caption");
+    box.append(lbl);
+        return box;
+    }
+
+    // Mark the given article URL as viewed (normalized) and add a badge to the
+    // corresponding card/hero if it is currently present in the UI.
+    public void mark_article_viewed(string url) {
+        if (url == null) return;
+        string n = normalize_article_url(url);
+        if (n == null || n.length == 0) return;
+        if (viewed_articles == null) viewed_articles = new Gee.HashSet<string>();
+        viewed_articles.add(n);
+
+        try { append_debug_log("mark_article_viewed: normalized=" + n); } catch (GLib.Error e) { }
+
+        // If we have a mapped card widget for this URL, add the badge overlay
+        try {
+            var card = url_to_card.get(n);
+            if (card != null) {
+                try { append_debug_log("mark_article_viewed: found mapped widget for " + n); } catch (GLib.Error e) { }
+                // The card's first child is the overlay we created earlier
+                Gtk.Widget? first = card.get_first_child();
+                if (first != null && first is Gtk.Overlay) {
+                    var overlay = (Gtk.Overlay) first;
+                    // Avoid adding duplicate viewed badges
+                    bool already = false;
+                    Gtk.Widget? c = overlay.get_first_child();
+                    while (c != null) {
+                        try {
+                            // GTK4's StyleContext does not expose a list_classes API in
+                            // the Vala bindings; use has_class to detect our badge class.
+                            if (c.get_style_context().has_class("viewed-badge")) {
+                                already = true;
+                            }
+                        } catch (GLib.Error e) { }
+                        if (already) break;
+                        c = c.get_next_sibling();
+                    }
+                    if (!already) {
+                        var badge = build_viewed_badge();
+                        overlay.add_overlay(badge);
+                        try { append_debug_log("mark_article_viewed: added viewed badge for " + n); } catch (GLib.Error e) { }
+                    }
+                }
+            }
+        } catch (GLib.Error e) { }
+        // Persist viewed state to per-article metadata cache so this is stored
+        // with the cached image/metadata rather than the global config file.
+        try {
+            if (meta_cache != null) {
+                bool already = false;
+                try { already = meta_cache.is_viewed(n); } catch (GLib.Error e) { already = false; }
+                if (!already) {
+                    try { meta_cache.mark_viewed(n); } catch (GLib.Error e) { }
+                }
+            }
+        } catch (GLib.Error e) { }
+    }
+
+    // Called by ArticleWindow when a preview is opened so the main window
+    // can remember which URL is active (used by keyboard handlers).
+    public void preview_opened(string url) {
+        try { last_previewed_url = url; } catch (GLib.Error e) { last_previewed_url = null; }
+        try { append_debug_log("preview_opened: " + (url != null ? url : "<null>")); } catch (GLib.Error e) { }
+    }
+
+    // Called by ArticleWindow when the preview is closed; mark the article
+    // viewed now that the user returned to the main view.
+    public void preview_closed(string url) {
+        try { last_previewed_url = null; } catch (GLib.Error e) { }
+        try { append_debug_log("preview_closed: " + (url != null ? url : "<null>")); } catch (GLib.Error e) { }
+        try { if (url != null) mark_article_viewed(url); } catch (GLib.Error e) { }
     }
 
     private void create_icon_placeholder(Gtk.Picture image, string icon_path, int width, int height) {

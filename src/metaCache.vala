@@ -255,6 +255,42 @@ public class MetaCache : GLib.Object {
         try { last_modified = kf.get_string("cache", "last_modified"); } catch (GLib.Error e) { last_modified = null; }
     }
 
+    // Mark an article URL as viewed by setting a small flag in its metadata
+    public void mark_viewed(string url) {
+        try {
+            var kf = read_meta(url);
+            if (kf == null) kf = new KeyFile();
+            long now_s = (long)(GLib.get_real_time() / 1000000);
+            // Store under a 'meta' group to avoid colliding with cache-specific keys
+            kf.set_string("meta", "viewed", "1");
+            kf.set_string("meta", "viewed_at", "%d".printf((int)now_s));
+            // Debug: log metadata path we will write to
+            try { warning("MetaCache.mark_viewed: writing meta for %s", meta_path_for(url)); } catch (GLib.Error e) { }
+            write_meta(url, kf);
+        } catch (GLib.Error e) {
+            warning("Failed to mark viewed for %s: %s", url, e.message);
+        }
+    }
+
+    // Return whether the given URL has been marked as viewed in its metadata
+    public bool is_viewed(string url) {
+        string meta = meta_path_for(url);
+        try { warning("MetaCache.is_viewed: checking meta path %s", meta); } catch (GLib.Error e) { }
+        var kf = read_meta(url);
+        if (kf == null) {
+            try { warning("MetaCache.is_viewed: no meta file for %s", meta); } catch (GLib.Error e) { }
+            return false;
+        }
+        try {
+            string v = kf.get_string("meta", "viewed");
+            try { warning("MetaCache.is_viewed: found viewed=%s in %s", v, meta); } catch (GLib.Error e) { }
+            return v == "1" || v.down() == "true";
+        } catch (GLib.Error e) {
+            try { warning("MetaCache.is_viewed: 'viewed' key missing in %s", meta); } catch (GLib.Error ee) { }
+            return false;
+        }
+    }
+
     // Remove all cached images and metadata. Best-effort; used on application exit
     public void clear() {
         try {
@@ -296,6 +332,34 @@ public class MetaCache : GLib.Object {
             // Attempt to remove the now-empty directories
             try { FileUtils.remove(images_dir_path); } catch (GLib.Error e) { }
             try { FileUtils.remove(cache_dir_path); } catch (GLib.Error e) { }
+        } catch (GLib.Error e) {
+            // Best-effort only; don't propagate
+        }
+    }
+
+    // Remove only cached image files but keep metadata (.meta) files.
+    // This is useful when we want to evict large image blobs but preserve
+    // small per-article metadata such as viewed flags across app restarts.
+    public void clear_images() {
+        try {
+            var images_dir = File.new_for_path(images_dir_path);
+            FileEnumerator? img_enum = null;
+            try {
+                img_enum = images_dir.enumerate_children("standard::name", FileQueryInfoFlags.NONE, null);
+                FileInfo? info;
+                while ((info = img_enum.next_file(null)) != null) {
+                    if (info.get_file_type() != FileType.REGULAR) continue;
+                    string name = info.get_name();
+                    string full = Path.build_filename(images_dir_path, name);
+                    try { FileUtils.remove(full); } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) {
+                // ignore
+            } finally {
+                if (img_enum != null) try { img_enum.close(null); } catch (GLib.Error e) { }
+            }
+            // Attempt to remove the now-empty images directory
+            try { FileUtils.remove(images_dir_path); } catch (GLib.Error e) { }
         } catch (GLib.Error e) {
             // Best-effort only; don't propagate
         }

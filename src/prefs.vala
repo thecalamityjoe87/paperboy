@@ -34,6 +34,8 @@ public class NewsPreferences : GLib.Object {
     public Gee.ArrayList<string> personalized_categories { get; set; }
     // Preferred news sources (string ids such as "guardian", "reddit")
     public Gee.ArrayList<string> preferred_sources { get; set; }
+    // Track which normalized article URLs were viewed in previous sessions
+    public Gee.ArrayList<string> viewed_articles { get; set; }
     // True when the config did not exist at startup (first run)
     public bool first_run { get; private set; }
 
@@ -140,7 +142,8 @@ public class NewsPreferences : GLib.Object {
         // Don't seed preferred_sources here. Load configuration first so
         // pre-existing user choices are respected. If no config exists,
         // load_config() will create one and seed defaults appropriately.
-        load_config();
+    viewed_articles = new Gee.ArrayList<string>();
+    load_config();
     }
 
     public static NewsPreferences get_instance() {
@@ -227,6 +230,14 @@ public class NewsPreferences : GLib.Object {
                 // Fall back to single news_source if preferred_sources not yet set
                 string[] fallback = { source_name };
                 config.set_string_list("preferences", "preferred_sources", fallback);
+            }
+            // Persist viewed articles (normalized URLs) so viewed state survives restarts
+            if (viewed_articles != null) {
+                string[] varr = new string[viewed_articles.size];
+                for (int i = 0; i < viewed_articles.size; i++) varr[i] = viewed_articles.get(i);
+                config.set_string_list("preferences", "viewed_articles", varr);
+            } else {
+                config.set_string_list("preferences", "viewed_articles", new string[0]);
             }
             
             string config_data = config.to_data();
@@ -327,6 +338,16 @@ public class NewsPreferences : GLib.Object {
                 } catch (GLib.Error e) { personalized_categories = new Gee.ArrayList<string>(); }
             } else {
                 personalized_categories = new Gee.ArrayList<string>();
+            }
+            // Load viewed articles list if present
+            if (config.has_key("preferences", "viewed_articles")) {
+                try {
+                    string[] varr = config.get_string_list("preferences", "viewed_articles");
+                    viewed_articles = new Gee.ArrayList<string>();
+                    foreach (var s in varr) viewed_articles.add(s);
+                } catch (GLib.Error e) { viewed_articles = new Gee.ArrayList<string>(); }
+            } else {
+                viewed_articles = new Gee.ArrayList<string>();
             }
         } catch (GLib.Error e) {
             warning("Failed to load config: %s", e.message);

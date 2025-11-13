@@ -26,6 +26,11 @@ public class ArticleWindow : GLib.Object {
     private Gtk.Button back_btn;
     private Soup.Session session;
     private NewsWindow parent_window;
+    // Track a per-preview handler so we can attach a one-shot click
+    // listener to the shared header back button and disconnect it when
+    // the preview is closed. This avoids leaving stale handlers that
+    // would incorrectly mark unrelated previews as viewed.
+    private ulong back_btn_handler_id = 0;
 
     // Callback type for snippet results
     private delegate void SnippetCallback(string text);
@@ -58,6 +63,9 @@ public class ArticleWindow : GLib.Object {
     // app-local placeholder so previews for Local News items match the
     // card/hero placeholders used in the main UI.
     public void show_article_preview(string title, string url, string? thumbnail_url, string? category_id = null) {
+        // Notify parent window that a preview is opening so it can track
+        // the active preview (used to mark viewed on return).
+        try { parent_window.preview_opened(url); } catch (GLib.Error e) { }
         // Build a scrolling preview page with a max height constraint
         var outer = new Gtk.Box(Orientation.VERTICAL, 0);
 
@@ -179,6 +187,9 @@ public class ArticleWindow : GLib.Object {
         back_local.clicked.connect(() => {
             if (nav_view != null) nav_view.pop();
             back_btn.set_visible(false);
+            // Notify parent that the preview closed so it can mark the
+            // article as viewed now that the user returned to the main view.
+            try { parent_window.preview_closed(url); } catch (GLib.Error e) { }
         });
         actions.append(back_local);
         actions.append(open_btn);
@@ -193,6 +204,24 @@ public class ArticleWindow : GLib.Object {
         var page = new Adw.NavigationPage(sc, "Article");
         nav_view.push(page);
         back_btn.set_visible(true);
+        // Attach a one-shot handler to the shared header back button so
+        // clicks on that arrow also notify the parent preview-closed
+        // lifecycle. We disconnect the handler after it runs to avoid
+        // duplicate or stale callbacks.
+        try {
+            if (back_btn_handler_id != 0) {
+                try { back_btn.disconnect(back_btn_handler_id); } catch (GLib.Error e) { }
+                back_btn_handler_id = 0;
+            }
+            back_btn_handler_id = back_btn.clicked.connect(() => {
+                if (nav_view != null) nav_view.pop();
+                back_btn.set_visible(false);
+                try { parent_window.preview_closed(url); } catch (GLib.Error e) { }
+                // Disconnect this handler (one-shot)
+                try { back_btn.disconnect(back_btn_handler_id); } catch (GLib.Error e) { }
+                back_btn_handler_id = 0;
+            });
+        } catch (GLib.Error e) { }
         // Try to set metadata from any cached article entry (source + published time)
     var prefs = NewsPreferences.get_instance();
         string? homepage_published_any = null;

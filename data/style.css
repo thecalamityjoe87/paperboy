@@ -63,6 +63,60 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
 
+/* Viewed badge shown at the top-right of a card when the user has opened
+     and returned from an article preview. Uses theme-aware colors where
+     available and keeps a compact pill appearance. */
+.viewed-badge {
+    -gtk-icon-transform: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background-color: rgba(0, 0, 0, 0.6); /* black @ 60% */
+    color: white; /* Viewed text should be white */
+    font-size: 0.85em;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+/* Icon inside the viewed badge: white check on a black circular wrap */
+.viewed-badge image,
+.viewed-badge picture,
+.viewed-badge .icon {
+    background-color: black;
+    color: white; /* symbolic icons inherit this color */
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    padding: 1px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Ensure the label text inside the badge is white, not dimmed, and doesn't inherit theme-dim styles */
+.viewed-badge label,
+.viewed-badge .caption,
+.viewed-badge .dim-label {
+    color: white !important;
+    opacity: 1 !important;
+    font-weight: 600;
+}
+
+/* Strong override: force any text inside the viewed badge to be full-bright.
+   This covers cases where theme rules or ancestor classes apply dimming via
+   color/opacity or more specific selectors. */
+.viewed-badge,
+.viewed-badge * {
+    color: white !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+
 /* Circular wrapper for dynamic remote source logos used by dynamic badges.
    Ensures logos are clipped to a circle and scale to fill the area. */
 /* Make wrapper and its direct image children clipped circles. We target
