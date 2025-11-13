@@ -2014,155 +2014,68 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
         
         if (should_be_hero) {
-            var hero = new Gtk.Box(Orientation.VERTICAL, 0);
-            
-            // Let the container control the width, only constrain height
-            int max_hero_height = 350; // Maximum total height
-            
-            // Let hero fill available width from container, but constrain height
-            hero.set_size_request(-1, max_hero_height); // -1 means use natural width
-            hero.set_hexpand(true);  // Expand to fill container width
-            hero.set_vexpand(false);
-            hero.set_halign(Gtk.Align.FILL); // Fill the container width
-            hero.set_valign(Gtk.Align.START);
-            hero.set_margin_start(0);
-            hero.set_margin_end(0);
+            // Build a HeroCard UI (presentation only) and keep image-loading
+            // and metadata mapping in NewsWindow.
+            int max_hero_height = 350;
+            int default_hero_w = estimate_content_width();
+            int default_hero_h = 250;
 
-            var hero_image = new Gtk.Picture();
-            hero_image.set_halign(Gtk.Align.FILL);
-            hero_image.set_hexpand(true); // Expand to fill hero card width
-            hero_image.set_size_request(-1, 250); // Let width be natural, set reasonable height
-            hero_image.set_content_fit(Gtk.ContentFit.COVER);
-            hero_image.set_can_shrink(true);
-
-            // Overlay with category chip for hero image
-            var hero_overlay = new Gtk.Overlay();
-            hero_overlay.set_child(hero_image);
-            // Allow frontpage items to carry a hidden category token in
-            // the source_name/display string (encoded by the fetcher). If
-            // present, use that for the visible chip while preserving the
-            // category param for filtering logic.
             string hero_display_cat = category_id;
             try {
                 if (hero_display_cat == "frontpage" && source_name != null) {
-                    // token format appended by fetcher: "...##category::slug"
                     int idx = source_name.index_of("##category::");
-                    if (idx >= 0) {
-                        hero_display_cat = source_name.substring(idx + 11).strip();
-                    }
+                    if (idx >= 0) hero_display_cat = source_name.substring(idx + 11).strip();
                 }
             } catch (GLib.Error e) { }
-            var hero_chip = build_category_chip(hero_display_cat);
-            hero_overlay.add_overlay(hero_chip);
-            // No source badge on hero cards (keep hero area clean)
 
-            // Use reasonable defaults for placeholder and loading since hero will be responsive
-            // Estimate hero width from current content width so we request an appropriately-sized image
-            int default_hero_w = estimate_content_width();
-            int default_hero_h = 250; // Match the image height we set above
-            
+            var hero_chip = build_category_chip(hero_display_cat);
+            var hero_card = new HeroCard(title, url, max_hero_height, default_hero_h, hero_chip);
+
             bool hero_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
                 (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
-            // Only paint a branded placeholder when we will NOT request an image.
-            // If we will fetch an image, defer painting to the loader to avoid
-            // briefly flashing a placeholder/logo before the real image appears.
+
             if (!hero_will_load) {
-                if (category_id == "local_news") {
-                    set_local_placeholder_image(hero_image, default_hero_w, default_hero_h);
-                } else {
-                    // Use a per-article source-branded placeholder instead of the
-                    // global prefs.news_source so search results that include
-                    // multiple providers show the correct branding.
-                    set_placeholder_image_for_source(hero_image, default_hero_w, default_hero_h, resolve_source(source_name, url));
-                }
+                if (category_id == "local_news")
+                    set_local_placeholder_image(hero_card.image, default_hero_w, default_hero_h);
+                else
+                    set_placeholder_image_for_source(hero_card.image, default_hero_w, default_hero_h, resolve_source(source_name, url));
             }
 
             if (hero_will_load) {
-                // Use different resolution multiplier based on source - Reddit images are typically larger
-                int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 4); // smaller during initial phase
+                int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 4);
                 if (initial_phase) pending_images++;
-                load_image_async(hero_image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier);
-                // Remember this request so we can re-request larger images if layout changes
-                hero_requests.set(hero_image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
-                // Register the picture for this article URL so future updates (OG image fetches) can replace it in-place
+                load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier);
+                hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
                 string _norm = normalize_article_url(url);
-                url_to_picture.set(_norm, hero_image);
-                // Remember original URL so background upgrades use the real network URL
+                url_to_picture.set(_norm, hero_card.image);
                 normalized_to_url.set(_norm, url);
-                    // Also map the normalized URL to the hero widget so we can
-                    // decorate it later (e.g., add a Viewed badge)
-                    url_to_card.set(_norm, hero);
-                        try { append_debug_log("url_to_card.set: hero mapping url=" + _norm + " widget=hero"); } catch (GLib.Error e) { }
-                    // If the on-disk cache already marks this article viewed, ensure the UI shows the badge
-                    try {
-                        if (meta_cache != null) {
-                            bool was = false;
-                            try { was = meta_cache.is_viewed(_norm); } catch (GLib.Error e) { was = false; }
-                            try { append_debug_log("meta_check: hero url=" + _norm + " was=" + (was ? "true" : "false")); } catch (GLib.Error e) { }
-                            if (was) { try { mark_article_viewed(_norm); } catch (GLib.Error e) { } }
-                        }
-                    } catch (GLib.Error e) { }
-                // Schedule a short delayed re-check in case layout finalizes after creation
-                Timeout.add(300, () => { 
-                    // Attempt one re-check shortly after creation
-                    var info = hero_requests.get(hero_image);
-                    if (info != null) maybe_refetch_hero_for(hero_image, info);
-                    return false; 
-                });
+                url_to_card.set(_norm, hero_card.root);
+                try { append_debug_log("url_to_card.set: hero mapping url=" + _norm + " widget=hero"); } catch (GLib.Error e) { }
+                try {
+                    if (meta_cache != null) {
+                        bool was = false;
+                        try { was = meta_cache.is_viewed(_norm); } catch (GLib.Error e) { was = false; }
+                        try { append_debug_log("meta_check: hero url=" + _norm + " was=" + (was ? "true" : "false")); } catch (GLib.Error e) { }
+                        if (was) { try { mark_article_viewed(_norm); } catch (GLib.Error e) { } }
+                    }
+                } catch (GLib.Error e) { }
+                Timeout.add(300, () => { var info = hero_requests.get(hero_card.image); if (info != null) maybe_refetch_hero_for(hero_card.image, info); return false; });
             }
-            hero.append(hero_overlay);
 
-            var hero_title_box = new Gtk.Box(Orientation.VERTICAL, 8);
-            hero_title_box.set_margin_start(16);
-            hero_title_box.set_margin_end(16);
-            hero_title_box.set_margin_top(16);
-            hero_title_box.set_margin_bottom(16);
-            hero_title_box.set_vexpand(true);
+            // Connect activation to the preview handler
+            hero_card.activated.connect((s) => { try { article_window.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { } });
 
-            var hero_label = new Gtk.Label(title);
-            hero_label.set_ellipsize(Pango.EllipsizeMode.END);
-            hero_label.set_xalign(0);
-            hero_label.set_wrap(true);
-            hero_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
-            hero_label.set_lines(8);
-            hero_label.set_max_width_chars(88);
-            hero_title_box.append(hero_label);
-
-            hero.append(hero_title_box);
-
-            var hero_click = new Gtk.GestureClick();
-            hero_click.released.connect(() => {
-                article_window.show_article_preview(title, url, thumbnail_url, category_id);
-            });
-            hero.add_controller(hero_click);
-
-            var hero_motion = new Gtk.EventControllerMotion();
-            hero_motion.enter.connect(() => { hero.add_css_class("card-hover"); });
-            hero_motion.leave.connect(() => { hero.remove_css_class("card-hover"); });
-            hero.add_controller(hero_motion);
-
-            // Build the featured carousel container and add the first slide.
-            // Use an explicit title above the carousel for accessibility.
+            // Add the hero as the first slide and initialize the carousel containers
             var top_stories_title = new Gtk.Label("Top Stories");
             top_stories_title.set_xalign(0);
             top_stories_title.add_css_class("top-stories-title");
             top_stories_title.set_margin_bottom(6);
             featured_box.append(top_stories_title);
 
-            // Initialize carousel state
             if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
             if (featured_carousel_widgets == null) featured_carousel_widgets = new Gee.ArrayList<Gtk.Widget>();
             featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
             featured_carousel_category = category_id;
-
-            // Debug: log hero creation when debug env var is set (also write to file)
-            try {
-                string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (_dbg != null && _dbg.length > 0) {
-                    print("DEBUG: created hero for category=%s title=%s\n", category_id, title);
-                    append_debug_log("hero_created: category=" + category_id + " title=" + title);
-                }
-            } catch (GLib.Error e) { }
 
             // Create a stack to hold up to 5 slides
             featured_carousel_stack = new Gtk.Stack();
@@ -2170,24 +2083,18 @@ public class NewsWindow : Adw.ApplicationWindow {
             featured_carousel_stack.set_halign(Gtk.Align.FILL);
             featured_carousel_stack.set_hexpand(true);
 
-            // Add the first slide (we'll add more slides as subsequent articles arrive)
-            featured_carousel_stack.add_named(hero, "0");
-            featured_carousel_widgets.add(hero);
+            featured_carousel_stack.add_named(hero_card.root, "0");
+            featured_carousel_widgets.add(hero_card.root);
 
-            // Wrap the stack and the dots in a single container so the dots
-            // appear as part of the hero card itself.
             var carousel_container = new Gtk.Box(Orientation.VERTICAL, 0);
             carousel_container.add_css_class("card");
             carousel_container.add_css_class("card-featured");
             carousel_container.set_halign(Gtk.Align.FILL);
             carousel_container.set_hexpand(true);
 
-            // Add stack into the carousel container
-            // Wrap the stack in an overlay so we can place nav buttons over the image
             var carousel_overlay = new Gtk.Overlay();
             carousel_overlay.set_child(featured_carousel_stack);
 
-            // Left navigation button
             var left_btn = new Gtk.Button.from_icon_name("go-previous-symbolic");
             left_btn.add_css_class("carousel-nav");
             left_btn.add_css_class("carousel-nav-left");
@@ -2195,12 +2102,9 @@ public class NewsWindow : Adw.ApplicationWindow {
             left_btn.set_valign(Gtk.Align.CENTER);
             left_btn.set_margin_start(8);
             left_btn.set_margin_end(8);
-            left_btn.set_margin_top(0);
-            left_btn.set_margin_bottom(0);
             carousel_overlay.add_overlay(left_btn);
             left_btn.clicked.connect(() => { carousel_prev(); });
 
-            // Right navigation button
             var right_btn = new Gtk.Button.from_icon_name("go-next-symbolic");
             right_btn.add_css_class("carousel-nav");
             right_btn.add_css_class("carousel-nav-right");
@@ -2208,17 +2112,11 @@ public class NewsWindow : Adw.ApplicationWindow {
             right_btn.set_valign(Gtk.Align.CENTER);
             right_btn.set_margin_start(8);
             right_btn.set_margin_end(8);
-            right_btn.set_margin_top(0);
-            right_btn.set_margin_bottom(0);
             carousel_overlay.add_overlay(right_btn);
             right_btn.clicked.connect(() => { carousel_next(); });
 
             carousel_container.append(carousel_overlay);
 
-            // Create a single dots row under the carousel (keeps dots visually under
-            // the article title while remaining easy to update). We show up to 5 dots
-            // regardless of how many slides are currently available; inactive
-            // ones will be dimmed.
             var global_dots = new Gtk.Box(Orientation.HORIZONTAL, 6);
             global_dots.set_halign(Gtk.Align.CENTER);
             global_dots.set_margin_top(6);
@@ -2228,51 +2126,37 @@ public class NewsWindow : Adw.ApplicationWindow {
                 dot.add_css_class("carousel-dot");
                 if (d == 0) dot.add_css_class("active");
                 dot.set_valign(Gtk.Align.CENTER);
-                // Force a larger glyph size using Pango attributes so themes
-                // that ignore label font-size in CSS still show bigger dots.
                 var dot_attrs = new Pango.AttrList();
-                // Scale relative to the default font size (1.35 = 35% larger)
                 dot_attrs.insert(Pango.attr_scale_new(1.35));
                 dot.set_attributes(dot_attrs);
                 global_dots.append(dot);
                 featured_carousel_dot_widgets.add(dot);
             }
             featured_carousel_dots_box = global_dots;
-
-            // Add the dots row into the same carousel container so they are visually
-            // contained within the hero card.
             carousel_container.append(global_dots);
-
-            // Append the carousel container (stack + dots) to the featured box
             featured_box.append(carousel_container);
 
-            // Start cycling through slides every 5 seconds
             featured_carousel_index = 0;
-            if (featured_carousel_timeout_id != 0) {
-                Source.remove(featured_carousel_timeout_id);
-                featured_carousel_timeout_id = 0;
-            }
+            if (featured_carousel_timeout_id != 0) { Source.remove(featured_carousel_timeout_id); featured_carousel_timeout_id = 0; }
             featured_carousel_timeout_id = Timeout.add_seconds(5, () => {
                 if (featured_carousel_stack == null) return false;
                 int total = featured_carousel_widgets != null ? featured_carousel_widgets.size : 0;
-                if (total <= 1) return true; // keep running until there are more slides
-                // Advance index and pick a child that is present in the stack
+                if (total <= 1) return true;
                 featured_carousel_index = (featured_carousel_index + 1) % total;
                 for (int i = 0; i < total; i++) {
                     var child = featured_carousel_widgets.get(featured_carousel_index) as Gtk.Widget;
                     if (child != null && child.get_parent() == featured_carousel_stack) {
                         featured_carousel_stack.set_visible_child(child);
                         update_carousel_dots(featured_carousel_index);
-                        return true; // continue timeout
+                        return true;
                     }
                     featured_carousel_index = (featured_carousel_index + 1) % total;
                 }
                 append_debug_log("carousel_timer: no valid child found for stack");
-                return true; // keep trying later
+                return true;
             });
 
             featured_used = true;
-            // Mark that initial items exist so the spinner can be hidden
             if (initial_phase) mark_initial_items_populated();
             return;
         }

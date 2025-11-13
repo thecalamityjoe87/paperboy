@@ -11,7 +11,7 @@ xml2 = dependency('libxml-2.0')
 gee = dependency('gee-0.8')
 gio = dependency('gio-2.0')
 
-executable('paperboy', ['src/main.vala', 'src/appWindow.vala', 'src/contentView.vala', 'src/articleCard.vala', 'src/newsSources.vala', 'tools/rssParser.vala', 'src/articleWindow.vala', 'src/metaCache.vala', 'src/prefs.vala', 'src/prefsDialog.vala', 'src/zip_lookup.vala', 'tools/imageParser.vala', 'tools/articleScraper.vala', 'tools/stripHTML.vala', 'src/newsArticle.vala'],
+executable('paperboy', ['src/main.vala', 'src/appWindow.vala', 'src/contentView.vala', 'src/articleCard.vala', 'src/heroCard.vala', 'src/newsSources.vala', 'tools/rssParser.vala', 'src/articleWindow.vala', 'src/metaCache.vala', 'src/prefs.vala', 'src/prefsDialog.vala', 'src/zip_lookup.vala', 'tools/imageParser.vala', 'tools/articleScraper.vala', 'tools/stripHTML.vala', 'src/newsArticle.vala'],
   dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio],
   install : true,
   link_args : ['-lm']
