@@ -1105,237 +1105,32 @@ public class NewsWindow : Adw.ApplicationWindow {
         sidebar_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         sidebar_scrolled.set_child(sidebar_list);
 
-    main_scrolled = new Gtk.ScrolledWindow();
-    main_scrolled.set_vexpand(true);
-    main_scrolled.set_hexpand(true);
-
-        // Create a size-constraining container that responds to window size
-        content_area = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        content_area.set_halign(Gtk.Align.FILL);
-        content_area.set_hexpand(true);
-
-        // Create a container for category label and grid
-        content_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-        content_box.set_hexpand(true);
-        content_box.set_halign(Gtk.Align.FILL);
-        
-        // Create a container for category header (title + date)
-        var header_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
-        header_box.set_margin_start(12);
-        header_box.set_margin_end(12);
-        header_box.set_margin_top(12);
-        header_box.set_margin_bottom(6);
-        
-        // Create horizontal box for category label and source info
-        var title_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-        
-        // Add category label (bigger size) - left aligned
-        category_label = new Gtk.Label("World News");
-        category_label.set_xalign(0);
-        category_label.set_hexpand(true); // Take available space
-        category_label.add_css_class("heading");
-        category_label.add_css_class("title-1");
-        // Make it even bigger by adding custom styling
-        var category_attrs = new Pango.AttrList();
-        category_attrs.insert(Pango.attr_scale_new(1.3)); // 30% larger
-        category_attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD));
-        category_label.set_attributes(category_attrs);
-
-        // Create a small icon holder and a title container so we can
-        // display a category icon to the left of the title text. The
-        // icon will be updated whenever the active category or theme
-        // changes.
-        category_icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        try {
-            // Request the header-sized icon initially to avoid a visual resize
-            // when the UI finishes loading. Use 36px (the intended header size)
-            // rather than a large 128px asset so GTK won't rescale it later.
-            var initial_cat_icon = create_category_header_icon(prefs.category, 36);
-            if (initial_cat_icon != null) {
-                category_icon_holder.append(initial_cat_icon);
-            }
-        } catch (GLib.Error e) { }
-
-        var cat_title_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-        cat_title_box.append(category_icon_holder);
-        cat_title_box.append(category_label);
-        title_row.append(cat_title_box);
-        
-        // Create source info box (logo + text) - right aligned
-        var source_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        source_box.set_valign(Gtk.Align.CENTER);
-        
-        // Add source logo placeholder
-        source_logo = new Gtk.Image();
-        source_logo.set_pixel_size(32); // Increased from 24 to 32
-        source_logo.set_valign(Gtk.Align.CENTER);
-        source_box.append(source_logo);
-        
-        // Add source label
-        source_label = new Gtk.Label("The Guardian");
-        source_label.set_xalign(1); // Right align text
-        source_label.add_css_class("dim-label");
-        source_label.add_css_class("title-4"); // Changed from "caption" to "title-4" for bigger text
-        // Make it bigger with custom styling
-        var source_attrs = new Pango.AttrList();
-        source_attrs.insert(Pango.attr_scale_new(1.2)); // 20% larger
-        source_attrs.insert(Pango.attr_weight_new(Pango.Weight.MEDIUM)); // Medium weight
-        source_label.set_attributes(source_attrs);
-        source_box.append(source_label);
-        
-        title_row.append(source_box);
-        header_box.append(title_row);
-        
-        // Add current date label (smaller text)
-        var date = new DateTime.now_local();
-        var date_str = date.format("%A, %B %d, %Y");
-        var date_label = new Gtk.Label(date_str);
-        date_label.set_xalign(0);
-        date_label.add_css_class("dim-label");
-        date_label.add_css_class("body");
-        header_box.append(date_label);
-        
-        content_box.append(header_box);
-
-        // Create a main content container that holds both hero and columns
-        main_content_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
-        main_content_container.set_halign(Gtk.Align.FILL);
-        main_content_container.set_hexpand(true);
-        main_content_container.set_margin_start(H_MARGIN);
-        main_content_container.set_margin_end(H_MARGIN);
-        main_content_container.set_margin_top(6);
-        main_content_container.set_margin_bottom(12);
-        
-        // Hero container - fill the main container width
-        hero_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        hero_container.set_halign(Gtk.Align.FILL);
-        hero_container.set_hexpand(true);
-        
-        featured_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-        featured_box.set_halign(Gtk.Align.FILL);
-        featured_box.set_hexpand(true);
-        
-        hero_container.append(featured_box);
-        main_content_container.append(hero_container);
-
-        // Masonry columns container - also within main container
-        columns_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, COL_SPACING);
-        columns_row.set_halign(Gtk.Align.FILL);
-        columns_row.set_valign(Gtk.Align.START);
-        columns_row.set_hexpand(true);
-        columns_row.set_vexpand(true);
-        columns_row.set_homogeneous(true); // equal column widths
-        rebuild_columns(3);
-        // Clear any mappings from previous view; widgets were just removed
-        // and mappings like `url_to_picture` / `hero_requests` would point
-        // to widgets that are no longer in the UI. Keep maps in sync to
-        // avoid treating removed pictures as "existing" and updating
-        // invisible widgets (which leaves the view blank on revisit).
-        url_to_picture.clear();
-        hero_requests.clear();
-        main_content_container.append(columns_row);
-        
-        // Create an overlay container for main content and loading spinner
-        var main_overlay = new Gtk.Overlay();
-        main_overlay.set_child(main_content_container);
-        
-        // Loading spinner container (initially hidden) - centered over main content
-        loading_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 16);
-        loading_container.set_halign(Gtk.Align.CENTER);
-        loading_container.set_valign(Gtk.Align.CENTER);
-        loading_container.set_hexpand(false);
-        loading_container.set_vexpand(false);
-        loading_container.set_visible(false);
-        
-    loading_spinner = new Gtk.Spinner();
-    loading_spinner.set_size_request(48, 48);
-    loading_container.append(loading_spinner);
-
-    // Use the instance field so we can change the message for Local News
-    loading_label = new Gtk.Label("Loading news...");
-    loading_label.add_css_class("dim-label");
-    loading_label.add_css_class("title-4");
-    loading_container.append(loading_label);
-        
-    // Add loading spinner as overlay on top of main content area
-    // NOTE: this will be moved to the root overlay (so it centers in
-    // the visible viewport) after `root_overlay` is created below.
-    // Keep it attached to main_overlay for now but we'll reparent later.
-    main_overlay.add_overlay(loading_container);
-
-    // Personalized feed disabled message (centered). This overlays the
-    // main content area and is visible only when the personalized feed
-    // option is turned off.
-    personalized_message_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
-    // Fill the available main content area so we can center contents inside it
-    personalized_message_box.set_halign(Gtk.Align.FILL);
-    personalized_message_box.set_valign(Gtk.Align.FILL);
-    personalized_message_box.set_hexpand(true);
-    personalized_message_box.set_vexpand(true);
-
-    // Inner full-size container that centers its child both horizontally
-    // and vertically. This ensures the label is dead-center regardless of
-    // how the overlay or parent containers allocate space.
-    var inner_center = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-    inner_center.set_hexpand(true);
-    inner_center.set_vexpand(true);
-    inner_center.set_halign(Gtk.Align.CENTER);
-    inner_center.set_valign(Gtk.Align.CENTER);
-
-    // Create a reusable label that we'll update depending on state
-    personalized_message_label = new Gtk.Label("");
-    personalized_message_label.add_css_class("dim-label");
-    personalized_message_label.add_css_class("title-4");
-    personalized_message_label.set_halign(Gtk.Align.CENTER);
-    personalized_message_label.set_valign(Gtk.Align.CENTER);
-    // Center-justify and allow wrapping so multi-line instructions are centered
-    try { personalized_message_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
-    try { personalized_message_label.set_xalign(0.5f); } catch (GLib.Error e) { }
-    try { personalized_message_label.set_wrap(true); } catch (GLib.Error e) { }
-    try { personalized_message_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR); } catch (GLib.Error e) { }
-    inner_center.append(personalized_message_label);
-
-    // Secondary label: smaller and dimmer, kept as a second-line text
-    personalized_message_sub_label = new Gtk.Label("");
-    personalized_message_sub_label.add_css_class("dim-label");
-    personalized_message_sub_label.add_css_class("caption");
-    personalized_message_sub_label.set_halign(Gtk.Align.CENTER);
-    personalized_message_sub_label.set_valign(Gtk.Align.CENTER);
-    try { personalized_message_sub_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
-    try { personalized_message_sub_label.set_wrap(true); } catch (GLib.Error e) { }
-    try { personalized_message_sub_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR); } catch (GLib.Error e) { }
-    personalized_message_sub_label.set_margin_top(6);
-    // Start hidden; we show/set it only when we have a second-line hint
-    personalized_message_sub_label.set_visible(false);
-    inner_center.append(personalized_message_sub_label);
-
-    // Action button to open the preferences dialog when helpful
-    personalized_message_action = new Gtk.Button.with_label("Set Source Options");
-    personalized_message_action.set_halign(Gtk.Align.CENTER);
-    personalized_message_action.set_valign(Gtk.Align.CENTER);
-    personalized_message_action.set_margin_top(8);
-    // Connect to preferences dialog (open the sources/settings dialog)
-    personalized_message_action.clicked.connect(() => {
-        try {
-            // Open the full sources list dialog (with toggles) rather than
-            // the brief alert-style dialog so users can adjust sources
-            // immediately from the personalized message action.
-            PrefsDialog.show_sources_list_dialog(this);
-        } catch (GLib.Error e) { }
-    });
-    // Start hidden; we'll show it only when appropriate
-    personalized_message_action.set_visible(false);
-    inner_center.append(personalized_message_action);
-
-    personalized_message_box.append(inner_center);
-    // Do NOT add the personalized message to the inner main_overlay (it lives
-    // inside the scrolled content). We'll add it to a root overlay that wraps
-    // the navigation view so it can center over the visible viewport.
-    content_box.append(main_overlay);
-        
-        // Add content_box to content_area and set up proper containment
-    content_area.append(content_box);
-    main_scrolled.set_child(content_area);
+    // Build main content UI in a separate helper object so the window
+    // constructor stays concise. ContentView constructs the widgets and
+    // exposes them; we then wire them into the existing NewsWindow fields.
+    var content_view = new ContentView(prefs);
+    category_label = content_view.category_label;
+    category_icon_holder = content_view.category_icon_holder;
+    source_logo = content_view.source_logo;
+    source_label = content_view.source_label;
+    main_content_container = content_view.main_content_container;
+    hero_container = content_view.hero_container;
+    featured_box = content_view.featured_box;
+    columns_row = content_view.columns_row;
+    content_area = content_view.content_area;
+    content_box = content_view.content_box;
+    main_scrolled = content_view.main_scrolled;
+    loading_container = content_view.loading_container;
+    loading_spinner = content_view.loading_spinner;
+    loading_label = content_view.loading_label;
+    personalized_message_box = content_view.personalized_message_box;
+    personalized_message_label = content_view.personalized_message_label;
+    personalized_message_sub_label = content_view.personalized_message_sub_label;
+    personalized_message_action = content_view.personalized_message_action;
+    local_news_message_box = content_view.local_news_message_box;
+    local_news_title = content_view.local_news_title;
+    local_news_hint = content_view.local_news_hint;
+    local_news_button = content_view.local_news_button;
 
     // Split view: sidebar + content with collapsible sidebar
     split_view = new Adw.OverlaySplitView();
@@ -1360,7 +1155,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // best-effort approach and ignore errors during early initialization.
     try {
         if (loading_container != null) {
-            try { main_overlay.remove_overlay(loading_container); } catch (GLib.Error e) { }
+            try { content_view.main_overlay.remove_overlay(loading_container); } catch (GLib.Error e) { }
             try { root_overlay.add_overlay(loading_container); } catch (GLib.Error e) { }
         }
     } catch (GLib.Error e) { }
@@ -2631,53 +2426,30 @@ public class NewsWindow : Adw.ApplicationWindow {
             return;
         }
 
-        var card = new Gtk.Box(Orientation.VERTICAL, 0);
-        card.add_css_class("card");
-
-        // Randomly choose a size variant for this card (small/medium/large)
+        // Build an ArticleCard UI-only widget and let the window orchestrate
+        // image loading, badges and metadata mappings. Compute the variant,
+        // column width and image height the same way as before so visuals
+        // remain unchanged.
         int variant = rng.int_range(0, 3);
-        // Make cards truly responsive - don't pre-calculate fixed sizes
         int col_w = estimate_column_width(columns_count);
-        int img_w = col_w; // for loader/placeholder calculation only
+        int img_w = col_w;
         int img_h = 0;
-        
-        // Set taller, more readable image heights for better visual appeal
         switch (variant) {
-            case 0: // small
+            case 0:
                 img_h = (int)(col_w * 0.42);
-                if (img_h < 80) img_h = 80; // absolute minimum
-                card.add_css_class("card-small");
+                if (img_h < 80) img_h = 80;
                 break;
-            case 1: // medium (default)
+            case 1:
                 img_h = (int)(col_w * 0.5);
-                if (img_h < 100) img_h = 100; // absolute minimum
-                card.add_css_class("card-medium");
+                if (img_h < 100) img_h = 100;
                 break;
-            case 2: // large
+            default:
                 img_h = (int)(col_w * 0.58);
-                if (img_h < 120) img_h = 120; // absolute minimum
-                card.add_css_class("card-large");
+                if (img_h < 120) img_h = 120;
                 break;
         }
-        
-        // Constrain card to fit within column
-        card.set_hexpand(true);
-        card.set_halign(Gtk.Align.FILL);
-        card.set_size_request(col_w, -1); // Set maximum width to column width
-        
-        // Create image container
-        var image = new Gtk.Picture();
-        image.set_halign(Gtk.Align.FILL);
-        image.set_hexpand(true);
-        // Set minimum height but constrain width to prevent overflow
-        image.set_size_request(col_w, img_h);
-        image.set_content_fit(Gtk.ContentFit.COVER);
-        image.set_can_shrink(true);
 
-        // Overlay with category chip. For frontpage we may have an encoded
-        // per-article category embedded in the source_name/display string.
-        var overlay = new Gtk.Overlay();
-        overlay.set_child(image);
+        // Compute the display category chip (frontpage may embed a token)
         string card_display_cat = category_id;
         try {
             if (card_display_cat == "frontpage" && source_name != null) {
@@ -2685,58 +2457,41 @@ public class NewsWindow : Adw.ApplicationWindow {
                 if (idx3 >= 0) card_display_cat = source_name.substring(idx3 + 11).strip();
             }
         } catch (GLib.Error e) { }
-        var chip = build_category_chip(card_display_cat);
-        overlay.add_overlay(chip);
-    // Add source badge to normal card. For local feeds we don't show a
-    // provider badge because the feed may represent many sources or
-    // the source attribution is already present in the feed items.
-        if (category_id != "local_news") {
-        // Build a dynamic source badge that prefers known NewsSource icons
-        // but will fall back to API-provided source names and local icon
-        // assets when available. Pass the category so 'frontpage' is treated
-        // as its own authoritative source (no mapping to user prefs).
-        var card_badge = build_source_badge_dynamic(source_name, url, category_id);
-        overlay.add_overlay(card_badge);
-    }
 
-        // Only paint a placeholder immediately when there is no image URL to
-        // request. If an image will be loaded, let the async loader set the
-        // image or fall back to a placeholder on failure to avoid a brief
-        // placeholder/logo flash during load.
-        bool card_will_load = thumbnail_url != null && thumbnail_url.length > 0 && 
-            (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
-        if (!card_will_load) {
-            if (category_id == "local_news") {
-                set_local_placeholder_image(image, img_w, img_h);
-            } else {
-                // Use per-article source placeholder so cards reflect their
-                // inferred provider when multiple sources are enabled.
-                set_placeholder_image_for_source(image, img_w, img_h, resolve_source(source_name, url));
-            }
+        var chip = build_category_chip(card_display_cat);
+
+        // Instantiate the ArticleCard UI (presentation only)
+        var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant);
+
+        // Allow caller to add a dynamic source badge overlay (skip for local_news)
+        if (category_id != "local_news") {
+            var card_badge = build_source_badge_dynamic(source_name, url, category_id);
+            try { article_card.overlay.add_overlay(card_badge); } catch (GLib.Error e) { }
         }
+
+        // Decide whether we'll load an image and, if not, let the caller set placeholders
+        bool card_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
+            (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
 
         string _norm = normalize_article_url(url);
 
         if (card_will_load) {
-            // Use different resolution multiplier based on source - Reddit images are typically larger
             int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 3);
             if (initial_phase) pending_images++;
-            load_image_async(image, thumbnail_url, img_w * multiplier, img_h * multiplier);
-            // Register card image for in-place updates when higher-res images arrive later
-            url_to_picture.set(_norm, image);
+            // Caller retains image-load logic; register picture for in-place updates
+            load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier);
+            url_to_picture.set(_norm, article_card.image);
             normalized_to_url.set(_norm, url);
+        } else {
+            if (category_id == "local_news") {
+                set_local_placeholder_image(article_card.image, img_w, img_h);
+            } else {
+                set_placeholder_image_for_source(article_card.image, img_w, img_h, resolve_source(source_name, url));
+            }
         }
-        
-        card.append(overlay);
 
-        // Now that the overlay is appended to the card, map the normalized
-        // URL to the card widget and consult per-article metadata so any
-        // persisted "viewed" badge can be shown immediately. The mapping
-        // must happen after appending the overlay so mark_article_viewed()
-        // can find and add the badge overlay synchronously.
-        try {
-            url_to_card.set(_norm, card);
-        } catch (GLib.Error e) { }
+        // Map normalized URL -> card widget for overlays/badges and viewed state
+        try { url_to_card.set(_norm, article_card.root); } catch (GLib.Error e) { }
         try { append_debug_log("url_to_card.set: card mapping url=" + _norm + " widget=card"); } catch (GLib.Error e) { }
         try {
             if (meta_cache != null) {
@@ -2746,75 +2501,31 @@ public class NewsWindow : Adw.ApplicationWindow {
                 if (was) { try { mark_article_viewed(_norm); } catch (GLib.Error e) { } }
             }
         } catch (GLib.Error e) { }
-        
-        // Title container
-        var title_box = new Gtk.Box(Orientation.VERTICAL, 6);
-        title_box.set_margin_start(12);
-        title_box.set_margin_end(12);
-        title_box.set_margin_top(12);
-        title_box.set_margin_bottom(12);
-        title_box.set_vexpand(true);
-        
-        var label = new Gtk.Label(title);
-        label.set_ellipsize(Pango.EllipsizeMode.END);
-        label.set_xalign(0);
-        label.set_wrap(true);
-        label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
-        // Set width to match column width for proper text wrapping
-        label.set_size_request(col_w - 24, -1); // Account for margins
-        // Adjust label constraints based on variant
-        switch (variant) {
-            case 0: label.set_lines(3); break;
-            case 1: label.set_lines(4); break;
-            case 2: label.set_lines(6); break;
-        }
-        title_box.append(label);
-        
-        card.append(title_box);
-        
-        // Make the whole card clickable
-    var gesture = new Gtk.GestureClick();
-    gesture.released.connect(() => { article_window.show_article_preview(title, url, thumbnail_url, category_id); });
-        card.add_controller(gesture);
-        
-        // Add hover effect
-        var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => {
-            card.add_css_class("card-hover");
+
+        // Connect activation to opening the article preview
+        article_card.activated.connect((s) => {
+            try { article_window.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { }
         });
-        motion.leave.connect(() => {
-            card.remove_css_class("card-hover");
-        });
-        card.add_controller(motion);
 
         // Append to the calculated target column
         if (target_col == -1) {
-            // Fallback: find shortest column for specific categories
             target_col = 0;
-            // Original logic for single category views
             int random_noise = rng.int_range(0, 11);
             int best_score = column_heights[0] + random_noise;
-            
             for (int i = 1; i < columns.length; i++) {
                 random_noise = rng.int_range(0, 11);
                 int score = column_heights[i] + random_noise;
                 if (score < best_score) { best_score = score; target_col = i; }
             }
         }
-        columns[target_col].append(card);
-        
-    // Increment article counter for "All Categories" mode
-        // Use original_category if provided (for when category is temporarily overridden)
+        columns[target_col].append(article_card.root);
+
         string current_category = original_category ?? prefs.category;
-        if (current_category == "all") {
-            articles_shown++;
-        }
-        
-        // Update approximate column height (include spacing) - estimate based on image height + text
-        int estimated_card_h = img_h + 120; // image + typical text height
+        if (current_category == "all") articles_shown++;
+
+        int estimated_card_h = img_h + 120;
         column_heights[target_col] += estimated_card_h + 12;
 
-        // Mark that initial items exist so the spinner can be hidden once images are ready
         if (initial_phase) mark_initial_items_populated();
     }
     
