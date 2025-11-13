@@ -236,7 +236,7 @@ public class ArticleWindow : GLib.Object {
         actions.set_halign(Gtk.Align.FILL);
         actions.set_homogeneous(true);
         
-        var back_local = new Gtk.Button.with_label("Back");
+        var back_local = new Gtk.Button.with_label("Close");
         back_local.set_hexpand(true);
         back_local.clicked.connect(() => {
             // Close the overlay split view

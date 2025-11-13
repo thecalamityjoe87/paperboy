@@ -1194,13 +1194,16 @@ public class NewsWindow : Adw.ApplicationWindow {
     dim_click.pressed.connect(() => {
         article_preview_split.set_show_sidebar(false);
         back_btn.set_visible(false);
-        dim_overlay.set_visible(false);
-        // Mark the article as viewed
+        // Call preview_closed with the last URL to properly mark viewed and restore scroll
         try {
             if (last_previewed_url != null && last_previewed_url.length > 0) {
-                mark_article_viewed(last_previewed_url);
+                preview_closed(last_previewed_url);
+            } else {
+                dim_overlay.set_visible(false);
             }
-        } catch (GLib.Error e) { }
+        } catch (GLib.Error e) { 
+            dim_overlay.set_visible(false);
+        }
     });
     dim_overlay.add_controller(dim_click);
     
@@ -1318,11 +1321,16 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // Close article preview if it's open
                 article_preview_split.set_show_sidebar(false);
                 back_btn.set_visible(false);
-                dim_overlay.set_visible(false);
-                // If we have a record of the last previewed URL, mark it viewed
+                // Call preview_closed to properly mark viewed and restore scroll
                 try {
-                    if (last_previewed_url != null && last_previewed_url.length > 0) mark_article_viewed(last_previewed_url);
-                } catch (GLib.Error e) { }
+                    if (last_previewed_url != null && last_previewed_url.length > 0) {
+                        preview_closed(last_previewed_url);
+                    } else {
+                        dim_overlay.set_visible(false);
+                    }
+                } catch (GLib.Error e) { 
+                    dim_overlay.set_visible(false);
+                }
                 return true;
             }
             return false;
@@ -1336,8 +1344,16 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (back_btn.get_visible()) {
                 article_preview_split.set_show_sidebar(false);
                 back_btn.set_visible(false);
-                dim_overlay.set_visible(false);
-                back_btn.set_visible(false);
+                // Call preview_closed to properly mark viewed and restore scroll
+                try {
+                    if (last_previewed_url != null && last_previewed_url.length > 0) {
+                        preview_closed(last_previewed_url);
+                    } else {
+                        dim_overlay.set_visible(false);
+                    }
+                } catch (GLib.Error e) { 
+                    dim_overlay.set_visible(false);
+                }
             }
         });
         split_view.add_controller(main_click_controller);
@@ -3448,37 +3464,51 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         try { append_debug_log("mark_article_viewed: normalized=" + n); } catch (GLib.Error e) { }
 
-        // If we have a mapped card widget for this URL, add the badge overlay
-        try {
-            var card = url_to_card.get(n);
-            if (card != null) {
-                try { append_debug_log("mark_article_viewed: found mapped widget for " + n); } catch (GLib.Error e) { }
-                // The card's first child is the overlay we created earlier
-                Gtk.Widget? first = card.get_first_child();
-                if (first != null && first is Gtk.Overlay) {
-                    var overlay = (Gtk.Overlay) first;
-                    // Avoid adding duplicate viewed badges
-                    bool already = false;
-                    Gtk.Widget? c = overlay.get_first_child();
-                    while (c != null) {
-                        try {
-                            // GTK4's StyleContext does not expose a list_classes API in
-                            // the Vala bindings; use has_class to detect our badge class.
-                            if (c.get_style_context().has_class("viewed-badge")) {
-                                already = true;
-                            }
-                        } catch (GLib.Error e) { }
-                        if (already) break;
-                        c = c.get_next_sibling();
+        // Add the badge overlay after a small delay to avoid interfering with scroll restoration
+        Timeout.add(50, () => {
+            try {
+                var card = url_to_card.get(n);
+                if (card != null) {
+                    try { append_debug_log("mark_article_viewed: found mapped widget for " + n); } catch (GLib.Error e) { }
+                    // The card's first child is the overlay we created earlier
+                    Gtk.Widget? first = card.get_first_child();
+                    if (first != null && first is Gtk.Overlay) {
+                        var overlay = (Gtk.Overlay) first;
+                        // Avoid adding duplicate viewed badges
+                        bool already = false;
+                        Gtk.Widget? c = overlay.get_first_child();
+                        while (c != null) {
+                            try {
+                                // GTK4's StyleContext does not expose a list_classes API in
+                                // the Vala bindings; use has_class to detect our badge class.
+                                if (c.get_style_context().has_class("viewed-badge")) {
+                                    already = true;
+                                }
+                            } catch (GLib.Error e) { }
+                            if (already) break;
+                            c = c.get_next_sibling();
+                        }
+                        if (!already) {
+                            var badge = build_viewed_badge();
+                            overlay.add_overlay(badge);
+                            badge.set_visible(true);
+                            overlay.queue_draw();
+                            try { append_debug_log("mark_article_viewed: added viewed badge for " + n); } catch (GLib.Error e) { }
+                        } else {
+                            try { append_debug_log("mark_article_viewed: badge already exists for " + n); } catch (GLib.Error e) { }
+                        }
+                    } else {
+                        try { append_debug_log("mark_article_viewed: first child is not overlay for " + n); } catch (GLib.Error e) { }
                     }
-                    if (!already) {
-                        var badge = build_viewed_badge();
-                        overlay.add_overlay(badge);
-                        try { append_debug_log("mark_article_viewed: added viewed badge for " + n); } catch (GLib.Error e) { }
-                    }
+                } else {
+                    try { append_debug_log("mark_article_viewed: no card found for " + n); } catch (GLib.Error e) { }
                 }
+            } catch (GLib.Error e) { 
+                try { append_debug_log("mark_article_viewed: error adding badge - " + e.message); } catch (GLib.Error ee) { }
             }
-        } catch (GLib.Error e) { }
+            return false;
+        });
+        
         // Persist viewed state to per-article metadata cache so this is stored
         // with the cached image/metadata rather than the global config file.
         try {
@@ -3513,18 +3543,41 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Called by ArticleWindow when the preview is closed; mark the article
     // viewed now that the user returned to the main view.
     public void preview_closed(string url) {
+        // Make a local copy of the URL to avoid any issues with the parameter being freed
+        string? url_copy = null;
+        try {
+            if (url != null && url.length > 0) {
+                url_copy = url.dup();
+            }
+        } catch (GLib.Error e) { }
+        
+        // Clear the last previewed URL
         try { last_previewed_url = null; } catch (GLib.Error e) { }
+        
         // Hide dim overlay
         if (dim_overlay != null) dim_overlay.set_visible(false);
-        try { append_debug_log("preview_closed: " + (url != null ? url : "<null>") + " scroll_to_restore=" + last_scroll_value.to_string()); } catch (GLib.Error e) { }
-        // Mark viewed immediately
-        try { if (url != null) mark_article_viewed(url); } catch (GLib.Error e) { }
-        // Restore previous scroll offset after the preview is popped. Use idle with higher priority
-        // and multiple attempts to ensure it takes effect after any layout changes.
+        
+        // Save the scroll position again right before we do anything else
         double saved_scroll = last_scroll_value;
+        if (saved_scroll < 0.0) {
+            try {
+                if (main_scrolled != null) {
+                    var adj = main_scrolled.get_vadjustment();
+                    if (adj != null) saved_scroll = adj.get_value();
+                }
+            } catch (GLib.Error e) { }
+        }
+        
+        try { append_debug_log("preview_closed: " + (url_copy != null ? url_copy : "<null>") + " scroll_to_restore=" + saved_scroll.to_string()); } catch (GLib.Error e) { }
+        
+        // Mark viewed immediately using our local copy
+        try { if (url_copy != null) mark_article_viewed(url_copy); } catch (GLib.Error e) { }
+        
+        // Restore previous scroll offset AFTER marking viewed. Use multiple attempts
+        // with increasing delays to ensure it takes effect.
         try {
             if (main_scrolled != null && saved_scroll >= 0.0) {
-                // First attempt immediately
+                // First attempt immediately after marking viewed
                 Idle.add(() => {
                     try {
                         var adj = main_scrolled.get_vadjustment();
@@ -3536,13 +3589,25 @@ public class NewsWindow : Adw.ApplicationWindow {
                     return false;
                 }, Priority.HIGH);
                 
-                // Second attempt with slight delay to catch any late resets
-                Timeout.add(50, () => {
+                // Second attempt with delay
+                Timeout.add(100, () => {
                     try {
                         var adj = main_scrolled.get_vadjustment();
                         if (adj != null) {
                             adj.set_value(saved_scroll);
-                            try { append_debug_log("scroll restored (delayed): " + saved_scroll.to_string()); } catch (GLib.Error e) { }
+                            try { append_debug_log("scroll restored (100ms): " + saved_scroll.to_string()); } catch (GLib.Error e) { }
+                        }
+                    } catch (GLib.Error e) { }
+                    return false;
+                });
+                
+                // Third attempt with longer delay to catch any late resets
+                Timeout.add(200, () => {
+                    try {
+                        var adj = main_scrolled.get_vadjustment();
+                        if (adj != null) {
+                            adj.set_value(saved_scroll);
+                            try { append_debug_log("scroll restored (200ms): " + saved_scroll.to_string()); } catch (GLib.Error e) { }
                         }
                     } catch (GLib.Error e) { }
                     return false;
