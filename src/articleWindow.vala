@@ -399,28 +399,49 @@ public class ArticleWindow : GLib.Object {
                             // pixbuf loaded check
                             
                             if (pixbuf != null) {
-                                // Scale to fit if needed (only scale down for better quality)
+                                // Avoid expensive, high-quality downscaling on the main
+                                // thread which causes jank when opening previews. Instead:
+                                //  - Prefer to set the decoded pixbuf directly as a texture
+                                //    so the GPU can handle scaling where possible (fast).
+                                //  - Only perform a conservative BILINEAR downscale when the
+                                //    decoded image is extremely larger than the target area to
+                                //    avoid huge textures and excessive memory use.
+                                int device_scale = 1;
+                                try {
+                                    device_scale = image.get_scale_factor();
+                                    if (device_scale < 1) device_scale = 1;
+                                } catch (GLib.Error e) { device_scale = 1; }
+
+                                int eff_target_w = target_w * device_scale;
+                                int eff_target_h = target_h * device_scale;
+
                                 int width = pixbuf.get_width();
                                 int height = pixbuf.get_height();
-                                // image size available
-                                
-                                // Only scale down if image is larger than target, preserve quality
-                                if (width > target_w || height > target_h) {
-                                    double scale = double.min((double) target_w / width, (double) target_h / height);
+
+                                // If the image is massively larger than the effective target
+                                // (e.g., more than 3× in either dimension), downscale to a
+                                // reasonable cap using the faster BILINEAR interpolation.
+                                // This reduces memory and keeps the preview responsive.
+                                if ((width > eff_target_w * 3) || (height > eff_target_h * 3)) {
+                                    double scale = double.min((double)(eff_target_w * 2) / width,
+                                                              (double)(eff_target_h * 2) / height);
+                                    if (scale <= 0) scale = 1.0;
                                     int new_width = (int)(width * scale);
                                     if (new_width < 1) new_width = 1;
                                     int new_height = (int)(height * scale);
                                     if (new_height < 1) new_height = 1;
-                                    // Scale down even for small targets so UI badges/layouts receive appropriately-sized images
-                                    pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER);
-                                    print("Scaled to: %dx%d\n", new_width, new_height);
-                                } else {
-                                    print("Keeping original size for better quality\n");
+                                    // Use BILINEAR here for speed (trade a tiny amount of quality)
+                                    pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.BILINEAR);
+                                    try { append_debug_log("article preview: fast downscale to " + new_width.to_string() + "x" + new_height.to_string()); } catch (GLib.Error e) { }
                                 }
-                                
+
+                                // Create a texture directly from the (possibly resized) pixbuf
+                                // and hand it to the Gtk.Picture. Creating the texture is
+                                // relatively cheap compared to full HYPER resampling on the
+                                // main thread and yields a crisp result when the source image
+                                // has sufficient resolution.
                                 var texture = Gdk.Texture.for_pixbuf(pixbuf);
                                 image.set_paintable(texture);
-                                print("✓ Image set successfully\n");
                             } else {
                                 // pixbuf null -> use placeholder
                                 set_placeholder_image(image, target_w, target_h);

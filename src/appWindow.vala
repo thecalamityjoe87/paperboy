@@ -35,13 +35,9 @@ public class ArticleItem : GLib.Object {
         this.source_name = source_name;
     }
 }
- 
-// Image download helper functions live below; queueing removed in favor of a simpler
-// approach (cache + direct download threads). This keeps code straightforward now
-// that we use on-disk caching to reduce redundant downloads.
 
-// Track hero image requests so we can re-request higher-res images when layout changes
-private class HeroRequest : GLib.Object {
+// Small helper object to track hero image requests (size, multiplier, retries)
+public class HeroRequest : GLib.Object {
     public string url { get; set; }
     public int last_requested_w { get; set; }
     public int last_requested_h { get; set; }
@@ -57,8 +53,8 @@ private class HeroRequest : GLib.Object {
     }
 }
 
-// Small helper to hold deferred download requests for widgets that are not yet visible
-private class DeferredRequest : GLib.Object {
+// Deferred request holder for widgets that postpone downloads until visible
+public class DeferredRequest : GLib.Object {
     public string url { get; set; }
     public int w { get; set; }
     public int h { get; set; }
@@ -2978,8 +2974,31 @@ public class NewsWindow : Adw.ApplicationWindow {
                             try {
                                 Gdk.Texture? texture = null;
                                 var pix = new Gdk.Pixbuf.from_file(path);
-                                // If we know the requested size for this URL, scale to it so
-                                // cached textures match what callers expect (avoid oversized logos)
+
+                                // Determine device/widget scale by inspecting all pending targets
+                                // and picking the largest scale factor. This avoids using a
+                                // single possibly-unrealized widget and ensures we rasterize
+                                // to enough device pixels for any attached targets.
+                                int device_scale = 1;
+                                try {
+                                    var list_try = pending_downloads.get(url);
+                                    if (list_try != null && list_try.size > 0) {
+                                        foreach (var pic_obj in list_try) {
+                                            try {
+                                                var pic = (Gtk.Picture) pic_obj;
+                                                int s = pic.get_scale_factor();
+                                                if (s > device_scale) device_scale = s;
+                                            } catch (GLib.Error e) {
+                                                // ignore and continue
+                                            }
+                                        }
+                                        if (device_scale < 1) device_scale = 1;
+                                    }
+                                } catch (GLib.Error e) { device_scale = 1; }
+
+                                // If we know the requested size for this URL, scale to the
+                                // effective (device) target so cached textures match callers
+                                // and look crisp on HiDPI displays.
                                 var size_rec = requested_image_sizes.get(url);
                                 if (pix != null && size_rec != null && size_rec.length > 0) {
                                     try {
@@ -2987,29 +3006,34 @@ public class NewsWindow : Adw.ApplicationWindow {
                                         if (parts.length == 2) {
                                             int sw = int.parse(parts[0]);
                                             int sh = int.parse(parts[1]);
-                                            double sc = double.min((double) sw / pix.get_width(), (double) sh / pix.get_height());
+                                            int eff_sw = sw * device_scale;
+                                            int eff_sh = sh * device_scale;
+                                            try { append_debug_log("start_image_download_for_url: 304 serving url=" + url + " requested=" + sw.to_string() + "x" + sh.to_string() + " device_scale=" + device_scale.to_string() + " eff_target=" + eff_sw.to_string() + "x" + eff_sh.to_string() + " pix_before=" + pix.get_width().to_string() + "x" + pix.get_height().to_string()); } catch (GLib.Error e) { }
+                                            double sc = double.min((double) eff_sw / pix.get_width(), (double) eff_sh / pix.get_height());
                                             if (sc < 1.0) {
                                                 int nw = (int)(pix.get_width() * sc);
                                                 if (nw < 1) nw = 1;
                                                 int nh = (int)(pix.get_height() * sc);
                                                 if (nh < 1) nh = 1;
-                                                try { pix = pix.scale_simple(nw, nh, Gdk.InterpType.BILINEAR); } catch (GLib.Error e) { }
+                                                try { pix = pix.scale_simple(nw, nh, Gdk.InterpType.HYPER); } catch (GLib.Error e) { }
                                             }
                                             texture = Gdk.Texture.for_pixbuf(pix);
                                             string k = make_cache_key(url, sw, sh);
                                             memory_meta_cache.set(k, texture);
-                                            memory_meta_cache.set(url, texture);
+                                            // Only set a URL-keyed fallback for small targets
+                                            if (sw <= 64 && sh <= 64) memory_meta_cache.set(url, texture);
+                                            try { append_debug_log("start_image_download_for_url: 304 cached size_key=" + k + " pix_after=" + pix.get_width().to_string() + "x" + pix.get_height().to_string()); } catch (GLib.Error e) { }
                                         } else {
                                             texture = Gdk.Texture.for_pixbuf(pix);
-                                            memory_meta_cache.set(url, texture);
+                                            if (pix.get_width() <= 64 && pix.get_height() <= 64) memory_meta_cache.set(url, texture);
                                         }
                                     } catch (GLib.Error e) {
                                         texture = Gdk.Texture.for_pixbuf(pix);
-                                        memory_meta_cache.set(url, texture);
+                                        if (pix.get_width() <= 64 && pix.get_height() <= 64) memory_meta_cache.set(url, texture);
                                     }
                                 } else if (pix != null) {
                                     texture = Gdk.Texture.for_pixbuf(pix);
-                                    memory_meta_cache.set(url, texture);
+                                    if (pix.get_width() <= 64 && pix.get_height() <= 64) memory_meta_cache.set(url, texture);
                                 }
                                 var list2 = pending_downloads.get(url);
                                 if (list2 != null) {
@@ -3067,6 +3091,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                         if (pixbuf != null) {
                             int width = pixbuf.get_width();
                             int height = pixbuf.get_height();
+                            try { append_debug_log("start_image_download_for_url: decoded url=" + url + " orig=" + width.to_string() + "x" + height.to_string() + " requested=" + target_w.to_string() + "x" + target_h.to_string()); } catch (GLib.Error e) { }
                             double scale = double.min((double) target_w / width, (double) target_h / height);
                             if (scale < 1.0) {
                                 int new_width = (int)(width * scale);
@@ -3075,14 +3100,16 @@ public class NewsWindow : Adw.ApplicationWindow {
                                 if (new_height < 1) new_height = 1;
                                 // Always scale down to the requested target so badges/layouts receive
                                 // appropriately-sized textures (allow small targets like 20x20).
-                                pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER);
+                                try { pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER); } catch (GLib.Error e) { }
+                                try { append_debug_log("start_image_download_for_url: scaled-down url=" + url + " to=" + pixbuf.get_width().to_string() + "x" + pixbuf.get_height().to_string()); } catch (GLib.Error e) { }
                             } else if (scale > 1.0) {
                                 double max_upscale = 2.0;
                                 double upscale = double.min(scale, max_upscale);
                                 int new_width = (int)(width * upscale);
                                 int new_height = (int)(height * upscale);
                                 if (upscale > 1.01) {
-                                    pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER);
+                                    try { pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER); } catch (GLib.Error e) { }
+                                    try { append_debug_log("start_image_download_for_url: upscaled url=" + url + " to=" + pixbuf.get_width().to_string() + "x" + pixbuf.get_height().to_string()); } catch (GLib.Error e) { }
                                 }
                             }
 
@@ -3093,6 +3120,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                                     // Cache texture in-memory for the session using size-key
                                     string size_key = make_cache_key(url, target_w, target_h);
                                     memory_meta_cache.set(size_key, texture);
+                                    try { append_debug_log("start_image_download_for_url: cached memory size_key=" + size_key + " url=" + url + " tex_size=" + pb_for_idle.get_width().to_string() + "x" + pb_for_idle.get_height().to_string()); } catch (GLib.Error e) { }
 
                                     var list = pending_downloads.get(url);
                                     if (list != null) {
@@ -3228,13 +3256,24 @@ public class NewsWindow : Adw.ApplicationWindow {
             on_image_loaded(image);
             return;
         }
-        // Fallback: if there's a texture cached for the URL without size (old behavior), use it
+        // Fallback: avoid using a URL-keyed texture that may have been cached
+        // at an earlier, different size. Using a wrong-size cached texture
+        // can cause visible blurriness when it's upscaled for larger targets.
+        // Keep a small-target fast-path (icons/badges) but otherwise prefer
+        // the size-keyed cache, disk cache, or a fresh download.
         var cached_any = memory_meta_cache.get(url);
         if (cached_any != null) {
-            append_debug_log("load_image_async: memory cache (any-size) hit url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
-            image.set_paintable(cached_any);
-            on_image_loaded(image);
-            return;
+            // For very small targets (badges/icons) the generic cached texture
+            // is acceptable and avoids an extra disk/network round-trip.
+            if (target_w <= 64 && target_h <= 64) {
+                append_debug_log("load_image_async: memory cache (any-size) hit (small target) url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
+                image.set_paintable(cached_any);
+                on_image_loaded(image);
+                return;
+            } else {
+                append_debug_log("load_image_async: memory cache (any-size) hit but skipping due to size mismatch url=" + url + " requested=" + target_w.to_string() + "x" + target_h.to_string());
+                // Fall through to disk/network path to obtain an appropriately-sized texture
+            }
         }
 
         // Eager disk short-circuit: if we have the image on-disk from a
@@ -3245,33 +3284,45 @@ public class NewsWindow : Adw.ApplicationWindow {
                 var disk_path = meta_cache.get_cached_path(url);
                 if (disk_path != null) {
                     append_debug_log("load_image_async: disk cache hit path=" + disk_path + " url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
-                    try {
-                        var pix = new Gdk.Pixbuf.from_file(disk_path);
-                        if (pix != null) {
-                            // If the on-disk image is larger than requested, scale it
-                            int width = pix.get_width();
-                            int height = pix.get_height();
-                            double scale = double.min((double) target_w / width, (double) target_h / height);
-                            if (scale < 1.0) {
-                                int new_w = (int)(width * scale);
-                                if (new_w < 1) new_w = 1;
-                                int new_h = (int)(height * scale);
-                                if (new_h < 1) new_h = 1;
-                                try { pix = pix.scale_simple(new_w, new_h, Gdk.InterpType.BILINEAR); } catch (GLib.Error e) { }
+                        try {
+                            var pix = new Gdk.Pixbuf.from_file(disk_path);
+                            if (pix != null) {
+                                // Determine widget/device scale so we rasterize to enough
+                                // device pixels for HiDPI displays and avoid blurry upscaling.
+                                int device_scale = 1;
+                                try { device_scale = image.get_scale_factor(); if (device_scale < 1) device_scale = 1; } catch (GLib.Error e) { device_scale = 1; }
+
+                                int eff_target_w = target_w * device_scale;
+                                int eff_target_h = target_h * device_scale;
+
+                                // If the on-disk image is larger than the effective target, scale it
+                                int width = pix.get_width();
+                                int height = pix.get_height();
+                                double scale = double.min((double) eff_target_w / width, (double) eff_target_h / height);
+                                if (scale < 1.0) {
+                                    int new_w = (int)(width * scale);
+                                    if (new_w < 1) new_w = 1;
+                                    int new_h = (int)(height * scale);
+                                    if (new_h < 1) new_h = 1;
+                                    try { pix = pix.scale_simple(new_w, new_h, Gdk.InterpType.HYPER); } catch (GLib.Error e) { }
+                                }
+                                // Debug: record disk-cache serving details
+                                try { append_debug_log("load_image_async: disk-cached path=" + disk_path + " url=" + url + " requested=" + target_w.to_string() + "x" + target_h.to_string() + " device_scale=" + device_scale.to_string() + " pix_after=" + pix.get_width().to_string() + "x" + pix.get_height().to_string()); } catch (GLib.Error e) { }
+                                // Create a texture and cache it under the size-key (logical size)
+                                var tex = Gdk.Texture.for_pixbuf(pix);
+                                string size_key = make_cache_key(url, target_w, target_h);
+                                memory_meta_cache.set(size_key, tex);
+                                // keep URL-keyed fallback only for small icons to avoid
+                                // accidental upscaling of low-res textures for larger cards
+                                if (target_w <= 64 && target_h <= 64) memory_meta_cache.set(url, tex);
+                                image.set_paintable(tex);
+                                on_image_loaded(image);
+                                try { append_debug_log("load_image_async: disk-cached served url=" + url + " size_key=" + size_key); } catch (GLib.Error e) { }
+                                return;
                             }
-                            // Create a texture and cache it under the size-key
-                            var tex = Gdk.Texture.for_pixbuf(pix);
-                            string size_key = make_cache_key(url, target_w, target_h);
-                            memory_meta_cache.set(size_key, tex);
-                            // also keep a URL-keyed fallback for older callers
-                            memory_meta_cache.set(url, tex);
-                            image.set_paintable(tex);
-                            on_image_loaded(image);
-                            return;
+                        } catch (GLib.Error e) {
+                            // Fall through to network fetch on any disk read/decoding error
                         }
-                    } catch (GLib.Error e) {
-                        // Fall through to network fetch on any disk read/decoding error
-                    }
                 }
             }
         } catch (GLib.Error e) { /* best-effort; continue to network path */ }
@@ -3296,7 +3347,22 @@ public class NewsWindow : Adw.ApplicationWindow {
             string nkey = normalize_article_url(url);
             if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
         } catch (GLib.Error e) { }
-    ensure_start_download(url, target_w, target_h);
+    // If we're in the initial loading phase, proactively request a larger
+    // device-pixel image for medium/large card thumbnails so the first
+    // painted result is already crisp instead of appearing blurry then
+    // upgrading after a refresh. Use a simple heuristic: targets >= 160px
+    // are likely article/card images and benefit from an initial upscale.
+    int download_w = target_w;
+    int download_h = target_h;
+    try {
+        if (initial_phase && target_w >= 160) {
+            // Request higher-res (2x) but clamp to reasonable maximums
+            download_w = clampi(target_w * 2, target_w, 1600);
+            download_h = clampi(target_h * 2, target_h, 1600);
+            append_debug_log("load_image_async: initial_phase bump request for url=" + url + " requested=" + target_w.to_string() + "x" + target_h.to_string() + " -> download=" + download_w.to_string() + "x" + download_h.to_string());
+        }
+    } catch (GLib.Error e) { }
+    ensure_start_download(url, download_w, download_h);
     }
     
 
