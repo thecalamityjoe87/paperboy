@@ -115,6 +115,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Label category_label;
     private Gtk.Label source_label;
     private Gtk.Image source_logo;
+    // Holder for the category icon shown to the left of the category title
+    private Gtk.Box? category_icon_holder;
     private Gtk.ToggleButton sidebar_toggle;
     private Gtk.Box sidebar_spacer;
     private Gtk.ListBox sidebar_list;
@@ -512,6 +514,9 @@ public class NewsWindow : Adw.ApplicationWindow {
             } catch (GLib.Error e) { }
             // Persist selection immediately and update UI selection synchronously
             prefs.category = cat;
+            // Update the header category icon immediately so users get
+            // instant visual feedback of the selected category.
+            try { update_category_icon(); } catch (GLib.Error e) { }
             try {
                 string? _dbg3 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
                 if (_dbg3 != null && _dbg3.length > 0) append_debug_log("activation_set_prefs: prefs.category=" + prefs.category);
@@ -1135,7 +1140,23 @@ public class NewsWindow : Adw.ApplicationWindow {
         category_attrs.insert(Pango.attr_scale_new(1.3)); // 30% larger
         category_attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD));
         category_label.set_attributes(category_attrs);
-        title_row.append(category_label);
+
+        // Create a small icon holder and a title container so we can
+        // display a category icon to the left of the title text. The
+        // icon will be updated whenever the active category or theme
+        // changes.
+        category_icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        try {
+            var initial_cat_icon = create_category_header_icon(prefs.category, 128);
+            if (initial_cat_icon != null) {
+                category_icon_holder.append(initial_cat_icon);
+            }
+        } catch (GLib.Error e) { }
+
+        var cat_title_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+        cat_title_box.append(category_icon_holder);
+        cat_title_box.append(category_label);
+        title_row.append(cat_title_box);
         
         // Create source info box (logo + text) - right aligned
         var source_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
@@ -1472,6 +1493,10 @@ public class NewsWindow : Adw.ApplicationWindow {
                     // Update the top-right source logo to pick the correct
                     // white or normal variant based on the new theme.
                     try { update_source_info(); } catch (GLib.Error e) { }
+                    // Update the category icon in the header so bundled
+                    // mono icons can swap to their white variants in dark
+                    // mode as well.
+                    try { update_category_icon(); } catch (GLib.Error e) { }
                 } catch (GLib.Error e) { }
             });
         }
@@ -1507,6 +1532,114 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (nav_view != null) nav_view.pop();
             back_btn.set_visible(false);
         }
+    }
+
+    // Update the small category icon shown left of the main category title.
+    // This re-creates the icon according to the active prefs.category and
+    // respects theme changes (create_category_icon already chooses white
+    // variants when in dark mode).
+    private void update_category_icon() {
+        try {
+            if (category_icon_holder == null) return;
+            // Remove existing children
+            Gtk.Widget? child = category_icon_holder.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                category_icon_holder.remove(child);
+                child = next;
+            }
+            var hdr = create_category_header_icon(prefs.category, 36);
+            if (hdr != null) category_icon_holder.append(hdr);
+        } catch (GLib.Error e) { }
+    }
+
+    // Create a header-ready category icon using the bundled 128x128 assets
+    // when available. This prefers the symbolic/128x128 folder and will
+    // pick a "-white" variant in dark mode if present. The returned widget
+    // is a Gtk.Image with a paintable texture scaled to `size` pixels.
+    private Gtk.Widget? create_category_header_icon(string cat, int size) {
+        string? filename = null;
+        switch (cat) {
+            case "all": filename = "all-mono.svg"; break;
+            case "frontpage": filename = "frontpage-mono.svg"; break;
+            case "myfeed": filename = "myfeed-mono.svg"; break;
+            case "general": filename = "world-mono.svg"; break;
+            case "markets": filename = "markets-mono.svg"; break;
+            case "industries": filename = "industries-mono.svg"; break;
+            case "economics": filename = "economics-mono.svg"; break;
+            case "wealth": filename = "wealth-mono.svg"; break;
+            case "green": filename = "green-mono.svg"; break;
+            case "us": filename = "us-mono.svg"; break;
+            case "local_news": filename = "local-mono.svg"; break;
+            case "technology": filename = "technology-mono.svg"; break;
+            case "science": filename = "science-mono.svg"; break;
+            case "sports": filename = "sports-mono.svg"; break;
+            case "health": filename = "health-mono.svg"; break;
+            case "entertainment": filename = "entertainment-mono.svg"; break;
+            case "politics": filename = "politics-mono.svg"; break;
+            case "lifestyle": filename = "lifestyle-mono.svg"; break;
+            default: filename = null; break;
+        }
+
+        if (filename != null) {
+            // Prefer the bundled 128x128 symbolic assets
+            string[] candidates = {
+                GLib.Path.build_filename("icons", "symbolic", "128x128", filename),
+                GLib.Path.build_filename("icons", "128x128", filename),
+                GLib.Path.build_filename("icons", filename)
+            };
+            string? icon_path = null;
+            foreach (var c in candidates) {
+                icon_path = find_data_file(c);
+                if (icon_path != null) break;
+            }
+
+            if (icon_path != null) {
+                try {
+                    // Prefer white variant in dark mode if available
+                    string use_path = icon_path;
+                    if (is_dark_mode()) {
+                        string alt_name;
+                        if (filename.has_suffix(".svg"))
+                            alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                        else
+                            alt_name = filename + "-white.svg";
+                        string? white_candidate = null;
+                        white_candidate = find_data_file(GLib.Path.build_filename("icons", "symbolic", "128x128", alt_name));
+                        if (white_candidate == null) white_candidate = find_data_file(GLib.Path.build_filename("icons", "128x128", alt_name));
+                        if (white_candidate != null) use_path = white_candidate;
+                    }
+                    // If the asset is an SVG, prefer loading it as a file-backed
+                    // Gtk.Image and let GTK render it as a vector at the
+                    // requested pixel size. This avoids rasterizing the SVG to
+                    // a small pixbuf and then letting the layout scale it which
+                    // causes blurriness (especially on HiDPI displays).
+                    if (use_path.has_suffix(".svg")) {
+                        try {
+                            var img = new Gtk.Image.from_file(use_path);
+                            img.set_pixel_size(size);
+                            return img;
+                        } catch (GLib.Error e) {
+                            // Fall back to pixbuf path below on error
+                        }
+                    }
+
+                    // Non-SVG assets (PNG, etc): load a scaled pixbuf and convert
+                    // to a texture so we get reasonable performance and layout.
+                    var pix = new Gdk.Pixbuf.from_file_at_size(use_path, size, size);
+                    if (pix != null) {
+                        var tex = Gdk.Texture.for_pixbuf(pix);
+                        var img = new Gtk.Image();
+                        try { img.set_from_paintable(tex); } catch (GLib.Error e) { try { img.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                        return img;
+                    }
+                } catch (GLib.Error e) {
+                    // fall through to theme icons below
+                }
+            }
+        }
+        // Fall back to the existing create_category_icon behavior
+        return create_category_icon(cat);
     }
 
     // Public helper to update personalized-feed UI state -- shows or hides
@@ -4604,6 +4737,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                 category_part = text.substring(0, separator_pos);
             }
             self_ref.category_label.set_text(category_part);
+            // Keep the category icon in sync with the active preference
+            // (wrapped_set_label runs on successful fetches and will
+            // reflect the current prefs.category). Use a best-effort
+            // call to avoid crashing on early initialization.
+            try { self_ref.update_category_icon(); } catch (GLib.Error e) { }
         };
 
         // Wrapped clear_items: only clear if this fetch is still current
