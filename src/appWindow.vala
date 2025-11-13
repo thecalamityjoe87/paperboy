@@ -127,6 +127,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Adw.NavigationView nav_view;
     private Gtk.Button back_btn;
     private ArticleWindow article_window;
+    // Article preview overlay split view (slides in from right)
+    private Adw.OverlaySplitView article_preview_split;
+    private Gtk.Box article_preview_content;
+    // Dim overlay to disable main area when article preview is open
+    private Gtk.Box dim_overlay;
     // Track category distribution across columns for better spread
     private Gee.HashMap<string, int> category_column_counts;
     // Track recent category placements to prevent horizontal clustering
@@ -1146,6 +1151,60 @@ public class NewsWindow : Adw.ApplicationWindow {
     // reliable regardless of scroll/content size.
     var root_overlay = new Gtk.Overlay();
     root_overlay.set_child(nav_view);
+    
+    // Create article preview overlay split view (slides in from right)
+    article_preview_split = new Adw.OverlaySplitView();
+    article_preview_split.set_show_sidebar(false);
+    article_preview_split.set_sidebar_position(Gtk.PackType.END); // Right side
+    article_preview_split.set_max_sidebar_width(600);
+    article_preview_split.set_min_sidebar_width(400);
+    article_preview_split.set_sidebar_width_fraction(0.4);
+    article_preview_split.set_enable_show_gesture(false); // Disable swipe to prevent accidental opens
+    article_preview_split.set_enable_hide_gesture(true);  // Allow swipe to close
+    
+    // Create article preview content container
+    article_preview_content = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+    var preview_scrolled = new Gtk.ScrolledWindow();
+    preview_scrolled.set_child(article_preview_content);
+    preview_scrolled.set_vexpand(true);
+    preview_scrolled.set_hexpand(true);
+    
+    // Wrap scrolled window in a box for proper rounded corner rendering
+    var preview_wrapper = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+    preview_wrapper.append(preview_scrolled);
+    preview_wrapper.set_vexpand(true);
+    preview_wrapper.set_hexpand(true);
+    preview_wrapper.add_css_class("article-preview-panel");
+    
+    article_preview_split.set_sidebar(preview_wrapper);
+    
+    // Wrap root_overlay with article preview split
+    article_preview_split.set_content(root_overlay);
+    
+    // Create dim overlay to disable main area when article preview is open
+    dim_overlay = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+    dim_overlay.set_vexpand(true);
+    dim_overlay.set_hexpand(true);
+    dim_overlay.set_visible(false);
+    dim_overlay.add_css_class("dim-overlay");
+    
+    // Add click handler to close preview when clicking the dim overlay
+    var dim_click = new Gtk.GestureClick();
+    dim_click.pressed.connect(() => {
+        article_preview_split.set_show_sidebar(false);
+        back_btn.set_visible(false);
+        dim_overlay.set_visible(false);
+        // Mark the article as viewed
+        try {
+            if (last_previewed_url != null && last_previewed_url.length > 0) {
+                mark_article_viewed(last_previewed_url);
+            }
+        } catch (GLib.Error e) { }
+    });
+    dim_overlay.add_controller(dim_click);
+    
+    root_overlay.add_overlay(dim_overlay);
+    
     // Add the personalized message overlay on top of the root overlay
     root_overlay.add_overlay(personalized_message_box);
 
@@ -1205,7 +1264,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     local_news_message_box.set_visible(false);
     root_overlay.add_overlay(local_news_message_box);
 
-    split_view.set_content(root_overlay);
+    split_view.set_content(article_preview_split); // Wrap with article preview overlay
         split_view.set_show_sidebar(true);
 
         // Connect toggle after split view exists
@@ -1249,14 +1308,16 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Initialize article window
         article_window = new ArticleWindow(nav_view, back_btn, session, this);
+        article_window.set_preview_overlay(article_preview_split, article_preview_content);
 
         // Add keyboard event controller for closing article preview with Escape
         var key_controller = new Gtk.EventControllerKey();
         key_controller.key_pressed.connect((keyval, keycode, state) => {
             if (keyval == Gdk.Key.Escape && back_btn.get_visible()) {
                 // Close article preview if it's open
-                nav_view.pop();
+                article_preview_split.set_show_sidebar(false);
                 back_btn.set_visible(false);
+                dim_overlay.set_visible(false);
                 // If we have a record of the last previewed URL, mark it viewed
                 try {
                     if (last_previewed_url != null && last_previewed_url.length > 0) mark_article_viewed(last_previewed_url);
@@ -1272,7 +1333,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         main_click_controller.pressed.connect((n_press, x, y) => {
             // Only close if article preview is open (back button is visible)
             if (back_btn.get_visible()) {
-                nav_view.pop();
+                article_preview_split.set_show_sidebar(false);
+                back_btn.set_visible(false);
+                dim_overlay.set_visible(false);
                 back_btn.set_visible(false);
             }
         });
@@ -3432,6 +3495,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // can remember which URL is active (used by keyboard handlers).
     public void preview_opened(string url) {
         try { last_previewed_url = url; } catch (GLib.Error e) { last_previewed_url = null; }
+        // Show dim overlay to disable main area
+        if (dim_overlay != null) dim_overlay.set_visible(true);
         // Capture current vertical scroll offset so we can restore it when the preview closes
         try {
             if (main_scrolled != null) {
@@ -3448,6 +3513,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // viewed now that the user returned to the main view.
     public void preview_closed(string url) {
         try { last_previewed_url = null; } catch (GLib.Error e) { }
+        // Hide dim overlay
+        if (dim_overlay != null) dim_overlay.set_visible(false);
         try { append_debug_log("preview_closed: " + (url != null ? url : "<null>")); } catch (GLib.Error e) { }
         // Mark viewed immediately
         try { if (url != null) mark_article_viewed(url); } catch (GLib.Error e) { }

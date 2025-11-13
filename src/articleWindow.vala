@@ -26,6 +26,9 @@ public class ArticleWindow : GLib.Object {
     private Gtk.Button back_btn;
     private Soup.Session session;
     private NewsWindow parent_window;
+    // Preview overlay components
+    private Adw.OverlaySplitView? preview_split;
+    private Gtk.Box? preview_content_box;
     // In-memory cache for article preview textures (url@WxH -> Gdk.Texture).
     // Kept local to ArticleWindow to avoid touching NewsWindow's private cache.
     private static Gee.HashMap<string, Gdk.Texture>? preview_cache = null;
@@ -45,6 +48,12 @@ public class ArticleWindow : GLib.Object {
         parent_window = window;
         // Initialize preview cache on first construction
         if (preview_cache == null) preview_cache = new Gee.HashMap<string, Gdk.Texture>();
+    }
+    
+    // Set the preview overlay components (called after ArticleWindow construction)
+    public void set_preview_overlay(Adw.OverlaySplitView split, Gtk.Box content_box) {
+        preview_split = split;
+        preview_content_box = content_box;
     }
 
     // Local debug logger: write lightweight traces to /tmp/paperboy-debug.log
@@ -71,20 +80,32 @@ public class ArticleWindow : GLib.Object {
         // Notify parent window that a preview is opening so it can track
         // the active preview (used to mark viewed on return).
         try { parent_window.preview_opened(url); } catch (GLib.Error e) { }
-        // Build a scrolling preview page with a max height constraint
+        
+        // Clear previous preview content
+        if (preview_content_box != null) {
+            Gtk.Widget? child = preview_content_box.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                preview_content_box.remove(child);
+                child = next;
+            }
+        }
+        
+        // Build a scrolling preview page
         var outer = new Gtk.Box(Orientation.VERTICAL, 0);
 
-        // Set a maximum height for the preview content (e.g., 700px)
-        const int MAX_PREVIEW_HEIGHT = 700;
-        outer.set_vexpand(false);
+        outer.set_vexpand(true);
         outer.set_hexpand(true);
-        outer.set_size_request(-1, MAX_PREVIEW_HEIGHT);
 
-        // Title label
+    // Infer source for this article so previews show correct branding when
+    // multiple preferred sources are enabled.
+    NewsSource article_src = infer_source_from_url(url);
+
+        // Title label - AT THE TOP
         var title_wrap = new Gtk.Box(Orientation.VERTICAL, 8);
-        title_wrap.set_margin_start(16);
-        title_wrap.set_margin_end(16);
-        title_wrap.set_margin_top(16);
+        title_wrap.set_margin_start(24);
+        title_wrap.set_margin_end(24);
+        title_wrap.set_margin_top(24);
         title_wrap.set_halign(Gtk.Align.FILL);
         title_wrap.set_hexpand(true);
         // Decode any HTML entities that may be present in scraped titles
@@ -98,7 +119,7 @@ public class ArticleWindow : GLib.Object {
         ttl.set_justify(Gtk.Justification.LEFT);
         title_wrap.append(ttl);
 
-        // Metadata label (source + published date/time)
+        // Metadata label (source + published date/time) - AFTER TITLE
         var meta_label = new Gtk.Label("");
         meta_label.set_xalign(0);
         meta_label.set_selectable(false);
@@ -109,27 +130,28 @@ public class ArticleWindow : GLib.Object {
         title_wrap.append(meta_label);
         outer.append(title_wrap);
 
-    // Infer source for this article so previews show correct branding when
-    // multiple preferred sources are enabled.
-    NewsSource article_src = infer_source_from_url(url);
-
-    // Image (constrained)
-        int img_w = estimate_content_width();
+    // Image (constrained) - AFTER METADATA
+        int img_w = 600; // Fixed width for side panel
         int img_h = clampi((int)(img_w * 9.0 / 16.0), 240, 420);
         var pic_box = new Gtk.Box(Orientation.VERTICAL, 0);
         pic_box.set_vexpand(false);
         pic_box.set_hexpand(true);
         pic_box.set_size_request(-1, img_h);
+        pic_box.set_margin_start(24);
+        pic_box.set_margin_end(24);
+        pic_box.set_margin_top(16);
+        pic_box.set_margin_bottom(0);
+        
         var pic = new Gtk.Picture();
         pic.set_halign(Gtk.Align.FILL);
         pic.set_hexpand(true);
         pic.set_size_request(-1, img_h);
         pic.set_content_fit(Gtk.ContentFit.COVER);
         pic.set_can_shrink(true);
-        pic.set_margin_start(16);
-        pic.set_margin_end(16);
-        pic.set_margin_top(8);
-        pic.set_margin_bottom(8);
+        
+        // Add rounded corners to the image
+        pic.add_css_class("card");
+        pic.set_overflow(Gtk.Overflow.HIDDEN);
         // If a thumbnail URL will be requested, skip painting any branded
         // placeholder now to avoid briefly showing a logo before the real
         // image loads. The async loader will paint a placeholder on failure
@@ -184,8 +206,8 @@ public class ArticleWindow : GLib.Object {
 
         // Snippet area
         var pad = new Gtk.Box(Orientation.VERTICAL, 8);
-        pad.set_margin_start(16);
-        pad.set_margin_end(16);
+        pad.set_margin_start(24);
+        pad.set_margin_end(24);
         pad.set_margin_top(16);
         pad.set_margin_bottom(16);
         var snippet_label = new Gtk.Label("Loading snippet…");
@@ -204,34 +226,43 @@ public class ArticleWindow : GLib.Object {
         outer.append(pad);
 
         // Buttons row
-        var actions = new Gtk.Box(Orientation.HORIZONTAL, 8);
-        actions.set_margin_start(16);
-        actions.set_margin_end(16);
+        var actions = new Gtk.Box(Orientation.HORIZONTAL, 12);
+        actions.set_margin_start(24);
+        actions.set_margin_end(24);
         actions.set_margin_bottom(24);
-        actions.set_halign(Gtk.Align.END);
-        var open_btn = new Gtk.Button.with_label("Open in browser");
-        open_btn.add_css_class("suggested-action");
-        open_btn.clicked.connect(() => { try { AppInfo.launch_default_for_uri(url, null); } catch (GLib.Error e) { } });
+        actions.set_margin_top(8);
+        actions.set_halign(Gtk.Align.FILL);
+        actions.set_homogeneous(true);
+        
         var back_local = new Gtk.Button.with_label("Back");
+        back_local.set_hexpand(true);
         back_local.clicked.connect(() => {
-            if (nav_view != null) nav_view.pop();
+            // Close the overlay split view
+            if (preview_split != null) preview_split.set_show_sidebar(false);
             back_btn.set_visible(false);
             // Notify parent that the preview closed so it can mark the
             // article as viewed now that the user returned to the main view.
             try { parent_window.preview_closed(url); } catch (GLib.Error e) { }
         });
+        
+        var open_btn = new Gtk.Button.with_label("Open in browser");
+        open_btn.set_hexpand(true);
+        open_btn.add_css_class("suggested-action");
+        open_btn.clicked.connect(() => { try { AppInfo.launch_default_for_uri(url, null); } catch (GLib.Error e) { } });
+        
         actions.append(back_local);
         actions.append(open_btn);
         outer.append(actions);
 
-        // Put content into a scrolled window for overflow
-        var sc = new Gtk.ScrolledWindow();
-        sc.set_vexpand(true);
-        sc.set_hexpand(true);
-        sc.set_child(outer);
-
-        var page = new Adw.NavigationPage(sc, "Article");
-        nav_view.push(page);
+        // Add content to the preview container and show the overlay
+        if (preview_content_box != null) {
+            preview_content_box.append(outer);
+        }
+        
+        if (preview_split != null) {
+            preview_split.set_show_sidebar(true);
+        }
+        
         back_btn.set_visible(true);
         // Attach a one-shot handler to the shared header back button so
         // clicks on that arrow also notify the parent preview-closed
@@ -243,7 +274,7 @@ public class ArticleWindow : GLib.Object {
                 back_btn_handler_id = 0;
             }
             back_btn_handler_id = back_btn.clicked.connect(() => {
-                if (nav_view != null) nav_view.pop();
+                if (preview_split != null) preview_split.set_show_sidebar(false);
                 back_btn.set_visible(false);
                 try { parent_window.preview_closed(url); } catch (GLib.Error e) { }
                 // Disconnect this handler (one-shot)

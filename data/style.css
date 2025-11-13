@@ -322,3 +322,15 @@ headerbar:not(.sidebar-header) {
     margin-top: 4px;
     margin-bottom: 4px;
 }
+
+/* Article preview panel that slides in from the right */
+.article-preview-panel {
+    background-color: @card_bg_color;
+    box-shadow: -4px 0 16px alpha(@shade_color, 0.25);
+}
+
+/* Dim overlay to disable main area when article preview is open */
+.dim-overlay {
+    background-color: alpha(black, 0.4);
+    backdrop-filter: blur(2px);
+}
