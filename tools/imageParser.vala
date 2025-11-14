@@ -21,6 +21,10 @@ using Paperboy;
 
 namespace Tools {
 public class ImageParser {
+	// Concurrency guard to avoid spawning too many short-lived threads
+	private static GLib.Mutex _fetch_mutex = new GLib.Mutex();
+	private static int _active_fetches = 0;
+	private const int MAX_CONCURRENT_FETCHES = 6;
 	// Minimal HTML image extractor placeholder. Scans for images hosted on
 	// a given host substring and assigns them to articles lacking images.
 	public static void extract_article_images_from_html(string html, Gee.ArrayList<Paperboy.NewsArticle> articles, string host_substring) {
@@ -104,6 +108,21 @@ public class ImageParser {
 	// Fetch Open Graph image and title from an article page and call add_item
 	// to silently update the UI (same behavior previously implemented inline).
 	public static void fetch_open_graph_image(string article_url, Soup.Session session, AddItemFunc add_item, string current_category, string? source_name) {
+		// Simple concurrency throttle: if too many fetch threads are active, retry later
+		_fetch_mutex.lock();
+		if (_active_fetches >= MAX_CONCURRENT_FETCHES) {
+			_fetch_mutex.unlock();
+			int d = Random.int_range(200, 1000);
+			Timeout.add(d, () => {
+				// retry the same fetch later
+				ImageParser.fetch_open_graph_image(article_url, session, add_item, current_category, source_name);
+				return false;
+			});
+			return;
+		}
+		_active_fetches++;
+		_fetch_mutex.unlock();
+
 		new Thread<void*>("fetch-og-image", () => {
 			try {
 				var msg = new Soup.Message("GET", article_url);
@@ -139,6 +158,10 @@ public class ImageParser {
 				}
 			} catch (GLib.Error e) {
 				// ignore
+			} finally {
+				_fetch_mutex.lock();
+				_active_fetches--;
+				_fetch_mutex.unlock();
 			}
 			return null;
 		});
@@ -150,6 +173,20 @@ public class ImageParser {
 	// largest candidate it can find, then calls `add_item` on the main loop to update
 	// the article entry in-place.
 	public static void fetch_bbc_highres_image(string article_url, Soup.Session session, AddItemFunc add_item, string current_category, string? source_name) {
+		// Throttle concurrent BBC fetches similarly to OG fetches
+		_fetch_mutex.lock();
+		if (_active_fetches >= MAX_CONCURRENT_FETCHES) {
+			_fetch_mutex.unlock();
+			int d = Random.int_range(200, 1000);
+			Timeout.add(d, () => {
+				ImageParser.fetch_bbc_highres_image(article_url, session, add_item, current_category, source_name);
+				return false;
+			});
+			return;
+		}
+		_active_fetches++;
+		_fetch_mutex.unlock();
+
 		new Thread<void*>("fetch-bbc-image", () => {
 			try {
 				var msg = new Soup.Message("GET", article_url);
@@ -174,12 +211,12 @@ public class ImageParser {
 							best = ms.fetch(1);
 							break;
 						}
-						var img_obj = new Regex("\\\"image\\\"\\s*:\\s*\\{[\\s\\S]*?\\\\\"url\\\\\"\\s*:\\s*\\\\\"([^\\\\\"]+)\\\\\"", RegexCompileFlags.DEFAULT);
+						var img_obj = new Regex("\\\"image\\\"\\s*:\\s*\\{[\\s\\S]*?\\\"url\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"", RegexCompileFlags.DEFAULT);
 						if (img_obj.match(j, 0, out ms)) {
 							best = ms.fetch(1);
 							break;
 						}
-						var img_arr = new Regex("\\\"image\\\"\\s*:\\s*\\[\\s\\S]*?\\\\\"([^\\\\\"]+)\\\\\"", RegexCompileFlags.DEFAULT);
+						var img_arr = new Regex("\\\"image\\\"\\s*:\\s*\\[\\s\\S]*?\\\"([^\\\"]+)\\\"", RegexCompileFlags.DEFAULT);
 						if (img_arr.match(j, 0, out ms)) {
 							best = ms.fetch(1);
 							break;
@@ -237,6 +274,10 @@ public class ImageParser {
 				}
 			} catch (GLib.Error e) {
 				// ignore
+			} finally {
+				_fetch_mutex.lock();
+				_active_fetches--;
+				_fetch_mutex.unlock();
 			}
 			return null;
 		});
