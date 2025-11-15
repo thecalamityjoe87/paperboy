@@ -709,204 +709,26 @@ public class ArticlePane : GLib.Object {
     }
 
     private void create_icon_placeholder(Gtk.Picture image, string icon_path, NewsSource source, int width, int height) {
-        try {
-            var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, width, height);
-            var cr = new Cairo.Context(surface);
-
-            // Create gradient background matching source brand colors
-            var gradient = new Cairo.Pattern.linear(0, 0, 0, height);
-            
-            switch (source) {
-                case NewsSource.GUARDIAN:
-                    gradient.add_color_stop_rgb(0, 0.0, 0.2, 0.4);  // Guardian blue
-                    gradient.add_color_stop_rgb(1, 0.0, 0.4, 0.6);
-                    break;
-                case NewsSource.BBC:
-                    gradient.add_color_stop_rgb(0, 0.6, 0.0, 0.0);  // BBC red
-                    gradient.add_color_stop_rgb(1, 0.8, 0.1, 0.1);
-                    break;
-                case NewsSource.REDDIT:
-                    gradient.add_color_stop_rgb(0, 1.0, 0.2, 0.0);  // Reddit orange
-                    gradient.add_color_stop_rgb(1, 1.0, 0.4, 0.1);
-                    break;
-                case NewsSource.NEW_YORK_TIMES:
-                    gradient.add_color_stop_rgb(0, 0.1, 0.1, 0.1);  // NYT dark
-                    gradient.add_color_stop_rgb(1, 0.3, 0.3, 0.3);
-                    break;
-                case NewsSource.BLOOMBERG:
-                    gradient.add_color_stop_rgb(0, 0.0, 0.3, 0.7);  // Bloomberg blue
-                    gradient.add_color_stop_rgb(1, 0.1, 0.5, 0.9);
-                    break;
-                case NewsSource.REUTERS:
-                    gradient.add_color_stop_rgb(0, 0.3, 0.3, 0.4);  // Neutral gray for Reuters logo visibility
-                    gradient.add_color_stop_rgb(1, 0.5, 0.5, 0.6);
-                    break;
-                case NewsSource.NPR:
-                    gradient.add_color_stop_rgb(0, 0.1, 0.2, 0.5);  // NPR blue
-                    gradient.add_color_stop_rgb(1, 0.2, 0.3, 0.7);
-                    break;
-                case NewsSource.FOX:
-                    gradient.add_color_stop_rgb(0, 0.0, 0.2, 0.6);  // Fox blue
-                    gradient.add_color_stop_rgb(1, 0.1, 0.3, 0.8);
-                    break;
-                default:
-                    gradient.add_color_stop_rgb(0, 0.3, 0.3, 0.4);
-                    gradient.add_color_stop_rgb(1, 0.5, 0.5, 0.6);
-                    break;
-            }
-
-            cr.set_source(gradient);
-            cr.rectangle(0, 0, width, height);
-            cr.fill();
-
-            // Load and draw the source icon
-            var icon_pixbuf = new Gdk.Pixbuf.from_file(icon_path);
-            if (icon_pixbuf != null) {
-                // Calculate scaled size preserving aspect ratio (max 50% of placeholder)
-                int orig_width = icon_pixbuf.get_width();
-                int orig_height = icon_pixbuf.get_height();
-                
-                double max_size = double.min(width, height) * 0.5;
-                double scale_factor = double.min(max_size / orig_width, max_size / orig_height);
-                
-                int scaled_width = (int)(orig_width * scale_factor);
-                int scaled_height = (int)(orig_height * scale_factor);
-                
-                var scaled_icon = icon_pixbuf.scale_simple(scaled_width, scaled_height, Gdk.InterpType.BILINEAR);
-                
-                // Center the icon
-                int x = (width - scaled_width) / 2;
-                int y = (height - scaled_height) / 2;
-                
-                // Draw icon with slight transparency for elegance
-                cr.save();
-                cr.set_source_rgba(1, 1, 1, 0.9);
-                Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
-                cr.paint_with_alpha(0.95);
-                cr.restore();
-            }
-
-            var texture = Gdk.Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height));
-            image.set_paintable(texture);
-
-        } catch (GLib.Error e) {
-            print("✗ Error creating icon placeholder: %s\n", e.message);
-            // Fallback to text placeholder
-            string source_name = get_source_name(source);
-            create_source_text_placeholder(image, source_name, source, width, height);
-        }
+        // Delegate to shared placeholder builder
+        PlaceholderBuilder.create_icon_placeholder(image, icon_path, source, width, height);
     }
 
     private void create_source_text_placeholder(Gtk.Picture image, string source_name, NewsSource source, int width, int height) {
-        try {
-            var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, width, height);
-            var cr = new Cairo.Context(surface);
-
-            // Create gradient background based on source
-            var gradient = new Cairo.Pattern.linear(0, 0, 0, height);
-            
-            // Use different colors for different sources
-            switch (source) {
-                case NewsSource.GUARDIAN:
-                    gradient.add_color_stop_rgb(0, 0.0, 0.3, 0.6);  // Guardian blue
-                    gradient.add_color_stop_rgb(1, 0.0, 0.5, 0.8);
-                    break;
-                case NewsSource.BBC:
-                    gradient.add_color_stop_rgb(0, 0.7, 0.0, 0.0);  // BBC red
-                    gradient.add_color_stop_rgb(1, 0.9, 0.2, 0.2);
-                    break;
-                case NewsSource.REDDIT:
-                    gradient.add_color_stop_rgb(0, 1.0, 0.3, 0.0);  // Reddit orange
-                    gradient.add_color_stop_rgb(1, 1.0, 0.5, 0.2);
-                    break;
-                case NewsSource.NEW_YORK_TIMES:
-                    gradient.add_color_stop_rgb(0, 0.0, 0.0, 0.0);  // NYT black
-                    gradient.add_color_stop_rgb(1, 0.2, 0.2, 0.2);
-                    break;
-                case NewsSource.BLOOMBERG:
-                    gradient.add_color_stop_rgb(0, 0.0, 0.4, 0.8);  // Bloomberg blue
-                    gradient.add_color_stop_rgb(1, 0.2, 0.6, 1.0);
-                    break;
-                case NewsSource.REUTERS:
-                    gradient.add_color_stop_rgb(0, 0.4, 0.4, 0.4);  // Neutral gray for Reuters
-                    gradient.add_color_stop_rgb(1, 0.6, 0.6, 0.6);
-                    break;
-                case NewsSource.NPR:
-                    gradient.add_color_stop_rgb(0, 0.2, 0.2, 0.6);  // NPR blue
-                    gradient.add_color_stop_rgb(1, 0.4, 0.4, 0.8);
-                    break;
-                case NewsSource.FOX:
-                    gradient.add_color_stop_rgb(0, 0.0, 0.3, 0.7);  // Fox blue
-                    gradient.add_color_stop_rgb(1, 0.2, 0.5, 0.9);
-                    break;
-                default:
-                    gradient.add_color_stop_rgb(0, 0.4, 0.4, 0.4);
-                    gradient.add_color_stop_rgb(1, 0.6, 0.6, 0.6);
-                    break;
-            }
-
-            cr.set_source(gradient);
-            cr.rectangle(0, 0, width, height);
-            cr.fill();
-
-            // Add source name text
-            cr.select_font_face("Sans", Cairo.FontSlant.NORMAL, Cairo.FontWeight.BOLD);
-            
-            // Calculate font size based on dimensions
-            double font_size = double.min(width / 8.0, height / 4.0);
-            font_size = double.max(font_size, 12.0);
-            cr.set_font_size(font_size);
-
-            Cairo.TextExtents extents;
-            cr.text_extents(source_name, out extents);
-
-            // Center the text
-            double x = (width - extents.width) / 2;
-            double y = (height + extents.height) / 2;
-
-            // White text with shadow
-            cr.set_source_rgba(0, 0, 0, 0.5);
-            cr.move_to(x + 2, y + 2);
-            cr.show_text(source_name);
-
-            cr.set_source_rgba(1, 1, 1, 0.9);
-            cr.move_to(x, y);
-            cr.show_text(source_name);
-
-            var texture = Gdk.Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height));
-            image.set_paintable(texture);
-
-        } catch (GLib.Error e) {
-            print("✗ Error creating source placeholder: %s\n", e.message);
-            // Simple fallback
-            create_gradient_placeholder(image, width, height);
-        }
+        // Delegate to centralized placeholder builder
+        PlaceholderBuilder.create_source_text_placeholder(image, source_name, source, width, height);
     }
 
     // Variant of set_placeholder_image that honors an explicit NewsSource. This
     // lets previews and other per-article UI show the correct branding even
     // when the user's preferences are set to "multiple sources".
     private void set_placeholder_image_for_source(Gtk.Picture image, int width, int height, NewsSource source) {
-        string? icon_path = get_source_icon_path(source);
-        string source_name = get_source_name(source);
-        if (icon_path != null) {
-            create_icon_placeholder(image, icon_path, source, width, height);
-        } else {
-            create_source_text_placeholder(image, source_name, source, width, height);
-        }
+        PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, source);
     }
 
     private void set_placeholder_image(Gtk.Picture image, int width, int height) {
         // Get source icon and create branded placeholder
         var prefs = NewsPreferences.get_instance();
-        string? icon_path = get_source_icon_path(prefs.news_source);
-        string source_name = get_source_name(prefs.news_source);
-        if (icon_path != null) {
-            create_icon_placeholder(image, icon_path, prefs.news_source, width, height);
-        } else {
-            // Fallback to text-based placeholder
-            create_source_text_placeholder(image, source_name, prefs.news_source, width, height);
-        }
+        PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, prefs.news_source);
     }
 
     private void load_source_logo_placeholder(Gtk.Picture image, string logo_url, int width, int height) {
@@ -932,7 +754,7 @@ public class ArticlePane : GLib.Object {
                         
                         // Create placeholder with logo centered on gradient background
                         Idle.add(() => {
-                            create_logo_placeholder(image, scaled, width, height);
+                            PlaceholderBuilder.create_logo_placeholder(image, scaled, width, height);
                             return false;
                         });
                         return null;
@@ -952,62 +774,12 @@ public class ArticlePane : GLib.Object {
     }
 
     private void create_logo_placeholder(Gtk.Picture image, Gdk.Pixbuf logo, int width, int height) {
-        try {
-            var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, width, height);
-            var cr = new Cairo.Context(surface);
-
-            // Subtle gradient background
-            var pattern = new Cairo.Pattern.linear(0, 0, width, height);
-            pattern.add_color_stop_rgb(0, 0.95, 0.95, 0.97);
-            pattern.add_color_stop_rgb(1, 0.88, 0.88, 0.92);
-            cr.set_source(pattern);
-            cr.paint();
-
-            // Center the logo
-            int logo_w = logo.get_width();
-            int logo_h = logo.get_height();
-            double x = (width - logo_w) / 2.0;
-            double y = (height - logo_h) / 2.0;
-            
-            Gdk.cairo_set_source_pixbuf(cr, logo, x, y);
-            cr.paint_with_alpha(0.7); // Slight transparency
-
-            var texture = Gdk.Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height));
-            image.set_paintable(texture);
-        } catch (GLib.Error e) {
-            create_gradient_placeholder(image, width, height);
-        }
+        // Centralized implementation in PlaceholderBuilder
+        PlaceholderBuilder.create_logo_placeholder(image, logo, width, height);
     }
 
     private void create_gradient_placeholder(Gtk.Picture image, int width, int height) {
-        try {
-            var surface = new Cairo.ImageSurface(Cairo.Format.RGB24, width, height);
-            var cr = new Cairo.Context(surface);
-
-            // Gradient background
-            var pattern = new Cairo.Pattern.linear(0, 0, width, height);
-            pattern.add_color_stop_rgb(0, 0.2, 0.4, 0.8);
-            pattern.add_color_stop_rgb(1, 0.1, 0.3, 0.6);
-            cr.set_source(pattern);
-            cr.paint();
-
-            // Centered text
-            cr.set_source_rgb(1.0, 1.0, 1.0);
-            cr.select_font_face("Sans", Cairo.FontSlant.NORMAL, Cairo.FontWeight.BOLD);
-            double font_size = double.max(12.0, height * 0.12);
-            cr.set_font_size(font_size);
-            Cairo.TextExtents extents;
-            cr.text_extents("No Image", out extents);
-            double tx = (width - extents.width) / 2.0 - extents.x_bearing;
-            double ty = (height - extents.height) / 2.0 - extents.y_bearing;
-            cr.move_to(tx, ty);
-            cr.show_text("No Image");
-
-            var texture = Gdk.Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height));
-            image.set_paintable(texture);
-        } catch (GLib.Error e) {
-            // If placeholder fails, just leave it blank
-        }
+        PlaceholderBuilder.create_gradient_placeholder(image, width, height);
     }
 
     // Fetch a short snippet from an article URL using common meta tags or first paragraph

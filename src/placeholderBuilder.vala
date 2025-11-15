@@ -250,6 +250,34 @@ public class PlaceholderBuilder : GLib.Object {
         PlaceholderBuilder.create_gradient_placeholder(image, width, height);
     }
 
+    // Compose a subtle logo-on-gradient placeholder from an already-loaded Pixbuf
+    public static void create_logo_placeholder(Gtk.Picture image, Gdk.Pixbuf logo, int width, int height) {
+        try {
+            var surface = new ImageSurface(Format.ARGB32, width, height);
+            var cr = new Context(surface);
+
+            // Subtle gradient background
+            var pattern = new Pattern.linear(0, 0, width, height);
+            pattern.add_color_stop_rgb(0, 0.95, 0.95, 0.97);
+            pattern.add_color_stop_rgb(1, 0.88, 0.88, 0.92);
+            cr.set_source(pattern);
+            cr.paint();
+
+            // Center the logo
+            int logo_w = logo.get_width();
+            int logo_h = logo.get_height();
+            double x = (width - logo_w) / 2.0;
+            double y = (height - logo_h) / 2.0;
+            Gdk.cairo_set_source_pixbuf(cr, logo, x, y);
+            cr.paint_with_alpha(0.7);
+
+            var texture = Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height));
+            image.set_paintable(texture);
+        } catch (GLib.Error e) {
+            PlaceholderBuilder.create_gradient_placeholder(image, width, height);
+        }
+    }
+
     // Minimal source name/icon mapping duplicated here so placeholder helper
     // can be used without depending on NewsWindow internals.
     public static string get_source_name(NewsSource source) {
