@@ -860,24 +860,24 @@ public class NewsWindow : Adw.ApplicationWindow {
         recent_categories = new Gee.ArrayList<string>();
         next_column_index = 0;
         article_buffer = new Gee.ArrayList<ArticleItem>();
-    // no download queue to initialize
+        // no download queue to initialize
         category_last_column = new Gee.HashMap<string, int>();
         recent_category_queue = new Gee.ArrayList<string>();
         // Initialize preferences early (needed for building sidebar selection state)
         prefs = NewsPreferences.get_instance();
-    // Initialize hero request tracking map
-    hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
-    url_to_picture = new Gee.HashMap<string, Gtk.Picture>();
-    // Map of normalized article URL -> card/hero widget (used for overlays like Viewed)
-    url_to_card = new Gee.HashMap<string, Gtk.Widget>();
-    normalized_to_url = new Gee.HashMap<string, string>();
-    // Track viewed articles in this session
-    viewed_articles = new Gee.HashSet<string>();
-    // Initialize in-memory cache and pending-downloads map
-    memory_meta_cache = new Gee.HashMap<string, Gdk.Texture>();
-    requested_image_sizes = new Gee.HashMap<string, string>();
-    pending_downloads = new Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>>();
-    deferred_downloads = new Gee.HashMap<Gtk.Picture, DeferredRequest>();
+        // Initialize hero request tracking map
+        hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
+        url_to_picture = new Gee.HashMap<string, Gtk.Picture>();
+        // Map of normalized article URL -> card/hero widget (used for overlays like Viewed)
+        url_to_card = new Gee.HashMap<string, Gtk.Widget>();
+        normalized_to_url = new Gee.HashMap<string, string>();
+        // Track viewed articles in this session
+        viewed_articles = new Gee.HashSet<string>();
+        // Initialize in-memory cache and pending-downloads map
+        memory_meta_cache = new Gee.HashMap<string, Gdk.Texture>();
+        requested_image_sizes = new Gee.HashMap<string, string>();
+        pending_downloads = new Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>>();
+        deferred_downloads = new Gee.HashMap<Gtk.Picture, DeferredRequest>();
     // Initialize on-disk cache helper
     try {
         meta_cache = new MetaCache();
@@ -977,10 +977,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         header.pack_end(refresh_btn);
         
         // Add hamburger menu
-    var menu = new Menu();
-    menu.append("Preferences", "app.change-source");
-    menu.append("Set User Location", "app.set-location");
-    menu.append("About Paperboy", "app.about");
+        var menu = new Menu();
+        menu.append("Preferences", "app.change-source");
+        menu.append("Set User Location", "app.set-location");
+        menu.append("About Paperboy", "app.about");
         
         var menu_button = new Gtk.MenuButton();
         menu_button.set_icon_name("open-menu-symbolic");
@@ -989,19 +989,19 @@ public class NewsWindow : Adw.ApplicationWindow {
         header.pack_end(menu_button);
         
         toolbar_view.add_top_bar(header);
-    sidebar_list = new Gtk.ListBox();
-    sidebar_list.add_css_class("navigation-sidebar");
-    sidebar_list.set_selection_mode(SelectionMode.SINGLE);
-    sidebar_list.set_activate_on_single_click(true);
+        sidebar_list = new Gtk.ListBox();
+        sidebar_list.add_css_class("navigation-sidebar");
+        sidebar_list.set_selection_mode(SelectionMode.SINGLE);
+        sidebar_list.set_activate_on_single_click(true);
 
-    // Place "The Frontpage" and "My Feed" above the Categories header,
-    // then include the "All Categories" option
-    sidebar_add_row("The Frontpage", "frontpage", prefs.category == "frontpage");
-    sidebar_add_row("My Feed", "myfeed", prefs.category == "myfeed");
-    // Local News is a special sidebar item that is not part of Categories
-    sidebar_add_row("Local News", "local_news", prefs.category == "local_news");
-    sidebar_add_header("Categories");
-    sidebar_add_row("All Categories", "all", prefs.category == "all");
+        // Place "The Frontpage" and "My Feed" above the Categories header,
+        // then include the "All Categories" option
+        sidebar_add_row("The Frontpage", "frontpage", prefs.category == "frontpage");
+        sidebar_add_row("My Feed", "myfeed", prefs.category == "myfeed");
+        // Local News is a special sidebar item that is not part of Categories
+        sidebar_add_row("Local News", "local_news", prefs.category == "local_news");
+        sidebar_add_header("Categories");
+        sidebar_add_row("All Categories", "all", prefs.category == "all");
         // Default site categories (will be rebuilt for sources like Bloomberg)
         sidebar_add_row("World News", "general", prefs.category == "general");
         sidebar_add_row("US News", "us", prefs.category == "us");
@@ -1794,7 +1794,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             }
         }
-    if (existing != null && thumbnail_url != null && thumbnail_url.length > 0) {
+        if (existing != null && thumbnail_url != null && thumbnail_url.length > 0) {
                 // Determine target size from hero_requests (if this is a hero) or column width
                 var info = hero_requests.get(existing);
                 int target_w = info != null ? info.last_requested_w : estimate_column_width(columns_count);
@@ -1811,7 +1811,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // "myfeed" view as a personalized union of categories when the
         // personalized feed is enabled.
         string view_category = prefs.category;
-    if (view_category == "myfeed") {
+        if (view_category == "myfeed") {
             // If personalization is enabled, accept only articles that match
             // one of the user's personalized categories (if any). If no
             // personalized categories are selected, accept everything so the
@@ -1899,7 +1899,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         }
         
-    if (prefs.category == "all") {
+        if (prefs.category == "all") {
             // If the user selected "All Categories" but the EFFECTIVE single
             // source is Bloomberg (i.e. single-source Bloomberg mode), only
             // accept articles whose category is one of Bloomberg's available
@@ -1922,7 +1922,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             }
 
-        // For "All Categories", add to buffer for later shuffling
+            // For "All Categories", add to buffer for later shuffling
             var item = new ArticleItem(title, url, thumbnail_url, category_id, final_source_name);
             article_buffer.add(item);
             
@@ -2066,7 +2066,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             next_column_index = (next_column_index + 1) % columns.length;
         }
         
-    // For "All Categories", randomly select hero from first few items (not always the first)
+        // For "All Categories", randomly select hero from first few items (not always the first)
         // For specific categories, keep the first item as hero for consistency
         bool should_be_hero = false;
         if (!featured_used) {
@@ -2564,7 +2564,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             append_debug_log("build_source_badge_dynamic: display_name='" + in_dn + "' provided_logo_url='" + in_logo + "' category='" + (category_id != null ? category_id : "<null>") + "'");
         } catch (GLib.Error e) { }
 
-    // If the source_name maps to a known NewsSource, reuse existing badge
+        // If the source_name maps to a known NewsSource, reuse existing badge
         // but only when the API did NOT provide an explicit logo URL. When the
         // API provides a logo URL (encoded with "||") we treat it as the
         // authoritative branding and do NOT map to the bundled built-in icons.
@@ -2585,10 +2585,10 @@ public class NewsWindow : Adw.ApplicationWindow {
             append_debug_log("build_source_badge_dynamic: display_name='" + (display_name != null ? display_name : "<null>") + "' provided_logo_url='" + (provided_logo_url != null ? provided_logo_url : "<null>") + "' category='" + (category_id != null ? category_id : "<null>") + "'");
         } catch (GLib.Error e) { }
 
-        // Try to find a bundled icon based on the API-provided source name
+            // Try to find a bundled icon based on the API-provided source name
             if (display_name != null && display_name.length > 0) {
-            // If the API provided a remote logo URL, prefer using it and
-            // leverage the existing image caching/downloading pipeline.
+                // If the API provided a remote logo URL, prefer using it and
+                // leverage the existing image caching/downloading pipeline.
                 // For frontpage items, prefer the API-provided logo even if it
                 // is not an http(s) URL (some APIs may return data-uris), but
                 // the download pipeline expects http(s) so guard accordingly.
@@ -2731,11 +2731,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Widget build_source_badge(NewsSource source) {
         var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
         box.add_css_class("source-badge");
-    // Position badge at the bottom-right of the overlay
-    box.set_margin_bottom(8);
-    box.set_margin_end(8);
-    box.set_valign(Gtk.Align.END);
-    box.set_halign(Gtk.Align.END);
+        // Position badge at the bottom-right of the overlay
+        box.set_margin_bottom(8);
+        box.set_margin_end(8);
+        box.set_valign(Gtk.Align.END);
+        box.set_halign(Gtk.Align.END);
 
         // Try to load an icon image for the source
         string? path = get_source_icon_path(source);
