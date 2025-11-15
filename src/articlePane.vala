@@ -160,25 +160,25 @@ public class ArticlePane : GLib.Object {
         // images). If no thumbnail URL is available, paint the usual
         // source/local placeholder immediately.
         bool will_load_image = thumbnail_url != null && thumbnail_url.length > 0 && (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
-        if (!will_load_image) {
+                if (!will_load_image) {
             // Use the Local News placeholder when the article belongs to the
             // Local News category so previews match the feed cards. Otherwise
             // fall back to the source-specific placeholder.
-            if (category_id != null && category_id == "local_news") {
+                if (category_id != null && category_id == "local_news") {
                 try {
                     // Delegate to the main window's local placeholder routine so
                     // the styling is consistent across the app.
                     parent_window.set_local_placeholder_image(pic, img_w, img_h);
-                } catch (GLib.Error e) {
+                    } catch (GLib.Error e) {
                     // If for some reason the parent can't render the local
                     // placeholder, fall back to the per-source placeholder.
-                    set_placeholder_image_for_source(pic, img_w, img_h, article_src);
+                    PlaceholderBuilder.set_placeholder_image_for_source(pic, img_w, img_h, article_src);
                 }
             } else {
                 // Use an article-specific placeholder (so the preview shows the correct
                 // source branding even when the user's global prefs include multiple
                 // sources).
-                set_placeholder_image_for_source(pic, img_w, img_h, article_src);
+                PlaceholderBuilder.set_placeholder_image_for_source(pic, img_w, img_h, article_src);
             }
         }
 
@@ -439,7 +439,7 @@ public class ArticlePane : GLib.Object {
                 if (prefs_instance.news_source == NewsSource.REDDIT && msg.response_body.length > 2 * 1024 * 1024) {
                     print("Skipping large Reddit image (%ld bytes), using placeholder\n", (long)msg.response_body.length);
                     Idle.add(() => {
-                        set_placeholder_image(image, target_w, target_h);
+                        PlaceholderBuilder.set_placeholder_image_for_source(image, target_w, target_h, NewsPreferences.get_instance().news_source);
                         return false;
                     });
                     return null;
@@ -511,27 +511,27 @@ public class ArticlePane : GLib.Object {
                                     if (preview_cache == null) preview_cache = new Gee.HashMap<string, Gdk.Texture>();
                                     preview_cache.set(key, texture);
                                 } catch (GLib.Error e) { /* best-effort cache */ }
-                            } else {
+                                } else {
                                 // pixbuf null -> use placeholder
-                                set_placeholder_image(image, target_w, target_h);
+                                PlaceholderBuilder.set_placeholder_image_for_source(image, target_w, target_h, NewsPreferences.get_instance().news_source);
                             }
                         } catch (GLib.Error e) {
                             // error loading image
-                            set_placeholder_image(image, target_w, target_h);
+                            PlaceholderBuilder.set_placeholder_image_for_source(image, target_w, target_h, NewsPreferences.get_instance().news_source);
                         }
                         return false;
                     });
                 } else {
                     // HTTP error or empty body
                     Idle.add(() => {
-                        set_placeholder_image(image, target_w, target_h);
+                        PlaceholderBuilder.set_placeholder_image_for_source(image, target_w, target_h, NewsPreferences.get_instance().news_source);
                         return false;
                     });
                 }
             } catch (GLib.Error e) {
                 // download error
                 Idle.add(() => {
-                    set_placeholder_image(image, target_w, target_h);
+                    PlaceholderBuilder.set_placeholder_image_for_source(image, target_w, target_h, NewsPreferences.get_instance().news_source);
                     return false;
                 });
             }
@@ -708,29 +708,6 @@ public class ArticlePane : GLib.Object {
         return null;
     }
 
-    private void create_icon_placeholder(Gtk.Picture image, string icon_path, NewsSource source, int width, int height) {
-        // Delegate to shared placeholder builder
-        PlaceholderBuilder.create_icon_placeholder(image, icon_path, source, width, height);
-    }
-
-    private void create_source_text_placeholder(Gtk.Picture image, string source_name, NewsSource source, int width, int height) {
-        // Delegate to centralized placeholder builder
-        PlaceholderBuilder.create_source_text_placeholder(image, source_name, source, width, height);
-    }
-
-    // Variant of set_placeholder_image that honors an explicit NewsSource. This
-    // lets previews and other per-article UI show the correct branding even
-    // when the user's preferences are set to "multiple sources".
-    private void set_placeholder_image_for_source(Gtk.Picture image, int width, int height, NewsSource source) {
-        PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, source);
-    }
-
-    private void set_placeholder_image(Gtk.Picture image, int width, int height) {
-        // Get source icon and create branded placeholder
-        var prefs = NewsPreferences.get_instance();
-        PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, prefs.news_source);
-    }
-
     private void load_source_logo_placeholder(Gtk.Picture image, string logo_url, int width, int height) {
         new Thread<void*>("load-logo", () => {
             try {
@@ -766,21 +743,13 @@ public class ArticlePane : GLib.Object {
             
             // Fallback to gradient placeholder
             Idle.add(() => {
-                create_gradient_placeholder(image, width, height);
+                PlaceholderBuilder.create_gradient_placeholder(image, width, height);
                 return false;
             });
             return null;
         });
     }
 
-    private void create_logo_placeholder(Gtk.Picture image, Gdk.Pixbuf logo, int width, int height) {
-        // Centralized implementation in PlaceholderBuilder
-        PlaceholderBuilder.create_logo_placeholder(image, logo, width, height);
-    }
-
-    private void create_gradient_placeholder(Gtk.Picture image, int width, int height) {
-        PlaceholderBuilder.create_gradient_placeholder(image, width, height);
-    }
 
     // Fetch a short snippet from an article URL using common meta tags or first paragraph
     private void fetch_snippet_async(string url, SnippetCallback on_done, Gtk.Label? meta_label, NewsSource source, string? display_source) {
