@@ -116,8 +116,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Main content scrolled window (exposed so we can capture/restore scroll)
     private Gtk.ScrolledWindow main_scrolled;
     public NewsPreferences prefs;
-    // Holders for sidebar prefix icons so we can live-switch on theme changes
-    private Gee.HashMap<string, Gtk.Box> sidebar_icon_holders = new Gee.HashMap<string, Gtk.Box>();
+    // Sidebar manager extracted to its own helper
+    private SidebarManager? sidebar_manager;
     // Navigation for sliding article preview
     private Adw.NavigationView nav_view;
     private Gtk.Button back_btn;
@@ -241,7 +241,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Use CategoryIcons.create_category_icon(...) instead of the old helper.
 
     // Helper to add a section header to the sidebar
+    // Delegate to SidebarManager if present
     private void sidebar_add_header(string title) {
+        if (sidebar_manager != null) { sidebar_manager.add_header(title); return; }
         var header_row = new Adw.ActionRow();
         header_row.set_title(title);
         header_row.activatable = false;
@@ -252,32 +254,26 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     // Helper to add a row with optional icon and switch category
+    // Delegate to SidebarManager when available
     private void sidebar_add_row(string title, string cat, bool selected=false) {
+        if (sidebar_manager != null) { sidebar_manager.add_row(title, cat, selected); return; }
         var row = new Adw.ActionRow();
         row.set_title(title);
         row.activatable = true;
-        // Use a holder box for the icon so we can replace it on theme changes
         var holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         holder.set_hexpand(false);
         holder.set_vexpand(false);
-    // Prefer custom icons bundled with the app; fall back to theme icons
-    var prefix_widget = CategoryIcons.create_category_icon(cat);
+        var prefix_widget = CategoryIcons.create_category_icon(cat);
         if (prefix_widget != null) { holder.append(prefix_widget); }
-        row.add_prefix(holder);
-        sidebar_icon_holders.set(cat, holder);
-
+    row.add_prefix(holder);
         row.activated.connect(() => {
-            // Debug: log sidebar activations when debug env var is set
             try {
                 string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
                 if (_dbg != null && _dbg.length > 0) {
                     append_debug_log("sidebar_activate: category=" + cat + " title=" + title);
                 }
             } catch (GLib.Error e) { }
-            // Persist selection immediately and update UI selection synchronously
             prefs.category = cat;
-            // Update the header category icon immediately so users get
-            // instant visual feedback of the selected category.
             try { update_category_icon(); } catch (GLib.Error e) { }
             try {
                 string? _dbg3 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
@@ -285,37 +281,12 @@ public class NewsWindow : Adw.ApplicationWindow {
             } catch (GLib.Error e) { }
             prefs.save_config();
             try { sidebar_list.select_row(row); } catch (GLib.Error e) { }
-            // Immediately update local-news overlay visibility so the UI
-            // reflects the new selection without waiting for the deferred
-            // idle callback. This avoids confusing delays where clicking
-            // "Local News" appears to do nothing.
             try { update_local_news_ui(); } catch (GLib.Error e) { }
-
-            // If the user activated the special "frontpage" row, trigger
-            // the fetch immediately (instead of only deferring it). This
-            // prevents a subtle race where the deferred idle path may
-            // observe a different UI/source state when exactly one
-            // preferred source is configured and fall back to "All
-            // Categories". Calling fetch synchronously here ensures the
-            // backend frontpage fetch runs reliably on click.
             try {
-                if (cat == "frontpage") {
-                    fetch_news();
-                    return;
-                }
+                if (cat == "frontpage") { fetch_news(); return; }
             } catch (GLib.Error e) { }
-
-            // Defer the fetch to the main loop to avoid re-entrant rebuilds
-            // that remove the row while the handler is still running. Set
-            // the preference again inside the Idle callback to avoid race
-            // conditions with other scheduled work that may overwrite it.
             Idle.add(() => {
-                try {
-                    prefs.category = cat;
-                    prefs.save_config();
-                } catch (GLib.Error e) { }
-                // Debug: note that the deferred callback is running and what
-                // category we'll fetch for
+                try { prefs.category = cat; prefs.save_config(); } catch (GLib.Error e) { }
                 try {
                     string? _dbg2 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
                     if (_dbg2 != null && _dbg2.length > 0) append_debug_log("idle_fetch: scheduled_category=" + prefs.category);
@@ -326,7 +297,6 @@ public class NewsWindow : Adw.ApplicationWindow {
             });
         });
         sidebar_list.append(row);
-        // Debug: record row additions
         try {
             string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
             if (_dbg != null && _dbg.length > 0) append_debug_log("sidebar_add_row: cat=" + cat + " title=" + title + " selected=" + (selected ? "yes" : "no"));
@@ -336,134 +306,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Rebuild the sidebar rows according to the currently selected source
     private void rebuild_sidebar_rows_for_source() {
-        // Debug: log sidebar rebuild and preferred sources for tracing
-        try {
-            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (_dbg != null && _dbg.length > 0) {
-                    string pref = AppDebugger.array_join(prefs.preferred_sources);
-                    append_debug_log("rebuild_sidebar: preferred_sources=" + pref + " current_category=" + prefs.category);
-                }
-        } catch (GLib.Error e) { }
-        // Clear existing rows
-        int removed = 0;
-        Gtk.Widget? child = sidebar_list.get_first_child();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling();
-            try { sidebar_list.remove(child); } catch (GLib.Error e) { }
-            child = next;
-            removed++;
-        }
-        try {
-            string? _dbg2 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-            if (_dbg2 != null && _dbg2.length > 0) append_debug_log("rebuild_sidebar: removed_rows=" + removed.to_string());
-        } catch (GLib.Error e) { }
-
-    // Place "The Frontpage" and "My Feed" above the Categories header,
-    // then include the "All Categories" option
-    sidebar_add_row("The Frontpage", "frontpage", prefs.category == "frontpage");
-    sidebar_add_row("My Feed", "myfeed", prefs.category == "myfeed");
-    // Local News is a special sidebar item that is not part of Categories
-    sidebar_add_row("Local News", "local_news", prefs.category == "local_news");
-    sidebar_add_header("Categories");
-    sidebar_add_row("All Categories", "all", prefs.category == "all");
-
-    // If multiple preferred sources are selected, build the union of
-    // categories supported by those sources and show only those rows.
-    if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
-        var allowed = new Gee.HashMap<string, bool>();
-        // Default fallback categories most sources support
-        string[] default_cats = { "general", "us", "technology", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
-        // Add defaults for any multi-source selection, then add source-specific ones
-        foreach (var c in default_cats) allowed.set(c, true);
-
-        foreach (var id in prefs.preferred_sources) {
-            switch (id) {
-                case "bloomberg": {
-                    allowed.set("markets", true);
-                    allowed.set("industries", true);
-                    allowed.set("economics", true);
-                    allowed.set("wealth", true);
-                    allowed.set("green", true);
-                    // Bloomberg also has technology & politics which are already allowed above
-                }
-                break;
-                case "guardian": {
-                    // Guardian covers the default set; no-op
-                }
-                break;
-                case "nytimes": {
-                    // NYT uses defaults but lacks a dedicated 'lifestyle' feed in some cases
-                }
-                break;
-                case "reddit": {
-                    // Reddit can supply most categories via subreddits
-                }
-                break;
-                case "wsj": {
-                    // WSJ supports world, tech, sports, health, etc.
-                }
-                break;
-                case "bbc": {
-                    // BBC supports the default set
-                }
-                break;
-                default: {
-                    // Unknown sources: assume defaults
-                }
-                break;
-            }
-        }
-
-        // Display categories in a stable, prioritized order
-        string[] priority = { "general", "us", "technology", "science", "markets", "industries", "economics", "wealth", "green", "sports", "health", "entertainment", "politics", "lifestyle" };
-        foreach (var cat in priority) {
-            bool present = false;
-            // Gee.HashMap<bool> returns a bool for get; avoid comparing to null.
-            // Iterate entries to safely detect presence and truthiness.
-            foreach (var kv in allowed.entries) {
-                if (kv.key == cat) { present = kv.value; break; }
-            }
-            if (present) sidebar_add_row(category_display_name_for(cat), cat, prefs.category == cat);
-        }
-        return;
-    }
-
-    // Single-source path: show categories appropriate to the selected source
-    // Use the effective source (honour a single-item preferred_sources list)
-    NewsSource sidebar_eff = effective_news_source();
-    if (sidebar_eff == NewsSource.BLOOMBERG) {
-        // Bloomberg-specific categories
-        sidebar_add_row("Markets", "markets", prefs.category == "markets");
-        sidebar_add_row("Industries", "industries", prefs.category == "industries");
-        sidebar_add_row("Economics", "economics", prefs.category == "economics");
-        sidebar_add_row("Wealth", "wealth", prefs.category == "wealth");
-        sidebar_add_row("Green", "green", prefs.category == "green");
-        // Keep technology for Bloomberg as well
-        sidebar_add_row("Technology", "technology", prefs.category == "technology");
-        // Also expose politics for completeness
-        sidebar_add_row("Politics", "politics", prefs.category == "politics");
-    } else {
-        // Default set used for most sources
-        sidebar_add_row("World News", "general", prefs.category == "general");
-        sidebar_add_row("US News", "us", prefs.category == "us");
-        sidebar_add_row("Technology", "technology", prefs.category == "technology");
-        sidebar_add_row("Science", "science", prefs.category == "science");
-        sidebar_add_row("Sports", "sports", prefs.category == "sports");
-        sidebar_add_row("Health", "health", prefs.category == "health");
-        sidebar_add_row("Entertainment", "entertainment", prefs.category == "entertainment");
-        sidebar_add_row("Politics", "politics", prefs.category == "politics");
-        // Only show "Lifestyle" for sources that actually support it. BBC
-        // does not expose a dedicated lifestyle RSS feed, so hide the row
-        // when the effective single source is BBC.
-        try {
-            if (NewsSources.supports_category(sidebar_eff, "lifestyle")) {
-                sidebar_add_row("Lifestyle", "lifestyle", prefs.category == "lifestyle");
-            }
-        } catch (GLib.Error e) {
-            // On error, conservatively show the row to avoid hiding UI unexpectedly
-            sidebar_add_row("Lifestyle", "lifestyle", prefs.category == "lifestyle");
-        }
-    }
+        if (sidebar_manager != null) { sidebar_manager.rebuild_rows(); return; }
     }
 
     // Update the source logo and label based on current news source
@@ -838,32 +681,42 @@ public class NewsWindow : Adw.ApplicationWindow {
         header.pack_end(menu_button);
         
         toolbar_view.add_top_bar(header);
-        sidebar_list = new Gtk.ListBox();
-        sidebar_list.add_css_class("navigation-sidebar");
-        sidebar_list.set_selection_mode(SelectionMode.SINGLE);
-        sidebar_list.set_activate_on_single_click(true);
+    sidebar_list = new Gtk.ListBox();
+    sidebar_list.add_css_class("navigation-sidebar");
+    sidebar_list.set_selection_mode(SelectionMode.SINGLE);
+    sidebar_list.set_activate_on_single_click(true);
 
-        // Place "The Frontpage" and "My Feed" above the Categories header,
-        // then include the "All Categories" option
-        sidebar_add_row("The Frontpage", "frontpage", prefs.category == "frontpage");
-        sidebar_add_row("My Feed", "myfeed", prefs.category == "myfeed");
-        // Local News is a special sidebar item that is not part of Categories
-        sidebar_add_row("Local News", "local_news", prefs.category == "local_news");
-        sidebar_add_header("Categories");
-        sidebar_add_row("All Categories", "all", prefs.category == "all");
-        // Default site categories (will be rebuilt for sources like Bloomberg)
-        sidebar_add_row("World News", "general", prefs.category == "general");
-        sidebar_add_row("US News", "us", prefs.category == "us");
-        sidebar_add_row("Technology", "technology", prefs.category == "technology");
-        sidebar_add_row("Science", "science", prefs.category == "science");
-        sidebar_add_row("Sports", "sports", prefs.category == "sports");
-        sidebar_add_row("Health", "health", prefs.category == "health");
-        sidebar_add_row("Entertainment", "entertainment", prefs.category == "entertainment");
-        sidebar_add_row("Politics", "politics", prefs.category == "politics");
-        sidebar_add_row("Lifestyle", "lifestyle", prefs.category == "lifestyle");
+    // Create SidebarManager to encapsulate building rows and icon holders
+    sidebar_manager = new SidebarManager(this, sidebar_list, (cat, title) => {
+        try {
+            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            if (_dbg != null && _dbg.length > 0) append_debug_log("sidebar_activate_cb: category=" + cat + " title=" + title);
+        } catch (GLib.Error e) { }
+        prefs.category = cat;
+        try { update_category_icon(); } catch (GLib.Error e) { }
+        try {
+            string? _dbg3 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            if (_dbg3 != null && _dbg3.length > 0) append_debug_log("activation_set_prefs: prefs.category=" + prefs.category);
+        } catch (GLib.Error e) { }
+        prefs.save_config();
+        try { update_local_news_ui(); } catch (GLib.Error e) { }
+        try {
+            if (cat == "frontpage") { fetch_news(); return; }
+        } catch (GLib.Error e) { }
+        Idle.add(() => {
+            try { prefs.category = cat; prefs.save_config(); } catch (GLib.Error e) { }
+            try {
+                string? _dbg2 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                if (_dbg2 != null && _dbg2.length > 0) append_debug_log("idle_fetch: scheduled_category=" + prefs.category);
+            } catch (GLib.Error e) { }
+            try { fetch_news(); } catch (GLib.Error e) { }
+            try { update_personalization_ui(); } catch (GLib.Error e) { }
+            return false;
+        });
+    });
+    sidebar_manager.rebuild_rows();
 
-
-        sidebar_scrolled = new Gtk.ScrolledWindow();
+    sidebar_scrolled = new Gtk.ScrolledWindow();
         sidebar_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         sidebar_scrolled.set_child(sidebar_list);
 
@@ -1137,7 +990,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             // white variants or back to the original variant as appropriate.
             sm.notify["dark"].connect(() => {
                 try {
-                    update_sidebar_icons_for_theme();
+                    try { if (sidebar_manager != null) sidebar_manager.update_icons_for_theme(); } catch (GLib.Error e) { }
                     // Update the top-right source logo to pick the correct
                     // white or normal variant based on the new theme.
                     try { update_source_info(); } catch (GLib.Error e) { }
@@ -1387,28 +1240,16 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Move button to right edge when sidebar is shown
             sidebar_spacer.set_size_request(100, -1);
         }
-        // Rebuild rows to reflect source-specific categories (e.g., Bloomberg)
-        rebuild_sidebar_rows_for_source();
+    // Rebuild rows to reflect source-specific categories (e.g., Bloomberg)
+    try { if (sidebar_manager != null) sidebar_manager.rebuild_rows(); } catch (GLib.Error e) { }
     }
 
-    // Replace the icon in each sidebar row holder according to the active theme
+    // Delegate to SidebarManager to update icon variants on theme changes
     private void update_sidebar_icons_for_theme() {
-        foreach (var kv in sidebar_icon_holders.entries) {
-            string cat = kv.key;
-            Gtk.Box holder = kv.value;
-            // Remove current child(ren)
-            Gtk.Widget? child = holder.get_first_child();
-            while (child != null) {
-                Gtk.Widget? next = child.get_next_sibling();
-                holder.remove(child);
-                child = next;
-            }
-            var w = CategoryIcons.create_category_icon(cat);
-            if (w != null) holder.append(w);
-        }
+        try { if (sidebar_manager != null) sidebar_manager.update_icons_for_theme(); } catch (GLib.Error e) { }
     }
 
-    private string category_display_name_for(string cat) {
+    public string category_display_name_for(string cat) {
         switch (cat) {
             case "frontpage": return "The Frontpage";
             case "all": return "All Categories";
