@@ -1,7 +1,8 @@
-using GLib;
-
 // Small centralized app debugger helper so logging can be reused across
 // modules without duplicating file IO logic.
+
+using GLib;
+
 public class AppDebugger : GLib.Object {
     // Append a debug line to the provided path. Best-effort; swallow errors.
     public static void append_debug_log(string path, string line) {
@@ -13,6 +14,25 @@ public class AppDebugger : GLib.Object {
             GLib.FileUtils.set_contents(p, outc);
         } catch (GLib.Error e) {
             // best-effort logging only
+        }
+    }
+
+    // Return true when PAPERBOY_DEBUG is enabled in the environment.
+    public static bool debug_enabled() {
+        try {
+            string? v = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+            return v != null && v.length > 0;
+        } catch (GLib.Error e) {
+            return false;
+        }
+    }
+
+    // Log a line only when debug is enabled. Swallows errors.
+    public static void log_if_enabled(string path, string line) {
+        try {
+            if (debug_enabled()) append_debug_log(path, line);
+        } catch (GLib.Error e) {
+            // best-effort
         }
     }
 

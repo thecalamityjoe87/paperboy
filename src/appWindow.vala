@@ -121,7 +121,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Navigation for sliding article preview
     private Adw.NavigationView nav_view;
     private Gtk.Button back_btn;
-    private ArticleWindow article_window;
+    private ArticlePane article_pane;
     // Article preview overlay split view (slides in from right)
     private Adw.OverlaySplitView article_preview_split;
     private Gtk.Box article_preview_content;
@@ -167,9 +167,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Public image handler instance (moved image/download logic)
     public ImageHandler? image_handler;
 
-    // Cache system/user data dirs to avoid querying the environment repeatedly
-    private string[] system_data_dirs_cached;
-    private string? user_data_dir_cached;
+    // Data path helpers (moved to `DataPaths` util)
 
     // Normalize article URLs for stable mapping (delegates to UrlUtils.normalize_article_url)
     public string normalize_article_url(string url) {
@@ -237,157 +235,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
-    // Locate data files both in development tree (data/...) and installed locations
-    private string? find_data_file(string relative) {
-        // Development-time paths (running from project or build dir)
-        string[] dev_prefixes = { "data", "../data" };
-        foreach (var prefix in dev_prefixes) {
-            var path = GLib.Path.build_filename(prefix, relative);
-            if (GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
-                return path;
-            }
-        }
+    // DataPaths.find_data_file(...) provides this functionality now.
 
-        // User data dir (e.g., ~/.local/share/paperboy/...)
-        var user_data = user_data_dir_cached != null ? user_data_dir_cached : GLib.Environment.get_user_data_dir();
-        if (user_data != null && user_data.length > 0) {
-            var user_path = GLib.Path.build_filename(user_data, "paperboy", relative);
-            if (GLib.FileUtils.test(user_path, GLib.FileTest.EXISTS)) {
-                return user_path;
-            }
-        }
-
-        // System data dirs (e.g., /usr/share or /usr/local/share) - use cached copy
-        var sys_dirs = system_data_dirs_cached != null ? system_data_dirs_cached : GLib.Environment.get_system_data_dirs();
-        foreach (var dir in sys_dirs) {
-            var sys_path = GLib.Path.build_filename(dir, "paperboy", relative);
-            if (GLib.FileUtils.test(sys_path, GLib.FileTest.EXISTS)) {
-                return sys_path;
-            }
-        }
-        return null;
-    }
-
-    // Create a category icon widget from our custom icons, with theme fallbacks
-    private Gtk.Widget? create_category_icon(string cat) {
-        string? filename = null;
-        switch (cat) {
-            case "all": filename = "all-mono.svg"; break;
-            case "frontpage": filename = "frontpage-mono.svg"; break;
-            case "myfeed": filename = "myfeed-mono.svg"; break;
-            case "general": filename = "world-mono.svg"; break;
-            case "markets": filename = "markets-mono.svg"; break;
-            case "industries": filename = "industries-mono.svg"; break;
-            case "economics": filename = "economics-mono.svg"; break;
-            case "wealth": filename = "wealth-mono.svg"; break;
-            case "green": filename = "green-mono.svg"; break;
-            case "us": filename = "us-mono.svg"; break;
-            case "local_news": filename = "local-mono.svg"; break;
-            case "technology": filename = "technology-mono.svg"; break;
-            case "science": filename = "science-mono.svg"; break;
-            case "sports": filename = "sports-mono.svg"; break;
-            case "health": filename = "health-mono.svg"; break;
-            case "entertainment": filename = "entertainment-mono.svg"; break;
-            case "politics": filename = "politics-mono.svg"; break;
-            case "lifestyle": filename = "lifestyle-mono.svg"; break;
-            default: filename = null; break;
-        }
-
-        if (filename != null) {
-            // Prefer pre-bundled symbolic mono icons (both black and white
-            // variants live in data/icons/symbolic/). Fall back to the
-            // original data/icons/ location for compatibility.
-            string[] candidates = {
-                GLib.Path.build_filename("icons", "symbolic", filename),
-                GLib.Path.build_filename("icons", filename)
-            };
-            string? icon_path = null;
-            foreach (var c in candidates) {
-                icon_path = find_data_file(c);
-                if (icon_path != null) break;
-            }
-
-            if (icon_path != null) {
-                try {
-                    // If we're in dark mode, prefer a bundled white variant
-                    // shipped alongside the symbolic icons: <name>-white.svg.
-                    string use_path = icon_path;
-                    if (is_dark_mode()) {
-                        string alt_name;
-                        if (filename.has_suffix(".svg"))
-                            alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
-                        else
-                            alt_name = filename + "-white.svg";
-
-                        string? white_candidate = null;
-                        // Check the symbolic folder first for the white asset
-                        white_candidate = find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
-                        if (white_candidate == null) white_candidate = find_data_file(GLib.Path.build_filename("icons", alt_name));
-                        if (white_candidate != null) use_path = white_candidate;
-                    }
-
-                    var img = new Gtk.Image.from_file(use_path);
-                    img.set_pixel_size(SIDEBAR_ICON_SIZE);
-                    return img;
-                } catch (GLib.Error e) {
-                    // fall through to theme icons
-                    warning("Failed to load bundled icon %s: %s", icon_path, e.message);
-                }
-            }
-        }
-        // Fallback to theme icons chain
-        string[] candidates;
-        switch (cat) {
-            case "all":
-                candidates = { "view-list-symbolic", "applications-all-symbolic", "folder-symbolic" };
-                break;
-            case "frontpage":
-                candidates = { "go-home-symbolic", "applications-home-symbolic", "home-symbolic" };
-                break;
-            case "general":
-                candidates = { "globe-symbolic", "emblem-web-symbolic" };
-                break;
-            case "us":
-                candidates = { "mark-location-symbolic", "flag-symbolic", "map-symbolic" };
-                break;
-            case "local_news":
-                candidates = { "mark-location-symbolic", "map-marker-symbolic", "map-symbolic" };
-                break;
-            case "technology":
-                candidates = { "computer-symbolic", "applications-engineering-symbolic", "applications-system-symbolic" };
-                break;
-            case "science":
-                candidates = { "applications-science-symbolic", "utilities-science-symbolic", "view-list-symbolic" };
-                break;
-            case "sports":
-                candidates = { "applications-games-symbolic", "emblem-favorite-symbolic" };
-                break;
-            case "health":
-                candidates = { "face-smile-symbolic", "emblem-ok-symbolic", "help-about-symbolic" };
-                break;
-            case "entertainment":
-                candidates = { "applications-multimedia-symbolic", "media-playback-start-symbolic", "emblem-videos-symbolic" };
-                break;
-            case "politics":
-                candidates = { "emblem-system-symbolic", "preferences-system-symbolic", "emblem-important-symbolic" };
-                break;
-            case "lifestyle":
-                candidates = { "org.gnome.Software-symbolic", "shopping-bag-symbolic", "emblem-favorite-symbolic", "preferences-desktop-personal-symbolic" };
-                break;
-            default:
-                candidates = {};
-                break;
-        }
-        var theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
-        foreach (var candidate in candidates) {
-                if (theme != null && theme.has_icon(candidate)) {
-                    var img = new Gtk.Image.from_icon_name(candidate);
-                    img.set_pixel_size(SIDEBAR_ICON_SIZE);
-                    return img;
-                }
-        }
-        return null;
-    }
+    // Category icon creation has been moved to `src/utils/category_icons.vala`.
+    // Use CategoryIcons.create_category_icon(...) instead of the old helper.
 
     // Helper to add a section header to the sidebar
     private void sidebar_add_header(string title) {
@@ -409,8 +260,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         var holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         holder.set_hexpand(false);
         holder.set_vexpand(false);
-        // Prefer custom icons bundled with the app; fall back to theme icons
-        var prefix_widget = create_category_icon(cat);
+    // Prefer custom icons bundled with the app; fall back to theme icons
+    var prefix_widget = CategoryIcons.create_category_icon(cat);
         if (prefix_widget != null) { holder.append(prefix_widget); }
         row.add_prefix(holder);
         sidebar_icon_holders.set(cat, holder);
@@ -625,14 +476,14 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (prefs != null && prefs.category == "local_news") {
                 try { source_label.set_text("Local News"); } catch (GLib.Error e) { }
                 try {
-                    string? local_icon = find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-                    if (local_icon == null) local_icon = find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
+                    string? local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
+                    if (local_icon == null) local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
                     if (local_icon != null) {
                         string use_path = local_icon;
                         try {
                             if (is_dark_mode()) {
-                                string? white_cand = find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                                if (white_cand == null) white_cand = find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
+                                string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
+                                if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
                                 if (white_cand != null) use_path = white_cand;
                             }
                         } catch (GLib.Error e) { }
@@ -658,14 +509,14 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (prefs.category == "frontpage") {
             try { source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
             try {
-                string? multi_icon = find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                if (multi_icon == null) multi_icon = find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
                 if (multi_icon != null) {
                     string use_path = multi_icon;
                     try {
                         if (is_dark_mode()) {
-                            string? white_cand = find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                            if (white_cand == null) white_cand = find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                             if (white_cand != null) use_path = white_cand;
                         }
                     } catch (GLib.Error e) { }
@@ -688,15 +539,15 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
             source_label.set_text("Multiple Sources");
             // Prefer the pre-bundled symbolic mono icons (symbolic/)
-            string? multi_icon = find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-            if (multi_icon == null) multi_icon = find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+            string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+            if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
             if (multi_icon != null) {
                 try {
                     string use_path = multi_icon;
                     try {
                         if (is_dark_mode()) {
-                            string? white_candidate = find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                            if (white_candidate == null) white_candidate = find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            string? white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_candidate == null) white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                             if (white_candidate != null) use_path = white_candidate;
                         }
                     } catch (GLib.Error e) { }
@@ -768,7 +619,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         // Try to load the actual logo file, fallback to symbolic icon
         if (logo_file != null) {
-            string? logo_path = find_data_file(GLib.Path.build_filename("icons", logo_file));
+            string? logo_path = DataPaths.find_data_file(GLib.Path.build_filename("icons", logo_file));
             if (logo_path != null) {
                 try {
                     // Load and scale the pixbuf to ensure consistent size
@@ -887,14 +738,12 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Initialize external image handler that owns download/cache logic
     image_handler = new ImageHandler(this);
         
-    // Cache user/system data dirs early to avoid repeated environment calls
-    user_data_dir_cached = GLib.Environment.get_user_data_dir();
-    system_data_dirs_cached = GLib.Environment.get_system_data_dirs();
+        // DataPaths now centrally caches and exposes data-dir lookups
 
     // Load CSS
         var css_provider = new Gtk.CssProvider();
         try {
-            string? css_path = find_data_file("style.css");
+            string? css_path = DataPaths.find_data_file("style.css");
             if (css_path != null) {
                 css_provider.load_from_path(css_path);
             }
@@ -1232,8 +1081,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         session.timeout = 15; // Default timeout
 
         // Initialize article window
-        article_window = new ArticleWindow(nav_view, back_btn, session, this);
-        article_window.set_preview_overlay(article_preview_split, article_preview_content);
+        article_pane = new ArticlePane(nav_view, back_btn, session, this);
+        article_pane.set_preview_overlay(article_preview_split, article_preview_content);
 
         // Add keyboard event controller for closing article preview with Escape
         var key_controller = new Gtk.EventControllerKey();
@@ -1347,99 +1196,13 @@ public class NewsWindow : Adw.ApplicationWindow {
                 category_icon_holder.remove(child);
                 child = next;
             }
-            var hdr = create_category_header_icon(prefs.category, 36);
+            var hdr = CategoryIcons.create_category_header_icon(prefs.category, 36);
             if (hdr != null) category_icon_holder.append(hdr);
         } catch (GLib.Error e) { }
     }
 
-    // Create a header-ready category icon using the bundled 128x128 assets
-    // when available. This prefers the symbolic/128x128 folder and will
-    // pick a "-white" variant in dark mode if present. The returned widget
-    // is a Gtk.Image with a paintable texture scaled to `size` pixels.
-    private Gtk.Widget? create_category_header_icon(string cat, int size) {
-        string? filename = null;
-        switch (cat) {
-            case "all": filename = "all-mono.svg"; break;
-            case "frontpage": filename = "frontpage-mono.svg"; break;
-            case "myfeed": filename = "myfeed-mono.svg"; break;
-            case "general": filename = "world-mono.svg"; break;
-            case "markets": filename = "markets-mono.svg"; break;
-            case "industries": filename = "industries-mono.svg"; break;
-            case "economics": filename = "economics-mono.svg"; break;
-            case "wealth": filename = "wealth-mono.svg"; break;
-            case "green": filename = "green-mono.svg"; break;
-            case "us": filename = "us-mono.svg"; break;
-            case "local_news": filename = "local-mono.svg"; break;
-            case "technology": filename = "technology-mono.svg"; break;
-            case "science": filename = "science-mono.svg"; break;
-            case "sports": filename = "sports-mono.svg"; break;
-            case "health": filename = "health-mono.svg"; break;
-            case "entertainment": filename = "entertainment-mono.svg"; break;
-            case "politics": filename = "politics-mono.svg"; break;
-            case "lifestyle": filename = "lifestyle-mono.svg"; break;
-            default: filename = null; break;
-        }
-
-        if (filename != null) {
-            // Prefer the bundled 128x128 symbolic assets
-            string[] candidates = {
-                GLib.Path.build_filename("icons", "symbolic", "128x128", filename),
-                GLib.Path.build_filename("icons", "128x128", filename),
-                GLib.Path.build_filename("icons", filename)
-            };
-            string? icon_path = null;
-            foreach (var c in candidates) {
-                icon_path = find_data_file(c);
-                if (icon_path != null) break;
-            }
-
-            if (icon_path != null) {
-                try {
-                    // Prefer white variant in dark mode if available
-                    string use_path = icon_path;
-                    if (is_dark_mode()) {
-                        string alt_name;
-                        if (filename.has_suffix(".svg"))
-                            alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
-                        else
-                            alt_name = filename + "-white.svg";
-                        string? white_candidate = null;
-                        white_candidate = find_data_file(GLib.Path.build_filename("icons", "symbolic", "128x128", alt_name));
-                        if (white_candidate == null) white_candidate = find_data_file(GLib.Path.build_filename("icons", "128x128", alt_name));
-                        if (white_candidate != null) use_path = white_candidate;
-                    }
-                    // If the asset is an SVG, prefer loading it as a file-backed
-                    // Gtk.Image and let GTK render it as a vector at the
-                    // requested pixel size. This avoids rasterizing the SVG to
-                    // a small pixbuf and then letting the layout scale it which
-                    // causes blurriness (especially on HiDPI displays).
-                    if (use_path.has_suffix(".svg")) {
-                        try {
-                            var img = new Gtk.Image.from_file(use_path);
-                            img.set_pixel_size(size);
-                            return img;
-                        } catch (GLib.Error e) {
-                            // Fall back to pixbuf path below on error
-                        }
-                    }
-
-                    // Non-SVG assets (PNG, etc): load a scaled pixbuf and convert
-                    // to a texture so we get reasonable performance and layout.
-                    var pix = new Gdk.Pixbuf.from_file_at_size(use_path, size, size);
-                    if (pix != null) {
-                        var tex = Gdk.Texture.for_pixbuf(pix);
-                        var img = new Gtk.Image();
-                        try { img.set_from_paintable(tex); } catch (GLib.Error e) { try { img.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                        return img;
-                    }
-                } catch (GLib.Error e) {
-                    // fall through to theme icons below
-                }
-            }
-        }
-        // Fall back to the existing create_category_icon behavior
-        return create_category_icon(cat);
-    }
+    // Category header icon creation moved to `src/utils/category_icons.vala`.
+    // Use CategoryIcons.create_category_header_icon(cat, size) instead.
 
     // Centralized content-header updater.
     // This enforces the rule: the content header shows only the category
@@ -1640,7 +1403,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 holder.remove(child);
                 child = next;
             }
-            var w = create_category_icon(cat);
+            var w = CategoryIcons.create_category_icon(cat);
             if (w != null) holder.append(w);
         }
     }
@@ -2139,7 +1902,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
 
             // Connect activation to the preview handler
-            hero_card.activated.connect((s) => { try { article_window.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { } });
+            hero_card.activated.connect((s) => { try { article_pane.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { } });
 
             // Add the hero as the first slide and initialize the carousel containers
             if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
@@ -2279,7 +2042,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             var slide_click = new Gtk.GestureClick();
             slide_click.released.connect(() => {
-                article_window.show_article_preview(title, url, thumbnail_url, category_id);
+                article_pane.show_article_preview(title, url, thumbnail_url, category_id);
             });
             slide.add_controller(slide_click);
 
@@ -2382,7 +2145,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Connect activation to opening the article preview
         article_card.activated.connect((s) => {
-            try { article_window.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { }
+            try { article_pane.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { }
         });
 
         // Append to the calculated target column
@@ -2469,7 +2232,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
         
         // Try to find icon in data directory
-        string icon_path = find_data_file("icons/" + icon_filename);
+    string icon_path = DataPaths.find_data_file("icons/" + icon_filename);
         return icon_path;
     }
 
@@ -2651,7 +2414,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                     GLib.Path.build_filename("icons", cand + ".svg")
                 };
                 foreach (var rel in paths) {
-                    string? full = find_data_file(rel);
+                    string? full = DataPaths.find_data_file(rel);
                     if (full != null) {
                         // Build a badge that mirrors build_source_badge but uses the
                         // discovered icon and the provided source_name as label.
@@ -2779,7 +2542,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         var lbl = new Gtk.Label(get_source_name(source));
         lbl.add_css_class("source-badge-label");
         lbl.set_valign(Gtk.Align.CENTER);
-    lbl.set_xalign(0.5f);
+        lbl.set_xalign(0.5f);
         lbl.set_ellipsize(Pango.EllipsizeMode.END);
         lbl.set_max_width_chars(12);
         box.append(lbl);
@@ -3321,14 +3084,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     // (symbolic) and prefers a white variant in dark mode.
     public void set_local_placeholder_image(Gtk.Picture image, int width, int height) {
         try {
-            string? local_icon = find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-            if (local_icon == null) local_icon = find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
+                    string? local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
+                    if (local_icon == null) local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
             string use_path = local_icon != null ? local_icon : null;
             if (use_path != null) {
                 try {
                     if (is_dark_mode()) {
-                        string? white_cand = find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                        if (white_cand == null) white_cand = find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
+                        string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
+                        if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
                         if (white_cand != null) use_path = white_cand;
                     }
                 } catch (GLib.Error e) { }
@@ -4184,14 +3947,14 @@ public class NewsWindow : Adw.ApplicationWindow {
             // top-right logo matches the app's iconography. Fall back to the
             // generic RSS symbolic icon if no local asset is found.
             try {
-                string? local_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-                if (local_icon == null) local_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
+                string? local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
+                if (local_icon == null) local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
                 if (local_icon != null) {
                     string use_path = local_icon;
                     try {
                         if (self_ref.is_dark_mode()) {
-                            string? white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                            if (white_cand == null) white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
+                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
+                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
                             if (white_cand != null) use_path = white_cand;
                         }
                     } catch (GLib.Error e) { }
@@ -4228,14 +3991,14 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Present the multi-source label/logo in the header
             try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
             try {
-                string? multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                if (multi_icon == null) multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
                 if (multi_icon != null) {
                     string use_path = multi_icon;
                     try {
                         if (self_ref.is_dark_mode()) {
-                            string? white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                            if (white_cand == null) white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                             if (white_cand != null) use_path = white_cand;
                         }
                     } catch (GLib.Error e) { }
@@ -4274,14 +4037,14 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (prefs.category == "frontpage") {
                 try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
                 try {
-                    string? multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                    if (multi_icon == null) multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                    string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                    if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
                     if (multi_icon != null) {
                         string use_path = multi_icon;
                         try {
                             if (self_ref.is_dark_mode()) {
-                                string? white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                                if (white_cand == null) white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                                string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                                if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                                 if (white_cand != null) use_path = white_cand;
                             }
                         } catch (GLib.Error e) { }
@@ -4313,15 +4076,15 @@ public class NewsWindow : Adw.ApplicationWindow {
                 self_ref.source_label.set_text("Multiple Sources");
                 // Try symbolic first (includes -white variants), then fall back
                 // to the old location for compatibility.
-                string? multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                if (multi_icon == null) multi_icon = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
                 if (multi_icon != null) {
                     try {
                         string use_path = multi_icon;
                         try {
                             if (self_ref.is_dark_mode()) {
-                                string? white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                                if (white_cand == null) white_cand = self_ref.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                                string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                                if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                                 if (white_cand != null) use_path = white_cand;
                             }
                         } catch (GLib.Error e) { }
