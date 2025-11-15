@@ -17,6 +17,7 @@
  */
 
 using GLib;
+using Gee;
 
 public class MetaCache : GLib.Object {
     private string cache_dir_path;
@@ -25,6 +26,22 @@ public class MetaCache : GLib.Object {
     // Maximum allowed cache size on disk. If the images folder exceeds this
     // size we perform a full clear() to avoid unbounded disk usage.
     private long max_total_bytes = 200 * 1024 * 1024; // 200 MB
+    // In-memory set of meta file paths that have been observed as "viewed".
+    // Populated asynchronously at startup to avoid blocking the main loop
+    // when many articles are checked during UI construction.
+    private Gee.HashSet<string> viewed_meta_paths;
+    // Track meta paths currently being checked in background to avoid
+    // spawning duplicate reader threads for the same file.
+    private Gee.HashSet<string> pending_meta_checks;
+    // Queue of URLs that need background meta checks. A single background
+    // worker thread consumes this queue to avoid spawning many short-lived
+    // threads when UI constructs a large list of articles.
+    private Gee.ArrayList<string> meta_check_queue;
+    // Condition variable used to signal the background worker when new
+    // work is available.
+    private Cond meta_cond = new Cond();
+    // Mutex to protect the above sets from concurrent access.
+    private Mutex meta_lock = new Mutex();
 
     // If the cache grows beyond `max_total_bytes`, clear it entirely.
     private void maybe_clear_if_oversized() {
@@ -73,6 +90,88 @@ public class MetaCache : GLib.Object {
         }
 
     cache_dir = cache_dir_path;
+    // Initialize in-memory sets
+    viewed_meta_paths = new Gee.HashSet<string>();
+    pending_meta_checks = new Gee.HashSet<string>();
+    meta_check_queue = new Gee.ArrayList<string>();
+
+    // Preload metadata directory in a background thread to populate the
+    // viewed_meta_paths set so subsequent is_viewed() calls can be fast
+    // and non-blocking on the main loop.
+    new Thread<void*>("meta-preload", () => {
+        try {
+            var meta_dir = File.new_for_path(cache_dir_path);
+            FileEnumerator? en = null;
+            try {
+                en = meta_dir.enumerate_children("standard::name", FileQueryInfoFlags.NONE, null);
+                FileInfo? info;
+                while ((info = en.next_file(null)) != null) {
+                    if (info.get_file_type() != FileType.REGULAR) continue;
+                    string name = info.get_name();
+                    if (!name.has_suffix(".meta")) continue;
+                    string full = Path.build_filename(cache_dir_path, name);
+                    // Use read_meta (which is defensive) to parse and handle corrupted files
+                    var kf = read_meta_from_path(full);
+                    if (kf != null) {
+                        try {
+                            string v = kf.get_string("meta", "viewed");
+                            if (v == "1" || v.down() == "true") {
+                                meta_lock_add_viewed(full);
+                            }
+                        } catch (GLib.Error e) { /* no viewed flag */ }
+                    }
+                }
+            } catch (GLib.Error e) {
+                /* best-effort */
+            } finally {
+                if (en != null) try { en.close(null); } catch (GLib.Error e) { }
+            }
+        } catch (GLib.Error e) { }
+        return null;
+    });
+
+    // Start a single persistent background worker that consumes
+    // `meta_check_queue` items and performs read_meta() calls. This avoids
+    // the previous approach of creating a short-lived thread per missing
+    // meta file which caused large thread churn under heavy loads.
+    new Thread<void*>("meta-worker", () => {
+        while (true) {
+            string? url_to_check = null;
+            // Wait for work
+            meta_lock.lock();
+            try {
+                while (meta_check_queue.size == 0) {
+                    // Wait until new work arrives. Condition.wait will atomically
+                    // release the lock and re-acquire it when woken.
+                    try { meta_cond.wait(meta_lock); } catch (GLib.Error e) { }
+                }
+                // Pop first URL (capture remaining queue size for logging)
+                url_to_check = meta_check_queue.remove_at(0);
+                int remaining_queue = meta_check_queue.size;
+                try { warning("MetaCache.worker: popped %s (remaining queued=%d)", url_to_check, remaining_queue); } catch (GLib.Error e) { }
+            } finally {
+                meta_lock.unlock();
+            }
+
+            if (url_to_check == null) continue;
+
+            // Perform the non-locking part of the check: read and inspect the meta
+            var kf = read_meta(url_to_check);
+            string meta_path = meta_path_for(url_to_check);
+            if (kf != null) {
+                try {
+                    string v = kf.get_string("meta", "viewed");
+                    if (v == "1" || v.down() == "true") {
+                        meta_lock_add_viewed(meta_path);
+                    }
+                } catch (GLib.Error e) { }
+            }
+
+            // Remove pending marker so future checks for this path can be enqueued
+            meta_lock_remove_pending(meta_path);
+        }
+        return null;
+    });
     }
 
     // Simple sanitization to produce reasonably short filenames from URL.
@@ -125,6 +224,81 @@ public class MetaCache : GLib.Object {
         return Path.build_filename(cache_dir_path, name);
     }
 
+    // Helper: read a KeyFile directly from a meta file path (skips filename->url mapping)
+    private KeyFile? read_meta_from_path(string meta_path) {
+        if (!FileUtils.test(meta_path, FileTest.EXISTS)) return null;
+        try {
+            var meta_file = File.new_for_path(meta_path);
+            try {
+                var kf = new KeyFile();
+                kf.load_from_file(meta_path, KeyFileFlags.NONE);
+                return kf;
+            } catch (GLib.Error e) {
+                // Corrupt - remove
+                try { FileUtils.remove(meta_path); } catch (GLib.Error ee) { }
+                return null;
+            }
+        } catch (GLib.Error e) {
+            return null;
+        }
+    }
+
+    // Thread-safe helpers to manipulate viewed_meta_paths and pending_meta_checks
+    private void meta_lock_add_viewed(string meta_path) {
+        meta_lock.lock();
+        try {
+            viewed_meta_paths.add(meta_path);
+        } finally {
+            meta_lock.unlock();
+        }
+    }
+
+    private bool meta_lock_has_viewed(string meta_path) {
+        meta_lock.lock();
+        try {
+            return viewed_meta_paths.contains(meta_path);
+        } finally {
+            meta_lock.unlock();
+        }
+    }
+
+    private bool meta_lock_try_add_pending(string meta_path) {
+        meta_lock.lock();
+        try {
+            if (pending_meta_checks.contains(meta_path)) return false;
+            pending_meta_checks.add(meta_path);
+            return true;
+        } finally {
+            meta_lock.unlock();
+        }
+    }
+
+    // Try to add a pending marker and enqueue a URL for background checking.
+    // Returns true if the URL was enqueued (i.e. it wasn't already pending).
+    private bool meta_lock_try_add_pending_and_enqueue(string meta_path, string url) {
+        meta_lock.lock();
+        try {
+            if (pending_meta_checks.contains(meta_path)) return false;
+            pending_meta_checks.add(meta_path);
+            try { meta_check_queue.add(url); } catch (GLib.Error e) { }
+            // Debug: log queue/pending sizes so we can observe if many items are being enqueued
+            try { warning("MetaCache.enqueue: %s queued (pending=%d, queued=%d)", meta_path, pending_meta_checks.size, meta_check_queue.size); } catch (GLib.Error e) { }
+            try { meta_cond.signal(); } catch (GLib.Error e) { }
+            return true;
+        } finally {
+            meta_lock.unlock();
+        }
+    }
+
+    private void meta_lock_remove_pending(string meta_path) {
+        meta_lock.lock();
+        try {
+            try { pending_meta_checks.remove(meta_path); } catch (GLib.Error e) { }
+        } finally {
+            meta_lock.unlock();
+        }
+    }
+
     // Return cached image path if exists else null
     public string? get_cached_path(string url) {
         string? p = image_path_for(url);
@@ -137,12 +311,39 @@ public class MetaCache : GLib.Object {
     public KeyFile? read_meta(string url) {
         string meta = meta_path_for(url);
         if (!FileUtils.test(meta, FileTest.EXISTS)) return null;
+        // Defensive checks: detect obviously-broken or maliciously-large
+        // metadata files that could lead to allocator issues when parsed.
         try {
+            var meta_file = File.new_for_path(meta);
+            try {
+                var info = meta_file.query_info("standard::size", FileQueryInfoFlags.NONE, null);
+                long size = (long) info.get_size();
+                // If a .meta file is unreasonably large it is likely corrupt (e.g. binary image written
+                // into it). Treat files > 1MB as corrupted and remove them to avoid heap/alloc crashes.
+                const long MAX_META_SIZE = 1024 * 1024; // 1 MB
+                if (size > MAX_META_SIZE) {
+                    try { warning("MetaCache.read_meta: meta file too large (%d bytes), removing %s", (int)size, meta); } catch (GLib.Error ee) { }
+                    try { FileUtils.remove(meta); } catch (GLib.Error e2) { }
+                    return null;
+                }
+            } catch (GLib.Error e) {
+                // Can't query size; continue and let KeyFile handle malformed contents.
+            }
+
             var kf = new KeyFile();
-            kf.load_from_file(meta, KeyFileFlags.NONE);
-            return kf;
+            try {
+                kf.load_from_file(meta, KeyFileFlags.NONE);
+                return kf;
+            } catch (GLib.Error e) {
+                // If parsing fails, treat the file as corrupted: remove it so we don't
+                // repeatedly try to parse a bad file and risk allocator corruption.
+                try { warning("MetaCache.read_meta: failed to parse meta %s: %s -- removing corrupted file", meta, e.message); } catch (GLib.Error ee) { }
+                try { FileUtils.remove(meta); } catch (GLib.Error e2) { }
+                return null;
+            }
         } catch (GLib.Error e) {
-            warning("Failed to read meta %s: %s", meta, e.message);
+            // Any other filesystem error: log and return null (best-effort)
+            try { warning("MetaCache.read_meta: unexpected error accessing %s: %s", meta, e.message); } catch (GLib.Error ee) { }
             return null;
         }
     }
@@ -267,6 +468,8 @@ public class MetaCache : GLib.Object {
             // Debug: log metadata path we will write to
             try { warning("MetaCache.mark_viewed: writing meta for %s", meta_path_for(url)); } catch (GLib.Error e) { }
             write_meta(url, kf);
+            // Update in-memory cache immediately so UI checks can see the change
+            try { meta_lock_add_viewed(meta_path_for(url)); } catch (GLib.Error e) { }
         } catch (GLib.Error e) {
             warning("Failed to mark viewed for %s: %s", url, e.message);
         }
@@ -276,19 +479,22 @@ public class MetaCache : GLib.Object {
     public bool is_viewed(string url) {
         string meta = meta_path_for(url);
         try { warning("MetaCache.is_viewed: checking meta path %s", meta); } catch (GLib.Error e) { }
-        var kf = read_meta(url);
-        if (kf == null) {
-            try { warning("MetaCache.is_viewed: no meta file for %s", meta); } catch (GLib.Error e) { }
-            return false;
+
+        // Fast path: check our in-memory set that was preloaded (or updated
+        // via mark_viewed). This avoids expensive disk IO on the main loop.
+        if (meta_lock_has_viewed(meta)) return true;
+
+        // If we don't have it in-memory, schedule a single background check
+        // for this meta path (do not perform any disk IO on the main loop).
+        // Return false for now; subsequent calls will find the cached value
+        // once the background task completes.
+        // Enqueue a single background check for this meta path (if not already pending).
+        // The background worker will perform read_meta() and update the in-memory set.
+        if (meta_lock_try_add_pending_and_enqueue(meta, url)) {
+            // enqueued
         }
-        try {
-            string v = kf.get_string("meta", "viewed");
-            try { warning("MetaCache.is_viewed: found viewed=%s in %s", v, meta); } catch (GLib.Error e) { }
-            return v == "1" || v.down() == "true";
-        } catch (GLib.Error e) {
-            try { warning("MetaCache.is_viewed: 'viewed' key missing in %s", meta); } catch (GLib.Error ee) { }
-            return false;
-        }
+
+        return false;
     }
 
     // Remove all cached images and metadata. Best-effort; used on application exit

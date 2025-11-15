@@ -71,3 +71,9 @@ sudo ninja -C build install
 ```
 
 
+
+## Developer notes
+
+- The content-area header now shows only the selected category icon and text. It will no longer append or change based on the selected news source (single or multiple). This simplifies the header and avoids source-influenced label changes.
+
+

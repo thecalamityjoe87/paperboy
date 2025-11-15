@@ -78,13 +78,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     private bool featured_used = false;
     // Carousel for featured/top stories (up to 5)
     private Gee.ArrayList<ArticleItem> featured_carousel_items;
-    private Gtk.Stack? featured_carousel_stack;
-    private Gtk.Box? featured_carousel_dots_box;
-    private int featured_carousel_index = 0;
-    private uint featured_carousel_timeout_id = 0;
+    private HeroCarousel? hero_carousel;
     private string? featured_carousel_category = null;
-    private Gee.ArrayList<Gtk.Label> featured_carousel_dot_widgets;
-    private Gee.ArrayList<Gtk.Widget> featured_carousel_widgets;
     // Hero container reference for responsive sizing
     private Gtk.Box hero_container;
     // Main content container that holds both hero and columns
@@ -97,16 +92,16 @@ public class NewsWindow : Adw.ApplicationWindow {
     private const int COL_SPACING = 12;
     // Sidebar icon size (monochrome icons)
     private const int SIDEBAR_ICON_SIZE = 24;
-    private Soup.Session session;
+    public Soup.Session session;
     private GLib.Rand rng;
-    private static int active_downloads = 0;
+    public static int active_downloads = 0;
     // Increase concurrent downloads to improve initial load throughput while
     // keeping a reasonable cap to avoid overwhelming the system.
-    private const int MAX_CONCURRENT_DOWNLOADS = 10;
+    public const int MAX_CONCURRENT_DOWNLOADS = 10;
     // During the initial loading phase we throttle concurrent downloads/decodes
     // to reduce main-loop jank (spinner animation stutter). This lower cap is
     // only used while `initial_phase` is true.
-    private const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 3;
+    public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 3;
     private string current_search_query = "";
     private Gtk.Label category_label;
     private Gtk.Label source_label;
@@ -120,7 +115,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.ScrolledWindow sidebar_scrolled;
     // Main content scrolled window (exposed so we can capture/restore scroll)
     private Gtk.ScrolledWindow main_scrolled;
-    private NewsPreferences prefs;
+    public NewsPreferences prefs;
     // Holders for sidebar prefix icons so we can live-switch on theme changes
     private Gee.HashMap<string, Gtk.Box> sidebar_icon_holders = new Gee.HashMap<string, Gtk.Box>();
     // Navigation for sliding article preview
@@ -155,111 +150,33 @@ public class NewsWindow : Adw.ApplicationWindow {
     private string? last_previewed_url;
     // Keep the last vertical scroll offset so we can restore it when closing previews
     private double last_scroll_value = -1.0;
-    private MetaCache? meta_cache;
+    public MetaCache? meta_cache;
 
     // In-memory image cache (URL -> Gdk.Texture) to avoid repeated decodes during a session
-    private Gee.HashMap<string, Gdk.Texture> memory_meta_cache;
+    public Gee.HashMap<string, Gdk.Texture> memory_meta_cache;
     // Track the last requested size for each URL so we can upgrade images
     // after the initial phase without re-scanning the UI.
-    private Gee.HashMap<string, string> requested_image_sizes;
+    public Gee.HashMap<string, string> requested_image_sizes;
     // Pending-downloads map for request deduplication: URL -> list of Gtk.Picture targets
-    private Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
+    public Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
 
     // Deferred downloads for widgets that are not yet visible: Picture -> DeferredRequest
-    private Gee.HashMap<Gtk.Picture, DeferredRequest> deferred_downloads;
-    private uint deferred_check_timeout_id = 0;
+    public Gee.HashMap<Gtk.Picture, DeferredRequest> deferred_downloads;
+    public uint deferred_check_timeout_id = 0;
+
+    // Public image handler instance (moved image/download logic)
+    public ImageHandler? image_handler;
 
     // Cache system/user data dirs to avoid querying the environment repeatedly
     private string[] system_data_dirs_cached;
     private string? user_data_dir_cached;
 
-    // No explicit download queue; downloads are performed directly (cache reduces load).
-
-    // Normalize article URLs for stable mapping (strip query params, trailing slash, lowercase host)
-    private string normalize_article_url(string url) {
-        if (url == null) return "";
-    string u = url.strip();
-        // Remove query string entirely (utm and tracking params commonly appended)
-        int qpos = u.index_of("?");
-        if (qpos >= 0) {
-            u = u.substring(0, qpos);
-        }
-        // Remove trailing slash
-        while (u.length > 1 && u.has_suffix("/")) {
-            u = u.substring(0, u.length - 1);
-        }
-        // Lowercase scheme and host portion
-        int scheme_end = u.index_of("://");
-        if (scheme_end >= 0) {
-            int path_start = u.index_of("/", scheme_end + 3);
-            string host_part = path_start >= 0 ? u.substring(0, path_start) : u;
-            string rest = path_start >= 0 ? u.substring(path_start) : "";
-            host_part = host_part.down();
-            u = host_part + rest;
-        } else {
-            u = u.down();
-        }
-        return u;
+    // Normalize article URLs for stable mapping (delegates to UrlUtils.normalize_article_url)
+    public string normalize_article_url(string url) {
+        return UrlUtils.normalize_article_url(url);
     }
 
-    // Update the visible state of the carousel dots based on the active index.
-    private void update_carousel_dots(int active_index) {
-        if (featured_carousel_dot_widgets == null) return;
-        int total = featured_carousel_items != null ? featured_carousel_items.size : 0;
-        for (int i = 0; i < featured_carousel_dot_widgets.size; i++) {
-            var dot = featured_carousel_dot_widgets[i];
-            // Dim dots that represent slides not yet populated
-            if (i >= total) {
-                dot.add_css_class("inactive");
-                dot.remove_css_class("active");
-            } else {
-                dot.remove_css_class("inactive");
-                if (i == active_index) {
-                    dot.add_css_class("active");
-                } else {
-                    dot.remove_css_class("active");
-                }
-            }
-        }
-    }
-
-    // Move carousel to the next slide
-    private void carousel_next() {
-        if (featured_carousel_stack == null) return;
-        int total = featured_carousel_widgets != null ? featured_carousel_widgets.size : 0;
-        if (total <= 1) return;
-        // Advance index and select next widget that is actually in the stack
-        featured_carousel_index = (featured_carousel_index + 1) % total;
-        for (int i = 0; i < total; i++) {
-            var child = featured_carousel_widgets.get(featured_carousel_index) as Gtk.Widget;
-            if (child != null && child.get_parent() == featured_carousel_stack) {
-                featured_carousel_stack.set_visible_child(child);
-                update_carousel_dots(featured_carousel_index);
-                return;
-            }
-            featured_carousel_index = (featured_carousel_index + 1) % total;
-        }
-        append_debug_log("carousel_next: no valid child found for stack");
-    }
-
-    // Move carousel to the previous slide
-    private void carousel_prev() {
-        if (featured_carousel_stack == null) return;
-        int total = featured_carousel_widgets != null ? featured_carousel_widgets.size : 0;
-        if (total <= 1) return;
-        // Move backwards and pick a valid widget actually present in the stack
-        featured_carousel_index = (featured_carousel_index - 1 + total) % total;
-        for (int i = 0; i < total; i++) {
-            var child = featured_carousel_widgets.get(featured_carousel_index) as Gtk.Widget;
-            if (child != null && child.get_parent() == featured_carousel_stack) {
-                featured_carousel_stack.set_visible_child(child);
-                update_carousel_dots(featured_carousel_index);
-                return;
-            }
-            featured_carousel_index = (featured_carousel_index - 1 + total) % total;
-        }
-        append_debug_log("carousel_prev: no valid child found for stack");
-    }
+    // Carousel operations now handled by `HeroCarousel` in src/heroCarousel.vala
     
     // Remaining articles after hitting the Load More limit
     private ArticleItem[]? remaining_articles = null;
@@ -300,7 +217,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Label? error_message_label = null;
     private Gtk.Button? error_retry_button = null;
     // Initial-load gating: wait for hero (or timeout) before revealing main content
-    private bool initial_phase = false;
+    public bool initial_phase = false;
     private bool hero_image_loaded = false;
     private uint initial_reveal_timeout_id = 0;
     // Track pending image loads during initial phase so we can keep the spinner
@@ -311,29 +228,13 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Debug log path (written when PAPERBOY_DEBUG is set)
     private string debug_log_path = "/tmp/paperboy-debug.log";
 
-    private void append_debug_log(string line) {
+    // Delegate to centralized app debugger util for consistent behavior
+    public void append_debug_log(string line) {
         try {
-            string path = debug_log_path;
-            string old = "";
-            try { GLib.FileUtils.get_contents(path, out old); } catch (GLib.Error e) { old = ""; }
-            string outc = old + line + "\n";
-            GLib.FileUtils.set_contents(path, outc);
+            AppDebugger.append_debug_log(debug_log_path, line);
         } catch (GLib.Error e) {
             // best-effort logging only
         }
-    }
-
-    // Small helper to join a Gee.ArrayList<string> for debug output
-    private string array_join(Gee.ArrayList<string>? list) {
-        if (list == null) return "(null)";
-        string out = "";
-        try {
-            foreach (var s in list) {
-                if (out.length > 0) out += ",";
-                out += s;
-            }
-        } catch (GLib.Error e) { return "(error)"; }
-        return out;
     }
 
     // Locate data files both in development tree (data/...) and installed locations
@@ -588,7 +489,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         try {
             string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
                 if (_dbg != null && _dbg.length > 0) {
-                    string pref = array_join(prefs.preferred_sources);
+                    string pref = AppDebugger.array_join(prefs.preferred_sources);
                     append_debug_log("rebuild_sidebar: preferred_sources=" + pref + " current_category=" + prefs.category);
                 }
         } catch (GLib.Error e) { }
@@ -983,6 +884,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     } catch (GLib.Error e) {
         meta_cache = null;
     }
+    // Initialize external image handler that owns download/cache logic
+    image_handler = new ImageHandler(this);
         
     // Cache user/system data dirs early to avoid repeated environment calls
     user_data_dir_cached = GLib.Environment.get_user_data_dir();
@@ -1538,6 +1441,61 @@ public class NewsWindow : Adw.ApplicationWindow {
         return create_category_icon(cat);
     }
 
+    // Centralized content-header updater.
+    // This enforces the rule: the content header shows only the category
+    // icon and the category display name. When a search is active the
+    // header becomes: Search Results: "<query>" in <Category Display Name>.
+    // This helper is safe to call from worker threads because it schedules
+    // the actual UI updates on the main loop via Idle.add.
+    private void update_content_header() {
+        string disp = category_display_name_for(prefs.category);
+        string label_text;
+        try {
+            if (current_search_query != null && current_search_query.length > 0)
+                label_text = "Search Results: \"" + current_search_query + "\" in " + disp;
+            else
+                label_text = disp;
+        } catch (GLib.Error e) {
+            // Fallback conservatively
+            label_text = disp;
+        }
+        // Schedule on main loop to guarantee safe GTK access.
+        Idle.add(() => {
+            try { if (category_label != null) category_label.set_text(label_text); } catch (GLib.Error e) { }
+            try { update_category_icon(); } catch (GLib.Error e) { }
+            // Also ensure the top-right source badge reflects the current
+            // source configuration (single source -> logo+name, multiple
+            // sources or frontpage -> multi-source badge). Call the
+            // updater on the main loop to keep UI changes centralized.
+            try { update_source_info(); } catch (GLib.Error e) { }
+            return false;
+        });
+    }
+
+    // Synchronous variant intended to be called from the main thread when
+    // we need the header to be painted immediately before constructing
+    // any article/hero widgets. This performs the same updates as
+    // update_content_header but runs them synchronously (no Idle.add).
+    private void update_content_header_now() {
+        string disp = category_display_name_for(prefs.category);
+        string label_text;
+        try {
+            if (current_search_query != null && current_search_query.length > 0)
+                label_text = "Search Results: \"" + current_search_query + "\" in " + disp;
+            else
+                label_text = disp;
+        } catch (GLib.Error e) {
+            label_text = disp;
+        }
+
+        try { if (category_label != null) category_label.set_text(label_text); } catch (GLib.Error e) { }
+        try { update_category_icon(); } catch (GLib.Error e) { }
+        // Ensure the top-right source badge is in sync with the current
+        // source selection. This will show either the single-source
+        // logo+name or the multiple-sources badge for aggregated views.
+        try { update_source_info(); } catch (GLib.Error e) { }
+    }
+
     // Public helper to update personalized-feed UI state -- shows or hides
     // the centered message overlay depending on the preference.
     public void update_personalization_ui() {
@@ -1801,15 +1759,35 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Do not hide the initial loading spinner here; we'll reveal content
         // once the hero image is ready or after a short timeout to avoid jarring.
         // If we already have a picture registered for this URL, treat this as an image update
-        string normalized = normalize_article_url(url);
-        Gtk.Picture? existing = url_to_picture.get(normalized);
-            // Fallback: try fuzzy match (strip/trailing differences or query variants)
-        if (existing == null) {
+        // Normalize the article URL for stable mapping. Be defensive: if
+        // normalization fails or returns null/empty, fall back to the raw
+        // URL (or an empty string) so we never pass a NULL key into Gee.
+        string normalized = "";
+        try {
+            if (url != null) normalized = normalize_article_url(url);
+        } catch (GLib.Error e) {
+            // Best-effort fallback
+            normalized = url != null ? url : "";
+        }
+
+        // Guard against an uninitialized map (shouldn't happen in normal
+        // constructor flow) and avoid passing a NULL key into Gee which can
+        // cause a crash. Use a safe empty-string key if needed.
+        if (normalized == null) normalized = "";
+
+        Gtk.Picture? existing = null;
+        if (url_to_picture != null) {
+            try { existing = url_to_picture.get(normalized); } catch (GLib.Error e) { existing = null; }
+        }
+
+        // Fallback: try fuzzy match (strip/trailing differences or query variants)
+        if (existing == null && url_to_picture != null && normalized.length > 0) {
             foreach (var kv in url_to_picture.entries) {
                 string k = kv.key;
                 if (k == null) continue;
                 // Match when one URL is a suffix of the other (same article, different params)
-                if (k.has_suffix(normalized) || normalized.has_suffix(k)) {
+                // Guard against empty strings to avoid surprising behaviour.
+                if (k.length > 0 && (k.has_suffix(normalized) || normalized.has_suffix(k))) {
                     existing = kv.value;
                     // fuzzy match found; update will proceed without debug logging
                     break;
@@ -1824,7 +1802,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // Updating existing article image in-place (silent)
                 // Update regardless of current prefs since it's an in-place replacement
                 if (initial_phase) pending_images++;
-                load_image_async(existing, thumbnail_url, target_w, target_h);
+                image_handler.load_image_async(existing, thumbnail_url, target_w, target_h);
                 return; // updated image in-place
         }
 
@@ -2052,7 +2030,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             return; // Stop adding articles until user clicks "Load More"
         }
         
-    // Smart column selection for "All Categories" to prevent category clustering
+        // Smart column selection for "All Categories" to prevent category clustering
         int target_col = -1;
         if (prefs.category == "all" && forced_column == -1) {
             // Light anti-clustering: only prevent very long runs (4+ consecutive)
@@ -2142,7 +2120,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (hero_will_load) {
                 int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 4);
                 if (initial_phase) pending_images++;
-                load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier);
+                image_handler.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier);
                 hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
                 string _norm = normalize_article_url(url);
                 url_to_picture.set(_norm, hero_card.image);
@@ -2164,105 +2142,23 @@ public class NewsWindow : Adw.ApplicationWindow {
             hero_card.activated.connect((s) => { try { article_window.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { } });
 
             // Add the hero as the first slide and initialize the carousel containers
-            var top_stories_title = new Gtk.Label("Top Stories");
-            top_stories_title.set_xalign(0);
-            top_stories_title.add_css_class("top-stories-title");
-            top_stories_title.set_margin_bottom(6);
-            featured_box.append(top_stories_title);
-
             if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
-            if (featured_carousel_widgets == null) featured_carousel_widgets = new Gee.ArrayList<Gtk.Widget>();
+            if (hero_carousel == null) hero_carousel = new HeroCarousel(featured_box);
             featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
             featured_carousel_category = category_id;
 
-            // Create a stack to hold up to 5 slides
-            featured_carousel_stack = new Gtk.Stack();
-            featured_carousel_stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT);
-            featured_carousel_stack.set_halign(Gtk.Align.FILL);
-            featured_carousel_stack.set_hexpand(true);
-
-            featured_carousel_stack.add_named(hero_card.root, "0");
-            featured_carousel_widgets.add(hero_card.root);
-
-            var carousel_container = new Gtk.Box(Orientation.VERTICAL, 0);
-            carousel_container.add_css_class("card");
-            carousel_container.add_css_class("card-featured");
-            carousel_container.set_halign(Gtk.Align.FILL);
-            carousel_container.set_hexpand(true);
-
-            var carousel_overlay = new Gtk.Overlay();
-            carousel_overlay.set_child(featured_carousel_stack);
-
-            var left_btn = new Gtk.Button.from_icon_name("go-previous-symbolic");
-            left_btn.add_css_class("carousel-nav");
-            left_btn.add_css_class("carousel-nav-left");
-            left_btn.set_halign(Gtk.Align.START);
-            left_btn.set_valign(Gtk.Align.CENTER);
-            left_btn.set_margin_start(8);
-            left_btn.set_margin_end(8);
-            carousel_overlay.add_overlay(left_btn);
-            left_btn.clicked.connect(() => { carousel_prev(); });
-
-            var right_btn = new Gtk.Button.from_icon_name("go-next-symbolic");
-            right_btn.add_css_class("carousel-nav");
-            right_btn.add_css_class("carousel-nav-right");
-            right_btn.set_halign(Gtk.Align.END);
-            right_btn.set_valign(Gtk.Align.CENTER);
-            right_btn.set_margin_start(8);
-            right_btn.set_margin_end(8);
-            carousel_overlay.add_overlay(right_btn);
-            right_btn.clicked.connect(() => { carousel_next(); });
-
-            carousel_container.append(carousel_overlay);
-
-            var global_dots = new Gtk.Box(Orientation.HORIZONTAL, 6);
-            global_dots.set_halign(Gtk.Align.CENTER);
-            global_dots.set_margin_top(6);
-            if (featured_carousel_dot_widgets == null) featured_carousel_dot_widgets = new Gee.ArrayList<Gtk.Label>();
-            for (int d = 0; d < 5; d++) {
-                var dot = new Gtk.Label("•");
-                dot.add_css_class("carousel-dot");
-                if (d == 0) dot.add_css_class("active");
-                dot.set_valign(Gtk.Align.CENTER);
-                var dot_attrs = new Pango.AttrList();
-                dot_attrs.insert(Pango.attr_scale_new(1.35));
-                dot.set_attributes(dot_attrs);
-                global_dots.append(dot);
-                featured_carousel_dot_widgets.add(dot);
-            }
-            featured_carousel_dots_box = global_dots;
-            carousel_container.append(global_dots);
-            featured_box.append(carousel_container);
-
-            featured_carousel_index = 0;
-            if (featured_carousel_timeout_id != 0) { Source.remove(featured_carousel_timeout_id); featured_carousel_timeout_id = 0; }
-            featured_carousel_timeout_id = Timeout.add_seconds(5, () => {
-                if (featured_carousel_stack == null) return false;
-                int total = featured_carousel_widgets != null ? featured_carousel_widgets.size : 0;
-                if (total <= 1) return true;
-                featured_carousel_index = (featured_carousel_index + 1) % total;
-                for (int i = 0; i < total; i++) {
-                    var child = featured_carousel_widgets.get(featured_carousel_index) as Gtk.Widget;
-                    if (child != null && child.get_parent() == featured_carousel_stack) {
-                        featured_carousel_stack.set_visible_child(child);
-                        update_carousel_dots(featured_carousel_index);
-                        return true;
-                    }
-                    featured_carousel_index = (featured_carousel_index + 1) % total;
-                }
-                append_debug_log("carousel_timer: no valid child found for stack");
-                return true;
-            });
+            hero_carousel.add_initial_slide(hero_card.root);
+            hero_carousel.start_timer(5);
 
             featured_used = true;
             if (initial_phase) mark_initial_items_populated();
             return;
         }
 
-        // If a featured carousel is active and we haven't reached 5 slides yet,
-        // collect additional articles that match the featured category and add
-        // them as slides to the carousel instead of rendering normal cards.
-            if (featured_carousel_stack != null && featured_carousel_items != null &&
+            // If a featured carousel is active and we haven't reached 5 slides yet,
+            // collect additional articles that match the featured category and add
+            // them as slides to the carousel instead of rendering normal cards.
+            if (hero_carousel != null && featured_carousel_items != null &&
             featured_carousel_items.size < 5) {
             // In "all" mode we only append slides that match the featured
             // category (the carousel is seeded with a category). For
@@ -2345,7 +2241,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (slide_will_load) {
                 int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 4);
                 if (initial_phase) pending_images++;
-                load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier);
+                image_handler.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier);
                 hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));
                 string _norm = normalize_article_url(url);
                 url_to_picture.set(_norm, slide_image);
@@ -2387,10 +2283,10 @@ public class NewsWindow : Adw.ApplicationWindow {
             });
             slide.add_controller(slide_click);
 
-            // Add slide to stack and to our item list
+            // Add slide to carousel and to our item list
             int new_index = featured_carousel_items.size;
-            featured_carousel_stack.add_named(slide, "%d".printf(new_index));
-            featured_carousel_widgets.add(slide);
+            if (hero_carousel == null) hero_carousel = new HeroCarousel(featured_box);
+            hero_carousel.add_slide(slide);
             featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
 
             // Debug: log slide addition when debug env var is set (also write to file)
@@ -2403,7 +2299,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             } catch (GLib.Error e) { }
 
             // Ensure dots array exists and update their state
-            if (featured_carousel_dot_widgets != null) update_carousel_dots(featured_carousel_index);
+            if (hero_carousel != null) hero_carousel.update_dots();
 
             return;
         }
@@ -2461,7 +2357,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 3);
             if (initial_phase) pending_images++;
             // Caller retains image-load logic; register picture for in-place updates
-            load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier);
+            image_handler.load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier);
             url_to_picture.set(_norm, article_card.image);
             normalized_to_url.set(_norm, url);
         } else {
@@ -2509,560 +2405,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         column_heights[target_col] += estimated_card_h + 12;
 
         if (initial_phase) mark_initial_items_populated();
-    }
-    
-    // Internal helper that starts a download thread for the provided image/url.
-    // We no longer maintain a FIFO queue; downloads are best-effort and caching
-    // reduces the number of network fetches significantly.
-    private void start_image_download_thread(Gtk.Picture image, string url, int target_w, int target_h) {
-        new Thread<void*>("pb-load-image", () => {
-            GLib.AtomicInt.inc(ref active_downloads);
-            try {
-                var msg = new Soup.Message("GET", url);
-                if (prefs.news_source == NewsSource.REDDIT) {
-                    msg.request_headers.append("User-Agent", "Mozilla/5.0 (compatible; Paperboy/1.0)");
-                    msg.request_headers.append("Accept", "image/jpeg,image/png,image/webp,image/*;q=0.8");
-                    msg.request_headers.append("Cache-Control", "max-age=3600");
-                } else {
-                    msg.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36");
-                    msg.request_headers.append("Accept", "image/webp,image/png,image/jpeg,image/*;q=0.8");
-                }
-                msg.request_headers.append("Accept-Encoding", "gzip, deflate, br");
-
-                // If we have a cached ETag/Last-Modified, perform a conditional GET
-                if (meta_cache != null) {
-                    string? et = null;
-                    string? lm = null;
-                    meta_cache.get_etag_and_modified(url, out et, out lm);
-                    if (et != null) msg.request_headers.append("If-None-Match", et);
-                    if (lm != null) msg.request_headers.append("If-Modified-Since", lm);
-                }
-
-                append_debug_log("start_image_download_for_url: sending request url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
-                session.send_message(msg);
-                append_debug_log("start_image_download_for_url: got response status=" + msg.status_code.to_string() + " body_len=" + msg.response_body.length.to_string() + " url=" + url);
-
-                if (prefs.news_source == NewsSource.REDDIT && msg.response_body.length > 2 * 1024 * 1024) {
-                    Idle.add(() => {
-                        set_placeholder_image_for_source(image, target_w, target_h, infer_source_from_url(url));
-                        on_image_loaded(image);
-                        return false;
-                    });
-                    return null;
-                }
-
-                if (msg.status_code == 200 && msg.response_body.length > 0) {
-                    // Decode and scale the image off the main thread to avoid
-                    // blocking the UI. We then hand a ready Gdk.Pixbuf to the
-                    // main loop to create a Gdk.Texture and update widgets.
-                    try {
-                        var loader = new Gdk.PixbufLoader();
-                        uint8[] data = new uint8[msg.response_body.length];
-                        Memory.copy(data, msg.response_body.data, (size_t)msg.response_body.length);
-                        loader.write(data);
-                        loader.close();
-                        var pixbuf = loader.get_pixbuf();
-                        if (pixbuf != null) {
-                            int width = pixbuf.get_width();
-                            int height = pixbuf.get_height();
-                            double scale = double.min((double) target_w / width, (double) target_h / height);
-                            if (scale < 1.0) {
-                                int new_width = (int)(width * scale);
-                                if (new_width < 1) new_width = 1;
-                                int new_height = (int)(height * scale);
-                                if (new_height < 1) new_height = 1;
-                                // Always scale down to the requested target (even for small badges)
-                                pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER);
-                            } else if (scale > 1.0) {
-                                double max_upscale = 2.0;
-                                double upscale = double.min(scale, max_upscale);
-                                int new_width = (int)(width * upscale);
-                                int new_height = (int)(height * upscale);
-                                if (upscale > 1.01) {
-                                    pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER);
-                                }
-                            }
-                            // Create texture and update UI on the main thread only
-                            var pb_for_idle = pixbuf;
-                            Idle.add(() => {
-                                try {
-                                    var texture = Gdk.Texture.for_pixbuf(pb_for_idle);
-                                    image.set_paintable(texture);
-                                    on_image_loaded(image);
-                                } catch (GLib.Error e) {
-                                    set_placeholder_image_for_source(image, target_w, target_h, infer_source_from_url(url));
-                                    on_image_loaded(image);
-                                }
-                                return false;
-                            });
-                        } else {
-                            Idle.add(() => {
-                                set_placeholder_image_for_source(image, target_w, target_h, infer_source_from_url(url));
-                                on_image_loaded(image);
-                                return false;
-                            });
-                        }
-                    } catch (GLib.Error e) {
-                        Idle.add(() => {
-                            set_placeholder_image_for_source(image, target_w, target_h, infer_source_from_url(url));
-                            on_image_loaded(image);
-                            return false;
-                        });
-                    }
-                } else {
-                    Idle.add(() => {
-                        set_placeholder_image_for_source(image, target_w, target_h, infer_source_from_url(url));
-                        on_image_loaded(image);
-                        return false;
-                    });
-                }
-            } catch (GLib.Error e) {
-                Idle.add(() => {
-                        set_placeholder_image_for_source(image, target_w, target_h, infer_source_from_url(url));
-                    on_image_loaded(image);
-                    return false;
-                });
-            } finally {
-                // Decrement active downloads counter
-                GLib.AtomicInt.dec_and_test(ref active_downloads);
-            }
-            return null;
-        });
-    }
-    
-    // Start a single download for a URL and update all registered targets when done.
-    private void start_image_download_for_url(string url, int target_w, int target_h) {
-        new Thread<void*>("pb-load-image", () => {
-            GLib.AtomicInt.inc(ref active_downloads);
-            try {
-                var msg = new Soup.Message("GET", url);
-                if (prefs.news_source == NewsSource.REDDIT) {
-                    msg.request_headers.append("User-Agent", "Mozilla/5.0 (compatible; Paperboy/1.0)");
-                    msg.request_headers.append("Accept", "image/jpeg,image/png,image/webp,image/*;q=0.8");
-                    msg.request_headers.append("Cache-Control", "max-age=3600");
-                } else {
-                    msg.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36");
-                    msg.request_headers.append("Accept", "image/webp,image/png,image/jpeg,image/*;q=0.8");
-                }
-                msg.request_headers.append("Accept-Encoding", "gzip, deflate, br");
-
-                session.send_message(msg);
-
-                if (prefs.news_source == NewsSource.REDDIT && msg.response_body.length > 2 * 1024 * 1024) {
-                    Idle.add(() => {
-                        var list = pending_downloads.get(url);
-                        if (list != null) {
-                            foreach (var pic in list) {
-                                set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url));
-                                on_image_loaded(pic);
-                            }
-                            pending_downloads.remove(url);
-                        }
-                        return false;
-                    });
-                    return null;
-                }
-
-                if (msg.status_code == 304) {
-                    append_debug_log("start_image_download_for_url: 304 Not Modified for url=" + url);
-                    // Not modified; refresh last-access and serve cached image
-                    Idle.add(() => {
-                        if (meta_cache != null) meta_cache.touch(url);
-                        var path = meta_cache != null ? meta_cache.get_cached_path(url) : null;
-                        if (path != null) {
-                            append_debug_log("start_image_download_for_url: serving disk-cached path=" + path + " for url=" + url);
-                            try {
-                                Gdk.Texture? texture = null;
-                                var pix = new Gdk.Pixbuf.from_file(path);
-
-                                // Determine device/widget scale by inspecting all pending targets
-                                // and picking the largest scale factor. This avoids using a
-                                // single possibly-unrealized widget and ensures we rasterize
-                                // to enough device pixels for any attached targets.
-                                int device_scale = 1;
-                                try {
-                                    var list_try = pending_downloads.get(url);
-                                    if (list_try != null && list_try.size > 0) {
-                                        foreach (var pic_obj in list_try) {
-                                            try {
-                                                var pic = (Gtk.Picture) pic_obj;
-                                                int s = pic.get_scale_factor();
-                                                if (s > device_scale) device_scale = s;
-                                            } catch (GLib.Error e) {
-                                                // ignore and continue
-                                            }
-                                        }
-                                        if (device_scale < 1) device_scale = 1;
-                                    }
-                                } catch (GLib.Error e) { device_scale = 1; }
-
-                                // If we know the requested size for this URL, scale to the
-                                // effective (device) target so cached textures match callers
-                                // and look crisp on HiDPI displays.
-                                var size_rec = requested_image_sizes.get(url);
-                                if (pix != null && size_rec != null && size_rec.length > 0) {
-                                    try {
-                                        string[] parts = size_rec.split("x");
-                                        if (parts.length == 2) {
-                                            int sw = int.parse(parts[0]);
-                                            int sh = int.parse(parts[1]);
-                                            int eff_sw = sw * device_scale;
-                                            int eff_sh = sh * device_scale;
-                                            try { append_debug_log("start_image_download_for_url: 304 serving url=" + url + " requested=" + sw.to_string() + "x" + sh.to_string() + " device_scale=" + device_scale.to_string() + " eff_target=" + eff_sw.to_string() + "x" + eff_sh.to_string() + " pix_before=" + pix.get_width().to_string() + "x" + pix.get_height().to_string()); } catch (GLib.Error e) { }
-                                            double sc = double.min((double) eff_sw / pix.get_width(), (double) eff_sh / pix.get_height());
-                                            if (sc < 1.0) {
-                                                int nw = (int)(pix.get_width() * sc);
-                                                if (nw < 1) nw = 1;
-                                                int nh = (int)(pix.get_height() * sc);
-                                                if (nh < 1) nh = 1;
-                                                try { pix = pix.scale_simple(nw, nh, Gdk.InterpType.HYPER); } catch (GLib.Error e) { }
-                                            }
-                                            texture = Gdk.Texture.for_pixbuf(pix);
-                                            string k = make_cache_key(url, sw, sh);
-                                            memory_meta_cache.set(k, texture);
-                                            // Only set a URL-keyed fallback for small targets
-                                            if (sw <= 64 && sh <= 64) memory_meta_cache.set(url, texture);
-                                            try { append_debug_log("start_image_download_for_url: 304 cached size_key=" + k + " pix_after=" + pix.get_width().to_string() + "x" + pix.get_height().to_string()); } catch (GLib.Error e) { }
-                                        } else {
-                                            texture = Gdk.Texture.for_pixbuf(pix);
-                                            if (pix.get_width() <= 64 && pix.get_height() <= 64) memory_meta_cache.set(url, texture);
-                                        }
-                                    } catch (GLib.Error e) {
-                                        texture = Gdk.Texture.for_pixbuf(pix);
-                                        if (pix.get_width() <= 64 && pix.get_height() <= 64) memory_meta_cache.set(url, texture);
-                                    }
-                                } else if (pix != null) {
-                                    texture = Gdk.Texture.for_pixbuf(pix);
-                                    if (pix.get_width() <= 64 && pix.get_height() <= 64) memory_meta_cache.set(url, texture);
-                                }
-                                var list2 = pending_downloads.get(url);
-                                if (list2 != null) {
-                                    foreach (var pic in list2) {
-                                        if (texture != null) pic.set_paintable(texture);
-                                        else set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url));
-                                        on_image_loaded(pic);
-                                    }
-                                    pending_downloads.remove(url);
-                                }
-                            } catch (GLib.Error e) {
-                                var list2 = pending_downloads.get(url);
-                                if (list2 != null) {
-                                    foreach (var pic in list2) { set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url)); on_image_loaded(pic); }
-                                    pending_downloads.remove(url);
-                                }
-                            }
-                        } else {
-                            var list2 = pending_downloads.get(url);
-                            if (list2 != null) {
-                                foreach (var pic in list2) { set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url)); on_image_loaded(pic); }
-                                pending_downloads.remove(url);
-                            }
-                        }
-                        return false;
-                    });
-                    return null;
-                }
-
-                if (msg.status_code == 200 && msg.response_body.length > 0) {
-                    // Perform disk cache write and pixbuf decoding/scaling off the
-                    // main thread, then update the UI with a lightweight idle.
-                    try {
-                        uint8[] data = new uint8[msg.response_body.length];
-                        Memory.copy(data, msg.response_body.data, (size_t)msg.response_body.length);
-
-                        // Persist to disk cache (best-effort) using ETag/Last-Modified headers
-                        if (meta_cache != null) {
-                            string? etg = null;
-                            string? lm2 = null;
-                            try { etg = msg.response_headers.get_one("ETag"); } catch (GLib.Error e) { etg = null; }
-                            try { lm2 = msg.response_headers.get_one("Last-Modified"); } catch (GLib.Error e) { lm2 = null; }
-                            try {
-                                string? ct = null;
-                                try { ct = msg.response_headers.get_one("Content-Type"); } catch (GLib.Error e) { ct = null; }
-                                meta_cache.write_cache(url, data, etg, lm2, ct);
-                                append_debug_log("start_image_download_for_url: wrote disk cache for url=" + url + " etag=" + (etg != null ? etg : "<null>"));
-                            } catch (GLib.Error e) { }
-                        }
-
-                        var loader = new Gdk.PixbufLoader();
-                        loader.write(data);
-                        loader.close();
-                        var pixbuf = loader.get_pixbuf();
-                        if (pixbuf != null) {
-                            int width = pixbuf.get_width();
-                            int height = pixbuf.get_height();
-                            try { append_debug_log("start_image_download_for_url: decoded url=" + url + " orig=" + width.to_string() + "x" + height.to_string() + " requested=" + target_w.to_string() + "x" + target_h.to_string()); } catch (GLib.Error e) { }
-                            double scale = double.min((double) target_w / width, (double) target_h / height);
-                            if (scale < 1.0) {
-                                int new_width = (int)(width * scale);
-                                if (new_width < 1) new_width = 1;
-                                int new_height = (int)(height * scale);
-                                if (new_height < 1) new_height = 1;
-                                // Always scale down to the requested target so badges/layouts receive
-                                // appropriately-sized textures (allow small targets like 20x20).
-                                try { pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER); } catch (GLib.Error e) { }
-                                try { append_debug_log("start_image_download_for_url: scaled-down url=" + url + " to=" + pixbuf.get_width().to_string() + "x" + pixbuf.get_height().to_string()); } catch (GLib.Error e) { }
-                            } else if (scale > 1.0) {
-                                double max_upscale = 2.0;
-                                double upscale = double.min(scale, max_upscale);
-                                int new_width = (int)(width * upscale);
-                                int new_height = (int)(height * upscale);
-                                if (upscale > 1.01) {
-                                    try { pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.HYPER); } catch (GLib.Error e) { }
-                                    try { append_debug_log("start_image_download_for_url: upscaled url=" + url + " to=" + pixbuf.get_width().to_string() + "x" + pixbuf.get_height().to_string()); } catch (GLib.Error e) { }
-                                }
-                            }
-
-                            var pb_for_idle = pixbuf;
-                            Idle.add(() => {
-                                try {
-                                    var texture = Gdk.Texture.for_pixbuf(pb_for_idle);
-                                    // Cache texture in-memory for the session using size-key
-                                    string size_key = make_cache_key(url, target_w, target_h);
-                                    memory_meta_cache.set(size_key, texture);
-                                    try { append_debug_log("start_image_download_for_url: cached memory size_key=" + size_key + " url=" + url + " tex_size=" + pb_for_idle.get_width().to_string() + "x" + pb_for_idle.get_height().to_string()); } catch (GLib.Error e) { }
-
-                                    var list = pending_downloads.get(url);
-                                    if (list != null) {
-                                        foreach (var pic in list) {
-                                            pic.set_paintable(texture);
-                                            on_image_loaded(pic);
-                                        }
-                                        pending_downloads.remove(url);
-                                    }
-                                } catch (GLib.Error e) {
-                                    var list = pending_downloads.get(url);
-                                    if (list != null) {
-                                        foreach (var pic in list) {
-                                            set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url));
-                                            on_image_loaded(pic);
-                                        }
-                                        pending_downloads.remove(url);
-                                    }
-                                }
-                                return false;
-                            });
-                        } else {
-                            Idle.add(() => {
-                                var list = pending_downloads.get(url);
-                                if (list != null) {
-                                    foreach (var pic in list) {
-                                        set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url));
-                                        on_image_loaded(pic);
-                                    }
-                                    pending_downloads.remove(url);
-                                }
-                                return false;
-                            });
-                        }
-                    } catch (GLib.Error e) {
-                        Idle.add(() => {
-                            var list = pending_downloads.get(url);
-                            if (list != null) {
-                                foreach (var pic in list) {
-                                    set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url));
-                                    on_image_loaded(pic);
-                                }
-                                pending_downloads.remove(url);
-                            }
-                            return false;
-                        });
-                    }
-                } else {
-                    Idle.add(() => {
-                        var list = pending_downloads.get(url);
-                        if (list != null) {
-                            foreach (var pic in list) {
-                                    set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url));
-                                on_image_loaded(pic);
-                            }
-                            pending_downloads.remove(url);
-                        }
-                        return false;
-                    });
-                }
-            } catch (GLib.Error e) {
-                Idle.add(() => {
-                    var list = pending_downloads.get(url);
-                    if (list != null) {
-                        foreach (var pic in list) {
-                            set_placeholder_image_for_source(pic, target_w, target_h, infer_source_from_url(url));
-                            on_image_loaded(pic);
-                        }
-                        pending_downloads.remove(url);
-                    }
-                    return false;
-                });
-            } finally {
-                // Decrement active downloads counter
-                GLib.AtomicInt.dec_and_test(ref active_downloads);
-            }
-            return null;
-        });
-    }
-
-    // Ensure we don't start more than MAX_CONCURRENT_DOWNLOADS downloads; if we are at capacity,
-    // retry shortly until a slot frees up.
-    private void ensure_start_download(string url, int target_w, int target_h) {
-        // Use a lower concurrency cap during the initial loading phase to
-        // reduce main-loop work (decodes/Idle callbacks) and keep the UI
-        // animation (spinner) smooth. Outside initial_phase we use the
-        // normal, higher cap.
-        int cap = initial_phase ? INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS : MAX_CONCURRENT_DOWNLOADS;
-        if (active_downloads >= cap) {
-            // Retry after a short delay
-            Timeout.add(150, () => { ensure_start_download(url, target_w, target_h); return false; });
-            return;
-        }
-        start_image_download_for_url(url, target_w, target_h);
-    }
-
-    private void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, bool force = false) {
-        // If the widget is not visible yet, defer starting the download to
-        // avoid fetching/decoding images for off-screen items. A background
-        // timer will process deferred requests when widgets become visible.
-        if (!force) {
-            try {
-                // Prefer the mapped/visible check; fall back to visible when unavailable
-                bool vis = false;
-                try { vis = image.get_visible(); } catch (GLib.Error e) { vis = true; }
-                if (!vis) {
-                    // Record requested size so upgrade pass can see it even while deferred
-                    requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
-                    try {
-                        string nkey = normalize_article_url(url);
-                        if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
-                    } catch (GLib.Error e) { }
-
-                    deferred_downloads.set(image, new DeferredRequest(url, target_w, target_h));
-                    // Start/ensure a one-shot timer to process deferred requests shortly
-                    if (deferred_check_timeout_id == 0) {
-                        deferred_check_timeout_id = Timeout.add(500, () => {
-                            try { process_deferred_downloads(); } catch (GLib.Error e) { }
-                            deferred_check_timeout_id = 0;
-                            return false;
-                        });
-                    }
-                    return;
-                }
-            } catch (GLib.Error e) { /* ignore visibility check errors */ }
-        }
-    // Fast-path: if we have an in-memory texture for this exact size, use it immediately
-        string key = make_cache_key(url, target_w, target_h);
-        var cached = memory_meta_cache.get(key);
-        if (cached != null) {
-            append_debug_log("load_image_async: memory cache hit key=" + key + " url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
-            image.set_paintable(cached);
-            on_image_loaded(image);
-            return;
-        }
-        // Fallback: avoid using a URL-keyed texture that may have been cached
-        // at an earlier, different size. Using a wrong-size cached texture
-        // can cause visible blurriness when it's upscaled for larger targets.
-        // Keep a small-target fast-path (icons/badges) but otherwise prefer
-        // the size-keyed cache, disk cache, or a fresh download.
-        var cached_any = memory_meta_cache.get(url);
-        if (cached_any != null) {
-            // For very small targets (badges/icons) the generic cached texture
-            // is acceptable and avoids an extra disk/network round-trip.
-            if (target_w <= 64 && target_h <= 64) {
-                append_debug_log("load_image_async: memory cache (any-size) hit (small target) url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
-                image.set_paintable(cached_any);
-                on_image_loaded(image);
-                return;
-            } else {
-                append_debug_log("load_image_async: memory cache (any-size) hit but skipping due to size mismatch url=" + url + " requested=" + target_w.to_string() + "x" + target_h.to_string());
-                // Fall through to disk/network path to obtain an appropriately-sized texture
-            }
-        }
-
-        // Eager disk short-circuit: if we have the image on-disk from a
-        // previous run (MetaCache), load it synchronously and populate the
-        // size-keyed memory cache so the UI shows logos immediately.
-        try {
-            if (meta_cache != null) {
-                var disk_path = meta_cache.get_cached_path(url);
-                if (disk_path != null) {
-                    append_debug_log("load_image_async: disk cache hit path=" + disk_path + " url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
-                        try {
-                            var pix = new Gdk.Pixbuf.from_file(disk_path);
-                            if (pix != null) {
-                                // Determine widget/device scale so we rasterize to enough
-                                // device pixels for HiDPI displays and avoid blurry upscaling.
-                                int device_scale = 1;
-                                try { device_scale = image.get_scale_factor(); if (device_scale < 1) device_scale = 1; } catch (GLib.Error e) { device_scale = 1; }
-
-                                int eff_target_w = target_w * device_scale;
-                                int eff_target_h = target_h * device_scale;
-
-                                // If the on-disk image is larger than the effective target, scale it
-                                int width = pix.get_width();
-                                int height = pix.get_height();
-                                double scale = double.min((double) eff_target_w / width, (double) eff_target_h / height);
-                                if (scale < 1.0) {
-                                    int new_w = (int)(width * scale);
-                                    if (new_w < 1) new_w = 1;
-                                    int new_h = (int)(height * scale);
-                                    if (new_h < 1) new_h = 1;
-                                    try { pix = pix.scale_simple(new_w, new_h, Gdk.InterpType.HYPER); } catch (GLib.Error e) { }
-                                }
-                                // Debug: record disk-cache serving details
-                                try { append_debug_log("load_image_async: disk-cached path=" + disk_path + " url=" + url + " requested=" + target_w.to_string() + "x" + target_h.to_string() + " device_scale=" + device_scale.to_string() + " pix_after=" + pix.get_width().to_string() + "x" + pix.get_height().to_string()); } catch (GLib.Error e) { }
-                                // Create a texture and cache it under the size-key (logical size)
-                                var tex = Gdk.Texture.for_pixbuf(pix);
-                                string size_key = make_cache_key(url, target_w, target_h);
-                                memory_meta_cache.set(size_key, tex);
-                                // keep URL-keyed fallback only for small icons to avoid
-                                // accidental upscaling of low-res textures for larger cards
-                                if (target_w <= 64 && target_h <= 64) memory_meta_cache.set(url, tex);
-                                image.set_paintable(tex);
-                                on_image_loaded(image);
-                                try { append_debug_log("load_image_async: disk-cached served url=" + url + " size_key=" + size_key); } catch (GLib.Error e) { }
-                                return;
-                            }
-                        } catch (GLib.Error e) {
-                            // Fall through to network fetch on any disk read/decoding error
-                        }
-                }
-            }
-        } catch (GLib.Error e) { /* best-effort; continue to network path */ }
-
-        // If a download is already in-flight for this URL, enqueue the widget and return
-        var existing = pending_downloads.get(url);
-        if (existing != null) {
-            append_debug_log("load_image_async: pending download exists, enqueueing url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
-            existing.add(image);
-            return;
-        }
-
-        // Otherwise, create a pending list and start the download (subject to concurrency cap)
-        var list = new Gee.ArrayList<Gtk.Picture>();
-        list.add(image);
-    pending_downloads.set(url, list);
-    append_debug_log("load_image_async: queued download url=" + url + " size=" + target_w.to_string() + "x" + target_h.to_string());
-        // Remember the last requested size for this URL so we can upgrade later
-        requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
-        // Also record under a normalized key (url_to_picture uses normalized URLs)
-        try {
-            string nkey = normalize_article_url(url);
-            if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
-        } catch (GLib.Error e) { }
-    // If we're in the initial loading phase, proactively request a larger
-    // device-pixel image for medium/large card thumbnails so the first
-    // painted result is already crisp instead of appearing blurry then
-    // upgrading after a refresh. Use a simple heuristic: targets >= 160px
-    // are likely article/card images and benefit from an initial upscale.
-    int download_w = target_w;
-    int download_h = target_h;
-    try {
-        if (initial_phase && target_w >= 160) {
-            // Request higher-res (2x) but clamp to reasonable maximums
-            download_w = clampi(target_w * 2, target_w, 1600);
-            download_h = clampi(target_h * 2, target_h, 1600);
-            append_debug_log("load_image_async: initial_phase bump request for url=" + url + " requested=" + target_w.to_string() + "x" + target_h.to_string() + " -> download=" + download_w.to_string() + "x" + download_h.to_string());
-        }
-    } catch (GLib.Error e) { }
-    ensure_start_download(url, download_w, download_h);
     }
     
 
@@ -3133,7 +2475,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Infer source from a URL by checking known domain substrings. Falls back
     // to the current prefs.news_source when uncertain.
-    private NewsSource infer_source_from_url(string? url) {
+    public NewsSource infer_source_from_url(string? url) {
         if (url == null || url.length == 0) return prefs.news_source;
     string low = url.down();
         if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) return NewsSource.GUARDIAN;
@@ -3284,7 +2626,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 pic.set_halign(Gtk.Align.CENTER);
                 // Start async load which will use memory_meta_cache/meta_cache and
                 // pending_downloads to dedupe and persist the image.
-                try { load_image_async(pic, provided_logo_url, 20, 20); } catch (GLib.Error e) { }
+                try { image_handler.load_image_async(pic, provided_logo_url, 20, 20); } catch (GLib.Error e) { }
 
                 logo_wrapper.append(pic);
                 box.append(logo_wrapper);
@@ -3828,7 +3170,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Variant that honors an explicit NewsSource so the UI can render a
     // per-article branded placeholder even when the application's global
     // prefs.news_source differs (useful when multiple sources are enabled).
-    private void set_placeholder_image_for_source(Gtk.Picture image, int width, int height, NewsSource source) {
+    public void set_placeholder_image_for_source(Gtk.Picture image, int width, int height, NewsSource source) {
         string? icon_path = get_source_icon_path(source);
         string source_name = get_source_name(source);
         if (icon_path != null) {
@@ -4226,7 +3568,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             info.last_requested_w = new_w;
             info.last_requested_h = new_h;
             print("Refetching hero image at larger size: %dx%d (retry %d)\n", new_w, new_h, info.retries);
-            load_image_async(picture, info.url, new_w, new_h);
+            image_handler.load_image_async(picture, info.url, new_w, new_h);
             // Schedule one more check in case layout continues to grow
             Timeout.add(500, () => {
                 maybe_refetch_hero_for(picture, info);
@@ -4356,14 +3698,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     // Helper to form memory cache keys that include requested size
-    private string make_cache_key(string url, int w, int h) {
+    public string make_cache_key(string url, int w, int h) {
         return "%s@%dx%d".printf(url, w, h);
     }
 
     // Process deferred download requests: if a deferred widget becomes visible,
     // start its download. This runs on the main loop and reschedules itself
     // only when there are remaining deferred requests.
-    private void process_deferred_downloads() {
+    public void process_deferred_downloads() {
         // Collect to-start entries to avoid modifying map while iterating
         var to_start = new Gee.ArrayList<Gtk.Picture>();
         foreach (var kv in deferred_downloads.entries) {
@@ -4380,7 +3722,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Remove before starting to avoid races
             try { deferred_downloads.remove(pic); } catch (GLib.Error e) { }
             // Start immediately (force bypass visibility deferral)
-            try { load_image_async(pic, req.url, req.w, req.h, true); } catch (GLib.Error e) { }
+            try { image_handler.load_image_async(pic, req.url, req.w, req.h, true); } catch (GLib.Error e) { }
         }
         // If there are still deferred entries, schedule another check
         if (deferred_downloads.size > 0) {
@@ -4438,7 +3780,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             // Find original URL to request (don't use normalized URL for network)
             if (original == null) continue;
-            load_image_async(pic, original, new_w, new_h);
+            image_handler.load_image_async(pic, original, new_w, new_h);
 
             processed += 1;
             if (processed >= UPGRADE_BATCH_SIZE) {
@@ -4457,7 +3799,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Called when an image finished being set (success or fallback). During the
     // initial phase we decrement the pending counter and reveal the UI when all
     // initial items are populated and no pending image loads remain.
-    private void on_image_loaded(Gtk.Picture image) {
+    public void on_image_loaded(Gtk.Picture image) {
         if (!initial_phase) return;
         // If this image corresponds to a hero request, mark it
         if (hero_requests.get(image) != null) hero_image_loaded = true;
@@ -4485,7 +3827,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         try {
             string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
             if (_dbg != null && _dbg.length > 0) {
-                append_debug_log("fetch_news: entering seq=" + fetch_sequence.to_string() + " category=" + prefs.category + " preferred_sources=" + array_join(prefs.preferred_sources));
+                append_debug_log("fetch_news: entering seq=" + fetch_sequence.to_string() + " category=" + prefs.category + " preferred_sources=" + AppDebugger.array_join(prefs.preferred_sources));
             }
         } catch (GLib.Error e) { }
 
@@ -4501,19 +3843,17 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
         featured_used = false;
         // Reset featured carousel state so new category fetches start fresh
-        if (featured_carousel_timeout_id != 0) {
-            Source.remove(featured_carousel_timeout_id);
-            featured_carousel_timeout_id = 0;
+        if (hero_carousel != null) {
+            hero_carousel.stop_timer();
+            try {
+                if (hero_carousel.container != null) featured_box.remove(hero_carousel.container);
+            } catch (GLib.Error e) { }
+            hero_carousel = null;
         }
         if (featured_carousel_items != null) {
             featured_carousel_items.clear();
         }
-        featured_carousel_stack = null;
-        if (featured_carousel_widgets != null) featured_carousel_widgets.clear();
-        featured_carousel_dots_box = null;
-        featured_carousel_index = 0;
         featured_carousel_category = null;
-        if (featured_carousel_dot_widgets != null) featured_carousel_dot_widgets.clear();
         rebuild_columns(3);
         // Reset category distribution tracking for new content
         category_column_counts.clear();
@@ -4550,15 +3890,20 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Instead, ensure the personalized overlay is updated and return.
         bool is_myfeed_disabled = (prefs.category == "myfeed" && !prefs.personalized_feed_enabled);
         if (is_myfeed_disabled) {
-            try { if (current_search_query.length > 0) category_label.set_text("Search Results: \"" + current_search_query + "\" in My Feed"); else category_label.set_text("My Feed"); } catch (GLib.Error e) { }
+            try { update_content_header(); } catch (GLib.Error e) { }
             try { update_personalization_ui(); } catch (GLib.Error e) { }
             // Ensure any spinner is hidden and don't proceed to fetch
             hide_loading_spinner();
             return;
         }
 
-        // Show loading spinner while fetching content
-        show_loading_spinner();
+    // Show loading spinner while fetching content
+    show_loading_spinner();
+    // Ensure content header (icon + category + optional search text)
+    // is painted immediately before we begin creating hero/article widgets.
+    // update_sidebar_for_source() above has already updated source-related
+    // state; call the synchronous header update now to guarantee ordering.
+    try { update_content_header_now(); } catch (GLib.Error e) { }
         
         // Hide error message if it was visible from a previous failed fetch
         hide_error_message();
@@ -4614,78 +3959,80 @@ public class NewsWindow : Adw.ApplicationWindow {
         });
 
         // Wrapped set_label: only update if this fetch is still current
-    SetLabelFunc wrapped_set_label = (text) => {
-            if (my_seq != self_ref.fetch_sequence) {
-                try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_set_label: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string()); } catch (GLib.Error e) { }
-                return;
-            }
-            // Extract just the category part before the " — " separator
-            string category_part = text;
-            int separator_pos = text.index_of(" — ");
-            if (separator_pos > 0) {
-                category_part = text.substring(0, separator_pos);
-            }
-            self_ref.category_label.set_text(category_part);
-            // Keep the category icon in sync with the active preference
-            // (wrapped_set_label runs on successful fetches and will
-            // reflect the current prefs.category). Use a best-effort
-            // call to avoid crashing on early initialization.
-            try { self_ref.update_category_icon(); } catch (GLib.Error e) { }
+        SetLabelFunc wrapped_set_label = (text) => {
+            // Schedule UI updates on the main loop to avoid touching
+            // window fields from worker threads. The Idle callback will
+            // check the fetch_sequence token before applying changes.
+            Idle.add(() => {
+                if (my_seq != self_ref.fetch_sequence) {
+                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_set_label: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string()); } catch (GLib.Error e) { }
+                    return false;
+                }
+                // Use the centralized header updater which enforces the exact
+                // UI contract (icon + category, or Search Results when active).
+                try { self_ref.update_content_header(); } catch (GLib.Error e) { }
+                return false;
+            });
         };
 
         // Wrapped clear_items: only clear if this fetch is still current
         ClearItemsFunc wrapped_clear = () => {
+            // Schedule the clear on the main loop to avoid worker-thread UI access
+            Idle.add(() => {
                 if (my_seq != self_ref.fetch_sequence) {
                     try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_clear: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string()); } catch (GLib.Error e) { }
-                    return;
+                    return false;
                 }
-            // Clearing was already done above in fetch_news(), but some sources
-            // call clear_items again from worker threads; guard to avoid
-            // clearing content created by a newer fetch.
-            Gtk.Widget? cur = self_ref.featured_box.get_first_child();
-            while (cur != null) {
-                Gtk.Widget? next = cur.get_next_sibling();
-                self_ref.featured_box.remove(cur);
-                cur = next;
-            }
-            self_ref.featured_used = false;
-            // Remove columns' children
-            for (int i = 0; i < self_ref.columns.length; i++) {
-                Gtk.Widget? curc = self_ref.columns[i].get_first_child();
-                while (curc != null) {
-                    Gtk.Widget? next = curc.get_next_sibling();
-                    self_ref.columns[i].remove(curc);
-                    curc = next;
+                // Clearing was already done above in fetch_news(), but some sources
+                // call clear_items again from worker threads; guard to avoid
+                // clearing content created by a newer fetch.
+                Gtk.Widget? cur = self_ref.featured_box.get_first_child();
+                while (cur != null) {
+                    Gtk.Widget? next = cur.get_next_sibling();
+                    self_ref.featured_box.remove(cur);
+                    cur = next;
                 }
-                self_ref.column_heights[i] = 0;
-            }
-            // Reset load-more state
-            self_ref.article_buffer.clear();
-            // Also clear image bookkeeping so subsequent fetches create
-            // fresh widgets instead of updating removed ones.
-            self_ref.url_to_picture.clear();
-            self_ref.hero_requests.clear();
-            self_ref.remaining_articles = null;
-            self_ref.remaining_articles_index = 0;
-            if (self_ref.load_more_button != null) {
-                var parent = self_ref.load_more_button.get_parent() as Gtk.Box;
-                if (parent != null) parent.remove(self_ref.load_more_button);
-                self_ref.load_more_button = null;
-            }
-            self_ref.articles_shown = 0;
+                self_ref.featured_used = false;
+                // Remove columns' children
+                for (int i = 0; i < self_ref.columns.length; i++) {
+                    Gtk.Widget? curc = self_ref.columns[i].get_first_child();
+                    while (curc != null) {
+                        Gtk.Widget? next = curc.get_next_sibling();
+                        self_ref.columns[i].remove(curc);
+                        curc = next;
+                    }
+                    self_ref.column_heights[i] = 0;
+                }
+                // Reset load-more state
+                self_ref.article_buffer.clear();
+                // Also clear image bookkeeping so subsequent fetches create
+                // fresh widgets instead of updating removed ones.
+                try { self_ref.url_to_picture.clear(); } catch (GLib.Error e) { }
+                try { self_ref.hero_requests.clear(); } catch (GLib.Error e) { }
+                self_ref.remaining_articles = null;
+                self_ref.remaining_articles_index = 0;
+                if (self_ref.load_more_button != null) {
+                    var parent = self_ref.load_more_button.get_parent() as Gtk.Box;
+                    if (parent != null) parent.remove(self_ref.load_more_button);
+                    self_ref.load_more_button = null;
+                }
+                self_ref.articles_shown = 0;
+                return false;
+            });
         };
 
         // Wrapped add_item: ignore items from stale fetches
-    // Throttled add for Local News: queue incoming items and process in small batches
-    var local_news_queue = new Gee.ArrayList<ArticleItem>();
-    bool local_news_flush_scheduled = false;
+        // Throttled add for Local News: queue incoming items and process in small batches
+        var local_news_queue = new Gee.ArrayList<ArticleItem>();
+        bool local_news_flush_scheduled = false;
+        // General UI add queue to batch worker->main-thread article additions.
+        // Using a single Idle to drain this queue avoids per-item refs on the
+        // window/object and reduces thread churn that previously caused races
+        // during heavy fetches.
+        var ui_add_queue = new Gee.ArrayList<ArticleItem>();
+        bool ui_add_idle_scheduled = false;
 
     AddItemFunc wrapped_add = (title, url, thumbnail, category_id, source_name) => {
-            if (my_seq != self_ref.fetch_sequence) {
-                try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_add: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string() + " article_cat=" + category_id); } catch (GLib.Error e) { }
-                return;
-            }
-
             // If we're in Local News mode, enqueue and process in small batches to avoid UI lockups
             try {
                 var prefs_local = NewsPreferences.get_instance();
@@ -4719,8 +4066,49 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             } catch (GLib.Error e) { /* best-effort */ }
 
-            // Default: immediate add
-            self_ref.add_item(title, url, thumbnail, category_id, source_name);
+            // Default: push the ArticleItem onto a shared UI queue and
+            // schedule a single Idle to drain items in small batches.
+            // This avoids scheduling one Idle per item (which created a
+            // racey mix of refs) and keeps the main-loop work bounded.
+            var ai = new ArticleItem(title, url, thumbnail, category_id, source_name);
+            try { ai.ref(); } catch (GLib.Error e) { }
+            try {
+                ui_add_queue.add(ai);
+            } catch (GLib.Error e) { try { ai.unref(); } catch (GLib.Error _e) { } }
+
+            if (!ui_add_idle_scheduled) {
+                ui_add_idle_scheduled = true;
+                // Take one extra reference to the window for the duration
+                // of the drain so the object cannot be finalized while we
+                // are processing queued items.
+                try { self_ref.ref(); } catch (GLib.Error e) { }
+                Idle.add(() => {
+                    int processed = 0;
+                    const int BATCH = 8; // process up to 8 items per tick
+                    while (ui_add_queue.size > 0 && processed < BATCH) {
+                        ArticleItem? x = null;
+                        try { x = ui_add_queue.get(0); } catch (GLib.Error e) { x = null; }
+                        if (x == null) break;
+                        try { ui_add_queue.remove_at(0); } catch (GLib.Error e) { }
+                        // Ensure still current before adding
+                        if (my_seq == self_ref.fetch_sequence) {
+                            try { self_ref.add_item(x.title, x.url, x.thumbnail_url, x.category_id, x.source_name); } catch (GLib.Error e) { }
+                        }
+                        // Release the temporary ref we took when enqueuing
+                        try { x.unref(); } catch (GLib.Error e) { }
+                        processed += 1;
+                    }
+                    if (ui_add_queue.size > 0) {
+                        // Keep the idle scheduled until we drain the queue
+                        return true;
+                    } else {
+                        // No more items: clear flag and release window ref
+                        ui_add_idle_scheduled = false;
+                        try { self_ref.unref(); } catch (GLib.Error e) { }
+                        return false;
+                    }
+                });
+            }
         };
 
         // Support fetching from multiple preferred sources when the user
@@ -4778,9 +4166,15 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Clear UI and schedule per-feed fetches
             try { wrapped_clear(); } catch (GLib.Error e) { }
             ClearItemsFunc no_op_clear = () => { };
-            SetLabelFunc label_fn = (text) => {
-                if (current_search_query.length > 0) self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in Local News");
-                else self_ref.category_label.set_text("Local News");
+                SetLabelFunc label_fn = (text) => {
+                // Schedule UI update on main loop
+                Idle.add(() => {
+                    if (my_seq != self_ref.fetch_sequence) return false;
+                    try {
+                        self_ref.update_content_header();
+                    } catch (GLib.Error e) { }
+                    return false;
+                });
             };
 
             // Ensure the top-right source badge shows a generic/local affordance
@@ -5022,19 +4416,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // each personalized category separately and combine results.
                 ClearItemsFunc no_op_clear = () => { };
                 SetLabelFunc label_fn = (text) => {
-                    string src_label = "Multiple Sources";
-                    string display_cat = is_myfeed_mode ? "My Feed" : category_display_name_for(prefs.category);
-                    // Avoid appending the generic "Multiple Sources" suffix to the
-                    // left-side category title since it is redundant. Only include
-                    // the source name when it is a specific source.
-                    string left_label = display_cat;
-                    if (src_label != "Multiple Sources") left_label = display_cat + " — " + src_label;
-
-                    if (current_search_query.length > 0) {
-                        self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in " + left_label);
-                    } else {
-                        self_ref.category_label.set_text(left_label);
-                    }
+                    Idle.add(() => {
+                        if (my_seq != self_ref.fetch_sequence) return false;
+                        try { self_ref.update_content_header(); } catch (GLib.Error e) { }
+                        return false;
+                    });
                 };
                 foreach (var s in use_srcs) {
                     if (is_myfeed_mode) {
@@ -5066,12 +4452,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // Fetch each personalized category for the single effective source
                 try { wrapped_clear(); } catch (GLib.Error e) { }
                 SetLabelFunc label_fn = (text) => {
-                    string src_label = get_source_name(effective_news_source());
-                    if (current_search_query.length > 0) {
-                        self_ref.category_label.set_text("Search Results: \"" + current_search_query + "\" in My Feed — " + src_label);
-                    } else {
-                        self_ref.category_label.set_text("My Feed — " + src_label);
-                    }
+                    Idle.add(() => {
+                        if (my_seq != self_ref.fetch_sequence) return false;
+                        try { self_ref.update_content_header(); } catch (GLib.Error e) { }
+                        return false;
+                    });
                 };
                 foreach (var cat in myfeed_cats) {
                     NewsSources.fetch(effective_news_source(), cat, current_search_query, session, label_fn, wrapped_clear, wrapped_add);
