@@ -24,7 +24,7 @@ public class NewsPreferences : GLib.Object {
     private string config_path;
 
     public NewsSource news_source { get; set; default = NewsSource.GUARDIAN; }
-    public string category { get; set; default = "all"; }
+    public string category { get; set; default = "topten"; }
     public bool personalized_feed_enabled { get; set; default = false; }
     // Optional user-provided location (e.g., city or coordinates)
     public string user_location { get; set; default = ""; }
@@ -184,11 +184,11 @@ public class NewsPreferences : GLib.Object {
                 // Allow the special "myfeed" and "frontpage" categories to
                 // persist when selected even in single-source mode. These
                 // are UI-level aggregated views (not tied to a specific
-                // provider) and should not be coerced to "all".
-                if (!(category == "myfeed" && personalized_feed_enabled) && category != "frontpage") {
+                // provider) and should not be coerced to "topten".
+                if (!(category == "myfeed" && personalized_feed_enabled) && category != "frontpage" && category != "topten") {
                     if (!category_valid_for_source(news_source, category)) {
-                        // Use the neutral "all" view as a safe persisted default
-                        category = "all";
+                        // Use "topten" as the safe persisted default
+                        category = "topten";
                     }
                 }
             }
@@ -302,6 +302,12 @@ public class NewsPreferences : GLib.Object {
             if (config.has_key("preferences", "category")) {
                 category = config.get_string("preferences", "category");
             }
+            
+            // Migration: "all categories" has been removed, default to "topten" instead
+            if (category == "all") {
+                category = "topten";
+            }
+            
             // Load personalized feed flag if present
             if (config.has_key("preferences", "personalized_feed_enabled")) {
                 try {
@@ -326,7 +332,7 @@ public class NewsPreferences : GLib.Object {
             // feed even when the effective single source is Bloomberg.
             if (!category_valid_for_source(news_source, category)) {
                 if (!(category == "myfeed" && personalized_feed_enabled)) {
-                    category = "all";
+                    category = "topten";
                 }
             }
             // Load personalized categories list if present

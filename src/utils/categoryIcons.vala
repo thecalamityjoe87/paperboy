@@ -21,6 +21,7 @@ public class CategoryIcons : GLib.Object {
     public static Gtk.Widget? create_category_icon(string cat) {
         string? filename = null;
         switch (cat) {
+            case "topten": filename = "topten-mono.svg"; break;
             case "all": filename = "all-mono.svg"; break;
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
@@ -80,6 +81,9 @@ public class CategoryIcons : GLib.Object {
 
         string[] candidates;
         switch (cat) {
+            case "topten":
+                candidates = { "starred-symbolic", "emblem-favorite-symbolic", "non-starred-symbolic" };
+                break;
             case "all":
                 candidates = { "view-list-symbolic", "applications-all-symbolic", "folder-symbolic" };
                 break;

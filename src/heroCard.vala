@@ -34,6 +34,7 @@ public class HeroCard : GLib.Object {
         this.url = url;
 
         root = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        root.add_css_class("card");
         root.set_size_request(-1, max_total_height);
         root.set_hexpand(true);
         root.set_vexpand(false);
@@ -62,14 +63,15 @@ public class HeroCard : GLib.Object {
         title_box.set_margin_end(16);
         title_box.set_margin_top(16);
         title_box.set_margin_bottom(16);
-        title_box.set_vexpand(true);
+        title_box.set_size_request(-1, 80);
+        title_box.set_vexpand(false);
 
         title_label = new Gtk.Label(title);
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         title_label.set_xalign(0);
         title_label.set_wrap(true);
         title_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
-        title_label.set_lines(8);
+        title_label.set_lines(3);
         title_label.set_max_width_chars(88);
         title_box.append(title_label);
         root.append(title_box);

@@ -43,13 +43,12 @@ public class SidebarManager : GLib.Object {
             if (_dbg2 != null && _dbg2.length > 0) window.append_debug_log("rebuild_sidebar: removed_rows=" + removed.to_string());
         } catch (GLib.Error e) { }
 
-        // Place "The Frontpage" and "My Feed" above the Categories header,
-        // then include the "All Categories" option
-            add_row("The Frontpage", "frontpage", window.prefs.category == "frontpage");
+        // Place "Front Page" and "My Feed" above the Categories header
+            add_row("Top Ten", "topten", window.prefs.category == "topten");
+            add_row("Front Page", "frontpage", window.prefs.category == "frontpage");
             add_row("My Feed", "myfeed", window.prefs.category == "myfeed");
             add_row("Local News", "local_news", window.prefs.category == "local_news");
             add_header("Popular Categories");
-            add_row("All Categories", "all", window.prefs.category == "all");
 
         // If multiple preferred sources are selected, build the union of
         // categories supported by those sources and show only those rows.

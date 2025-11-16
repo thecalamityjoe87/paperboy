@@ -81,6 +81,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gee.ArrayList<ArticleItem> featured_carousel_items;
     private HeroCarousel? hero_carousel;
     private string? featured_carousel_category = null;
+    private int topten_hero_count = 0; // Track hero cards for Top Ten layout
     // Hero container reference for responsive sizing
     private Gtk.Box hero_container;
     // Main content container that holds both hero and columns
@@ -105,6 +106,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 3;
     private string current_search_query = "";
     private Gtk.Label category_label;
+    private Gtk.Label category_subtitle;
     private Gtk.Label source_label;
     private Gtk.Image source_logo;
     // Holder for the category icon shown to the left of the category title
@@ -281,6 +283,37 @@ public class NewsWindow : Adw.ApplicationWindow {
         // UI-only: fetching is handled elsewhere (in fetch_news) so we must
         // not attempt to call fetch-specific callbacks or variables here.
         if (prefs.category == "frontpage") {
+            try { source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
+            try {
+                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                if (multi_icon != null) {
+                    string use_path = multi_icon;
+                    try {
+                        if (is_dark_mode()) {
+                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            if (white_cand != null) use_path = white_cand;
+                        }
+                    } catch (GLib.Error e) { }
+                    try {
+                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
+                        if (pix != null) {
+                            var tex = Gdk.Texture.for_pixbuf(pix);
+                            source_logo.set_from_paintable(tex);
+                        } else {
+                            try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                        }
+                    } catch (GLib.Error e) { try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                } else {
+                    try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
+            return;
+        }
+
+        // Same UI-only treatment for Top Ten category
+        if (prefs.category == "topten") {
             try { source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
             try {
                 string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
@@ -675,6 +708,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // exposes them; we then wire them into the existing NewsWindow fields.
     var content_view = new ContentView(prefs);
     category_label = content_view.category_label;
+    category_subtitle = content_view.category_subtitle;
     category_icon_holder = content_view.category_icon_holder;
     source_logo = content_view.source_logo;
     source_label = content_view.source_label;
@@ -1249,6 +1283,21 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
 
         try { if (category_label != null) category_label.set_text(label_text); } catch (GLib.Error e) { }
+        
+        // Show subtitle for Top Ten
+        if (prefs.category == "topten") {
+            try {
+                if (category_subtitle != null) {
+                    category_subtitle.set_text("TOP STORIES FOR TODAY");
+                    category_subtitle.set_visible(true);
+                }
+            } catch (GLib.Error e) { }
+        } else {
+            try {
+                if (category_subtitle != null) category_subtitle.set_visible(false);
+            } catch (GLib.Error e) { }
+        }
+        
         try { update_category_icon(); } catch (GLib.Error e) { }
         // Ensure the top-right source badge is in sync with the current
         // source selection. This will show either the single-source
@@ -1376,8 +1425,8 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     public string category_display_name_for(string cat) {
         switch (cat) {
-            case "frontpage": return "The Frontpage";
-            case "all": return "All Categories";
+            case "topten": return "Top Ten";
+            case "frontpage": return "Front Page";
             case "myfeed": return "My Feed";
             case "local_news": return "Local News";
             case "general": return "World News";
@@ -1563,11 +1612,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                 return;
             }
         } else {
-            // Treat the special 'frontpage' view as an aggregator: accept
-            // articles of any category when the user is viewing the frontpage.
-            // This allows frontpage fetchers to supply per-article category
+            // Treat the special 'frontpage' and 'topten' views as aggregators: accept
+            // articles of any category when the user is viewing these multi-source views.
+            // This allows frontpage/topten fetchers to supply per-article category
             // metadata (for chips) without causing the UI to drop items.
-            if (view_category != "all" && view_category != "frontpage" && view_category != category_id) {
+            if (view_category != "all" && view_category != "frontpage" && view_category != "topten" && view_category != category_id) {
                 // Drop stale article for a different category
                 if (debug_enabled()) warning("Dropping stale article for category %s (view=%s)", category_id, view_category);
                 return;
@@ -1575,13 +1624,13 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
 
         // Enforce that articles originate from the user's selected sources.
-        // For the special aggregated "frontpage" category, do NOT enforce
+        // For the special aggregated "frontpage" and "topten" categories, do NOT enforce
         // per-source filtering because the backend intentionally returns
-        // mixed-source results for the frontpage view.
+        // mixed-source results for these multi-source views.
         // Map the inferred source to the preference id strings and drop any
         // articles that come from sources the user hasn't enabled. This
         // protects against fetchers that may return cross-domain results.
-        if (category_id != "frontpage" && prefs.preferred_sources != null && prefs.preferred_sources.size > 0) {
+        if (category_id != "frontpage" && category_id != "topten" && prefs.preferred_sources != null && prefs.preferred_sources.size > 0) {
             NewsSource article_src = infer_source_from_url(url);
             string article_src_id = "";
             switch (article_src) {
@@ -1796,9 +1845,13 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
         
         // For "All Categories", randomly select hero from first few items (not always the first)
+        // For Top Ten, select first 2 items as heroes
         // For specific categories, keep the first item as hero for consistency
         bool should_be_hero = false;
-        if (!featured_used) {
+        if (prefs.category == "topten") {
+            // Top Ten: first 2 articles should be heroes
+            should_be_hero = (topten_hero_count < 2);
+        } else if (!featured_used) {
             if (prefs.category == "all") {
                 // 60% chance for first 3 items to become hero, then 0% chance
                 should_be_hero = rng.int_range(0, 10) < 6;
@@ -1821,9 +1874,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (should_be_hero) {
             // Build a HeroCard UI (presentation only) and keep image-loading
             // and metadata mapping in NewsWindow.
-            int max_hero_height = 350;
+            // For Top Ten: use smaller hero heights to fit everything in viewport
+            int max_hero_height = (prefs.category == "topten") ? 280 : 350;
             int default_hero_w = estimate_content_width();
-            int default_hero_h = 250;
+            int default_hero_h = (prefs.category == "topten") ? 210 : 250;
 
             string hero_display_cat = category_id;
             try {
@@ -1869,24 +1923,38 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Connect activation to the preview handler
             hero_card.activated.connect((s) => { try { article_pane.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { } });
 
-            // Add the hero as the first slide and initialize the carousel containers
-            if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
-            if (hero_carousel == null) hero_carousel = new HeroCarousel(featured_box);
-            featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
-            featured_carousel_category = category_id;
+            // Top Ten: Add up to 2 hero cards side-by-side directly to hero_container
+            // Other categories: Use carousel with up to 5 slides
+            if (prefs.category == "topten") {
+                if (topten_hero_count < 2) {
+                    hero_container.append(hero_card.root);
+                    topten_hero_count++;
+                    featured_used = true;
+                    if (initial_phase) mark_initial_items_populated();
+                    return;
+                }
+                // If we already have 2 heroes, fall through to add as regular card
+            } else {
+                // Standard carousel behavior for other categories
+                if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
+                if (hero_carousel == null) hero_carousel = new HeroCarousel(featured_box);
+                featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
+                featured_carousel_category = category_id;
 
-            hero_carousel.add_initial_slide(hero_card.root);
-            hero_carousel.start_timer(5);
+                hero_carousel.add_initial_slide(hero_card.root);
+                hero_carousel.start_timer(5);
 
-            featured_used = true;
-            if (initial_phase) mark_initial_items_populated();
-            return;
+                featured_used = true;
+                if (initial_phase) mark_initial_items_populated();
+                return;
+            }
         }
 
             // If a featured carousel is active and we haven't reached 5 slides yet,
             // collect additional articles that match the featured category and add
             // them as slides to the carousel instead of rendering normal cards.
-            if (hero_carousel != null && featured_carousel_items != null &&
+            // Skip this for Top Ten since it uses side-by-side heroes, not carousel
+            if (prefs.category != "topten" && hero_carousel != null && featured_carousel_items != null &&
             featured_carousel_items.size < 5) {
             // In "all" mode we only append slides that match the featured
             // category (the carousel is seeded with a category). For
@@ -2053,6 +2121,9 @@ public class NewsWindow : Adw.ApplicationWindow {
                 if (img_h < 120) img_h = 120;
                 break;
         }
+        
+        // Make all cards 20% taller
+        img_h = (int)(img_h * 1.2);
 
         // Compute the display category chip (frontpage may embed a token)
         string card_display_cat = category_id;
@@ -2114,14 +2185,23 @@ public class NewsWindow : Adw.ApplicationWindow {
         });
 
         // Append to the calculated target column
+        // Top Ten: Use sequential grid fill (row-by-row)
+        // Others: Use masonry layout (shortest column)
         if (target_col == -1) {
-            target_col = 0;
-            int random_noise = rng.int_range(0, 11);
-            int best_score = column_heights[0] + random_noise;
-            for (int i = 1; i < columns.length; i++) {
-                random_noise = rng.int_range(0, 11);
-                int score = column_heights[i] + random_noise;
-                if (score < best_score) { best_score = score; target_col = i; }
+            if (prefs.category == "topten") {
+                // Sequential fill for grid: round-robin across 4 columns
+                target_col = next_column_index;
+                next_column_index = (next_column_index + 1) % columns.length;
+            } else {
+                // Masonry: find shortest column with random noise
+                target_col = 0;
+                int random_noise = rng.int_range(0, 11);
+                int best_score = column_heights[0] + random_noise;
+                for (int i = 1; i < columns.length; i++) {
+                    random_noise = rng.int_range(0, 11);
+                    int score = column_heights[i] + random_noise;
+                    if (score < best_score) { best_score = score; target_col = i; }
+                }
             }
         }
         columns[target_col].append(article_card.root);
@@ -2851,6 +2931,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         int content_w = estimate_content_width();
         int total_spacing = (cols - 1) * COL_SPACING;
         int col_w = (content_w - total_spacing) / cols;
+        
+        // For Top Ten, reduce column width by 15% to scale everything down
+        if (prefs.category == "topten") {
+            col_w = (int)(col_w * 0.85);
+        }
+        
         // Force compact cards that always fit
         return clampi(col_w, 160, 280);
     }
@@ -3134,7 +3220,38 @@ public class NewsWindow : Adw.ApplicationWindow {
             featured_carousel_items.clear();
         }
         featured_carousel_category = null;
-        rebuild_columns(3);
+        
+        // Clear hero_container for Top Ten (remove all children including featured_box)
+        // For other categories, hero_container should just have featured_box
+        if (prefs.category == "topten") {
+            // Remove all children from hero_container (including leftover featured_box)
+            Gtk.Widget? hchild = hero_container.get_first_child();
+            while (hchild != null) {
+                Gtk.Widget? next = hchild.get_next_sibling();
+                hero_container.remove(hchild);
+                hchild = next;
+            }
+            topten_hero_count = 0;
+        } else {
+            // For non-topten views, clear everything first then add featured_box
+            Gtk.Widget? hchild = hero_container.get_first_child();
+            while (hchild != null) {
+                Gtk.Widget? next = hchild.get_next_sibling();
+                hero_container.remove(hchild);
+                hchild = next;
+            }
+            // Now add featured_box for carousel
+            hero_container.append(featured_box);
+        }
+        
+        // Top Ten uses special 2-row grid layout (2 heroes + 2 rows of 4 cards)
+        // Other categories use standard 3-column masonry
+        if (prefs.category == "topten") {
+            rebuild_columns(4); // 4 columns for grid layout
+        } else {
+            rebuild_columns(3); // Standard masonry
+        }
+        
         // Reset category distribution tracking for new content
         category_column_counts.clear();
         recent_categories.clear();
@@ -3524,7 +3641,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
             return;
         }
-        // If the user selected "The Frontpage", always request the backend
+        // If the user selected "Front Page", always request the backend
         // frontpage endpoint regardless of preferred_sources. Place this
         // before the multi-source branch so frontpage works even when the
         // user has zero or one preferred source selected.
@@ -3569,6 +3686,49 @@ public class NewsWindow : Adw.ApplicationWindow {
             NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
             return;
         }
+
+        // If the user selected "Top Ten", request the backend headlines endpoint
+        // regardless of preferred_sources. Same early-return logic as frontpage.
+        if (prefs.category == "topten") {
+            // Present the multi-source label/logo in the header
+            try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
+            try {
+                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                if (multi_icon != null) {
+                    string use_path = multi_icon;
+                    try {
+                        if (self_ref.is_dark_mode()) {
+                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            if (white_cand != null) use_path = white_cand;
+                        }
+                    } catch (GLib.Error e) { }
+                    try {
+                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
+                        if (pix != null) {
+                            var tex = Gdk.Texture.for_pixbuf(pix);
+                            self_ref.source_logo.set_from_paintable(tex);
+                        } else {
+                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                        }
+                    } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                } else {
+                    try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
+            used_multi = true;
+
+            try { wrapped_clear(); } catch (GLib.Error e) { }
+            try { wrapped_set_label("Top Ten — Loading from backend"); } catch (GLib.Error e) { }
+            try {
+                string s = "topten-early-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
+                append_debug_log(s);
+            } catch (GLib.Error e) { }
+            NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+            return;
+        }
+
         if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
             // Treat The Frontpage as a multi-source view visually, but do NOT
             // let the user's preferred_sources list influence which providers
@@ -3609,6 +3769,41 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // the Paperboy backend fetcher regardless of the NewsSource value.
                 try { wrapped_clear(); } catch (GLib.Error e) { }
                 NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+                return;
+            }
+
+            // Same logic for Top Ten: request backend headlines endpoint
+            if (prefs.category == "topten") {
+                try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
+                try {
+                    string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                    if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                    if (multi_icon != null) {
+                        string use_path = multi_icon;
+                        try {
+                            if (self_ref.is_dark_mode()) {
+                                string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                                if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                                if (white_cand != null) use_path = white_cand;
+                            }
+                        } catch (GLib.Error e) { }
+                        try {
+                            var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
+                            if (pix != null) {
+                                var tex = Gdk.Texture.for_pixbuf(pix);
+                                self_ref.source_logo.set_from_paintable(tex);
+                            } else {
+                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                            }
+                        } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                    } else {
+                        try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
+                    }
+                } catch (GLib.Error e) { }
+                used_multi = true;
+
+                try { wrapped_clear(); } catch (GLib.Error e) { }
+                NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
                 return;
             }
 
@@ -3752,6 +3947,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                 NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
                 return;
             }
+
+            // Same for Top Ten in single-source mode
+            if (prefs.category == "topten") {
+                try { wrapped_clear(); } catch (GLib.Error e) { }
+                try { wrapped_set_label("Top Ten — Loading from backend (single-source)"); } catch (GLib.Error e) { }
+                try {
+                    string s = "topten-single-source-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
+                    append_debug_log(s);
+                } catch (GLib.Error e) { }
+                NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+                return;
+            }
+
             if (is_myfeed_mode) {
                 // Fetch each personalized category for the single effective source
                 try { wrapped_clear(); } catch (GLib.Error e) { }

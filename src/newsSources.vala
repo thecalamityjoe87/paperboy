@@ -52,6 +52,12 @@ public class NewsSources {
             fetch_paperboy_frontpage(current_search_query, session, set_label, clear_items, add_item);
             return;
         }
+        // Special handling: if the UI requested "Top Ten",
+        // fetch top headlines from our Paperboy backend API.
+        if (current_category == "topten") {
+            fetch_paperboy_topten(current_search_query, session, set_label, clear_items, add_item);
+            return;
+        }
         // Handle "all" category by fetching from multiple categories for other sources
         if (current_category == "all") {
             fetch_all_categories(source, current_search_query, session, set_label, clear_items, add_item);
@@ -470,6 +476,195 @@ public class NewsSources {
         });
     }
 
+    // Fetch the "Top Ten" headlines from the Paperboy backend API.
+    // Same structure as frontpage but from /news/headlines endpoint.
+    private static void fetch_paperboy_topten(
+        string current_search_query,
+        Soup.Session session,
+        SetLabelFunc set_label,
+        ClearItemsFunc clear_items,
+        AddItemFunc add_item
+    ) {
+        new Thread<void*>("fetch-topten-api", () => {
+            try {
+                string base_url = "https://paperboybackend.onrender.com";
+                string url = base_url + "/news/headlines";
+                var msg = new Soup.Message("GET", url);
+                msg.request_headers.append("User-Agent", "paperboy/0.1");
+                session.send_message(msg);
+                if (msg.status_code != 200) {
+                    warning("Paperboy API HTTP error: %u", msg.status_code);
+                    Idle.add(() => {
+                        set_label("Paperboy: Error loading Top Ten");
+                        return false;
+                    });
+                    return null;
+                }
+                string body = (string) msg.response_body.flatten().data;
+
+                var parser = new Json.Parser();
+                parser.load_from_data(body);
+                var root = parser.get_root();
+
+                Json.Array articles = null;
+                if (root.get_node_type() == Json.NodeType.ARRAY) {
+                    articles = root.get_array();
+                } else {
+                    var obj = root.get_object();
+                    if (obj.has_member("articles")) {
+                        articles = obj.get_array_member("articles");
+                    } else if (obj.has_member("data")) {
+                        var data = obj.get_object_member("data");
+                        if (data.has_member("articles"))
+                            articles = data.get_array_member("articles");
+                    }
+                }
+
+                if (articles == null) {
+                    return null;
+                }
+
+                Idle.add(() => {
+                    set_label("Top Ten — Paperboy");
+                    clear_items();
+                    uint len = articles.get_length();
+                    // Limit to 10 articles for Top Ten layout
+                    if (len > 10) len = 10;
+                    
+                    for (uint i = 0; i < len; i++) {
+                        var art = articles.get_element(i).get_object();
+                        string title = json_get_string_safe(art, "title") != null ? json_get_string_safe(art, "title") : (json_get_string_safe(art, "headline") != null ? json_get_string_safe(art, "headline") : "No title");
+                        string article_url = json_get_string_safe(art, "url") != null ? json_get_string_safe(art, "url") : (json_get_string_safe(art, "link") != null ? json_get_string_safe(art, "link") : "");
+                        string? thumbnail = null;
+                        if (json_get_string_safe(art, "thumbnail") != null) thumbnail = json_get_string_safe(art, "thumbnail");
+                        else if (json_get_string_safe(art, "image") != null) thumbnail = json_get_string_safe(art, "image");
+                        else if (json_get_string_safe(art, "image_url") != null) thumbnail = json_get_string_safe(art, "image_url");
+                        
+                        string source_name = "Paperboy API";
+                        string? logo_url = null;
+                        string provider_key = "";
+                        string? provider_url = null;
+                        
+                        if (art.has_member("source")) {
+                            var src_node = art.get_member("source");
+                            if (src_node != null && src_node.get_node_type() == Json.NodeType.OBJECT) {
+                                var src_obj = src_node.get_object();
+                                string? n = json_get_string_safe(src_obj, "name");
+                                if (n == null) n = json_get_string_safe(src_obj, "title");
+                                if (n != null) source_name = n;
+                                string? sid = json_get_string_safe(src_obj, "id");
+                                if (sid != null && sid.length > 0) provider_key = sid;
+                                else if (n != null && n.length > 0) provider_key = n;
+                                
+                                if (json_get_string_safe(src_obj, "logo_url") != null) logo_url = json_get_string_safe(src_obj, "logo_url");
+                                else if (json_get_string_safe(src_obj, "logo") != null) logo_url = json_get_string_safe(src_obj, "logo");
+                                else if (json_get_string_safe(src_obj, "favicon") != null) logo_url = json_get_string_safe(src_obj, "favicon");
+                                
+                                string? provurl = json_get_string_safe(src_obj, "url");
+                                if (provurl != null) {
+                                    provider_url = provurl;
+                                    if (source_name == null || source_name.length == 0) {
+                                        string inferred = infer_display_name_from_url(provurl);
+                                        if (inferred.length > 0) source_name = inferred;
+                                    }
+                                }
+                            } else {
+                                string? s = json_get_string_safe(art, "source");
+                                if (s != null) source_name = s;
+                                if (source_name != null) provider_key = source_name;
+                            }
+                        } else {
+                            if (json_get_string_safe(art, "source") != null) source_name = json_get_string_safe(art, "source");
+                            else if (json_get_string_safe(art, "provider") != null) source_name = json_get_string_safe(art, "provider");
+                            if (source_name != null) provider_key = source_name;
+                        }
+
+                        if (source_name == null || source_name.length == 0 || source_name == "Paperboy API") {
+                            string inferred = infer_display_name_from_url(article_url);
+                            if (inferred != null && inferred.length > 0) source_name = inferred;
+                        }
+
+                        if (logo_url == null) {
+                            if (json_get_string_safe(art, "logo") != null) logo_url = json_get_string_safe(art, "logo");
+                            else if (json_get_string_safe(art, "favicon") != null) logo_url = json_get_string_safe(art, "favicon");
+                            else if (json_get_string_safe(art, "logo_url") != null) logo_url = json_get_string_safe(art, "logo_url");
+                            else if (json_get_string_safe(art, "site_icon") != null) logo_url = json_get_string_safe(art, "site_icon");
+                        }
+
+                        if (logo_url != null) {
+                            logo_url = logo_url.strip();
+                            if (logo_url.has_prefix("//")) {
+                                logo_url = "https:" + logo_url;
+                            }
+                        }
+
+                        try {
+                            if (provider_key.length > 0 && logo_url != null && logo_url.length > 0) {
+                                SourceLogos.update_index_and_fetch(provider_key, source_name, logo_url, provider_url, session);
+                            }
+                        } catch (GLib.Error e) { }
+
+                        string display_source = source_name;
+                        if (logo_url != null && logo_url.length > 0) {
+                            display_source = source_name + "||" + logo_url;
+                        }
+
+                        string category_id = "topten";
+                        string? cat_raw = null;
+                        
+                        string? extract_from_node(Json.Node? node) {
+                            if (node == null) return null;
+                            try {
+                                if (node.get_node_type() == Json.NodeType.VALUE) {
+                                    try { return node.get_string(); } catch (GLib.Error e) { return null; }
+                                } else if (node.get_node_type() == Json.NodeType.OBJECT) {
+                                    var o = node.get_object();
+                                    string? v = json_get_string_safe(o, "id");
+                                    if (v != null) return v;
+                                    v = json_get_string_safe(o, "slug");
+                                    if (v != null) return v;
+                                    v = json_get_string_safe(o, "name");
+                                    if (v != null) return v;
+                                    v = json_get_string_safe(o, "title");
+                                    if (v != null) return v;
+                                }
+                            } catch (GLib.Error e) { }
+                            return null;
+                        }
+
+                        if (art.has_member("category")) cat_raw = extract_from_node(art.get_member("category"));
+                        if (cat_raw == null && art.has_member("section")) cat_raw = extract_from_node(art.get_member("section"));
+                        if (cat_raw == null && art.has_member("type")) cat_raw = extract_from_node(art.get_member("type"));
+                        if (cat_raw == null && art.has_member("category_id")) cat_raw = extract_from_node(art.get_member("category_id"));
+
+                        if (cat_raw == null && art.has_member("tags")) {
+                            var tags_node = art.get_member("tags");
+                            if (tags_node != null && tags_node.get_node_type() == Json.NodeType.ARRAY) {
+                                var tags_arr = tags_node.get_array();
+                                if (tags_arr.get_length() > 0) {
+                                    var first = tags_arr.get_element(0);
+                                    cat_raw = extract_from_node(first);
+                                }
+                            }
+                        }
+
+                        if (cat_raw != null && cat_raw.length > 0) {
+                            string s_raw = (string) cat_raw;
+                            category_id = s_raw.down().replace(" ", "_").replace("-", "_").strip();
+                        }
+
+                        if (display_source == null) display_source = "";
+                        display_source = display_source + "##category::" + category_id;
+
+                        add_item(title, article_url, thumbnail, "topten", display_source);
+                    }
+                    return false;
+                });
+            } catch (GLib.Error e) { warning("Paperboy Top Ten fetch error: %s", e.message); }
+            return null;
+        });
+    }
+
     // Helpers
     // Utility to strip HTML tags from a string (moved here to live with other helpers)
     private static string strip_html(string input) {
@@ -539,7 +734,6 @@ public class NewsSources {
     private static string category_display_name(string cat) {
         switch (cat) {
             case "frontpage": return "The Frontpage";
-            case "all": return "All Categories";
             case "myfeed": return "My Feed";
             case "general": return "World News";
             case "us": return "US News";

@@ -137,8 +137,8 @@ public class ArticlePane : GLib.Object {
 
         // Title label - AT THE TOP
         var title_wrap = new Gtk.Box(Orientation.VERTICAL, 8);
-        title_wrap.set_margin_start(24);
-        title_wrap.set_margin_end(24);
+        title_wrap.set_margin_start(16);
+        title_wrap.set_margin_end(16);
         title_wrap.set_margin_top(24);
         title_wrap.set_halign(Gtk.Align.FILL);
         title_wrap.set_hexpand(true);
@@ -172,8 +172,8 @@ public class ArticlePane : GLib.Object {
         pic_box.set_vexpand(false);
         pic_box.set_hexpand(true);
         pic_box.set_size_request(-1, img_h);
-        pic_box.set_margin_start(24);
-        pic_box.set_margin_end(24);
+        pic_box.set_margin_start(16);
+        pic_box.set_margin_end(16);
         pic_box.set_margin_top(16);
         pic_box.set_margin_bottom(0);
         
@@ -241,8 +241,8 @@ public class ArticlePane : GLib.Object {
 
         // Snippet area
         var pad = new Gtk.Box(Orientation.VERTICAL, 8);
-        pad.set_margin_start(24);
-        pad.set_margin_end(24);
+        pad.set_margin_start(16);
+        pad.set_margin_end(16);
         pad.set_margin_top(16);
         pad.set_margin_bottom(16);
         var snippet_label = new Gtk.Label("Loading snippet…");
@@ -263,8 +263,8 @@ public class ArticlePane : GLib.Object {
 
         // Buttons row
         var actions = new Gtk.Box(Orientation.HORIZONTAL, 12);
-        actions.set_margin_start(24);
-        actions.set_margin_end(24);
+        actions.set_margin_start(16);
+        actions.set_margin_end(16);
         actions.set_margin_bottom(24);
         actions.set_margin_top(8);
         actions.set_halign(Gtk.Align.FILL);

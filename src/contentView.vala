@@ -29,6 +29,7 @@ public class ContentView : GLib.Object {
     public Gtk.Box columns_row;
     public Gtk.Box category_icon_holder;
     public Gtk.Label category_label;
+    public Gtk.Label category_subtitle;
     public Gtk.Image source_logo;
     public Gtk.Label source_label;
     public Gtk.Overlay main_overlay;
@@ -127,6 +128,16 @@ public class ContentView : GLib.Object {
         date_label.add_css_class("body");
         header_box.append(date_label);
 
+        // Add subtitle label (for Top Ten category) - below date, bolded
+        category_subtitle = new Gtk.Label("");
+        category_subtitle.set_xalign(0);
+        category_subtitle.add_css_class("caption");
+        var subtitle_attrs = new Pango.AttrList();
+        subtitle_attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD));
+        category_subtitle.set_attributes(subtitle_attrs);
+        category_subtitle.set_visible(false);
+        header_box.append(category_subtitle);
+
         content_box.append(header_box);
 
         // Create a main content container that holds both hero and columns
@@ -139,9 +150,11 @@ public class ContentView : GLib.Object {
         main_content_container.set_margin_bottom(12);
 
         // Hero container - fill the main container width
-        hero_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        // 12px spacing for Top Ten side-by-side heroes, 0 for carousel
+        hero_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
         hero_container.set_halign(Gtk.Align.FILL);
         hero_container.set_hexpand(true);
+        hero_container.set_homogeneous(true); // Equal width for side-by-side heroes
 
         featured_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         featured_box.set_halign(Gtk.Align.FILL);
