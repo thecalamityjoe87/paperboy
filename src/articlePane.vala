@@ -24,7 +24,6 @@ using Tools;
 
 public class ArticlePane : GLib.Object {
     private Adw.NavigationView nav_view;
-    private Gtk.Button back_btn;
     private Soup.Session session;
     private NewsWindow parent_window;
     // Preview overlay components
@@ -33,11 +32,6 @@ public class ArticlePane : GLib.Object {
     // In-memory cache for article preview textures (url@WxH -> Gdk.Texture).
     // Kept local to ArticleWindow to avoid touching NewsWindow's private cache.
     private static Gee.HashMap<string, Gdk.Texture>? preview_cache = null;
-    // Track a per-preview handler so we can attach a one-shot click
-    // listener to the shared header back button and disconnect it when
-    // the preview is closed. This avoids leaving stale handlers that
-    // would incorrectly mark unrelated previews as viewed.
-    private ulong back_btn_handler_id = 0;
 
     // Centralized debug log path for this module. Use this variable so the
     // path can be adjusted in one place if we change where debug output
@@ -47,9 +41,8 @@ public class ArticlePane : GLib.Object {
     // Callback type for snippet results
     private delegate void SnippetCallback(string text);
 
-    public ArticlePane(Adw.NavigationView navigation_view, Gtk.Button back_button, Soup.Session soup_session, NewsWindow window) {
+    public ArticlePane(Adw.NavigationView navigation_view, Soup.Session soup_session, NewsWindow window) {
         nav_view = navigation_view;
-        back_btn = back_button;
         session = soup_session;
         parent_window = window;
         // Initialize preview cache on first construction
@@ -282,7 +275,6 @@ public class ArticlePane : GLib.Object {
         back_local.clicked.connect(() => {
             // Close the overlay split view
             if (preview_split != null) preview_split.set_show_sidebar(false);
-            back_btn.set_visible(false);
             // Notify parent that the preview closed so it can mark the
             // article as viewed now that the user returned to the main view.
             try { parent_window.preview_closed(url); } catch (GLib.Error e) { }
@@ -312,25 +304,7 @@ public class ArticlePane : GLib.Object {
             return false;
         });
         
-        back_btn.set_visible(true);
-        // Attach a one-shot handler to the shared header back button so
-        // clicks on that arrow also notify the parent preview-closed
-        // lifecycle. We disconnect the handler after it runs to avoid
-        // duplicate or stale callbacks.
-        try {
-            if (back_btn_handler_id != 0) {
-                try { back_btn.disconnect(back_btn_handler_id); } catch (GLib.Error e) { }
-                back_btn_handler_id = 0;
-            }
-            back_btn_handler_id = back_btn.clicked.connect(() => {
-                if (preview_split != null) preview_split.set_show_sidebar(false);
-                back_btn.set_visible(false);
-                try { parent_window.preview_closed(url); } catch (GLib.Error e) { }
-                // Disconnect this handler (one-shot)
-                try { back_btn.disconnect(back_btn_handler_id); } catch (GLib.Error e) { }
-                back_btn_handler_id = 0;
-            });
-        } catch (GLib.Error e) { }
+        try { parent_window.preview_opened(url); } catch (GLib.Error e) { }
         // Try to set metadata from any cached article entry (source + published time)
     var prefs = NewsPreferences.get_instance();
         string? homepage_published_any = null;

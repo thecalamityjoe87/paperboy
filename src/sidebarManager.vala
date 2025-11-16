@@ -48,7 +48,7 @@ public class SidebarManager : GLib.Object {
             add_row("The Frontpage", "frontpage", window.prefs.category == "frontpage");
             add_row("My Feed", "myfeed", window.prefs.category == "myfeed");
             add_row("Local News", "local_news", window.prefs.category == "local_news");
-            add_header("Categories");
+            add_header("Popular Categories");
             add_row("All Categories", "all", window.prefs.category == "all");
 
         // If multiple preferred sources are selected, build the union of

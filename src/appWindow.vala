@@ -109,11 +109,12 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Image source_logo;
     // Holder for the category icon shown to the left of the category title
     private Gtk.Box? category_icon_holder;
-    private Gtk.ToggleButton sidebar_toggle;
-    private Gtk.Box sidebar_spacer;
     private Gtk.ListBox sidebar_list;
-    private Adw.OverlaySplitView split_view;
+    private Adw.NavigationSplitView split_view;
     private Gtk.ScrolledWindow sidebar_scrolled;
+    private Gtk.ToggleButton sidebar_toggle;
+    private Adw.TimedAnimation? sidebar_animation;
+    private Gtk.Revealer? sidebar_revealer;
     // Main content scrolled window (exposed so we can capture/restore scroll)
     private Gtk.ScrolledWindow main_scrolled;
     public NewsPreferences prefs;
@@ -121,7 +122,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     private SidebarManager? sidebar_manager;
     // Navigation for sliding article preview
     private Adw.NavigationView nav_view;
-    private Gtk.Button back_btn;
     private ArticlePane article_pane;
     // Article preview overlay split view (slides in from right)
     private Adw.OverlaySplitView article_preview_split;
@@ -549,46 +549,30 @@ public class NewsWindow : Adw.ApplicationWindow {
             warning("Failed to load CSS: %s", e.message);
         }
 
-        // Top-level layout: Adw.ToolbarView with an Adw.HeaderBar
-        var toolbar_view = new Adw.ToolbarView();
-        var header = new Adw.HeaderBar();
+        // Build header bars for sidebar and content (will be added to NavigationPages)
+        // Sidebar headerbar with app icon and title
+        var sidebar_header = new Adw.HeaderBar();
+        sidebar_header.add_css_class("flat");
         
-        // App icon in header
-                    var app_icon = new Gtk.Image.from_icon_name("paperboy");
-        app_icon.set_pixel_size(SIDEBAR_ICON_SIZE);
-        header.pack_start(app_icon);
+        // App icon for sidebar (left corner)
+        var sidebar_icon = new Gtk.Image.from_icon_name("paperboy");
+        sidebar_icon.set_pixel_size(SIDEBAR_ICON_SIZE);
+        sidebar_header.pack_start(sidebar_icon);
         
-        // App title in main header
-        var title_label = new Gtk.Label("Paperboy");
-        title_label.add_css_class("title");
-        header.pack_start(title_label);
-
-        // Create a spacer to push the sidebar toggle to the right position
-        sidebar_spacer = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        sidebar_spacer.set_size_request(100, -1); // Adjust this value to position toggle correctly
-        header.pack_start(sidebar_spacer);
-
-        // Sidebar toggle button 
-        sidebar_toggle = new Gtk.ToggleButton();
-        var sidebar_icon = new Gtk.Image.from_icon_name("view-sidebar-symbolic");
-        sidebar_icon.set_pixel_size(16);
-        sidebar_toggle.set_child(sidebar_icon);
-        sidebar_toggle.set_active(true);
-        sidebar_toggle.set_tooltip_text("Hide sidebar");
-        sidebar_toggle.add_css_class("sidebar-toggle");
-        header.pack_start(sidebar_toggle);
-
-        // Back button for preview navigation
-        back_btn = new Gtk.Button.from_icon_name("go-previous-symbolic");
-        back_btn.set_visible(false);
-        back_btn.set_tooltip_text("Back");
-        back_btn.clicked.connect(() => {
-            if (nav_view != null) {
-                nav_view.pop();
-                back_btn.set_visible(false);
-            }
-        });
-        header.pack_start(back_btn);
+        // App title for sidebar (centered)
+        var sidebar_title = new Gtk.Label("Paperboy");
+        sidebar_title.add_css_class("title");
+        sidebar_header.set_title_widget(sidebar_title);
+        
+        // Content headerbar with app branding and controls
+        var content_header = new Adw.HeaderBar();
+        
+        // Sidebar toggle button for NavigationSplitView
+        var sidebar_toggle = new Gtk.ToggleButton();
+        sidebar_toggle.set_icon_name("sidebar-show-symbolic");
+        sidebar_toggle.set_active(true); // Start with sidebar shown
+        sidebar_toggle.set_tooltip_text("Toggle Sidebar");
+        content_header.pack_start(sidebar_toggle);
 
         // Search bar in the center (offset 50px to the right)
         var search_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
@@ -601,7 +585,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         search_entry.set_max_width_chars(60);
         search_container.append(search_entry);
         
-        header.set_title_widget(search_container);
+        content_header.set_title_widget(search_container);
         
         // Connect search entry to trigger search
         search_entry.search_changed.connect(() => {
@@ -616,7 +600,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             fetch_news();
             refresh_btn.set_sensitive(true);
         });
-        header.pack_end(refresh_btn);
+        content_header.pack_end(refresh_btn);
         
         // Add hamburger menu
         var menu = new Menu();
@@ -628,13 +612,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         menu_button.set_icon_name("open-menu-symbolic");
         menu_button.set_menu_model(menu);
         menu_button.set_tooltip_text("Main Menu");
-        header.pack_end(menu_button);
-        
-        toolbar_view.add_top_bar(header);
-    sidebar_list = new Gtk.ListBox();
-    sidebar_list.add_css_class("navigation-sidebar");
-    sidebar_list.set_selection_mode(SelectionMode.SINGLE);
-    sidebar_list.set_activate_on_single_click(true);
+        content_header.pack_end(menu_button);
+        sidebar_list = new Gtk.ListBox();
+        sidebar_list.add_css_class("navigation-sidebar");
+        sidebar_list.set_selection_mode(SelectionMode.SINGLE);
+        sidebar_list.set_activate_on_single_click(true);
 
     // Create SidebarManager to encapsulate building rows and icon holders
     sidebar_manager = new SidebarManager(this, sidebar_list, (cat, title) => {
@@ -670,6 +652,24 @@ public class NewsWindow : Adw.ApplicationWindow {
         sidebar_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         sidebar_scrolled.set_child(sidebar_list);
 
+    // Wrap sidebar in ToolbarView with headerbar
+    var sidebar_toolbar = new Adw.ToolbarView();
+    sidebar_toolbar.add_top_bar(sidebar_header);
+    sidebar_toolbar.set_content(sidebar_scrolled);
+
+    // Wrap sidebar in a Revealer for smooth slide animations
+    sidebar_revealer = new Gtk.Revealer();
+    sidebar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT);
+    sidebar_revealer.set_transition_duration(200);
+    sidebar_revealer.set_child(sidebar_toolbar);
+    sidebar_revealer.set_reveal_child(true);
+
+    // Create NavigationPage for sidebar content
+    var sidebar_page = new Adw.NavigationPage(sidebar_revealer, "Categories");
+
+    // Wrap content in a NavigationPage for NavigationSplitView
+    // We need to create the content page after setting up root_overlay
+    
     // Build main content UI in a separate helper object so the window
     // constructor stays concise. ContentView constructs the widgets and
     // exposes them; we then wire them into the existing NewsWindow fields.
@@ -701,9 +701,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     error_message_label = content_view.error_message_label;
     error_retry_button = content_view.error_retry_button;
 
-    // Split view: sidebar + content with collapsible sidebar
-    split_view = new Adw.OverlaySplitView();
-    split_view.set_sidebar(sidebar_scrolled);
+    // Split view: sidebar + content with adaptive collapsible sidebar
+    split_view = new Adw.NavigationSplitView();
+    split_view.set_min_sidebar_width(280);
+    split_view.set_max_sidebar_width(280);
+    split_view.set_sidebar(sidebar_page);
     // Wrap content in a NavigationView so we can slide in a preview page
     nav_view = new Adw.NavigationView();
     var main_page = new Adw.NavigationPage(main_scrolled, "Main");
@@ -781,7 +783,6 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
 
             article_preview_split.set_show_sidebar(false);
-            back_btn.set_visible(false);
             // Call preview_closed with the last URL to properly mark viewed and restore scroll
             try {
                 if (last_previewed_url != null && last_previewed_url.length > 0) {
@@ -869,41 +870,61 @@ public class NewsWindow : Adw.ApplicationWindow {
     });
     root_overlay.add_overlay(error_message_box);
 
-    split_view.set_content(article_preview_split); // Wrap with article preview overlay
-        split_view.set_show_sidebar(true);
+    // Wrap root_overlay with article preview split
+    article_preview_split.set_content(root_overlay);
+    
+    // Wrap content in ToolbarView with headerbar
+    var content_toolbar = new Adw.ToolbarView();
+    content_toolbar.add_top_bar(content_header);
+    content_toolbar.set_content(article_preview_split);
+    
+    // Create NavigationPage for main content
+    var content_page = new Adw.NavigationPage(content_toolbar, "Content");
 
-        // Connect toggle after split view exists
-        sidebar_toggle.toggled.connect(() => {
-            bool show = sidebar_toggle.get_active();
-            split_view.set_show_sidebar(show);
-            sidebar_toggle.set_tooltip_text(show ? "Hide sidebar" : "Show sidebar");
-            
-            // Adjust spacer width based on sidebar visibility
-            if (show) {
-                sidebar_spacer.set_size_request(100, -1); // Position at right edge of sidebar
-            } else {
-                sidebar_spacer.set_size_request(0, -1);  // No spacing when hidden
-            }
-            
-            // Add/remove CSS class to style header over sidebar
-            if (show) {
-                header.add_css_class("sidebar-header");
-            } else {
-                header.remove_css_class("sidebar-header");
-            }
-            
-            // Adjust main content container to expand when sidebar is hidden
-            update_main_content_size(show);
+    // Set sidebar and content for NavigationSplitView
+    split_view.set_sidebar(sidebar_page);
+    split_view.set_content(content_page);
+    // Keep split view always uncollapsed - we control visibility via Revealer
+    split_view.set_collapsed(false);
+    split_view.set_show_content(true);
+    
+    // Enable smooth transitions for sidebar collapse/expand
+    // The NavigationSplitView uses spring animations by default in libadwaita
+    
+    // Wire up sidebar toggle button to control sidebar visibility
+    sidebar_toggle.toggled.connect(() => {
+        bool active = sidebar_toggle.get_active();
+        split_view.set_collapsed(!active);
+        sidebar_revealer.set_reveal_child(active);
+    });
+    
+    content_page.set_can_pop(false); // Prevent accidental navigation away
+
+    // NavigationSplitView handles sidebar toggle automatically with built-in button
+        // Listen to show-content and collapsed changes to adjust content size
+        // show-content=true means content is visible (sidebar hidden when collapsed)
+        // show-content=false means sidebar is visible (when collapsed)
+        split_view.notify["collapsed"].connect(() => {
+            // When collapsed state changes, adjust main content container
+            bool collapsed = split_view.get_collapsed();
+            bool showing_content = split_view.get_show_content();
+            // Sidebar is effectively visible when not collapsed OR when collapsed but showing sidebar
+            bool sidebar_visible = !collapsed || !showing_content;
+            update_main_content_size(sidebar_visible);
         });
         
-        // Initially set the sidebar header style since sidebar starts visible
-        header.add_css_class("sidebar-header");
+        split_view.notify["show-content"].connect(() => {
+            // When show-content changes (user navigates between sidebar/content in collapsed mode)
+            bool collapsed = split_view.get_collapsed();
+            bool showing_content = split_view.get_show_content();
+            bool sidebar_visible = !collapsed || !showing_content;
+            update_main_content_size(sidebar_visible);
+        });
         
-        // Initialize main content container size for initial sidebar state
+        // Initialize main content container size for initial state
         update_main_content_size(true);
 
-        toolbar_view.set_content(split_view);
-        set_content(toolbar_view);
+        set_content(split_view);
 
         session = new Soup.Session();
         // Optimize session for better performance
@@ -912,16 +933,15 @@ public class NewsWindow : Adw.ApplicationWindow {
         session.timeout = 15; // Default timeout
 
         // Initialize article window
-        article_pane = new ArticlePane(nav_view, back_btn, session, this);
+        article_pane = new ArticlePane(nav_view, session, this);
         article_pane.set_preview_overlay(article_preview_split, article_preview_content);
 
         // Add keyboard event controller for closing article preview with Escape
         var key_controller = new Gtk.EventControllerKey();
         key_controller.key_pressed.connect((keyval, keycode, state) => {
             // Escape: close preview
-            if (keyval == Gdk.Key.Escape && back_btn.get_visible()) {
+            if (keyval == Gdk.Key.Escape && article_preview_split.get_show_sidebar()) {
                 article_preview_split.set_show_sidebar(false);
-                back_btn.set_visible(false);
                 try {
                     if (last_previewed_url != null && last_previewed_url.length > 0) {
                         preview_closed(last_previewed_url);
@@ -966,8 +986,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         // preview sidebar area so interactions within the preview don't
         // immediately close it.
         main_click_controller.pressed.connect((n_press, x, y) => {
-            // Only close if article preview is open (back button is visible)
-            if (!back_btn.get_visible()) return;
+            // Only close if article preview is open
+            if (!article_preview_split.get_show_sidebar()) return;
             try {
                 if (article_preview_split.get_show_sidebar()) {
                     int win_w = 0;
@@ -984,7 +1004,6 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
 
                 article_preview_split.set_show_sidebar(false);
-                back_btn.set_visible(false);
                 // Call preview_closed to properly mark viewed and restore scroll
                 try {
                     if (last_previewed_url != null && last_previewed_url.length > 0) {
@@ -1049,9 +1068,8 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Public helper so external callers (e.g., dialogs) can close an open article preview
     public void close_article_preview() {
-        if (back_btn != null && back_btn.get_visible()) {
-            if (nav_view != null) nav_view.pop();
-            back_btn.set_visible(false);
+        if (article_preview_split != null && article_preview_split.get_show_sidebar()) {
+            article_preview_split.set_show_sidebar(false);
         }
     }
 
@@ -1348,24 +1366,8 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     private void update_sidebar_for_source() {
         update_source_info(); // Update the source logo and label
-        bool has = source_has_categories(prefs.news_source);
-        if (!has) {
-            // Hide and disable sidebar controls
-            split_view.set_show_sidebar(false);
-            sidebar_toggle.set_active(false);
-            sidebar_toggle.set_sensitive(false);
-            sidebar_toggle.set_tooltip_text("Sidebar not available for this source");
-            // No spacing when sidebar is hidden
-            sidebar_spacer.set_size_request(0, -1);
-        } else {
-            // Show and enable sidebar controls
-            sidebar_toggle.set_sensitive(true);
-            sidebar_toggle.set_active(true);
-            split_view.set_show_sidebar(true);
-            sidebar_toggle.set_tooltip_text("Hide sidebar");
-            // Move button to right edge when sidebar is shown
-            sidebar_spacer.set_size_request(100, -1);
-        }
+        // NavigationSplitView handles sidebar visibility automatically
+        // based on collapsed state and user interaction
     // Rebuild rows to reflect source-specific categories (e.g., Bloomberg)
     try { if (sidebar_manager != null) sidebar_manager.rebuild_rows(); } catch (GLib.Error e) { }
     }

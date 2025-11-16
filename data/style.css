@@ -296,15 +296,36 @@
     background-color: alpha(black, 0.72);
 }
 
-/* (size variant styles removed) */
 
-.sidebar {
+/* Sidebar styling for seamless integration with NavigationSplitView */
+.navigation-sidebar {
     background-color: @sidebar_bg_color;
 }
 
-.sidebar .heading {
+.navigation-sidebar row {
+    background-color: transparent;
+}
+
+.navigation-sidebar row:selected {
+    background-color: alpha(@window_fg_color, 0.1);
+}
+
+.navigation-sidebar row:hover:not(:selected) {
+    background-color: alpha(@window_fg_color, 0.06);
+}
+
+.navigation-sidebar .heading {
     font-weight: bold;
     font-size: 1.1em;
+}
+
+/* NavigationSplitView sidebar pane styling */
+navigation-split-view > widget.sidebar-pane {
+    background-color: @sidebar_bg_color;
+}
+
+/* NavigationSplitView content pane */
+navigation-split-view > widget.content-pane {
 }
 
 /* Load More button animations */
@@ -324,29 +345,6 @@
     cursor: wait;
 }
 
-/* Header bar styling for split view - different background for sidebar vs content areas */
-.sidebar-header {
-    background: linear-gradient(to right, 
-        @sidebar_bg_color 0%, 
-        @sidebar_bg_color 280px, 
-        @borders 280px,
-        @borders 281px,
-        @headerbar_bg_color 281px, 
-        @headerbar_bg_color 100%);
-}
-
-/* When sidebar is collapsed, use normal header background */
-headerbar:not(.sidebar-header) {
-    background-color: @headerbar_bg_color;
-}
-
-/* Sidebar toggle button positioned at right edge of sidebar area in titlebar */
-.sidebar-toggle {
-    margin-right: 8px;
-    margin-top: 4px;
-    margin-bottom: 4px;
-}
-
 /* Article preview panel that slides in from the right */
 .article-preview-panel {
     background-color: @card_bg_color;
@@ -357,4 +355,16 @@ headerbar:not(.sidebar-header) {
 .dim-overlay {
     background-color: alpha(black, 0.4);
     backdrop-filter: blur(2px);
+}
+
+/* Only the headerbar for the sidebar pane */
+navigation-split-view > widget.sidebar-pane headerbar {
+    background-color: @sidebar_bg_color;
+    color: @sidebar_fg_color;
+    box-shadow: none;
+}
+
+navigation-split-view > widget.sidebar-pane headerbar:backdrop {
+    background-color: @sidebar_bg_color;
+    color: @sidebar_fg_color;
 }
