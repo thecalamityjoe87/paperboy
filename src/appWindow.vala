@@ -615,11 +615,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         sidebar_toggle.set_tooltip_text("Toggle Sidebar");
         content_header.pack_start(sidebar_toggle);
 
-        // Search bar in the center (offset 50px to the right)
+        // Search bar in the center
         var search_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        var search_spacer = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        search_spacer.set_size_request(50, -1); // 50px offset
-        search_container.append(search_spacer);
         
         var search_entry = new Gtk.SearchEntry();
         search_entry.set_placeholder_text("Search News for Keywords...");
