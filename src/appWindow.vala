@@ -2616,6 +2616,14 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             }
         }
+        
+        // Also strip ##category:: suffix from display_name if present
+        if (display_name != null) {
+            int cat_idx = display_name.index_of("##category::");
+            if (cat_idx >= 0) {
+                display_name = display_name.substring(0, cat_idx).strip();
+            }
+        }
 
         // Debug: record what the badge builder was handed so we can see
         // whether the frontpage parsing supplied a logo URL or not.
@@ -3257,7 +3265,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                 var child = children.get_item(i) as Gtk.Widget;
                 if (child is Gtk.Label) {
                     var label = child as Gtk.Label;
-                    if (label.get_label() == "<b>No more articles</b>") {
+                    // Accept either the markup or plain-text form when removing
+                    // the end-of-feed message so it won't persist when a new
+                    // fetch begins.
+                    var txt = label.get_label();
+                    if (txt == "<b>No more articles</b>" || txt == "No more articles") {
                         content_box.remove(label);
                         break;
                     }
@@ -3789,7 +3801,8 @@ public class NewsWindow : Adw.ApplicationWindow {
                     var child = children.get_item(i) as Gtk.Widget;
                     if (child is Gtk.Label) {
                         var label = child as Gtk.Label;
-                        if (label.get_label() == "<b>No more articles</b>") {
+                        var _txt = label.get_label();
+                        if (_txt == "<b>No more articles</b>" || _txt == "No more articles") {
                             self_ref.content_box.remove(label);
                             break;
                         }
@@ -4460,7 +4473,13 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             }
         }
-        
+        // Remove Load More button if present so we don't show both
+        if (load_more_button != null) {
+            var parent_btn = load_more_button.get_parent() as Gtk.Box;
+            if (parent_btn != null) parent_btn.remove(load_more_button);
+            load_more_button = null;
+        }
+
         var end_label = new Gtk.Label("<b>No more articles</b>");
         end_label.set_use_markup(true);
         end_label.add_css_class("dim-label");
@@ -4502,6 +4521,21 @@ public class NewsWindow : Adw.ApplicationWindow {
         });
         
         // Add button with smooth fade-in animation
+        // Remove any existing end-of-feed labels before adding the button so
+        // they won't coexist (some pathways can add the end label earlier).
+        var children = content_box.observe_children();
+        for (uint i = 0; i < children.get_n_items(); i++) {
+            var child = children.get_item(i) as Gtk.Widget;
+            if (child is Gtk.Label) {
+                var lbl = child as Gtk.Label;
+                var txt = lbl.get_label();
+                if (txt == "<b>No more articles</b>" || txt == "No more articles") {
+                    content_box.remove(lbl);
+                    break;
+                }
+            }
+        }
+
         load_more_button.add_css_class("fade-out"); // Start invisible with CSS
         content_box.append(load_more_button);
         
