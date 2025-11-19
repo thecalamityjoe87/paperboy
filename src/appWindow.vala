@@ -2158,7 +2158,8 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
 
             if (hero_will_load) {
-                int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 4);
+                // Request higher-resolution carousel slide images as well
+                int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 6) : (initial_phase ? 2 : 6);
                 if (initial_phase) pending_images++;
                 image_handler.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier);
                 hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
@@ -2292,7 +2293,8 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             }
             if (slide_will_load) {
-                int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 2) : (initial_phase ? 1 : 4);
+                // Request higher-resolution carousel slide images as well
+                int multiplier = (prefs.news_source == NewsSource.REDDIT) ? (initial_phase ? 2 : 6) : (initial_phase ? 2 : 6);
                 if (initial_phase) pending_images++;
                 image_handler.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier);
                 hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));

@@ -303,7 +303,8 @@ public class ImageHandler : GLib.Object {
                                 try { pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.BILINEAR); } catch (GLib.Error e) { }
                                 try { window.append_debug_log("start_image_download_for_url: scaled-down url=" + url + " to=" + pixbuf.get_width().to_string() + "x" + pixbuf.get_height().to_string()); } catch (GLib.Error e) { }
                             } else if (scale > 1.0) {
-                                double max_upscale = 1.5;  // Reduced from 2.0 to save memory (4x less pixels)
+                                // Allow larger upscales for hero images so high-DPI displays get crisper results.
+                                double max_upscale = 2.0;  // previously 1.5
                                 double upscale = double.min(scale, max_upscale);
                                 int new_width = (int)(width * upscale);
                                 int new_height = (int)(height * upscale);
