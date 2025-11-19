@@ -361,7 +361,7 @@ public class ArticleWindow : GLib.Object {
             }
 
             if (homepage_snippet != null && homepage_snippet.length > 0) {
-                snippet_label.set_text(homepage_snippet);
+                snippet_label.set_text(HtmlUtils.strip_html(homepage_snippet));
                 return;
             }
         }

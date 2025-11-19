@@ -28,7 +28,28 @@ public class HtmlUtils {
         // literal '<' / '>' and can be stripped below.
         string out = s;
 
-        // First decode numeric HTML entities (both decimal and hexadecimal)
+        // First decode named HTML entities. Doing this before numeric
+        // replacements ensures sequences like "&amp;#039;" (double-escaped)
+        // are converted to "&#039;" and then handled by numeric decoding.
+        out = out.replace("&amp;", "&");
+        out = out.replace("&lt;", "<");
+        out = out.replace("&gt;", ">");
+        out = out.replace("&quot;", "\"");
+        out = out.replace("&#39;", "'");
+        out = out.replace("&apos;", "'");
+        out = out.replace("&nbsp;", " ");
+        out = out.replace("&mdash;", "—");
+        out = out.replace("&ndash;", "–");
+        out = out.replace("&hellip;", "…");
+        out = out.replace("&rsquo;", "'");
+        out = out.replace("&lsquo;", "'");
+        out = out.replace("&rdquo;", "\"");
+        out = out.replace("&ldquo;", "\"");
+        // Also collapse any common double-escaped numeric entity form like
+        // "&amp;#039;" -> "&#039;" so numeric replacements below will match.
+        while (out.index_of("&amp;#") >= 0) out = out.replace("&amp;#", "&#");
+        while (out.index_of("&AMP;#") >= 0) out = out.replace("&AMP;#", "&#");
+        // Now decode numeric HTML entities (both decimal and hexadecimal)
         out = out.replace("&#x27;", "'");
         out = out.replace("&#X27;", "'");
         out = out.replace("&#x22;", "\"");
@@ -65,22 +86,6 @@ public class HtmlUtils {
         out = out.replace("&#8203;", "");
         out = out.replace("\u200B", "");
         out = out.replace("\uFEFF", "");
-
-        // Then decode named HTML entities
-        out = out.replace("&amp;", "&");
-        out = out.replace("&lt;", "<");
-        out = out.replace("&gt;", ">");
-        out = out.replace("&quot;", "\"");
-        out = out.replace("&#39;", "'");
-        out = out.replace("&apos;", "'");
-        out = out.replace("&nbsp;", " ");
-        out = out.replace("&mdash;", "—");
-        out = out.replace("&ndash;", "–");
-        out = out.replace("&hellip;", "…");
-        out = out.replace("&rsquo;", "'");
-        out = out.replace("&lsquo;", "'");
-        out = out.replace("&rdquo;", "\"");
-        out = out.replace("&ldquo;", "\"");
 
         // Remove any HTML tags (now that encoded tags have been decoded).
         var sb = new StringBuilder();
