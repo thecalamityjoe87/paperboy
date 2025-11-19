@@ -785,10 +785,6 @@ public class NewsSources {
             if (category == "lifestyle") return false;
         }
 
-        // Debug traces removed: this function is performance-sensitive and
-        // should not write to disk in normal runs. Use AppDebugger/append_debug_log
-        // in other callbacks if persistent debugging is required.
-
         if (source == NewsSource.BLOOMBERG) {
             switch (category) {
                 case "markets":
@@ -990,8 +986,6 @@ public class NewsSources {
                     return null;
                 }
                 var results = response.get_array_member("results");
-                // Removed temporary debug write to /tmp/paperboy-debug.log. Prefer
-                // centralized logging via AppDebugger.append_debug_log when needed.
 
                 string category_name = category_display_name(current_category);
                 Idle.add(() => {

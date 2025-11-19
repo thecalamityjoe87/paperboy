@@ -32,7 +32,6 @@ public class SidebarManager : GLib.Object {
             child = next;
             removed++;
         }
-        // debug trace removed
 
         // Place "Front Page" and "My Feed" above the Categories header
             add_row("Top Ten", "topten", window.prefs.category == "topten");
@@ -198,7 +197,6 @@ public class SidebarManager : GLib.Object {
         });
 
         sidebar_list.append(row);
-        // debug trace removed
         if (selected) sidebar_list.select_row(row);
     }
 }

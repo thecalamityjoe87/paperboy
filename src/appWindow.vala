@@ -1350,7 +1350,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (prefs.category == "topten") {
             try {
                 if (category_subtitle != null) {
-                    category_subtitle.set_text("TOP STORIES FOR TODAY");
+                    category_subtitle.set_text("TOP STORIES RIGHT NOW");
                     category_subtitle.set_visible(true);
                 }
             } catch (GLib.Error e) { }
