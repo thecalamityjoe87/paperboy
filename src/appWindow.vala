@@ -202,7 +202,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Number of Local News items for which we'll fetch full-size images
     // at initial load. Items beyond this limit show placeholders until
     // the user triggers a load (e.g., scroll, click, or 'Load More').
-    // Use the user-configurable limit from preferences; default is in NewsPreferences
+    private const int LOCAL_NEWS_IMAGE_LOAD_LIMIT = 12;
     private Gtk.Button? load_more_button = null;
     private uint buffer_flush_timeout_id = 0;
     // Fetch sequencing token to ignore stale background fetch callbacks
@@ -2416,8 +2416,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             // full image when opened.
             if (category_id == "local_news" && !bypass_limit) {
                 try {
-                    try {
-                        if (articles_shown >= prefs.local_news_image_load_limit) {
+                        if (articles_shown >= LOCAL_NEWS_IMAGE_LOAD_LIMIT) {
                         // Skip loading image for this card — show the app-local
                         // placeholder instead. This preserves quality for early
                         // items while keeping memory usage reasonable.

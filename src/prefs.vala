@@ -26,9 +26,6 @@ public class NewsPreferences : GLib.Object {
     public NewsSource news_source { get; set; default = NewsSource.GUARDIAN; }
     public string category { get; set; default = "topten"; }
     public bool personalized_feed_enabled { get; set; default = false; }
-        // Number of Local News items to fetch full-size images for at initial load.
-        // Items beyond this will show placeholders until the user requests more.
-        public int local_news_image_load_limit { get; set; default = 12; }
     // Optional user-provided location (e.g., city or coordinates)
     public string user_location { get; set; default = ""; }
     // Resolved canonical city name for a provided ZIP (e.g. "San Francisco, California")
@@ -207,8 +204,6 @@ public class NewsPreferences : GLib.Object {
             config.set_string("preferences", "user_location_city", user_location_city);
             // Persist the personalized feed toggle
             config.set_boolean("preferences", "personalized_feed_enabled", personalized_feed_enabled);
-            // Persist the Local News image load limit
-            config.set_integer("preferences", "local_news_image_load_limit", local_news_image_load_limit);
             // Persist personalized categories list
             // If Bloomberg is not enabled in preferred_sources, strip any
             // Bloomberg-only categories so the saved personalized feed will
@@ -323,14 +318,6 @@ public class NewsPreferences : GLib.Object {
                 try {
                     personalized_feed_enabled = config.get_boolean("preferences", "personalized_feed_enabled");
                 } catch (GLib.Error e) { /* ignore and keep default */ }
-            }
-            // Load Local News image load limit (if present)
-            if (config.has_key("preferences", "local_news_image_load_limit")) {
-                try {
-                    local_news_image_load_limit = (int) config.get_integer("preferences", "local_news_image_load_limit");
-                } catch (GLib.Error e) { local_news_image_load_limit = 12; }
-            } else {
-                local_news_image_load_limit = 12;
             }
             // Load user-provided location if present
             if (config.has_key("preferences", "user_location")) {

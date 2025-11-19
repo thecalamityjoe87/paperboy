@@ -723,26 +723,8 @@ public class PrefsDialog : GLib.Object {
         personalized_row.add_suffix(suffix_box);
         main_container.append(personalized_row);
 
-        // Local News preference: how many Local News cards should fetch
-        // full-size images at initial load. This is user-configurable and
-        // defaults to 12. Use a small spin control for the user to pick a
-        // value between 1 and 50 inclusive.
-        var ln_row = new Adw.ActionRow();
-        ln_row.set_title("Local News Image Limit");
-        ln_row.set_subtitle("Number of Local News cards that load full images initially");
-        var ln_spin = new Gtk.SpinButton.with_range(1, 50, 1);
-        ln_spin.set_digits(0);
-        ln_spin.set_numeric(true);
-        ln_spin.set_tooltip_text("Set how many Local News cards should fetch full-size images when the view is first loaded.");
-        try { ln_spin.set_value((double) prefs.local_news_image_load_limit); } catch (GLib.Error e) { }
-        ln_spin.value_changed.connect(() => {
-            try {
-                prefs.local_news_image_load_limit = (int) ln_spin.get_value();
-                prefs.save_config();
-            } catch (GLib.Error e) { }
-        });
-        ln_row.add_suffix(ln_spin);
-        main_container.append(ln_row);
+        // No Local News image limit preference: keep UX simple and load a
+        // small, fixed amount by default to avoid excessive memory use.
 
         // Create categories pane (initially hidden) that slides in over main
         var categories_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
