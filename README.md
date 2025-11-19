@@ -2,7 +2,7 @@
   <img src="https://github.com/thecalamityjoe87/paperboy/blob/main/data/icons/256x256/paperboy.png?raw=true"/>
 </p>
 
-# **Paperboy (Vala + GTK)**
+# **Paperboy**
 
 ![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot.png?raw=true "Optional Title")
 ![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot1.png?raw=true "Optional Title")
@@ -14,10 +14,10 @@ A simple news app written in Vala, built with GTK4 and Libadwaita. My motivation
 
 Some cool features of Paperboy:
 
-- Ships with curated sources like The Guardian, Reddit, BBC, and FOX News.
-- Fetches articles through PaperboyAPI, a custom API that aggregates news from multiple sources and categories.
-- Lets you build a custom feed by combining any sources and categories you want.
-- Includes local news support, so you can see what’s happening near you.
+- **Ships with curated sources** like The Guardian, Reddit, BBC, and FOX News.
+- **Fetches articles through PaperboyAPI**, a custom API that aggregates news from multiple sources and categories.
+- **Lets you build a custom feed** by combining any sources and categories you want.
+- **Includes local news support**, so you can see what’s happening near you.
 
 ### --Warning--
 This app is very much so in an alpha state. It will definitely eat your dogs and throw your kittens outside. It's functional, but it's still very much so a WIP.
