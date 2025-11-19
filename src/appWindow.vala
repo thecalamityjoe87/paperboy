@@ -1583,6 +1583,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             prefs.category == "business" || 
             prefs.category == "entertainment" || 
             prefs.category == "politics" ||
+            prefs.category == "lifestyle" || 
             prefs.category == "markets" ||
             prefs.category == "industries" ||
             prefs.category == "economics" ||
@@ -1994,6 +1995,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             check_category == "business" || 
             check_category == "entertainment" || 
             check_category == "politics" ||
+            check_category == "lifestyle" || 
             check_category == "markets" ||
             check_category == "industries" ||
             check_category == "economics" ||
@@ -3934,6 +3936,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 self_ref.prefs.category == "business" || 
                 self_ref.prefs.category == "entertainment" || 
                 self_ref.prefs.category == "politics" ||
+                self_ref.prefs.category == "lifestyle" || 
                 self_ref.prefs.category == "markets" ||
                 self_ref.prefs.category == "industries" ||
                 self_ref.prefs.category == "economics" ||
