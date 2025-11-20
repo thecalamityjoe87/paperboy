@@ -59,6 +59,12 @@ sudo pacman -S --needed base-devel vala meson ninja pkgconf \
 	gtk4 libadwaita libsoup json-glib gdk-pixbuf2 libxml2 gee
 ```
 
+OpenSUSE Tumbleweed:
+```bash
+sudo zypper in -t pattern devel_basis && sudo zypper in meson vala gtk4-devel \
+	libsoup2-devel json-glib-devel libadwaita-devel libgee-devel
+```
+
 Build & run
 
 ```bash
