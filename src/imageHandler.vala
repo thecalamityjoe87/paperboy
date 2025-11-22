@@ -414,7 +414,7 @@ public class ImageHandler : GLib.Object {
     // Ensure we don't start more than MAX_CONCURRENT_DOWNLOADS downloads; if we are at capacity,
     // retry shortly until a slot frees up.
     public void ensure_start_download(string url, int target_w, int target_h) {
-        int cap = window.initial_phase ? NewsWindow.INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS : NewsWindow.MAX_CONCURRENT_DOWNLOADS;
+        int cap = (window.loading_state != null && window.loading_state.initial_phase) ? NewsWindow.INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS : NewsWindow.MAX_CONCURRENT_DOWNLOADS;
         if (NewsWindow.active_downloads >= cap) {
             Timeout.add(150, () => { ensure_start_download(url, target_w, target_h); return false; });
             return;
@@ -571,7 +571,7 @@ public class ImageHandler : GLib.Object {
         int download_w = target_w;
         int download_h = target_h;
         try {
-            if (window.initial_phase && target_w >= 160) {
+            if (window.loading_state != null && window.loading_state.initial_phase && target_w >= 160) {
                 download_w = clampi(target_w * 2, target_w, 1600);
                 download_h = clampi(target_h * 2, target_h, 1600);
                 window.append_debug_log("load_image_async: initial_phase bump request for url=" + url + " requested=" + target_w.to_string() + "x" + target_h.to_string() + " -> download=" + download_w.to_string() + "x" + download_h.to_string());

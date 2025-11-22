@@ -29,6 +29,8 @@ using Gee;
 public class LruCache<K, V> : GLib.Object {
     private Gee.HashMap<K, V> map;
     private Gee.ArrayList<K> order;
+    // Protect internal state from concurrent access across threads
+    private GLib.Mutex mutex;
     private int capacity;
     // Optional eviction callback invoked when entries are removed due to
     // capacity limits or explicit clear/remove. Callers can use this to
@@ -43,6 +45,7 @@ public class LruCache<K, V> : GLib.Object {
         this.capacity = capacity;
         map = new Gee.HashMap<K, V>();
         order = new Gee.ArrayList<K>();
+        mutex = new GLib.Mutex();
     }
 
     // Set an optional eviction callback. Passing null clears the callback.
@@ -52,31 +55,35 @@ public class LruCache<K, V> : GLib.Object {
 
     // Retrieve a value or null if missing. Marks the key as recently used.
     public V? get(K key) {
+        mutex.lock();
         try {
             var v = map.get(key);
             if (v != null) {
-                // move key to back
-                try { order.remove(key); } catch (GLib.Error e) { }
+                order.remove(key);
                 order.add(key);
             }
             return v;
-        } catch (GLib.Error e) {
-            return null;
+        } finally {
+            mutex.unlock();
         }
     }
 
     // Insert or update a value and enforce capacity eviction.
     public void set(K key, V value) {
+        // We'll collect any evicted entries while holding the lock, then
+        // invoke the optional eviction callback after releasing the mutex.
+        var evicted_keys = new Gee.ArrayList<K>();
+        var evicted_vals = new Gee.ArrayList<V>();
+
+        mutex.lock();
         try {
             bool exists = false;
-            try {
-                var tmp = map.get(key);
-                if (tmp != null) exists = true;
-            } catch (GLib.Error e) { exists = false; }
+            var tmp = map.get(key);
+            if (tmp != null) exists = true;
 
             map.set(key, value);
             if (exists) {
-                try { order.remove(key); } catch (GLib.Error e) { }
+                order.remove(key);
                 order.add(key);
                 return;
             }
@@ -86,68 +93,89 @@ public class LruCache<K, V> : GLib.Object {
             while (order.size > capacity) {
                 K oldest = order.get(0);
                 order.remove_at(0);
-                try {
-                    V? val = null;
-                    try { val = map.get(oldest); } catch (GLib.Error e) { val = null; }
-                    // Notify caller about eviction (best-effort) before removing
-                    // the entry from the backing map so the callback can operate
-                    // on the live object safely.
-                    try { if (on_evict != null && val != null) on_evict(oldest, val); } catch (GLib.Error e) { }
-                    try { map.remove(oldest); } catch (GLib.Error e) { }
-                    // Optional debug output when PAPERBOY_DEBUG is set (best-effort)
-                    try {
-                        string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                        if (dbg != null && dbg.length > 0) {
-                            // Best-effort stringify the key for debug output; if the
-                            // key isn't a string, print a placeholder to avoid
-                            // compile-time typing issues with generic K.
-                            string key_s = "<non-string>";
-                            try {
-                                if (oldest is string) key_s = (string) oldest;
-                            } catch (GLib.Error _e) { }
-                            print("DEBUG: LruCache.evicted key=%s\n", key_s);
-                        }
-                    } catch (GLib.Error e) { }
-                } catch (GLib.Error e) { }
+                V? val = map.get(oldest);
+                if (val != null) {
+                    evicted_keys.add(oldest);
+                    evicted_vals.add(val);
+                }
+                map.remove(oldest);
             }
-        } catch (GLib.Error e) {
-            // best-effort: ignore cache failures
+        } finally {
+            mutex.unlock();
+        }
+
+        // Debug-print evicted keys outside the lock (safe to inspect types).
+        string? dbg_env = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+        if (dbg_env != null && dbg_env.length > 0) {
+            print("DEBUG: LruCache.evicted count=%d\n", evicted_keys.size);
+        }
+
+        // Invoke eviction callbacks outside the lock to avoid reentrant
+        // mutations and potential use-after-free issues in callers.
+        if (on_evict != null) {
+            for (int i = 0; i < evicted_keys.size; i++) {
+                try {
+                    on_evict(evicted_keys.get(i), evicted_vals.get(i));
+                } catch (GLib.Error e) {
+                    // Best-effort: ignore callback errors
+                }
+            }
         }
     }
 
     // Remove a key from the cache
     public bool remove(K key) {
-        bool r = false;
+        V? captured_val = null;
+        bool removed = false;
+        mutex.lock();
         try {
-            try { order.remove(key); } catch (GLib.Error e) { }
-            V? val = null;
-            try { val = map.get(key); } catch (GLib.Error e) { val = null; }
-            try { if (on_evict != null && val != null) on_evict(key, val); } catch (GLib.Error e) { }
-            r = map.remove(key);
-        } catch (GLib.Error e) { r = false; }
-        return r;
+            order.remove(key);
+            captured_val = map.get(key);
+            removed = map.remove(key);
+        } finally {
+            mutex.unlock();
+        }
+
+        if (on_evict != null && captured_val != null) {
+            try { on_evict(key, captured_val); } catch (GLib.Error e) { }
+        }
+        return removed;
     }
 
     public void clear() {
-        try {
-            // Notify for each entry before clearing so callers can release
-            // resources tied to the cached values.
-            try {
-                for (int i = 0; i < order.size; i++) {
-                    K k = order.get(i);
-                    V? v = null;
-                    try { v = map.get(k); } catch (GLib.Error e) { v = null; }
-                    try { if (on_evict != null && v != null) on_evict(k, v); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
+        var evicted_keys = new Gee.ArrayList<K>();
+        var evicted_vals = new Gee.ArrayList<V>();
 
+        mutex.lock();
+        try {
+            for (int i = 0; i < order.size; i++) {
+                K k = order.get(i);
+                V? v = map.get(k);
+                if (v != null) {
+                    evicted_keys.add(k);
+                    evicted_vals.add(v);
+                }
+            }
             order.clear();
             map.clear();
-        } catch (GLib.Error e) { }
+        } finally {
+            mutex.unlock();
+        }
+
+        if (on_evict != null) {
+            for (int i = 0; i < evicted_keys.size; i++) {
+                try { on_evict(evicted_keys.get(i), evicted_vals.get(i)); } catch (GLib.Error e) { }
+            }
+        }
     }
 
     public int size() {
-        return map.size;
+        mutex.lock();
+        try {
+            return map.size;
+        } finally {
+            mutex.unlock();
+        }
     }
 
     public int get_capacity() {
@@ -156,17 +184,31 @@ public class LruCache<K, V> : GLib.Object {
 
     public void set_capacity(int c) {
         if (c <= 0) return;
-        capacity = c;
-        // Trim if necessary
-        while (order.size > capacity) {
-            K oldest = order.get(0);
-            order.remove_at(0);
-            try {
-                V? val = null;
-                try { val = map.get(oldest); } catch (GLib.Error e) { val = null; }
-                try { if (on_evict != null && val != null) on_evict(oldest, val); } catch (GLib.Error e) { }
-                try { map.remove(oldest); } catch (GLib.Error e) { }
-            } catch (GLib.Error e) { }
+        var evicted_keys = new Gee.ArrayList<K>();
+        var evicted_vals = new Gee.ArrayList<V>();
+
+        mutex.lock();
+        try {
+            capacity = c;
+            // Trim if necessary
+            while (order.size > capacity) {
+                K oldest = order.get(0);
+                order.remove_at(0);
+                V? val = map.get(oldest);
+                if (val != null) {
+                    evicted_keys.add(oldest);
+                    evicted_vals.add(val);
+                }
+                map.remove(oldest);
+            }
+        } finally {
+            mutex.unlock();
+        }
+
+        if (on_evict != null) {
+            for (int i = 0; i < evicted_keys.size; i++) {
+                try { on_evict(evicted_keys.get(i), evicted_vals.get(i)); } catch (GLib.Error e) { }
+            }
         }
     }
 
@@ -175,11 +217,14 @@ public class LruCache<K, V> : GLib.Object {
     // it to affect the cache.
     public Gee.ArrayList<K> keys() {
         var copy = new Gee.ArrayList<K>();
+        mutex.lock();
         try {
             for (int i = 0; i < order.size; i++) {
                 copy.add(order.get(i));
             }
-        } catch (GLib.Error e) { }
+        } finally {
+            mutex.unlock();
+        }
         return copy;
     }
 }
