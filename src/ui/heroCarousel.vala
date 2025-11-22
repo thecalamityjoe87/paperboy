@@ -32,15 +32,13 @@ public class HeroCarousel : GLib.Object {
     public HeroCarousel(Gtk.Box parent) {
         GLib.Object();
         // Create title and container
-        var top_stories_title = new Gtk.Label("TOP STORIES");
+        var top_stories_title = new Gtk.Label("");
         top_stories_title.set_xalign(0);
         top_stories_title.add_css_class("caption");
-        var title_attrs = new Pango.AttrList();
-        title_attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD));
-        top_stories_title.set_attributes(title_attrs);
+        // Use Pango markup to match the subtitle sizing used elsewhere.
+        try { top_stories_title.set_markup("<span size='11000'><b>TOP STORIES</b></span>"); } catch (GLib.Error e) { top_stories_title.set_text("TOP STORIES"); }
         top_stories_title.set_margin_bottom(6);
         try { parent.append(top_stories_title); } catch (GLib.Error e) { }
-
         widgets = new ArrayList<Widget>();
         dot_widgets = new ArrayList<Label>();
 

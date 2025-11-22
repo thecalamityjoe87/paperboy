@@ -265,7 +265,8 @@ public class HeaderManager : GLib.Object {
         if (window.prefs.category == "topten") {
             try {
                 if (category_subtitle != null) {
-                    category_subtitle.set_text("TOP STORIES RIGHT NOW");
+                    // Make subtitle slightly larger for emphasis using Pango markup
+                    try { category_subtitle.set_markup("<span size='11000'>TOP STORIES RIGHT NOW</span>"); } catch (GLib.Error e) { category_subtitle.set_text("TOP STORIES RIGHT NOW"); }
                     category_subtitle.set_visible(true);
                 }
             } catch (GLib.Error e) { }

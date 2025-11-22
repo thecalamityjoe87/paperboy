@@ -28,13 +28,51 @@ public class SidebarManager : GLib.Object {
     private Gtk.ListBox sidebar_list;
     private Gee.HashMap<string, Gtk.Box> sidebar_icon_holders;
     private SidebarActivateHandler? activate_cb;
+    private Gtk.ScrolledWindow sidebar_scrolled;
+    private Gtk.Revealer sidebar_revealer;
+    private Adw.NavigationPage sidebar_page;
 
-    public SidebarManager(NewsWindow window, Gtk.ListBox list, SidebarActivateHandler? activate_cb = null) {
+    public signal void category_selected(string category);
+
+    public SidebarManager(NewsWindow window, SidebarActivateHandler? activate_cb = null) {
         GLib.Object();
         this.window = window;
-        this.sidebar_list = list;
         this.sidebar_icon_holders = new Gee.HashMap<string, Gtk.Box>();
         this.activate_cb = activate_cb;
+        build_sidebar_ui();
+    }
+
+    private void build_sidebar_ui() {
+        // Create list
+        sidebar_list = new Gtk.ListBox();
+        sidebar_list.add_css_class("navigation-sidebar");
+        sidebar_list.set_selection_mode(Gtk.SelectionMode.SINGLE);
+        sidebar_list.set_activate_on_single_click(true);
+
+        // Create scrolled window
+        sidebar_scrolled = new Gtk.ScrolledWindow();
+        sidebar_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        sidebar_scrolled.set_child(sidebar_list);
+
+        // Create revealer
+        sidebar_revealer = new Gtk.Revealer();
+        sidebar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT);
+        sidebar_revealer.set_transition_duration(200);
+        sidebar_revealer.set_reveal_child(true);
+    }
+
+    public Adw.NavigationPage build_navigation_page(Adw.HeaderBar header) {
+        var sidebar_toolbar = new Adw.ToolbarView();
+        sidebar_toolbar.add_top_bar(header);
+        sidebar_toolbar.set_content(sidebar_scrolled);
+
+        sidebar_revealer.set_child(sidebar_toolbar);
+        sidebar_page = new Adw.NavigationPage(sidebar_revealer, "Categories");
+        return sidebar_page;
+    }
+
+    public Adw.NavigationPage get_page() {
+        return sidebar_page;
     }
 
     // Rebuild the sidebar rows according to the currently selected source
@@ -179,6 +217,75 @@ public class SidebarManager : GLib.Object {
         }
     }
 
+    public void update_for_source_change() {
+        rebuild_rows();
+    }
+
+    public void show() {
+        try { sidebar_revealer.set_reveal_child(true); } catch (GLib.Error e) { }
+    }
+
+    public void hide() {
+        try { sidebar_revealer.set_reveal_child(false); } catch (GLib.Error e) { }
+    }
+
+    public void toggle() {
+        try { sidebar_revealer.set_reveal_child(!sidebar_revealer.get_reveal_child()); } catch (GLib.Error e) { }
+    }
+
+    public bool is_visible() {
+        try { return sidebar_revealer.get_reveal_child(); } catch (GLib.Error e) { return false; }
+    }
+
+    public void set_revealed(bool revealed) {
+        try { sidebar_revealer.set_reveal_child(revealed); } catch (GLib.Error e) { }
+    }
+
+    private void handle_category_activation(string cat, string title) {
+        string validated = validate_category_for_sources(cat);
+
+        window.prefs.category = validated;
+        try { window.update_category_icon(); } catch (GLib.Error e) { }
+        try { window.update_local_news_ui(); } catch (GLib.Error e) { }
+        try { window.prefs.save_config(); } catch (GLib.Error e) { }
+
+        // Notify listeners (NewsWindow) to trigger fetch/update
+        try { category_selected(validated); } catch (GLib.Error e) { }
+        // Also invoke legacy callback if provided
+        try { if (activate_cb != null) activate_cb(validated, title); } catch (GLib.Error e) { }
+    }
+
+    private string validate_category_for_sources(string requested_cat) {
+        bool category_supported = false;
+        if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
+            foreach (var id in window.prefs.preferred_sources) {
+                NewsSource src = parse_source_id(id);
+                if (NewsSources.supports_category(src, requested_cat)) { category_supported = true; break; }
+            }
+        } else {
+            NewsSource current_source = effective_news_source();
+            try { category_supported = NewsSources.supports_category(current_source, requested_cat); } catch (GLib.Error e) { category_supported = false; }
+        }
+
+        if (!category_supported) return "frontpage";
+        return requested_cat;
+    }
+
+    private NewsSource parse_source_id(string id) {
+        switch (id) {
+            case "guardian": return NewsSource.GUARDIAN;
+            case "reddit": return NewsSource.REDDIT;
+            case "bbc": return NewsSource.BBC;
+            case "nytimes": return NewsSource.NEW_YORK_TIMES;
+            case "wsj": return NewsSource.WALL_STREET_JOURNAL;
+            case "bloomberg": return NewsSource.BLOOMBERG;
+            case "reuters": return NewsSource.REUTERS;
+            case "npr": return NewsSource.NPR;
+            case "fox": return NewsSource.FOX;
+            default: return window.prefs.news_source;
+        }
+    }
+
     // Add a simple section header row
     public void add_header(string title) {
         var header_row = new Adw.ActionRow();
@@ -205,12 +312,13 @@ public class SidebarManager : GLib.Object {
         row.add_prefix(holder);
         sidebar_icon_holders.set(cat, holder);
 
+        // store category on the row for future retrieval
+        row.set_data("category_id", cat);
+
         row.activated.connect(() => {
-            // Let the owner handle preference/state updates via callback
             try {
-                if (activate_cb != null) activate_cb(cat, title);
+                handle_category_activation(cat, title);
             } catch (GLib.Error e) { }
-            // Select the row in the UI for immediate feedback
             try { sidebar_list.select_row(row); } catch (GLib.Error e) { }
         });
 

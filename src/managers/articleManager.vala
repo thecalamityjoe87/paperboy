@@ -155,13 +155,25 @@ namespace Managers {
                 }
             }
             if (existing != null && thumbnail_url != null && thumbnail_url.length > 0) {
-                    var info = window.hero_requests.get(existing);
-                    int target_w = info != null ? info.last_requested_w : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
-                    int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
-                    if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
-                    window.image_handler.load_image_async(existing, thumbnail_url, target_w, target_h);
-                    stderr.printf("TRACE add_item: reused existing picture for '%s' (will load image)\n", title);
-                    return;
+                    // Normally reuse an existing Picture mapping to avoid duplicate
+                    // image widgets for the same normalized URL. However, the
+                    // Top Ten view intentionally displays many headlines from
+                    // multiple providers and we should not dedupe by the
+                    // normalized image key there — doing so can collapse
+                    // distinct headlines that happen to normalize to the same
+                    // URL (tracking/query params removed). Allow Top Ten to
+                    // create separate cards even when an image mapping exists.
+                    if (window.prefs.category != "topten") {
+                        var info = window.hero_requests.get(existing);
+                        int target_w = info != null ? info.last_requested_w : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+                        int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
+                        if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
+                        window.image_handler.load_image_async(existing, thumbnail_url, target_w, target_h);
+                        stderr.printf("TRACE add_item: reused existing picture for '%s' (will load image)\n", title);
+                        return;
+                    } else {
+                        stderr.printf("TRACE add_item: found existing picture mapping but skipping reuse for TOPTEN view: title=%s\n", title);
+                    }
             }
 
             string view_category = window.prefs.category;

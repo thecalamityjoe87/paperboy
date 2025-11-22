@@ -18,11 +18,59 @@ gio = dependency('gio-2.0')
 conf = configuration_data()
 conf.set('bindir', get_option('bindir'))
 build_constants = configure_file(input: 'meson-templates/build_constants.vala.in',
-                                 output: 'build_constants.vala',
+                                 output: 'buildCconstants.vala',
                                  configuration: conf)
 
   
-  executable('paperboy', [build_constants, 'src/main.vala', 'src/appWindow.vala', 'src/contentView.vala', 'src/articleCard.vala', 'src/heroCard.vala', 'src/heroCarousel.vala', 'src/newsSources.vala', 'tools/rssParser.vala', 'src/articlePane.vala', 'src/metaCache.vala', 'src/prefs.vala', 'src/prefsDialog.vala', 'tools/zipLookup.vala', 'tools/imageParser.vala', 'tools/articleScraper.vala', 'tools/stripHTML.vala', 'src/newsArticle.vala', 'src/utils/urlUtils.vala', 'src/utils/appDebugger.vala', 'src/utils/dataPaths.vala', 'src/utils/sourceLogos.vala', 'src/utils/categoryIcons.vala', 'src/utils/lruCache.vala', 'src/imageHandler.vala', 'src/utils/workerPool.vala', 'src/sidebarManager.vala', 'src/placeholderBuilder.vala', 'src/utils/previewCache.vala', 'src/builders/cardBuilder.vala', 'src/managers/headerManager.vala', 'src/managers/loadingStateManager.vala', 'src/managers/viewStateManager.vala', 'src/managers/layoutManager.vala', 'src/managers/articleManager.vala'],
+  executable('paperboy', [
+    build_constants,
+    'src/main.vala',
+
+    # UI
+    'src/ui/appWindow.vala',
+    'src/ui/prefsDialog.vala',
+    'src/ui/contentView.vala',
+    'src/ui/articlePane.vala',
+    'src/ui/articleCard.vala',
+    'src/ui/heroCard.vala',
+    'src/ui/heroCarousel.vala',
+
+    # Builders
+    'src/builders/cardBuilder.vala',
+    'src/builders/placeholderBuilder.vala',
+
+    # Managers
+    'src/managers/headerManager.vala',
+    'src/managers/loadingStateManager.vala',
+    'src/managers/viewStateManager.vala',
+    'src/managers/layoutManager.vala',
+    'src/managers/articleManager.vala',
+    'src/managers/sidebarManager.vala',
+    'src/managers/imageHandler.vala',
+
+    # Services / models
+    'src/services/metaCache.vala',
+    'src/services/newsSources.vala',
+    'src/services/prefs.vala',
+    'src/services/lruCache.vala',
+    'src/services/sourceLogos.vala',
+    'src/services/previewCache.vala',
+    'src/models/newsArticle.vala',
+
+    # Utils
+    'src/utils/appDebugger.vala',
+    'src/utils/urlUtils.vala',
+    'src/utils/dataPaths.vala',
+    'src/utils/categoryIcons.vala',
+    'src/utils/workerPool.vala',
+
+    # Tools used at build/runtime
+    'tools/rssParser.vala',
+    'tools/imageParser.vala',
+    'tools/articleScraper.vala',
+    'tools/stripHTML.vala',
+    'tools/zipLookup.vala',
+  ],
   dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio],
   install : true,
   link_args : ['-lm']
@@ -48,4 +96,4 @@ install_data('data/icons/paperboy.png', install_dir: join_paths(get_option('data
 # Install app data (styles, icons) to a namespaced datadir for runtime lookup
 install_data('data/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'paperboy'))
-install_data('data/us_zips.csv', install_dir: join_paths(get_option('datadir'), 'paperboy'))
+install_data('data/usZips.csv', install_dir: join_paths(get_option('datadir'), 'paperboy'))

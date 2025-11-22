@@ -511,10 +511,23 @@ public class NewsSources {
                     clear_items();
                     uint len = articles.get_length();
                     
-                    // Track seen URLs to skip duplicates (backend sometimes sends duplicate articles)
+                    // Track seen normalized URLs/titles to skip duplicates
                     var seen_urls = new Gee.HashSet<string>();
+                    var seen_titles = new Gee.HashSet<string>();
                     int added_count = 0;
                     
+                    // Helper to normalize an article URL for deduping (strip query/fragment and trailing slash)
+                    string normalize_article_url(string u) {
+                        if (u == null) return "";
+                        string s = u.strip();
+                        int q = s.index_of("?");
+                        if (q >= 0) s = s.substring(0, q);
+                        int h = s.index_of("#");
+                        if (h >= 0) s = s.substring(0, h);
+                        while (s.length > 1 && s.substring(s.length - 1) == "/") s = s.substring(0, s.length - 1);
+                        return s;
+                    }
+
                     for (uint i = 0; i < len && added_count < 10; i++) {
                         var art = articles.get_element(i).get_object();
                         string title = json_get_string_safe(art, "title") != null ? json_get_string_safe(art, "title") : (json_get_string_safe(art, "headline") != null ? json_get_string_safe(art, "headline") : "No title");
@@ -640,14 +653,91 @@ public class NewsSources {
                         if (display_source == null) display_source = "";
                         display_source = display_source + "##category::" + category_id;
 
-                        // Skip duplicates based on URL
-                        if (seen_urls.contains(article_url)) {
+                        // Normalize URL and title to detect duplicates more robustly
+                        string norm = normalize_article_url(article_url);
+                        string norm_title = title != null ? title.down().strip() : "";
+                        if ((norm.length > 0 && seen_urls.contains(norm)) || (norm_title.length > 0 && seen_titles.contains(norm_title))) {
                             continue;
                         }
-                        seen_urls.add(article_url);
-                        
+                        if (norm.length > 0) seen_urls.add(norm);
+                        if (norm_title.length > 0) seen_titles.add(norm_title);
                         add_item(title, article_url, thumbnail, "topten", display_source);
                         added_count++;
+                    }
+
+                    // If the backend returned fewer than 10 unique items, try
+                    // topping up from /news/frontpage (prefer unique articles
+                    // from a larger pool) instead of repeating headlines.
+                    if (added_count < 10) {
+                        try {
+                            string fp_url = base_url + "/news/frontpage";
+                            var msg2 = new Soup.Message("GET", fp_url);
+                            msg2.request_headers.append("User-Agent", "paperboy/0.1");
+                            session.send_message(msg2);
+                            if (msg2.status_code == 200) {
+                                string body2 = (string) msg2.response_body.flatten().data;
+                                var p2 = new Json.Parser();
+                                p2.load_from_data(body2);
+                                var r2 = p2.get_root();
+                                Json.Array front_articles = null;
+                                if (r2.get_node_type() == Json.NodeType.ARRAY) {
+                                    front_articles = r2.get_array();
+                                } else {
+                                    var o2 = r2.get_object();
+                                    if (o2.has_member("articles")) front_articles = o2.get_array_member("articles");
+                                    else if (o2.has_member("data")) {
+                                        var d2 = o2.get_object_member("data");
+                                        if (d2.has_member("articles")) front_articles = d2.get_array_member("articles");
+                                    }
+                                }
+                                if (front_articles != null) {
+                                    // Backend isn't designed to handle limit requests; cap the
+                                    // number of frontpage candidates we process to a
+                                    // reasonable pool size so dedupe/top-up remains
+                                    // deterministic and bounded.
+                                    uint total_candidates = front_articles.get_length();
+                                    uint max_candidates = 20;
+                                    uint len2 = total_candidates;
+                                    if (len2 > max_candidates) len2 = max_candidates;
+                                    for (uint j = 0; j < len2 && added_count < 10; j++) {
+                                        var a = front_articles.get_element(j).get_object();
+                                        string t = json_get_string_safe(a, "title") != null ? json_get_string_safe(a, "title") : (json_get_string_safe(a, "headline") != null ? json_get_string_safe(a, "headline") : "No title");
+                                        string u = json_get_string_safe(a, "url") != null ? json_get_string_safe(a, "url") : (json_get_string_safe(a, "link") != null ? json_get_string_safe(a, "link") : "");
+                                        string? thumb = null;
+                                        if (json_get_string_safe(a, "thumbnail") != null) thumb = json_get_string_safe(a, "thumbnail");
+                                        else if (json_get_string_safe(a, "image") != null) thumb = json_get_string_safe(a, "image");
+                                        else if (json_get_string_safe(a, "image_url") != null) thumb = json_get_string_safe(a, "image_url");
+
+                                        string n = normalize_article_url(u);
+                                        string nt = t != null ? t.down().strip() : "";
+                                        if ((n.length > 0 && seen_urls.contains(n)) || (nt.length > 0 && seen_titles.contains(nt))) continue;
+                                        if (n.length > 0) seen_urls.add(n);
+                                        if (nt.length > 0) seen_titles.add(nt);
+
+                                        string ds = "Paperboy API";
+                                        string? logo = null;
+                                        if (a.has_member("source")) {
+                                            var s_node = a.get_member("source");
+                                            if (s_node != null && s_node.get_node_type() == Json.NodeType.OBJECT) {
+                                                var s_obj = s_node.get_object();
+                                                string? nname = json_get_string_safe(s_obj, "name");
+                                                if (nname == null) nname = json_get_string_safe(s_obj, "title");
+                                                if (nname != null) ds = nname;
+                                                if (json_get_string_safe(s_obj, "logo_url") != null) logo = json_get_string_safe(s_obj, "logo_url");
+                                                else if (json_get_string_safe(s_obj, "logo") != null) logo = json_get_string_safe(s_obj, "logo");
+                                                else if (json_get_string_safe(s_obj, "favicon") != null) logo = json_get_string_safe(s_obj, "favicon");
+                                            } else {
+                                                string? s2 = json_get_string_safe(a, "source");
+                                                if (s2 != null) ds = s2;
+                                            }
+                                        }
+                                        if (logo != null && logo.length > 0) ds = ds + "||" + logo;
+                                        add_item(t, u, thumb, "topten", ds);
+                                        added_count++;
+                                    }
+                                }
+                            }
+                        } catch (GLib.Error e) { /* best-effort: ignore frontpage errors */ }
                     }
                     return false;
                 });

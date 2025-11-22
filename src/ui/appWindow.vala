@@ -97,11 +97,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         public MetaCache? meta_cache;
         public ImageHandler image_handler;
         public Soup.Session session;
-        public Gtk.ListBox sidebar_list;
         public SidebarManager sidebar_manager;
-        public Gtk.ScrolledWindow sidebar_scrolled;
-        public Gtk.Revealer sidebar_revealer;
-        public Adw.NavigationPage sidebar_page;
         public Adw.NavigationSplitView split_view;
         public Adw.NavigationView nav_view;
         public Adw.OverlaySplitView article_preview_split;
@@ -328,85 +324,27 @@ public class NewsWindow : Adw.ApplicationWindow {
         menu_button.set_menu_model(menu);
         menu_button.set_tooltip_text("Main Menu");
         content_header.pack_end(menu_button);
-        sidebar_list = new Gtk.ListBox();
-        sidebar_list.add_css_class("navigation-sidebar");
-        sidebar_list.set_selection_mode(SelectionMode.SINGLE);
-        sidebar_list.set_activate_on_single_click(true);
+        // Create SidebarManager (it now builds its own UI)
+        sidebar_manager = new SidebarManager(this);
 
-        // Create SidebarManager to encapsulate building rows and icon holders
-        sidebar_manager = new SidebarManager(this, sidebar_list, (cat, title) => {
-        // Check if the selected category is supported by at least one source
-        // In multi-source mode, allow if ANY source supports it
-        // In single-source mode, check that specific source
-        bool category_supported = false;
-        if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
-            // Multi-source: check if at least one source supports this category
-            foreach (var id in prefs.preferred_sources) {
-                NewsSource src = NewsSource.GUARDIAN;
-                switch (id) {
-                    case "guardian": src = NewsSource.GUARDIAN; break;
-                    case "reddit": src = NewsSource.REDDIT; break;
-                    case "bbc": src = NewsSource.BBC; break;
-                    case "nytimes": src = NewsSource.NEW_YORK_TIMES; break;
-                    case "wsj": src = NewsSource.WALL_STREET_JOURNAL; break;
-                    case "bloomberg": src = NewsSource.BLOOMBERG; break;
-                    case "reuters": src = NewsSource.REUTERS; break;
-                    case "npr": src = NewsSource.NPR; break;
-                    case "fox": src = NewsSource.FOX; break;
-                }
-                if (NewsSources.supports_category(src, cat)) {
-                    category_supported = true;
-                    break;
-                }
+        // Listen for category selections and trigger fetch/update from the window
+        sidebar_manager.category_selected.connect((category) => {
+            if (category == "frontpage") {
+                try { fetch_news(); } catch (GLib.Error e) { }
+                return;
             }
-        } else {
-            // Single source: check that specific source
-            NewsSource current_source = effective_news_source();
-            category_supported = NewsSources.supports_category(current_source, cat);
-        }
-        
-        if (!category_supported) {
-            // Record a short debug trace when falling back to frontpage
-                // Removed temporary sidebar activation disk logging used during
-                // diagnostics. Keep behavior: fall back to frontpage when the
-                // selected category is unsupported.
-            cat = "frontpage";
-        }
-        
-        prefs.category = cat;
-        try { update_category_icon(); } catch (GLib.Error e) { }
-        prefs.save_config();
-        try { update_local_news_ui(); } catch (GLib.Error e) { }
-        try {
-            if (cat == "frontpage") { fetch_news(); return; }
-        } catch (GLib.Error e) { }
-        Idle.add(() => {
-            try { prefs.category = cat; prefs.save_config(); } catch (GLib.Error e) { }
-            try { fetch_news(); } catch (GLib.Error e) { }
-            try { update_personalization_ui(); } catch (GLib.Error e) { }
-            return false;
+            Idle.add(() => {
+                try { fetch_news(); } catch (GLib.Error e) { }
+                try { update_personalization_ui(); } catch (GLib.Error e) { }
+                return false;
+            });
         });
-    });
-    sidebar_manager.rebuild_rows();
 
-    sidebar_scrolled = new Gtk.ScrolledWindow();
-    sidebar_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-    sidebar_scrolled.set_child(sidebar_list);
+        sidebar_manager.rebuild_rows();
 
-    // Wrap sidebar in ToolbarView with headerbar
-    var sidebar_toolbar = new Adw.ToolbarView();
-    sidebar_toolbar.add_top_bar(sidebar_header);
-    sidebar_toolbar.set_content(sidebar_scrolled);
-
-    // Wrap sidebar in a Revealer for smooth slide animations
-    sidebar_revealer = new Gtk.Revealer();
-    sidebar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT);
-    sidebar_revealer.set_transition_duration(200);
-    sidebar_revealer.set_child(sidebar_toolbar);
-    sidebar_revealer.set_reveal_child(true);
-
-    // Create NavigationPage for sidebar content
-    var sidebar_page = new Adw.NavigationPage(sidebar_revealer, "Categories");
+        // Request the completed navigation page from the manager (use the
+        // `sidebar_header` built earlier above)
+        Adw.NavigationPage sidebar_page = sidebar_manager.build_navigation_page(sidebar_header);
 
     // Wrap content in a NavigationPage for NavigationSplitView
     // We need to create the content page after setting up root_overlay
@@ -482,7 +420,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     split_view = new Adw.NavigationSplitView();
     split_view.set_min_sidebar_width(266);
     split_view.set_max_sidebar_width(266);
-    split_view.set_sidebar(sidebar_page);
     // Wrap content in a NavigationView so we can slide in a preview page
     nav_view = new Adw.NavigationView();
     var main_page = new Adw.NavigationPage(main_scrolled, "Main");
@@ -543,9 +480,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     preview_wrapper.add_css_class("article-preview-panel");
     
     article_preview_split.set_sidebar(preview_wrapper);
-    
-    // Wrap root_overlay with article preview split
-    article_preview_split.set_content(root_overlay);
     
     // Create dim overlay to disable main area when article preview is open
     dim_overlay = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
@@ -664,7 +598,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     sidebar_toggle.toggled.connect(() => {
         bool active = sidebar_toggle.get_active();
         split_view.set_collapsed(!active);
-        sidebar_revealer.set_reveal_child(active);
+        try { if (sidebar_manager != null) sidebar_manager.set_revealed(active); } catch (GLib.Error e) { }
     });
     
     content_page.set_can_pop(false); // Prevent accidental navigation away
@@ -894,12 +828,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
-    private void update_category_icon() {
+    public void update_category_icon() {
         try { if (header_manager != null) header_manager.update_category_icon(); } catch (GLib.Error e) { }
     }
-
-    // Category header icon creation moved to `src/utils/category_icons.vala`.
-    // Use CategoryIcons.create_category_header_icon(cat, size) instead.
 
     private void update_content_header() {
         try { if (header_manager != null) header_manager.update_content_header(); } catch (GLib.Error e) { }
@@ -937,11 +868,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     private void update_sidebar_for_source() {
-        update_source_info(); // Update the source logo and label
-        // NavigationSplitView handles sidebar visibility automatically
-        // based on collapsed state and user interaction
-    // Rebuild rows to reflect source-specific categories (e.g., Bloomberg)
-    try { if (sidebar_manager != null) sidebar_manager.rebuild_rows(); } catch (GLib.Error e) { }
+        update_source_info();
+        try { if (sidebar_manager != null) sidebar_manager.update_for_source_change(); } catch (GLib.Error e) { }
     }
 
     // SidebarManager handles sidebar icon updates on theme changes now.
