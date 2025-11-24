@@ -18,7 +18,7 @@ gio = dependency('gio-2.0')
 conf = configuration_data()
 conf.set('bindir', get_option('bindir'))
 build_constants = configure_file(input: 'meson-templates/build_constants.vala.in',
-                                 output: 'buildCconstants.vala',
+                                 output: 'buildConstants.vala',
                                  configuration: conf)
 
   
@@ -50,6 +50,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
 
     # Services / models
     'src/services/metaCache.vala',
+    'src/services/articleStateStore.vala',
+    'src/services/imageCache.vala',
     'src/services/newsSources.vala',
     'src/services/prefs.vala',
     'src/services/lruCache.vala',
@@ -60,6 +62,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     # Utils
     'src/utils/appDebugger.vala',
     'src/utils/urlUtils.vala',
+    'src/utils/sourceUtils.vala',
+    'src/utils/dateUtils.vala',
     'src/utils/dataPaths.vala',
     'src/utils/categoryIcons.vala',
     'src/utils/workerPool.vala',

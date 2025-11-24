@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,9 +12,9 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 using Gtk;
 using Adw;
@@ -62,10 +62,13 @@ public class HeaderManager : GLib.Object {
                                 if (white_cand != null) use_path = white_cand;
                             }
                         } catch (GLib.Error e) { }
-                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                        if (pix != null) {
-                            var tex = Gdk.Texture.for_pixbuf(pix);
-                            try { source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                        string key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                        var cached = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
+                        if (cached != null) {
+                            try {
+                                var tex = ImageCache.get_global().get_texture(key); if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
+                                try { source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                            } catch (GLib.Error e) { try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
                         } else {
                             try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
                         }
@@ -92,9 +95,10 @@ public class HeaderManager : GLib.Object {
                         }
                     } catch (GLib.Error e) { }
                     try {
-                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                        if (pix != null) {
-                            var tex = Gdk.Texture.for_pixbuf(pix);
+                        string key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                        var cached = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
+                        if (cached != null) {
+                            var tex = ImageCache.get_global().get_texture(key); if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
                             source_logo.set_from_paintable(tex);
                         } else {
                             try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
@@ -122,9 +126,10 @@ public class HeaderManager : GLib.Object {
                         }
                     } catch (GLib.Error e) { }
                     try {
-                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                        if (pix != null) {
-                            var tex = Gdk.Texture.for_pixbuf(pix);
+                        string key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                        var cached = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
+                        if (cached != null) {
+                            var tex = ImageCache.get_global().get_texture(key); if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
                             source_logo.set_from_paintable(tex);
                         } else {
                             try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
@@ -151,11 +156,20 @@ public class HeaderManager : GLib.Object {
                             if (white_candidate != null) use_path = white_candidate;
                         }
                     } catch (GLib.Error e) { }
-                    var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                    if (pix != null) {
-                        var tex = Gdk.Texture.for_pixbuf(pix);
-                        source_logo.set_from_paintable(tex);
-                        return;
+                    string key = "pixbuf::file:" + use_path + "::32x32";
+                    var cached = ImageCache.get_global().get(key);
+                    if (cached == null) {
+                        try {
+                            var pb = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
+                            if (pb != null) cached = pb;
+                        } catch (GLib.Error e) { }
+                    }
+                    if (cached != null) {
+                        try {
+                            var tex = ImageCache.get_global().get_texture(key); if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
+                            source_logo.set_from_paintable(tex);
+                            return;
+                        } catch (GLib.Error e) { }
                     }
                 } catch (GLib.Error e) { }
             }
@@ -216,11 +230,14 @@ public class HeaderManager : GLib.Object {
             string? logo_path = DataPaths.find_data_file(GLib.Path.build_filename("icons", logo_file));
             if (logo_path != null) {
                 try {
-                    var pixbuf = new Gdk.Pixbuf.from_file(logo_path);
-                    if (pixbuf != null) {
-                        int orig_width = pixbuf.get_width();
-                        int orig_height = pixbuf.get_height();
-                        double aspect_ratio = (double)orig_width / orig_height;
+                    // Load or fetch cached scaled logo pixbuf
+                    // First try to determine target dims by probing original image.
+                    var orig_pb = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, 0, 0), logo_path, 0, 0);
+                    if (orig_pb != null) {
+                        int orig_width = 0; int orig_height = 0;
+                        try { orig_width = orig_pb.get_width(); } catch (GLib.Error e) { orig_width = 0; }
+                        try { orig_height = orig_pb.get_height(); } catch (GLib.Error e) { orig_height = 0; }
+                        double aspect_ratio = orig_width > 0 && orig_height > 0 ? (double)orig_width / orig_height : 1.0;
                         double scale_factor;
                         if (aspect_ratio > 2.0 || aspect_ratio < 0.5) {
                             scale_factor = double.min(40.0 / orig_width, 40.0 / orig_height);
@@ -231,10 +248,13 @@ public class HeaderManager : GLib.Object {
                         }
                         int new_width = (int)(orig_width * scale_factor);
                         int new_height = (int)(orig_height * scale_factor);
-                        var scaled_pixbuf = pixbuf.scale_simple(new_width, new_height, Gdk.InterpType.BILINEAR);
-                        var texture = Gdk.Texture.for_pixbuf(scaled_pixbuf);
-                        source_logo.set_from_paintable(texture);
-                        return;
+                        string key = "pixbuf::file:%s::%dx%d".printf(logo_path, new_width, new_height);
+                        var cached = ImageCache.get_global().get_or_load_file(key, logo_path, new_width, new_height);
+                        if (cached != null) {
+                            var texture = Gdk.Texture.for_pixbuf(cached);
+                            source_logo.set_from_paintable(texture);
+                            return;
+                        }
                     }
                 } catch (GLib.Error e) {
                     warning("Failed to load logo %s: %s", logo_path, e.message);

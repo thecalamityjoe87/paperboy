@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,9 +12,9 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 /* 
  * Utility for creating category icons (both sidebar and header variants).
@@ -91,9 +91,25 @@ public class CategoryIcons : GLib.Object {
                         if (white_candidate != null) use_path = white_candidate;
                     }
 
-                    var img = new Gtk.Image.from_file(use_path);
-                    img.set_pixel_size(SIDEBAR_ICON_SIZE);
-                    return img;
+                    string key = "pixbuf::file:%s::%dx%d".printf(use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
+                    var cached = ImageCache.get_global().get_or_load_file(key, use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
+                    if (cached != null) {
+                        try {
+                            // Use cached texture instead of creating new one every time
+                            var tex = ImageCache.get_global().get_texture(key);
+                            if (tex != null) {
+                                var img = new Gtk.Image();
+                                try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
+                                img.set_pixel_size(SIDEBAR_ICON_SIZE);
+                                return img;
+                            }
+                        } catch (GLib.Error e) { }
+                    }
+                    try {
+                        var img2 = new Gtk.Image.from_file(use_path);
+                        img2.set_pixel_size(SIDEBAR_ICON_SIZE);
+                        return img2;
+                    } catch (GLib.Error e) { }
                 } catch (GLib.Error e) {
                     warning("Failed to load bundled icon %s: %s", icon_path, e.message);
                 }
@@ -220,25 +236,37 @@ public class CategoryIcons : GLib.Object {
                             // display. Rendering at 2x the requested size then
                             // scaling down improves visual crispness for icons.
                             int render_size = size * 2;
-                            var pix_hi = new Gdk.Pixbuf.from_file_at_size(use_path, render_size, render_size);
-                            if (pix_hi != null) {
-                                var tex = Gdk.Texture.for_pixbuf(pix_hi);
-                                var img = new Gtk.Image();
-                                try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
-                                img.set_pixel_size(size);
-                                return img;
+                            string key_hi = "pixbuf::file:%s::%dx%d".printf(use_path, render_size, render_size);
+                            var cached_hi = ImageCache.get_global().get_or_load_file(key_hi, use_path, render_size, render_size);
+                            if (cached_hi != null) {
+                                // Use cached texture instead of creating new one
+                                var tex = ImageCache.get_global().get_texture(key_hi);
+                                if (tex != null) {
+                                    var img = new Gtk.Image();
+                                    try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
+                                    img.set_pixel_size(size);
+                                    return img;
+                                }
                             }
                         } catch (GLib.Error e) {
                             // Fall back to pixbuf path below on error
                         }
                     }
 
-                    var pix = new Gdk.Pixbuf.from_file_at_size(use_path, size, size);
-                    if (pix != null) {
-                        var tex = Gdk.Texture.for_pixbuf(pix);
-                        var img = new Gtk.Image();
-                        try { img.set_from_paintable(tex); } catch (GLib.Error e) { try { img.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                        return img;
+                    string key_sz = "pixbuf::file:%s::%dx%d".printf(use_path, size, size);
+                    var cached_sz = ImageCache.get_global().get_or_load_file(key_sz, use_path, size, size);
+                    if (cached_sz != null) {
+                        try {
+                            // Use cached texture instead of creating new one
+                            var tex = ImageCache.get_global().get_texture(key_sz);
+                            if (tex != null) {
+                                var img = new Gtk.Image();
+                                try { img.set_from_paintable(tex); } catch (GLib.Error e) {
+                                    try { img.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                                }
+                                return img;
+                            }
+                        } catch (GLib.Error e) { }
                     }
                 } catch (GLib.Error e) {
                     // fall through to theme icons below

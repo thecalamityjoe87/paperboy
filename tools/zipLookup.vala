@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,14 +12,14 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 /*
  * Local CSV-based ZIP -> city resolver.
  *
- * Expects a CSV at data/us_zips.csv with rows:
+ * Expects a CSV at data/usZips.csv with rows:
  * ZIP,City,State
  *
  * This loader reads the CSV at startup (best-effort) and provides
@@ -324,7 +324,7 @@ public class ZipLookup : GLib.Object {
     // a field are escaped by doubling them ("" -> ").
     private Gee.ArrayList<string> parse_csv_line(string line) {
         Gee.ArrayList<string> out = new Gee.ArrayList<string>();
-        string cur = "";
+        StringBuilder cur = new StringBuilder();
         bool in_quotes = false;
         for (uint i = 0; i < (uint) line.length; i++) {
             char c = line[i];
@@ -332,26 +332,26 @@ public class ZipLookup : GLib.Object {
                 if (c == '"') {
                     // Peek next char: if another quote, it's an escaped quote
                     if (i + 1 < (uint) line.length && line[i+1] == '"') {
-                        cur = cur + "\"";
+                        cur.append_c('"');
                         i++; // skip the escaped quote
                     } else {
                         in_quotes = false;
                     }
                 } else {
-                    cur = cur + line.substring(i, 1);
+                    cur.append_c(c);
                 }
             } else {
                 if (c == '"') {
                     in_quotes = true;
                 } else if (c == ',') {
-                    out.add(cur);
-                    cur = "";
+                    out.add(cur.str);
+                    cur = new StringBuilder();
                 } else {
-                    cur = cur + line.substring(i, 1);
+                    cur.append_c(c);
                 }
             }
         }
-        out.add(cur);
+        out.add(cur.str);
         return out;
     }
 
@@ -377,16 +377,15 @@ public class ZipLookup : GLib.Object {
         if (zip == null) return null;
         string s = zip.strip();
         // Extract first 5 digits by scanning (avoid relying on Regex API)
-        string digits = "";
+        StringBuilder digits_sb = new StringBuilder();
         for (uint i = 0; i < (uint) s.length; i++) {
             char c = s[i];
             if (c >= '0' && c <= '9') {
-                // Append the single-character substring instead of casting
-                // the char directly to a string (which is unsafe).
-                digits = digits + s.substring(i, 1);
-                if (digits.length == 5) break;
+                digits_sb.append_c(c);
+                if (digits_sb.len == 5) break;
             }
         }
+        string digits = digits_sb.str;
 
         if (digits.length == 0) return null;
 
@@ -461,16 +460,9 @@ public class ZipLookup : GLib.Object {
                 res = null;
             }
             // Call callback on main loop; pass empty string when no result.
-            // Duplicate the string on the worker thread to ensure a
-            // stable heap allocation that the main-loop callback can
-            // safely reference even if scheduling is delayed.
             string result_str = res != null ? res : "";
-            // Simple duplication via concatenation to force allocation
-            // of a fresh string instance owned independently of the
-            // worker's internal temporaries.
-            string result_dup = "" + result_str;
             Idle.add(() => {
-                try { cb(result_dup); } catch (GLib.Error e) { }
+                try { cb(result_str); } catch (GLib.Error e) { }
                 return false;
             });
             return null;

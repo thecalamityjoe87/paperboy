@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,9 +12,9 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 using Gtk;
 using Gdk;
@@ -78,34 +78,53 @@ public class CardBuilder : GLib.Object {
             string? path = DataPaths.find_data_file("icons/" + filename);
             if (path != null) {
                 try {
-                    var icon_pix = new Gdk.Pixbuf.from_file(path);
-                    if (icon_pix != null) {
-                        int orig_w = icon_pix.get_width();
-                        int orig_h = icon_pix.get_height();
+                    // Use ImageCache for all generated pixbufs so we never keep long-lived
+                    // pixbufs/textures outside the central cache. Ask ImageCache to
+                    // provide a scaled pixbuf for the requested size.
+                    // Determine a scaled size that fits into 20x20 while preserving aspect.
+                    // We'll request the scaled backend pixbuf directly from ImageCache.
+                    // First, probe original image size using a best-effort full-size load.
+                    Gdk.Pixbuf? probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(path, 0, 0), path, 0, 0);
+                    if (probe != null) {
+                        int orig_w = 0; int orig_h = 0;
+                        try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
+                        try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
                         double scale = 1.0;
                         if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
                         int sw = (int)(orig_w * scale);
                         int sh = (int)(orig_h * scale);
-                        var scaled_icon = icon_pix.scale_simple(sw, sh, Gdk.InterpType.BILINEAR);
+                        if (sw < 1) sw = 1;
+                        if (sh < 1) sh = 1;
 
-                        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                        var cr = new Cairo.Context(surface);
-                        int x = (20 - sw) / 2;
-                        int y = (20 - sh) / 2;
-                        try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
-                        var tex = Gdk.Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, 20, 20));
+                        // Request the scaled pixbuf from ImageCache (centralized creation)
+                        string key = "pixbuf::file:%s::%dx%d".printf(path, sw, sh);
+                        Gdk.Pixbuf? used_pb = ImageCache.get_global().get_or_load_file(key, path, sw, sh);
 
-                        var pic = new Gtk.Picture();
-                        pic.set_paintable(tex);
-                        pic.set_size_request(20, 20);
+                        if (used_pb != null) {
+                            var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
+                            var cr = new Cairo.Context(surface);
+                            int x = (20 - sw) / 2;
+                            int y = (20 - sh) / 2;
+                            try { Gdk.cairo_set_source_pixbuf(cr, used_pb, x, y); cr.paint(); } catch (GLib.Error e) { }
+                            string surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(path, 20, 20);
+                            var pb_surface = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
+                            var cached_surface = pb_surface;
 
-                        var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                        logo_wrapper.add_css_class("circular-logo");
-                        logo_wrapper.set_size_request(20, 20);
-                        logo_wrapper.set_valign(Gtk.Align.CENTER);
-                        logo_wrapper.set_halign(Gtk.Align.CENTER);
-                        logo_wrapper.append(pic);
-                        box.append(logo_wrapper);
+                            var pic = new Gtk.Picture();
+                            Gdk.Pixbuf? final_pb = cached_surface != null ? cached_surface : pb_surface;
+                            if (final_pb != null) {
+                                try { pic.set_paintable(Gdk.Texture.for_pixbuf(final_pb)); } catch (GLib.Error e) { }
+                            }
+                            pic.set_size_request(20, 20);
+
+                            var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
+                            logo_wrapper.add_css_class("circular-logo");
+                            logo_wrapper.set_size_request(20, 20);
+                            logo_wrapper.set_valign(Gtk.Align.CENTER);
+                            logo_wrapper.set_halign(Gtk.Align.CENTER);
+                            logo_wrapper.append(pic);
+                            box.append(logo_wrapper);
+                        }
                     }
                 } catch (GLib.Error e) { }
             }
@@ -252,26 +271,35 @@ public class CardBuilder : GLib.Object {
                         box.set_valign(Gtk.Align.END);
                         box.set_halign(Gtk.Align.END);
                         try {
-                            var icon_pix = new Gdk.Pixbuf.from_file(full);
-                            if (icon_pix != null) {
-                                int orig_w = icon_pix.get_width();
-                                int orig_h = icon_pix.get_height();
-                                double scale = 1.0;
-                                if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
-                                int sw = (int)(orig_w * scale);
-                                int sh = (int)(orig_h * scale);
-                                var scaled_icon = icon_pix.scale_simple(sw, sh, Gdk.InterpType.BILINEAR);
+                                // Centralize file loading and scaling in ImageCache
+                                var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(full, 0, 0), full, 0, 0);
+                                if (probe != null) {
+                                    int orig_w = 0; int orig_h = 0;
+                                    try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
+                                    try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
+                                    double scale = 1.0;
+                                    if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
+                                    int sw = (int)(orig_w * scale);
+                                    int sh = (int)(orig_h * scale);
+                                    if (sw < 1) sw = 1; if (sh < 1) sh = 1;
 
-                                var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                                var cr = new Cairo.Context(surface);
-                                int x = (20 - sw) / 2;
-                                int y = (20 - sh) / 2;
-                                try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
-                                var tex = Gdk.Texture.for_pixbuf(Gdk.pixbuf_get_from_surface(surface, 0, 0, 20, 20));
+                                    var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(full, sw, sh), full, sw, sh);
 
-                                var pic = new Gtk.Picture();
-                                pic.set_paintable(tex);
-                                pic.set_size_request(20, 20);
+                                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
+                                    var cr = new Cairo.Context(surface);
+                                    int x = (20 - sw) / 2;
+                                    int y = (20 - sh) / 2;
+                                    try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
+                                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(full, 20, 20);
+                                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
+
+                                    Gdk.Pixbuf? final_pb = pb_surf;
+
+                                    var pic = new Gtk.Picture();
+                                    if (final_pb != null) {
+                                        try { pic.set_paintable(Gdk.Texture.for_pixbuf(final_pb)); } catch (GLib.Error e) { }
+                                    }
+                                    pic.set_size_request(20, 20);
 
                                 var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
                                 logo_wrapper.add_css_class("circular-logo");

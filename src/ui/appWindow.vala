@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,9 +12,9 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 using Gtk;
 using Adw;
@@ -89,12 +89,17 @@ public class NewsWindow : Adw.ApplicationWindow {
         public GLib.Rand rng;
         public Gee.HashMap<Gtk.Picture, HeroRequest> hero_requests;
         public Managers.ViewStateManager? view_state;
-        public LruCache<string, Gdk.Texture> memory_meta_cache;
-        public LruCache<string, Gdk.Texture> thumbnail_cache;
+        // Image caching moved to ImageCache (pixbuf-backed). Do not store
+        // Gdk.Texture or Gdk.Pixbuf in window fields; use `image_cache`.
         public Gee.HashMap<string, string> requested_image_sizes;
         public Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
         public Gee.HashMap<Gtk.Picture, DeferredRequest> deferred_downloads;
+        // Per-picture flag indicating we should show the local placeholder
+        // (used for Local News cards so fallbacks keep the local look).
+        public Gee.HashMap<Gtk.Picture, bool> pending_local_placeholder;
         public MetaCache? meta_cache;
+        public ArticleStateStore? article_state_store;
+        public ImageCache? image_cache;
         public ImageHandler image_handler;
         public Soup.Session session;
         public SidebarManager sidebar_manager;
@@ -212,36 +217,25 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Initialize in-memory cache and pending-downloads map
         // Capacity reduced to 30 (from 50) to prevent memory bloat with multiple sources
         // With all sources enabled, this prevents caching 200+ images in RAM
-        memory_meta_cache = new LruCache<string, Gdk.Texture>(30);
-        // Separate thumbnail cache for small images (50 items) - improves hit rate
-        thumbnail_cache = new LruCache<string, Gdk.Texture>(50);
-        // Eviction callback: log evictions when PAPERBOY_DEBUG is set so we can
-        // correlate evicted keys with resident memory. Keep lightweight.
-        try {
-            // Register a lightweight eviction callback when debugging is enabled.
-            // Use an untyped lambda so Vala's parser can infer the delegate types
-            // and avoid syntax errors that break compilation.
-            memory_meta_cache.set_eviction_callback((k, v) => {
-                try {
-                    string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                    if (_dbg != null && _dbg.length > 0) {
-                        int w = 0; int h = 0;
-                        try { w = ((Gdk.Texture) v).get_width(); } catch (GLib.Error e) { }
-                        try { h = ((Gdk.Texture) v).get_height(); } catch (GLib.Error e) { }
-                        append_debug_log("DEBUG: memory_meta_cache.evicted=" + k + " tex=" + w.to_string() + "x" + h.to_string());
-                    }
-                } catch (GLib.Error e) { }
-            });
-        } catch (GLib.Error e) { }
+        // Use ImageCache for in-memory pixbuf caching; evictions/unrefs are
+        // handled by ImageCache itself. The per-window `image_cache` is
+        // instantiated below and will be set as the global ImageCache.
         requested_image_sizes = new Gee.HashMap<string, string>();
         pending_downloads = new Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>>();
         deferred_downloads = new Gee.HashMap<Gtk.Picture, DeferredRequest>();
+        pending_local_placeholder = new Gee.HashMap<Gtk.Picture, bool>();
         // Initialize on-disk cache helper
         try {
             meta_cache = new MetaCache();
         } catch (GLib.Error e) {
             meta_cache = null;
         }
+        try {
+            article_state_store = new ArticleStateStore();
+        } catch (GLib.Error e) { article_state_store = null; }
+        try {
+            image_cache = new ImageCache(256);
+        } catch (GLib.Error e) { image_cache = null; }
         // Initialize external image handler that owns download/cache logic
         image_handler = new ImageHandler(this);
 
@@ -635,8 +629,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         session.max_conns_per_host = 4; // Limit per host to prevent overwhelming servers
         session.timeout = 15; // Default timeout
 
-        // Initialize article window
-        article_pane = new ArticlePane(nav_view, session, this);
+        // Initialize article window with image handler for loading preview images
+        article_pane = new ArticlePane(nav_view, session, this, image_handler);
         article_pane.set_preview_overlay(article_preview_split, article_preview_content);
 
         // Add keyboard event controller for closing article preview with Escape
@@ -742,11 +736,15 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Ensure the personalized message visibility is correct at startup
     update_personalization_ui();
 
-        // Clear only cached images on window close to avoid disk clutter
-        // while preserving per-article metadata (e.g., viewed flags).
+        // Clear only cached in-memory images on window close to free textures
+        // while preserving per-article metadata (e.g., viewed flags) on disk.
         this.close_request.connect(() => {
-            if (meta_cache != null) {
-                try { meta_cache.clear_images(); } catch (GLib.Error e) { }
+            try {
+                // Clear any paintables held by window-level widgets to release textures
+                try { if (source_logo != null) source_logo.set_from_paintable(null); } catch (GLib.Error e) { }
+            } catch (GLib.Error e) { }
+            if (image_cache != null) {
+                try { image_cache.clear(); } catch (GLib.Error e) { }
             }
             return false; // allow default handler to run
         });
@@ -765,31 +763,28 @@ public class NewsWindow : Adw.ApplicationWindow {
     public void debug_dump_cache_stats() {
         try {
             int cache_size = 0;
-            try { cache_size = memory_meta_cache.size(); } catch (GLib.Error e) { cache_size = -1; }
-            append_debug_log("DEBUG: memory_meta_cache.size=" + cache_size.to_string());
+            try { cache_size = image_cache != null ? image_cache.size() : ImageCache.get_global().size(); } catch (GLib.Error e) { cache_size = -1; }
+            append_debug_log("DEBUG: image_cache.size=" + cache_size.to_string());
 
-            // If the cache supports key enumeration, dump each entry and any
-            // texture dimensions we can obtain. This helps correlate which
-            // textures are retained in the cache with resident memory.
+            // If the cache supports key enumeration, dump each entry and pixbuf dimensions
             try {
-                // memory_meta_cache is typically LruCache<string, Gdk.Texture>
-                var keys = memory_meta_cache.keys();
-                append_debug_log("DEBUG: memory_meta_cache.keys_count=" + keys.size.to_string());
-                foreach (var k in keys) {
+                var keys = image_cache != null ? image_cache.keys() : ImageCache.get_global().keys();
+                int key_count = 0;
+                try { key_count = keys.size; } catch (GLib.Error e) { key_count = 0; }
+                append_debug_log("DEBUG: image_cache.keys_count=" + key_count.to_string());
+                for (int i = 0; i < keys.size; i++) {
+                    string k = keys.get(i);
                     try {
-                        var v = memory_meta_cache.get(k);
-                        if (v is Gdk.Texture) {
-                            var tex = (Gdk.Texture) v;
-                            int w = 0;
-                            int h = 0;
-                            try { w = tex.get_width(); } catch (GLib.Error e) { }
-                            try { h = tex.get_height(); } catch (GLib.Error e) { }
-                            append_debug_log("DEBUG: cache_entry: " + k.to_string() + " => texture " + w.to_string() + "x" + h.to_string());
+                        var pb = image_cache != null ? image_cache.get(k) : ImageCache.get_global().get(k);
+                        if (pb != null) {
+                            int w = 0; int h = 0;
+                            try { w = pb.get_width(); } catch (GLib.Error e) { }
+                            try { h = pb.get_height(); } catch (GLib.Error e) { }
+                            append_debug_log("DEBUG: cache_entry: " + k.to_string() + " => pixbuf " + w.to_string() + "x" + h.to_string());
                         } else {
-                            append_debug_log("DEBUG: cache_entry: " + k.to_string() + " => non-texture");
+                            append_debug_log("DEBUG: cache_entry: " + k.to_string() + " => <null pixbuf>");
                         }
                     } catch (GLib.Error e) {
-                        // best-effort per-entry; continue
                         try { append_debug_log("DEBUG: cache_entry_error for " + k.to_string()); } catch (GLib.Error _e) { }
                     }
                 }
@@ -1194,7 +1189,8 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Helper to form memory cache keys that include requested size
     public string make_cache_key(string url, int w, int h) {
-        return "%s@%dx%d".printf(url, w, h);
+        // Use deterministic pixbuf keys: origin=url, include size
+        return "pixbuf::url:%s::%dx%d".printf(url, w, h);
     }
 
     // Process deferred download requests: if a deferred widget becomes visible,
@@ -1272,13 +1268,13 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // Check memory cache for both normalized-keyed and original-keyed entries
                 bool has_large = false;
                 string key_norm = make_cache_key(norm_url, new_w, new_h);
-                if (memory_meta_cache.get(key_norm) != null) has_large = true;
+                if ((image_cache != null ? image_cache.get(key_norm) : ImageCache.get_global().get(key_norm)) != null) has_large = true;
 
                 string? original = null;
                 try { if (view_state != null) original = view_state.normalized_to_url.get(norm_url); } catch (GLib.Error e) { original = null; }
                 if (!has_large && original != null) {
                     string key_orig = make_cache_key(original, new_w, new_h);
-                    if (memory_meta_cache.get(key_orig) != null) has_large = true;
+                    if ((image_cache != null ? image_cache.get(key_orig) : ImageCache.get_global().get(key_orig)) != null) has_large = true;
                 }
 
                 if (has_large) continue; // already have larger
@@ -1346,18 +1342,15 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Clear requested image sizes
         requested_image_sizes.clear();
         
-        // CRITICAL: Clear the memory texture cache to free large textures
-        memory_meta_cache.clear();
-        thumbnail_cache.clear();
-        // Also clear the shared preview cache to free textures created by
-        // article previews. This avoids retaining additional Gdk.Texture
-        // objects across category switches.
-        try { PreviewCacheManager.clear_cache(); } catch (GLib.Error e) { }
-        
-        // Clear disk image cache but preserve metadata (viewed states, etc)
-        if (meta_cache != null) {
-            meta_cache.clear_images();
-        }
+        // Clear the centralized ImageCache (pixbufs) and preview cache.
+        // Suppress clearing here to avoid excessive eviction when switching
+        // categories; rely on the LRU policy instead. Window-close still
+        // frees widget-held textures elsewhere.
+        try {
+            if (AppDebugger.debug_enabled()) {
+                try { stderr.printf("DEBUG: suppressed ImageCache.clear() during category navigation\n"); } catch (GLib.Error e) { }
+            }
+        } catch (GLib.Error e) { }
     }
 
     public void fetch_news() {
@@ -1368,6 +1361,9 @@ public class NewsWindow : Adw.ApplicationWindow {
                 append_debug_log("fetch_news: entering seq=" + fetch_sequence.to_string() + " category=" + prefs.category + " preferred_sources=" + AppDebugger.array_join(prefs.preferred_sources));
             }
         } catch (GLib.Error e) { }
+
+        // Clear all old articles and widgets before loading new category
+        try { if (article_manager != null) article_manager.clear_articles(); } catch (GLib.Error e) { }
 
         // Ensure sidebar visibility reflects current source
         update_sidebar_for_source();
@@ -1863,10 +1859,18 @@ public class NewsWindow : Adw.ApplicationWindow {
                             if (white_cand != null) use_path = white_cand;
                         }
                     } catch (GLib.Error e) { }
-                    var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                    if (pix != null) {
-                        var tex = Gdk.Texture.for_pixbuf(pix);
-                        try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                    string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                    Gdk.Pixbuf? cached_pb = null;
+                    try {
+                        cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
+                    } catch (GLib.Error e) { cached_pb = null; }
+                    if (cached_pb != null) {
+                        try {
+                            var tex = Gdk.Texture.for_pixbuf(cached_pb);
+                            try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                        } catch (GLib.Error e) {
+                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                        }
                     } else {
                         try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
                     }
@@ -1928,12 +1932,18 @@ public class NewsWindow : Adw.ApplicationWindow {
                         }
                     } catch (GLib.Error e) { }
                     try {
-                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                        if (pix != null) {
-                            var tex = Gdk.Texture.for_pixbuf(pix);
-                            self_ref.source_logo.set_from_paintable(tex);
+                        string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                        Gdk.Pixbuf? cached_pb = null;
+                        try { cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32); } catch (GLib.Error e) { cached_pb = null; }
+                        if (cached_pb != null) {
+                            try {
+                                var tex = Gdk.Texture.for_pixbuf(cached_pb);
+                                try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                            } catch (GLib.Error e) {
+                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                            }
                         } else {
-                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
                         }
                     } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
                 } else {
@@ -1972,12 +1982,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                         }
                     } catch (GLib.Error e) { }
                     try {
-                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                        if (pix != null) {
-                            var tex = Gdk.Texture.for_pixbuf(pix);
-                            self_ref.source_logo.set_from_paintable(tex);
+                        string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                        Gdk.Pixbuf? cached_pb = null;
+                        try { cached_pb = image_cache != null ? image_cache.get(cache_key) : ImageCache.get_global().get(cache_key); } catch (GLib.Error e) { cached_pb = null; }
+                        if (cached_pb == null) {
+                            try {
+                                cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
+                            } catch (GLib.Error e) { cached_pb = null; }
+                        }
+                        if (cached_pb != null) {
+                            var tex = Gdk.Texture.for_pixbuf(cached_pb);
+                            try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
                         } else {
-                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
                         }
                     } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
                 } else {
@@ -2017,12 +2034,18 @@ public class NewsWindow : Adw.ApplicationWindow {
                             }
                         } catch (GLib.Error e) { }
                         try {
-                            var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                            if (pix != null) {
-                                var tex = Gdk.Texture.for_pixbuf(pix);
-                                self_ref.source_logo.set_from_paintable(tex);
+                            string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                            Gdk.Pixbuf? cached_pb = null;
+                            try { cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32); } catch (GLib.Error e) { cached_pb = null; }
+                            if (cached_pb != null) {
+                                try {
+                                    var tex = Gdk.Texture.for_pixbuf(cached_pb);
+                                    try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
+                                } catch (GLib.Error e) {
+                                    try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                                }
                             } else {
-                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
                             }
                         } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
                     } else {
@@ -2055,12 +2078,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                             }
                         } catch (GLib.Error e) { }
                         try {
-                            var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                            if (pix != null) {
-                                var tex = Gdk.Texture.for_pixbuf(pix);
-                                self_ref.source_logo.set_from_paintable(tex);
+                            string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                            Gdk.Pixbuf? cached_pb = null;
+                            try { cached_pb = image_cache != null ? image_cache.get(cache_key) : ImageCache.get_global().get(cache_key); } catch (GLib.Error e) { cached_pb = null; }
+                            if (cached_pb == null) {
+                                try {
+                                    cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
+                                } catch (GLib.Error e) { cached_pb = null; }
+                            }
+                            if (cached_pb != null) {
+                                var tex = Gdk.Texture.for_pixbuf(cached_pb);
+                                try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
                             } else {
-                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
                             }
                         } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
                     } else {
@@ -2091,9 +2121,16 @@ public class NewsWindow : Adw.ApplicationWindow {
                                 if (white_cand != null) use_path = white_cand;
                             }
                         } catch (GLib.Error e) { }
-                        var pix = new Gdk.Pixbuf.from_file_at_size(use_path, 32, 32);
-                        if (pix != null) {
-                            var tex = Gdk.Texture.for_pixbuf(pix);
+                        string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
+                        Gdk.Pixbuf? cached_pb = null;
+                        try { cached_pb = image_cache != null ? image_cache.get(cache_key) : ImageCache.get_global().get(cache_key); } catch (GLib.Error e) { cached_pb = null; }
+                        if (cached_pb == null) {
+                            try {
+                                cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
+                            } catch (GLib.Error e) { cached_pb = null; }
+                        }
+                        if (cached_pb != null) {
+                            var tex = Gdk.Texture.for_pixbuf(cached_pb);
                             self_ref.source_logo.set_from_paintable(tex);
                         } else {
                             self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
@@ -2241,6 +2278,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                     NewsSources.fetch(effective_news_source(), cat, current_search_query, session, label_fn, wrapped_clear, wrapped_add);
                 }
             } else {
+                try { wrapped_clear(); } catch (GLib.Error e) { }
                 NewsSources.fetch(
                     effective_news_source(),
                     prefs.category,

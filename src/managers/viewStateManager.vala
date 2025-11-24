@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,9 +12,9 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 using Gtk;
 using Gee;
@@ -46,34 +46,10 @@ public class ViewStateManager : GLib.Object {
 
     public void register_picture_for_url(string normalized, Gtk.Picture pic) {
         try { url_to_picture.set(normalized, pic); } catch (GLib.Error e) { }
-        try {
-            pic.destroy.connect(() => {
-                try {
-                    Gtk.Picture? cur = null;
-                    try { cur = url_to_picture.get(normalized); } catch (GLib.Error e) { cur = null; }
-                    if (cur == pic) {
-                        try { url_to_picture.remove(normalized); } catch (GLib.Error e) { }
-                        try { window.append_debug_log("DEBUG: url_to_picture removed mapping for " + normalized + " on picture destroy"); } catch (GLib.Error e) { }
-                    }
-                } catch (GLib.Error e) { }
-            });
-        } catch (GLib.Error e) { }
     }
 
     public void register_card_for_url(string normalized, Gtk.Widget card) {
         try { url_to_card.set(normalized, card); } catch (GLib.Error e) { }
-        try {
-            card.destroy.connect(() => {
-                try {
-                    Gtk.Widget? cur = null;
-                    try { cur = url_to_card.get(normalized); } catch (GLib.Error e) { cur = null; }
-                    if (cur == card) {
-                        try { url_to_card.remove(normalized); } catch (GLib.Error e) { }
-                        try { window.append_debug_log("DEBUG: url_to_card removed mapping for " + normalized + " on widget destroy"); } catch (GLib.Error e) { }
-                    }
-                } catch (GLib.Error e) { }
-            });
-        } catch (GLib.Error e) { }
     }
 
     public void mark_article_viewed(string url) {
@@ -83,15 +59,11 @@ public class ViewStateManager : GLib.Object {
         if (viewed_articles == null) viewed_articles = new Gee.HashSet<string>();
         viewed_articles.add(n);
 
-        try { window.append_debug_log("mark_article_viewed: normalized=" + n); } catch (GLib.Error e) { }
-        stderr.printf("[MARK_VIEWED] URL: %s\n", n);
-
         Timeout.add(50, () => {
             try {
                 Gtk.Widget? card = null;
                 try { card = url_to_card.get(n); } catch (GLib.Error e) { card = null; }
                 if (card != null) {
-                    try { window.append_debug_log("mark_article_viewed: found mapped widget for " + n); } catch (GLib.Error e) { }
                     Gtk.Widget? first = card.get_first_child();
                     if (first != null && first is Gtk.Overlay) {
                         var overlay = (Gtk.Overlay) first;
@@ -111,32 +83,18 @@ public class ViewStateManager : GLib.Object {
                             overlay.add_overlay(badge);
                             badge.set_visible(true);
                             overlay.queue_draw();
-                            try { window.append_debug_log("mark_article_viewed: added viewed badge for " + n); } catch (GLib.Error e) { }
-                        } else {
-                            try { window.append_debug_log("mark_article_viewed: badge already exists for " + n); } catch (GLib.Error e) { }
                         }
-                    } else {
-                        try { window.append_debug_log("mark_article_viewed: first child is not overlay for " + n); } catch (GLib.Error e) { }
                     }
-                } else {
-                    try { window.append_debug_log("mark_article_viewed: no card found for " + n); } catch (GLib.Error e) { }
                 }
-            } catch (GLib.Error e) { 
-                try { window.append_debug_log("mark_article_viewed: error adding badge - " + e.message); } catch (GLib.Error ee) { }
-            }
+            } catch (GLib.Error e) { }
             return false;
         });
 
-        if (window.meta_cache != null) {
-            stderr.printf("[META_CACHE] Saving viewed state for: %s\n", n);
-            try { 
-                window.meta_cache.mark_viewed(n); 
-                stderr.printf("[META_CACHE] Successfully saved\n");
-            } catch (GLib.Error e) {
-                stderr.printf("[META_CACHE] Error in mark_viewed: %s\n", e.message);
-            }
+        if (window.article_state_store != null) {
+            stderr.printf("[ARTICLE_STATE] Saving viewed state for: %s\n", n);
+            try { window.article_state_store.mark_viewed(n); stderr.printf("[ARTICLE_STATE] Successfully saved\n"); } catch (GLib.Error e) { stderr.printf("[ARTICLE_STATE] Error in mark_viewed: %s\n", e.message); }
         } else {
-            stderr.printf("[META_CACHE] meta_cache is NULL!\n");
+            stderr.printf("[ARTICLE_STATE] article_state_store is NULL!\n");
         }
     }
 
@@ -151,7 +109,6 @@ public class ViewStateManager : GLib.Object {
                 } catch (GLib.Error e) { last_scroll_value = -1.0; }
             }
         } catch (GLib.Error e) { last_scroll_value = -1.0; }
-        try { window.append_debug_log("preview_opened: " + (url != null ? url : "<null>") + " scroll=" + last_scroll_value.to_string()); } catch (GLib.Error e) { }
     }
 
     public void preview_closed(string url) {
@@ -175,8 +132,6 @@ public class ViewStateManager : GLib.Object {
             } catch (GLib.Error e) { }
         }
 
-        try { window.append_debug_log("preview_closed: " + (url_copy != null ? url_copy : "<null>") + " scroll_to_restore=" + saved_scroll.to_string()); } catch (GLib.Error e) { }
-
         try { if (url_copy != null) mark_article_viewed(url_copy); } catch (GLib.Error e) { }
 
         try {
@@ -186,7 +141,6 @@ public class ViewStateManager : GLib.Object {
                         var adj = window.main_scrolled.get_vadjustment();
                         if (adj != null) {
                             adj.set_value(saved_scroll);
-                            try { window.append_debug_log("scroll restored (immediate): " + saved_scroll.to_string()); } catch (GLib.Error e) { }
                         }
                     } catch (GLib.Error e) { }
                     return false;
@@ -197,7 +151,6 @@ public class ViewStateManager : GLib.Object {
                         var adj = window.main_scrolled.get_vadjustment();
                         if (adj != null) {
                             adj.set_value(saved_scroll);
-                            try { window.append_debug_log("scroll restored (100ms): " + saved_scroll.to_string()); } catch (GLib.Error e) { }
                         }
                     } catch (GLib.Error e) { }
                     return false;
@@ -208,7 +161,6 @@ public class ViewStateManager : GLib.Object {
                         var adj = window.main_scrolled.get_vadjustment();
                         if (adj != null) {
                             adj.set_value(saved_scroll);
-                            try { window.append_debug_log("scroll restored (200ms): " + saved_scroll.to_string()); } catch (GLib.Error e) { }
                         }
                     } catch (GLib.Error e) { }
                     return false;

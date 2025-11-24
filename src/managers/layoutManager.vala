@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,9 +12,9 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 using Gtk;
 using Gee;
@@ -133,7 +133,6 @@ public class LayoutManager : GLib.Object {
     // Recreate the columns for masonry layout with a new count
     public void rebuild_columns(int count) {
         if (columns_row == null) return;
-        try { stderr.printf("TRACE rebuild_columns: entering count=%d columns_row=%p time=%lld\n", count, columns_row, (long) GLib.get_monotonic_time()); } catch (GLib.Error e) { }
         Gtk.Widget? child = columns_row.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
@@ -160,7 +159,6 @@ public class LayoutManager : GLib.Object {
             // Log column array and heights after rebuild
             string heights = "";
             for (int i = 0; i < column_heights.length; i++) heights += column_heights[i].to_string() + ",";
-            stderr.printf("TRACE rebuild_columns: done new_count=%d columns_row=%p heights=%s time=%lld\n", count, columns_row, heights, (long) GLib.get_monotonic_time());
         } catch (GLib.Error e) { }
         // Ensure the columns row container is visible after rebuilding, if it exists
         if (columns_row != null) {
