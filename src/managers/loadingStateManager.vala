@@ -143,7 +143,7 @@ public class LoadingStateManager : GLib.Object {
                 if (!enabled) {
                     if (personalized_message_label != null) personalized_message_label.set_text("Enable this option in settings to get a personalized feed.");
                     if (personalized_message_sub_label != null) {
-                        personalized_message_sub_label.set_text("Open the main menu (☰) and choose 'Preferences' → 'Set Source Options' and toggle 'Enable Personalized Feed'");
+                        personalized_message_sub_label.set_text("Open the main menu (☰) and choose 'Preferences' → 'Configure settings' and toggle 'Enable personalized feed'");
                         personalized_message_sub_label.set_visible(true);
                     }
                     if (personalized_message_action != null) personalized_message_action.set_visible(true);

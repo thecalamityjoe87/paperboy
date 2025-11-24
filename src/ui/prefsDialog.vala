@@ -284,20 +284,20 @@ public class PrefsDialog : GLib.Object {
             var p = NewsPreferences.get_instance();
             int enabled_count = p.preferred_sources != null ? p.preferred_sources.size : 0;
             if (enabled_count > 1) {
-                body_text = "Currently using <b>Multiple Sources</b> as the news source.";
+                body_text = "Paperboy is currently using <b>multiple sources</b> to obtain the news.";
             } else {
-                body_text = "Currently using <b>" + GLib.Markup.escape_text(current_source_name) + "</b> as the news source.";
+                body_text = "Paperboy is currently using <b>" + GLib.Markup.escape_text(current_source_name) + "</b> as the news source.";
             }
         } catch (GLib.Error e) {
-            body_text = "Currently using <b>" + GLib.Markup.escape_text(current_source_name) + "</b> as the news source.";
+            body_text = "Paperboy is currently using <b>" + GLib.Markup.escape_text(current_source_name) + "</b> as the news source.";
         }
 
         var dialog = new Adw.AlertDialog(
-            "News Source",
+            "Preferences",
             body_text
         );
         dialog.set_body_use_markup(true);
-    dialog.add_response("browse", "Set Source Options");
+        dialog.add_response("browse", "Configure settings");
         dialog.add_response("ok", "OK");
         dialog.set_default_response("ok");
         dialog.set_close_response("ok");
@@ -315,8 +315,8 @@ public class PrefsDialog : GLib.Object {
         var win = (NewsWindow) parent;
         var prefs = NewsPreferences.get_instance();
         var sources_dialog = new Adw.AlertDialog(
-            "Select News Source",
-            "Choose a news source to fetch articles from:"
+            "Select News Sources",
+            "Choose which news sources to fetch articles from:"
         );
         
         // Create a ListBox for interactive source selection
@@ -667,9 +667,9 @@ public class PrefsDialog : GLib.Object {
     sep.set_margin_bottom(6);
     main_container.append(sep);
 
-    // Personalized feed toggle (separate from the source list)
+        // Personalized feed toggle (separate from the source list)
         var personalized_row = new Adw.ActionRow();
-        personalized_row.set_title("Enable Personalized Feed");
+        personalized_row.set_title("Enable personalized feed");
         personalized_row.set_subtitle("Enable a personalized feed based on your reading habits");
         var personalized_switch = new Gtk.Switch();
         personalized_switch.set_active(prefs.personalized_feed_enabled);
@@ -1064,20 +1064,20 @@ public class PrefsDialog : GLib.Object {
                     }
                 } catch (GLib.Error e) { /* best-effort only */ }
 
-                // If parent is NewsWindow, refresh its UI to reflect the change
+                // If parent is NewsWindow, check if we need to prompt for refresh
                 try {
                     var parent_win = parent as NewsWindow;
                     if (parent_win != null) {
-                        // Only refresh once: if sources changed while dialog
-                        // was open or we auto-enabled Guardian, or we changed
-                        // the persisted news_source, trigger a single fetch.
+                        // Only prompt if sources changed while dialog was open or we
+                        // auto-enabled Guardian, or we changed the persisted news_source,
+                        // or categories/personalization changed
                         if (sources_changed || did_auto_enable || did_change_news_source || categories_changed || personalization_toggled) {
                             // If sources changed, validate that current category is still supported
                             if (sources_changed) {
                                 string current_category = prefs.category;
                                 // Check if current category is supported by any enabled source
                                 bool category_supported = false;
-                                
+
                                 // Get list of enabled sources
                                 if (prefs.preferred_sources != null && prefs.preferred_sources.size > 0) {
                                     foreach (string source_id in prefs.preferred_sources) {
@@ -1094,7 +1094,7 @@ public class PrefsDialog : GLib.Object {
                                             case "fox": source = NewsSource.FOX; break;
                                             default: continue;
                                         }
-                                        
+
                                         // Check if this source supports the current category
                                         if (NewsSources.supports_category(source, current_category)) {
                                             category_supported = true;
@@ -1105,19 +1105,36 @@ public class PrefsDialog : GLib.Object {
                                     // No sources enabled, fallback to default source
                                     category_supported = NewsSources.supports_category(prefs.news_source, current_category);
                                 }
-                                
+
                                 // If category no longer supported, redirect to frontpage
                                 if (!category_supported) {
                                     prefs.category = "frontpage";
                                     prefs.save_config();
                                 }
                             }
-                            
-                            // If personalization or categories changed, update overlay
-                            // state first so the UI reflects the new settings quickly,
-                            // then re-run the fetch once to refresh articles.
+
+                            // Update UI state first (doesn't require refresh)
                             try { parent_win.update_personalization_ui(); } catch (GLib.Error e) { }
-                            parent_win.fetch_news();
+
+                            // Show confirmation dialog asking if user wants to refresh
+                            var confirm_dialog = new Adw.AlertDialog(
+                                "Refresh Content?",
+                                "Changes have been made to your settings. Would you like to refresh the content now?"
+                            );
+                            confirm_dialog.add_response("cancel", "Not Now");
+                            confirm_dialog.add_response("refresh", "Refresh");
+                            confirm_dialog.set_default_response("refresh");
+                            confirm_dialog.set_close_response("cancel");
+                            confirm_dialog.set_response_appearance("refresh", Adw.ResponseAppearance.SUGGESTED);
+
+                            confirm_dialog.choose.begin(parent, null, (obj, res) => {
+                                try {
+                                    string response = confirm_dialog.choose.end(res);
+                                    if (response == "refresh") {
+                                        parent_win.fetch_news();
+                                    }
+                                } catch (GLib.Error e) { }
+                            });
                         }
                     }
                 } catch (GLib.Error e) { }

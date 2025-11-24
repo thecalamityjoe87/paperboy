@@ -236,7 +236,7 @@ public class ContentView : GLib.Object {
         personalized_message_sub_label.set_visible(false);
         inner_center.append(personalized_message_sub_label);
 
-        personalized_message_action = new Gtk.Button.with_label("Set Source Options");
+        personalized_message_action = new Gtk.Button.with_label("Select news sources");
         personalized_message_action.set_halign(Gtk.Align.CENTER);
         personalized_message_action.set_valign(Gtk.Align.CENTER);
         personalized_message_action.set_margin_top(8);
