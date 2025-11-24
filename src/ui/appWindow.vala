@@ -71,6 +71,9 @@ public class DeferredRequest : GLib.Object {
     
 
 public class NewsWindow : Adw.ApplicationWindow {
+    // Centralized source and category management
+    public SourceManager source_manager;
+    public CategoryManager category_manager;
     // Masonry layout is managed by LayoutManager
     public Managers.LayoutManager layout_manager;
     // Article management is handled by ArticleManager
@@ -208,6 +211,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         rng = new GLib.Rand();
         // Initialize preferences early (needed for building sidebar selection state)
         prefs = NewsPreferences.get_instance();
+        // Initialize source and category managers early (needed for all source/category logic)
+        source_manager = new SourceManager(prefs);
+        category_manager = new CategoryManager(prefs, source_manager);
         // Initialize hero request tracking map
         hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
         // Initialize ArticleManager early (before any article-related code)
@@ -1402,7 +1408,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         // Clear hero_container for Top Ten (remove all children including featured_box)
         // For other categories, hero_container should just have featured_box
-        if (prefs.category == "topten") {
+        if (category_manager.is_topten_view()) {
             // Remove and destroy all children from hero_container
             Gtk.Widget? hchild = layout_manager.hero_container.get_first_child();
             while (hchild != null) {
@@ -1431,7 +1437,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         // Top Ten uses special 2-row grid layout (2 heroes + 2 rows of 4 cards)
         // Other categories use standard 3-column masonry
-        if (prefs.category == "topten") {
+        if (category_manager.is_topten_view()) {
             rebuild_columns(4); // 4 columns for grid layout
         } else {
             rebuild_columns(3); // Standard masonry
@@ -1455,7 +1461,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Local News can have many items; reduce preview cache to a small number
         // when active. Restore default capacity for other views.
         try {
-            if (prefs.category == "local_news") {
+            if (category_manager.is_local_news_view()) {
                 try { PreviewCacheManager.get_cache().set_capacity(6); } catch (GLib.Error e) { }
             } else {
                 try { PreviewCacheManager.get_cache().set_capacity(12); } catch (GLib.Error e) { }
@@ -1478,7 +1484,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // If the user selected "My Feed" but personalization is disabled,
         // do not show the loading spinner or attempt to fetch content here.
         // Instead, ensure the personalized overlay is updated and return.
-        bool is_myfeed_disabled = (prefs.category == "myfeed" && !prefs.personalized_feed_enabled);
+        bool is_myfeed_disabled = (category_manager.is_myfeed_view() && !prefs.personalized_feed_enabled);
         if (is_myfeed_disabled) {
             try { update_content_header(); } catch (GLib.Error e) { }
             try { update_personalization_ui(); } catch (GLib.Error e) { }
@@ -1782,20 +1788,16 @@ public class NewsWindow : Adw.ApplicationWindow {
         // we only clear the UI once (for the first fetch) so subsequent
         // fetches append their results.
         bool used_multi = false;
-        // Support personalized "My Feed" mode: when the user has selected
-        // the sidebar "My Feed" category and enabled personalization, we
-        // should fetch each personalized category separately and combine
-        // the results. Build the list of categories to request here.
-        bool is_myfeed_mode = (prefs.category == "myfeed" && prefs.personalized_feed_enabled);
+        //Use CategoryManager for My Feed logic
+        bool is_myfeed_mode = category_manager.is_myfeed_view();
         string[] myfeed_cats = new string[0];
         if (is_myfeed_mode) {
-            if (prefs.personalized_categories != null && prefs.personalized_categories.size > 0) {
-                myfeed_cats = new string[prefs.personalized_categories.size];
-                for (int i = 0; i < prefs.personalized_categories.size; i++) myfeed_cats[i] = prefs.personalized_categories.get(i);
+            if (category_manager.is_myfeed_configured()) {
+                var cats = category_manager.get_myfeed_categories();
+                myfeed_cats = new string[cats.size];
+                for (int i = 0; i < cats.size; i++) myfeed_cats[i] = cats.get(i);
             } else {
-                // Personalization enabled but no categories selected: do not fall
-                // back to a default. Instead, avoid fetching content so the
-                // personalized overlay (shown elsewhere) can be displayed.
+                //Personalization not configured, show overlay
                 try { wrapped_clear(); } catch (GLib.Error e) { }
                 try { wrapped_set_label("My Feed — No personalized categories selected"); } catch (GLib.Error e) { }
                 hide_loading_spinner();
@@ -1808,7 +1810,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // and fetch each feed URL with the RSS parser. This allows the
         // rssFinder helper (a separate binary) to populate the file and
         // the app to display the resulting feeds.
-        if (prefs.category == "local_news") {
+        if (category_manager.is_local_news_view()) {
             string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
             string file_path = config_dir + "/local_feeds";
 
@@ -1916,7 +1918,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // frontpage endpoint regardless of preferred_sources. Place this
         // before the multi-source branch so frontpage works even when the
         // user has zero or one preferred source selected.
-        if (prefs.category == "frontpage") {
+        if (category_manager.is_frontpage_view()) {
             // Present the multi-source label/logo in the header
             try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
             try {
@@ -1966,7 +1968,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // If the user selected "Top Ten", request the backend headlines endpoint
         // regardless of preferred_sources. Same early-return logic as frontpage.
-        if (prefs.category == "topten") {
+        if (category_manager.is_topten_view()) {
             // Present the multi-source label/logo in the header
             try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
             try {
@@ -2019,7 +2021,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             // are queried. Instead, when viewing the special "frontpage"
             // category, simply request the backend frontpage once and present
             // the combined/multi-source UI.
-            if (prefs.category == "frontpage") {
+            if (category_manager.is_frontpage_view()) {
                 try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
                 try {
                     string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
@@ -2063,7 +2065,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
 
             // Same logic for Top Ten: request backend headlines endpoint
-            if (prefs.category == "topten") {
+            if (category_manager.is_topten_view()) {
                 try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
                 try {
                     string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
@@ -2144,22 +2146,8 @@ public class NewsWindow : Adw.ApplicationWindow {
             } catch (GLib.Error e) { }
             used_multi = true;
 
-            // Build list of NewsSource enums from preferred_sources strings
-            Gee.ArrayList<NewsSource> srcs = new Gee.ArrayList<NewsSource>();
-            foreach (var id in prefs.preferred_sources) {
-                switch (id) {
-                    case "guardian": srcs.add(NewsSource.GUARDIAN); break;
-                    case "reddit": srcs.add(NewsSource.REDDIT); break;
-                    case "bbc": srcs.add(NewsSource.BBC); break;
-                    case "nytimes": srcs.add(NewsSource.NEW_YORK_TIMES); break;
-                    case "wsj": srcs.add(NewsSource.WALL_STREET_JOURNAL); break;
-                    case "bloomberg": srcs.add(NewsSource.BLOOMBERG); break;
-                    case "reuters": srcs.add(NewsSource.REUTERS); break;
-                    case "npr": srcs.add(NewsSource.NPR); break;
-                    case "fox": srcs.add(NewsSource.FOX); break;
-                    default: /* ignore unknown ids */ break;
-                }
-            }
+            //Use SourceManager to get enabled sources as enums
+            Gee.ArrayList<NewsSource> srcs = source_manager.get_enabled_source_enums();
 
             // If mapping failed or produced no sources, fall back to single source
             if (srcs.size == 0) {
@@ -2241,7 +2229,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             // respected without requiring prefs.news_source to be changed.
             // Special-case: when viewing The Frontpage in single-source
             // mode, make sure we still request the backend frontpage API.
-            if (prefs.category == "frontpage") {
+            if (category_manager.is_frontpage_view()) {
                 try { wrapped_clear(); } catch (GLib.Error e) { }
                 try { wrapped_set_label("Frontpage — Loading from backend (single-source)"); } catch (GLib.Error e) { }
                 try {
@@ -2253,7 +2241,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
 
             // Same for Top Ten in single-source mode
-            if (prefs.category == "topten") {
+            if (category_manager.is_topten_view()) {
                 try { wrapped_clear(); } catch (GLib.Error e) { }
                 try { wrapped_set_label("Top Ten — Loading from backend (single-source)"); } catch (GLib.Error e) { }
                 try {

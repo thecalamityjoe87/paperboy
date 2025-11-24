@@ -189,169 +189,35 @@ namespace Managers {
                     }
             }
 
-            string view_category = window.prefs.category;
-            if (view_category == "myfeed") {
-                if (window.prefs.personalized_feed_enabled) {
-                    bool has_personalized = window.prefs.personalized_categories != null && window.prefs.personalized_categories.size > 0;
-                    if (has_personalized) {
-                        bool match = false;
-                        foreach (var pc in window.prefs.personalized_categories) if (pc == category_id) { match = true; break; }
-                        if (!match) {
-                            return;
-                        }
-                    }
-                } else {
-                    if (debug_enabled()) warning("Dropping article because My Feed personalization is disabled: article_cat=%s title=%s", category_id, title);
-                    return;
+            // Use CategoryManager for category filtering
+            if (!window.category_manager.should_display_article(category_id)) {
+                if (debug_enabled()) {
+                    warning("Article filtered by category: view=%s article_cat=%s title=%s",
+                            window.category_manager.get_current_category(), category_id, title);
                 }
-            } else {
-                if (view_category != "all" && view_category != "frontpage" && view_category != "topten" && view_category != category_id) {
-                    return;
-                }
-            }
-
-            if (window.prefs.category != "frontpage" && window.prefs.category != "topten" && window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 0) {
-                NewsSource article_src = window.infer_source_from_url(url);
-                string article_src_id = "";
-                switch (article_src) {
-                    case NewsSource.GUARDIAN: article_src_id = "guardian"; break;
-                    case NewsSource.REDDIT: article_src_id = "reddit"; break;
-                    case NewsSource.BBC: article_src_id = "bbc"; break;
-                    case NewsSource.NEW_YORK_TIMES: article_src_id = "nytimes"; break;
-                    case NewsSource.WALL_STREET_JOURNAL: article_src_id = "wsj"; break;
-                    case NewsSource.BLOOMBERG: article_src_id = "bloomberg"; break;
-                    case NewsSource.REUTERS: article_src_id = "reuters"; break;
-                    case NewsSource.NPR: article_src_id = "npr"; break;
-                    case NewsSource.FOX: article_src_id = "fox"; break;
-                    default: article_src_id = ""; break;
-                }
-
-                if (article_src_id.length > 0) {
-                    bool allowed_src = false;
-                    foreach (var ps in window.prefs.preferred_sources) {
-                        if (ps == article_src_id) { allowed_src = true; break; }
-                    }
-                    if (!allowed_src) {
-                        debug("Article filtered out: url=%s, inferred_src=%s, preferred=%s",
-                              url.length > 80 ? url.substring(0, 80) : url,
-                              article_src_id,
-                              window.prefs.preferred_sources != null ? string.joinv(",", (string[])window.prefs.preferred_sources.to_array()) : "null");
-                        return;
-                    }
-                }
-            }
-
-            if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
-                string[] bloomberg_only = { "markets", "industries", "economics", "wealth", "green" };
-                bool is_bloomberg_cat = false;
-                foreach (var bc in bloomberg_only) if (bc == category_id) { is_bloomberg_cat = true; break; }
-                if (is_bloomberg_cat) {
-                    NewsSource article_src = window.infer_source_from_url(url);
-                    if (article_src != NewsSource.BLOOMBERG) {
-                        try {
-                            string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                            if (dbg != null && dbg.length > 0) {
-                                if (window.prefs.category == "topten") {
-                                }
-                            }
-                        } catch (GLib.Error e) { }
-                        return;
-                    }
-                }
-            }
-            
-            if (window.prefs.category == "all") {
-                NewsSource eff = window.effective_news_source();
-                if (eff == NewsSource.BLOOMBERG && (window.prefs.preferred_sources == null || window.prefs.preferred_sources.size <= 1)) {
-                    string[] bloomberg_cats = { "markets", "industries", "economics", "wealth", "green", "politics", "technology" };
-                    bool allowed = false;
-                    foreach (string bc in bloomberg_cats) {
-                        if (bc == category_id) { allowed = true; break; }
-                    }
-                    if (!allowed) {
-                        if (debug_enabled()) {
-                            warning("Dropping article for Bloomberg (single-source): view=all source=Bloomberg article_cat=%s title=%s", category_id, title);
-                        }
-                        return;
-                    }
-                }
-                
-                if (category_id == "lifestyle") {
-                    NewsSource article_src = window.infer_source_from_url(url);
-                    if (article_src == NewsSource.REDDIT || article_src == NewsSource.BBC || article_src == NewsSource.REUTERS) {
-                        if (debug_enabled()) {
-                            warning("Dropping lifestyle article from source that doesn't provide lifestyle: source=%s title=%s", window.get_source_name(article_src), title);
-                        }
-                        return;
-                    }
-                }
-
-                var item = new ArticleItem(title, url, thumbnail_url, category_id, final_source_name);
-                article_buffer.add(item);
-                
-                if (buffer_flush_timeout_id > 0) {
-                    Source.remove(buffer_flush_timeout_id);
-                }
-                buffer_flush_timeout_id = Timeout.add(500, () => {
-                    flush_article_buffer();
-                    buffer_flush_timeout_id = 0;
-                    return false;
-                });
-            } else {
-                var item = new ArticleItem(title, url, thumbnail_url, category_id, final_source_name);
-                article_buffer.add(item);
-                
-                try {
-                    string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                    if (dbg != null && dbg.length > 0 && window.prefs.category == "topten") {
-                        window.append_debug_log("TOPTEN: About to call add_item_immediate_to_column for: " + title);
-                    }
-                } catch (GLib.Error e) { }
-                add_item_immediate_to_column(title, url, thumbnail_url, category_id, -1, null, final_source_name);
-            }
-        }
-        
-        public void flush_article_buffer() {
-            if (window.prefs.category != "all" || article_buffer.size == 0) {
                 return;
             }
-            
-            if (window.loading_state == null || !window.loading_state.initial_phase) {
-                window.hide_loading_spinner();
-            }
-            
-            var articles = new ArticleItem[article_buffer.size];
-            for (int i = 0; i < article_buffer.size; i++) {
-                articles[i] = article_buffer[i];
-            }
-            
-            for (int i = articles.length - 1; i > 0; i--) {
-                int j = window.rng.int_range(0, i + 1);
-                var temp = articles[i];
-                articles[i] = articles[j];
-                articles[j] = temp;
-            }
-            
-            int articles_added = 0;
-            for (int i = 0; i < articles.length; i++) {
-                var article = articles[i];
-                add_item_shuffled(article.title, article.url, article.thumbnail_url, article.category_id, article.source_name);
-                articles_added++;
-            }
-            
-            article_buffer.clear();
 
-            try { window.mark_initial_items_populated(); } catch (GLib.Error e) { }
-        }
-        
-        private void add_item_shuffled(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
-            int target_col = next_column_index;
-            next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
-            
-            string saved_category = window.prefs.category;
-            window.prefs.category = category_id;
-            add_item_immediate_to_column(title, url, thumbnail_url, category_id, target_col, saved_category, source_name);
-            window.prefs.category = saved_category;
+            // Use SourceManager for source filtering
+            if (!window.source_manager.should_display_article(url, category_id)) {
+                if (debug_enabled()) {
+                    string article_src_id = SourceManager.infer_source_id_from_url(url);
+                    debug("Article filtered by source: url=%s, inferred_src=%s, enabled_sources=%s",
+                          url.length > 80 ? url.substring(0, 80) : url,
+                          article_src_id,
+                          string.joinv(",", (string[])window.source_manager.get_enabled_sources().to_array()));
+                }
+                return;
+            }
+
+            // Add articles immediately
+            try {
+                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                if (dbg != null && dbg.length > 0 && window.prefs.category == "topten") {
+                    window.append_debug_log("TOPTEN: About to call add_item_immediate_to_column for: " + title);
+                }
+            } catch (GLib.Error e) { }
+            add_item_immediate_to_column(title, url, thumbnail_url, category_id, -1, null, final_source_name);
         }
         
         public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
@@ -454,29 +320,7 @@ namespace Managers {
             }
             
             int target_col = -1;
-            if (window.prefs.category == "all" && forced_column == -1) {
-                int consecutive_count = 0;
-                
-                for (int i = recent_category_queue.size - 1; i >= 0; i--) {
-                    if (recent_category_queue.get(i) == category_id) {
-                        consecutive_count++;
-                    } else {
-                        break;
-                    }
-                }
-                
-                if (consecutive_count >= 4) {
-                    return;
-                }
-                
-                recent_category_queue.add(category_id);
-                if (recent_category_queue.size > MAX_RECENT_CATEGORIES) {
-                    recent_category_queue.remove_at(0);
-                }
-                
-                target_col = next_column_index;
-                next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
-            } else if (forced_column != -1) {
+            if (forced_column != -1) {
                 target_col = forced_column;
             } else {
                 target_col = next_column_index;
@@ -490,11 +334,7 @@ namespace Managers {
                 // For frontpage, only make the first article a hero (same as other categories)
                 should_be_hero = !featured_used;
             } else if (!featured_used) {
-                if (window.prefs.category == "all") {
-                    should_be_hero = window.rng.int_range(0, 10) < 6;
-                } else {
-                    should_be_hero = true;
-                }
+                should_be_hero = true;
 
                 if (window.prefs.news_source == NewsSource.REDDIT && url != null) {
                     string u_low = url.down();
@@ -580,9 +420,7 @@ namespace Managers {
             if (window.prefs.category != "topten" && hero_carousel != null && featured_carousel_items != null &&
             featured_carousel_items.size < 5) {
             bool allow_slide = false;
-            if (window.prefs.category == "all") {
-                allow_slide = (featured_carousel_category != null && featured_carousel_category == category_id);
-            } else if (window.prefs.category == "myfeed" && window.prefs.personalized_feed_enabled) {
+            if (window.prefs.category == "myfeed" && window.prefs.personalized_feed_enabled) {
                 if (featured_carousel_category != null && featured_carousel_category == category_id) {
                     allow_slide = true;
                 } else {

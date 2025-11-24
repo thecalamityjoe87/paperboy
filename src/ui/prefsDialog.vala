@@ -786,7 +786,6 @@ public class PrefsDialog : GLib.Object {
         Gtk.Widget? create_category_icon_local(string cat) {
             string? filename = null;
                 switch (cat) {
-                case "all": filename = "all-mono.svg"; break;
                 case "myfeed": filename = "myfeed-mono.svg"; break;
                 case "general": filename = "world-mono.svg"; break;
                 case "business": filename = "business-mono.svg"; break;

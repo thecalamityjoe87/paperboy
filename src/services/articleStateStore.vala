@@ -15,14 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
+using Gee;
 
 /*
  * ArticleStateStore: manages only simple per-article metadata (viewed/favorite/timestamps)
  * No pixbufs, textures, widgets, or image URLs. Minimal, thread-safe helpers.
  */
-
- using GLib;
-using Gee;
 
 public class ArticleStateStore : GLib.Object {
     private string cache_dir_path;

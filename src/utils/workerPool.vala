@@ -15,7 +15,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 /* 
  * Generic WorkerPool: reusable background job queue with fixed worker threads.
  * Designed for light-weight background jobs (network I/O, decoding, etc.).

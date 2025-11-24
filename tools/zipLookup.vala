@@ -15,6 +15,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
+using Gee;
 
 /*
  * Local CSV-based ZIP -> city resolver.
@@ -26,9 +28,6 @@
  * a synchronous lookup method returning a "City, State" string or
  * null when no mapping is present.
  */
-
-using GLib;
-using Gee;
 
 public class ZipLookup : GLib.Object {
     // Async lookup callback type (resolved string is empty when not found)

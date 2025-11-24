@@ -15,13 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
+using Gee;
+
 /*
  * ImageCache: an in-memory LRU cache for Gdk.Pixbuf and Gdk.Texture objects.
  * Stores both pixbufs and textures to avoid redundant texture creation.
  */
-
-using GLib;
-using Gee;
 
 public class ImageCache : GLib.Object {
     private LruCache<string, Gdk.Pixbuf> pixbuf_cache;

@@ -100,7 +100,6 @@ public class NewsPreferences : GLib.Object {
 
     // Return true if the provided category is valid for the given source
     private bool category_valid_for_source(NewsSource source, string cat) {
-        if (cat == "all") return true; // "All Categories" is supported by every source
         switch (source) {
             case NewsSource.BLOOMBERG:
                 string[] bb = { "markets", "industries", "economics", "wealth", "green", "politics", "technology" };

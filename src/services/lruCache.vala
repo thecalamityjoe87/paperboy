@@ -15,15 +15,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
+using Gee;
+
 /* 
  * Small generic LRU cache backed by Gee.HashMap and an order list.
  * Intended for short-lived in-memory caches where simple bounded
  * eviction is sufficient. Not optimized for extreme throughput.
  */
-
-using GLib;
-using Gee;
-
 
 public class LruCache<K, V> : GLib.Object {
     private Gee.HashMap<K, V> map;

@@ -15,17 +15,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
+using Gtk;
+using Gdk;
+using Adw;
 
 /* 
  * Utility for creating category icons (both sidebar and header variants).
  * This mirrors the previous logic in `appWindow.vala` but centralizes it
  * so other modules can reuse the same icon-selection behavior.
  */
-
-using GLib;
-using Gtk;
-using Gdk;
-using Adw;
 
 public class CategoryIcons : GLib.Object {
     private const int SIDEBAR_ICON_SIZE = 24;
@@ -42,7 +41,6 @@ public class CategoryIcons : GLib.Object {
         string? filename = null;
         switch (cat) {
             case "topten": filename = "topten-mono.svg"; break;
-            case "all": filename = "all-mono.svg"; break;
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
@@ -121,9 +119,6 @@ public class CategoryIcons : GLib.Object {
             case "topten":
                 candidates = { "starred-symbolic", "emblem-favorite-symbolic", "non-starred-symbolic" };
                 break;
-            case "all":
-                candidates = { "view-list-symbolic", "applications-all-symbolic", "folder-symbolic" };
-                break;
             case "frontpage":
                 candidates = { "go-home-symbolic", "applications-home-symbolic", "home-symbolic" };
                 break;
@@ -181,7 +176,6 @@ public class CategoryIcons : GLib.Object {
     public static Gtk.Widget? create_category_header_icon(string cat, int size) {
         string? filename = null;
         switch (cat) {
-            case "all": filename = "all-mono.svg"; break;
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;

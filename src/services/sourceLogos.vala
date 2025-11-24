@@ -15,17 +15,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
+using Json;
+using Soup;
+using Gdk;
 
 /*
  * Helpers for persisting frontpage provider logos into the user's
  * XDG data dir under paperboy/source_logos and maintaining a small
  * index.json mapping provider keys -> saved filenames and metadata.
  */
-
-using GLib;
-using Json;
-using Soup;
-using Gdk;
 
 public class SourceLogos : GLib.Object {
     // Return the user data dir for saved source logos, creating it when needed.

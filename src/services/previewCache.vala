@@ -15,15 +15,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
+using Gee;
+using Gdk;
+
 /*
  * PreviewCache manager: provide a shared, bounded cache for article preview textures.
  * This centralizes the preview cache so the main window can clear it when
  * switching categories to free memory.
  */
-
-using GLib;
-using Gee;
-using Gdk;
 
 public class PreviewCacheManager : GLib.Object {
     // Preview cache is now backed by ImageCache (pixbufs). We no longer

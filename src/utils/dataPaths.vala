@@ -15,14 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
 
 /*
  * Centralized helpers for locating runtime data files (development tree
  * and installed locations). This encapsulates the cached environment
  * lookups used across the app.
  */
-
-using GLib;
 
 public class DataPaths : GLib.Object {
     private static string? user_data_dir_cached = null;

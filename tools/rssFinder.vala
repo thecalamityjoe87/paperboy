@@ -15,10 +15,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
- // Tool to help find RSS feed links
-
 using GLib;
+
+/* 
+ * Tool to help find RSS feed links
+ */
 
 public class RSSFinder : Object {
     public static void main(string[] args) {

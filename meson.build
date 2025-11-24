@@ -40,6 +40,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/builders/placeholderBuilder.vala',
 
     # Managers
+    'src/managers/sourceManager.vala',
+    'src/managers/categoryManager.vala',
     'src/managers/headerManager.vala',
     'src/managers/loadingStateManager.vala',
     'src/managers/viewStateManager.vala',
