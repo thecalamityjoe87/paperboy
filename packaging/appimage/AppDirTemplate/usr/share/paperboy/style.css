@@ -1,0 +1,370 @@
+.card {
+    background-color: @card_bg_color;
+    border-radius: 12px;
+    border: 1px solid alpha(@borders, 0.1);
+    transition: all 200ms ease;
+    box-sizing: border-box;
+    overflow: hidden;
+    max-width: 100%;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.card:hover,
+.card.card-hover {
+    box-shadow: 0 4px 8px alpha(@shade_color, 0.15);
+    transform: translateY(-2px);
+}
+
+.card picture {
+    background-color: @shade_color;
+    border-radius: 12px 12px 0 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.card image {
+    max-width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
+.card label {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
+}
+
+/* Small pill category chip overlaid on images */
+.category-chip {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 9999px;
+    padding: 2px 8px;
+    margin: 8px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+/* Source badge (icon + short name) shown on cards and hero slides */
+.source-badge {
+    background-color: rgba(0, 0, 0, 0.6); /* black at 60% */
+    color: white;
+    border-radius: 9999px;
+    padding: 4px 8px;
+    margin-bottom: 8px;
+    margin-end: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82em;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+/* Viewed badge shown at the top-right of a card when the user has opened
+     and returned from an article preview. Uses theme-aware colors where
+     available and keeps a compact pill appearance. */
+.viewed-badge {
+    -gtk-icon-transform: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background-color: rgba(0, 0, 0, 0.6); /* black @ 60% */
+    color: white; /* Viewed text should be white */
+    font-size: 0.85em;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+/* Icon inside the viewed badge: white check on a black circular wrap */
+.viewed-badge image,
+.viewed-badge picture,
+.viewed-badge .icon {
+    background-color: rgb(26, 126, 64);
+    color: white; /* symbolic icons inherit this color */
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    padding: 1px;
+    box-sizing: border-box;
+    display: inline-flex;
+    /* add a subtle transparent white border so the green indicator is visually contained */
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    align-items: center;
+    justify-content: center;
+}
+
+/* Ensure the icon area stays perfectly square and doesn't stretch
+   vertically due to line-height or flex growth. Adding an enforced
+   aspect-ratio and preventing the element from flexing fixes cases
+   where the widget is laid out by the toolkit and ends up oval. */
+.viewed-badge image,
+.viewed-badge picture,
+.viewed-badge .icon {
+    aspect-ratio: 1 / 1;
+    flex: 0 0 auto;
+    line-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* Ensure the label text inside the badge is white, not dimmed, and doesn't inherit theme-dim styles */
+.viewed-badge label,
+.viewed-badge .caption,
+.viewed-badge .dim-label {
+    color: white !important;
+    opacity: 1 !important;
+    font-weight: 600;
+}
+
+/* Strong override: force any text inside the viewed badge to be full-bright.
+   This covers cases where theme rules or ancestor classes apply dimming via
+   color/opacity or more specific selectors. */
+.viewed-badge,
+.viewed-badge * {
+    color: white !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+/* For featured/hero cards, give badges more breathing room so they don't
+   get clipped or overlap the rounded card corners. This increases padding
+   and lifts badges away from text areas. */
+/* (no featured-specific overrides here; keep default badge sizing) */
+
+/* Circular wrapper for dynamic remote source logos used by dynamic badges.
+   Ensures logos are clipped to a circle and scale to fill the area. */
+/* Make wrapper and its direct image children clipped circles. We target
+   the wrapper, the internal picture/image nodes, and all descendants to
+   increase specificity and avoid theme overrides. */
+.source-badge .circular-logo,
+.source-badge .circular-logo picture,
+.source-badge .circular-logo image,
+.source-badge .circular-logo * {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.source-badge .circular-logo {
+    padding: 0;
+    box-sizing: border-box;
+}
+.source-badge .circular-logo picture,
+.source-badge .circular-logo image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+/* Small visual treatment to help circular logos stand out on light/dark
+   backgrounds: subtle border and shadow. Kept low-contrast to avoid
+   fighting brand logos. */
+.source-badge .circular-logo {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.06);
+    background-clip: padding-box; /* ensure border doesn't overlay the image */
+}
+
+.source-badge-label {
+    color: white;
+    white-space: nowrap;
+    max-width: 10ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Smaller, lifted badge variant for hero/slide cards so long titles
+   don't overlap the badge. We increase the bottom margin (distance
+   from the widget bottom) which effectively lifts the badge up, and
+   reduce font/padding to keep it unobtrusive. */
+.hero-badge {
+    /* Slightly larger horizontal padding and gap for hero badges so they
+       don't appear visually squashed on wide hero slides. Kept conservative
+       to avoid changing non-hero badge visuals. */
+    font-size: 0.85em;
+    padding: 4px 10px;
+    margin-bottom: 44px; /* lift up to avoid crowded titles */
+    gap: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+}
+
+/* Badge for the top story hero card */
+.top-story-badge {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+/* Featured hero card styles */
+.card-featured {
+    padding-bottom: 14px;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.card-featured label {
+    font-size: 1.2em;
+    line-height: 1.3;
+    font-weight: 700;
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Title shown above the featured (hero) card */
+.top-stories-title {
+    /* Slightly larger to stand out but still match other headings */
+    font-size: 1.15em;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    /* Use the inherited label color so it matches other text in the UI */
+    color: inherit;
+    text-align: left;
+    letter-spacing: 0.02em;
+}
+
+/* Fallback: if markup isn't available, render a "Top Stories" label above
+   the featured card by using a pseudo-element. This keeps the title
+   left-justified and visually separated from the card. If you prefer an
+   explicit element, add `<div class="top-stories-title">Top Stories</div>`
+   immediately before the featured card in the DOM and the `.top-stories-title`
+   rule above will style it.
+*/
+.card-featured {
+    /* ensure normal flow spacing when an explicit title widget is used */
+    position: relative;
+    /* reduce the top gap now that an explicit title widget is inserted */
+    margin-top: 8px;
+}
+
+/* Carousel dots shown under the featured hero title */
+.carousel-dot {
+    /* Bigger, clearer dots; base (inactive) color is lighter */
+    font-size: 22px; /* increased from 18px */
+    line-height: 1;
+    padding: 3px 6px;
+    color: alpha(@borders, 0.45); /* light/dim by default */
+    transition: color 180ms ease, transform 160ms ease;
+}
+.carousel-dot.inactive {
+    color: alpha(@borders, 0.3);
+    transform: scale(1);
+    opacity: 0.9;
+}
+.carousel-dot.active {
+    /* Active dot: darker and more prominent; no background */
+    color: alpha(black, 0.9);
+    font-weight: 800;
+    transform: scale(1.35);
+    opacity: 1;
+}
+
+/* Navigation arrow buttons that appear on hover */
+.carousel-nav {
+    /* Larger, higher-contrast nav buttons */
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 9999px;
+    padding: 8px;
+    min-width: 52px;
+    min-height: 52px;
+    font-size: 20px; /* helps symbolic icons scale */
+    opacity: 0;
+    transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+.carousel-nav:hover {
+    transform: scale(1.08);
+}
+/* Show nav buttons when hovering the featured card */
+.card-featured:hover .carousel-nav {
+    opacity: 1;
+    background-color: alpha(black, 0.72);
+}
+
+
+/* Sidebar styling for seamless integration with NavigationSplitView */
+.navigation-sidebar {
+    background-color: @sidebar_bg_color;
+}
+
+.navigation-sidebar row {
+    background-color: transparent;
+}
+
+.navigation-sidebar row:selected {
+    background-color: alpha(@window_fg_color, 0.1);
+}
+
+.navigation-sidebar row:hover:not(:selected) {
+    background-color: alpha(@window_fg_color, 0.06);
+}
+
+.navigation-sidebar .heading {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+/* NavigationSplitView sidebar pane styling */
+navigation-split-view > widget.sidebar-pane {
+    background-color: @sidebar_bg_color;
+}
+
+/* NavigationSplitView content pane */
+navigation-split-view > widget.content-pane {
+}
+
+/* Load More button animations */
+.fade-in {
+    opacity: 1;
+    transition: opacity 400ms ease-in-out;
+}
+
+.fade-out {
+    opacity: 0;
+    transition: opacity 300ms ease-in-out;
+}
+
+.loading {
+    background-color: alpha(@accent_bg_color, 0.6);
+    color: alpha(@accent_fg_color, 0.8);
+    cursor: wait;
+}
+
+/* Article preview panel that slides in from the right */
+.article-preview-panel {
+    background-color: @card_bg_color;
+    box-shadow: -4px 0 16px alpha(@shade_color, 0.25);
+}
+
+/* Dim overlay to disable main area when article preview is open */
+.dim-overlay {
+    background-color: alpha(black, 0.4);
+    backdrop-filter: blur(2px);
+}
+
+/* Only the headerbar for the sidebar pane */
+navigation-split-view > widget.sidebar-pane headerbar {
+    background-color: @sidebar_bg_color;
+    color: @sidebar_fg_color;
+    box-shadow: none;
+}
+
+navigation-split-view > widget.sidebar-pane headerbar:backdrop {
+    background-color: @sidebar_bg_color;
+    color: @sidebar_fg_color;
+}

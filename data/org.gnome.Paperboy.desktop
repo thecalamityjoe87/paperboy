@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Paperboy
-Exec=paperboy
-Icon=paperboy
-Type=Application
-Categories=Network;News;GTK;
-StartupNotify=true
-X-GNOME-FullName=Paperboy

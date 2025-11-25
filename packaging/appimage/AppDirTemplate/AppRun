@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+HERE="$(dirname "$(readlink -f "${0}")")"
+# Ensure application can find its data files inside the AppDir
+export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-}"
+# Ensure bundled libraries are preferred
+export LD_LIBRARY_PATH="$HERE/usr/lib:${LD_LIBRARY_PATH:-}"
+exec "$HERE/usr/bin/paperboy" "$@"
