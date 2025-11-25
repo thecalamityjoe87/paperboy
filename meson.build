@@ -91,7 +91,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     install : true
   )
 
-install_data('data/io.github.calamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
+install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
 
 # Install app icons to system icon directories at different sizes
 install_data('data/icons/128x128/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '128x128', 'apps'))

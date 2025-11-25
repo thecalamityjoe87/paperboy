@@ -38,9 +38,9 @@ else
 fi
 
 # Copy desktop file (use reverse-domain application id filename)
-cp "$ROOT_DIR/data/io.github.calamityjoe87.Paperboy.desktop" "$APPDIR/usr/share/applications/io.github.calamityjoe87.Paperboy.desktop"
+cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/usr/share/applications/io.github.thecalamityjoe87.Paperboy.desktop"
 # Also copy the desktop file to the AppDir root (required by appimagetool)
-cp "$ROOT_DIR/data/io.github.calamityjoe87.Paperboy.desktop" "$APPDIR/io.github.calamityjoe87.Paperboy.desktop"
+cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/io.github.thecalamityjoe87.Paperboy.desktop"
 
 # Copy icons (fall back if not present)
 ICON_SRC_DIR="$ROOT_DIR/data/icons"
