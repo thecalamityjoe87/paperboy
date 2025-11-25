@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Paperboy
+Exec=paperboy
+Icon=paperboy
+Type=Application
+Categories=Network;News;GTK;
+StartupNotify=true
+StartupWMClass=io.github.calamityjoe87.Paperboy
+X-GNOME-FullName=Paperboy

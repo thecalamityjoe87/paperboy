@@ -1153,7 +1153,7 @@ public class PrefsDialog : GLib.Object {
     about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
     about.set_website("https://github.com/thecalamityjoe87/paperboy");
     about.set_license_type(Gtk.License.GPL_3_0);
-    about.set_copyright("© 2025 thecalamityjoe87");
+    about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
     about.present(parent);
     }
 
