@@ -5,5 +5,5 @@ Icon=paperboy
 Type=Application
 Categories=Network;News;GTK;
 StartupNotify=true
-StartupWMClass=io.github.calamityjoe87.Paperboy
+StartupWMClass=io.github.thecalamityjoe87.Paperboy
 X-GNOME-FullName=Paperboy

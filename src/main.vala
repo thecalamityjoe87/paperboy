@@ -23,7 +23,7 @@ using Gdk;
  
 public class PaperboyApp : Adw.Application {
     public PaperboyApp() {
-        GLib.Object(application_id: "io.github.calamityjoe87.Paperboy", flags: ApplicationFlags.FLAGS_NONE);
+        GLib.Object(application_id: "io.github.thecalamityjoe87.Paperboy", flags: ApplicationFlags.FLAGS_NONE);
     }
 
     protected override void activate() {
