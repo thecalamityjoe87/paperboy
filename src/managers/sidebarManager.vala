@@ -28,6 +28,7 @@ public class SidebarManager : GLib.Object {
     private NewsWindow window;
     private Gtk.ListBox sidebar_list;
     private Gee.HashMap<string, Gtk.Box> sidebar_icon_holders;
+    // We store RSS feed icon holders under keys prefixed with "rss:" + url
     private SidebarActivateHandler? activate_cb;
     private Gtk.ScrolledWindow sidebar_scrolled;
     private Gtk.Revealer sidebar_revealer;
@@ -38,6 +39,7 @@ public class SidebarManager : GLib.Object {
     private bool popular_categories_expanded = true;
     private Gtk.Box? followed_sources_container;
     private Gtk.Box? popular_categories_container;
+    private Gtk.Button? add_rss_button;
 
     // Track currently selected button for highlighting
     private Gtk.Button? currently_selected_button = null;
@@ -54,6 +56,46 @@ public class SidebarManager : GLib.Object {
         load_expanded_states();
 
         build_sidebar_ui();
+
+        // Listen for changes to custom RSS sources and rebuild sidebar when they change
+        var store = Paperboy.RssSourceStore.get_instance();
+        store.source_added.connect((s) => {
+            Idle.add(() => {
+                try { append_rss_feed_row(s); } catch (GLib.Error e) { }
+                return false;
+            });
+        });
+        store.source_removed.connect((s) => {
+            Idle.add(() => {
+                try { remove_rss_feed_row_by_url(s.url); } catch (GLib.Error e) { }
+                return false;
+            });
+        });
+
+        // When a source is updated (for example its icon file was saved), update only that icon
+        store.source_updated.connect((s) => {
+            Idle.add(() => {
+                try {
+                    string key = "rss:" + s.url;
+                    try {
+                        Gtk.Box holder = sidebar_icon_holders.get(key);
+                        // Remove existing children
+                        Gtk.Widget? child = holder.get_first_child();
+                        while (child != null) {
+                            Gtk.Widget? next = child.get_next_sibling();
+                            try { holder.remove(child); } catch (GLib.Error e) { }
+                            child = next;
+                        }
+                        // Create fresh picture and append
+                        var pic = create_rss_source_picture(s);
+                        if (pic != null) holder.append(pic);
+                    } catch (GLib.Error e) {
+                        // No holder for this source yet; ignore
+                    }
+                } catch (GLib.Error e) { }
+                return false;
+            });
+        });
     }
 
     private void load_expanded_states() {
@@ -111,6 +153,17 @@ public class SidebarManager : GLib.Object {
     // Rebuild the sidebar rows according to the currently selected source
     public void rebuild_rows() {
         // Debug logging removed - keep sidebar rebuild lean.
+
+        // Preserve vertical scroll position so clicking items doesn't jump to top
+        double saved_value = 0.0;
+        double saved_upper = 0.0;
+        double saved_page = 0.0;
+        try {
+            var vadj = sidebar_scrolled.get_vadjustment();
+            saved_value = vadj.get_value();
+            saved_upper = vadj.get_upper();
+            saved_page = vadj.get_page_size();
+        } catch (GLib.Error e) { }
 
         // Clear existing rows
         int removed = 0;
@@ -192,6 +245,17 @@ public class SidebarManager : GLib.Object {
                 }
                 if (present) build_category_row_to_container(window.category_display_name_for(cat), cat, window.prefs.category == cat);
             }
+            // Restore previous scroll position (clamped to valid range) before returning
+            try {
+                var vadj = sidebar_scrolled.get_vadjustment();
+                double max_val = saved_upper - saved_page;
+                if (max_val < 0) max_val = 0;
+                double to_set = saved_value;
+                if (to_set < 0) to_set = 0;
+                if (to_set > max_val) to_set = max_val;
+                vadj.set_value(to_set);
+            } catch (GLib.Error e) { }
+
             return;
         }
 
@@ -220,6 +284,17 @@ public class SidebarManager : GLib.Object {
                     build_category_row_to_container("Lifestyle", "lifestyle", window.prefs.category == "lifestyle");
                 }
             } catch (GLib.Error e) { build_category_row_to_container("Lifestyle", "lifestyle", window.prefs.category == "lifestyle"); }
+        
+        // Restore previous scroll position (clamped to valid range)
+        try {
+            var vadj = sidebar_scrolled.get_vadjustment();
+            double max_val = saved_upper - saved_page;
+            if (max_val < 0) max_val = 0;
+            double to_set = saved_value;
+            if (to_set < 0) to_set = 0;
+            if (to_set > max_val) to_set = max_val;
+            vadj.set_value(to_set);
+        } catch (GLib.Error e) { }
         }
     }
 
@@ -392,6 +467,7 @@ public class SidebarManager : GLib.Object {
             } catch (GLib.Error e) { }
         });
 
+        try { row.set_can_focus(false); } catch (GLib.Error e) { }
         sidebar_list.append(row);
     }
 
@@ -419,6 +495,8 @@ public class SidebarManager : GLib.Object {
         header_button.set_child(header_box);
         header_button.add_css_class("flat");
         header_button.set_hexpand(true);
+
+        try { header_button.set_can_focus(false); } catch (GLib.Error e) { }
 
         header_button.clicked.connect(() => {
             popular_categories_expanded = !popular_categories_expanded;
@@ -471,6 +549,8 @@ public class SidebarManager : GLib.Object {
         header_button.add_css_class("flat");
         header_button.set_hexpand(true);
 
+        try { header_button.set_can_focus(false); } catch (GLib.Error e) { }
+
         header_button.clicked.connect(() => {
             followed_sources_expanded = !followed_sources_expanded;
             arrow.set_from_icon_name(followed_sources_expanded ? "go-down-symbolic" : "go-next-symbolic");
@@ -522,26 +602,23 @@ public class SidebarManager : GLib.Object {
         }
 
         // Add "Add RSS Feed" button at the bottom
-        create_rss_feed_button();
+            var add_button = create_rss_feed_button();
+            followed_sources_container.append(add_button);
+            // Keep reference so incremental inserts can place new rows before this button
+            add_rss_button = add_button;
     }
 
     // Add a row for a single RSS feed
-    private void build_rss_feed_row(Paperboy.RssSource source) {
-        if (followed_sources_container == null) return;
-
+    private Gtk.Widget create_rss_feed_widget(Paperboy.RssSource source) {
         var feed_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         feed_box.set_margin_start(12);
         feed_box.set_margin_end(12);
         feed_box.set_margin_top(4);
         feed_box.set_margin_bottom(4);
 
-
-        // Create icon - don't cache Picture widgets as they can only have one parent
-        // The underlying pixbuf data is cached by ImageCache, so this is efficient
+        // Create icon
         Gtk.Picture pic = create_rss_source_picture(source);
 
-
-        // Create circular icon holder (matching source badge style)
         var icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         icon_holder.add_css_class("circular-logo");
         icon_holder.set_size_request(NewsWindow.SIDEBAR_ICON_SIZE, NewsWindow.SIDEBAR_ICON_SIZE);
@@ -550,14 +627,14 @@ public class SidebarManager : GLib.Object {
         icon_holder.append(pic);
         feed_box.append(icon_holder);
 
+        // Remember this holder so we can update the logo later when metadata arrives
+        try { sidebar_icon_holders.set("rss:" + source.url, icon_holder); } catch (GLib.Error e) { }
+
         var name_label = new Gtk.Label(source.name);
-        
-        // Try to get display name from SourceMetadata first (matches what user sees in Front Page/Top Ten)
         string? display_name = SourceMetadata.get_display_name_for_source(source.name);
         if (display_name != null && display_name.length > 0) {
             name_label.set_text(display_name);
         }
-        
         name_label.set_xalign(0);
         name_label.set_hexpand(true);
         name_label.set_ellipsize(Pango.EllipsizeMode.END);
@@ -565,39 +642,135 @@ public class SidebarManager : GLib.Object {
 
         var feed_button = new Gtk.Button();
         feed_button.set_child(feed_box);
+        try { feed_button.set_can_focus(false); } catch (GLib.Error e) { }
         feed_button.add_css_class("flat");
         feed_button.add_css_class("sidebar-item-row");
 
+        // Store URL and name for later lookup and ordering when inserting/removing
+        try { feed_button.set_data("rss_url", source.url); } catch (GLib.Error e) { }
+        try { feed_button.set_data("rss_name", source.name); } catch (GLib.Error e) { }
+
         feed_button.clicked.connect(() => {
             try {
-                // Remove selected class from any previously selected row
                 if (currently_selected_row != null) {
                     currently_selected_row.remove_css_class("selected");
                     currently_selected_row = null;
                 }
-
-                // Remove selected class from previously selected button
                 if (currently_selected_button != null) {
                     currently_selected_button.remove_css_class("selected");
                 }
-
-                // Add selected class to this button
                 feed_button.add_css_class("selected");
                 currently_selected_button = feed_button;
 
-                // Trigger category activation with RSS feed category format
                 string rss_category = "rssfeed:" + source.url;
                 handle_category_activation(rss_category, source.name);
             } catch (GLib.Error e) { }
         });
 
-        followed_sources_container.append(feed_button);
+        // If this RSS is currently active in prefs, mark it selected on creation
+        try {
+            string rss_category_check = "rssfeed:" + source.url;
+            if (window.prefs.category == rss_category_check) {
+                // Clear any previously selected row
+                if (currently_selected_row != null) {
+                    currently_selected_row.remove_css_class("selected");
+                    currently_selected_row = null;
+                }
+                feed_button.add_css_class("selected");
+                currently_selected_button = feed_button;
+            }
+        } catch (GLib.Error e) { }
+
+        return feed_button;
     }
 
-    // Add "Add RSS Feed" button at the bottom of the list
-    private void create_rss_feed_button() {
+    private void build_rss_feed_row(Paperboy.RssSource source) {
         if (followed_sources_container == null) return;
+        var widget = create_rss_feed_widget(source);
+        followed_sources_container.append(widget);
+    }
 
+    private void append_rss_feed_row(Paperboy.RssSource source) {
+        if (followed_sources_container == null) return;
+        // Build widget for new source
+        var new_widget = create_rss_feed_widget(source);
+
+        // Gather existing widgets except the Add button
+        var widgets = new Gee.ArrayList<Gtk.Widget>();
+        Gtk.Widget? child = followed_sources_container.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            if (add_rss_button != null && child == add_rss_button) {
+                // skip the add button for now
+            } else {
+                widgets.add(child);
+            }
+            child = next;
+        }
+
+        // Find insertion index using authoritative DB ordering (get_all_sources() is ORDER BY name ASC)
+        int insert_at = widgets.size; // default to append
+        try {
+            var store = Paperboy.RssSourceStore.get_instance();
+            var ordered = store.get_all_sources();
+            int pos = -1;
+            for (int i = 0; i < ordered.size; i++) {
+                if (ordered.get(i).url == source.url) { pos = i; break; }
+            }
+            if (pos >= 0) {
+                // Clamp to available widget count
+                if (pos < widgets.size) insert_at = pos; else insert_at = widgets.size;
+            }
+        } catch (GLib.Error e) {
+            // On error, fall back to appending
+            insert_at = widgets.size;
+        }
+
+        // Insert new_widget into the list at insert_at
+        var new_list = new Gee.ArrayList<Gtk.Widget>();
+        for (int i = 0; i < insert_at; i++) new_list.add(widgets.get(i));
+        new_list.add(new_widget);
+        for (int i = insert_at; i < widgets.size; i++) new_list.add(widgets.get(i));
+
+        // Clear container and re-append widgets in new order, then add button
+        child = followed_sources_container.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            try { followed_sources_container.remove(child); } catch (GLib.Error _) { }
+            child = next;
+        }
+
+        foreach (var w in new_list) followed_sources_container.append(w);
+        if (add_rss_button != null) followed_sources_container.append(add_rss_button);
+    }
+
+    private void remove_rss_feed_row_by_url(string url) {
+        if (followed_sources_container == null) return;
+        Gtk.Widget? child = followed_sources_container.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            try {
+                string? stored = child.get_data<string>("rss_url");
+                if (stored != null && stored == url) {
+                    followed_sources_container.remove(child);
+                    // Remove sidebar_icon_holders mapping
+                    try { sidebar_icon_holders.unset("rss:" + url); } catch (GLib.Error e) { }
+                    // If this removed widget was selected, clear selection and fall back to Front Page
+                    try {
+                        if (currently_selected_button != null && currently_selected_button == child) {
+                            currently_selected_button = null;
+                            handle_category_activation("frontpage", "Front Page");
+                        }
+                    } catch (GLib.Error e) { }
+                    return;
+                }
+            } catch (GLib.Error e) { }
+            child = next;
+        }
+    }
+
+    // Create and return the "Add RSS Feed" button (caller appends it)
+    private Gtk.Button create_rss_feed_button() {
         var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         button_box.set_margin_start(12);
         button_box.set_margin_end(12);
@@ -614,6 +787,7 @@ public class SidebarManager : GLib.Object {
         button_box.append(label);
 
         var add_button = new Gtk.Button();
+        try { add_button.set_can_focus(false); } catch (GLib.Error e) { }
         add_button.set_child(button_box);
         add_button.add_css_class("flat");
         add_button.add_css_class("sidebar-item-row");
@@ -622,7 +796,7 @@ public class SidebarManager : GLib.Object {
             show_add_rss_dialog();
         });
 
-        followed_sources_container.append(add_button);
+        return add_button;
     }
 
     // Show dialog to add a new RSS feed
@@ -803,6 +977,10 @@ public class SidebarManager : GLib.Object {
         row_box.append(label);
 
         var button = new Gtk.Button();
+        // Prevent the button grabbing keyboard focus which can trigger the
+        // scrolled window to scroll and jump the view when clicked.
+        try { button.set_can_focus(false); } catch (GLib.Error e) { }
+        try { button.set_can_focus(false); } catch (GLib.Error e) { }
         button.set_child(row_box);
         button.add_css_class("flat");
         button.add_css_class("sidebar-item-row");

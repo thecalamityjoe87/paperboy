@@ -26,6 +26,10 @@ using GLib;
 namespace Paperboy {
 
     public class RssSourceStore : GLib.Object {
+        // Signals emitted when sources are added/removed/updated so UI can react
+        public signal void source_added(Paperboy.RssSource source);
+        public signal void source_removed(Paperboy.RssSource source);
+        public signal void source_updated(Paperboy.RssSource source);
         private static RssSourceStore? instance = null;
         private Sqlite.Database? db = null;
         private string db_path;
@@ -135,6 +139,12 @@ namespace Paperboy {
             if (rc != Sqlite.DONE) {
                 GLib.warning("Failed to insert RSS source: %s", db.errmsg());
                 return false;
+            }
+
+            // Fetch the inserted source and emit a signal so UI can update
+            var added = get_source_by_url(url);
+            if (added != null) {
+                try { source_added(added); } catch (GLib.Error e) { }
             }
 
             return true;
@@ -254,6 +264,9 @@ namespace Paperboy {
 
             // Clean up associated files and metadata
             cleanup_source_files(source);
+
+            // Emit removal signal so UI can update
+            try { source_removed(source); } catch (GLib.Error e) { }
 
             GLib.print("Successfully removed RSS source: %s\n", source.name);
             return true;
@@ -433,6 +446,12 @@ namespace Paperboy {
             if (rc != Sqlite.DONE) {
                 GLib.warning("Failed to update icon filename: %s", db.errmsg());
                 return false;
+            }
+
+            // Emit an update notification for UI so icons can refresh
+            var updated = get_source_by_url(url);
+            if (updated != null) {
+                try { source_updated(updated); } catch (GLib.Error e) { }
             }
 
             return true;

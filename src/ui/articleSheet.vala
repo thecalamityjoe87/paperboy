@@ -60,8 +60,8 @@ public class ArticleSheet : GLib.Object {
 
         // Header with close and external-open buttons
         var header = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        header.set_margin_top(10);
-        header.set_margin_bottom(2);
+        header.set_margin_top(8);
+        header.set_margin_bottom(8);
         header.set_margin_start(8);
         header.set_margin_end(8);
         header.set_hexpand(true);
