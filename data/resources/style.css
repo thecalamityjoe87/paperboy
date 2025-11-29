@@ -49,7 +49,8 @@
 
 /* Source badge (icon + short name) shown on cards and hero slides */
 .source-badge {
-    background-color: rgba(0, 0, 0, 0.6); /* black at 60% */
+    background-color: rgba(0, 0, 0, 0.6);
+    /* black at 60% */
     color: white;
     border-radius: 9999px;
     padding: 4px 8px;
@@ -60,7 +61,7 @@
     gap: 6px;
     font-size: 0.82em;
     font-weight: 600;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 /* Viewed badge shown at the top-right of a card when the user has opened
@@ -73,11 +74,13 @@
     gap: 8px;
     padding: 4px 8px;
     border-radius: 999px;
-    background-color: rgba(0, 0, 0, 0.6); /* black @ 60% */
-    color: white; /* Viewed text should be white */
+    background-color: rgba(0, 0, 0, 0.6);
+    /* black @ 60% */
+    color: white;
+    /* Viewed text should be white */
     font-size: 0.85em;
     font-weight: 600;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
 /* Icon inside the viewed badge: white check on a black circular wrap */
@@ -85,7 +88,8 @@
 .viewed-badge picture,
 .viewed-badge .icon {
     background-color: rgb(26, 126, 64);
-    color: white; /* symbolic icons inherit this color */
+    color: white;
+    /* symbolic icons inherit this color */
     border-radius: 50%;
     width: 16px;
     height: 16px;
@@ -159,23 +163,81 @@
     align-items: center;
     justify-content: center;
 }
+
 .source-badge .circular-logo {
     padding: 0;
     box-sizing: border-box;
 }
+
 .source-badge .circular-logo picture,
 .source-badge .circular-logo image {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
+
 /* Small visual treatment to help circular logos stand out on light/dark
    backgrounds: subtle border and shadow. Kept low-contrast to avoid
    fighting brand logos. */
 .source-badge .circular-logo {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
-    border: 1px solid rgba(255,255,255,0.06);
-    background-clip: padding-box; /* ensure border doesn't overlay the image */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background-clip: padding-box;
+    /* ensure border doesn't overlay the image */
+}
+
+/* Circular logo styling for sidebar RSS feeds */
+.navigation-sidebar .circular-logo {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    max-width: 24px;
+    max-height: 24px;
+    border-radius: 50%;
+    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+    background-clip: padding-box;
+}
+
+.navigation-sidebar .circular-logo picture,
+.navigation-sidebar .circular-logo image,
+.navigation-sidebar .circular-logo * {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    max-width: 24px;
+    max-height: 24px;
+    border-radius: 50%;
+}
+
+.navigation-sidebar .circular-logo picture,
+.navigation-sidebar .circular-logo image {
+    object-fit: cover;
+}
+
+/* Source logo styling for content header (top right source info) */
+.header-source-logo {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    -gtk-icon-transform: scale(1);
+}
+
+/* Category icon styling for content header (top left) */
+.header-category-icon {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    -gtk-icon-transform: scale(1);
 }
 
 .source-badge-label {
@@ -196,9 +258,10 @@
        to avoid changing non-hero badge visuals. */
     font-size: 0.85em;
     padding: 4px 10px;
-    margin-bottom: 44px; /* lift up to avoid crowded titles */
+    margin-bottom: 44px;
+    /* lift up to avoid crowded titles */
     gap: 6px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
 /* Badge for the top story hero card */
@@ -255,17 +318,21 @@
 /* Carousel dots shown under the featured hero title */
 .carousel-dot {
     /* Bigger, clearer dots; base (inactive) color is lighter */
-    font-size: 22px; /* increased from 18px */
+    font-size: 22px;
+    /* increased from 18px */
     line-height: 1;
     padding: 3px 6px;
-    color: alpha(@borders, 0.45); /* light/dim by default */
+    color: alpha(@borders, 0.45);
+    /* light/dim by default */
     transition: color 180ms ease, transform 160ms ease;
 }
+
 .carousel-dot.inactive {
     color: alpha(@borders, 0.3);
     transform: scale(1);
     opacity: 0.9;
 }
+
 .carousel-dot.active {
     /* Active dot: darker and more prominent; no background */
     color: alpha(black, 0.9);
@@ -283,13 +350,16 @@
     padding: 8px;
     min-width: 52px;
     min-height: 52px;
-    font-size: 20px; /* helps symbolic icons scale */
+    font-size: 20px;
+    /* helps symbolic icons scale */
     opacity: 0;
     transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
 }
+
 .carousel-nav:hover {
     transform: scale(1.08);
 }
+
 /* Show nav buttons when hovering the featured card */
 .card-featured:hover .carousel-nav {
     opacity: 1;
@@ -302,31 +372,76 @@
     background-color: @sidebar_bg_color;
 }
 
-.navigation-sidebar row {
+.navigation-sidebar .sidebar-item-row {
     background-color: transparent;
+    font-weight: 600;
+    font-size: 0.88em;
 }
 
-.navigation-sidebar row:selected {
+.navigation-sidebar .sidebar-item-row:selected {
     background-color: alpha(@window_fg_color, 0.1);
 }
 
-.navigation-sidebar row:hover:not(:selected) {
-    background-color: alpha(@window_fg_color, 0.06);
+/* Selected state using CSS class (for manual selection management) */
+.navigation-sidebar row.sidebar-item-row.selected,
+.navigation-sidebar button.sidebar-item-row.selected {
+    background-color: alpha(@window_fg_color, 0.1);
 }
 
-.navigation-sidebar .heading {
-    font-weight: bold;
-    font-size: 1.1em;
+.navigation-sidebar row.sidebar-item-row.selected:hover,
+.navigation-sidebar button.sidebar-item-row.selected:hover {
+    background-color: alpha(@window_fg_color, 0.12);
+}
+
+.navigation-sidebar .sidebar-item-row:hover:not(:selected):not(.selected) {
+    background-color: alpha(@window_fg_color, 0.05);
+}
+
+/* Make content-area toast overlays ignore pointer events so they don't
+   block scrolling or other input when visible. The overlay itself
+   passes through all pointer events to the content below, but the
+   actual toast widgets inside can still receive clicks for dismissal. */
+.content-toast-pass {
+    pointer-events: none;
+}
+
+/* Allow toast widgets inside the pass-through overlay to receive
+   pointer events so users can interact with them (e.g., dismiss) */
+.content-toast-pass toast,
+.content-toast-pass .toast {
+    pointer-events: auto;
+}
+
+
+/* Style for collapsible section headers */
+.navigation-sidebar .caption-heading {
+    font-weight: 750;
+    font-size: 0.92em;
+    opacity: 1;
+}
+
+.navigation-sidebar .caption-heading image {
+    opacity: 0.8;
+    min-width: 12px;
+    min-height: 12px;
+    -gtk-icon-size: 12px;
+}
+
+/* Sidebar arrow indicators */
+.navigation-sidebar .sidebar-arrow {
+    min-width: 12px;
+    min-height: 12px;
+    margin-left: 6px;
+    -gtk-icon-size: 12px;
 }
 
 /* NavigationSplitView sidebar pane styling */
-navigation-split-view > widget.sidebar-pane {
+navigation-split-view>widget.sidebar-pane {
     background-color: @sidebar_bg_color;
 }
 
 /* NavigationSplitView content pane */
-navigation-split-view > widget.content-pane {
-}
+navigation-split-view>widget.content-pane {}
 
 /* Load More button animations */
 .fade-in {
@@ -351,6 +466,7 @@ navigation-split-view > widget.content-pane {
     box-shadow: -4px 0 16px alpha(@shade_color, 0.25);
 }
 
+
 /* Dim overlay to disable main area when article preview is open */
 .dim-overlay {
     background-color: alpha(black, 0.4);
@@ -358,13 +474,101 @@ navigation-split-view > widget.content-pane {
 }
 
 /* Only the headerbar for the sidebar pane */
-navigation-split-view > widget.sidebar-pane headerbar {
+navigation-split-view>widget.sidebar-pane headerbar {
     background-color: @sidebar_bg_color;
     color: @sidebar_fg_color;
     box-shadow: none;
 }
 
-navigation-split-view > widget.sidebar-pane headerbar:backdrop {
+navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     background-color: @sidebar_bg_color;
     color: @sidebar_fg_color;
+}
+
+/* Increase touch/visual target size for action buttons in the
+   article preview. This makes the Close and Options buttons taller
+   so they're easier to tap on touch devices and more visually
+   prominent on desktop. Adjust values if you prefer a different
+   height. */
+.article-actions button,
+.article-actions .button,
+.article-actions .suggested-action,
+.article-actions .menu-button {
+    /* Reduce height and vertical padding so buttons appear smaller */
+    min-height: 36px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    /* let the button size be determined by content + padding */
+    height: auto;
+    box-sizing: border-box;
+    line-height: normal;
+}
+
+/* Normal card */
+.pane-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    background-color: #ffffff;
+    transition: none;
+    /* disables hover transition */
+}
+
+/* Optional: disable hover animation specifically */
+.pane-round-image-card:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    /* same as normal, no change */
+    transform: none;
+    /* prevent scale-up animation */
+}
+
+/* Disable hover effects for cards inside the article sheet so the webview
+   content or sheet layout doesn't shift when hovered. We override the
+   general .card:hover rules only within the sheet. */
+.article-sheet .card {
+    background-color: @window_bg_color;
+    /* Ensure solid background */
+    transition: none;
+    /* avoid hover transform animations */
+}
+
+.article-sheet .card:hover,
+.article-sheet .card.card-hover {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Make contained image round */
+.pane-round-image-card image {
+    border-radius: 50%;
+    overflow: hidden;
+    min-width: 64px;
+    min-height: 64px;
+    max-width: 64px;
+    max-height: 64px;
+}
+
+/* Custom toast styling to match Adwaita toasts */
+.custom-toast {
+    background-color: alpha(@window_fg_color, 0.9);
+    color: @window_bg_color;
+    border-radius: 9999px;
+    padding: 8px 16px;
+    box-shadow: 0 2px 8px alpha(@shade_color, 0.25);
+    min-height: 36px;
+}
+
+.custom-toast-label {
+    color: @window_bg_color;
+    font-weight: 500;
+}
+
+.custom-toast-close {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    margin: 0;
+}
+
+.custom-toast-close:hover {
+    background-color: alpha(@window_bg_color, 0.1);
 }

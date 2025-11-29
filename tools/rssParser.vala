@@ -49,9 +49,30 @@ public class RssParser {
             bool bbc_enabled = false;
             try { string? env = GLib.Environment.get_variable("PAPERBOY_ENABLE_BBC_EXTRACT"); if (env == null) bbc_enabled = true; else bbc_enabled = env != "0"; } catch (GLib.Error e) { bbc_enabled = true; }
             Xml.Node* root = doc->get_root_element();
+            string? favicon_url = null;
             for (Xml.Node* ch = root->children; ch != null; ch = ch->next) {
                 if (ch->type == Xml.ElementType.ELEMENT_NODE && (ch->name == "channel" || ch->name == "feed")) {
                     for (Xml.Node* it = ch->children; it != null; it = it->next) {
+                        if (it->type == Xml.ElementType.ELEMENT_NODE) {
+                            if (it->name == "image") { // RSS 2.0 <image>
+                                for (Xml.Node* img_child = it->children; img_child != null; img_child = img_child->next) {
+                                    if (img_child->type == Xml.ElementType.ELEMENT_NODE && img_child->name == "url") {
+                                        favicon_url = img_child->get_content();
+                                        break;
+                                    }
+                                }
+                            } else if (it->name == "link") { // Atom <link rel="icon"> or RSS 2.0 <link>
+                                Xml.Attr* rel_attr = null;
+                                Xml.Attr* href_attr = null;
+                                for (Xml.Attr* a = it->properties; a != null; a = a->next) {
+                                    if (a->name == "rel") rel_attr = a;
+                                    if (a->name == "href") href_attr = a;
+                                }
+                                if (rel_attr != null && rel_attr->children != null && (string)rel_attr->children->content == "icon" && href_attr != null && href_attr->children != null) {
+                                    favicon_url = (string)href_attr->children->content;
+                                }
+                            }
+                        }
                         if (it->type == Xml.ElementType.ELEMENT_NODE && (it->name == "item" || it->name == "entry")) {
                             string? title = null;
                             string? link = null;
@@ -189,6 +210,27 @@ public class RssParser {
                 foreach (var row in items) {
                     add_item(row[0] ?? "No title", row[1] ?? "", row[2], category_id, source_name);
                 }
+
+                // Update RssSourceStore with favicon URL if this is a custom RSS source
+                if (category_id == "myfeed" && favicon_url != null && favicon_url.length > 0) {
+                    try {
+                        var rss_store = Paperboy.RssSourceStore.get_instance();
+                        // Try to find the source by matching the source_name
+                        var all_sources = rss_store.get_all_sources();
+                        foreach (var src in all_sources) {
+                            if (src.name == source_name) {
+                                // Update favicon URL if not already set
+                                if (src.favicon_url == null || src.favicon_url.length == 0) {
+                                    rss_store.update_favicon_url(src.url, favicon_url);
+                                }
+                                break;
+                            }
+                        }
+                    } catch (GLib.Error e) {
+                        // Silently ignore errors - favicon is optional
+                    }
+                }
+
                 return false;
             });
 
@@ -237,14 +279,44 @@ public class RssParser {
     ) {
         new Thread<void*>("fetch-rss", () => {
             try {
-                var msg = new Soup.Message("GET", url);
-                msg.request_headers.append("User-Agent", "news-vala-gnome/0.1");
-                session.send_message(msg);
-                if (msg.status_code != 200) {
-                    warning("HTTP %u for RSS", msg.status_code);
+                // Support local file:// feeds by reading the file directly
+                if (url.has_prefix("file://")) {
+                    try {
+                        string path = url.substring(7);
+                        var f = GLib.File.new_for_path(path);
+                        if (!f.query_exists(null)) {
+                            warning("Local RSS file not found: %s", path);
+                            return null;
+                        }
+                        // Use FileUtils.get_contents to safely read the whole file into memory
+                        string body = "";
+                        bool ok = GLib.FileUtils.get_contents(path, out body);
+                        if (!ok || body.length == 0) {
+                            warning("Failed to read local RSS file: %s", path);
+                            return null;
+                        }
+                        parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session);
+                        return null;
+                    } catch (GLib.Error e) {
+                        warning("Error reading local RSS file: %s", e.message);
+                        return null;
+                    }
+                }
+
+                var client = Paperboy.HttpClient.get_default();
+                var http_response = client.fetch_sync(url, null);
+
+                if (!http_response.is_success()) {
+                    warning("HTTP %u for RSS", http_response.status_code);
                     return null;
                 }
-                string body = (string) msg.response_body.flatten().data;
+
+                if (http_response.body == null) {
+                    warning("Empty response for RSS");
+                    return null;
+                }
+
+                string body = http_response.get_body_string();
                 parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session);
             } catch (GLib.Error e) {
                 warning("RSS fetch error: %s", e.message);

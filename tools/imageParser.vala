@@ -125,12 +125,12 @@ public class ImageParser {
 
 		new Thread<void*>("fetch-og-image", () => {
 			try {
-				var msg = new Soup.Message("GET", article_url);
-				msg.request_headers.append("User-Agent", "Mozilla/5.0 (Linux; rv:91.0) Gecko/20100101 Firefox/91.0");
-				session.send_message(msg);
+				var client = Paperboy.HttpClient.get_default();
+				var options = new Paperboy.HttpClient.RequestOptions().with_browser_headers();
+				var http_response = client.fetch_sync(article_url, options);
 
-				if (msg.status_code == 200) {
-					string body = (string) msg.response_body.flatten().data;
+				if (http_response.is_success() && http_response.body != null) {
+					string body = http_response.get_body_string();
 					var og_regex = new Regex("<meta[^>]*property=\\\"og:image\\\"[^>]*content=\\\"([^\\\"]+)\\\"", RegexCompileFlags.DEFAULT);
 					MatchInfo match_info;
 					if (og_regex.match(body, 0, out match_info)) {
@@ -189,12 +189,12 @@ public class ImageParser {
 
 		new Thread<void*>("fetch-bbc-image", () => {
 			try {
-				var msg = new Soup.Message("GET", article_url);
-				msg.request_headers.append("User-Agent", "Mozilla/5.0 (Linux; rv:91.0) Gecko/20100101 Firefox/91.0");
-				session.send_message(msg);
+				var client = Paperboy.HttpClient.get_default();
+				var options = new Paperboy.HttpClient.RequestOptions().with_browser_headers();
+				var http_response = client.fetch_sync(article_url, options);
 
-				if (msg.status_code != 200) return null;
-				string body = (string) msg.response_body.flatten().data;
+				if (!http_response.is_success() || http_response.body == null) return null;
+				string body = http_response.get_body_string();
 
 				string? best = null;
 

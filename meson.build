@@ -3,13 +3,15 @@ project('paperboy', 'vala',
 )
 
 gtk = dependency('gtk4')
-libsoup = dependency('libsoup-2.4')
+libsoup = dependency('libsoup-3.0')
 json = dependency('json-glib-1.0')
 gdkpixbuf = dependency('gdk-pixbuf-2.0')
 adw = dependency('libadwaita-1')
 xml2 = dependency('libxml-2.0')
 gee = dependency('gee-0.8')
 gio = dependency('gio-2.0')
+sqlite = dependency('sqlite3')
+webkit = dependency('webkitgtk-6.0')
 
 # Generate build-time constants so the application knows where meson
 # installed data and binaries. This avoids hardcoding candidate paths
@@ -32,6 +34,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/contentView.vala',
     'src/ui/articlePane.vala',
     'src/ui/articleCard.vala',
+    'src/ui/articleSheet.vala',
     'src/ui/heroCard.vala',
     'src/ui/heroCarousel.vala',
 
@@ -49,6 +52,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/articleManager.vala',
     'src/managers/sidebarManager.vala',
     'src/managers/imageHandler.vala',
+    'src/managers/toastManager.vala',
+    'src/managers/feedUpdateManager.vala',
 
     # Services / models
     'src/services/metaCache.vala',
@@ -57,9 +62,11 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/newsSources.vala',
     'src/services/prefs.vala',
     'src/services/lruCache.vala',
-    'src/services/sourceLogos.vala',
+    'src/services/sourceMetadata.vala',
     'src/services/previewCache.vala',
+    'src/services/rssSourceStore.vala',
     'src/models/newsArticle.vala',
+    'src/models/rssSource.vala',
 
     # Utils
     'src/utils/appDebugger.vala',
@@ -69,6 +76,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/dataPaths.vala',
     'src/utils/categoryIcons.vala',
     'src/utils/workerPool.vala',
+    'src/utils/httpClient.vala',
+    'src/utils/rssValidator.vala',
 
     # Tools used at build/runtime
     'tools/rssParser.vala',
@@ -77,7 +86,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'tools/stripHTML.vala',
     'tools/zipLookup.vala',
   ],
-  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio],
+  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit],
   install : true,
   link_args : ['-lm']
 )
@@ -93,6 +102,13 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
 
 install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
 
+# Install and compile GSettings schema
+install_data('data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml',
+  install_dir: join_paths(get_option('datadir'), 'glib-2.0', 'schemas'))
+
+gnome = import('gnome')
+gnome.compile_schemas(depend_files: 'data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml')
+
 # Install app icons to system icon directories at different sizes
 install_data('data/icons/128x128/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '128x128', 'apps'))
 install_data('data/icons/256x256/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '256x256', 'apps'))
@@ -100,6 +116,30 @@ install_data('data/icons/512x512/paperboy.png', install_dir: join_paths(get_opti
 install_data('data/icons/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '1024x1024', 'apps'))
 
 # Install app data (styles, icons) to a namespaced datadir for runtime lookup
-install_data('data/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))
+install_data('data/resources/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_data('data/usZips.csv', install_dir: join_paths(get_option('datadir'), 'paperboy'))
+
+# Build and install the html2rss helper via Cargo so it is available
+# when running `ninja` / `ninja install`. We use a custom_target that
+# invokes Cargo in the tool's directory and copies the produced binary
+# into the Meson build directory as the target output. The resulting
+# target is then installed into both the namespaced datadir and the
+# bindir so the runtime can locate it either from the data dir or PATH.
+if files('tools/html2rss/Cargo.toml').length() > 0
+  message('Found html2rss Rust project; building with Cargo...')
+  # Run cargo build at configure time so the produced binary is available
+  # for installation and for runtime lookup paths used by the app.
+  run_result = run_command('bash', '-lc', 'cd ' + meson.source_root() + '/tools/html2rss && cargo build --release')
+  if run_result.returncode() != 0
+    message('Warning: cargo build for html2rss failed; html2rss will not be installed')
+  endif
+endif
+
+# Install the html2rss helper binary if present (built via Cargo).
+# Place it under the app's namespaced datadir and also into bindir so the
+# runtime can find it either as a tool in the data dir or in PATH.
+if files('tools/html2rss/target/release/html2rss').length() > 0
+  install_data('tools/html2rss/target/release/html2rss', install_dir: join_paths(get_option('datadir'), 'org.gnome.Paperboy', 'tools'))
+  install_data('tools/html2rss/target/release/html2rss', install_dir: get_option('bindir'))
+endif

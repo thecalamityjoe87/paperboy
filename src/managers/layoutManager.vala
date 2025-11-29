@@ -133,6 +133,27 @@ public class LayoutManager : GLib.Object {
     // Recreate the columns for masonry layout with a new count
     public void rebuild_columns(int count) {
         if (columns_row == null) return;
+
+        // Collect all existing article widgets from current columns before destroying them
+        var existing_articles = new Gee.ArrayList<Gtk.Widget>();
+        Gtk.Widget? column_child = columns_row.get_first_child();
+        while (column_child != null) {
+            // Each column_child is a Gtk.Box (vertical column)
+            if (column_child is Gtk.Box) {
+                Gtk.Box col_box = (Gtk.Box) column_child;
+                Gtk.Widget? article_widget = col_box.get_first_child();
+                while (article_widget != null) {
+                    Gtk.Widget? next_article = article_widget.get_next_sibling();
+                    // Unparent the article from the old column but keep it alive
+                    try { col_box.remove(article_widget); } catch (GLib.Error e) { }
+                    existing_articles.add(article_widget);
+                    article_widget = next_article;
+                }
+            }
+            column_child = column_child.get_next_sibling();
+        }
+
+        // Now destroy the old columns
         Gtk.Widget? child = columns_row.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
@@ -140,6 +161,8 @@ public class LayoutManager : GLib.Object {
             try { child.unparent(); } catch (GLib.Error e) { }
             child = next;
         }
+
+        // Create new columns
         columns_count = count;
         columns = new Gtk.Box[count];
         column_heights = new int[count];
@@ -155,6 +178,16 @@ public class LayoutManager : GLib.Object {
             column_heights[i] = 0;
             try { columns_row.append(col); } catch (GLib.Error e) { }
         }
+
+        // Redistribute existing articles into new columns using round-robin
+        int current_col = 0;
+        foreach (var article in existing_articles) {
+            try {
+                columns[current_col].append(article);
+                current_col = (current_col + 1) % count;
+            } catch (GLib.Error e) { }
+        }
+
         try {
             // Log column array and heights after rebuild
             string heights = "";

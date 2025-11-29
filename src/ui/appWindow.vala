@@ -111,6 +111,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         public Adw.OverlaySplitView article_preview_split;
         public Gtk.Box article_preview_content;
         public ArticlePane article_pane;
+        public ArticleSheet article_sheet;
+        public Gtk.Overlay root_overlay;
+        public Adw.ToastOverlay toast_overlay;
+        public Adw.ToastOverlay? content_toast_overlay;
+        public ToastManager? toast_manager;
         public Gtk.Widget dim_overlay;
         public Gtk.Box main_content_container;
         public Gtk.ScrolledWindow main_scrolled;
@@ -128,6 +133,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         private HeaderManager header_manager;
         // Manager instance for loading/overlay UI
         public Managers.LoadingStateManager? loading_state;
+        // Manager instance for RSS feed updates
+        private FeedUpdateManager? feed_updater;
 
         // Search query state and debug log path
         private string current_search_query = "";
@@ -136,6 +143,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Fetch / initial state tracking
         public uint fetch_sequence = 0;
         public uint deferred_check_timeout_id = 0;
+
+        // RSS feed adaptive layout tracking
+        private uint rss_feed_layout_timeout_id = 0;
+        private int rss_feed_article_count = 0;
     
         // Convenience accessors for ArticleManager properties (for backward compatibility)
         public ArticleItem[]? remaining_articles { get { return article_manager.remaining_articles; } set { article_manager.remaining_articles = value; } }
@@ -213,6 +224,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         prefs = NewsPreferences.get_instance();
         // Initialize source and category managers early (needed for all source/category logic)
         source_manager = new SourceManager(prefs);
+        source_manager.set_window(this);
         category_manager = new CategoryManager(prefs, source_manager);
         // Initialize hero request tracking map
         hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
@@ -360,6 +372,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     source_label = content_view.source_label;
     content_box = content_view.content_box;
     main_scrolled = content_view.main_scrolled;
+    // Wire content-local toast overlay so we can center toasts inside content
+    try { this.content_toast_overlay = content_view.toast_overlay; } catch (GLib.Error e) { this.content_toast_overlay = null; }
 
     // Instantiate LayoutManager and wire container refs
     layout_manager = new Managers.LayoutManager(this);
@@ -429,7 +443,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // overlay the personalized-message box across the entire visible
     // viewport (not just the inner scrolled content). This makes centering
     // reliable regardless of scroll/content size.
-    var root_overlay = new Gtk.Overlay();
+    root_overlay = new Gtk.Overlay();
     root_overlay.set_child(nav_view);
     
     // Create article preview overlay split view (slides in from right)
@@ -470,13 +484,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     var preview_scrolled = new Gtk.ScrolledWindow();
     preview_scrolled.set_child(article_preview_content);
     preview_scrolled.set_vexpand(true);
-    preview_scrolled.set_hexpand(true);
-    
+    preview_scrolled.set_hexpand(false);
+    preview_scrolled.set_propagate_natural_width(false);
+
     // Wrap scrolled window in a box for proper rounded corner rendering
     var preview_wrapper = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
     preview_wrapper.append(preview_scrolled);
     preview_wrapper.set_vexpand(true);
-    preview_wrapper.set_hexpand(true);
+    preview_wrapper.set_hexpand(false);
     preview_wrapper.add_css_class("article-preview-panel");
     
     article_preview_split.set_sidebar(preview_wrapper);
@@ -573,6 +588,12 @@ public class NewsWindow : Adw.ApplicationWindow {
     } catch (GLib.Error e) { }
     try { if (loading_state.error_message_box != null) root_overlay.add_overlay(loading_state.error_message_box); } catch (GLib.Error e) { }
 
+    // Create the in-app article sheet overlay (WebKit-based) and add it
+    try {
+        this.article_sheet = new ArticleSheet(this);
+        try { root_overlay.add_overlay(this.article_sheet.get_widget()); } catch (GLib.Error e) { }
+    } catch (GLib.Error e) { }
+
     // Wrap root_overlay with article preview split
     article_preview_split.set_content(root_overlay);
     
@@ -627,13 +648,22 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Initialize main content container size for initial state
         update_main_content_size(true);
 
-        set_content(split_view);
+        // Wrap split_view with toast overlay for notifications
+        toast_overlay = new Adw.ToastOverlay();
+        toast_overlay.set_child(split_view);
+        set_content(toast_overlay);
 
-        session = new Soup.Session();
-        // Optimize session for better performance
-        session.max_conns = 10; // Allow more concurrent connections
-        session.max_conns_per_host = 4; // Limit per host to prevent overwhelming servers
-        session.timeout = 15; // Default timeout
+        // Initialize toast manager with root_overlay so custom toasts
+        // can be positioned in the content area without blocking scrolling
+        toast_manager = new ToastManager(root_overlay);
+
+        // Initialize feed update manager for automatic RSS feed updates
+        feed_updater = new FeedUpdateManager(this);
+
+        // Create session with timeout (max_conns properties are read-only in libsoup3)
+        session = new Soup.Session() {
+            timeout = 15 // Default timeout in seconds
+        };
 
         // Initialize article window with image handler for loading preview images
         article_pane = new ArticlePane(nav_view, session, this, image_handler);
@@ -738,6 +768,15 @@ public class NewsWindow : Adw.ApplicationWindow {
                 fetch_news();
             }
         } catch (GLib.Error e) { fetch_news(); }
+
+        // Update RSS feeds in background after a short delay (2 seconds)
+        // This gives the app time to fully initialize before starting network requests
+        if (feed_updater != null) {
+            GLib.Timeout.add_seconds(2, () => {
+                feed_updater.update_all_feeds_async();
+                return false; // One-shot
+            });
+        }
 
     // Ensure the personalized message visibility is correct at startup
     update_personalization_ui();
@@ -869,7 +908,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     private void update_sidebar_for_source() {
-        update_source_info();
         try { if (sidebar_manager != null) sidebar_manager.update_for_source_change(); } catch (GLib.Error e) { }
     }
 
@@ -1086,6 +1124,24 @@ public class NewsWindow : Adw.ApplicationWindow {
         try { if (view_state != null) view_state.preview_closed(url); } catch (GLib.Error e) { }
     }
 
+    public void show_toast(string message) {
+        if (toast_manager != null) {
+            toast_manager.show_toast(message);
+        }
+    }
+
+    public void show_persistent_toast(string message) {
+        if (toast_manager != null) {
+            toast_manager.show_persistent_toast(message);
+        }
+    }
+
+    public void clear_persistent_toast() {
+        if (toast_manager != null) {
+            toast_manager.clear_persistent_toast();
+        }
+    }
+
     private void create_icon_placeholder(Gtk.Picture image, string icon_path, int width, int height) {
         // Delegate to centralized placeholder builder which accepts a NewsSource
         try {
@@ -1137,6 +1193,17 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
+    // RSS feed specific placeholder: use the RSS feed's source logo from source_logos directory
+    public void set_rss_placeholder_image(Gtk.Picture image, int width, int height, string source_name) {
+        try {
+            PlaceholderBuilder.set_rss_placeholder_image(image, width, height, source_name);
+            return;
+        } catch (GLib.Error e) {
+            // Fallback to text-based placeholder with source name
+            try { PlaceholderBuilder.create_source_text_placeholder(image, source_name, NewsSource.GUARDIAN, width, height); } catch (GLib.Error ee) { }
+        }
+    }
+
     private void create_gradient_placeholder(Gtk.Picture image, int width, int height) {
         try { PlaceholderBuilder.create_gradient_placeholder(image, width, height); } catch (GLib.Error e) { }
     }
@@ -1175,8 +1242,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     public void hide_loading_spinner() {
         try { if (loading_state != null) loading_state.hide_loading_spinner(); } catch (GLib.Error e) { }
     }
-
-    // (migrated) network failure tracking is now owned by `loading_state`
 
     // Show the global error overlay. If `msg` is provided it will be shown
     // in the overlay label; otherwise we use a generic "no articles" text.
@@ -1404,6 +1469,18 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (article_manager.featured_carousel_items != null) {
             article_manager.featured_carousel_items.clear();
         }
+
+        // Restore hero/featured container visibility (may have been hidden by RSS adaptive layout)
+        try {
+            if (layout_manager.hero_container != null) {
+                layout_manager.hero_container.set_visible(true);
+            }
+        } catch (GLib.Error e) { }
+        try {
+            if (layout_manager.featured_box != null) {
+                layout_manager.featured_box.set_visible(true);
+            }
+        } catch (GLib.Error e) { }
         article_manager.featured_carousel_category = null;
         
         // Clear hero_container for Top Ten (remove all children including featured_box)
@@ -1482,9 +1559,22 @@ public class NewsWindow : Adw.ApplicationWindow {
         // (ArticleManager will handle button cleanup internally)
         
         // If the user selected "My Feed" but personalization is disabled,
-        // do not show the loading spinner or attempt to fetch content here.
-        // Instead, ensure the personalized overlay is updated and return.
-        bool is_myfeed_disabled = (category_manager.is_myfeed_view() && !prefs.personalized_feed_enabled);
+        // check if they have custom RSS sources. If they do, continue to fetch those.
+        // Otherwise, show the personalized overlay and return.
+        bool is_myfeed_view = category_manager.is_myfeed_view();
+        bool has_custom_sources = false;
+        if (is_myfeed_view) {
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var all_custom = rss_store.get_all_sources();
+            foreach (var src in all_custom) {
+                if (prefs.preferred_source_enabled("custom:" + src.url)) {
+                    has_custom_sources = true;
+                    break;
+                }
+            }
+        }
+
+        bool is_myfeed_disabled = (is_myfeed_view && !prefs.personalized_feed_enabled && !has_custom_sources);
         if (is_myfeed_disabled) {
             try { update_content_header(); } catch (GLib.Error e) { }
             try { update_personalization_ui(); } catch (GLib.Error e) { }
@@ -1702,31 +1792,25 @@ public class NewsWindow : Adw.ApplicationWindow {
             
             // Check article limit ONLY for limited categories, NOT frontpage/topten/all
             bool viewing_limited_category = (
-                self_ref.prefs.category == "general" || 
-                self_ref.prefs.category == "us" || 
-                self_ref.prefs.category == "sports" || 
-                self_ref.prefs.category == "science" || 
-                self_ref.prefs.category == "health" || 
-                self_ref.prefs.category == "technology" || 
-                self_ref.prefs.category == "business" || 
-                self_ref.prefs.category == "entertainment" || 
+                self_ref.prefs.category == "general" ||
+                self_ref.prefs.category == "us" ||
+                self_ref.prefs.category == "sports" ||
+                self_ref.prefs.category == "science" ||
+                self_ref.prefs.category == "health" ||
+                self_ref.prefs.category == "technology" ||
+                self_ref.prefs.category == "business" ||
+                self_ref.prefs.category == "entertainment" ||
                 self_ref.prefs.category == "politics" ||
-                self_ref.prefs.category == "lifestyle" || 
+                self_ref.prefs.category == "lifestyle" ||
                 self_ref.prefs.category == "markets" ||
                 self_ref.prefs.category == "industries" ||
                 self_ref.prefs.category == "economics" ||
                 self_ref.prefs.category == "wealth" ||
                 self_ref.prefs.category == "green"
                 || self_ref.prefs.category == "local_news"
+                || self_ref.prefs.category == "myfeed"
             );
-            
-            try {
-                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (dbg != null && dbg.length > 0) {
-                    self_ref.append_debug_log("wrapped_add: category=" + self_ref.prefs.category + " shown=" + self_ref.articles_shown.to_string() + " limit=" + Managers.ArticleManager.INITIAL_ARTICLE_LIMIT.to_string() + " is_limited=" + (viewing_limited_category ? "YES" : "NO") + " title=" + title);
-                }
-            } catch (GLib.Error e) { }
-            
+                        
             // Don't check limit here - let add_item_immediate_to_column() handle it after filtering
             
             // If we're in Local News mode, enqueue and process in small batches to avoid UI lockups
@@ -1762,23 +1846,42 @@ public class NewsWindow : Adw.ApplicationWindow {
                     return;
                 }
             } catch (GLib.Error e) { /* best-effort */ }
-
-            // Default: push the ArticleItem onto a shared UI queue and
-            // schedule a single Idle to drain items in small batches.
-            // This avoids scheduling one Idle per item (which created a
-            // racey mix of refs) and keeps the main-loop work bounded.
-            // Debug: trace wrapped_add calls
-            try {
-                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (dbg != null && dbg.length > 0) {
-                    self_ref.append_debug_log("wrapped_add CALLED: view=" + self_ref.prefs.category + " article_cat=" + category_id + " title=" + title);
+            
+            // Track RSS feed articles for adaptive layout
+            if (self_ref.category_manager.is_rssfeed_view()) {
+                self_ref.rss_feed_article_count++;
+                                
+                // Cancel any existing timeout and schedule a new one
+                // This ensures we wait until all articles have arrived
+                if (self_ref.rss_feed_layout_timeout_id > 0) {
+                    Source.remove(self_ref.rss_feed_layout_timeout_id);
                 }
-            } catch (GLib.Error e) { }
+                
+                // Schedule layout check after 500ms of no new articles
+                self_ref.rss_feed_layout_timeout_id = Timeout.add(500, () => {
+                    if (my_seq != self_ref.fetch_sequence) {
+                        self_ref.rss_feed_layout_timeout_id = 0;
+                        return false;
+                    }
+                    
+                    // Check if we need to adapt the layout
+                    if (self_ref.rss_feed_article_count < 15) {
+                        // Rebuild as 2-column hero layout
+                        Idle.add(() => {
+                            if (my_seq != self_ref.fetch_sequence) return false;
+                            try {
+                                self_ref.article_manager.rebuild_rss_feed_as_heroes();
+                            } catch (GLib.Error e) { }
+                            return false;
+                        });
+                    }
+                    
+                    self_ref.rss_feed_layout_timeout_id = 0;
+                    return false;
+                });
+            }
             
             self_ref.article_manager.add_item(title, url, thumbnail, category_id, source_name);
-
-            // Articles are now added directly via article_manager.add_item()
-            // No need for queue processing anymore
         };
 
         // Support fetching from multiple preferred sources when the user
@@ -1788,18 +1891,41 @@ public class NewsWindow : Adw.ApplicationWindow {
         // we only clear the UI once (for the first fetch) so subsequent
         // fetches append their results.
         bool used_multi = false;
-        //Use CategoryManager for My Feed logic
+        // Use CategoryManager for My Feed logic
         bool is_myfeed_mode = category_manager.is_myfeed_view();
         string[] myfeed_cats = new string[0];
+
+        // Load custom RSS sources if in My Feed mode
+        Gee.ArrayList<Paperboy.RssSource>? custom_rss_sources = null;
         if (is_myfeed_mode) {
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var all_custom = rss_store.get_all_sources();
+            custom_rss_sources = new Gee.ArrayList<Paperboy.RssSource>();
+
+            // Filter to only enabled custom sources
+            foreach (var src in all_custom) {
+                if (prefs.preferred_source_enabled("custom:" + src.url)) {
+                    custom_rss_sources.add(src);
+                }
+            }
+        }
+
+        if (is_myfeed_mode) {
+            // Load personalized categories if configured (applies only to built-in sources)
             if (category_manager.is_myfeed_configured()) {
                 var cats = category_manager.get_myfeed_categories();
                 myfeed_cats = new string[cats.size];
                 for (int i = 0; i < cats.size; i++) myfeed_cats[i] = cats.get(i);
-            } else {
-                //Personalization not configured, show overlay
+            }
+
+            // Check if we have ANY content to show (personalized categories OR custom RSS sources)
+            bool has_personalized_cats = (myfeed_cats != null && myfeed_cats.length > 0);
+            bool has_custom_rss = (custom_rss_sources != null && custom_rss_sources.size > 0);
+
+            if (!has_personalized_cats && !has_custom_rss) {
+                // No personalized categories AND no custom RSS sources - nothing to show
                 try { wrapped_clear(); } catch (GLib.Error e) { }
-                try { wrapped_set_label("My Feed — No personalized categories selected"); } catch (GLib.Error e) { }
+                try { wrapped_set_label("My Feed — No personalized categories or custom RSS feeds configured"); } catch (GLib.Error e) { }
                 hide_loading_spinner();
                 return;
             }
@@ -1914,6 +2040,52 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
             return;
         }
+
+        // RSS Feed: if the user selected an individual RSS feed from the sidebar,
+        // fetch articles from that specific feed URL using the RSS parser.
+        if (category_manager.is_rssfeed_view()) {
+            string? feed_url = category_manager.get_rssfeed_url();
+            if (feed_url == null || feed_url.length == 0) {
+                try { wrapped_set_label("RSS Feed — Invalid feed URL"); } catch (GLib.Error e) { }
+                hide_loading_spinner();
+                return;
+            }
+
+            // Get the RSS source details from the database
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var rss_source = rss_store.get_source_by_url(feed_url);
+            
+            string feed_name = rss_source != null ? rss_source.name : "RSS Feed";
+            
+            // Clear UI and schedule feed fetch
+            try { wrapped_clear(); } catch (GLib.Error e) { }
+            ClearItemsFunc no_op_clear = () => { };
+            SetLabelFunc label_fn = (text) => {
+                // Schedule UI update on main loop
+                Idle.add(() => {
+                    if (my_seq != self_ref.fetch_sequence) return false;
+                    try {
+                        self_ref.update_content_header();
+                    } catch (GLib.Error e) { }
+                    return false;
+                });
+            };
+
+            // Header will be updated by update_content_header_now() call later
+
+            // Reset RSS feed article counter for adaptive layout
+            self_ref.rss_feed_article_count = 0;
+            if (self_ref.rss_feed_layout_timeout_id > 0) {
+                Source.remove(self_ref.rss_feed_layout_timeout_id);
+                self_ref.rss_feed_layout_timeout_id = 0;
+            }
+
+            // Fetch articles from the RSS feed
+            // Don't set featured_used - let articles populate normally, adaptive layout will handle it
+            RssParser.fetch_rss_url(feed_url, feed_name, feed_name, "myfeed", current_search_query, session, label_fn, no_op_clear, wrapped_add);
+            
+            return;
+        }
         // If the user selected "Front Page", always request the backend
         // frontpage endpoint regardless of preferred_sources. Place this
         // before the multi-source branch so frontpage works even when the
@@ -2012,10 +2184,17 @@ public class NewsWindow : Adw.ApplicationWindow {
                 append_debug_log(s);
             } catch (GLib.Error e) { }
             NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+
             return;
         }
 
-        if (prefs.preferred_sources != null && prefs.preferred_sources.size > 1) {
+        // Check if we should use multi-source mode (multiple built-in sources OR custom RSS sources in My Feed)
+        int total_sources = (prefs.preferred_sources != null ? prefs.preferred_sources.size : 0);
+        if (is_myfeed_mode && custom_rss_sources != null) {
+            total_sources += custom_rss_sources.size;
+        }
+
+        if (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0)) {
             // Treat The Frontpage as a multi-source view visually, but do NOT
             // let the user's preferred_sources list influence which providers
             // are queried. Instead, when viewing the special "frontpage"
@@ -2213,13 +2392,38 @@ public class NewsWindow : Adw.ApplicationWindow {
                         return false;
                     });
                 };
-                foreach (var s in use_srcs) {
-                    if (is_myfeed_mode) {
-                        foreach (var cat in myfeed_cats) {
-                            NewsSources.fetch(s, cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+
+                // Fetch from built-in sources (unless in My Feed with custom_only mode enabled)
+                bool skip_builtin = is_myfeed_mode && prefs.myfeed_custom_only;
+                if (!skip_builtin) {
+                    foreach (var s in use_srcs) {
+                        if (is_myfeed_mode) {
+                            foreach (var cat in myfeed_cats) {
+                                NewsSources.fetch(s, cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                            }
+                        } else {
+                            NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, no_op_clear, wrapped_add);
                         }
-                    } else {
-                        NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                    }
+                }
+
+                // Fetch from custom RSS sources if in My Feed mode and sources are enabled
+                if (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0) {
+                    // Don't set featured_used - allow first article to become hero/carousel
+                    GLib.print("DEBUG: Fetching %d custom RSS sources\n", custom_rss_sources.size);
+                    foreach (var rss_src in custom_rss_sources) {
+                        GLib.print("DEBUG: Fetching RSS from %s (%s)\n", rss_src.name, rss_src.url);
+                        RssParser.fetch_rss_url(
+                            rss_src.url,
+                            rss_src.name,
+                            "My Feed",
+                            "myfeed",
+                            current_search_query,
+                            session,
+                            label_fn,
+                            no_op_clear,
+                            wrapped_add
+                        );
                     }
                 }
             }
@@ -2255,6 +2459,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (is_myfeed_mode) {
                 // Fetch each personalized category for the single effective source
                 try { wrapped_clear(); } catch (GLib.Error e) { }
+                ClearItemsFunc no_op_clear = () => { };
                 SetLabelFunc label_fn = (text) => {
                     Idle.add(() => {
                         if (my_seq != self_ref.fetch_sequence) return false;
@@ -2262,8 +2467,30 @@ public class NewsWindow : Adw.ApplicationWindow {
                         return false;
                     });
                 };
-                foreach (var cat in myfeed_cats) {
-                    NewsSources.fetch(effective_news_source(), cat, current_search_query, session, label_fn, wrapped_clear, wrapped_add);
+
+                // Fetch from built-in source (unless custom_only mode is enabled in My Feed)
+                if (!prefs.myfeed_custom_only) {
+                    foreach (var cat in myfeed_cats) {
+                        NewsSources.fetch(effective_news_source(), cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                    }
+                }
+
+                // Fetch from custom RSS sources if sources are enabled
+                if (custom_rss_sources != null && custom_rss_sources.size > 0) {
+                    article_manager.featured_used = true;
+                    foreach (var rss_src in custom_rss_sources) {
+                        RssParser.fetch_rss_url(
+                            rss_src.url,
+                            rss_src.name,
+                            "My Feed",
+                            "myfeed",
+                            current_search_query,
+                            session,
+                            label_fn,
+                            no_op_clear,
+                            wrapped_add
+                        );
+                    }
                 }
             } else {
                 try { wrapped_clear(); } catch (GLib.Error e) { }
@@ -2279,5 +2506,4 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         }
     }
-
 }

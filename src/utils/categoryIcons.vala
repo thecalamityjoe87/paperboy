@@ -239,6 +239,7 @@ public class CategoryIcons : GLib.Object {
                                     var img = new Gtk.Image();
                                     try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
                                     img.set_pixel_size(size);
+                                    img.add_css_class("header-category-icon");
                                     return img;
                                 }
                             }
@@ -258,6 +259,7 @@ public class CategoryIcons : GLib.Object {
                                 try { img.set_from_paintable(tex); } catch (GLib.Error e) {
                                     try { img.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
                                 }
+                                img.add_css_class("header-category-icon");
                                 return img;
                             }
                         } catch (GLib.Error e) { }

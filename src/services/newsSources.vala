@@ -41,7 +41,7 @@ public class NewsSources {
         NewsSource source,
         string current_category,
         string current_search_query,
-        Soup.Session session,
+        Soup.Session session, // Kept for backward compatibility, not used
         SetLabelFunc set_label,
         ClearItemsFunc clear_items,
         AddItemFunc add_item
@@ -101,26 +101,18 @@ public class NewsSources {
         ClearItemsFunc clear_items,
         AddItemFunc add_item
     ) {
-        new Thread<void*>("fetch-frontpage-api", () => {
-            try {
-                string base_url = "https://paperboybackend.onrender.com";
-                string url = base_url + "/news/frontpage";
-                var msg = new Soup.Message("GET", url);
-                msg.request_headers.append("User-Agent", "paperboy/0.1");
-                session.send_message(msg);
-                if (msg.status_code != 200) {
-                    warning("Paperboy API HTTP error: %u", msg.status_code);
-                    Idle.add(() => {
-                        set_label("Paperboy: Error loading frontpage");
-                        return false;
-                    });
-                    return null;
-                }
-                string body = (string) msg.response_body.flatten().data;
+        var client = Paperboy.HttpClient.get_default();
+        string base_url = "https://paperboybackend.onrender.com";
+        string url = base_url + "/news/frontpage";
 
-                var parser = new Json.Parser();
-                parser.load_from_data(body);
-                var root = parser.get_root();
+        client.fetch_json(url, (response, parser, root) => {
+            if (!response.is_success() || root == null) {
+                warning("Paperboy API HTTP error: %u", response.status_code);
+                set_label("Paperboy: Error loading frontpage");
+                return;
+            }
+
+            try {
 
                 Json.Array articles = null;
                 if (root.get_node_type() == Json.NodeType.ARRAY) {
@@ -138,7 +130,7 @@ public class NewsSources {
 
                 if (articles == null) {
                     // Unexpected response shape
-                    return null;
+                    return;
                 }
 
                 // Note: do simple substring filtering for search queries (case-sensitive).
@@ -233,14 +225,8 @@ public class NewsSources {
                         }
 
                         // If we were able to derive a provider key/display-name and
-                        // the backend supplied a logo URL, record it into the
-                        // canonical index and start a background fetch to ensure
-                        // the canonical filename exists under user data.
-                        try {
-                            if (provider_key.length > 0 && logo_url != null && logo_url.length > 0) {
-                                SourceLogos.update_index_and_fetch(provider_key, source_name, logo_url, provider_url, session);
-                            }
-                        } catch (GLib.Error e) { }
+                        // Note: We no longer automatically create source_info metadata here.
+                        // Metadata is only created when the user explicitly follows a source.
 
                         // If we have a logo URL, encode it into the source_name using
                         // a small delimiter so the UI can detect and download/cache it.
@@ -325,8 +311,9 @@ public class NewsSources {
                     }
                     return false;
                 });
-            } catch (GLib.Error e) { warning("Paperboy frontpage fetch error: %s", e.message); }
-            return null;
+            } catch (GLib.Error e) {
+                warning("Paperboy frontpage fetch error: %s", e.message);
+            }
         });
     }
 
@@ -339,26 +326,18 @@ public class NewsSources {
         ClearItemsFunc clear_items,
         AddItemFunc add_item
     ) {
-        new Thread<void*>("fetch-topten-api", () => {
-            try {
-                string base_url = "https://paperboybackend.onrender.com";
-                string url = base_url + "/news/headlines";
-                var msg = new Soup.Message("GET", url);
-                msg.request_headers.append("User-Agent", "paperboy/0.1");
-                session.send_message(msg);
-                if (msg.status_code != 200) {
-                    warning("Paperboy API HTTP error: %u", msg.status_code);
-                    Idle.add(() => {
-                        set_label("Paperboy: Error loading Top Ten");
-                        return false;
-                    });
-                    return null;
-                }
-                string body = (string) msg.response_body.flatten().data;
+        var client = Paperboy.HttpClient.get_default();
+        string base_url = "https://paperboybackend.onrender.com";
+        string url = base_url + "/news/headlines";
 
-                var parser = new Json.Parser();
-                parser.load_from_data(body);
-                var root = parser.get_root();
+        client.fetch_json(url, (response, parser, root) => {
+            if (!response.is_success() || root == null) {
+                warning("Paperboy API HTTP error: %u", response.status_code);
+                set_label("Paperboy: Error loading Top Ten");
+                return;
+            }
+
+            try {
 
                 Json.Array articles = null;
                 if (root.get_node_type() == Json.NodeType.ARRAY) {
@@ -375,7 +354,7 @@ public class NewsSources {
                 }
 
                 if (articles == null) {
-                    return null;
+                    return;
                 }
 
                 Idle.add(() => {
@@ -467,11 +446,8 @@ public class NewsSources {
                             }
                         }
 
-                        try {
-                            if (provider_key.length > 0 && logo_url != null && logo_url.length > 0) {
-                                SourceLogos.update_index_and_fetch(provider_key, source_name, logo_url, provider_url, session);
-                            }
-                        } catch (GLib.Error e) { }
+                        // Note: We no longer automatically create source_info metadata here.
+                        // Metadata is only created when the user explicitly follows a source.
 
                         string display_source = source_name;
                         if (logo_url != null && logo_url.length > 0) {
@@ -543,11 +519,9 @@ public class NewsSources {
                     if (added_count < 10) {
                         try {
                             string fp_url = base_url + "/news/frontpage";
-                            var msg2 = new Soup.Message("GET", fp_url);
-                            msg2.request_headers.append("User-Agent", "paperboy/0.1");
-                            session.send_message(msg2);
-                            if (msg2.status_code == 200) {
-                                string body2 = (string) msg2.response_body.flatten().data;
+                            var http_response = client.fetch_sync(fp_url, null);
+                            if (http_response.is_success()) {
+                                string body2 = http_response.get_body_string();
                                 var p2 = new Json.Parser();
                                 p2.load_from_data(body2);
                                 var r2 = p2.get_root();
@@ -613,8 +587,9 @@ public class NewsSources {
                     }
                     return false;
                 });
-            } catch (GLib.Error e) { warning("Paperboy Top Ten fetch error: %s", e.message); }
-            return null;
+            } catch (GLib.Error e) {
+                warning("Paperboy Top Ten fetch error: %s", e.message);
+            }
         });
     }
 
@@ -885,69 +860,63 @@ public class NewsSources {
         ClearItemsFunc clear_items,
         AddItemFunc add_item
     ) {
-        new Thread<void*>("fetch-news", () => {
-            try {
-                // No article cache: always fetch fresh Guardian API results
-                string base_url = "https://content.guardianapis.com/search?show-fields=thumbnail&page-size=30&api-key=test";
-                string url;
-                switch (current_category) {
-                    case "us":
-                        url = base_url + "&section=us-news";
-                        break;
-                    case "technology":
-                        url = base_url + "&section=technology";
-                        break;
-                    case "business":
-                        url = base_url + "&section=business";
-                        break;
-                    case "science":
-                        url = base_url + "&section=science";
-                        break;
-                    case "sports":
-                        url = base_url + "&section=sport";
-                        break;
-                    case "health":
-                        url = base_url + "&tag=society/health";
-                        break;
-                    case "politics":
-                        url = base_url + "&section=politics";
-                        break;
-                    case "entertainment":
-                        url = base_url + "&section=culture";
-                        break;
-                    case "lifestyle":
-                        url = base_url + "&section=lifeandstyle";
-                        break;
-                    case "general":
-                    default:
-                        url = base_url + "&section=world";
-                        break;
-                }
-                if (current_search_query.length > 0) {
-                    url = url + "&q=" + Uri.escape_string(current_search_query);
-                }
-                var msg = new Soup.Message("GET", url);
-                msg.request_headers.append("User-Agent", "paperboy/0.1");
-                session.send_message(msg);
-                if (msg.status_code != 200) {
-                    warning("HTTP error: %u", msg.status_code);
-                    return null;
-                }
-                string body = (string) msg.response_body.flatten().data;
-                // No article cache in this build; just proceed with parsing and UI update
+        var client = Paperboy.HttpClient.get_default();
+        // No article cache: always fetch fresh Guardian API results
+        string base_url = "https://content.guardianapis.com/search?show-fields=thumbnail&page-size=30&api-key=test";
+        string url;
+        switch (current_category) {
+            case "us":
+                url = base_url + "&section=us-news";
+                break;
+            case "technology":
+                url = base_url + "&section=technology";
+                break;
+            case "business":
+                url = base_url + "&section=business";
+                break;
+            case "science":
+                url = base_url + "&section=science";
+                break;
+            case "sports":
+                url = base_url + "&section=sport";
+                break;
+            case "health":
+                url = base_url + "&tag=society/health";
+                break;
+            case "politics":
+                url = base_url + "&section=politics";
+                break;
+            case "entertainment":
+                url = base_url + "&section=culture";
+                break;
+            case "lifestyle":
+                url = base_url + "&section=lifeandstyle";
+                break;
+            case "general":
+            default:
+                url = base_url + "&section=world";
+                break;
+        }
+        if (current_search_query.length > 0) {
+            url = url + "&q=" + Uri.escape_string(current_search_query);
+        }
 
-                var parser = new Json.Parser();
-                parser.load_from_data(body);
-                var root = parser.get_root();
+        client.fetch_json(url, (response, parser, root) => {
+            if (!response.is_success() || root == null) {
+                warning("Guardian API HTTP error: %u", response.status_code);
+                return;
+            }
+
+            try {
                 var data = root.get_object();
                 if (!data.has_member("response")) {
-                    return null;
+                    return;
                 }
-                var response = data.get_object_member("response");
-                if (!response.has_member("results")) {
-                    return null;
+                var response_obj = data.get_object_member("response");
+                if (!response_obj.has_member("results")) {
+                    return;
                 }
-                var results = response.get_array_member("results");
+                var results = response_obj.get_array_member("results");
 
                 string category_name = category_display_name(current_category);
                 Idle.add(() => {
@@ -974,8 +943,9 @@ public class NewsSources {
                     fetch_guardian_article_images(results, session, add_item, current_category);
                     return false;
                 });
-            } catch (GLib.Error e) { warning("Fetch error: %s", e.message); }
-            return null;
+            } catch (GLib.Error e) {
+                warning("Guardian fetch error: %s", e.message);
+            }
         });
     }
 
@@ -987,79 +957,74 @@ public class NewsSources {
         ClearItemsFunc clear_items,
         AddItemFunc add_item
     ) {
-        new Thread<void*>("fetch-news", () => {
-            try {
-                string subreddit = "";
-                string category_name = "";
-                switch (current_category) {
-                    case "general":
-                        subreddit = "worldnews";
-                        category_name = "World News";
-                        break;
-                    case "us":
-                        subreddit = "news";
-                        category_name = "US News";
-                        break;
-                    case "technology":
-                        subreddit = "technology";
-                        category_name = "Technology";
-                        break;
-                    case "business":
-                        subreddit = "business";
-                        category_name = "Business";
-                        break;
-                    case "science":
-                        subreddit = "science";
-                        category_name = "Science";
-                        break;
-                    case "sports":
-                        subreddit = "sports";
-                        category_name = "Sports";
-                        break;
-                    case "health":
-                        subreddit = "health";
-                        category_name = "Health";
-                        break;
-                    case "entertainment":
-                        subreddit = "entertainment";
-                        category_name = "Entertainment";
-                        break;
-                    case "politics":
-                        subreddit = "politics";
-                        category_name = "Politics";
-                        break;
-                    case "lifestyle":
-                        subreddit = "lifestyle";
-                        category_name = "Lifestyle";
-                        break;
-                    default:
-                        subreddit = "worldnews";
-                        category_name = "World News";
-                        break;
-                }
-                string url = @"https://www.reddit.com/r/$(subreddit)/hot.json?limit=30";
-                if (current_search_query.length > 0) {
-                    url = @"https://www.reddit.com/r/$(subreddit)/search.json?q=$(Uri.escape_string(current_search_query))&restrict_sr=1&limit=30";
-                }
-                var msg = new Soup.Message("GET", url);
-                msg.request_headers.append("User-Agent", "paperboy/0.1");
-                session.send_message(msg);
-                if (msg.status_code != 200) {
-                    warning("HTTP error: %u", msg.status_code);
-                    return null;
-                }
-                string body = (string) msg.response_body.flatten().data;
+        var client = Paperboy.HttpClient.get_default();
+        string subreddit = "";
+        string category_name = "";
+        switch (current_category) {
+            case "general":
+                subreddit = "worldnews";
+                category_name = "World News";
+                break;
+            case "us":
+                subreddit = "news";
+                category_name = "US News";
+                break;
+            case "technology":
+                subreddit = "technology";
+                category_name = "Technology";
+                break;
+            case "business":
+                subreddit = "business";
+                category_name = "Business";
+                break;
+            case "science":
+                subreddit = "science";
+                category_name = "Science";
+                break;
+            case "sports":
+                subreddit = "sports";
+                category_name = "Sports";
+                break;
+            case "health":
+                subreddit = "health";
+                category_name = "Health";
+                break;
+            case "entertainment":
+                subreddit = "entertainment";
+                category_name = "Entertainment";
+                break;
+            case "politics":
+                subreddit = "politics";
+                category_name = "Politics";
+                break;
+            case "lifestyle":
+                subreddit = "lifestyle";
+                category_name = "Lifestyle";
+                break;
+            default:
+                subreddit = "worldnews";
+                category_name = "World News";
+                break;
+        }
+        string url = @"https://www.reddit.com/r/$(subreddit)/hot.json?limit=30";
+        if (current_search_query.length > 0) {
+            url = @"https://www.reddit.com/r/$(subreddit)/search.json?q=$(Uri.escape_string(current_search_query))&restrict_sr=1&limit=30";
+        }
 
-                var parser = new Json.Parser();
-                parser.load_from_data(body);
-                var root = parser.get_root();
+        client.fetch_json(url, (response, parser, root) => {
+            if (!response.is_success() || root == null) {
+                warning("Reddit API HTTP error: %u", response.status_code);
+                return;
+            }
+
+            try {
                 var data = root.get_object();
                 if (!data.has_member("data")) {
-                    return null;
+                    return;
                 }
                 var data_obj = data.get_object_member("data");
                 if (!data_obj.has_member("children")) {
-                    return null;
+                    return;
                 }
                 var children = data_obj.get_array_member("children");
 
@@ -1109,9 +1074,8 @@ public class NewsSources {
                     return false;
                 });
             } catch (GLib.Error e) {
-                warning("Fetch error: %s", e.message);
+                warning("Reddit fetch error: %s", e.message);
             }
-            return null;
         });
     }
 

@@ -28,6 +28,8 @@ using Gee;
  * - Source validation and filtering
  */
 
+// Callback for RSS feed addition
+public delegate void RssFeedAddCallback(bool success, string feed_name);
 
  public class SourceManager : GLib.Object {
 
@@ -39,9 +41,14 @@ using Gee;
 
     // Currently enabled sources (references prefs)
     private weak NewsPreferences prefs;
+    private weak NewsWindow window;
 
     public SourceManager(NewsPreferences prefs) {
         this.prefs = prefs;
+    }
+
+    public void set_window(NewsWindow window) {
+        this.window = window;
     }
 
     // Get list of currently enabled sources
@@ -343,6 +350,42 @@ using Gee;
             return true;
         }
 
+        // My Feed with custom RSS sources - allow articles from custom sources
+        // Custom RSS articles will have category "myfeed" but URLs that don't match built-in sources
+        if (category == "myfeed") {
+            // Check if this URL belongs to a built-in source
+            string article_source_id = infer_source_id_from_url(article_url);
+
+            // If it's not a recognized built-in source (fallback to guardian), it's likely a custom RSS source
+            // We need to check if the inferred source is actually a match or just the fallback
+            NewsSource inferred = infer_source_from_url(article_url);
+            bool is_builtin_match = false;
+
+            // Check if URL actually contains source domain
+            string url_lower = article_url.down();
+            if (inferred == NewsSource.GUARDIAN && (url_lower.contains("guardian") || url_lower.contains("theguardian"))) is_builtin_match = true;
+            else if (inferred == NewsSource.BBC && (url_lower.contains("bbc."))) is_builtin_match = true;
+            else if (inferred == NewsSource.REDDIT && (url_lower.contains("reddit") || url_lower.contains("redd.it"))) is_builtin_match = true;
+            else if (inferred == NewsSource.NEW_YORK_TIMES && (url_lower.contains("nytimes") || url_lower.contains("nyti.ms"))) is_builtin_match = true;
+            else if (inferred == NewsSource.WALL_STREET_JOURNAL && (url_lower.contains("wsj.com") || url_lower.contains("on.wsj.com"))) is_builtin_match = true;
+            else if (inferred == NewsSource.BLOOMBERG && url_lower.contains("bloomberg")) is_builtin_match = true;
+            else if (inferred == NewsSource.REUTERS && url_lower.contains("reuters")) is_builtin_match = true;
+            else if (inferred == NewsSource.NPR && url_lower.contains("npr.org")) is_builtin_match = true;
+            else if (inferred == NewsSource.FOX && (url_lower.contains("foxnews") || url_lower.contains("fox.com"))) is_builtin_match = true;
+
+            if (!is_builtin_match) {
+                // This is likely a custom RSS source - allow it in My Feed
+                return true;
+            }
+
+            // For built-in sources in My Feed, check if they're enabled
+            if (!is_source_enabled(article_source_id)) {
+                return false;
+            }
+
+            return true;
+        }
+
         // Infer article's source
         string article_source_id = infer_source_id_from_url(article_url);
 
@@ -357,5 +400,573 @@ using Gee;
         }
 
         return true;
+    }
+
+    // Add an RSS feed with robust metadata discovery
+    // This method fetches the feed, parses it to get the real title, and attempts to fetch a favicon
+    public void add_rss_feed_with_discovery(string feed_url, string? user_provided_name, owned RssFeedAddCallback callback) {
+        new Thread<void*>("rss-add-with-discovery", () => {
+            string final_name = user_provided_name != null && user_provided_name.length > 0 ? user_provided_name : "";
+            string? logo_url = null;
+            string? host = null;
+
+            try {
+                host = UrlUtils.extract_host_from_url(feed_url);
+
+                // Step 1: Try to fetch the RSS feed and extract the title
+                if (final_name.length == 0) {
+                    try {
+                        var msg = new Soup.Message("GET", feed_url);
+                        msg.get_request_headers().append("User-Agent", "paperboy/0.5.1a");
+
+                        GLib.Bytes? response = window.session.send_and_read(msg, null);
+                        var status = msg.get_status();
+
+                        if (status == Soup.Status.OK && response != null) {
+                            string body = (string) response.get_data();
+
+                            // Try to extract feed title from RSS/Atom XML
+                            final_name = extract_feed_title_from_xml(body);
+
+                            if (final_name.length == 0 && host != null) {
+                                final_name = host.replace("www.", "");
+                            }
+                        }
+                    } catch (GLib.Error e) {
+                        GLib.warning("Failed to fetch RSS feed for title extraction: %s", e.message);
+                    }
+                }
+
+                // Fallback to hostname if still no name
+                if (final_name.length == 0 && host != null) {
+                    final_name = host.replace("www.", "");
+                } else if (final_name.length == 0) {
+                    final_name = feed_url;
+                }
+
+                // Step 2: Try to get a logo/favicon
+                // Priority 1: Check if we already have metadata for this source
+                string? existing_display_name = null;
+                if (host != null) {
+                    string? existing_logo_url = null;
+                    string? existing_filename = null;
+                    SourceMetadata.get_source_info_by_url(feed_url, out existing_display_name, out existing_logo_url, out existing_filename);
+
+                    // If we have existing display name from source_info, use it
+                    if (existing_display_name != null && existing_display_name.length > 0) {
+                        final_name = existing_display_name;
+                    }
+
+                    if (existing_logo_url != null && existing_logo_url.length > 0) {
+                        logo_url = existing_logo_url;
+                    }
+                }
+
+                // Priority 2: Try standard favicon
+                if (logo_url == null && host != null) {
+                    logo_url = "https://" + host + "/favicon.ico";
+                }
+
+                // Step 3: Add to database
+                var store = Paperboy.RssSourceStore.get_instance();
+                bool success = store.add_source(final_name, feed_url, null);
+
+                // Step 4: Save metadata and fetch logo (only if we don't already have it)
+                if (success && logo_url != null && host != null && existing_display_name == null) {
+                    try {
+                        SourceMetadata.update_index_and_fetch(host, final_name, logo_url, "https://" + host, window.session, feed_url);
+                    } catch (GLib.Error e) {
+                        GLib.warning("Failed to save source metadata: %s", e.message);
+                    }
+                }
+
+                // Step 5: Callback with result
+                GLib.Idle.add(() => {
+                    callback(success, final_name);
+                    return false;
+                });
+
+            } catch (GLib.Error e) {
+                GLib.warning("Error adding RSS feed: %s", e.message);
+                GLib.Idle.add(() => {
+                    callback(false, final_name.length > 0 ? final_name : feed_url);
+                    return false;
+                });
+            }
+
+            return null;
+        });
+    }
+
+    // Extract feed title from RSS/Atom XML
+    private string extract_feed_title_from_xml(string xml_content) {
+        try {
+            // Try parsing as XML to extract title
+            var parser = new Json.Parser();
+
+            // Simple regex-based extraction for RSS and Atom feeds
+            // RSS 2.0: <title>Feed Title</title>
+            // Atom: <title>Feed Title</title>
+            var title_regex = new GLib.Regex("<title>([^<]+)</title>", GLib.RegexCompileFlags.CASELESS);
+            GLib.MatchInfo match_info;
+
+            if (title_regex.match(xml_content, 0, out match_info)) {
+                string? title = match_info.fetch(1);
+                if (title != null && title.length > 0) {
+                    // Decode HTML entities and clean up
+                    title = title.strip();
+                    title = title.replace("&amp;", "&");
+                    title = title.replace("&lt;", "<");
+                    title = title.replace("&gt;", ">");
+                    title = title.replace("&quot;", "\"");
+                    title = title.replace("&#39;", "'");
+                    title = title.replace("&apos;", "'");
+
+                    // Don't use if it's too long (likely a description)
+                    if (title.length <= 100) {
+                        return title;
+                    }
+                }
+            }
+        } catch (GLib.Error e) {
+            GLib.warning("Failed to extract title from RSS XML: %s", e.message);
+        }
+
+        return "";
+    }
+
+    // Discover and follow an RSS source from an article URL
+    public void follow_rss_source(string article_url, string? source_metadata = null) {
+        // Call backend /rss/discover endpoint to discover RSS feed from article URL
+        new Thread<void*>("rss-discover", () => {
+            try {
+                // Extract the domain from the article URL to use as RSS discovery URL
+                string host = UrlUtils.extract_host_from_url(article_url);
+                if (host == null || host.length == 0) {
+                    GLib.warning("Cannot follow source: invalid article URL");
+                    return null;
+                }
+
+                // Call the backend /rss/discover endpoint
+                string backend_url = "https://paperboybackend.onrender.com/rss/discover";
+                var msg = new Soup.Message("POST", backend_url);
+                var headers = msg.get_request_headers();
+                headers.append("accept", "application/json");
+                headers.append("Content-Type", "application/json");
+                headers.append("User-Agent", "paperboy/0.5.1a");
+
+                // Create JSON body with the article URL and max_pages parameter
+                string escaped_url = article_url.replace("\\", "\\\\").replace("\"", "\\\"");
+                string json_body = "{\"url\":\"" + escaped_url + "\",\"max_pages\":1}";
+                msg.set_request_body_from_bytes("application/json", new GLib.Bytes(json_body.data));
+
+                GLib.Bytes? response = window.session.send_and_read(msg, null);
+                var status = msg.get_status();
+
+                if (status == Soup.Status.OK && response != null) {
+                    string body = (string) response.get_data();
+
+                    // Parse the JSON response
+                    var parser = new Json.Parser();
+                    parser.load_from_data(body, -1);
+                    var root = parser.get_root().get_object();
+
+                    // The response has a "feeds" array with discovered RSS feeds
+                    if (root.has_member("feeds")) {
+                        var feeds_array = root.get_array_member("feeds");
+                        if (feeds_array.get_length() > 0) {
+                            // Take the first feed from the discovered feeds
+                            var first_feed = feeds_array.get_object_element(0);
+                            string feed_url = first_feed.get_string_member("url");
+                            string feed_title = first_feed.has_member("title") ? first_feed.get_string_member("title") : host;
+                            string? feed_description = first_feed.has_member("description") ? first_feed.get_string_member("description") : null;
+
+                            // Extract metadata from API response (highest priority)
+                            string? api_source_name = null;
+                            string? api_logo_url = null;
+                            if (first_feed.has_member("source_name")) {
+                                api_source_name = first_feed.get_string_member("source_name");
+                            }
+                            if (first_feed.has_member("logo_url")) {
+                                api_logo_url = first_feed.get_string_member("logo_url");
+                            }
+
+                            // Parse source metadata from article if provided (format: "Display Name||logo_url##category::cat")
+                            string? article_display_name = null;
+                            string? article_logo_url = null;
+                            if (source_metadata != null && source_metadata.length > 0) {
+                                article_display_name = source_metadata;
+                                int pipe_idx = source_metadata.index_of("||");
+                                if (pipe_idx >= 0) {
+                                    article_display_name = source_metadata.substring(0, pipe_idx).strip();
+                                    article_logo_url = source_metadata.substring(pipe_idx + 2).strip();
+                                    // Remove category suffix if present
+                                    int cat_idx = article_logo_url.index_of("##category::");
+                                    if (cat_idx >= 0) {
+                                        article_logo_url = article_logo_url.substring(0, cat_idx).strip();
+                                    }
+                                }
+                                // Remove category suffix from display name if present
+                                int cat_idx = article_display_name.index_of("##category::");
+                                if (cat_idx >= 0) {
+                                    article_display_name = article_display_name.substring(0, cat_idx).strip();
+                                }
+                            }
+
+                            // Priority: article metadata (what user saw) > API metadata > feed title (cleaned)
+                            // The article metadata is what's displayed on the front page, so it should be primary
+                            string? metadata_display_name = article_display_name;
+                            string? metadata_logo_url = article_logo_url;
+
+                            if (metadata_display_name == null || metadata_display_name.length == 0) {
+                                metadata_display_name = api_source_name;
+                            }
+                            if (metadata_logo_url == null || metadata_logo_url.length == 0) {
+                                metadata_logo_url = api_logo_url;
+                            }
+
+                            // Clean up feed_title if it's too long (likely a description, not a name)
+                            string cleaned_feed_title = feed_title;
+                            if (feed_title.length > 50) {
+                                // Use host as fallback for overly long titles
+                                cleaned_feed_title = host;
+                            }
+
+                            // Use metadata if available, otherwise use cleaned feed info
+                            string final_title = (metadata_display_name != null && metadata_display_name.length > 0) ? metadata_display_name : cleaned_feed_title;
+
+                            // Save to SQLite database with the proper display name
+                            var store = Paperboy.RssSourceStore.get_instance();
+                            bool success = store.add_source(final_title, feed_url, null);
+
+                            // Save source metadata if this is a new source and we have logo information
+                            // Priority: article metadata > API metadata
+                            // This ensures logos are saved even for manually-added sources (not just from articles)
+                            if (success) {
+                                string? save_display_name = metadata_display_name;
+                                string? save_logo_url = metadata_logo_url;
+
+
+                                // Priority 2: Check if we already have SourceMetadata for this source
+                                // (from previous Front Page/Top Ten views - this is the key!)
+                                // Use URL-based lookup since we have the article URL, not the exact display name
+                                if (save_display_name == null || save_display_name.length == 0 || save_logo_url == null || save_logo_url.length == 0) {
+                                    string? existing_display_name = null;
+                                    string? existing_logo_url = null;
+                                    string? existing_filename = null;
+                                    SourceMetadata.get_source_info_by_url(article_url, out existing_display_name, out existing_logo_url, out existing_filename);
+
+                                    if (existing_display_name != null && existing_display_name.length > 0) {
+                                        if (save_display_name == null || save_display_name.length == 0) {
+                                            save_display_name = existing_display_name;
+                                        }
+                                    }
+                                    if (existing_logo_url != null && existing_logo_url.length > 0) {
+                                        if (save_logo_url == null || save_logo_url.length == 0) {
+                                            save_logo_url = existing_logo_url;
+                                        }
+                                    }
+                                }
+
+                                // Priority 3: Fall back to API-provided metadata
+                                if (save_display_name == null || save_display_name.length == 0) {
+                                    save_display_name = api_source_name;
+                                }
+                                if (save_logo_url == null || save_logo_url.length == 0) {
+                                    save_logo_url = api_logo_url;
+                                }
+
+                                // Priority 4: Final fallback - construct favicon URL from the domain
+                                // This ensures we ALWAYS create metadata, even for brand new sources
+                                if (save_logo_url == null || save_logo_url.length == 0) {
+                                    save_logo_url = "https://" + host + "/favicon.ico";
+                                    GLib.warning("RSS Discovery: Using favicon fallback for %s", host);
+                                }
+
+                                // Create metadata - we always have a logo URL now (at minimum, favicon)
+                                try {
+                                    // Use final_title as fallback if we still don't have a display name
+                                    string metadata_name = (save_display_name != null && save_display_name.length > 0) ? save_display_name : final_title;
+                                    SourceMetadata.update_index_and_fetch(host, metadata_name, save_logo_url, "https://" + host, window.session, feed_url);
+                                } catch (GLib.Error e) {
+                                    GLib.warning("Failed to save source metadata: %s", e.message);
+                                }
+                            }
+
+                            if (success) {
+                                GLib.Idle.add(() => {
+                                    window.show_toast("Following " + final_title);
+                                    return false;
+                                });
+                            } else {
+                                GLib.Idle.add(() => {
+                                    window.show_toast("Source already followed");
+                                    return false;
+                                });
+                            }
+                        } else {
+                            // No feeds returned by the discovery API — try local html2rss fallback if available
+                            GLib.warning("RSS discovery returned no feeds; attempting local html2rss fallback");
+
+                            string? script_path = null;
+                            // Prefer an installed native binary first (bindir/datadir), then dev build (many possible CWDs), then Python script
+                            var binary_candidates = new ArrayList<string>();
+
+                            // meson-installed bindir (usually 'bin/html2rss' when installed)
+                            binary_candidates.add(BuildConstants.RSSFINDER_BINDIR + "/html2rss");
+
+                            // system data dirs (possible install locations)
+                            try {
+                                var sys_dirs = GLib.Environment.get_system_data_dirs();
+                                if (sys_dirs != null && sys_dirs.length > 0) {
+                                    binary_candidates.add(GLib.Path.build_filename(sys_dirs[0], "org.gnome.Paperboy", "tools", "html2rss"));
+                                }
+                            } catch (GLib.Error e) { }
+
+                            // flatpak-style path
+                            binary_candidates.add("/app/share/org.gnome.Paperboy/tools/html2rss");
+
+                            // Common development locations - check several relative paths so app finds the dev-built binary
+                            binary_candidates.add("tools/html2rss/target/release/html2rss");
+                            binary_candidates.add("./tools/html2rss/target/release/html2rss");
+                            binary_candidates.add("../tools/html2rss/target/release/html2rss");
+                            string? cwd = GLib.Environment.get_variable("PWD");
+                            if (cwd != null && cwd.length > 0) {
+                                binary_candidates.add(GLib.Path.build_filename(cwd, "tools", "html2rss", "target", "release", "html2rss"));
+                            }
+
+                            // Last resort: look in a common workspace path under the user's home (helpful when running from other launchers)
+                            string? home_env = GLib.Environment.get_variable("HOME");
+                            if (home_env != null && home_env.length > 0) {
+                                string home_candidate = GLib.Path.build_filename(home_env, "paperboy", "tools", "html2rss", "target", "release", "html2rss");
+                                binary_candidates.add(home_candidate);
+                            }
+
+                            foreach (var c in binary_candidates) {
+                                try {
+                                    var f = GLib.File.new_for_path(c);
+                                    bool exists = f.query_exists(null);
+                                    if (exists) {
+                                        script_path = c;
+                                        break;
+                                    }
+                                } catch (GLib.Error e) {
+                                    // ignore and continue
+                                }
+                            }
+
+                            if (script_path != null) {
+                                try {
+                                    // Run the local html2rss fallback script/binary using Gio/GLib Subprocess
+                                    // Pass the URL as an argv element (avoids shell quoting issues)
+                                    string[] argv;
+                                    if (script_path.has_suffix("html2rss") && !script_path.has_suffix(".py")) {
+                                        // native binary: request more pages (default 10)
+                                        argv = { script_path, "--max-pages", "10", article_url };
+                                    } else {
+                                        // python script: also pass max-pages if supported
+                                        argv = { "python3", script_path, "--max-pages", "10", article_url };
+                                    }
+                                    string? out_stdout = null;
+                                    string? out_stderr = null;
+                                    int exit_status = 0;
+
+                                        var proc = new GLib.Subprocess.newv(argv, GLib.SubprocessFlags.STDOUT_PIPE | GLib.SubprocessFlags.STDERR_PIPE);
+                                        // Wait for process to finish and read pipes manually
+                                        try {
+                                            proc.wait_check(null);
+                                        } catch (GLib.Error e) {
+                                            // wait_check failed; we'll still try to read any output
+                                        }
+
+                                        // Read stdout using a safe chunked loop (avoid read_bytes(-1))
+                                        try {
+                                            var stdout_stream = proc.get_stdout_pipe();
+                                            string _out_acc = "";
+                                            while (true) {
+                                                var stdout_bytes = stdout_stream.read_bytes(8192, null);
+                                                if (stdout_bytes == null) break;
+                                                size_t sz = stdout_bytes.get_size();
+                                                if (sz == 0) break;
+                                                _out_acc += (string) stdout_bytes.get_data();
+                                                if (sz < 8192) break;
+                                            }
+                                            out_stdout = _out_acc;
+                                        } catch (GLib.Error e) {
+                                            out_stdout = null;
+                                        }
+
+                                        // Read stderr using a safe chunked loop
+                                        try {
+                                            var stderr_stream = proc.get_stderr_pipe();
+                                            string _err_acc = "";
+                                            while (true) {
+                                                var stderr_bytes = stderr_stream.read_bytes(8192, null);
+                                                if (stderr_bytes == null) break;
+                                                size_t sz2 = stderr_bytes.get_size();
+                                                if (sz2 == 0) break;
+                                                _err_acc += (string) stderr_bytes.get_data();
+                                                if (sz2 < 8192) break;
+                                            }
+                                            out_stderr = _err_acc;
+                                        } catch (GLib.Error e) {
+                                            out_stderr = null;
+                                        }
+
+                                        exit_status = proc.get_exit_status();
+
+                                        if (out_stdout != null && out_stdout.strip().length > 0 && exit_status == 0) {
+                                            string gen_feed = out_stdout.strip();
+
+                                            // VALIDATE RSS before saving
+                                            string? validation_error = null;
+                                            bool is_valid = RssValidator.is_valid_rss(gen_feed, out validation_error);
+                                            
+                                            if (!is_valid) {
+                                                GLib.warning("Generated RSS is invalid: %s", validation_error);
+                                                
+                                                GLib.Idle.add(() => {
+                                                    window.show_toast("Failed to generate valid RSS feed");
+                                                    return false;
+                                                });
+                                                return null;
+                                            }
+                                            
+                                            int item_count = RssValidator.get_item_count(gen_feed);
+                                            if (item_count == 0) {
+                                                GLib.warning("Generated RSS has no items");
+                                                GLib.Idle.add(() => {
+                                                    window.show_toast("Generated feed has no articles");
+                                                    return false;
+                                                });
+                                                return null;
+                                            }
+                                            
+                                            GLib.print("✓ Generated valid RSS feed with %d items\n", item_count);
+
+                                        // If the script printed raw RSS XML, save it to a local file
+                                        if (gen_feed.has_prefix("<?xml") || gen_feed.has_prefix("<rss") || gen_feed.has_prefix("<feed") || gen_feed.has_prefix("<\n<?xml")) {
+                                            try {
+                                                string data_dir = GLib.Environment.get_user_data_dir();
+                                                string paperboy_dir = GLib.Path.build_filename(data_dir, "paperboy");
+                                                string gen_dir = GLib.Path.build_filename(paperboy_dir, "generated_feeds");
+                                                try { GLib.DirUtils.create_with_parents(gen_dir, 0755); } catch (GLib.Error e) { }
+
+                                                string safe_host = host.replace("/", "_").replace(":", "_");
+                                                long ts_val = (long) (GLib.get_real_time() / 1000000);
+                                                string ts = ts_val.to_string();
+                                                string filename = safe_host + "-" + ts + ".xml";
+                                                string file_path = GLib.Path.build_filename(gen_dir, filename);
+
+                                                var f = GLib.File.new_for_path(file_path);
+                                                // Write the generated feed string directly to the file
+                                                // Write the generated feed via a replacement stream
+                                                var out_stream = f.replace(null, false, GLib.FileCreateFlags.NONE, null);
+                                                var writer = new DataOutputStream(out_stream);
+                                                writer.put_string(gen_feed);
+                                                writer.close(null);
+
+                                                gen_feed = "file://" + file_path;
+                                            } catch (GLib.Error e) {
+                                                GLib.warning("Failed to save generated RSS feed: %s", e.message);
+                                            }
+                                        }
+
+                                        var store = Paperboy.RssSourceStore.get_instance();
+                                        
+                                        // Check if we already have source_info for this host (from Front Page/Top Ten or RSS discovery)
+                                        // IMPORTANT: Use host as the key, not article_url, because that's how metadata is saved
+                                        string feed_name = host;
+                                        string? existing_display_name = null;
+                                        string? existing_logo_url = null;
+                                        string? existing_filename = null;
+                                        
+                                        // Try to get metadata by host first (this is where API metadata is stored)
+                                        SourceMetadata.get_source_info_by_url(host, out existing_display_name, out existing_logo_url, out existing_filename);
+                                        
+                                        // Use the existing display name if available (from API/JSON-LD)
+                                        if (existing_display_name != null && existing_display_name.length > 0) {
+                                            feed_name = existing_display_name;
+                                            GLib.print("✓ Using existing metadata: %s\n", feed_name);
+                                        } else {
+                                            GLib.print("⚠ No existing metadata found for %s, using host as name\n", host);
+                                        }
+                                        
+                                        bool success = store.add_source(feed_name, gen_feed, null);
+                                        
+                                        // Save or update metadata for this source
+                                        // This ensures logos and proper names are set even for newly generated feeds
+                                        if (success) {
+                                            string? logo_url_to_save = existing_logo_url;
+                                            
+                                            // If we don't have a logo URL yet, try to construct one from the host
+                                            if (logo_url_to_save == null || logo_url_to_save.length == 0) {
+                                                logo_url_to_save = "https://" + host + "/favicon.ico";
+                                            }
+                                            
+                                            try {
+                                                SourceMetadata.update_index_and_fetch(host, feed_name, logo_url_to_save, "https://" + host, window.session, gen_feed);
+                                                GLib.print("✓ Saved metadata for %s\n", feed_name);
+                                            } catch (GLib.Error e) {
+                                                GLib.warning("Failed to save source metadata: %s", e.message);
+                                            }
+                                        }
+                                        
+                                        if (success) {
+                                            GLib.Idle.add(() => {
+                                                window.show_toast("Following %s (%d articles)".printf(feed_name, item_count));
+                                                return false;
+                                            });
+                                        } else {
+                                            GLib.Idle.add(() => {
+                                                window.show_toast("Source already followed");
+                                                return false;
+                                            });
+                                        }
+                                    } else {
+                                        GLib.warning("html2rss fallback did not produce a feed (exit=%d); stderr=%s", exit_status, out_stderr != null ? out_stderr : "");
+                                        GLib.Idle.add(() => {
+                                            window.show_toast("No RSS feeds found");
+                                            return false;
+                                        });
+                                    }
+                                } catch (GLib.Error e) {
+                                    GLib.warning("Error running html2rss fallback: %s", e.message);
+                                    GLib.Idle.add(() => {
+                                        window.show_toast("No RSS feeds found");
+                                        return false;
+                                    });
+                                }
+                            } else {
+                                GLib.warning("No html2rss_task.py found in expected locations");
+                                GLib.Idle.add(() => {
+                                    window.show_toast("No RSS feeds found");
+                                    return false;
+                                });
+                            }
+                        }
+                    } else {
+                        GLib.warning("RSS discovery failed: no feeds array in response");
+                        GLib.Idle.add(() => {
+                            window.show_toast("Could not discover RSS feed");
+                            return false;
+                        });
+                    }
+                } else {
+                    GLib.warning("RSS discovery request failed with status: %u", status);
+                    GLib.Idle.add(() => {
+                        window.show_toast("Failed to discover RSS feed");
+                        return false;
+                    });
+                }
+            } catch (GLib.Error e) {
+                GLib.warning("Error discovering RSS feed: %s", e.message);
+                GLib.Idle.add(() => {
+                    window.show_toast("Error discovering RSS feed");
+                    return false;
+                });
+            }
+            return null;
+        });
     }
 }

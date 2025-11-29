@@ -42,6 +42,25 @@ cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/usr/sha
 # Also copy the desktop file to the AppDir root (required by appimagetool)
 cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/io.github.thecalamityjoe87.Paperboy.desktop"
 
+# Copy GSettings schema (prefer new data/resources/ location)
+SCHEMA_SRC="$ROOT_DIR/data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml"
+if [ -f "$SCHEMA_SRC" ]; then
+  mkdir -p "$APPDIR/usr/share/glib-2.0/schemas"
+  cp "$SCHEMA_SRC" "$APPDIR/usr/share/glib-2.0/schemas/"
+elif [ -f "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.gschema.xml" ]; then
+  mkdir -p "$APPDIR/usr/share/glib-2.0/schemas"
+  cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.gschema.xml" "$APPDIR/usr/share/glib-2.0/schemas/"
+else
+  echo "Warning: GSettings schema not found in data/resources or data"
+fi
+
+# Compile schemas inside AppDir so the runtime can find them
+if command -v glib-compile-schemas >/dev/null 2>&1; then
+  glib-compile-schemas "$APPDIR/usr/share/glib-2.0/schemas"
+else
+  echo "Warning: glib-compile-schemas not found; compiled schemas may be missing in AppDir"
+fi
+
 # Copy icons (fall back if not present)
 ICON_SRC_DIR="$ROOT_DIR/data/icons"
 if [ -d "$ICON_SRC_DIR" ]; then
@@ -82,10 +101,13 @@ else
 fi
 
 # Copy additional data files required at runtime
-if [ -f "$ROOT_DIR/data/style.css" ]; then
+# Prefer the new `data/resources` location, fall back to the legacy `data` dir.
+if [ -f "$ROOT_DIR/data/resources/style.css" ]; then
+  cp "$ROOT_DIR/data/resources/style.css" "$APPDIR/usr/share/paperboy/style.css"
+elif [ -f "$ROOT_DIR/data/style.css" ]; then
   cp "$ROOT_DIR/data/style.css" "$APPDIR/usr/share/paperboy/style.css"
 else
-  echo "Warning: style.css not found in $ROOT_DIR/data"
+  echo "Warning: style.css not found in $ROOT_DIR/data or $ROOT_DIR/data/resources"
 fi
 
 if [ -f "$ROOT_DIR/data/usZips.csv" ]; then
