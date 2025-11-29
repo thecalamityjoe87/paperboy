@@ -555,6 +555,29 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 headers.append("Content-Type", "application/json");
                 headers.append("User-Agent", "paperboy/0.5.1a");
 
+                // Parse source metadata from article if provided (format: "Display Name||logo_url##category::cat")
+                // We do this early so it's available for both API results and local fallback
+                string? article_display_name = null;
+                string? article_logo_url = null;
+                if (source_metadata != null && source_metadata.length > 0) {
+                    article_display_name = source_metadata;
+                    int pipe_idx = source_metadata.index_of("||");
+                    if (pipe_idx >= 0) {
+                        article_display_name = source_metadata.substring(0, pipe_idx).strip();
+                        article_logo_url = source_metadata.substring(pipe_idx + 2).strip();
+                        // Remove category suffix if present
+                        int cat_idx = article_logo_url.index_of("##category::");
+                        if (cat_idx >= 0) {
+                            article_logo_url = article_logo_url.substring(0, cat_idx).strip();
+                        }
+                    }
+                    // Remove category suffix from display name if present
+                    int cat_idx = article_display_name.index_of("##category::");
+                    if (cat_idx >= 0) {
+                        article_display_name = article_display_name.substring(0, cat_idx).strip();
+                    }
+                }
+
                 // Create JSON body with the article URL and max_pages parameter
                 string escaped_url = article_url.replace("\\", "\\\\").replace("\"", "\\\"");
                 string json_body = "{\"url\":\"" + escaped_url + "\",\"max_pages\":1}";
@@ -591,38 +614,22 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                 api_logo_url = first_feed.get_string_member("logo_url");
                             }
 
-                            // Parse source metadata from article if provided (format: "Display Name||logo_url##category::cat")
-                            string? article_display_name = null;
-                            string? article_logo_url = null;
-                            if (source_metadata != null && source_metadata.length > 0) {
-                                article_display_name = source_metadata;
-                                int pipe_idx = source_metadata.index_of("||");
-                                if (pipe_idx >= 0) {
-                                    article_display_name = source_metadata.substring(0, pipe_idx).strip();
-                                    article_logo_url = source_metadata.substring(pipe_idx + 2).strip();
-                                    // Remove category suffix if present
-                                    int cat_idx = article_logo_url.index_of("##category::");
-                                    if (cat_idx >= 0) {
-                                        article_logo_url = article_logo_url.substring(0, cat_idx).strip();
-                                    }
-                                }
-                                // Remove category suffix from display name if present
-                                int cat_idx = article_display_name.index_of("##category::");
-                                if (cat_idx >= 0) {
-                                    article_display_name = article_display_name.substring(0, cat_idx).strip();
-                                }
+                            if (first_feed.has_member("logo_url")) {
+                                api_logo_url = first_feed.get_string_member("logo_url");
                             }
 
-                            // Priority: article metadata (what user saw) > API metadata > feed title (cleaned)
-                            // The article metadata is what's displayed on the front page, so it should be primary
-                            string? metadata_display_name = article_display_name;
-                            string? metadata_logo_url = article_logo_url;
+                            // (Metadata parsing moved to top of function)
+
+                            // Priority: API metadata (most reliable) > article metadata (what user saw) > feed title (cleaned)
+                            // We prefer API metadata because it comes from the discovery service which has canonical info
+                            string? metadata_display_name = api_source_name;
+                            string? metadata_logo_url = api_logo_url;
 
                             if (metadata_display_name == null || metadata_display_name.length == 0) {
-                                metadata_display_name = api_source_name;
+                                metadata_display_name = article_display_name;
                             }
                             if (metadata_logo_url == null || metadata_logo_url.length == 0) {
-                                metadata_logo_url = api_logo_url;
+                                metadata_logo_url = article_logo_url;
                             }
 
                             // Clean up feed_title if it's too long (likely a description, not a name)
@@ -817,6 +824,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                                         if (out_stdout != null && out_stdout.strip().length > 0 && exit_status == 0) {
                                             string gen_feed = out_stdout.strip();
+                                            
+                                            // Clean up any trailing garbage (e.g. HTML links appended by html2rss)
+                                            gen_feed = RssValidator.clean_rss_content(gen_feed);
 
                                             // VALIDATE RSS before saving
                                             string? validation_error = null;
@@ -888,6 +898,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                         if (existing_display_name != null && existing_display_name.length > 0) {
                                             feed_name = existing_display_name;
                                             GLib.print("✓ Using existing metadata: %s\n", feed_name);
+                                        } else if (article_display_name != null && article_display_name.length > 0) {
+                                            // Use the passed article metadata (e.g. "AP News")
+                                            feed_name = article_display_name;
+                                            GLib.print("✓ Using article metadata: %s\n", feed_name);
                                         } else {
                                             GLib.print("⚠ No existing metadata found for %s, using host as name\n", host);
                                         }
@@ -901,7 +915,11 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                             
                                             // If we don't have a logo URL yet, try to construct one from the host
                                             if (logo_url_to_save == null || logo_url_to_save.length == 0) {
-                                                logo_url_to_save = "https://" + host + "/favicon.ico";
+                                                if (article_logo_url != null && article_logo_url.length > 0) {
+                                                    logo_url_to_save = article_logo_url;
+                                                } else {
+                                                    logo_url_to_save = "https://" + host + "/favicon.ico";
+                                                }
                                             }
                                             
                                             try {

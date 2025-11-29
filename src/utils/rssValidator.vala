@@ -183,4 +183,32 @@ public class RssValidator : GLib.Object {
         
         return null;
     }
+
+    /**
+     * Clean RSS content by removing trailing garbage (e.g. HTML appended by generators)
+     * 
+     * @param content The raw content to clean
+     * @return Cleaned content or original if no cleaning needed
+     */
+    public static string clean_rss_content(string content) {
+        if (content == null || content.length == 0) return "";
+        
+        string lower = content.down();
+        
+        // Check for RSS closing tag
+        int rss_end = lower.last_index_of("</rss>");
+        if (rss_end >= 0) {
+            // Keep the closing tag (length is 6)
+            return content.substring(0, rss_end + 6).strip();
+        }
+        
+        // Check for Atom closing tag
+        int feed_end = lower.last_index_of("</feed>");
+        if (feed_end >= 0) {
+            // Keep the closing tag (length is 7)
+            return content.substring(0, feed_end + 7).strip();
+        }
+        
+        return content;
+    }
 }
