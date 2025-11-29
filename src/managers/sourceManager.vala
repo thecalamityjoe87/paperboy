@@ -927,9 +927,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                         
                                         if (success) {
                                             GLib.Idle.add(() => {
-                                                // We don't need to know the amount of articles anymore
-                                                //window.show_toast("Following %s (%d articles)".printf(feed_name, item_count));
-                                                window.show_toast("Following %s".printf(feed_name, item_count));
+                                                // Show followed message with article count
+                                                window.show_toast("Following %s (%d articles)".printf(feed_name, item_count));
                                                 return false;
                                             });
                                         } else {

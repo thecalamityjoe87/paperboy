@@ -20,10 +20,11 @@ using Soup;
 using Xml;
 using Gee;
 
-// Bind to libxml2 xmlSetExternalEntityLoader so we can temporarily disable external entity loading
-// Use the (deprecated) xmlDisableEntityLoader to disable external entity handling
-[CCode (cname = "xmlDisableEntityLoader")]
-private static extern int xml_disable_entity_loader (int val);
+// Removed xmlDisableEntityLoader binding: global state, not thread-safe, and unused.
+
+// Bind xmlFreeDoc so we can reliably free parser allocations for Xml.Doc*
+[CCode (cname = "xmlFreeDoc")]
+private static extern void xml_free_doc (Xml.Doc* doc);
 
 public class RssParser {
     // Maximum items to parse from local news RSS feeds (prevents memory bloat from large feeds)
@@ -42,16 +43,17 @@ public class RssParser {
         AddItemFunc add_item,
         Soup.Session session
     ) {
+        // SECURITY FIX: Do NOT use NOENT (it substitutes entities and can enable XXE/Billion-laughs).
+        // Use NONET to forbid network access and disable entity substitution/DTD processing by
+        // avoiding NOENT and enabling safe options instead.
+        // NOCDATA: merge CDATA sections to text nodes
+        // NOBLANKS: remove ignorable whitespace
+        var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS;
+        Xml.Doc* doc = null;
         try {
-            // SECURITY FIX: Do NOT use NOENT (it substitutes entities and can enable XXE/Billion-laughs).
-            // Use NONET to forbid network access and disable entity substitution/DTD processing by
-            // avoiding NOENT and enabling safe options instead.
-            // NOCDATA: merge CDATA sections to text nodes
-            // NOBLANKS: remove ignorable whitespace
-            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS;
-            Xml.Doc* doc = Xml.Parser.read_memory(
-                body, 
-                (int) body.length, 
+            doc = Xml.Parser.read_memory(
+                body,
+                (int) body.length,
                 null,  // URL (not needed for memory parsing)
                 null,  // encoding (auto-detect)
                 (int) parser_options
@@ -65,6 +67,7 @@ public class RssParser {
             // Respect runtime feature flag to enable/disable BBC-specific extraction/normalization.
             bool bbc_enabled = false;
             try { string? env = GLib.Environment.get_variable("PAPERBOY_ENABLE_BBC_EXTRACT"); if (env == null) bbc_enabled = true; else bbc_enabled = env != "0"; } catch (GLib.Error e) { bbc_enabled = true; }
+
             Xml.Node* root = doc->get_root_element();
             string? favicon_url = null;
             for (Xml.Node* ch = root->children; ch != null; ch = ch->next) {
@@ -90,114 +93,86 @@ public class RssParser {
                                 }
                             }
                         }
+
                         if (it->type == Xml.ElementType.ELEMENT_NODE && (it->name == "item" || it->name == "entry")) {
                             string? title = null;
                             string? link = null;
                             string? thumb = null;
                             for (Xml.Node* c = it->children; c != null; c = c->next) {
-                                if (c->type == Xml.ElementType.ELEMENT_NODE) {
-                                    if (c->name == "title") {
-                                        title = c->get_content();
-                                    } else if (c->name == "link") {
-                                        Xml.Attr* href = c->properties;
-                                        while (href != null) {
-                                            if (href->name == "href") {
-                                                link = href->children != null ? (string) href->children->content : null;
-                                                break;
-                                            }
-                                            href = href->next;
+                                if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
+                                if (c->name == "title") {
+                                    title = c->get_content();
+                                } else if (c->name == "link") {
+                                    Xml.Attr* href = c->properties;
+                                    while (href != null) {
+                                        if (href->name == "href") {
+                                            link = href->children != null ? (string) href->children->content : null;
+                                            break;
                                         }
-                                        if (link == null) {
-                                            link = c->get_content();
-                                        }
-                                    } else if (c->name == "enclosure") {
-                                        Xml.Attr* a = c->properties;
-                                        while (a != null) {
-                                            if (a->name == "url") {
-                                                        thumb = a->children != null ? (string) a->children->content : null;
-                                                        // Normalize protocol-relative URLs and HTML entities
-                                                        if (thumb != null) {
-                                                            if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                            thumb = thumb.replace("&amp;", "&");
-                                                        }
-                                                break;
-                                            }
-                                            a = a->next;
-                                        }
-                                    } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                        Xml.Attr* a2 = c->properties;
-                                        while (a2 != null) {
-                                            if (a2->name == "url") {
-                                                        thumb = a2->children != null ? (string) a2->children->content : null;
-                                                        // Normalize protocol-relative URLs and HTML entities
-                                                        if (thumb != null) {
-                                                            if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                            thumb = thumb.replace("&amp;", "&");
-                                                        }
-                                                break;
-                                            }
-                                            a2 = a2->next;
-                                        }
-                                    } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
-                                        // media:content may provide url, type and medium attributes. Some feeds
-                                        // (like WSJ) use image URLs without a file extension (eg. /im-12345).
-                                        // Accept those when the type or medium indicates an image.
-                                        Xml.Attr* a3 = c->properties;
-                                        string? media_url = null;
-                                        string? media_type = null;
-                                        string? media_medium = null;
-                                        while (a3 != null) {
-                                            if (a3->name == "url") {
-                                                media_url = a3->children != null ? (string) a3->children->content : null;
-                                            } else if (a3->name == "type") {
-                                                media_type = a3->children != null ? (string) a3->children->content : null;
-                                            } else if (a3->name == "medium") {
-                                                media_medium = a3->children != null ? (string) a3->children->content : null;
-                                            }
-                                            a3 = a3->next;
-                                        }
-                                        if (media_url != null && thumb == null) {
-                                            bool is_image = false;
-                                            if (media_type != null && media_type.has_prefix("image")) is_image = true;
-                                            if (media_medium != null && media_medium == "image") is_image = true;
-                                            string mu_lower = media_url.down();
-                                            if (mu_lower.has_suffix(".jpg") || mu_lower.has_suffix(".jpeg") || mu_lower.has_suffix(".png") || mu_lower.has_suffix(".webp") || mu_lower.has_suffix(".gif")) is_image = true;
-                                            // Heuristic: WSJ image host uses /im-... paths without extensions
-                                            if (!is_image && media_url.contains("images.wsj.net/im-")) is_image = true;
-                                            if (is_image) {
-                                                thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
-                                            }
-                                        }
-                                    } else if (c->name == "description" && thumb == null) {
-                                        // Sometimes images are in the description as HTML
-                                        string? desc = c->get_content();
-                                        if (desc != null) {
-                                            thumb = Tools.ImageParser.extract_image_from_html_snippet(desc);
-                                        }
-                                    } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
-                                        // Check content:encoded for images (used by NPR and others)
-                                        string? content = c->get_content();
-                                        if (content != null) {
-                                            thumb = Tools.ImageParser.extract_image_from_html_snippet(content);
-                                        }
+                                        href = href->next;
                                     }
+                                    if (link == null) link = c->get_content();
+                                } else if (c->name == "enclosure") {
+                                    Xml.Attr* a = c->properties;
+                                    while (a != null) {
+                                        if (a->name == "url") {
+                                            thumb = a->children != null ? (string) a->children->content : null;
+                                            if (thumb != null) {
+                                                if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                thumb = thumb.replace("&amp;", "&");
+                                            }
+                                            break;
+                                        }
+                                        a = a->next;
+                                    }
+                                } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
+                                    Xml.Attr* a2 = c->properties;
+                                    while (a2 != null) {
+                                        if (a2->name == "url") {
+                                            thumb = a2->children != null ? (string) a2->children->content : null;
+                                            if (thumb != null) {
+                                                if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                            }
+                                            break;
+                                        }
+                                        a2 = a2->next;
+                                    }
+                                } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
+                                    Xml.Attr* a3 = c->properties;
+                                    string? media_url = null;
+                                    string? media_type = null;
+                                    string? media_medium = null;
+                                    while (a3 != null) {
+                                        if (a3->name == "url") media_url = a3->children != null ? (string) a3->children->content : null;
+                                        else if (a3->name == "type") media_type = a3->children != null ? (string) a3->children->content : null;
+                                        else if (a3->name == "medium") media_medium = a3->children != null ? (string) a3->children->content : null;
+                                        a3 = a3->next;
+                                    }
+                                    if (media_url != null && thumb == null) {
+                                        bool is_image = false;
+                                        if (media_type != null && media_type.has_prefix("image")) is_image = true;
+                                        if (media_medium != null && media_medium == "image") is_image = true;
+                                        string mu_lower = media_url.down();
+                                        if (mu_lower.has_suffix(".jpg") || mu_lower.has_suffix(".jpeg") || mu_lower.has_suffix(".png") || mu_lower.has_suffix(".webp") || mu_lower.has_suffix(".gif")) is_image = true;
+                                        if (!is_image && media_url.contains("images.wsj.net/im-")) is_image = true;
+                                        if (is_image) thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
+                                    }
+                                } else if (c->name == "description" && thumb == null) {
+                                    string? desc = c->get_content();
+                                    if (desc != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(desc);
+                                } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
+                                    string? content = c->get_content();
+                                    if (content != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(content);
                                 }
                             }
+
                             if (title != null && link != null) {
-                                // If this is a Local News feed, cap the number of
-                                // items we track from this single feed. This helps
-                                // control memory growth for users that have large
-                                // numbers of local feeds configured.
                                 if (category_id == "local_news" && items.size >= LOCAL_FEED_MAX_ITEMS) {
-                                    try {
-                                        if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) {
-                                            warning("rssParser: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name);
-                                        }
-                                    } catch (GLib.Error e) { }
+                                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssParser: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name); } catch (GLib.Error e) { }
                                     continue;
                                 }
+
                                 var row = new Gee.ArrayList<string?>();
-                                // If the feed provided a BBC thumbnail, try normalizing it to a larger CDN variant
                                 if (thumb != null && bbc_enabled) {
                                     string thumb_l = thumb.down();
                                     if (thumb_l.contains("bbc.") || thumb_l.contains("bbci.co.uk")) {
@@ -206,6 +181,7 @@ public class RssParser {
                                         try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssParser: normalized thumb %s -> %s", before, thumb); } catch (GLib.Error e) { }
                                     }
                                 }
+
                                 row.add(title);
                                 row.add(link);
                                 row.add(thumb);
@@ -216,7 +192,8 @@ public class RssParser {
                 }
             }
 
-                Idle.add(() => {
+            // Update UI on main thread
+            Idle.add(() => {
                 if (current_search_query.length > 0) {
                     set_label(@"Search Results: \"$(current_search_query)\" in $(category_name) — $(source_name)");
                 } else {
@@ -228,58 +205,57 @@ public class RssParser {
                     add_item(row[0] ?? "No title", row[1] ?? "", row[2], category_id, source_name);
                 }
 
-                // Update RssSourceStore with favicon URL if this is a custom RSS source
                 if (category_id == "myfeed" && favicon_url != null && favicon_url.length > 0) {
                     try {
                         var rss_store = Paperboy.RssSourceStore.get_instance();
-                        // Try to find the source by matching the source_name
                         var all_sources = rss_store.get_all_sources();
                         foreach (var src in all_sources) {
                             if (src.name == source_name) {
-                                // Update favicon URL if not already set
                                 if (src.favicon_url == null || src.favicon_url.length == 0) {
                                     rss_store.update_favicon_url(src.url, favicon_url);
                                 }
                                 break;
                             }
                         }
-                    } catch (GLib.Error e) {
-                        // Silently ignore errors - favicon is optional
-                    }
+                    } catch (GLib.Error e) { }
                 }
 
                 return false;
             });
 
-                // Background: for BBC links, try to fetch higher-resolution images using
-                // `Tools.ImageParser.fetch_bbc_highres_image`. Limit to a small number to
-                // avoid hammering article pages. This background pass is gated by the
-                // PAPERBOY_ENABLE_BBC_EXTRACT feature flag.
-                if (bbc_enabled) {
-                    new Thread<void*>("bbc-image-upgrade", () => {
-                        try {
-                            int upgrades = 0;
-                            foreach (var row in items) {
-                                if (upgrades >= 8) break;
-                                string? link = row[1];
-                                string? thumb = row[2];
-                                if (link == null) continue;
-                                string link_l = link.down();
-                                if ((link_l.contains("bbc.") || link_l.contains("bbci.co.uk"))) {
-                                    // If there's no thumbnail or it looks like a tiny thumbnail, try upgrade
-                                    if (thumb == null || thumb.length < 50) {
-                                        Tools.ImageParser.fetch_bbc_highres_image(link, session, add_item, category_id, source_name);
-                                        upgrades++;
-                                    }
+            // Background: for BBC links, try to fetch higher-resolution images
+            if (bbc_enabled) {
+                AddItemFunc safe_add = (title, url, thumbnail, cid, sname) => {
+                    Idle.add(() => { add_item(title, url, thumbnail, cid, sname); return false; });
+                };
+
+                new Thread<void*>("bbc-image-upgrade", () => {
+                    try {
+                        int upgrades = 0;
+                        foreach (var row in items) {
+                            if (upgrades >= 8) break;
+                            string? link = row[1];
+                            string? thumb = row[2];
+                            if (link == null) continue;
+                            string link_l = link.down();
+                            if ((link_l.contains("bbc.") || link_l.contains("bbci.co.uk"))) {
+                                if (thumb == null || thumb.length < 50) {
+                                    Tools.ImageParser.fetch_bbc_highres_image(link, session, safe_add, category_id, source_name);
+                                    upgrades++;
                                 }
                             }
-                        } catch (GLib.Error e) {
                         }
-                        return null;
-                    });
-                }
+                    } catch (GLib.Error e) { }
+                    return null;
+                });
+            }
+
         } catch (GLib.Error e) {
             warning("RSS parse/display error: %s", e.message);
+        } finally {
+            if (doc != null) {
+                xml_free_doc(doc);
+            }
         }
     }
 
