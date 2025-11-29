@@ -761,20 +761,28 @@ public class ImageHandler : GLib.Object {
             }
         } catch (GLib.Error e) { }
 
-        var existing = window.pending_downloads.get(url);
-        if (existing != null) {
-            existing.add(image);
-            return;
-        }
-
-        var list = new Gee.ArrayList<Gtk.Picture>();
-        list.add(image);
-        window.pending_downloads.set(url, list);
-        window.requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
+        // THREAD SAFETY: Lock mutex while checking and modifying pending_downloads
+        // to prevent race with background threads accessing the HashMap
+        window.download_mutex.lock();
         try {
-            string nkey = UrlUtils.normalize_article_url(url);
-            if (nkey != null && nkey.length > 0) window.requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
-        } catch (GLib.Error e) { }
+            var existing = window.pending_downloads.get(url);
+            if (existing != null) {
+                existing.add(image);
+                // Don't unlock here - finally block will handle it
+                return;
+            }
+
+            var list = new Gee.ArrayList<Gtk.Picture>();
+            list.add(image);
+            window.pending_downloads.set(url, list);
+            window.requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
+            try {
+                string nkey = UrlUtils.normalize_article_url(url);
+                if (nkey != null && nkey.length > 0) window.requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
+            } catch (GLib.Error e) { }
+        } finally {
+            window.download_mutex.unlock();
+        }
 
         // Download at the requested size - multipliers are already applied by callers
         // (articleManager applies 6x for heroes, 3x for articles, etc.)

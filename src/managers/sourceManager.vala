@@ -764,16 +764,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                             if (script_path != null) {
                                 try {
-                                    // Run the local html2rss fallback script/binary using Gio/GLib Subprocess
+                                    // Run the local html2rss binary using Gio/GLib Subprocess
                                     // Pass the URL as an argv element (avoids shell quoting issues)
-                                    string[] argv;
-                                    if (script_path.has_suffix("html2rss") && !script_path.has_suffix(".py")) {
-                                        // native binary: request more pages (default 10)
-                                        argv = { script_path, "--max-pages", "10", article_url };
-                                    } else {
-                                        // python script: also pass max-pages if supported
-                                        argv = { "python3", script_path, "--max-pages", "10", article_url };
-                                    }
+                                    string[] argv = { script_path, "--max-pages", "20", article_url };
                                     string? out_stdout = null;
                                     string? out_stderr = null;
                                     int exit_status = 0;
@@ -873,7 +866,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                                 // Write the generated feed via a replacement stream
                                                 var out_stream = f.replace(null, false, GLib.FileCreateFlags.NONE, null);
                                                 var writer = new DataOutputStream(out_stream);
-                                                writer.put_string(gen_feed);
+                                                // Ensure generated feed is safe for XML storage (strip illegal control chars)
+                                                string safe_feed = RssValidator.sanitize_for_xml(gen_feed);
+                                                writer.put_string(safe_feed);
                                                 writer.close(null);
 
                                                 gen_feed = "file://" + file_path;
@@ -932,7 +927,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                         
                                         if (success) {
                                             GLib.Idle.add(() => {
-                                                window.show_toast("Following %s (%d articles)".printf(feed_name, item_count));
+                                                // We don't need to know the amount of articles anymore
+                                                //window.show_toast("Following %s (%d articles)".printf(feed_name, item_count));
+                                                window.show_toast("Following %s".printf(feed_name, item_count));
                                                 return false;
                                             });
                                         } else {

@@ -211,4 +211,22 @@ public class RssValidator : GLib.Object {
         
         return content;
     }
+
+    /**
+     * Sanitize content for XML storage by removing illegal XML control characters
+     * Keeps tab (0x09), LF (0x0A) and CR (0x0D) and all characters >= 0x20.
+     */
+    public static string sanitize_for_xml(string content) {
+        if (content == null || content.length == 0) return "";
+
+        var sb = new StringBuilder();
+        for (int i = 0; i < content.length; i++) {
+            char ch = content[i];
+            int code = (int) ch;
+            if (code == 9 || code == 10 || code == 13 || code >= 32) {
+                sb.append_c(ch);
+            }
+        }
+        return sb.str;
+    }
 }

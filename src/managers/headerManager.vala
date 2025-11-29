@@ -417,25 +417,26 @@ public class HeaderManager : GLib.Object {
         }
 
         switch (cat) {
-            case "topten": return "Top Ten";
             case "frontpage": return "Front Page";
-            case "myfeed": return "My Feed";
-            case "local_news": return "Local News";
+            case "topten": return "Top Ten";
             case "general": return "World News";
             case "us": return "US News";
             case "technology": return "Technology";
             case "business": return "Business";
+            case "sports": return "Sports";
+            case "science": return "Science";
+            case "health": return "Health";
+            case "entertainment": return "Entertainment";
+            case "politics": return "Politics";
+            case "lifestyle": return "Lifestyle";
             case "markets": return "Markets";
             case "industries": return "Industries";
             case "economics": return "Economics";
             case "wealth": return "Wealth";
             case "green": return "Green";
-            case "science": return "Science";
-            case "sports": return "Sports";
-            case "health": return "Health";
-            case "entertainment": return "Entertainment";
-            case "politics": return "Politics";
-            case "lifestyle": return "Lifestyle";
+            case "myfeed": return "My Feed";
+            case "local_news": return "Local News";
+            default: break;
         }
         if (cat == null || cat.length == 0) return "News";
         string s = cat.strip();

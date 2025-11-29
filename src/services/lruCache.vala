@@ -101,7 +101,12 @@ public class LruCache<K, V> : GLib.Object {
                     try {
                         on_evict(oldest, val);
                     } catch (GLib.Error e) {
-                        // Best-effort: ignore callback errors
+                        // Log eviction errors when debug is enabled
+                        try {
+                            if (AppDebugger.debug_enabled()) {
+                                warning("LruCache eviction callback failed: %s", e.message);
+                            }
+                        } catch (GLib.Error _) { }
                     }
                 }
                 map.remove(oldest);
@@ -122,7 +127,12 @@ public class LruCache<K, V> : GLib.Object {
                 try {
                     on_evict(key, val);
                 } catch (GLib.Error e) {
-                    // Best-effort: ignore callback errors
+                    // Log eviction errors when debug is enabled
+                    try {
+                        if (AppDebugger.debug_enabled()) {
+                            warning("LruCache eviction callback failed: %s", e.message);
+                        }
+                    } catch (GLib.Error _) { }
                 }
             }
             removed = map.remove(key);
@@ -143,7 +153,12 @@ public class LruCache<K, V> : GLib.Object {
                         try {
                             on_evict(k, v);
                         } catch (GLib.Error e) {
-                            // Best-effort: ignore callback errors
+                            // Log eviction errors when debug is enabled
+                            try {
+                                if (AppDebugger.debug_enabled()) {
+                                    warning("LruCache eviction callback failed: %s", e.message);
+                                }
+                            } catch (GLib.Error _) { }
                         }
                     }
                 }
@@ -182,7 +197,12 @@ public class LruCache<K, V> : GLib.Object {
                     try {
                         on_evict(oldest, val);
                     } catch (GLib.Error e) {
-                        // Best-effort: ignore callback errors
+                        // Log eviction errors when debug is enabled
+                        try {
+                            if (AppDebugger.debug_enabled()) {
+                                warning("LruCache eviction callback failed: %s", e.message);
+                            }
+                        } catch (GLib.Error _) { }
                     }
                 }
                 map.remove(oldest);

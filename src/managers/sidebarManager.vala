@@ -715,7 +715,9 @@ public class SidebarManager : GLib.Object {
             var ordered = store.get_all_sources();
             int pos = -1;
             for (int i = 0; i < ordered.size; i++) {
-                if (ordered.get(i).url == source.url) { pos = i; break; }
+                // SAFETY: Check for null before accessing properties to prevent segfault
+                var item = ordered.get(i);
+                if (item != null && item.url == source.url) { pos = i; break; }
             }
             if (pos >= 0) {
                 // Clamp to available widget count

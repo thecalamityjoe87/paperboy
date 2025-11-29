@@ -101,4 +101,10 @@ public class WorkerPool : GLib.Object {
         cond.broadcast();
         mutex.unlock();
     }
+
+    // MEMORY SAFETY: Destructor to ensure threads are cleaned up
+    // when the WorkerPool is destroyed, preventing access to freed memory
+    ~WorkerPool() {
+        shutdown();
+    }
 }

@@ -180,7 +180,10 @@ public class MetaCache : GLib.Object {
                     return null;
                 }
             } catch (GLib.Error e) {
-                // Can't query size; continue and let KeyFile handle malformed contents.
+                // SECURITY FIX: If we can't verify file size, don't risk parsing it
+                // This prevents potential attacks using files that bypass size checks
+                try { warning("MetaCache.read_meta: cannot verify file size for %s: %s -- refusing to parse", meta, e.message); } catch (GLib.Error ee) { }
+                return null;
             }
 
             var kf = new KeyFile();

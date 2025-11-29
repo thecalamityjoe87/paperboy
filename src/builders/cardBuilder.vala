@@ -27,7 +27,15 @@ public class CardBuilder : GLib.Object {
     }
 
     public static Gtk.Widget build_category_chip(NewsWindow win, string category_id) {
-        var chip = new Gtk.Label(win.category_display_name_for(category_id));
+        // For RSS feed categories, show "Followed Source" instead of "My Feed"
+        string label_text;
+        if (category_id != null && category_id.has_prefix("rssfeed:")) {
+            label_text = "Followed Source";
+        } else {
+            label_text = win.category_display_name_for(category_id);
+        }
+        
+        var chip = new Gtk.Label(label_text);
         chip.add_css_class("category-chip");
         chip.set_halign(Gtk.Align.START);
         chip.set_valign(Gtk.Align.START);

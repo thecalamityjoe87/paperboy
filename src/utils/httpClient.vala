@@ -250,6 +250,27 @@ public class HttpClient : Object {
             // Mark request as in-flight
             state = new RequestState();
             in_flight_requests.set(url, state);
+            
+            // MEMORY SAFETY: Prevent unbounded cache growth by clearing old entries
+            // if cache exceeds reasonable size (100 concurrent requests)
+            const int MAX_CACHE_SIZE = 100;
+            if (in_flight_requests.size > MAX_CACHE_SIZE) {
+                // Clear oldest half of entries to avoid frequent clears
+                var keys_to_remove = new Gee.ArrayList<string>();
+                int to_remove = in_flight_requests.size / 2;
+                int removed = 0;
+                foreach (var entry in in_flight_requests.entries) {
+                    if (removed >= to_remove) break;
+                    if (entry.value.completed) {
+                        keys_to_remove.add(entry.key);
+                        removed++;
+                    }
+                }
+                foreach (var key in keys_to_remove) {
+                    in_flight_requests.unset(key);
+                }
+            }
+            
             cache_mutex.unlock();
         }
 

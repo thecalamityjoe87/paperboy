@@ -6,6 +6,7 @@ use reqwest::header::{USER_AGENT, ACCEPT, ACCEPT_LANGUAGE, CONNECTION};
 use scraper::{Html, Selector, ElementRef};
 use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
+use html_escape::decode_html_entities;
 use std::collections::HashSet;
 use serde_json::Value as JsonValue;
 use std::error::Error;
@@ -18,6 +19,7 @@ use rand::seq::SliceRandom;
 use url::Url;
 use url::form_urlencoded;
 use once_cell::sync::Lazy;
+use chrono::DateTime;
 
 /// html2rss - generate a simple RSS feed from a webpage
 #[derive(Parser, Debug)]
@@ -26,12 +28,12 @@ struct Args {
     /// URL of the page to convert to RSS
     url: String,
 
-    /// Maximum number of pages to crawl (default: 1)
-    #[arg(short = 'n', long = "max-pages", default_value_t = 1)]
+    /// Maximum number of pages to crawl (default: 20)
+    #[arg(short = 'n', long = "max-pages", default_value_t = 20)]
     max_pages: usize,
 
     /// Timeout in milliseconds for network requests (default: 5000)
-    #[arg(short = 't', long = "timeout-ms", default_value_t = 5000)]
+    #[arg(short = 't', long = "timeout-ms", default_value_t = 10000)]
     timeout_ms: u64,
 }
 
@@ -613,6 +615,9 @@ static RE_ARTICLE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(/article/|/artic
 static RE_HUFF_ENTRY: Lazy<Regex> = Lazy::new(|| Regex::new(r"/entry/[^/]+_[0-9]+$").unwrap());
 static RE_WHITESPACE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+").unwrap());
 
+// Cap text elements to avoid enormous feed entries (truncate with ellipsis)
+const MAX_TEXT_LEN: usize = 4096;
+
 fn build_candidate_list(document: &Html, base: &Url, max_pages: usize) -> Vec<Url> {
     let mut seen = HashSet::new();
     let mut candidates: Vec<Url> = Vec::new();
@@ -895,16 +900,53 @@ use quick_xml::events::{BytesStart, BytesEnd, BytesText};
 
 fn write_text_element<W: Write>(w: &mut Writer<W>, name: &str, text: &str) -> Result<(), Box<dyn Error>> {
     w.write_event(Event::Start(BytesStart::new(name)))?;
-    w.write_event(Event::Text(BytesText::new(text)))?;
+    // sanitize text: decode HTML entities once, remove control characters that are invalid in XML
+    let mut s = sanitize_text(text);
+    if s.len() > MAX_TEXT_LEN {
+        s.truncate(MAX_TEXT_LEN);
+        s.push_str("… (truncated)");
+    }
+    w.write_event(Event::Text(BytesText::new(&s)))?;
     w.write_event(Event::End(BytesEnd::new(name)))?;
     Ok(())
+}
+
+// Decode HTML entities once and strip disallowed XML control characters.
+fn sanitize_text(input: &str) -> String {
+    // decode entities like &amp; &quot; etc. into Unicode
+    let decoded = decode_html_entities(input).to_string();
+
+    // Remove Cc control characters except tab(0x09), LF(0x0A), CR(0x0D)
+    decoded.chars()
+        .filter(|&c| {
+            let code = c as u32;
+            if code == 0x09 || code == 0x0A || code == 0x0D { return true; }
+            // allow printable characters and other unicode categories (>= 0x20)
+            code >= 0x20
+        })
+        .collect::<String>()
+}
+
+// Try to produce RFC-2822 (RFC822 compatible) pubDate values. Fall back to original raw string.
+fn format_pub_date(raw: &str) -> String {
+    // Try RFC3339 (ISO 8601) first, then RFC2822, otherwise return raw
+    if let Ok(dt) = DateTime::parse_from_rfc3339(raw) {
+        return dt.to_rfc2822();
+    }
+    if let Ok(dt) = DateTime::parse_from_rfc2822(raw) {
+        return dt.to_rfc2822();
+    }
+    raw.to_string()
 }
 
 fn write_rss(base: &Url, items: &Vec<Item>) -> Result<(), Box<dyn Error>> {
     let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
     writer.write_event(Event::Decl(BytesDecl::new("1.0", Some("utf-8"), None)))?;
 
-    writer.write_event(Event::Start(BytesStart::new("rss")))?;
+    // write <rss version="2.0">
+    let mut rss_start = BytesStart::new("rss");
+    rss_start.push_attribute(("version", "2.0"));
+    writer.write_event(Event::Start(rss_start))?;
     writer.write_event(Event::Start(BytesStart::new("channel")))?;
     write_text_element(&mut writer, "title", &format!("Feed for {}", base.host_str().unwrap_or(base.as_str())))?;
     write_text_element(&mut writer, "link", base.as_str())?;
@@ -918,7 +960,7 @@ fn write_rss(base: &Url, items: &Vec<Item>) -> Result<(), Box<dyn Error>> {
             write_text_element(&mut writer, "description", desc)?;
         }
         if let Some(date) = &it.pub_date {
-            write_text_element(&mut writer, "pubDate", date)?;
+            write_text_element(&mut writer, "pubDate", &format_pub_date(date))?;
         }
         // include image as enclosure when available
         if let Some(img) = &it.image {

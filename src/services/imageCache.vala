@@ -33,6 +33,15 @@ public class ImageCache : GLib.Object {
         pixbuf_cache = new LruCache<string, Gdk.Pixbuf>(capacity);
         texture_cache = new LruCache<string, Gdk.Texture>(capacity);
         
+        // IMPORTANT DEPENDENCY: This implementation relies on Gee.HashMap's automatic
+        // reference counting behavior for GObject values. When Gee stores a GObject
+        // (like Gdk.Pixbuf or Gdk.Texture), it automatically calls g_object_ref() on
+        // insert and g_object_unref() on remove/clear. This means:
+        // 1. We do NOT manually ref/unref pixbufs when storing them
+        // 2. The container manages the lifecycle automatically
+        // 3. If Gee's behavior changes or we switch container libraries, this could break
+        // 4. Tests should verify this behavior doesn't regress
+        
         // When pixbuf entries are evicted, log for debugging
         // No need to manually unref - HashMap will do it when removing the entry
         pixbuf_cache.set_eviction_callback((k, v) => {

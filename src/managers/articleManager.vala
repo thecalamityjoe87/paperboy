@@ -323,6 +323,24 @@ namespace Managers {
                     }
                 } catch (GLib.Error e) { }
 
+                try {
+                    var rss_store = Paperboy.RssSourceStore.get_instance();
+                    var all_sources = rss_store.get_all_sources();
+                    foreach (var src in all_sources) {
+                        bool is_match = false;
+                        if (source_name != null && source_name == src.name) is_match = true;
+                        if (!is_match && url != null && url.length > 0) {
+                            string src_host = UrlUtils.extract_host_from_url(src.url);
+                            string article_host = UrlUtils.extract_host_from_url(url);
+                            if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+                        }
+                        if (is_match) {
+                            hero_display_cat = "rssfeed:" + src.url;
+                            break;
+                        }
+                    }
+                } catch (GLib.Error e) { }
+
                 var hero_chip = window.build_category_chip(hero_display_cat);
                 var hero_card = new HeroCard(title, url, max_hero_height, default_hero_h, hero_chip);
 
@@ -440,6 +458,24 @@ namespace Managers {
                     if (idx2 >= 0) slide_display_cat = source_name.substring(idx2 + 11).strip();
                 }
             } catch (GLib.Error e) { }
+            try {
+                var rss_store = Paperboy.RssSourceStore.get_instance();
+                var all_sources = rss_store.get_all_sources();
+                foreach (var src in all_sources) {
+                    bool is_match = false;
+                    if (source_name != null && source_name == src.name) is_match = true;
+                    if (!is_match && url != null && url.length > 0) {
+                        string src_host = UrlUtils.extract_host_from_url(src.url);
+                        string article_host = UrlUtils.extract_host_from_url(url);
+                        if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+                    }
+                    if (is_match) {
+                        slide_display_cat = "rssfeed:" + src.url;
+                        break;
+                    }
+                }
+            } catch (GLib.Error e) { }
+
             var slide_chip = window.build_category_chip(slide_display_cat);
             slide_overlay.add_overlay(slide_chip);
 
@@ -550,6 +586,24 @@ namespace Managers {
             if (card_display_cat == "frontpage" && source_name != null) {
                 int idx3 = source_name.index_of("##category::");
                 if (idx3 >= 0) card_display_cat = source_name.substring(idx3 + 11).strip();
+            }
+        } catch (GLib.Error e) { }
+
+        try {
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var all_sources = rss_store.get_all_sources();
+            foreach (var src in all_sources) {
+                bool is_match = false;
+                if (source_name != null && source_name == src.name) is_match = true;
+                if (!is_match && url != null && url.length > 0) {
+                    string src_host = UrlUtils.extract_host_from_url(src.url);
+                    string article_host = UrlUtils.extract_host_from_url(url);
+                    if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+                }
+                if (is_match) {
+                    card_display_cat = "rssfeed:" + src.url;
+                    break;
+                }
             }
         } catch (GLib.Error e) { }
 

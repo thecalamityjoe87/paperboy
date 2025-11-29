@@ -20,10 +20,15 @@ using Soup;
 using Xml;
 using Gee;
 
+// Bind to libxml2 xmlSetExternalEntityLoader so we can temporarily disable external entity loading
+// Use the (deprecated) xmlDisableEntityLoader to disable external entity handling
+[CCode (cname = "xmlDisableEntityLoader")]
+private static extern int xml_disable_entity_loader (int val);
+
 public class RssParser {
-    // Cap for number of items to process per LOCAL feed; this prevents a
-    // single local RSS feed from adding an unbounded number of articles
-    // which can cause memory to grow quickly when many local feeds exist.
+    // Maximum items to parse from local news RSS feeds (prevents memory bloat from large feeds)
+    // TODO: Make this configurable via preferences to allow power users to increase the limit
+    // Currently hardcoded to prevent UI slowdowns, but users may want more items for archival feeds
     private const int LOCAL_FEED_MAX_ITEMS = 12;
     
     public static void parse_rss_and_display(
@@ -38,7 +43,19 @@ public class RssParser {
         Soup.Session session
     ) {
         try {
-            Xml.Doc* doc = Xml.Parser.parse_memory(body, (int) body.length);
+            // SECURITY FIX: Do NOT use NOENT (it substitutes entities and can enable XXE/Billion-laughs).
+            // Use NONET to forbid network access and disable entity substitution/DTD processing by
+            // avoiding NOENT and enabling safe options instead.
+            // NOCDATA: merge CDATA sections to text nodes
+            // NOBLANKS: remove ignorable whitespace
+            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS;
+            Xml.Doc* doc = Xml.Parser.read_memory(
+                body, 
+                (int) body.length, 
+                null,  // URL (not needed for memory parsing)
+                null,  // encoding (auto-detect)
+                (int) parser_options
+            );
             if (doc == null) {
                 warning("RSS parse failed");
                 return;

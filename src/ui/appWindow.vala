@@ -97,6 +97,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         public Gee.HashMap<string, string> requested_image_sizes;
         public Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
         public Gee.HashMap<Gtk.Picture, DeferredRequest> deferred_downloads;
+        // THREAD SAFETY: Mutex to protect pending_downloads and requested_image_sizes
+        // from concurrent access by background download threads
+        public GLib.Mutex download_mutex;
         // Per-picture flag indicating we should show the local placeholder
         // (used for Local News cards so fallbacks keep the local look).
         public Gee.HashMap<Gtk.Picture, bool> pending_local_placeholder;
@@ -242,6 +245,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         pending_downloads = new Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>>();
         deferred_downloads = new Gee.HashMap<Gtk.Picture, DeferredRequest>();
         pending_local_placeholder = new Gee.HashMap<Gtk.Picture, bool>();
+        // Initialize download mutex for thread-safe access
+        download_mutex = new GLib.Mutex();
         // Initialize on-disk cache helper
         try {
             meta_cache = new MetaCache();
