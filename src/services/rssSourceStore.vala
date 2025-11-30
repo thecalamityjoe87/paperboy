@@ -76,6 +76,7 @@ namespace Paperboy {
                     url TEXT NOT NULL UNIQUE,
                     icon_filename TEXT,
                     favicon_url TEXT,
+                    original_url TEXT,
                     created_at INTEGER NOT NULL,
                     last_fetched_at INTEGER DEFAULT 0
                 );
@@ -90,6 +91,11 @@ namespace Paperboy {
             // Add favicon_url column if it doesn't exist (for existing databases)
             string add_column = "ALTER TABLE rss_sources ADD COLUMN favicon_url TEXT;";
             rc = db.exec(add_column, null, out errmsg);
+            // Ignore error if column already exists
+            
+            // Add original_url column if it doesn't exist (for existing databases)
+            string add_original_url = "ALTER TABLE rss_sources ADD COLUMN original_url TEXT;";
+            rc = db.exec(add_original_url, null, out errmsg);
             // Ignore error if column already exists
         }
 
@@ -151,9 +157,76 @@ namespace Paperboy {
         }
 
         /**
-         * Normalize a feed URL for comparison
-         * Removes trailing slashes, fragments, and converts to lowercase
+         * Add a source with original_url (for html2rss-generated feeds)
+         * @param name Display name for the source
+         * @param url The feed URL (file:// for generated feeds)
+         * @param original_url The original website URL (e.g., https://example.com)
+         * @param icon_filename Optional icon filename
          */
+        public bool add_source_with_original_url(string name, string url, string? original_url, string? icon_filename = null) {
+            if (db == null) {
+                GLib.warning("Database not initialized");
+                return false;
+            }
+
+            // Normalize URL for comparison
+            string normalized_url = normalize_feed_url(url);
+
+            // Check if source already exists by normalized URL
+            if (source_exists_normalized(normalized_url)) {
+                GLib.warning("RSS source with URL already exists: %s", url);
+                return false;
+            }
+
+            // Check if source with same name already exists
+            if (source_exists_by_name(name)) {
+                GLib.warning("RSS source with name already exists: %s", name);
+                return false;
+            }
+
+            string sql = """
+                INSERT INTO rss_sources (name, url, icon_filename, original_url, created_at)
+                VALUES (?, ?, ?, ?, ?);
+            """;
+
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                return false;
+            }
+
+            stmt.bind_text(1, name);
+            stmt.bind_text(2, url);
+            if (icon_filename != null) {
+                stmt.bind_text(3, icon_filename);
+            } else {
+                stmt.bind_null(3);
+            }
+            if (original_url != null) {
+                stmt.bind_text(4, original_url);
+            } else {
+                stmt.bind_null(4);
+            }
+            stmt.bind_int64(5, GLib.get_real_time() / 1000000); // Convert to seconds
+
+            rc = stmt.step();
+            if (rc != Sqlite.DONE) {
+                GLib.warning("Failed to insert RSS source: %s", db.errmsg());
+                return false;
+            }
+
+            // Fetch the inserted source and emit a signal so UI can update
+            var added = get_source_by_url(url);
+            if (added != null) {
+                try { source_added(added); } catch (GLib.Error e) { }
+            }
+
+            return true;
+        }
+
+        // Normalize a feed URL for comparison
+        // Removes trailing slashes, fragments, and converts to lowercase
         private string normalize_feed_url(string url) {
             string normalized = url.strip();
 
@@ -175,9 +248,8 @@ namespace Paperboy {
             return normalized.down();
         }
 
-        /**
-         * Check if a source exists by normalized URL
-         */
+
+        // Check if a source exists by normalized URL
         private bool source_exists_normalized(string normalized_url) {
             if (db == null) return false;
 
@@ -191,9 +263,7 @@ namespace Paperboy {
             return false;
         }
 
-        /**
-         * Check if a source exists by name (case-insensitive)
-         */
+        // Check if a source exists by name (case-insensitive)
         private bool source_exists_by_name(string name) {
             if (db == null) return false;
 
@@ -337,7 +407,7 @@ namespace Paperboy {
                 return sources;
             }
 
-            string sql = "SELECT id, name, url, icon_filename, favicon_url, created_at, last_fetched_at FROM rss_sources ORDER BY name ASC;";
+            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at FROM rss_sources ORDER BY name ASC;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -351,11 +421,13 @@ namespace Paperboy {
                 string url = stmt.column_text(2);
                 string? icon_filename = stmt.column_text(3);
                 string? favicon_url = stmt.column_text(4);
-                int64 created_at = stmt.column_int64(5);
-                int64 last_fetched_at = stmt.column_int64(6);
+                string? original_url = stmt.column_text(5);
+                int64 created_at = stmt.column_int64(6);
+                int64 last_fetched_at = stmt.column_int64(7);
 
                 var source = new RssSource.with_data(id, name, url, icon_filename, created_at, last_fetched_at);
                 source.favicon_url = favicon_url;
+                source.original_url = original_url;
                 sources.add(source);
             }
 
@@ -368,7 +440,7 @@ namespace Paperboy {
                 return null;
             }
 
-            string sql = "SELECT id, name, url, icon_filename, favicon_url, created_at, last_fetched_at FROM rss_sources WHERE url = ?;";
+            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at FROM rss_sources WHERE url = ?;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -384,11 +456,13 @@ namespace Paperboy {
                 string url_val = stmt.column_text(2);
                 string? icon_filename = stmt.column_text(3);
                 string? favicon_url = stmt.column_text(4);
-                int64 created_at = stmt.column_int64(5);
-                int64 last_fetched_at = stmt.column_int64(6);
+                string? original_url = stmt.column_text(5);
+                int64 created_at = stmt.column_int64(6);
+                int64 last_fetched_at = stmt.column_int64(7);
 
                 var source = new RssSource.with_data(id, name, url_val, icon_filename, created_at, last_fetched_at);
                 source.favicon_url = favicon_url;
+                source.original_url = original_url;
                 return source;
             }
 
@@ -481,6 +555,37 @@ namespace Paperboy {
             rc = stmt.step();
             if (rc != Sqlite.DONE) {
                 GLib.warning("Failed to update favicon URL: %s", db.errmsg());
+                return false;
+            }
+
+            return true;
+        }
+
+        /**
+         * Update the URL for an existing source (used when regenerating feeds)
+         * @param old_url The current URL
+         * @param new_url The new URL to set
+         */
+        public bool update_source_url(string old_url, string new_url) {
+            if (db == null) {
+                GLib.warning("Database not initialized");
+                return false;
+            }
+
+            string sql = "UPDATE rss_sources SET url = ? WHERE url = ?;";
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                return false;
+            }
+
+            stmt.bind_text(1, new_url);
+            stmt.bind_text(2, old_url);
+
+            rc = stmt.step();
+            if (rc != Sqlite.DONE) {
+                GLib.warning("Failed to update source URL: %s", db.errmsg());
                 return false;
             }
 

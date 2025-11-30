@@ -22,6 +22,7 @@ namespace Paperboy {
         public string url { get; set; }
         public string? icon_filename { get; set; }
         public string? favicon_url { get; set; }
+        public string? original_url { get; set; }
         public int64 created_at { get; set; }
         public int64 last_fetched_at { get; set; }
 
