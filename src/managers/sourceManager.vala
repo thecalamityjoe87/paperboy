@@ -183,6 +183,28 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         return source_enum_to_id(infer_source_from_url(url));
     }
 
+    // Determine whether the given article URL belongs to a built-in source
+    // This performs the same domain-based checks used elsewhere to avoid
+    // treating the fallback "guardian" enum as a custom source.
+    public static bool is_article_from_builtin(string? article_url) {
+        if (article_url == null || article_url.length == 0) return false;
+
+        NewsSource inferred = infer_source_from_url(article_url);
+        string url_lower = article_url.down();
+
+        if (inferred == NewsSource.GUARDIAN && (url_lower.contains("guardian") || url_lower.contains("theguardian"))) return true;
+        if (inferred == NewsSource.BBC && (url_lower.contains("bbc.") || url_lower.contains("bbc.co"))) return true;
+        if (inferred == NewsSource.REDDIT && (url_lower.contains("reddit") || url_lower.contains("redd.it"))) return true;
+        if (inferred == NewsSource.NEW_YORK_TIMES && (url_lower.contains("nytimes") || url_lower.contains("nyti.ms"))) return true;
+        if (inferred == NewsSource.WALL_STREET_JOURNAL && (url_lower.contains("wsj.com") || url_lower.contains("on.wsj.com"))) return true;
+        if (inferred == NewsSource.BLOOMBERG && url_lower.contains("bloomberg")) return true;
+        if (inferred == NewsSource.REUTERS && url_lower.contains("reuters")) return true;
+        if (inferred == NewsSource.NPR && url_lower.contains("npr.org")) return true;
+        if (inferred == NewsSource.FOX && (url_lower.contains("foxnews") || url_lower.contains("fox.com"))) return true;
+
+        return false;
+    }
+
 
     // Check if a source supports a given category
     public static bool source_supports_category(string source_id, string category) {
@@ -537,6 +559,18 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
     // Discover and follow an RSS source from an article URL
     public void follow_rss_source(string article_url, string? source_metadata = null) {
+        // If the article appears to be from a built-in source, ignore follow
+        // requests and notify the user. This prevents adding built-in sources
+        // as custom RSS entries.
+        if (is_article_from_builtin(article_url)) {
+            GLib.Idle.add(() => {
+                try { if (window != null) window.clear_persistent_toast(); } catch (GLib.Error e) { }
+                try { if (window != null) window.show_toast("Source is built-in"); } catch (GLib.Error e) { }
+                return false;
+            });
+            return;
+        }
+
         // Call backend /rss/discover endpoint to discover RSS feed from article URL
         new Thread<void*>("rss-discover", () => {
             try {

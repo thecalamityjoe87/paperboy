@@ -397,6 +397,12 @@ public class ArticlePane : GLib.Object {
             } catch (GLib.Error e) { }
         });
 
+        // Disable follow action for built-in sources (can't follow built-in providers)
+        try {
+            bool is_builtin = SourceManager.is_article_from_builtin(url);
+            follow_action.set_enabled(!is_builtin);
+        } catch (GLib.Error e) { }
+
         var action_group = new GLib.SimpleActionGroup();
         action_group.add_action(open_in_app_action);
         action_group.add_action(open_in_browser_action);
