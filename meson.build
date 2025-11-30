@@ -75,6 +75,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/dateUtils.vala',
     'src/utils/dataPaths.vala',
     'src/utils/categoryIcons.vala',
+    'src/utils/pixbufUtils.vala',
     'src/utils/workerPool.vala',
     'src/utils/httpClient.vala',
     'src/utils/rssValidator.vala',

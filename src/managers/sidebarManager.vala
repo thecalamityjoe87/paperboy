@@ -320,17 +320,41 @@ public class SidebarManager : GLib.Object {
     }
 
     public void update_icons_for_theme() {
+        var store = Paperboy.RssSourceStore.get_instance();
         foreach (var kv in sidebar_icon_holders.entries) {
-            string cat = kv.key;
+            string key = kv.key;
             Gtk.Box holder = kv.value;
             Gtk.Widget? child = holder.get_first_child();
             while (child != null) {
                 Gtk.Widget? next = child.get_next_sibling();
-                holder.remove(child);
+                try { holder.remove(child); } catch (GLib.Error e) { }
                 child = next;
             }
-            var w = CategoryIcons.create_category_icon(cat);
-            if (w != null) holder.append(w);
+
+            // If this holder is for a followed RSS source, recreate the
+            // source-specific picture so saved logos (or the RSS fallback)
+            // are used instead of category icons.
+            if (key.has_prefix("rss:")) {
+                string url = key.substring(4);
+                try {
+                    var src = store.get_source_by_url(url);
+                    if (src != null) {
+                        var pic = create_rss_source_picture(src);
+                        if (pic != null) holder.append(pic);
+                        continue;
+                    }
+                } catch (GLib.Error e) { }
+
+                // Fallback if the source record is missing: use a themed RSS image
+                try {
+                    var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
+                    fallback.set_pixel_size(CategoryIcons.SIDEBAR_ICON_SIZE);
+                    holder.append(fallback);
+                } catch (GLib.Error e) { }
+            } else {
+                var w = CategoryIcons.create_category_icon(key);
+                if (w != null) holder.append(w);
+            }
         }
     }
 
@@ -617,14 +641,14 @@ public class SidebarManager : GLib.Object {
         feed_box.set_margin_bottom(4);
 
         // Create icon
-        Gtk.Picture pic = create_rss_source_picture(source);
+        Gtk.Widget pic_widget = create_rss_source_picture(source);
 
         var icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         icon_holder.add_css_class("circular-logo");
-        icon_holder.set_size_request(NewsWindow.SIDEBAR_ICON_SIZE, NewsWindow.SIDEBAR_ICON_SIZE);
+        icon_holder.set_size_request(CategoryIcons.SIDEBAR_ICON_SIZE, CategoryIcons.SIDEBAR_ICON_SIZE);
         icon_holder.set_valign(Gtk.Align.CENTER);
         icon_holder.set_halign(Gtk.Align.CENTER);
-        icon_holder.append(pic);
+        icon_holder.append(pic_widget);
         feed_box.append(icon_holder);
 
         // Remember this holder so we can update the logo later when metadata arrives
@@ -780,7 +804,7 @@ public class SidebarManager : GLib.Object {
         button_box.set_margin_bottom(4);
 
         var icon = new Gtk.Image.from_icon_name("list-add-symbolic");
-        icon.set_pixel_size(NewsWindow.SIDEBAR_ICON_SIZE);
+        icon.set_pixel_size(CategoryIcons.SIDEBAR_ICON_SIZE);
         button_box.append(icon);
 
         var label = new Gtk.Label("Add RSS Feed");
@@ -882,8 +906,8 @@ public class SidebarManager : GLib.Object {
     }
 
     // Load RSS source icon from SourceMetadata (same logic as prefsDialog)
-    // Create a Picture widget with Cairo-rendered logo (matching cardBuilder approach)
-    private Gtk.Picture create_rss_source_picture(Paperboy.RssSource source) {
+    // Create a Widget (usually an Image or Picture) with rendered logo.
+    private Gtk.Widget create_rss_source_picture(Paperboy.RssSource source) {
         string? icon_filename = null;
 
         // Priority 1: Check SourceMetadata first
@@ -907,7 +931,7 @@ public class SidebarManager : GLib.Object {
             if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
                 try {
                     // Load and scale using ImageCache (like cardBuilder)
-                    int size = NewsWindow.SIDEBAR_ICON_SIZE;
+                    int size = CategoryIcons.SIDEBAR_ICON_SIZE;
                     var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
                     if (probe != null) {
                         int orig_w = 0; int orig_h = 0;
@@ -931,12 +955,12 @@ public class SidebarManager : GLib.Object {
                         var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, size, size);
                         var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, size, size);
 
-                        var pic = new Gtk.Picture();
                         if (pb_surf != null) {
+                            var pic = new Gtk.Picture();
                             try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf)); } catch (GLib.Error e) { }
+                            pic.set_size_request(size, size);
+                            return pic;
                         }
-                        pic.set_size_request(size, size);
-                        return pic;
                     }
                 } catch (GLib.Error e) {
                     // Fall through to fallback icon
@@ -944,10 +968,18 @@ public class SidebarManager : GLib.Object {
             }
         }
 
-        // Fallback: create picture with RSS icon
-        var pic = new Gtk.Picture();
-        pic.set_size_request(NewsWindow.SIDEBAR_ICON_SIZE, NewsWindow.SIDEBAR_ICON_SIZE);
-        return pic;
+        // Fallback: return a themed RSS icon (as Gtk.Image) sized for sidebar
+        int fsize = CategoryIcons.SIDEBAR_ICON_SIZE;
+        try {
+            var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
+            fallback.set_pixel_size(fsize);
+            return fallback;
+        } catch (GLib.Error e) {
+            // As a very last resort return an empty Picture sized correctly
+            var pic = new Gtk.Picture();
+            pic.set_size_request(fsize, fsize);
+            return pic;
+        }
     }
 
     // Helper to build category rows to the popular categories container

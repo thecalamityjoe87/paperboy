@@ -27,7 +27,7 @@ using Adw;
  */
 
 public class CategoryIcons : GLib.Object {
-    private const int SIDEBAR_ICON_SIZE = 24;
+    public const int SIDEBAR_ICON_SIZE = 28;
 
     // Use centralized DataPaths helpers for file location logic
 
