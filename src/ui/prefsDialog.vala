@@ -21,6 +21,12 @@ using Adw;
 using Soup;
 using Gdk;
 
+// Small helper widget: a horizontal box that requests a fixed square size.
+// This forces prefix areas to remain square (e.g., 24x24) even if parents
+// attempt to allocate extra width, preventing circular badges from
+// becoming ellipses.
+// SquareBox removed: use explicit fixed-size Gtk.Box wrappers instead.
+
 public class PrefsDialog : GLib.Object {
     // Helper object to hold lookup-related widgets so we can safely
     // take/release references and avoid capturing raw stack locals in
@@ -119,49 +125,7 @@ public class PrefsDialog : GLib.Object {
                         }
                     }
                 } catch (GLib.Error ee) { }
-
-                Idle.add(() => {
-                    try {
-                        // Include discovered count in the message so the user
-                        // understands the scope of the import.
-                        string dlg_msg = message;
-                        int feed_count = discovered_feeds != null ? discovered_feeds.length : 0;
-                        dlg_msg += "\n\nFeeds found: " + feed_count.to_string();
-
-                        var dlg = new Adw.AlertDialog("Local Feed Discovery", dlg_msg);
-                        dlg.add_response("ok", "OK");
-                        dlg.set_default_response("ok");
-                        dlg.present(parent);
-
-                        // When the user dismisses the dialog, start the import
-                        // and refresh the Local News view. Use the dialog's
-                        // chooser API to detect the response.
-                        dlg.choose.begin(parent, null, (obj, res) => {
-                            try {
-                                string response = dlg.choose.end(res);
-                                if (response == "ok") {
-                                    try {
-                                        var win = parent as NewsWindow;
-                                        if (win != null) {
-                                            // Update overlay visibility first
-                                            try { win.update_local_news_ui(); } catch (GLib.Error e) { }
-                                            // Give the UI a short moment to settle before
-                                            // starting potentially many network fetches.
-                                            GLib.Timeout.add(800, () => {
-                                                try { win.fetch_news(); } catch (GLib.Error e) { }
-                                                return false;
-                                            });
-                                        }
-                                    } catch (GLib.Error e) { }
-                                }
-                            } catch (GLib.Error e) { }
-                        });
-                    } catch (GLib.Error e) { }
-                    return false;
-                });
             } catch (GLib.Error e) {
-                // Capture the error message into a local so the idle closure
-                // does not reference the catch variable directly (which isn't
                 // accessible inside the nested lambda on some compiler versions).
                 string emsg = e.message;
                 Idle.add(() => {
@@ -318,6 +282,7 @@ public class PrefsDialog : GLib.Object {
             "Select News Sources",
             "Choose which news sources to fetch articles from:"
         );
+        sources_dialog.set_prefer_wide_layout(true);
         
         // Create a ListBox for interactive source selection
         var list_box = new Gtk.ListBox();
@@ -365,26 +330,52 @@ public class PrefsDialog : GLib.Object {
             }
         }
 
-        // Helper: async load favicon into provided Gtk.Image
-        void load_favicon(Gtk.Image image, string url) {
+        // Helper: elide long subtitles to avoid wrapping and row height changes
+        string elide_string(string s, int max) {
+            if (s == null) return s;
+            if (s.length <= max) return s;
+            return s.substring(0, max - 1) + "…";
+        }
+
+        // Helper: build a title widget with a wrapping subtitle so rows wrap consistently
+        Gtk.Widget create_row_title_widget(string title, string? subtitle) {
+            var vbox = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+            var title_lbl = new Gtk.Label(title);
+            title_lbl.set_halign(Gtk.Align.START);
+            title_lbl.set_valign(Gtk.Align.CENTER);
+            title_lbl.set_xalign(0.0f);
+            title_lbl.set_use_markup(false);
+            title_lbl.get_style_context().add_class("title");
+
+            vbox.append(title_lbl);
+
+            if (subtitle != null && subtitle.length > 0) {
+                var sub_lbl = new Gtk.Label(subtitle);
+                sub_lbl.set_halign(Gtk.Align.START);
+                sub_lbl.set_valign(Gtk.Align.CENTER);
+                sub_lbl.set_xalign(0.0f);
+                sub_lbl.set_wrap(true);
+                sub_lbl.set_justify(Gtk.Justification.LEFT);
+                sub_lbl.get_style_context().add_class("subtitle");
+                vbox.append(sub_lbl);
+            }
+
+            return vbox;
+        }
+
+        // Helper: async load favicon into provided Gtk.Picture with circular clipping
+        void load_favicon_circular(Gtk.Picture picture, string url) {
             new Thread<void*>("load-favicon", () => {
                 try {
-                    var session = new Soup.Session();
-                    var msg = new Soup.Message("GET", url);
-                    msg.request_headers.append("User-Agent", "news-vala-gnome/0.1");
-                    // Request higher quality favicon formats when possible
-                    msg.request_headers.append("Accept", "image/png,image/x-icon,image/svg+xml,image/*;q=0.8");
-                    session.send_message(msg);
-                    if (msg.status_code == 200 && msg.response_body.length > 0) {
-                        // Use flatten() to get Soup.Buffer (libsoup-2.4)
-                        Soup.Buffer body_buffer = msg.response_body.flatten();
-                        unowned uint8[] body_data = body_buffer.data;
+                    var client = Paperboy.HttpClient.get_default();
+                    var http_response = client.fetch_sync(url, null);
+
+                    if (http_response.is_success() && http_response.body != null && http_response.body.get_size() > 0) {
+                        // Get response data from GLib.Bytes
+                        unowned uint8[] body_data = http_response.body.get_data();
 
                         uint8[] data = new uint8[body_data.length];
                         Memory.copy(data, body_data, body_data.length);
-
-                        // Explicitly free the buffer to prevent leak
-                        body_buffer = null;
 
                         Idle.add(() => {
                             try {
@@ -393,14 +384,51 @@ public class PrefsDialog : GLib.Object {
                                 loader.close();
                                 var pixbuf = loader.get_pixbuf();
                                 if (pixbuf != null) {
-                                    try {
-                                        string k = "pixbuf::url:%s::%dx%d".printf(url, 24, 24);
-                                        var scaled = ImageCache.get_global().get_or_scale_pixbuf(k, pixbuf, 24, 24);
-                                        if (scaled != null) {
-                                            var texture = Gdk.Texture.for_pixbuf(scaled);
-                                            image.set_from_paintable(texture);
+                                    // Scale larger than the badge and clip to a circular
+                                    // mask so the image itself becomes circular. Use a
+                                    // slightly oversized image (28x28) so the circle
+                                    // crops the edges and reads as a circular crop.
+                                    int img_size = 24;
+                                    string k = "pixbuf::url:%s::%dx%d".printf(url, img_size, img_size);
+                                    var scaled = ImageCache.get_global().get_or_scale_pixbuf(k, pixbuf, img_size, img_size);
+                                    if (scaled != null) {
+                                        // Create final 24x24 surface and clip to circle
+                                        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 24, 24);
+                                        var cr = new Cairo.Context(surface);
+
+                                        // Clip to circular area first
+                                        cr.arc(12, 12, 12, 0, 2 * Math.PI);
+                                        cr.clip();
+
+                                        // Compute offsets to center the oversized image;
+                                        // negative offsets allow overflow that gets clipped.
+                                        int ox = (24 - img_size) / 2;
+                                        int oy = (24 - img_size) / 2;
+                                        Gdk.cairo_set_source_pixbuf(cr, scaled, ox, oy);
+                                        cr.paint();
+
+                                        // Optionally draw a subtle ring on top (uncomment to enable)
+                                        // cr.arc(12, 12, 12, 0, 2 * Math.PI);
+                                        // cr.set_source_rgba(1,1,1,0.9);
+                                        // cr.set_line_width(1.5f);
+                                        // cr.stroke();
+
+                                        string surf_key = "pixbuf::circular:prefs:%s:24x24".printf(url);
+                                        var circular_pb = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 24, 24);
+                                        if (circular_pb != null) {
+                                            var texture = Gdk.Texture.for_pixbuf(circular_pb);
+                                            picture.set_paintable(texture);
+                                            picture.set_size_request(26, 26);
+                                            picture.set_hexpand(false);
+                                            picture.set_vexpand(false);
+                                            picture.set_halign(Gtk.Align.CENTER);
+                                            picture.set_valign(Gtk.Align.CENTER);
+                                            var par = picture.get_parent();
+                                            if (par != null) {
+                                                try { par.set_hexpand(false); par.set_vexpand(false); } catch (GLib.Error ee) { }
+                                            }
                                         }
-                                    } catch (GLib.Error e) { }
+                                    }
                                 }
                             } catch (GLib.Error e) {
                                 // keep placeholder
@@ -412,6 +440,36 @@ public class PrefsDialog : GLib.Object {
                 return null;
             });
         }
+
+        // Helper: create a 24x24 circular placeholder picture and wrapper
+        Gtk.Widget create_pref_prefix(out Gtk.Picture picture, string placeholder_key, string? favicon_url) {
+            // Create circular placeholder surface (24x24)
+            var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 24, 24);
+            var cr = new Cairo.Context(surface);
+            cr.arc(12, 12, 12, 0, 2 * Math.PI);
+            cr.set_source_rgba(0.5, 0.5, 0.5, 0.3);
+            cr.fill();
+            var pb = ImageCache.get_global().get_or_from_surface(placeholder_key, surface, 0, 0, 24, 24);
+
+            picture = new Gtk.Picture();
+            if (pb != null) picture.set_paintable(Gdk.Texture.for_pixbuf(pb));
+            picture.set_size_request(24, 24);
+
+            var wrapper = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+            wrapper.add_css_class("circular-logo");
+            wrapper.set_size_request(24, 24);
+            wrapper.set_valign(Gtk.Align.CENTER);
+            wrapper.set_hexpand(false);
+            wrapper.set_halign(Gtk.Align.CENTER);
+            wrapper.set_overflow(Gtk.Overflow.HIDDEN);
+            wrapper.append(picture);
+
+            if (favicon_url != null && favicon_url.length > 0) {
+                load_favicon_circular(picture, favicon_url);
+            }
+
+            return wrapper;
+        }
         
     // Track whether any source switches changed while the dialog is open.
     bool sources_changed = false;
@@ -422,13 +480,16 @@ public class PrefsDialog : GLib.Object {
     // update the main view after the dialog closes (avoid refreshing mid-edit).
     bool personalization_toggled = false;
 
-    // Add The Guardian (multi-select)
+        // Add The Guardian (multi-select)
         var guardian_row = new Adw.ActionRow();
         guardian_row.set_title("The Guardian");
-        guardian_row.set_subtitle("World news with multiple categories");
-        var guardian_icon = new Gtk.Image.from_icon_name("globe-symbolic");
-        guardian_row.add_prefix(guardian_icon);
-        load_favicon(guardian_icon, "https://www.theguardian.com/favicon.ico");
+        guardian_row.set_subtitle(elide_string("World news with multiple categories",28));
+        guardian_row.add_css_class("source-row");
+        
+        Gtk.Picture guardian_picture;
+        var guardian_wrapper = create_pref_prefix(out guardian_picture, "placeholder:guardian", "https://www.theguardian.com/favicon.ico");
+        guardian_row.add_prefix(guardian_wrapper);
+        try { guardian_row.set_tooltip_text("The Guardian\nWorld news with multiple categories"); } catch (GLib.Error ee) { }
         var guardian_switch = new Gtk.Switch();
         guardian_switch.set_active(prefs.preferred_source_enabled("guardian"));
         guardian_switch.set_halign(Gtk.Align.END);
@@ -453,9 +514,12 @@ public class PrefsDialog : GLib.Object {
         var reddit_row = new Adw.ActionRow();
         reddit_row.set_title("Reddit");
         reddit_row.set_subtitle("Popular posts from subreddits");
-        var reddit_icon = new Gtk.Image.from_icon_name("internet-chat-symbolic");
-        reddit_row.add_prefix(reddit_icon);
-        load_favicon(reddit_icon, "https://www.reddit.com/favicon.ico");
+        reddit_row.add_css_class("source-row");
+        
+        Gtk.Picture reddit_picture;
+        var reddit_wrapper = create_pref_prefix(out reddit_picture, "placeholder:reddit", "https://www.reddit.com/favicon.ico");
+        reddit_row.add_prefix(reddit_wrapper);
+        try { reddit_row.set_tooltip_text("Reddit\nPopular posts from subreddits"); } catch (GLib.Error ee) { }
         var reddit_switch = new Gtk.Switch();
         reddit_switch.set_active(prefs.preferred_source_enabled("reddit"));
         reddit_switch.set_halign(Gtk.Align.END);
@@ -477,10 +541,12 @@ public class PrefsDialog : GLib.Object {
         // Add BBC (multi-select)
         var bbc_row = new Adw.ActionRow();
         bbc_row.set_title("BBC News");
-        bbc_row.set_subtitle("Global news and categories");
-        var bbc_icon = new Gtk.Image.from_icon_name("globe-symbolic");
-        bbc_row.add_prefix(bbc_icon);
-        load_favicon(bbc_icon, "https://www.bbc.co.uk/favicon.ico");
+        bbc_row.set_subtitle(elide_string("Global news and categories",28));
+        bbc_row.add_css_class("source-row");
+        Gtk.Picture bbc_picture;
+        var bbc_wrapper = create_pref_prefix(out bbc_picture, "placeholder:bbc", "https://www.bbc.co.uk/favicon.ico");
+        bbc_row.add_prefix(bbc_wrapper);
+        try { bbc_row.set_tooltip_text("BBC News\nGlobal news and categories"); } catch (GLib.Error ee) { }
         var bbc_switch = new Gtk.Switch();
         bbc_switch.set_active(prefs.preferred_source_enabled("bbc"));
         bbc_switch.set_halign(Gtk.Align.END);
@@ -503,9 +569,11 @@ public class PrefsDialog : GLib.Object {
         var nyt_row = new Adw.ActionRow();
         nyt_row.set_title("New York Times");
         nyt_row.set_subtitle("NYT RSS feeds by section");
-        var nyt_icon = new Gtk.Image.from_icon_name("emblem-documents-symbolic");
-        nyt_row.add_prefix(nyt_icon);
-        load_favicon(nyt_icon, "https://www.nytimes.com/favicon.ico");
+        nyt_row.add_css_class("source-row");
+        Gtk.Picture nyt_picture;
+        var nyt_wrapper = create_pref_prefix(out nyt_picture, "placeholder:nyt", "https://www.nytimes.com/favicon.ico");
+        nyt_row.add_prefix(nyt_wrapper);
+        try { nyt_row.set_tooltip_text("New York Times\nNYT RSS feeds by section"); } catch (GLib.Error ee) { }
         var nyt_switch = new Gtk.Switch();
         nyt_switch.set_active(prefs.preferred_source_enabled("nytimes"));
         nyt_switch.set_halign(Gtk.Align.END);
@@ -528,9 +596,11 @@ public class PrefsDialog : GLib.Object {
         var bb_row = new Adw.ActionRow();
         bb_row.set_title("Bloomberg");
         bb_row.set_subtitle("Financial and business news");
-        var bb_icon = new Gtk.Image.from_icon_name("emblem-money-symbolic");
-        bb_row.add_prefix(bb_icon);
-        load_favicon(bb_icon, "https://www.bloomberg.com/favicon.ico");
+        bb_row.add_css_class("source-row");
+        Gtk.Picture bb_picture;
+        var bb_wrapper = create_pref_prefix(out bb_picture, "placeholder:bb", "https://www.bloomberg.com/favicon.ico");
+        bb_row.add_prefix(bb_wrapper);
+        try { bb_row.set_tooltip_text("Bloomberg\nFinancial and business news"); } catch (GLib.Error ee) { }
         var bb_switch = new Gtk.Switch();
         bb_switch.set_active(prefs.preferred_source_enabled("bloomberg"));
         bb_switch.set_halign(Gtk.Align.END);
@@ -552,10 +622,12 @@ public class PrefsDialog : GLib.Object {
         // Add Wall Street Journal (multi-select)
         var wsj_row = new Adw.ActionRow();
         wsj_row.set_title("Wall Street Journal");
-        wsj_row.set_subtitle("Business and financial news (site search)");
-        var wsj_icon = new Gtk.Image.from_icon_name("emblem-documents-symbolic");
-        wsj_row.add_prefix(wsj_icon);
-        load_favicon(wsj_icon, "https://www.wsj.com/favicon.ico");
+        wsj_row.set_subtitle("Business and economic news");
+        wsj_row.add_css_class("source-row");
+        Gtk.Picture wsj_picture;
+        var wsj_wrapper = create_pref_prefix(out wsj_picture, "placeholder:wsj", "https://www.wsj.com/favicon.ico");
+        wsj_row.add_prefix(wsj_wrapper);
+        try { wsj_row.set_tooltip_text("Wall Street Journal\nBusiness and economic news"); } catch (GLib.Error ee) { }
         var wsj_switch = new Gtk.Switch();
         wsj_switch.set_active(prefs.preferred_source_enabled("wsj"));
         wsj_switch.set_halign(Gtk.Align.END);
@@ -577,10 +649,12 @@ public class PrefsDialog : GLib.Object {
         // Add Reuters (multi-select)
         var reuters_row = new Adw.ActionRow();
         reuters_row.set_title("Reuters");
-        reuters_row.set_subtitle("International news wire service");
-        var reuters_icon = new Gtk.Image.from_icon_name("globe-symbolic");
-        reuters_row.add_prefix(reuters_icon);
-        load_favicon(reuters_icon, "https://www.reuters.com/favicon.ico");
+        reuters_row.set_subtitle("International news wire");
+        reuters_row.add_css_class("source-row");
+        Gtk.Picture reuters_picture;
+        var reuters_wrapper = create_pref_prefix(out reuters_picture, "placeholder:reuters", "https://www.reuters.com/favicon.ico");
+        reuters_row.add_prefix(reuters_wrapper);
+        try { reuters_row.set_tooltip_text("Reuters\nInternational news wire"); } catch (GLib.Error ee) { }
         var reuters_switch = new Gtk.Switch();
         reuters_switch.set_active(prefs.preferred_source_enabled("reuters"));
         reuters_switch.set_halign(Gtk.Align.END);
@@ -602,10 +676,12 @@ public class PrefsDialog : GLib.Object {
         // Add NPR (multi-select)
         var npr_row = new Adw.ActionRow();
         npr_row.set_title("NPR");
-        npr_row.set_subtitle("National Public Radio news");
-        var npr_icon = new Gtk.Image.from_icon_name("audio-card-symbolic");
-        npr_row.add_prefix(npr_icon);
-        load_favicon(npr_icon, "https://www.npr.org/favicon.ico");
+        npr_row.set_subtitle("National Public Radio");
+        npr_row.add_css_class("source-row");
+        Gtk.Picture npr_picture;
+        var npr_wrapper = create_pref_prefix(out npr_picture, "placeholder:npr", "https://www.npr.org/favicon.ico");
+        npr_row.add_prefix(npr_wrapper);
+        try { npr_row.set_tooltip_text("NPR\nNational Public Radio"); } catch (GLib.Error ee) { }
         var npr_switch = new Gtk.Switch();
         npr_switch.set_active(prefs.preferred_source_enabled("npr"));
         npr_switch.set_halign(Gtk.Align.END);
@@ -627,10 +703,12 @@ public class PrefsDialog : GLib.Object {
         // Add Fox News (multi-select)
         var fox_row = new Adw.ActionRow();
         fox_row.set_title("Fox News");
-        fox_row.set_subtitle("Conservative news and commentary");
-        var fox_icon = new Gtk.Image.from_icon_name("emblem-documents-symbolic");
-        fox_row.add_prefix(fox_icon);
-        load_favicon(fox_icon, "https://www.foxnews.com/favicon.ico");
+        fox_row.set_subtitle("Conservative-leaning US news");
+        fox_row.add_css_class("source-row");
+        Gtk.Picture fox_picture;
+        var fox_wrapper = create_pref_prefix(out fox_picture, "placeholder:fox", "https://www.foxnews.com/favicon.ico");
+        fox_row.add_prefix(fox_wrapper);
+        try { fox_row.set_tooltip_text("Fox News\nConservative-leaning US news"); } catch (GLib.Error ee) { }
         var fox_switch = new Gtk.Switch();
         fox_switch.set_active(prefs.preferred_source_enabled("fox"));
         fox_switch.set_halign(Gtk.Align.END);
@@ -649,16 +727,271 @@ public class PrefsDialog : GLib.Object {
         fox_row.activated.connect(() => { fox_switch.set_active(!fox_switch.get_active()); });
         list_box.append(fox_row);
 
+        // Add custom RSS sources from database
+        var rss_store = Paperboy.RssSourceStore.get_instance();
+        var custom_sources = rss_store.get_all_sources();
+
+        // Create separate list for custom sources if they exist
+        Gtk.ListBox? custom_list_box = null;
+        Gtk.Label? custom_header_label = null;
+
+        if (custom_sources.size > 0) {
+            // Create header label outside of any list box
+            custom_header_label = new Gtk.Label("<b>Followed Sources</b>");
+            custom_header_label.set_use_markup(true);
+            custom_header_label.set_halign(Gtk.Align.START);
+            custom_header_label.set_margin_start(12);
+            custom_header_label.set_margin_top(12);
+            custom_header_label.set_margin_bottom(6);
+
+            // Create separate list box for custom sources with card styling
+            custom_list_box = new Gtk.ListBox();
+            custom_list_box.set_selection_mode(Gtk.SelectionMode.NONE);
+            custom_list_box.add_css_class("boxed-list");
+
+            foreach (var rss_source in custom_sources) {
+                var custom_row = new Adw.ActionRow();
+                
+                // Try to get display name from SourceMetadata first (matches what user sees in Front Page/Top Ten)
+                string display_name = rss_source.name;
+                string? metadata_display_name = SourceMetadata.get_display_name_for_source(rss_source.name);
+                if (metadata_display_name != null && metadata_display_name.length > 0) {
+                    display_name = metadata_display_name;
+                }
+                
+                // For custom/followed sources we show a single-line,
+                // ellipsized label (title + short URL) so it never
+                // wraps to two lines. Leave built-in rows untouched.
+                custom_row.set_title("");
+                custom_row.add_css_class("source-row");
+
+                Gtk.Picture custom_picture;
+                var custom_wrapper = create_pref_prefix(out custom_picture, "placeholder:rss:%s".printf(rss_source.url), null);
+
+                // Build a vertical title area: full source name, then a
+                // single-line URL underneath that is ellipsized at the end.
+                var title_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+
+                var name_lbl = new Gtk.Label(display_name);
+                name_lbl.set_halign(Gtk.Align.START);
+                name_lbl.set_valign(Gtk.Align.CENTER);
+                name_lbl.set_xalign(0.0f);
+                name_lbl.set_wrap(false);
+                name_lbl.get_style_context().add_class("title");
+                title_box.append(name_lbl);
+
+                var url_lbl = new Gtk.Label(elide_string(rss_source.url, 28));
+                url_lbl.set_halign(Gtk.Align.START);
+                url_lbl.set_valign(Gtk.Align.CENTER);
+                url_lbl.set_xalign(0.0f);
+                url_lbl.set_wrap(false);
+                url_lbl.set_ellipsize(Pango.EllipsizeMode.END);
+                url_lbl.get_style_context().add_class("subtitle");
+                title_box.append(url_lbl);
+
+                // Vertically center the title area so the icon and the
+                // labels line up horizontally (same vertical middle).
+                title_box.set_valign(Gtk.Align.CENTER);
+
+                var composite_prefix = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
+                composite_prefix.set_hexpand(true);
+                // Ensure the composite prefix itself is vertically centered
+                // so its children (the 24x24 wrapper and the title box)
+                // share the same vertical center within the ActionRow.
+                composite_prefix.set_valign(Gtk.Align.CENTER);
+                composite_prefix.append(custom_wrapper);
+                composite_prefix.append(title_box);
+
+                custom_row.add_prefix(composite_prefix);
+
+                // Show full name and URL on hover since the row displays an
+                // elided URL in the subtitle. This gives users a quick way
+                // to see the full descriptor without expanding the layout.
+                try { custom_row.set_tooltip_text(display_name + "\n" + rss_source.url); } catch (GLib.Error ee) { }
+
+                // Try to load icon with priority order:
+                // 1. Check SourceMetadata for saved filename (from Front Page/Top Ten)
+                // 2. Use RSS database icon_filename
+                // 3. Guess from source name
+                string? icon_filename = null;
+                
+                // Priority 1: Check SourceMetadata first (matches cardBuilder.vala pattern)
+                icon_filename = SourceMetadata.get_saved_filename_for_source(rss_source.name);
+                
+                // Priority 2: Fall back to RSS database icon_filename
+                if (icon_filename == null || icon_filename.length == 0) {
+                    icon_filename = rss_source.icon_filename;
+                }
+                
+                // Priority 3: Guess from source name as last resort
+                if (icon_filename == null || icon_filename.length == 0) {
+                    icon_filename = SourceMetadata.sanitize_filename(rss_source.name) + "-logo.png";
+                }
+
+                // Helper function to load icon from file with Cairo circular clipping
+                void try_load_icon_circular(string path, Gtk.Picture picture) {
+                    if (GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
+                                try {
+                                    int img_size = 24;
+                                    var pixbuf = new Gdk.Pixbuf.from_file_at_scale(path, img_size, img_size, true);
+                                    if (pixbuf != null) {
+                                        // Create final 24x24 surface and clip to circular mask
+                                        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 24, 24);
+                                        var cr = new Cairo.Context(surface);
+
+                                        cr.arc(12, 12, 12, 0, 2 * Math.PI);
+                                        cr.clip();
+
+                                        int ox = (24 - img_size) / 2;
+                                        int oy = (24 - img_size) / 2;
+                                        Gdk.cairo_set_source_pixbuf(cr, pixbuf, ox, oy);
+                                        cr.paint();
+
+                                        string surf_key = "pixbuf::circular:prefs:%s:24x24".printf(path);
+                                        var circular_pb = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 24, 24);
+                                        if (circular_pb != null) {
+                                            var texture = Gdk.Texture.for_pixbuf(circular_pb);
+                                            picture.set_paintable(texture);
+                                        }
+                                    }
+                                } catch (GLib.Error e) {
+                                    // Keep current icon on error
+                                }
+                    }
+                }
+
+                // Check if icon file exists and load it
+                if (icon_filename != null) {
+                    var data_dir = GLib.Environment.get_user_data_dir();
+                    var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
+
+                    // Try to load immediately
+                    try_load_icon_circular(icon_path, custom_picture);
+
+                    // If icon file doesn't exist yet, set up a watcher to check periodically
+                    // This handles the case where the logo is still being downloaded
+                    if (!GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
+                        uint timeout_id = 0;
+                        int check_count = 0;
+                        int max_checks = 20; // Check for up to 10 seconds (20 * 500ms)
+
+                        timeout_id = GLib.Timeout.add(500, () => {
+                            check_count++;
+
+                            // Try to load the icon
+                            if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
+                                try_load_icon_circular(icon_path, custom_picture);
+                                // Also update the database with the icon filename
+                                rss_store.update_source_icon(rss_source.url, icon_filename);
+                                return false; // Stop the timeout
+                            }
+
+                            // Stop checking after max_checks attempts
+                            if (check_count >= max_checks) {
+                                return false;
+                            }
+
+                            return true; // Continue checking
+                        });
+
+                        // Clean up timeout when row is destroyed
+                        custom_row.destroy.connect(() => {
+                            if (timeout_id > 0) {
+                                GLib.Source.remove(timeout_id);
+                            }
+                        });
+                    }
+                }
+
+                // Create delete button
+                var delete_btn = new Gtk.Button();
+                delete_btn.set_icon_name("user-trash-symbolic");
+                delete_btn.set_valign(Gtk.Align.CENTER);
+                delete_btn.set_has_frame(false);
+                delete_btn.set_tooltip_text("Unfollow this source");
+                delete_btn.add_css_class("destructive-action");
+                delete_btn.clicked.connect(() => {
+                    // Check if we're currently viewing this RSS source
+                    bool is_currently_viewing = false;
+                    try {
+                        if (win != null && win.prefs.category != null && win.prefs.category.has_prefix("rssfeed:")) {
+                            string current_url = win.prefs.category.substring(8); // Remove "rssfeed:" prefix
+                            if (current_url == rss_source.url) {
+                                is_currently_viewing = true;
+                            }
+                        }
+                    } catch (GLib.Error e) { }
+
+                    // Remove from database
+                    rss_store.remove_source(rss_source.url);
+                    // Remove from preferences if enabled
+                    if (prefs.preferred_source_enabled("custom:" + rss_source.url)) {
+                        prefs.set_preferred_source_enabled("custom:" + rss_source.url, false);
+                        prefs.save_config();
+                        sources_changed = true;
+                    }
+                    // Remove the row from the list
+                    custom_list_box.remove(custom_row);
+                    update_selection_label();
+
+                    // If we were viewing this source, navigate to Front Page
+                    if (is_currently_viewing && win != null) {
+                        GLib.Idle.add(() => {
+                            try {
+                                win.prefs.category = "frontpage";
+                                win.prefs.save_config();
+                                win.fetch_news();
+                            } catch (GLib.Error e) { }
+                            return false;
+                        });
+                    }
+                });
+
+                // Add switch to enable/disable this custom source
+                var custom_switch = new Gtk.Switch();
+                custom_switch.set_active(prefs.preferred_source_enabled("custom:" + rss_source.url));
+                custom_switch.set_halign(Gtk.Align.END);
+                custom_switch.set_valign(Gtk.Align.CENTER);
+
+                custom_switch.state_set.connect((sw, state) => {
+                    prefs.set_preferred_source_enabled("custom:" + rss_source.url, state);
+                    prefs.save_config();
+                    sources_changed = true;
+                    update_selection_label();
+                    return false;
+                });
+
+                // Add delete button first, then switch
+                custom_row.add_suffix(delete_btn);
+                custom_row.add_suffix(custom_switch);
+
+                custom_row.activatable = true;
+                custom_row.activated.connect(() => {
+                    custom_switch.set_active(!custom_switch.get_active());
+                });
+
+                custom_list_box.append(custom_row);
+            }
+        }
+
     // Build the main container that shows the source list and the
     // personalized toggle; we'll place that inside a Gtk.Stack so we
     // can slide in a categories pane on demand.
     var main_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
     main_container.set_margin_top(6);
     main_container.set_margin_bottom(6);
+    main_container.set_size_request(325, -1);
 
     // Append the selection label (declared above) and the list box
     main_container.append(selection_label);
     main_container.append(list_box);
+
+    // Add custom sources header and list if they exist
+    if (custom_header_label != null && custom_list_box != null) {
+        main_container.append(custom_header_label);
+        main_container.append(custom_list_box);
+    }
+
     // Initialize selection label text according to current prefs
     update_selection_label();
 
@@ -673,22 +1006,6 @@ public class PrefsDialog : GLib.Object {
         personalized_row.set_subtitle("Enable a personalized feed based on your reading habits");
         var personalized_switch = new Gtk.Switch();
         personalized_switch.set_active(prefs.personalized_feed_enabled);
-        // Ensure the switch uses normal sizing inside the ActionRow suffix
-        personalized_switch.set_halign(Gtk.Align.END);
-        personalized_switch.set_valign(Gtk.Align.CENTER);
-        personalized_switch.set_hexpand(false);
-        personalized_switch.set_vexpand(false);
-        personalized_switch.set_margin_top(0);
-        personalized_switch.set_margin_bottom(0);
-        // When toggled, we'll persist the preference and update the
-        // settings button and main window UI below (handler attached
-        // after the settings button is created).
-        // Build a compact suffix containing the switch and a small
-        // settings button so the two appear together on the right.
-        var suffix_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        suffix_box.set_valign(Gtk.Align.CENTER);
-
-        // Ensure switch uses normal sizing
         personalized_switch.set_halign(Gtk.Align.END);
         personalized_switch.set_valign(Gtk.Align.CENTER);
         personalized_switch.set_hexpand(false);
@@ -696,42 +1013,51 @@ public class PrefsDialog : GLib.Object {
         personalized_switch.set_margin_top(0);
         personalized_switch.set_margin_bottom(0);
 
-        // Create the settings button early so the switch's handler can
-        // enable/disable it when the preference changes.
+        // Create the settings button for personalized feed categories
         var settings_btn = new Gtk.Button();
         settings_btn.set_valign(Gtk.Align.CENTER);
-        settings_btn.set_halign(Gtk.Align.END);
-        settings_btn.set_hexpand(false);
-        settings_btn.set_vexpand(false);
         settings_btn.set_has_frame(false);
         var settings_icon = new Gtk.Image.from_icon_name("settings-symbolic");
         settings_icon.set_pixel_size(16);
         settings_btn.set_child(settings_icon);
         settings_btn.set_tooltip_text("Personalized feed settings");
-        // Initially sensitive only if the personalized feed is enabled
-        settings_btn.set_sensitive(prefs.personalized_feed_enabled);
 
-        suffix_box.append(personalized_switch);
-        suffix_box.append(settings_btn);
-
-        // When toggled, persist the preference immediately and update
-        // the sensitivity of the settings button so it's only clickable
-        // when personalization is enabled. Don't refresh the main view
-        // immediately; instead mark the change and apply it when the
-        // dialog closes so the user can make multiple edits before a
-        // single refresh occurs.
+        // When toggled, persist the preference immediately
         personalized_switch.state_set.connect((sw, state) => {
             prefs.personalized_feed_enabled = state;
             prefs.save_config();
-            settings_btn.set_sensitive(state);
             try {
                 if (win != null) personalization_toggled = true;
             } catch (GLib.Error e) { /* ignore if parent doesn't implement it */ }
             return false; // allow the state change to proceed
         });
 
-        personalized_row.add_suffix(suffix_box);
+        // Add settings button first (left), then switch (right)
+        personalized_row.add_suffix(settings_btn);
+        personalized_row.add_suffix(personalized_switch);
+
         main_container.append(personalized_row);
+
+        // Add "Custom sources only in My Feed" toggle (independent option)
+        var custom_only_row = new Adw.ActionRow();
+        custom_only_row.set_title("Custom sources only in My Feed");
+        custom_only_row.set_subtitle("Show only followed RSS sources in My Feed, hide built-in sources");
+        var custom_only_switch = new Gtk.Switch();
+        custom_only_switch.set_active(prefs.myfeed_custom_only);
+        custom_only_switch.set_halign(Gtk.Align.END);
+        custom_only_switch.set_valign(Gtk.Align.CENTER);
+        custom_only_switch.set_hexpand(false);
+        custom_only_switch.set_vexpand(false);
+        custom_only_switch.state_set.connect((sw, state) => {
+            prefs.myfeed_custom_only = state;
+            prefs.save_config();
+            sources_changed = true;
+            return false;
+        });
+        custom_only_row.add_suffix(custom_only_switch);
+        custom_only_row.activatable = true;
+        custom_only_row.activated.connect(() => { custom_only_switch.set_active(!custom_only_switch.get_active()); });
+        main_container.append(custom_only_row);
 
         // No Local News image limit preference: keep UX simple and load a
         // small, fixed amount by default to avoid excessive memory use.
@@ -804,6 +1130,7 @@ public class PrefsDialog : GLib.Object {
                 case "lifestyle": filename = "lifestyle-mono.svg"; break;
                 default: filename = null; break;
             }
+
             if (filename != null) {
                 // Prefer pre-bundled symbolic mono icons inside data/icons/symbolic/
                 string[] candidates = {
@@ -1148,7 +1475,7 @@ public class PrefsDialog : GLib.Object {
     var about = new Adw.AboutDialog();
     about.set_application_name("Paperboy");
     about.set_application_icon("paperboy"); // Use the correct icon name
-    about.set_version("0.5.1a");
+    about.set_version("0.6.0a");
     about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
     about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
     about.set_website("https://github.com/thecalamityjoe87/paperboy");
@@ -1230,9 +1557,9 @@ public class PrefsDialog : GLib.Object {
 
     dialog.add_response("save", "Save");
     dialog.add_response("cancel", "Cancel");
-        dialog.set_default_response("save");
-        dialog.set_close_response("cancel");
-        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED);
+    dialog.set_default_response("save");
+    dialog.set_close_response("cancel");
+    dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED);
 
     // Ensure the prefs dialog is presented so inline UI (spinner,
     // detected row, hints) can be shown immediately while a
@@ -1472,17 +1799,6 @@ public class PrefsDialog : GLib.Object {
                     try { spinner_box.show(); } catch (GLib.Error e) { }
                     // Ensure dialog is visible
                     try { dialog_alive = true; dialog.present(parent); } catch (GLib.Error e) { }
-
-                    // Defer the actual lookup so spinner can render. Instead of
-                    // holding and unreffing widget pointers across threads (which
-                    // proved racy), ask ZipLookup for the resolved string and
-                    // then marshal UI work back to the main loop. The Idle
-                    // callback checks `dialog_alive` and widget nullability
-                    // before touching GTK objects.
-                    // Call lookup_async directly. `ZipLookup.lookup_async` will
-                    // invoke the provided callback on the main loop (it uses
-                    // Idle.add internally), so we do not need to wrap it in
-                    // another Idle. Keep UI updates simple and guarded.
                     try {
                         ZipLookup.get_instance().lookup_async(txt, (resolved) => {
                             try {

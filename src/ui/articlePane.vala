@@ -109,7 +109,7 @@ public class ArticlePane : GLib.Object {
     // `category_id` is optional; when it's "local_news" we prefer the
     // app-local placeholder so previews for Local News items match the
     // card/hero placeholders used in the main UI.
-    public void show_article_preview(string title, string url, string? thumbnail_url, string? category_id = null) {
+    public void show_article_preview(string title, string url, string? thumbnail_url, string? category_id = null, string? source_name = null) {
         // Notify parent window that a preview is opening so it can track
         // the active preview (used to mark viewed on return).
         try { parent_window.preview_opened(url); } catch (GLib.Error e) { }
@@ -128,22 +128,27 @@ public class ArticlePane : GLib.Object {
         var outer = new Gtk.Box(Orientation.VERTICAL, 0);
 
         outer.set_vexpand(true);
-        outer.set_hexpand(true);
+        outer.set_hexpand(false);
+        outer.set_overflow(Gtk.Overflow.HIDDEN);
 
     // Get source from ArticleItem if available, otherwise infer from URL.
     // This ensures correct branding when multiple sources are enabled.
     NewsSource article_src = NewsSource.REDDIT; // Initialize to a default that will be overridden
-    string? article_source_name = null;
+    string? article_source_name = source_name; // Use the passed source_name directly!
     string? article_published = null;
     bool found_article_item = false;
     bool source_mapped = false;
-    foreach (var item in parent_window.article_buffer) {
-        if (item.url == url && item is ArticleItem) {
-            var ai = (ArticleItem) item;
-            article_source_name = ai.source_name;
-            article_published = ai.published;
-            found_article_item = true;
-            break;
+    
+    // Only look up in buffer if source_name wasn't provided
+    if (article_source_name == null || article_source_name.length == 0) {
+        foreach (var item in parent_window.article_buffer) {
+            if (item.url == url && item is ArticleItem) {
+                var ai = (ArticleItem) item;
+                article_source_name = ai.source_name;
+                article_published = ai.published;
+                found_article_item = true;
+                break;
+            }
         }
     }
     if (found_article_item && article_source_name != null && article_source_name.length > 0) {
@@ -161,6 +166,25 @@ public class ArticlePane : GLib.Object {
     // If we didn't find ArticleItem OR found it but couldn't map the source name, infer from URL
     if (!found_article_item || !source_mapped) {
         article_src = SourceUtils.infer_source_from_url(url);
+        
+        // Check if the inferred source is actually a match or just a fallback
+        // If it's a fallback (doesn't match the URL), we should use a generic placeholder
+        bool is_actual_match = false;
+        string url_lower = url.down();
+        if (article_src == NewsSource.GUARDIAN && (url_lower.contains("guardian") || url_lower.contains("theguardian"))) is_actual_match = true;
+        else if (article_src == NewsSource.BBC && url_lower.contains("bbc.")) is_actual_match = true;
+        else if (article_src == NewsSource.REDDIT && (url_lower.contains("reddit") || url_lower.contains("redd.it"))) is_actual_match = true;
+        else if (article_src == NewsSource.NEW_YORK_TIMES && (url_lower.contains("nytimes") || url_lower.contains("nyti.ms"))) is_actual_match = true;
+        else if (article_src == NewsSource.WALL_STREET_JOURNAL && (url_lower.contains("wsj.com") || url_lower.contains("dowjones"))) is_actual_match = true;
+        else if (article_src == NewsSource.BLOOMBERG && url_lower.contains("bloomberg")) is_actual_match = true;
+        else if (article_src == NewsSource.REUTERS && url_lower.contains("reuters")) is_actual_match = true;
+        else if (article_src == NewsSource.NPR && url_lower.contains("npr.org")) is_actual_match = true;
+        else if (article_src == NewsSource.FOX && (url_lower.contains("foxnews") || url_lower.contains("fox.com"))) is_actual_match = true;
+        
+        // If it's not an actual match, mark it so we use generic placeholder
+        if (!is_actual_match) {
+            source_mapped = false; // This will trigger generic placeholder usage below
+        }
     }
 
         // Title label - AT THE TOP
@@ -194,26 +218,27 @@ public class ArticlePane : GLib.Object {
         outer.append(title_wrap);
 
         // Image (constrained) - AFTER METADATA
-        int img_w = 600; // Fixed width for side panel
+        int img_w = 600;
         int img_h = clampi((int)(img_w * 9.0 / 16.0), 240, 420);
         var pic_box = new Gtk.Box(Orientation.VERTICAL, 0);
         pic_box.set_vexpand(false);
-        pic_box.set_hexpand(true);
+        pic_box.set_hexpand(false);
         pic_box.set_size_request(-1, img_h);
         pic_box.set_margin_start(16);
         pic_box.set_margin_end(16);
         pic_box.set_margin_top(16);
         pic_box.set_margin_bottom(0);
-        
+
         var pic = new Gtk.Picture();
-        pic.set_halign(Gtk.Align.FILL);
-        pic.set_hexpand(true);
+        pic.set_halign(Gtk.Align.CENTER);
+        pic.set_hexpand(false);
         pic.set_size_request(-1, img_h);
         pic.set_content_fit(Gtk.ContentFit.COVER);
         pic.set_can_shrink(true);
         
         // Add rounded corners to the image
-        pic.add_css_class("card");
+        pic.add_css_class("pane-card");
+        pic.add_css_class("pane-round-image-card");  // optional new class for no-hover
         pic.set_overflow(Gtk.Overflow.HIDDEN);
         // If a thumbnail URL will be requested, skip painting any branded
         // placeholder now to avoid briefly showing a logo before the real
@@ -236,6 +261,9 @@ public class ArticlePane : GLib.Object {
                     // placeholder, fall back to the per-source placeholder.
                     PlaceholderBuilder.set_placeholder_image_for_source(pic, img_w, img_h, article_src);
                 }
+            } else if (!source_mapped) {
+                // Use generic gradient placeholder for unknown/RSS sources
+                PlaceholderBuilder.create_gradient_placeholder(pic, img_w, img_h);
             } else {
                 // Use an article-specific placeholder (so the preview shows the correct
                 // source branding even when the user's global prefs include multiple
@@ -263,7 +291,7 @@ public class ArticlePane : GLib.Object {
                     loaded_from_cache = true;
                 }
             } catch (GLib.Error e) { /* ignore cache errors and continue to load */ }
-            if (!loaded_from_cache) load_image_async(pic, thumbnail_url, target_w, target_h, article_src, category_id);
+            if (!loaded_from_cache) load_image_async(pic, thumbnail_url, target_w, target_h, article_src, category_id, source_mapped);
         }
         pic_box.append(pic);
         outer.append(pic_box);
@@ -291,15 +319,20 @@ public class ArticlePane : GLib.Object {
         outer.append(pad);
 
         // Buttons row
-        var actions = new Gtk.Box(Orientation.HORIZONTAL, 12);
-        actions.set_margin_start(16);
-        actions.set_margin_end(16);
+        var actions = new Gtk.Box(Orientation.HORIZONTAL, 10);
+        actions.add_css_class("article-actions");
+        actions.set_margin_start(10);
+        actions.set_margin_end(10);
         actions.set_margin_bottom(24);
         actions.set_margin_top(8);
         actions.set_halign(Gtk.Align.FILL);
         actions.set_homogeneous(true);
-        
-        var back_local = new Gtk.Button.with_label("Close");
+
+        var back_local = new Gtk.Button();
+        var back_content = new Adw.ButtonContent();
+        back_content.set_icon_name("window-close-symbolic");
+        back_content.set_label("Close");
+        back_local.set_child(back_content);
         back_local.set_hexpand(true);
         back_local.clicked.connect(() => {
             // Close the overlay split view
@@ -308,14 +341,79 @@ public class ArticlePane : GLib.Object {
             // article as viewed now that the user returned to the main view.
             try { parent_window.preview_closed(url); } catch (GLib.Error e) { }
         });
-        
-        var open_btn = new Gtk.Button.with_label("Open in browser");
-        open_btn.set_hexpand(true);
-        open_btn.add_css_class("suggested-action");
-        open_btn.clicked.connect(() => { try { open_article_in_browser(url); } catch (GLib.Error e) { } });
-        
+
+        // Create a single menu button for "Open" which exposes both
+        // "Open in app" and "Open in browser" as menu items to reduce
+        // visual clutter.
+        var open_menu = new GLib.Menu();
+        open_menu.append("View in app", "article.open-in-app");
+        open_menu.append("Open in browser", "article.open-in-browser");
+        // Keep the follow-source item as well under the same menu
+        open_menu.append("Follow this source", "article.follow-source");
+
+        var open_menu_btn = new Gtk.MenuButton();
+        var menu_content = new Adw.ButtonContent();
+        menu_content.set_icon_name("view-more-symbolic");
+        menu_content.set_label("Article options");
+        open_menu_btn.set_child(menu_content);
+        open_menu_btn.set_menu_model(open_menu);
+        open_menu_btn.set_hexpand(true);
+        open_menu_btn.add_css_class("suggested-action");
+        open_menu_btn.set_tooltip_text("Article view and source options");
+
+        // Actions backing the menu entries
+        var open_in_app_action = new GLib.SimpleAction("open-in-app", null);
+        open_in_app_action.activate.connect(() => {
+            try {
+                string normalized = parent_window.normalize_article_url(url);
+                if (parent_window.article_sheet != null) parent_window.article_sheet.open(normalized);
+                if (preview_split != null) preview_split.set_show_sidebar(false);
+            } catch (GLib.Error e) { }
+        });
+
+        var open_in_browser_action = new GLib.SimpleAction("open-in-browser", null);
+        open_in_browser_action.activate.connect(() => {
+            try { open_article_in_browser(url); } catch (GLib.Error e) { }
+        });
+
+        var follow_action = new GLib.SimpleAction("follow-source", null);
+        follow_action.activate.connect(() => {
+            try {
+                // Show immediate feedback while the feed discovery runs.
+                // Use the global window.toast_overlay directly so the
+                // message is visible even if the content-local overlay
+                // is not yet ready or has unexpected layout behavior.
+                        try {
+                        // Show a persistent (sticky) toast while feed discovery runs.
+                        // It will be removed automatically when the next non-persistent
+                        // toast is shown (e.g. success/failure message) or you can
+                        // explicitly clear it by calling clear_persistent_toast().
+                        parent_window.show_persistent_toast("Searching for feed...");
+                } catch (GLib.Error _e) {
+                    try { parent_window.show_persistent_toast("Searching for feed..."); } catch (GLib.Error __e) { }
+                }
+
+                parent_window.source_manager.follow_rss_source(url, article_source_name);
+            } catch (GLib.Error e) { }
+        });
+
+        // Disable follow action for built-in sources (can't follow built-in providers)
+        try {
+            bool is_builtin = SourceManager.is_article_from_builtin(url);
+            follow_action.set_enabled(!is_builtin);
+        } catch (GLib.Error e) { }
+
+        var action_group = new GLib.SimpleActionGroup();
+        action_group.add_action(open_in_app_action);
+        action_group.add_action(open_in_browser_action);
+        action_group.add_action(follow_action);
+
+        // Attach actions to the actions container so the menu can reference
+        // them with the "article." prefix.
+        actions.insert_action_group("article", action_group);
+
         actions.append(back_local);
-        actions.append(open_btn);
+        actions.append(open_menu_btn);
         outer.append(actions);
 
         // Add content to the preview container and show the overlay
@@ -335,7 +433,7 @@ public class ArticlePane : GLib.Object {
         
         try { parent_window.preview_opened(url); } catch (GLib.Error e) { }
         // Try to set metadata from any cached article entry (source + published time)
-    var prefs = NewsPreferences.get_instance();
+        var prefs = NewsPreferences.get_instance();
         string? homepage_published_any = article_published;
         string? explicit_source_name = article_source_name;
         
@@ -349,8 +447,26 @@ public class ArticlePane : GLib.Object {
             if (cat_idx >= 0) {
                 explicit_source_name = explicit_source_name.substring(0, cat_idx);
             }
+
+            // Try to get the proper display name from source_info metadata
+            // This ensures we show "Tom's Guide" instead of sanitized versions
+            string? meta_display_name = SourceMetadata.get_display_name_for_source(explicit_source_name);
+            if (meta_display_name == null || meta_display_name.length == 0) {
+                // Try URL-based lookup as fallback
+                string? url_display_name = null;
+                string? url_logo_url = null;
+                string? url_filename = null;
+                SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename);
+                if (url_display_name != null && url_display_name.length > 0) {
+                    meta_display_name = url_display_name;
+                }
+            }
+            // Use the proper display name if found
+            if (meta_display_name != null && meta_display_name.length > 0) {
+                explicit_source_name = meta_display_name;
+            }
         }
-        
+
         // Also check for NewsArticle entries which may have published dates
         foreach (var item in parent_window.article_buffer) {
             if (item.url == url) {
@@ -375,6 +491,18 @@ public class ArticlePane : GLib.Object {
         if (explicit_source_name != null && explicit_source_name.length > 0) {
             display_source = explicit_source_name;
         } else {
+            // If no explicit source name, try to get it from source_info by URL
+            string? url_display_name = null;
+            string? url_logo_url = null;
+            string? url_filename = null;
+            SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename);
+            if (url_display_name != null && url_display_name.length > 0) {
+                display_source = url_display_name;
+            }
+        }
+
+        // If we still don't have a display_source, derive one from other sources
+        if (display_source == null || display_source.length == 0) {
             // Local News should prefer a user-friendly local label (city)
             // when available so previews don't show unrelated provider names.
             if (category_id != null && category_id == "local_news") {
@@ -463,7 +591,7 @@ public class ArticlePane : GLib.Object {
     }
 
     // Load image using centralized ImageHandler if available
-    private void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, NewsSource source, string? category_id = null) {
+    private void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, NewsSource source, string? category_id = null, bool source_is_mapped = true) {
         if (image_handler != null) {
             // Use centralized ImageHandler for consistency
             image_handler.load_image_async(image, url, target_w, target_h, true);
@@ -471,6 +599,9 @@ public class ArticlePane : GLib.Object {
             // Fallback: set placeholder directly
             if (category_id != null && category_id == "local_news") {
                 parent_window.set_local_placeholder_image(image, target_w, target_h);
+            } else if (!source_is_mapped) {
+                // Use generic gradient placeholder for unknown/RSS sources
+                PlaceholderBuilder.create_gradient_placeholder(image, target_w, target_h);
             } else {
                 PlaceholderBuilder.set_placeholder_image_for_source(image, target_w, target_h, source);
             }
@@ -485,22 +616,19 @@ public class ArticlePane : GLib.Object {
             string result = "";
             string published = "";
             try {
-                var msg = new Soup.Message("GET", url);
-                msg.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36");
-                session.send_message(msg);
-                if (msg.status_code == 200 && msg.response_body.length > 0) {
-                    // Use flatten() to get Soup.Buffer (libsoup-2.4)
-                    Soup.Buffer body_buffer = msg.response_body.flatten();
-                    unowned uint8[] body_data = body_buffer.data;
+                var client = Paperboy.HttpClient.get_default();
+                var options = new Paperboy.HttpClient.RequestOptions().with_browser_headers();
+                var http_response = client.fetch_sync(url, options);
+
+                if (http_response.is_success() && http_response.body != null && http_response.body.get_size() > 0) {
+                    // Get response data from GLib.Bytes
+                    unowned uint8[] body_data = http_response.body.get_data();
 
                     // Copy to a null-terminated buffer
                     uint8[] buf = new uint8[body_data.length + 1];
                     Memory.copy(buf, body_data, body_data.length);
                     buf[body_data.length] = 0;
                     string html = (string) buf;
-
-                    // Explicitly free the buffer to prevent leak
-                    body_buffer = null;
 
                     // Use centralized HtmlUtils for snippet extraction
                     result = HtmlUtils.extract_snippet_from_html(html);

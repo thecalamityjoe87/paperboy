@@ -33,15 +33,14 @@ public class ArticleScraper {
         foreach (string candidate_url in section_urls) {
             if (section_count >= max_sections) break;
             section_count++;
-            var msg = new Soup.Message("GET", candidate_url);
-            msg.request_headers.append("User-Agent", "Mozilla/5.0 (Linux; rv:91.0) Gecko/20100101 Firefox/91.0");
-            msg.request_headers.append("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
-            msg.request_headers.append("Accept-Language", "en-US,en;q=0.5");
-            msg.request_headers.append("Cache-Control", "no-cache");
-            session.timeout = 8;
-            session.send_message(msg);
-            if (msg.status_code != 200) continue;
-            string body = (string) msg.response_body.flatten().data;
+            var client = Paperboy.HttpClient.get_default();
+            var options = new Paperboy.HttpClient.RequestOptions()
+                .with_browser_headers()
+                .with_timeout(8);
+            var http_response = client.fetch_sync(candidate_url, options);
+
+            if (!http_response.is_success() || http_response.body == null) continue;
+            string body = http_response.get_body_string();
 
             // Try to parse JSON-LD structured data first
             var ld_regex = new Regex("<script[^>]*type=\\\"application/ld\\+json\\\"[^>]*>([\\s\\S]*?)</script>", RegexCompileFlags.DEFAULT);

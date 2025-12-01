@@ -44,10 +44,10 @@ using Gee;
         return prefs.category ?? "general";
     }
 
-    // Check if we're in a special view mode (frontpage, topten, myfeed, local_news)
+    // Check if we're in a special view mode (frontpage, topten, myfeed, local_news, or RSS feed)
     public bool is_special_view() {
         string cat = get_current_category();
-        return cat == "frontpage" || cat == "topten" || cat == "myfeed" || cat == "local_news";
+        return cat == "frontpage" || cat == "topten" || cat == "myfeed" || cat == "local_news" || is_rssfeed_view();
     }
 
     // Check if we're viewing Front Page
@@ -68,6 +68,23 @@ using Gee;
     // Check if we're viewing Local News
     public bool is_local_news_view() {
         return get_current_category() == "local_news";
+    }
+
+    // Check if we're viewing an individual RSS feed
+    public bool is_rssfeed_view() {
+        string cat = get_current_category();
+        return cat.has_prefix("rssfeed:");
+    }
+
+    // Get the RSS feed URL from the category (if in RSS feed view)
+    // Returns null if not in RSS feed view
+    public string? get_rssfeed_url() {
+        if (!is_rssfeed_view()) {
+            return null;
+        }
+        string cat = get_current_category();
+        // Extract URL after "rssfeed:" prefix
+        return cat.substring(8); // "rssfeed:".length == 8
     }
 
     // Check if My Feed is properly configured
@@ -100,7 +117,8 @@ using Gee;
 
         // Front Page and Top Ten are handled by backend API
         // Local News uses discovered RSS feeds per user's location
-        if (current == "frontpage" || current == "topten" || current == "local_news") {
+        // RSS feed views fetch from a single RSS feed
+        if (current == "frontpage" || current == "topten" || current == "local_news" || is_rssfeed_view()) {
             result.add(current);
             return result;
         }
@@ -129,8 +147,17 @@ using Gee;
             return true; //Backend determines what to show
         }
 
+        // RSS feed view: accept all articles (filtering happens during fetch)
+        if (is_rssfeed_view()) {
+            return true;
+        }
+
         // My Feed filters by personalized categories
         if (view_category == "myfeed") {
+            // Custom RSS sources use "myfeed" as their category - always accept those
+            if (article_category == "myfeed") {
+                return true;
+            }
             if (!is_myfeed_configured()) {
                 return false; //Drop everything if not configured
             }

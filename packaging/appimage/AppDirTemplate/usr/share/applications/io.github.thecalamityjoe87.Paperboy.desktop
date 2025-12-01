@@ -4,6 +4,7 @@ Exec=paperboy
 Icon=paperboy
 Type=Application
 Categories=Network;News;GTK;
+Keywords=news;rss;reader;feed;aggregator;
 StartupNotify=true
 StartupWMClass=io.github.thecalamityjoe87.Paperboy
 X-GNOME-FullName=Paperboy

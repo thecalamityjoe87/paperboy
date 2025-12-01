@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.thecalamityjoe87.Paperboy" path="/io/github/thecalamityjoe87/Paperboy/">
+
+    <!-- UI Preferences -->
+    <key name="sidebar-followed-sources-expanded" type="b">
+      <default>true</default>
+      <summary>Followed Sources section expanded state</summary>
+      <description>Whether the Followed Sources section in the sidebar is expanded</description>
+    </key>
+
+    <key name="sidebar-popular-categories-expanded" type="b">
+      <default>true</default>
+      <summary>Popular Categories section expanded state</summary>
+      <description>Whether the Popular Categories section in the sidebar is expanded</description>
+    </key>
+
+    <!-- Window State -->
+    <key name="window-width" type="i">
+      <default>1400</default>
+      <summary>Window width</summary>
+      <description>The last saved width of the application window</description>
+    </key>
+
+    <key name="window-height" type="i">
+      <default>925</default>
+      <summary>Window height</summary>
+      <description>The last saved height of the application window</description>
+    </key>
+
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Window maximized state</summary>
+      <description>Whether the application window is maximized</description>
+    </key>
+
+    <!-- User Preferences -->
+    <key name="news-source" type="s">
+      <default>'guardian'</default>
+      <summary>Default news source</summary>
+      <description>The currently selected news source (guardian, reddit, bbc, nytimes, wsj, bloomberg, reuters, npr, fox)</description>
+    </key>
+
+    <key name="category" type="s">
+      <default>'topten'</default>
+      <summary>Current category</summary>
+      <description>The currently selected news category</description>
+    </key>
+
+    <key name="personalized-feed-enabled" type="b">
+      <default>false</default>
+      <summary>Personalized feed enabled</summary>
+      <description>Whether the personalized My Feed feature is enabled</description>
+    </key>
+
+    <key name="myfeed-custom-only" type="b">
+      <default>false</default>
+      <summary>My Feed shows custom sources only</summary>
+      <description>When true, My Feed will only show custom RSS sources, not built-in sources</description>
+    </key>
+
+    <key name="user-location" type="s">
+      <default>''</default>
+      <summary>User location</summary>
+      <description>User-provided location (city, region, ZIP code, or coordinates) for local news</description>
+    </key>
+
+    <key name="user-location-city" type="s">
+      <default>''</default>
+      <summary>Resolved location city name</summary>
+      <description>Resolved canonical city name for the provided location (e.g., "San Francisco, California")</description>
+    </key>
+
+    <!-- List Preferences (stored as string arrays) -->
+    <key name="personalized-categories" type="as">
+      <default>[]</default>
+      <summary>Personalized feed categories</summary>
+      <description>List of category IDs included in the personalized feed</description>
+    </key>
+
+  </schema>
+</schemalist>

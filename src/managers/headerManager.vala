@@ -32,6 +32,28 @@ public class HeaderManager : GLib.Object {
         window = w;
     }
 
+    // Create a circular clipped version of a pixbuf
+    private Gdk.Pixbuf? create_circular_pixbuf(Gdk.Pixbuf source, int size) {
+        try {
+            var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, size, size);
+            var cr = new Cairo.Context(surface);
+
+            // Create circular clipping path
+            cr.arc(size / 2.0, size / 2.0, size / 2.0, 0, 2 * Math.PI);
+            cr.clip();
+
+            // Draw the pixbuf
+            Gdk.cairo_set_source_pixbuf(cr, source, 0, 0);
+            cr.paint();
+
+            // Convert surface back to pixbuf
+            string key = "pixbuf::circular::%p::%dx%d".printf(source, size, size);
+            return ImageCache.get_global().get_or_from_surface(key, surface, 0, 0, size, size);
+        } catch (GLib.Error e) {
+            return null;
+        }
+    }
+
     public void update_category_icon() {
         try {
             if (category_icon_holder == null) return;
@@ -41,12 +63,71 @@ public class HeaderManager : GLib.Object {
                 category_icon_holder.remove(child);
                 child = next;
             }
+
+            // For RSS feeds, show the source logo on the LEFT (category icon position)
+            if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
+                string feed_url = window.prefs.category.substring(8);
+                var rss_store = Paperboy.RssSourceStore.get_instance();
+                var rss_source = rss_store.get_source_by_url(feed_url);
+
+                if (rss_source != null) {
+                    // Try to load the source logo from SourceMetadata
+                    string? icon_filename = SourceMetadata.get_saved_filename_for_source(rss_source.name);
+                    if (icon_filename == null || icon_filename.length == 0) {
+                        icon_filename = rss_source.icon_filename;
+                    }
+                    if (icon_filename == null || icon_filename.length == 0) {
+                        icon_filename = SourceMetadata.sanitize_filename(rss_source.name) + "-logo.png";
+                    }
+
+                    if (icon_filename != null && icon_filename.length > 0) {
+                        var data_dir = GLib.Environment.get_user_data_dir();
+                        var logo_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
+
+                        if (GLib.FileUtils.test(logo_path, GLib.FileTest.EXISTS)) {
+                            try {
+                                string key = "pixbuf::file:%s::%dx%d".printf(logo_path, 36, 36);
+                                var cached = ImageCache.get_global().get_or_load_file(key, logo_path, 36, 36);
+                                if (cached != null) {
+                                    // Create circular clipped version
+                                    var circular = create_circular_pixbuf(cached, 36);
+                                    if (circular != null) {
+                                        var texture = Gdk.Texture.for_pixbuf(circular);
+                                        var img = new Gtk.Image.from_paintable(texture);
+                                        img.set_pixel_size(36);
+                                        category_icon_holder.append(img);
+                                        return;
+                                    }
+                                }
+                            } catch (GLib.Error e) { }
+                        }
+                    }
+                }
+
+                // Fallback to RSS icon if logo not found
+                var img = new Gtk.Image();
+                img.set_from_icon_name("application-rss+xml-symbolic");
+                img.set_pixel_size(36);
+                category_icon_holder.append(img);
+                return;
+            }
+
+            // Regular category icons
             var hdr = CategoryIcons.create_category_header_icon(window.prefs.category, 36);
             if (hdr != null) category_icon_holder.append(hdr);
         } catch (GLib.Error e) { }
     }
 
     public void update_source_info() {
+        // Handle RSS feeds - show RSS icon and "Followed Source" on the right
+        try {
+            if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
+                try { source_label.set_text("Followed Source"); } catch (GLib.Error e) { }
+                try { source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
+                return;
+            }
+        } catch (GLib.Error e) { }
+
         try {
             if (window.prefs != null && window.prefs.category == "local_news") {
                 try { source_label.set_text("Local News"); } catch (GLib.Error e) { }
@@ -319,26 +400,43 @@ public class HeaderManager : GLib.Object {
     }
 
     public string category_display_name_for(string cat) {
+        // Handle RSS feed categories
+        if (cat != null && cat.has_prefix("rssfeed:")) {
+            string feed_url = cat.substring(8); // Extract URL after "rssfeed:" prefix
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var rss_source = rss_store.get_source_by_url(feed_url);
+            if (rss_source != null) {
+                // Try to get display name from SourceMetadata first
+                string? display_name = SourceMetadata.get_display_name_for_source(rss_source.name);
+                if (display_name != null && display_name.length > 0) {
+                    return display_name;
+                }
+                return rss_source.name;
+            }
+            return "RSS Feed";
+        }
+
         switch (cat) {
-            case "topten": return "Top Ten";
             case "frontpage": return "Front Page";
-            case "myfeed": return "My Feed";
-            case "local_news": return "Local News";
+            case "topten": return "Top Ten";
             case "general": return "World News";
             case "us": return "US News";
             case "technology": return "Technology";
             case "business": return "Business";
+            case "sports": return "Sports";
+            case "science": return "Science";
+            case "health": return "Health";
+            case "entertainment": return "Entertainment";
+            case "politics": return "Politics";
+            case "lifestyle": return "Lifestyle";
             case "markets": return "Markets";
             case "industries": return "Industries";
             case "economics": return "Economics";
             case "wealth": return "Wealth";
             case "green": return "Green";
-            case "science": return "Science";
-            case "sports": return "Sports";
-            case "health": return "Health";
-            case "entertainment": return "Entertainment";
-            case "politics": return "Politics";
-            case "lifestyle": return "Lifestyle";
+            case "myfeed": return "My Feed";
+            case "local_news": return "Local News";
+            default: break;
         }
         if (cat == null || cat.length == 0) return "News";
         string s = cat.strip();

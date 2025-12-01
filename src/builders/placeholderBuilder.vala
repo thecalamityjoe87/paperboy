@@ -22,28 +22,66 @@ using Gdk;
 
 public class PlaceholderBuilder : GLib.Object {
 
-    // Create a simple gradient-based "no image" placeholder
+    // Create a simple gradient-based "no image" placeholder with icon
     public static void create_gradient_placeholder(Gtk.Picture image, int width, int height) {
         try {
             var surface = new ImageSurface(Format.RGB24, width, height);
             var cr = new Context(surface);
 
+            // Light gray gradient background
             var pattern = new Pattern.linear(0, 0, width, height);
-            pattern.add_color_stop_rgb(0, 0.2, 0.4, 0.8);
-            pattern.add_color_stop_rgb(1, 0.1, 0.3, 0.6);
+            pattern.add_color_stop_rgb(0, 0.9, 0.9, 0.9);
+            pattern.add_color_stop_rgb(1, 0.8, 0.8, 0.8);
             cr.set_source(pattern);
             cr.paint();
 
-            cr.set_source_rgb(1.0, 1.0, 1.0);
-            cr.select_font_face("Sans", FontSlant.NORMAL, FontWeight.BOLD);
-            double font_size = double.max(12.0, height * 0.12);
-            cr.set_font_size(font_size);
-            TextExtents extents;
-            cr.text_extents("No Image", out extents);
-            double tx = (width - extents.width) / 2.0 - extents.x_bearing;
-            double ty = (height - extents.height) / 2.0 - extents.y_bearing;
-            cr.move_to(tx, ty);
-            cr.show_text("No Image");
+            // Try to load and display the no-image.png icon
+            string? icon_path = DataPaths.find_data_file(GLib.Path.build_filename("icons", "no-image.png"));
+            if (icon_path != null) {
+                try {
+                    // Calculate target icon size (40% of placeholder)
+                    double max_size = double.min(width, height) * 0.4;
+                    int target_w = (int)max_size;
+                    int target_h = (int)max_size;
+                    if (target_w < 1) target_w = 1;
+                    if (target_h < 1) target_h = 1;
+
+                    // Load the icon
+                    var icon_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
+                    if (icon_pixbuf != null) {
+                        int orig_w = icon_pixbuf.get_width();
+                        int orig_h = icon_pixbuf.get_height();
+
+                        // Scale down if needed
+                        int scaled_w = orig_w;
+                        int scaled_h = orig_h;
+                        if (orig_w > target_w || orig_h > target_h) {
+                            double scale = double.min((double)target_w / (double)orig_w, (double)target_h / (double)orig_h);
+                            scaled_w = (int)(orig_w * scale);
+                            scaled_h = (int)(orig_h * scale);
+                            if (scaled_w < 1) scaled_w = 1;
+                            if (scaled_h < 1) scaled_h = 1;
+                        }
+
+                        Gdk.Pixbuf? scaled_icon;
+                        if (scaled_w != orig_w || scaled_h != orig_h) {
+                            scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, scaled_w, scaled_h), icon_path, scaled_w, scaled_h);
+                        } else {
+                            scaled_icon = icon_pixbuf;
+                        }
+
+                        // Center the icon
+                        int x = (width - scaled_w) / 2;
+                        int y = (height - scaled_h) / 2;
+                        if (scaled_icon != null) {
+                            Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
+                            cr.paint_with_alpha(0.7);
+                        }
+                    }
+                } catch (GLib.Error e) {
+                    // If icon loading fails, continue without it
+                }
+            }
 
             // Cache gradient placeholder pixbuf by size so it's managed centrally
             string key = "pixbuf::placeholder:gradient::%dx%d".printf(width, height);
@@ -464,5 +502,41 @@ public class PlaceholderBuilder : GLib.Object {
             default: return null;
         }
         return DataPaths.find_data_file(GLib.Path.build_filename("icons", icon_filename));
+    }
+
+    // Create a placeholder for RSS feed sources using their logo from source_logos directory
+    public static void set_rss_placeholder_image(Gtk.Picture image, int width, int height, string source_name) {
+        try {
+            // Try to get the logo filename from SourceMetadata
+            string? icon_filename = SourceMetadata.get_saved_filename_for_source(source_name);
+            
+            // Fall back to sanitized filename if not found
+            if (icon_filename == null || icon_filename.length == 0) {
+                icon_filename = SourceMetadata.sanitize_filename(source_name) + "-logo.png";
+            }
+            
+            if (icon_filename != null && icon_filename.length > 0) {
+                var data_dir = GLib.Environment.get_user_data_dir();
+                var logo_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
+                
+                if (GLib.FileUtils.test(logo_path, GLib.FileTest.EXISTS)) {
+                    // Load the logo and create a placeholder with it
+                    try {
+                        var logo_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, 0, 0), logo_path, 0, 0);
+                        if (logo_pixbuf != null) {
+                            PlaceholderBuilder.create_logo_placeholder(image, logo_pixbuf, width, height);
+                            return;
+                        }
+                    } catch (GLib.Error e) {
+                        GLib.warning("Failed to load RSS feed logo from %s: %s", logo_path, e.message);
+                    }
+                }
+            }
+        } catch (GLib.Error e) {
+            GLib.warning("Error creating RSS placeholder: %s", e.message);
+        }
+        
+        // Fallback to generic gradient placeholder (no source branding)
+        PlaceholderBuilder.create_gradient_placeholder(image, width, height);
     }
 }

@@ -2,15 +2,45 @@
 set -euo pipefail
 
 # Usage: ./packaging/appimage/build-appimage.sh [AppImageName]
-APP=image.Paperboy.AppImage
+# Default name will include the version from meson.build when available.
+APP_DEFAULT="paperboy.AppImage"
 if [ "$#" -gt 0 ]; then
   APP="$1"
+else
+  APP="$APP_DEFAULT"
 fi
 
 # When run from packaging/appimage, repository root is two levels up
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
 APPDIR="$ROOT_DIR/AppDir"
+
+# If no explicit AppImage name was supplied, try to read the project
+# version from meson.build and use it to set a sensible output filename.
+# This keeps release artifacts named like `Paperboy-<version>.AppImage`.
+if [ "$#" -eq 0 ]; then
+  # Normalize host architecture for inclusion in the filename
+  UNAME_M=$(uname -m)
+  case "$UNAME_M" in
+    x86_64|amd64) ARCH="x86_64" ;;
+    aarch64|arm64) ARCH="aarch64" ;;
+    armv7l) ARCH="armv7l" ;;
+    i386|i686) ARCH="i386" ;;
+    *) ARCH="$UNAME_M" ;;
+  esac
+
+  MESON_FILE="$ROOT_DIR/meson.build"
+  if [ -f "$MESON_FILE" ]; then
+    VERSION=$(sed -n "s/.*version *: *'\([^']*\)'.*/\1/p" "$MESON_FILE" | head -n1)
+    if [ -n "$VERSION" ]; then
+      APP="paperboy-${VERSION}-${ARCH}.AppImage"
+    else
+      APP="paperboy-${ARCH}.AppImage"
+    fi
+  else
+    APP="paperboy-${ARCH}.AppImage"
+  fi
+fi
 
 echo "Building AppDir at $APPDIR"
 rm -rf "$APPDIR"
@@ -37,10 +67,66 @@ else
   echo "Warning: rssFinder binary not found at $BUILD_DIR/rssFinder"
 fi
 
+# Attempt to locate html2rss built by Cargo in common build locations and copy
+# it into the AppDir so runtime fallbacks can find it both in PATH and
+# under the namespaced datadir used by the app.
+HTML2RSS_CANDIDATES=(
+  "$BUILD_DIR/tools/html2rss/target/release/html2rss"
+  "$BUILD_DIR/html2rss"
+  "$ROOT_DIR/tools/html2rss/target/release/html2rss"
+  "$ROOT_DIR/target/release/html2rss"
+)
+HTML2RSS_FOUND=""
+for c in "${HTML2RSS_CANDIDATES[@]}"; do
+  if [ -x "$c" ]; then
+    HTML2RSS_FOUND="$c"
+    break
+  fi
+done
+
+if [ -n "$HTML2RSS_FOUND" ]; then
+  mkdir -p "$APPDIR/usr/share/org.gnome.Paperboy/tools"
+  mkdir -p "$APPDIR/usr/bin"
+  cp "$HTML2RSS_FOUND" "$APPDIR/usr/share/org.gnome.Paperboy/tools/html2rss"
+  cp "$HTML2RSS_FOUND" "$APPDIR/usr/bin/html2rss"
+  chmod +x "$APPDIR/usr/share/org.gnome.Paperboy/tools/html2rss"
+  chmod +x "$APPDIR/usr/bin/html2rss"
+  echo "Copied html2rss into AppDir from: $HTML2RSS_FOUND"
+else
+  echo "Warning: html2rss binary not found in expected build locations"
+fi
+
+# Copy adblock stylesheet into AppDir data dir so DataPaths finds it at runtime
+if [ -f "$ROOT_DIR/data/resources/adblock.css" ]; then
+  mkdir -p "$APPDIR/usr/share/paperboy/resources"
+  cp "$ROOT_DIR/data/resources/adblock.css" "$APPDIR/usr/share/paperboy/resources/adblock.css"
+else
+  echo "Warning: data/resources/adblock.css not found in source tree"
+fi
+
 # Copy desktop file (use reverse-domain application id filename)
 cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/usr/share/applications/io.github.thecalamityjoe87.Paperboy.desktop"
 # Also copy the desktop file to the AppDir root (required by appimagetool)
 cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/io.github.thecalamityjoe87.Paperboy.desktop"
+
+# Copy GSettings schema (prefer new data/resources/ location)
+SCHEMA_SRC="$ROOT_DIR/data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml"
+if [ -f "$SCHEMA_SRC" ]; then
+  mkdir -p "$APPDIR/usr/share/glib-2.0/schemas"
+  cp "$SCHEMA_SRC" "$APPDIR/usr/share/glib-2.0/schemas/"
+elif [ -f "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.gschema.xml" ]; then
+  mkdir -p "$APPDIR/usr/share/glib-2.0/schemas"
+  cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.gschema.xml" "$APPDIR/usr/share/glib-2.0/schemas/"
+else
+  echo "Warning: GSettings schema not found in data/resources or data"
+fi
+
+# Compile schemas inside AppDir so the runtime can find them
+if command -v glib-compile-schemas >/dev/null 2>&1; then
+  glib-compile-schemas "$APPDIR/usr/share/glib-2.0/schemas"
+else
+  echo "Warning: glib-compile-schemas not found; compiled schemas may be missing in AppDir"
+fi
 
 # Copy icons (fall back if not present)
 ICON_SRC_DIR="$ROOT_DIR/data/icons"
@@ -82,10 +168,13 @@ else
 fi
 
 # Copy additional data files required at runtime
-if [ -f "$ROOT_DIR/data/style.css" ]; then
+# Prefer the new `data/resources` location, fall back to the legacy `data` dir.
+if [ -f "$ROOT_DIR/data/resources/style.css" ]; then
+  cp "$ROOT_DIR/data/resources/style.css" "$APPDIR/usr/share/paperboy/style.css"
+elif [ -f "$ROOT_DIR/data/style.css" ]; then
   cp "$ROOT_DIR/data/style.css" "$APPDIR/usr/share/paperboy/style.css"
 else
-  echo "Warning: style.css not found in $ROOT_DIR/data"
+  echo "Warning: style.css not found in $ROOT_DIR/data or $ROOT_DIR/data/resources"
 fi
 
 if [ -f "$ROOT_DIR/data/usZips.csv" ]; then

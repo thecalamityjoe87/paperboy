@@ -97,8 +97,6 @@ public class ImageHandler : GLib.Object {
 
         new Thread<void*>("image-download", () => {
             GLib.AtomicInt.inc(ref NewsWindow.active_downloads);
-            Soup.Message? msg = null;
-            bool msg_unreffed = false;
             try {
                 // Upgrade Guardian image URLs to request higher resolution for network download
                 // Guardian URLs end with /XXX.jpg where XXX is the width
@@ -114,36 +112,15 @@ public class ImageHandler : GLib.Object {
                         // Regex error, use original URL
                     }
                 }
-                msg = new Soup.Message("GET", download_url);
-                if (msg == null) {
-                    warning("Failed to create Soup.Message for URL: %s", url);
-                    Idle.add(() => {
-                        try { window.pending_downloads.remove(url); } catch (GLib.Error e) { }
-                        try { window.requested_image_sizes.remove(url); } catch (GLib.Error e) { }
-                        try {
-                            string nkey = UrlUtils.normalize_article_url(url);
-                            if (nkey != null && nkey.length > 0) window.requested_image_sizes.remove(nkey);
-                        } catch (GLib.Error e) { }
-                        return false;
-                    });
-                    GLib.AtomicInt.dec_and_test(ref NewsWindow.active_downloads);
-                    return null;
-                }
-                if (news_src == NewsSource.REDDIT) {
-                    msg.request_headers.append("User-Agent", "Mozilla/5.0 (compatible; Paperboy/1.0)");
-                    msg.request_headers.append("Accept", "image/jpeg,image/png,image/webp,image/*;q=0.8");
-                    msg.request_headers.append("Cache-Control", "max-age=3600");
-                } else {
-                    msg.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36");
-                    msg.request_headers.append("Accept", "image/webp,image/png,image/jpeg,image/*;q=0.8");
-                }
-                msg.request_headers.append("Accept-Encoding", "gzip, deflate, br");
 
-                session.send_message(msg);
+                var client = Paperboy.HttpClient.get_default();
+                var options = new Paperboy.HttpClient.RequestOptions().with_image_headers();
+                var http_response = client.fetch_sync(download_url, options);
 
-                // Capture response data before we unref the message
-                uint response_status = msg.status_code;
-                int64 response_length = msg.response_body.length;
+                // Capture response data
+                uint response_status = http_response.status_code;
+                GLib.Bytes? response = http_response.body;
+                int64 response_length = (response != null) ? (int64)response.get_size() : 0;
                 uint8[]? response_data = null;
                 string? etag = null;
                 string? last_modified = null;
@@ -151,8 +128,6 @@ public class ImageHandler : GLib.Object {
 
                 if (news_src == NewsSource.REDDIT && response_length > 2 * 1024 * 1024) {
                     // Reddit oversized image - bail early
-                    msg = null;
-                    msg_unreffed = true;
                     Idle.add(() => {
                         // If the fetch sequence changed since this download started,
                         // the results no longer belong to the current view. Avoid
@@ -184,10 +159,8 @@ public class ImageHandler : GLib.Object {
                     // Don't return early - let finally block decrement active_downloads
                 }
 
-                if (response_status == 304) {
-                    // 304 Not Modified - set to null to free
-                    msg = null;
-                    msg_unreffed = true;
+                if (response_status == Soup.Status.NOT_MODIFIED) {
+                    // 304 Not Modified
                     // Not modified; refresh last-access and serve cached image
                     if (meta_cache != null) meta_cache.touch(url);
                     var path = meta_cache != null ? meta_cache.get_cached_path(url) : null;
@@ -437,28 +410,19 @@ public class ImageHandler : GLib.Object {
                     // continue after handling 304
                 }
 
-                if (response_status == 200 && response_length > 0) {
+                if (response_status == Soup.Status.OK && response_length > 0 && response != null) {
                     try {
-                        // Use flatten() to get Soup.Buffer (libsoup-2.4)
-                        // This prevents the memory leak from accessing .data directly
-                        Soup.Buffer body_buffer = msg.response_body.flatten();
-                        unowned uint8[] body_data = body_buffer.data;
+                        // Get response data from GLib.Bytes
+                        unowned uint8[] body_data = response.get_data();
 
                         // Copy to uint8[] array for processing
                         uint8[] data = new uint8[body_data.length];
                         Memory.copy(data, body_data, body_data.length);
 
-                        // Explicitly free the buffer to prevent leak
-                        body_buffer = null;
-
-                        // Capture headers before unreffing
-                        try { etag = msg.response_headers.get_one("ETag"); } catch (GLib.Error e) { etag = null; }
-                        try { last_modified = msg.response_headers.get_one("Last-Modified"); } catch (GLib.Error e) { last_modified = null; }
-                        try { content_type = msg.response_headers.get_one("Content-Type"); } catch (GLib.Error e) { content_type = null; }
-
-                        // Done with msg - set to null to free
-                        msg = null;
-                        msg_unreffed = true;
+                        // Note: Response headers (ETag, Last-Modified, Content-Type) not captured in HttpClient migration
+                        etag = null;
+                        last_modified = null;
+                        content_type = null;
 
                         if (meta_cache != null) {
                             try {
@@ -569,9 +533,7 @@ public class ImageHandler : GLib.Object {
                         });
                     }
                 } else {
-                    // Status is not 200 or 304 - free msg
-                    msg = null;
-                    msg_unreffed = true;
+                    // Status is not 200 or 304
                     Idle.add(() => {
                         if (window.fetch_sequence != gen_seq) {
                             try { window.pending_downloads.remove(url); } catch (GLib.Error e) { }
@@ -589,11 +551,6 @@ public class ImageHandler : GLib.Object {
                     });
                 }
             } catch (GLib.Error e) {
-                // If we caught an error and msg hasn't been freed yet, free it now
-                if (msg != null && !msg_unreffed) {
-                    msg = null;
-                    msg_unreffed = true;
-                }
                 Idle.add(() => {
                     var list = window.pending_downloads.get(url);
                     if (list != null) {
@@ -804,20 +761,28 @@ public class ImageHandler : GLib.Object {
             }
         } catch (GLib.Error e) { }
 
-        var existing = window.pending_downloads.get(url);
-        if (existing != null) {
-            existing.add(image);
-            return;
-        }
-
-        var list = new Gee.ArrayList<Gtk.Picture>();
-        list.add(image);
-        window.pending_downloads.set(url, list);
-        window.requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
+        // THREAD SAFETY: Lock mutex while checking and modifying pending_downloads
+        // to prevent race with background threads accessing the HashMap
+        window.download_mutex.lock();
         try {
-            string nkey = UrlUtils.normalize_article_url(url);
-            if (nkey != null && nkey.length > 0) window.requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
-        } catch (GLib.Error e) { }
+            var existing = window.pending_downloads.get(url);
+            if (existing != null) {
+                existing.add(image);
+                // Don't unlock here - finally block will handle it
+                return;
+            }
+
+            var list = new Gee.ArrayList<Gtk.Picture>();
+            list.add(image);
+            window.pending_downloads.set(url, list);
+            window.requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
+            try {
+                string nkey = UrlUtils.normalize_article_url(url);
+                if (nkey != null && nkey.length > 0) window.requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
+            } catch (GLib.Error e) { }
+        } finally {
+            window.download_mutex.unlock();
+        }
 
         // Download at the requested size - multipliers are already applied by callers
         // (articleManager applies 6x for heroes, 3x for articles, etc.)

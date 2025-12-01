@@ -62,22 +62,23 @@ namespace Managers {
             // Trace entry for debugging UI regressions (always printed)
             
             bool viewing_limited_category = (
-                window.prefs.category == "general" || 
-                window.prefs.category == "us" || 
-                window.prefs.category == "sports" || 
-                window.prefs.category == "science" || 
-                window.prefs.category == "health" || 
-                window.prefs.category == "technology" || 
-                window.prefs.category == "business" || 
-                window.prefs.category == "entertainment" || 
+                window.prefs.category == "general" ||
+                window.prefs.category == "us" ||
+                window.prefs.category == "sports" ||
+                window.prefs.category == "science" ||
+                window.prefs.category == "health" ||
+                window.prefs.category == "technology" ||
+                window.prefs.category == "business" ||
+                window.prefs.category == "entertainment" ||
                 window.prefs.category == "politics" ||
-                window.prefs.category == "lifestyle" || 
+                window.prefs.category == "lifestyle" ||
                 window.prefs.category == "markets" ||
                 window.prefs.category == "industries" ||
                 window.prefs.category == "economics" ||
-                window.prefs.category == "wealth" || 
+                window.prefs.category == "wealth" ||
                 window.prefs.category == "green"
                 || window.prefs.category == "local_news"
+                || window.prefs.category == "myfeed"
             );
             
             if (viewing_limited_category) {
@@ -211,65 +212,33 @@ namespace Managers {
             }
 
             // Add articles immediately
-            try {
-                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (dbg != null && dbg.length > 0 && window.prefs.category == "topten") {
-                    window.append_debug_log("TOPTEN: About to call add_item_immediate_to_column for: " + title);
-                }
-            } catch (GLib.Error e) { }
             add_item_immediate_to_column(title, url, thumbnail_url, category_id, -1, null, final_source_name);
         }
         
         public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
-            try {
-                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (dbg != null && dbg.length > 0 && window.prefs.category == "topten") {
-                    window.append_debug_log("add_item_immediate_to_column called for TOPTEN: category_id=" + category_id + " title=" + title);
-                }
-            } catch (GLib.Error e) { }
-            
-            try {
-                string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (_dbg != null && _dbg.length > 0) {
-                    string in_src = source_name != null ? source_name : "<null>";
-                    window.append_debug_log("add_item_immediate_to_column: incoming_source_name=" + in_src + " url=" + (url != null ? url : "<null>") + " category=" + category_id + " title=" + title);
-                }
-            } catch (GLib.Error e) { }
-            
+
             string check_category = original_category ?? window.prefs.category;
             
-            try {
-                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (dbg != null && dbg.length > 0) {
-                    window.append_debug_log("add_item_immediate_to_column: prefs.category=" + window.prefs.category + " original_category=" + (original_category != null ? original_category : "null") + " check_category=" + check_category + " article_cat=" + category_id);
-                }
-            } catch (GLib.Error e) { }
-            
             bool is_limited_category = (
-                check_category == "general" || 
-                check_category == "us" || 
-                check_category == "sports" || 
-                check_category == "science" || 
-                check_category == "health" || 
-                check_category == "technology" || 
-                check_category == "business" || 
-                check_category == "entertainment" || 
+                check_category == "general" ||
+                check_category == "us" ||
+                check_category == "sports" ||
+                check_category == "science" ||
+                check_category == "health" ||
+                check_category == "technology" ||
+                check_category == "business" ||
+                check_category == "entertainment" ||
                 check_category == "politics" ||
-                check_category == "lifestyle" || 
+                check_category == "lifestyle" ||
                 check_category == "markets" ||
                 check_category == "industries" ||
                 check_category == "economics" ||
                 check_category == "wealth" ||
                 check_category == "green"
                 || check_category == "local_news"
+                || check_category == "myfeed"
             );
-            
-            try {
-                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (dbg != null && dbg.length > 0) {
-                    window.append_debug_log("add_item_immediate_to_column: check_category=" + check_category + " is_limited=" + (is_limited_category ? "YES" : "NO") + " title=" + title);
-                }
-            } catch (GLib.Error e) { }
+
             
             if (is_limited_category && !bypass_limit) {
                 lock (articles_shown) {
@@ -309,13 +278,6 @@ namespace Managers {
                     }
                     
                     articles_shown++;
-                    
-                    try {
-                        string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                        if (dbg != null && dbg.length > 0) {
-                            window.append_debug_log("add_item_immediate_to_column INCREMENTED to " + articles_shown.to_string() + " category=" + check_category + " title=" + title);
-                        }
-                    } catch (GLib.Error e) { }
                 }
             }
             
@@ -333,6 +295,9 @@ namespace Managers {
             } else if (window.prefs.category == "frontpage") {
                 // For frontpage, only make the first article a hero (same as other categories)
                 should_be_hero = !featured_used;
+            } else if (window.category_manager.is_rssfeed_view()) {
+                // Individual RSS feeds: skip hero, go straight to carousel/columns for adaptive layout
+                should_be_hero = false;
             } else if (!featured_used) {
                 should_be_hero = true;
 
@@ -345,15 +310,34 @@ namespace Managers {
             }
             
             if (should_be_hero) {
-                int max_hero_height = (window.prefs.category == "topten") ? 280 : 350;
+                double hero_scale = (window.prefs.category == "topten") ? 1.30 : 1.0;
+                int max_hero_height = (window.prefs.category == "topten") ? (int)(280 * hero_scale) : 350;
                 int default_hero_w = window.estimate_content_width();
-                int default_hero_h = (window.prefs.category == "topten") ? 210 : 250;
+                int default_hero_h = (window.prefs.category == "topten") ? (int)(210 * hero_scale) : 250;
 
                 string hero_display_cat = category_id;
                 try {
                     if (hero_display_cat == "frontpage" && source_name != null) {
                         int idx = source_name.index_of("##category::");
                         if (idx >= 0) hero_display_cat = source_name.substring(idx + 11).strip();
+                    }
+                } catch (GLib.Error e) { }
+
+                try {
+                    var rss_store = Paperboy.RssSourceStore.get_instance();
+                    var all_sources = rss_store.get_all_sources();
+                    foreach (var src in all_sources) {
+                        bool is_match = false;
+                        if (source_name != null && source_name == src.name) is_match = true;
+                        if (!is_match && url != null && url.length > 0) {
+                            string src_host = UrlUtils.extract_host_from_url(src.url);
+                            string article_host = UrlUtils.extract_host_from_url(url);
+                            if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+                        }
+                        if (is_match) {
+                            hero_display_cat = "rssfeed:" + src.url;
+                            break;
+                        }
                     }
                 } catch (GLib.Error e) { }
 
@@ -367,7 +351,7 @@ namespace Managers {
                     if (category_id == "local_news")
                         window.set_local_placeholder_image(hero_card.image, default_hero_w, default_hero_h);
                     else
-                        window.set_placeholder_image_for_source(hero_card.image, default_hero_w, default_hero_h, window.resolve_source(source_name, url));
+                        set_smart_placeholder(hero_card.image, default_hero_w, default_hero_h, source_name, url);
                 }
 
                     if (hero_will_load) {
@@ -392,10 +376,11 @@ namespace Managers {
                     Timeout.add(300, () => { var info = window.hero_requests.get(hero_card.image); if (info != null) window.maybe_refetch_hero_for(hero_card.image, info); return false; });
                 }
 
-                hero_card.activated.connect((s) => { try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { } });
+                hero_card.activated.connect((s) => { try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { } });
 
                 if (window.prefs.category == "topten") {
                     if (topten_hero_count < 2) {
+                        try { hero_card.root.set_size_request(-1, max_hero_height); } catch (GLib.Error e) { }
                         window.layout_manager.hero_container.append(hero_card.root);
                         topten_hero_count++;
                         featured_used = true;
@@ -421,7 +406,10 @@ namespace Managers {
             featured_carousel_items.size < 5) {
             bool allow_slide = false;
             if (window.prefs.category == "myfeed" && window.prefs.personalized_feed_enabled) {
-                if (featured_carousel_category != null && featured_carousel_category == category_id) {
+                // Custom RSS sources in My Feed come with category_id="myfeed"
+                if (category_id == "myfeed") {
+                    allow_slide = true;
+                } else if (featured_carousel_category != null && featured_carousel_category == category_id) {
                     allow_slide = true;
                 } else {
                     bool has_personalized = window.prefs.personalized_categories != null && window.prefs.personalized_categories.size > 0;
@@ -433,6 +421,9 @@ namespace Managers {
                         }
                     }
                 }
+            } else if (window.category_manager.is_rssfeed_view() && category_id == "myfeed") {
+                // RSS feed views: articles come with category_id="myfeed", allow them for carousel
+                allow_slide = true;
             } else {
                 allow_slide = (category_id == window.prefs.category);
             }
@@ -467,6 +458,24 @@ namespace Managers {
                     if (idx2 >= 0) slide_display_cat = source_name.substring(idx2 + 11).strip();
                 }
             } catch (GLib.Error e) { }
+            try {
+                var rss_store = Paperboy.RssSourceStore.get_instance();
+                var all_sources = rss_store.get_all_sources();
+                foreach (var src in all_sources) {
+                    bool is_match = false;
+                    if (source_name != null && source_name == src.name) is_match = true;
+                    if (!is_match && url != null && url.length > 0) {
+                        string src_host = UrlUtils.extract_host_from_url(src.url);
+                        string article_host = UrlUtils.extract_host_from_url(url);
+                        if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+                    }
+                    if (is_match) {
+                        slide_display_cat = "rssfeed:" + src.url;
+                        break;
+                    }
+                }
+            } catch (GLib.Error e) { }
+
             var slide_chip = window.build_category_chip(slide_display_cat);
             slide_overlay.add_overlay(slide_chip);
 
@@ -478,7 +487,7 @@ namespace Managers {
                 if (category_id == "local_news") {
                     window.set_local_placeholder_image(slide_image, default_w, default_h);
                 } else {
-                    window.set_placeholder_image_for_source(slide_image, default_w, default_h, window.resolve_source(source_name, url));
+                    set_smart_placeholder(slide_image, default_w, default_h, source_name, url);
                 }
             }
             if (slide_will_load) {
@@ -522,7 +531,7 @@ namespace Managers {
 
             var slide_click = new Gtk.GestureClick();
             slide_click.released.connect(() => {
-                window.article_pane.show_article_preview(title, url, thumbnail_url, category_id);
+                window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
             });
             slide.add_controller(slide_click);
 
@@ -548,22 +557,29 @@ namespace Managers {
         int col_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
         int img_w = col_w;
         int img_h = 0;
-        switch (variant) {
-            case 0:
-                img_h = (int)(col_w * 0.42);
-                if (img_h < 80) img_h = 80;
-                break;
-            case 1:
-                img_h = (int)(col_w * 0.5);
-                if (img_h < 100) img_h = 100;
-                break;
-            default:
-                img_h = (int)(col_w * 0.58);
-                if (img_h < 120) img_h = 120;
-                break;
+
+        // Top Ten uses uniform card heights (non-masonry layout)
+        if (category_id == "topten") {
+            img_h = 200;  // Fixed image height for uniform layout
+            variant = 0;  // Use consistent variant
+        } else {
+            switch (variant) {
+                case 0:
+                    img_h = (int)(col_w * 0.42);
+                    if (img_h < 80) img_h = 80;
+                    break;
+                case 1:
+                    img_h = (int)(col_w * 0.5);
+                    if (img_h < 100) img_h = 100;
+                    break;
+                default:
+                    img_h = (int)(col_w * 0.58);
+                    if (img_h < 120) img_h = 120;
+                    break;
+            }
+
+            img_h = (int)(img_h * 1.2);
         }
-        
-        img_h = (int)(img_h * 1.2);
 
         string card_display_cat = category_id;
         try {
@@ -573,9 +589,34 @@ namespace Managers {
             }
         } catch (GLib.Error e) { }
 
+        try {
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var all_sources = rss_store.get_all_sources();
+            foreach (var src in all_sources) {
+                bool is_match = false;
+                if (source_name != null && source_name == src.name) is_match = true;
+                if (!is_match && url != null && url.length > 0) {
+                    string src_host = UrlUtils.extract_host_from_url(src.url);
+                    string article_host = UrlUtils.extract_host_from_url(url);
+                    if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+                }
+                if (is_match) {
+                    card_display_cat = "rssfeed:" + src.url;
+                    break;
+                }
+            }
+        } catch (GLib.Error e) { }
+
         var chip = window.build_category_chip(card_display_cat);
 
         var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant);
+
+        // Enforce uniform card size for Top Ten view so rows line up evenly.
+        if (window.prefs.category == "topten") {
+            // Make cards ~10% shorter for a tighter layout
+            int uniform_card_h = (int)((img_h + 100));
+            try { article_card.root.set_size_request(-1, uniform_card_h); } catch (GLib.Error e) { }
+        }
 
         if (category_id != "local_news") {
             var card_badge = window.build_source_badge_dynamic(source_name, url, category_id);
@@ -614,7 +655,7 @@ namespace Managers {
             if (category_id == "local_news") {
                 window.set_local_placeholder_image(article_card.image, img_w, img_h);
             } else {
-                window.set_placeholder_image_for_source(article_card.image, img_w, img_h, window.resolve_source(source_name, url));
+                set_smart_placeholder(article_card.image, img_w, img_h, source_name, url);
             }
         }
 
@@ -631,7 +672,7 @@ namespace Managers {
         } catch (GLib.Error e) { }
 
         article_card.activated.connect((s) => {
-            try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id); } catch (GLib.Error e) { }
+            try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { }
         });
 
         if (target_col == -1) {
@@ -676,7 +717,7 @@ namespace Managers {
             }
         } catch (GLib.Error e) { }
 
-        int estimated_card_h = img_h + 120;
+        int estimated_card_h = (int)((img_h + 120) * 0.95);
         window.layout_manager.column_heights[target_col] += estimated_card_h + 12;
 
         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
@@ -889,5 +930,124 @@ namespace Managers {
         private void show_end_of_feed_message() {
             try { if (window.loading_state != null) window.loading_state.show_end_of_feed_message(); } catch (GLib.Error e) { }
         }
+
+        // Rebuild RSS feed layout as 2-column uniform hero cards (for feeds with < 15 articles)
+        public void rebuild_rss_feed_as_heroes() {
+            try {
+                try {
+                    string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                    if (dbg != null && dbg.length > 0) {
+                        window.append_debug_log("RSS FEED: rebuild_rss_feed_as_heroes() called");
+                    }
+                } catch (GLib.Error e) { }
+
+                // Hide the hero/featured area since we want all articles in columns
+                try {
+                    if (window.layout_manager.hero_container != null) {
+                        window.layout_manager.hero_container.set_visible(false);
+                    }
+                } catch (GLib.Error e) { }
+
+                try {
+                    if (window.layout_manager.featured_box != null) {
+                        window.layout_manager.featured_box.set_visible(false);
+                    }
+                } catch (GLib.Error e) { }
+
+                // Rebuild with 2 columns - existing cards will redistribute
+                window.layout_manager.rebuild_columns(2);
+
+                // Apply uniform sizing to all article cards in columns
+                for (int i = 0; i < window.layout_manager.columns.length; i++) {
+                    Gtk.Widget? child = window.layout_manager.columns[i].get_first_child();
+                    while (child != null) {
+                        try {
+                            // Force uniform tall hero card dimensions
+                            // Total height: 380px (300px image + 80px text)
+                            child.set_size_request(-1, 380);
+                            child.add_css_class("rss-hero-card");
+
+                            // Dive into the card structure to set uniform heights on image and text sections
+                            if (child is Gtk.Box) {
+                                Gtk.Box card_root = (Gtk.Box) child;
+                                Gtk.Widget? card_child = card_root.get_first_child();
+                                int child_index = 0;
+
+                                while (card_child != null) {
+                                    if (child_index == 0) {
+                                        // First child is the overlay with image - set to 300px
+                                        if (card_child is Gtk.Overlay) {
+                                            Gtk.Overlay overlay = (Gtk.Overlay) card_child;
+                                            Gtk.Widget? image = overlay.get_child();
+                                            if (image != null) {
+                                                image.set_size_request(-1, 300);
+                                            }
+                                        }
+                                    } else if (child_index == 1) {
+                                        // Second child is the title_box (white part) - set to 80px
+                                        if (card_child is Gtk.Box) {
+                                            card_child.set_size_request(-1, 80);
+                                            card_child.set_vexpand(false);
+                                        }
+                                    }
+                                    child_index++;
+                                    card_child = card_child.get_next_sibling();
+                                }
+                            }
+                        } catch (GLib.Error e) { }
+                        child = child.get_next_sibling();
+                    }
+                }
+
+                try {
+                    string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
+                    if (dbg != null && dbg.length > 0) {
+                        window.append_debug_log("RSS FEED: Converted to uniform 2-column hero layout");
+                    }
+                } catch (GLib.Error e) { }
+
+            } catch (GLib.Error e) {
+                warning("Failed to rebuild RSS feed as heroes: %s", e.message);
+            }
+        }
+
+
+    private void set_smart_placeholder(Gtk.Picture image, int w, int h, string? source_name, string url) {
+        // If explicitly in RSS feed view, always use RSS placeholder
+        if (window.category_manager.is_rssfeed_view() && source_name != null && source_name.length > 0) {
+            window.set_rss_placeholder_image(image, w, h, source_name);
+            return;
+        }
+
+        NewsSource resolved = window.resolve_source(source_name, url);
+        NewsSource default_source = window.prefs.news_source;
+        
+        // Check if it resolved to the default source (fallback behavior)
+        if (resolved == default_source && source_name != null && source_name.length > 0) {
+            // If the name doesn't match the default source, assume it's a custom RSS feed
+            if (!source_name_matches(resolved, source_name)) {
+                window.set_rss_placeholder_image(image, w, h, source_name);
+                return;
+            }
+        }
+
+        window.set_placeholder_image_for_source(image, w, h, resolved);
     }
+
+    private bool source_name_matches(NewsSource source, string name) {
+        string n = name.down();
+        switch (source) {
+            case NewsSource.GUARDIAN: return n.contains("guardian");
+            case NewsSource.BBC: return n.contains("bbc");
+            case NewsSource.REDDIT: return n.contains("reddit");
+            case NewsSource.NEW_YORK_TIMES: return n.contains("nytimes") || n.contains("new york times");
+            case NewsSource.WALL_STREET_JOURNAL: return n.contains("wsj") || n.contains("wall street");
+            case NewsSource.BLOOMBERG: return n.contains("bloomberg");
+            case NewsSource.REUTERS: return n.contains("reuters");
+            case NewsSource.NPR: return n.contains("npr");
+            case NewsSource.FOX: return n.contains("fox");
+            default: return false;
+        }
+    }
+}
 }

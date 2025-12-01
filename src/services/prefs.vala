@@ -20,22 +20,124 @@ using GLib;
 
 public class NewsPreferences : GLib.Object {
     private static NewsPreferences? instance = null;
-    private GLib.KeyFile config;
+    private GLib.Settings settings;
+    private GLib.KeyFile config;  // Still used for viewed_articles (user-generated data)
     private string config_path;
+    // True while we're loading/migrating the KeyFile to avoid triggering
+    // saves from setters during initialization.
+    private bool loading = false;
 
-    public NewsSource news_source { get; set; default = NewsSource.GUARDIAN; }
-    public string category { get; set; default = "topten"; }
-    public bool personalized_feed_enabled { get; set; default = false; }
-    // Optional user-provided location (e.g., city or coordinates)
-    public string user_location { get; set; default = ""; }
-    // Resolved canonical city name for a provided ZIP (e.g. "San Francisco, California")
-    public string user_location_city { get; set; default = ""; }
-    // Categories included in the personalized feed (by id)
-    public Gee.ArrayList<string> personalized_categories { get; set; }
-    // Preferred news sources (string ids such as "guardian", "reddit")
-    public Gee.ArrayList<string> preferred_sources { get; set; }
-    // Track which normalized article URLs were viewed in previous sessions
-    public Gee.ArrayList<string> viewed_articles { get; set; }
+    // GSettings-backed properties (automatically persisted)
+    public NewsSource news_source {
+        get {
+            string source_str = settings.get_string("news-source");
+            switch (source_str) {
+                case "guardian": return NewsSource.GUARDIAN;
+                case "reddit": return NewsSource.REDDIT;
+                case "bbc": return NewsSource.BBC;
+                case "wsj": return NewsSource.WALL_STREET_JOURNAL;
+                case "nytimes": return NewsSource.NEW_YORK_TIMES;
+                case "bloomberg": return NewsSource.BLOOMBERG;
+                case "reuters": return NewsSource.REUTERS;
+                case "npr": return NewsSource.NPR;
+                case "fox": return NewsSource.FOX;
+                default: return NewsSource.GUARDIAN;
+            }
+        }
+        set {
+            string source_str = "";
+            switch (value) {
+                case NewsSource.GUARDIAN: source_str = "guardian"; break;
+                case NewsSource.REDDIT: source_str = "reddit"; break;
+                case NewsSource.BBC: source_str = "bbc"; break;
+                case NewsSource.WALL_STREET_JOURNAL: source_str = "wsj"; break;
+                case NewsSource.NEW_YORK_TIMES: source_str = "nytimes"; break;
+                case NewsSource.BLOOMBERG: source_str = "bloomberg"; break;
+                case NewsSource.REUTERS: source_str = "reuters"; break;
+                case NewsSource.NPR: source_str = "npr"; break;
+                case NewsSource.FOX: source_str = "fox"; break;
+                default: source_str = "guardian"; break;
+            }
+            settings.set_string("news-source", source_str);
+        }
+    }
+
+    public string category {
+        owned get { return settings.get_string("category"); }
+        set { settings.set_string("category", value); }
+    }
+
+    public bool personalized_feed_enabled {
+        get { return settings.get_boolean("personalized-feed-enabled"); }
+        set { settings.set_boolean("personalized-feed-enabled", value); }
+    }
+
+    public bool myfeed_custom_only {
+        get { return settings.get_boolean("myfeed-custom-only"); }
+        set { settings.set_boolean("myfeed-custom-only", value); }
+    }
+
+    public bool sidebar_followed_sources_expanded {
+        get { return settings.get_boolean("sidebar-followed-sources-expanded"); }
+        set { settings.set_boolean("sidebar-followed-sources-expanded", value); }
+    }
+
+    public bool sidebar_popular_categories_expanded {
+        get { return settings.get_boolean("sidebar-popular-categories-expanded"); }
+        set { settings.set_boolean("sidebar-popular-categories-expanded", value); }
+    }
+
+    public string user_location {
+        owned get { return settings.get_string("user-location"); }
+        set { settings.set_string("user-location", value); }
+    }
+
+    public string user_location_city {
+        owned get { return settings.get_string("user-location-city"); }
+        set { settings.set_string("user-location-city", value); }
+    }
+
+    public Gee.ArrayList<string> personalized_categories {
+        owned get {
+            var list = new Gee.ArrayList<string>();
+            string[] arr = settings.get_strv("personalized-categories");
+            foreach (var s in arr) list.add(s);
+            warning("personalized_categories getter: loaded %d categories from GSettings", list.size);
+            return list;
+        }
+        set {
+            warning("personalized_categories setter: writing %d categories to GSettings", value != null ? value.size : 0);
+            if (value == null) {
+                settings.set_strv("personalized-categories", new string[0]);
+            } else {
+                string[] arr = new string[value.size];
+                for (int i = 0; i < value.size; i++) {
+                    arr[i] = value.get(i);
+                    warning("  - writing category: %s", arr[i]);
+                }
+                settings.set_strv("personalized-categories", arr);
+            }
+        }
+    }
+
+    // User-generated data: preferred sources (includes custom RSS feeds) - stored in KeyFile
+    private Gee.ArrayList<string>? _preferred_sources = null;
+    public Gee.ArrayList<string> preferred_sources {
+        get {
+            if (_preferred_sources == null) {
+                _preferred_sources = new Gee.ArrayList<string>();
+            }
+            return _preferred_sources;
+        }
+        set {
+            _preferred_sources = value;
+            save_config();
+        }
+    }
+
+    // Current RSS source filter (URL) when viewing a specific custom source (runtime-only, not persisted)
+    public string? current_rss_source_filter { get; set; default = null; }
+
     // True when the config did not exist at startup (first run)
     public bool first_run { get; private set; }
 
@@ -75,6 +177,8 @@ public class NewsPreferences : GLib.Object {
                 default: /* leave news_source unchanged for unknown ids */ break;
             }
         }
+        // Persist changes to KeyFile
+        if (!loading) save_config();
     }
 
     // Convenience helpers for managing personalized categories
@@ -85,16 +189,47 @@ public class NewsPreferences : GLib.Object {
     }
 
     public void set_personalized_category_enabled(string cat, bool enabled) {
-        if (personalized_categories == null) personalized_categories = new Gee.ArrayList<string>();
+        // Get current list from GSettings
+        var current_list = personalized_categories;
+        if (current_list == null) current_list = new Gee.ArrayList<string>();
+
+        // Create a new list for modification
+        var updated_list = new Gee.ArrayList<string>();
+        foreach (var c in current_list) updated_list.add(c);
+
         if (enabled) {
-            if (!personalized_category_enabled(cat)) personalized_categories.add(cat);
-        } else {
-            if (personalized_category_enabled(cat)) {
-                // remove all occurrences
-                var to_remove = new Gee.ArrayList<string>();
-                foreach (var c in personalized_categories) if (c == cat) to_remove.add(c);
-                foreach (var r in to_remove) personalized_categories.remove(r);
+            // Add category if not already present
+            bool already_present = false;
+            foreach (var c in updated_list) {
+                if (c == cat) {
+                    already_present = true;
+                    break;
+                }
             }
+            if (!already_present) {
+                updated_list.add(cat);
+                warning("set_personalized_category_enabled: adding category '%s'", cat);
+            }
+        } else {
+            // Remove all occurrences of category
+            var to_remove = new Gee.ArrayList<string>();
+            foreach (var c in updated_list) {
+                if (c == cat) to_remove.add(c);
+            }
+            foreach (var r in to_remove) {
+                updated_list.remove(r);
+                warning("set_personalized_category_enabled: removing category '%s'", r);
+            }
+        }
+
+        // Write back to GSettings by triggering the property setter
+        personalized_categories = updated_list;
+
+        // Debug: verify what was written
+        var verify_list = personalized_categories;
+        warning("set_personalized_category_enabled: after save, GSettings contains %d categories", verify_list.size);
+        foreach (var c in verify_list) {
+            warning("  - category: %s", c);
         }
     }
 
@@ -121,33 +256,22 @@ public class NewsPreferences : GLib.Object {
     }
 
     private NewsPreferences() {
+        // Initialize GSettings for UI preferences
+        settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
+        
+        // Initialize KeyFile for user-generated data (viewed_articles)
         config = new GLib.KeyFile();
         config_path = get_config_file_path();
+        
         // Detect whether a configuration already exists so callers can
         // present first-run flows (dialogs, onboarding) when appropriate.
         try {
             bool exists = GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS);
             first_run = !exists;
         } catch (GLib.Error e) { first_run = false; }
-        // Ensure in-memory defaults are initialized so the UI reflects
-        // the intended defaults on first run (before a config file
-        // is created by save_config()).
-        personalized_categories = new Gee.ArrayList<string>();
-        preferred_sources = new Gee.ArrayList<string>();
-        // First-run convenience: if no config exists yet, seed the
-        // preferred_sources with a sane default set. Historically we
-        // enabled Guardian only; prefer enabling all sources by default
-        // so users can unchoose what they don't want.
-        if (first_run) {
-            string[] all = { "guardian", "reddit", "bbc", "nytimes", "wsj", "bloomberg", "reuters", "npr", "fox" };
-            foreach (var s in all) preferred_sources.add(s);
-        }
-        // Preferred sources and other defaults will be seeded by load_config()/save_config().
-        // Don't seed preferred_sources here. Load configuration first so
-        // pre-existing user choices are respected. If no config exists,
-        // load_config() will create one and seed defaults appropriately.
-    viewed_articles = new Gee.ArrayList<string>();
-    load_config();
+        
+        // Load user-generated data from KeyFile
+        load_config();
     }
 
     public static NewsPreferences get_instance() {
@@ -164,202 +288,196 @@ public class NewsPreferences : GLib.Object {
     }
 
     public void save_config() {
+        // GSettings automatically persists UI preferences, so we only need to
+        // save user-generated data (viewed_articles and preferred_sources) to KeyFile
         try {
-            // Convert NewsSource enum to string
-            string source_name = "";
-            switch (news_source) {
-                case NewsSource.GUARDIAN: source_name = "guardian"; break;
-                case NewsSource.REDDIT: source_name = "reddit"; break;
-                case NewsSource.BBC: source_name = "bbc"; break;
-                case NewsSource.WALL_STREET_JOURNAL: source_name = "wsj"; break;
-                case NewsSource.NEW_YORK_TIMES: source_name = "nytimes"; break;
-                case NewsSource.BLOOMBERG: source_name = "bloomberg"; break;
-                default: source_name = "guardian"; break;
-            }
-            
-            config.set_string("preferences", "news_source", source_name);
-            // Ensure we don't persist a category incompatible with the
-            // selected news source. When the user has enabled multiple
-            // `preferred_sources` we treat the multi-select as authoritative
-            // and avoid coercing `category` here (the UI and fetch code will
-            // handle combining categories). Only enforce compatibility when
-            // operating in legacy/single-source mode.
-            if (preferred_sources == null || preferred_sources.size <= 1) {
-                // Allow the special "myfeed" and "frontpage" categories to
-                // persist when selected even in single-source mode. These
-                // are UI-level aggregated views (not tied to a specific
-                // provider) and should not be coerced to "topten".
-                if (!(category == "myfeed" && personalized_feed_enabled) && category != "frontpage" && category != "topten") {
-                    if (!category_valid_for_source(news_source, category)) {
-                        // Use "topten" as the safe persisted default
-                        category = "topten";
-                    }
-                }
-            }
-            config.set_string("preferences", "category", category);
-            // Persist user location if provided
-            config.set_string("preferences", "user_location", user_location);
-            // Persist resolved city name if present
-            config.set_string("preferences", "user_location_city", user_location_city);
-            // Persist the personalized feed toggle
-            config.set_boolean("preferences", "personalized_feed_enabled", personalized_feed_enabled);
-            // Persist personalized categories list
-            // If Bloomberg is not enabled in preferred_sources, strip any
-            // Bloomberg-only categories so the saved personalized feed will
-            // not attempt to show Bloomberg categories when the source is
-            // disabled.
-            if (!preferred_source_enabled("bloomberg") && personalized_categories != null) {
-                string[] bb = { "markets", "industries", "economics", "wealth", "green", "politics", "technology" };
-                var to_remove = new Gee.ArrayList<string>();
-                foreach (var c in personalized_categories) {
-                    foreach (var b in bb) if (c == b) to_remove.add(c);
-                }
-                foreach (var r in to_remove) personalized_categories.remove(r);
-            }
+            warning("NewsPreferences.save_config: writing config_path=%s", config_path);
 
-            if (personalized_categories != null) {
-                // Convert Gee.ArrayList to string[]
-                string[] arr = new string[personalized_categories.size];
-                for (int i = 0; i < personalized_categories.size; i++) arr[i] = personalized_categories.get(i);
-                config.set_string_list("preferences", "personalized_categories", arr);
-            } else {
-                config.set_string_list("preferences", "personalized_categories", new string[0]);
-            }
-            // Persist preferred sources (if present)
-            if (preferred_sources != null) {
-                string[] parr = new string[preferred_sources.size];
-                for (int i = 0; i < preferred_sources.size; i++) parr[i] = preferred_sources.get(i);
+            // Persist preferred sources (user-followed sources including custom RSS feeds)
+            if (_preferred_sources != null && _preferred_sources.size > 0) {
+                warning("NewsPreferences.save_config: saving %d preferred_sources to config", _preferred_sources.size);
+                string[] parr = new string[_preferred_sources.size];
+                for (int i = 0; i < _preferred_sources.size; i++) parr[i] = _preferred_sources.get(i);
                 config.set_string_list("preferences", "preferred_sources", parr);
             } else {
-                // Fall back to single news_source if preferred_sources not yet set
-                string[] fallback = { source_name };
-                config.set_string_list("preferences", "preferred_sources", fallback);
-            }
-            // Persist viewed articles (normalized URLs) so viewed state survives restarts
-            if (viewed_articles != null) {
-                string[] varr = new string[viewed_articles.size];
-                for (int i = 0; i < viewed_articles.size; i++) varr[i] = viewed_articles.get(i);
-                config.set_string_list("preferences", "viewed_articles", varr);
-            } else {
-                config.set_string_list("preferences", "viewed_articles", new string[0]);
+                warning("NewsPreferences.save_config: _preferred_sources is null or empty (size=%d), will reload from disk", _preferred_sources != null ? _preferred_sources.size : -1);
+                // If the running instance has no in-memory preferred list, reload
+                // the config file to preserve any existing value on disk rather than
+                // overwriting with an empty config.
+                if (GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
+                    config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
+                }
+                // Only seed the default list on a true first-run (config file did
+                // not exist at startup). If the config file exists but lacks the
+                // key, leave it untouched so we don't accidentally overwrite a
+                // user's data or remove the opportunity for migration to recover
+                // richer data.
+                if (first_run && !config.has_key("preferences", "preferred_sources")) {
+                    string[] default_sources = {"guardian", "reddit", "bbc", "nytimes", "wsj", "bloomberg", "reuters", "npr", "fox"};
+                    config.set_string_list("preferences", "preferred_sources", default_sources);
+                }
+                // Otherwise: leave the existing on-disk value untouched.
             }
             
             string config_data = config.to_data();
+            // Write file and confirm
             GLib.FileUtils.set_contents(config_path, config_data);
+            warning("NewsPreferences.save_config: wrote %d bytes to %s", config_data.length, config_path);
         } catch (GLib.Error e) {
             warning("Failed to save config: %s", e.message);
         }
     }
 
-    private void load_config() {
+   private void load_config() {
+        // GSettings automatically loads UI preferences, so we only need to
+        // load user-generated data (viewed_articles) from KeyFile
         try {
-            if (!GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
-                // No config file yet, save current defaults to create it
-                save_config();
-                return;
-            }
-            
+            // Mark that we're loading so setters don't trigger saves
+            loading = true;
+
+            bool exists = false;
+            try { exists = GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS); } catch (GLib.Error e) { exists = false; }
+            warning("NewsPreferences.load_config: config_path=%s exists=%s", config_path, exists ? "true" : "false");            
             config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
             
-            // Load news source
-            if (config.has_key("preferences", "news_source")) {
-                string source_name = config.get_string("preferences", "news_source");
-                switch (source_name) {
-                    case "guardian": news_source = NewsSource.GUARDIAN; break;
-                    case "reddit": news_source = NewsSource.REDDIT; break;
-                    case "bbc": news_source = NewsSource.BBC; break;
-                    case "wsj": news_source = NewsSource.WALL_STREET_JOURNAL; break;
-                    case "nytimes": news_source = NewsSource.NEW_YORK_TIMES; break;
-                    case "google": news_source = NewsSource.GUARDIAN; break; // Migrate from removed Google News
-                    case "bloomberg": news_source = NewsSource.BLOOMBERG; break;
-                    default: news_source = NewsSource.GUARDIAN; break;
+            // MIGRATION: If old preferences exist in KeyFile, migrate them to GSettings
+            bool needs_migration = config.has_key("preferences", "news_source");
+            if (needs_migration) {
+                // Migrate news_source
+                if (config.has_key("preferences", "news_source")) {
+                    string source_name = config.get_string("preferences", "news_source");
+                    settings.set_string("news-source", source_name);
+                }
+                
+                // Migrate category
+                if (config.has_key("preferences", "category")) {
+                    string cat = config.get_string("preferences", "category");
+                    // Migration: "all categories" has been removed, default to "topten" instead
+                    if (cat == "all") cat = "topten";
+                    settings.set_string("category", cat);
+                }
+                
+                // Migrate personalized_feed_enabled
+                if (config.has_key("preferences", "personalized_feed_enabled")) {
+                    try {
+                        bool enabled = config.get_boolean("preferences", "personalized_feed_enabled");
+                        settings.set_boolean("personalized-feed-enabled", enabled);
+                    } catch (GLib.Error e) { }
+                }
+                
+                // Migrate myfeed_custom_only
+                if (config.has_key("preferences", "myfeed_custom_only")) {
+                    try {
+                        bool custom_only = config.get_boolean("preferences", "myfeed_custom_only");
+                        settings.set_boolean("myfeed-custom-only", custom_only);
+                    } catch (GLib.Error e) { }
+                }
+                
+                // Migrate sidebar_followed_sources_expanded
+                if (config.has_key("preferences", "sidebar_followed_sources_expanded")) {
+                    try {
+                        bool expanded = config.get_boolean("preferences", "sidebar_followed_sources_expanded");
+                        settings.set_boolean("sidebar-followed-sources-expanded", expanded);
+                    } catch (GLib.Error e) { }
+                }
+                
+                // Migrate sidebar_popular_categories_expanded
+                if (config.has_key("preferences", "sidebar_popular_categories_expanded")) {
+                    try {
+                        bool expanded = config.get_boolean("preferences", "sidebar_popular_categories_expanded");
+                        settings.set_boolean("sidebar-popular-categories-expanded", expanded);
+                    } catch (GLib.Error e) { }
+                }
+                
+                // Migrate user_location
+                if (config.has_key("preferences", "user_location")) {
+                    try {
+                        string location = config.get_string("preferences", "user_location");
+                        settings.set_string("user-location", location);
+                    } catch (GLib.Error e) { }
+                }
+                
+                // Migrate user_location_city
+                if (config.has_key("preferences", "user_location_city")) {
+                    try {
+                        string city = config.get_string("preferences", "user_location_city");
+                        settings.set_string("user-location-city", city);
+                    } catch (GLib.Error e) { }
+                }
+                
+                // Migrate personalized_categories
+                if (config.has_key("preferences", "personalized_categories")) {
+                    try {
+                        string[] arr = config.get_string_list("preferences", "personalized_categories");
+                        settings.set_strv("personalized-categories", arr);
+                    } catch (GLib.Error e) { }
+                }
+                
+                // After migration, remove the old preferences section from config file
+                // We'll do this by creating a new config with only user_data
+                var new_config = new GLib.KeyFile();
+                
+                // Copy preferred_sources to new config. Prefer the newer
+                // `user_data` value when present so we don't downgrade a richer
+                // list, but store the final value in the single on-disk
+                // `preferences` group (we only want one section written).
+                if (config.has_key("user_data", "preferred_sources")) {
+                    try {
+                        string[] parr = config.get_string_list("user_data", "preferred_sources");
+                        new_config.set_string_list("preferences", "preferred_sources", parr);
+                    } catch (GLib.Error e) { }
+                } else if (config.has_key("preferences", "preferred_sources")) {
+                    try {
+                        string[] parr = config.get_string_list("preferences", "preferred_sources");
+                        new_config.set_string_list("preferences", "preferred_sources", parr);
+                    } catch (GLib.Error e) { }
+                }
+                
+                // Save the cleaned config
+                config = new_config;
+                string config_data = config.to_data();
+                GLib.FileUtils.set_contents(config_path, config_data);
+            }
+            // Populate in-memory preferred_sources from KeyFile. Prefer
+            // `user_data` when present (richer), otherwise fall back to
+            // `preferences` so we're compatible with the single-group layout
+            // we write to disk.
+            _preferred_sources = new Gee.ArrayList<string>();
+
+            // Try user_data group first
+            try {
+                if (config.has_group("user_data") && config.has_key("user_data", "preferred_sources")) {
+                    string[] parr = config.get_string_list("user_data", "preferred_sources");
+                    foreach (var s in parr) _preferred_sources.add(s);
+                    warning("NewsPreferences.load_config: loaded %d preferred_sources from user_data", _preferred_sources.size);
+                }
+            } catch (GLib.Error e) {
+                warning("NewsPreferences.load_config: could not read from user_data: %s", e.message);
+            }
+
+            // If nothing loaded yet, try preferences group
+            if (_preferred_sources.size == 0) {
+                try {
+                    if (config.has_group("preferences") && config.has_key("preferences", "preferred_sources")) {
+                        string[] parr = config.get_string_list("preferences", "preferred_sources");
+                        foreach (var s in parr) _preferred_sources.add(s);
+                        warning("NewsPreferences.load_config: loaded %d preferred_sources from preferences", _preferred_sources.size);
+                    }
+                } catch (GLib.Error e) {
+                    warning("NewsPreferences.load_config: could not read from preferences: %s", e.message);
                 }
             }
 
-            // Load preferred sources list if present; otherwise seed from news_source
-            if (config.has_key("preferences", "preferred_sources")) {
-                try {
-                    string[] parr = config.get_string_list("preferences", "preferred_sources");
-                    preferred_sources = new Gee.ArrayList<string>();
-                    foreach (var s in parr) preferred_sources.add(s);
-                } catch (GLib.Error e) { preferred_sources = new Gee.ArrayList<string>(); }
-            } else {
-                preferred_sources = new Gee.ArrayList<string>();
-                // Seed with the single news_source value for backward compatibility
-                switch (news_source) {
-                    case NewsSource.GUARDIAN: preferred_sources.add("guardian"); break;
-                    case NewsSource.REDDIT: preferred_sources.add("reddit"); break;
-                    case NewsSource.BBC: preferred_sources.add("bbc"); break;
-                    case NewsSource.WALL_STREET_JOURNAL: preferred_sources.add("wsj"); break;
-                    case NewsSource.NEW_YORK_TIMES: preferred_sources.add("nytimes"); break;
-                    case NewsSource.BLOOMBERG: preferred_sources.add("bloomberg"); break;
-                    case NewsSource.REUTERS: preferred_sources.add("reuters"); break;
-                    case NewsSource.NPR: preferred_sources.add("npr"); break;
-                    case NewsSource.FOX: preferred_sources.add("fox"); break;
-                    default: preferred_sources.add("guardian"); break;
-                }
+            if (_preferred_sources.size == 0) {
+                warning("NewsPreferences.load_config: no preferred_sources found in config, initialized empty list");
             }
-            
-            // Load category (normalization is applied after reading the
-            // personalized_feed flag so we can preserve "myfeed" when the
-            // user has enabled personalization).
-            if (config.has_key("preferences", "category")) {
-                category = config.get_string("preferences", "category");
-            }
-            
-            // Migration: "all categories" has been removed, default to "topten" instead
-            if (category == "all") {
-                category = "topten";
-            }
-            
-            // Load personalized feed flag if present
-            if (config.has_key("preferences", "personalized_feed_enabled")) {
-                try {
-                    personalized_feed_enabled = config.get_boolean("preferences", "personalized_feed_enabled");
-                } catch (GLib.Error e) { /* ignore and keep default */ }
-            }
-            // Load user-provided location if present
-            if (config.has_key("preferences", "user_location")) {
-                try {
-                    user_location = config.get_string("preferences", "user_location");
-                } catch (GLib.Error e) { user_location = ""; }
-            }
-            // Load resolved city name if present
-            if (config.has_key("preferences", "user_location_city")) {
-                try {
-                    user_location_city = config.get_string("preferences", "user_location_city");
-                } catch (GLib.Error e) { user_location_city = ""; }
-            }
-            // After knowing whether personalization is enabled, normalize
-            // the category. Allow "myfeed" to survive normalization when
-            // personalization is enabled so users can select a personalized
-            // feed even when the effective single source is Bloomberg.
-            if (!category_valid_for_source(news_source, category)) {
-                if (!(category == "myfeed" && personalized_feed_enabled)) {
-                    category = "topten";
-                }
-            }
-            // Load personalized categories list if present
-            if (config.has_key("preferences", "personalized_categories")) {
-                try {
-                    string[] arr = config.get_string_list("preferences", "personalized_categories");
-                    personalized_categories = new Gee.ArrayList<string>();
-                    foreach (var s in arr) personalized_categories.add(s);
-                } catch (GLib.Error e) { personalized_categories = new Gee.ArrayList<string>(); }
-            } else {
-                personalized_categories = new Gee.ArrayList<string>();
-            }
-            // Load viewed articles list if present
-            if (config.has_key("preferences", "viewed_articles")) {
-                try {
-                    string[] varr = config.get_string_list("preferences", "viewed_articles");
-                    viewed_articles = new Gee.ArrayList<string>();
-                    foreach (var s in varr) viewed_articles.add(s);
-                } catch (GLib.Error e) { viewed_articles = new Gee.ArrayList<string>(); }
-            } else {
-                viewed_articles = new Gee.ArrayList<string>();
-            }
+
+            // Unset loading marker so setters/save operations can run normally
+            loading = false;
+
         } catch (GLib.Error e) {
+            // Ensure loading flag is cleared on error
+            loading = false;
             warning("Failed to load config: %s", e.message);
         }
     }
