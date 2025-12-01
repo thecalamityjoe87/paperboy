@@ -34,8 +34,6 @@ public class PrefsDialog : GLib.Object {
     private class LookupHolder : GLib.Object {
         public Gtk.Spinner? spinner;
         public Gtk.Box? spinner_box;
-        public Gtk.Box? detected_row;
-        public Gtk.Label? det_lbl;
         public Gtk.Label? hint;
         public bool alive = true;
     }
@@ -43,7 +41,7 @@ public class PrefsDialog : GLib.Object {
     // Run the external `rssFinder` helper asynchronously with the given
     // query (city name). When finished, present a small dialog with the
     // result and refresh Local News in the parent NewsWindow if present.
-    private static void spawn_rssfinder_async(Gtk.Window parent, string query) {
+    private static void spawn_rssfinder_async(Gtk.Window parent, string query, bool refresh_on_dismiss = true) {
         new Thread<void*>("rssfinder-run", () => {
             try {
                 string q = query.strip();
@@ -57,13 +55,15 @@ public class PrefsDialog : GLib.Object {
                 string? found = locate_rssfinder();
                 string prog;
                 SpawnFlags flags;
-                if (found.length > 0) {
+                // Guard against null return from locate_rssfinder();
+                if (found != null && found.length > 0) {
                     prog = found;
                     flags = (SpawnFlags) 0; // execute explicit path
                 } else {
                     prog = "rssFinder";
                     flags = SpawnFlags.SEARCH_PATH; // fall back to PATH lookup
                 }
+                try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "spawn_rssfinder_async: prog='" + prog + "' flags=" + flags.to_string() + " query='" + q + "'"); } catch (GLib.Error _) { }
 
                 // Remove any existing local_feeds file so rssFinder's
                 // appended results start from a clean slate for this
@@ -84,6 +84,7 @@ public class PrefsDialog : GLib.Object {
                 string err = "";
                 int status = 0;
                 Process.spawn_sync(null, argv, null, flags, null, out out, out err, out status);
+                try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "spawn_rssfinder_async: exit=" + status.to_string() + " out_len=" + (out != null ? out.length.to_string() : "0") + " err_len=" + (err != null ? err.length.to_string() : "0")); } catch (GLib.Error _) { }
 
                 string message;
                 if (status == 0) {
@@ -124,6 +125,57 @@ public class PrefsDialog : GLib.Object {
                             for (int i = 0; i < tmp.size; i++) discovered_feeds[i] = tmp.get(i);
                         }
                     }
+                } catch (GLib.Error ee) { }
+
+                // Present the discovery result in the main loop so the
+                // user sees how many feeds were found (and what they are).
+                // Keep this on the main thread using Idle.add.
+                try {
+                    string show_msg = message;
+                    if (discovered_feeds != null && discovered_feeds.length > 0) {
+                        show_msg += "\n\nDiscovered feeds:\n";
+                        for (int i = 0; i < discovered_feeds.length; i++) {
+                            show_msg += "- " + discovered_feeds[i] + "\n";
+                        }
+                    }
+
+                    Idle.add(() => {
+                        try {
+                            try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder: presenting discovery dialog (refresh_on_dismiss=" + refresh_on_dismiss.to_string() + ")"); } catch (GLib.Error _) { }
+                            var dlg = new Adw.AlertDialog("Local Feed Discovery", show_msg);
+                            dlg.add_response("ok", "OK");
+                            // Use the async chooser so we can react when the user
+                            // dismisses the dialog. When closed, refresh the main
+                            // window's content so newly-discovered feeds are picked up.
+                            dlg.choose.begin(parent, null, (obj, res) => {
+                                try {
+                                    try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder: discovery dialog choose callback invoked"); } catch (GLib.Error _) { }
+                                    string response = dlg.choose.end(res);
+                                    try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder: discovery dialog response='" + response + "'"); } catch (GLib.Error _) { }
+                                    // Only refresh if caller requested it. Use Idle.add to
+                                    // ensure the fetch runs on the main loop and log the
+                                    // refresh so we can diagnose missed refreshes.
+                                    if (refresh_on_dismiss) {
+                                        var parent_win = parent as NewsWindow;
+                                        if (parent_win != null) {
+                                            try {
+                                                AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder: scheduling fetch_news on dismiss");
+                                            } catch (GLib.Error _) { }
+                                            Idle.add(() => {
+                                                try { parent_win.fetch_news(); } catch (GLib.Error _e) { }
+                                                return false;
+                                            });
+                                        } else {
+                                            try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder: parent is not a NewsWindow; cannot schedule fetch_news"); } catch (GLib.Error _) { }
+                                        }
+                                    } else {
+                                        try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder: refresh_on_dismiss is false; not scheduling fetch"); } catch (GLib.Error _) { }
+                                    }
+                                } catch (GLib.Error _e) { }
+                            });
+                        } catch (GLib.Error ee) { }
+                        return false;
+                    });
                 } catch (GLib.Error ee) { }
             } catch (GLib.Error e) {
                 // accessible inside the nested lambda on some compiler versions).
@@ -1475,7 +1527,7 @@ public class PrefsDialog : GLib.Object {
     var about = new Adw.AboutDialog();
     about.set_application_name("Paperboy");
     about.set_application_icon("paperboy"); // Use the correct icon name
-    about.set_version("0.6.0a");
+    about.set_version("0.6.2a");
     about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
     about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
     about.set_website("https://github.com/thecalamityjoe87/paperboy");
@@ -1560,30 +1612,28 @@ public class PrefsDialog : GLib.Object {
     dialog.set_default_response("save");
     dialog.set_close_response("cancel");
     dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED);
+    
+    // Disable Save button initially if no location is set yet
+    // (first-time users must perform a search to enable it)
+    bool has_existing_location = false;
+    try {
+        if ((prefs.user_location_city != null && prefs.user_location_city.length > 0) ||
+            (prefs.user_location != null && prefs.user_location.length > 0)) {
+            has_existing_location = true;
+        }
+    } catch (GLib.Error e) { }
+    
+    if (!has_existing_location) {
+        dialog.set_response_enabled("save", false);
+    }
 
     // Ensure the prefs dialog is presented so inline UI (spinner,
     // detected row, hints) can be shown immediately while a
     // background lookup runs.
     try { dialog.present(parent); } catch (GLib.Error e) { }
 
-        // Create reusable UI pieces for ZIP lookup so the user can invoke
-        // searches repeatedly without recreating widgets each time.
-        // `detected_row` shows the detected city and a "Use detected" button.
-        var detected_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-        var det_lbl = new Gtk.Label("");
-        det_lbl.set_halign(Gtk.Align.START);
-        det_lbl.set_valign(Gtk.Align.CENTER);
-        det_lbl.set_hexpand(true);
-        var use_btn = new Gtk.Button.with_label("Use detected");
-        use_btn.set_valign(Gtk.Align.CENTER);
-        detected_row.append(det_lbl);
-        detected_row.append(use_btn);
-        try { detected_row.hide(); box.append(detected_row); } catch (GLib.Error e) { }
-
     // Spinner row shown while lookup is in progress
         var spinner_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-        spinner_box.set_margin_top(6);
-        spinner_box.set_margin_bottom(6);
         try { spinner_box.set_halign(Gtk.Align.CENTER); } catch (GLib.Error e) { }
         try { spinner_box.set_valign(Gtk.Align.CENTER); } catch (GLib.Error e) { }
         var spinner = new Gtk.Spinner();
@@ -1600,8 +1650,6 @@ public class PrefsDialog : GLib.Object {
         dialog.destroy.connect(() => {
             try { spinner = null; } catch (GLib.Error e) { }
             try { spinner_box = null; } catch (GLib.Error e) { }
-            try { detected_row = null; } catch (GLib.Error e) { }
-            try { det_lbl = null; } catch (GLib.Error e) { }
         });
 
         // Search button: user explicitly starts a ZIP lookup. This allows
@@ -1610,38 +1658,26 @@ public class PrefsDialog : GLib.Object {
         search_btn.set_valign(Gtk.Align.CENTER);
         try { box.append(search_btn); } catch (GLib.Error e) { }
 
-        // Track the last detected values so the "Use detected" button can
-        // persist the correct ZIP and resolved city even after multiple
-        // searches or edits to the entry widget.
+        // Track the last detected values so the Save button can use them
+        // if the user performed a ZIP lookup.
         string last_detected_zip = "";
         string last_detected_city = "";
+        
+        // Helper function to enable/disable Save button based on validation
+        void update_save_button_state() {
+            // Enable Save if:
+            // 1. User has performed a successful ZIP search (last_detected_city is set), OR
+            // 2. User already has a location configured
+            bool should_enable = false;
+            if (last_detected_city.length > 0) {
+                should_enable = true;
+            } else if (has_existing_location) {
+                should_enable = true;
+            }
+            dialog.set_response_enabled("save", should_enable);
+        }
 
-        // Wire the Use Detected button to save the last-detected city
-        use_btn.clicked.connect(() => {
-            try {
-                if (last_detected_city.length > 0) {
-                    var p = NewsPreferences.get_instance();
-                    p.user_location = last_detected_zip;
-                    p.user_location_city = last_detected_city;
-                    p.save_config();
-                    // If parent is NewsWindow, refresh its overlays immediately
-                    try {
-                        var parent_win = parent as NewsWindow;
-                        if (parent_win != null) {
-                            try { parent_win.update_personalization_ui(); } catch (GLib.Error e) { }
-                            try { parent_win.update_local_news_ui(); } catch (GLib.Error e) { }
-                            try { parent_win.fetch_news(); } catch (GLib.Error e) { }
-                            // Run rssFinder in background to populate ~/.config/paperboy/local_feeds
-                            try { spawn_rssfinder_async(parent, last_detected_city); } catch (GLib.Error e) { }
-                        }
-                    } catch (GLib.Error e) { }
-                    try {
-                        hint.set_use_markup(true);
-                        hint.set_markup("Saved location: <b>" + GLib.Markup.escape_text(last_detected_city) + "</b>");
-                    } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
-        });
+        // No longer need the Use Detected button handler - Save button handles everything
 
         dialog.choose.begin(parent, null, (obj, res) => {
             string response = dialog.choose.end(res);
@@ -1654,45 +1690,47 @@ public class PrefsDialog : GLib.Object {
                     return;
                 }
 
-                // If the value looks numeric (ZIP-like), try a local CSV lookup
-                bool looks_numeric = true;
-                for (uint i = 0; i < (uint) val.length; i++) {
-                    char c = val[i];
-                    if (!(c >= '0' && c <= '9') && c != '-' && c != ' ') { looks_numeric = false; break; }
-                }
-
-                if (looks_numeric) {
-                    // Don't automatically start a lookup on Save. Encourage
-                    // the user to press the explicit Search button so they
-                    // can repeat searches if the result isn't satisfactory.
-                    try {
-                        hint.set_use_markup(false);
-                        hint.set_text("ZIP entered — press Search to look up the nearest major city.");
-                        // Keep the dialog open; do not call dialog.close() so
-                        // the user can press Search without the dialog closing.
-                    } catch (GLib.Error e) { }
-                    return;
+                // Determine what to save: if we have a detected city from a ZIP lookup,
+                // use that; otherwise use the raw input as a city name.
+                string location_to_save;
+                string city_to_save;
+                string query_for_rssfinder;
+                
+                if (last_detected_city.length > 0) {
+                    // User performed a ZIP lookup - use the detected city
+                    location_to_save = last_detected_zip;
+                    city_to_save = last_detected_city;
+                    query_for_rssfinder = last_detected_city;
                 } else {
-                    // Plain free-form city: persist and clear resolved city
-                    try {
-                        prefs.user_location = val;
-                        prefs.user_location_city = "";
-                        prefs.save_config();
-                        // Notify parent window (if present) so overlays update
+                    // User entered a city name directly
+                    location_to_save = val;
+                    city_to_save = "";
+                    query_for_rssfinder = val;
+                }
+                
+                try {
+                    prefs.user_location = location_to_save;
+                    prefs.user_location_city = city_to_save;
+                    prefs.save_config();
+                    
+                    // Close the dialog immediately
+                    try { dialog.close(); } catch (GLib.Error e) { }
+                    
+                    // After dialog closes, update UI and run rssFinder
+                    Idle.add(() => {
                         try {
                             var parent_win2 = parent as NewsWindow;
                             if (parent_win2 != null) {
                                 try { parent_win2.update_personalization_ui(); } catch (GLib.Error e) { }
                                 try { parent_win2.update_local_news_ui(); } catch (GLib.Error e) { }
-                                try { parent_win2.fetch_news(); } catch (GLib.Error e) { }
-                                // Run rssFinder in background for the newly saved free-form city
-                                try { spawn_rssfinder_async(parent, val); } catch (GLib.Error e) { }
+                                // Run rssFinder with the appropriate query
+                                try { spawn_rssfinder_async(parent, query_for_rssfinder, true); } catch (GLib.Error e) { }
                             }
                         } catch (GLib.Error e) { }
-                    } catch (GLib.Error e) { /* best-effort only */ }
-                    try { dialog.close(); } catch (GLib.Error e) { }
-                    return;
-                }
+                        return false;
+                    });
+                } catch (GLib.Error e) { /* best-effort only */ }
+                return;
             } else {
                 // For any non-save response (cancel/close), close the dialog.
                 try { dialog.close(); } catch (GLib.Error e) { }
@@ -1788,10 +1826,10 @@ public class PrefsDialog : GLib.Object {
 
                 // Prepare UI for lookup
                 try {
+                    // Clear hint text - the spinner provides sufficient feedback
                     hint.set_use_markup(false);
-                    hint.set_text("Looking up ZIP…");
-                    // Reset previous detection UI
-                    try { detected_row.hide(); } catch (GLib.Error e) { }
+                    hint.set_text("");
+                    // Reset previous detection state
                     last_detected_zip = txt;
                     last_detected_city = "";
                     // Show spinner
@@ -1813,14 +1851,17 @@ public class PrefsDialog : GLib.Object {
 
                                 if (resolved.length > 0) {
                                     last_detected_city = resolved;
-                                    if (det_lbl != null) {
-                                        try { det_lbl.set_text("Detected: " + resolved); } catch (GLib.Error e) { }
-                                    }
-                                    if (detected_row != null) {
-                                        try { detected_row.show(); } catch (GLib.Error e) { }
-                                    }
+                                    try { 
+                                        hint.set_use_markup(true); 
+                                        hint.set_markup("Detected: <b>" + GLib.Markup.escape_text(resolved) + "</b> — click Save to use this location"); 
+                                    } catch (GLib.Error e) { }
+                                    // Enable Save button now that we have a valid detected city
+                                    update_save_button_state();
                                 } else {
                                     try { hint.set_use_markup(false); hint.set_text("No local mapping found for this ZIP code."); } catch (GLib.Error e) { }
+                                    // Keep Save button disabled if search failed
+                                    last_detected_city = "";
+                                    update_save_button_state();
                                 }
                             } catch (GLib.Error e) { }
                         });
