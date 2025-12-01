@@ -4,4 +4,38 @@ HERE="$(dirname "$(readlink -f "${0}")")"
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-}"
 # Ensure bundled libraries are preferred
 export LD_LIBRARY_PATH="$HERE/usr/lib:${LD_LIBRARY_PATH:-}"
+set -euo pipefail
+
+# Prefer system libxml2 if available. Only when the system doesn't
+# provide libxml2.so.16 do we prepend our bundled fallback directory
+# to LD_LIBRARY_PATH. This avoids overriding other system libraries.
+
+have_system_libxml2() {
+	# First try ldconfig cache (fast and reliable when available)
+	if command -v ldconfig >/dev/null 2>&1; then
+		if ldconfig -p | grep -q 'libxml2.so.16'; then
+			return 0
+		fi
+	fi
+
+	# Fallback: check common library directories directly
+	for p in /usr/lib /usr/lib64 /lib /lib64 /usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu /usr/lib/i386-linux-gnu /lib/i386-linux-gnu; do
+		if [ -e "$p/libxml2.so.16" ] || ls "$p"/libxml2.so.* 2>/dev/null | grep -q 'libxml2.so.16'; then
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+if have_system_libxml2; then
+	exec "$HERE/usr/bin/paperboy" "$@"
+fi
+
+# Use bundled fallback only when system libxml2.so.16 is not present.
+FALLBACK_DIR="$HERE/opt/fallback-libs"
+if [ -d "$FALLBACK_DIR" ]; then
+	export LD_LIBRARY_PATH="$FALLBACK_DIR${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+fi
+
 exec "$HERE/usr/bin/paperboy" "$@"
