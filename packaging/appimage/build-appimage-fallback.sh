@@ -17,8 +17,9 @@ REPO_ROOT="$(readlink -f "$SCRIPT_DIR/../..")"
 
 BUILD_DIR="build"
 APPIMAGETOOL="appimagetool"
-FALLBACK_SRC="$REPO_ROOT/packaging/appimage/fallback-libs/libxml2.so.2"
-OUT_DIR="$REPO_ROOT/build/appimage"
+# By default prefer the local .deb in packaging/appimage/ to extract libxml2.so.16
+FALLBACK_SRC=""
+OUT_DIR="$REPO_ROOT"
 APPDIR_DEST="$OUT_DIR/Paperboy.AppDir"
 
 while [ "$#" -gt 0 ]; do
@@ -36,35 +37,32 @@ mkdir -p "$OUT_DIR"
 rm -rf "$APPDIR_DEST"
 cp -a "$REPO_ROOT/packaging/appimage/AppDirTemplate" "$APPDIR_DEST"
 
-# Build the project (meson + ninja) if the build dir doesn't exist or is empty
+# We expect the project to already be built into '$BUILD_DIR'.
 if [ ! -d "$BUILD_DIR" ] || [ -z "$(ls -A "$BUILD_DIR" 2>/dev/null || true)" ]; then
-  echo "Running meson and ninja to build the project into '$BUILD_DIR'..."
-  meson setup "$BUILD_DIR" || meson configure "$BUILD_DIR"
-  ninja -C "$BUILD_DIR"
-else
-  echo "Using existing build directory '$BUILD_DIR' (run 'ninja -C $BUILD_DIR' to rebuild)."
+  echo "Error: expected compiled output in '$BUILD_DIR' but it's missing or empty. Build the project first (meson/ninja)." >&2
+  exit 1
 fi
 
-# Find the built 'paperboy' and 'rssFinder' executables
+# Find the built 'paperboy' and 'rssFinder' binaries
 find_exe() {
   name="$1"
   find "$BUILD_DIR" -type f -name "$name" -perm /u+x,g+x,o+x -print -quit 2>/dev/null || true
 }
 
-PAPERBOY_EXE="$(find_exe paperboy)"
-RSSFINDER_EXE="$(find_exe rssFinder)"
+PAPERBOY_BIN="$(find_exe paperboy)"
+RSSFINDER_BIN="$(find_exe rssFinder)"
 
-if [ -z "$PAPERBOY_EXE" ]; then
+if [ -z "$PAPERBOY_BIN" ]; then
   echo "Could not find built 'paperboy' executable in '$BUILD_DIR'. Build failed or binary has a different name."
   exit 1
 fi
 
 mkdir -p "$APPDIR_DEST/usr/bin"
-cp -a "$PAPERBOY_EXE" "$APPDIR_DEST/usr/bin/paperboy"
+cp -a "$PAPERBOY_BIN" "$APPDIR_DEST/usr/bin/paperboy"
 chmod +x "$APPDIR_DEST/usr/bin/paperboy"
 
-if [ -n "$RSSFINDER_EXE" ]; then
-  cp -a "$RSSFINDER_EXE" "$APPDIR_DEST/usr/bin/rssFinder"
+if [ -n "$RSSFINDER_BIN" ]; then
+  cp -a "$RSSFINDER_BIN" "$APPDIR_DEST/usr/bin/rssFinder"
   chmod +x "$APPDIR_DEST/usr/bin/rssFinder"
   echo "Included rssFinder in AppDir/usr/bin"
 else
@@ -76,15 +74,23 @@ copy_fallback() {
   mkdir -p "$APPDIR_DEST/opt/fallback-libs"
   cp -a "$1" "$APPDIR_DEST/opt/fallback-libs/"
   echo "Copied fallback lib to $APPDIR_DEST/opt/fallback-libs/"
+  # Ensure a generic soname is available as libxml2.so.16 for the loader
+  base="$(basename "$1")"
+  target_dir="$APPDIR_DEST/opt/fallback-libs"
+  # If the extracted file isn't exactly libxml2.so.16, create a symlink named libxml2.so.16
+  if [ "$base" != "libxml2.so.16" ]; then
+    (cd "$target_dir" && ln -sf "$base" libxml2.so.16) || true
+    echo "Created symlink $target_dir/libxml2.so.16 -> $base"
+  fi
 }
 
 if [ -f "$FALLBACK_SRC" ]; then
   copy_fallback "$FALLBACK_SRC"
 else
-  # Try to find a .deb in packaging/appimage/ and extract libxml2.so.2 from it
+  # Try to find a .deb in packaging/appimage/ and extract libxml2.so.16 from it
   FOUND_DEB="$(ls "$REPO_ROOT/packaging/appimage"/*.deb 2>/dev/null | head -n1 || true)"
   if [ -n "$FOUND_DEB" ]; then
-    echo "Found .deb in packaging/appimage: $FOUND_DEB — attempting to extract libxml2.so.2..."
+    echo "Found .deb in packaging/appimage: $FOUND_DEB — attempting to extract libxml2.so.16..."
     TMPDIR="$(mktemp -d)"
     if command -v dpkg-deb >/dev/null 2>&1; then
       dpkg-deb -x "$FOUND_DEB" "$TMPDIR"
@@ -108,16 +114,16 @@ else
     fi
 
     # Look for libxml2*.so files inside the extracted tree
-    CANDIDATE="$(find "$TMPDIR" -type f -name 'libxml2.so*' | grep '/libxml2.so\.2\>' || true)"
+    CANDIDATE="$(find "$TMPDIR" -type f -name 'libxml2.so*' | grep '/libxml2.so\.16\>' || true)"
     if [ -n "$CANDIDATE" ]; then
       copy_fallback "$CANDIDATE"
     else
-      # If exact soname not found, try any libxml2.so.* and pick the oldest (libxml2.so.2 likely)
+      # If exact soname not found, try any libxml2.so.* and pick the oldest (libxml2.so.16 likely)
       ANY="$(find "$TMPDIR" -type f -name 'libxml2.so.*' | head -n1 || true)"
       if [ -n "$ANY" ]; then
         copy_fallback "$ANY"
       else
-        echo "Warning: could not find libxml2.so.2 inside $FOUND_DEB" >&2
+        echo "Warning: could not find libxml2.so.16 inside $FOUND_DEB" >&2
       fi
     fi
     rm -rf "$TMPDIR"
@@ -130,14 +136,23 @@ fi
 chmod +x "$APPDIR_DEST/AppRun"
 
 # Build the AppImage
-if ! command -v "$APPIMAGETOOL" >/dev/null 2>&1; then
-  echo "Error: appimagetool not found at '$APPIMAGETOOL'. Install appimagetool or pass --appimagetool /path/to/appimagetool" >&2
-  exit 1
+if [[ "$APPIMAGETOOL" == */* ]]; then
+  if [ ! -x "$APPIMAGETOOL" ]; then
+    echo "Error: appimagetool not found or not executable at '$APPIMAGETOOL'." >&2
+    exit 1
+  fi
+  APPIMAGETOOL_CMD="$APPIMAGETOOL"
+else
+  if ! command -v "$APPIMAGETOOL" >/dev/null 2>&1; then
+    echo "Error: appimagetool not found in PATH. Install appimagetool or pass --appimagetool /path/to/appimagetool" >&2
+    exit 1
+  fi
+  APPIMAGETOOL_CMD="$(command -v "$APPIMAGETOOL")"
 fi
 
 echo "Creating AppImage from AppDir at '$APPDIR_DEST'..."
 pushd "$OUT_DIR" >/dev/null
-"$APPIMAGETOOL" "$APPDIR_DEST" || { popd >/dev/null; echo "appimagetool failed"; exit 1; }
+"$APPIMAGETOOL_CMD" "$APPDIR_DEST" || { popd >/dev/null; echo "appimagetool failed"; exit 1; }
 popd >/dev/null
 
 echo "AppImage build complete. Look in $OUT_DIR for the .AppImage file."
