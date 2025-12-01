@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.6.0a'
+  version : '0.6.2a'
 )
 
 gtk = dependency('gtk4')

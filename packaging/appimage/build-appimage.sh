@@ -63,6 +63,12 @@ chmod +x "$APPDIR/usr/bin/paperboy"
 if [ -x "$BUILD_DIR/rssFinder" ]; then
   cp "$BUILD_DIR/rssFinder" "$APPDIR/usr/bin/rssFinder"
   chmod +x "$APPDIR/usr/bin/rssFinder"
+  # Also copy into the namespaced data dir so runtime lookups find it
+  mkdir -p "$APPDIR/usr/share/org.gnome.Paperboy/tools"
+  cp "$BUILD_DIR/rssFinder" "$APPDIR/usr/share/org.gnome.Paperboy/tools/rssFinder"
+  # Provide a lowercase name as well for packagers that lowercase the binary
+  cp "$BUILD_DIR/rssFinder" "$APPDIR/usr/share/org.gnome.Paperboy/tools/rssfinder" 2>/dev/null || true
+  chmod +x "$APPDIR/usr/share/org.gnome.Paperboy/tools/rssFinder"
 else
   echo "Warning: rssFinder binary not found at $BUILD_DIR/rssFinder"
 fi
