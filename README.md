@@ -14,12 +14,15 @@
 ## About
 A simple news app written in Vala, built with GTK4 and Libadwaita. My motivation for building this app because I wanted to have a simple, but beautiful native GTK4 news application similar to Apple News. Feel free to test, change, and contribute back to this project.
 
-Some cool features of Paperboy:
+## 🚀 Some cool features of Paperboy
 
-- **Ships with curated sources** like The Guardian, Reddit, BBC, and FOX News.
-- **Fetches articles through PaperboyAPI**, a custom API that aggregates news from multiple sources and categories.
-- **Lets you build a custom feed** by combining any sources and categories you want.
-- **Includes local news support**, so you can see what’s happening near you.
+- 📰 **Curated sources out of the box** – including The Guardian, Reddit, BBC, and FOX News.  
+- ⚡ **Powered by PaperboyAPI** – fetches articles from multiple sources and categories seamlessly.  
+- ⭐ **Follow news sources** – users can add sources they find through the API.  
+- 📡 **RSS feed support** – add any RSS feeds to Paperboy to follow additional websites or blogs.  
+- 🛠️ **Customizable feeds** – mix and match sources and categories to create your own personalized news stream.  
+- 📖 **In-app article viewing** – read articles without leaving the app.  
+- 🌍 **Local news support** – stay updated on what’s happening in your area.
 
 ### WARNING
 This app is very much so in an alpha state. It will definitely eat your dogs and throw your kittens outside. It's functional, but it's still very much so a WIP.
