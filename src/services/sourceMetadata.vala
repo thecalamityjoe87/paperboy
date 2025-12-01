@@ -82,11 +82,48 @@ public class SourceMetadata : GLib.Object {
                 r = r.replace("\r", "\\r");
                 return r;
             }
+
+            // If a meta file already exists, load it and decide whether to
+            // update the display_name. We want to prefer human-friendly names
+            // (e.g., "The Verge") over domain-style fallbacks (e.g., "theverge.com").
+            string write_display_name = display_name;
+            try {
+                if (GLib.FileUtils.test(meta_path, GLib.FileTest.EXISTS)) {
+                    string existing_contents;
+                    if (GLib.FileUtils.get_contents(meta_path, out existing_contents)) {
+                        var parser = new Json.Parser();
+                        try {
+                            parser.load_from_data(existing_contents);
+                            var root = parser.get_root();
+                            if (root != null && root.get_node_type() == Json.NodeType.OBJECT) {
+                                var obj = root.get_object();
+                                if (obj.has_member("display_name")) {
+                                    string existing_name = obj.get_string_member("display_name");
+                                    // Heuristic: if existing name looks like a hostname
+                                    // (contains a dot and no spaces) and the new name is
+                                    // more human (contains a space or uppercase letters),
+                                    // prefer the new name.
+                                    bool existing_is_domain = existing_name.index_of(".") >= 0 && existing_name.index_of(" ") < 0;
+                                    bool new_is_more_human = (display_name.index_of(" ") >= 0) || (display_name != display_name.down());
+                                    if (existing_is_domain && new_is_more_human) {
+                                        write_display_name = display_name;
+                                    } else {
+                                        // Otherwise, keep existing name to avoid overwriting
+                                        // a manually curated display name.
+                                        write_display_name = existing_name;
+                                    }
+                                }
+                            }
+                        } catch (GLib.Error e) { /* ignore parse errors and overwrite */ }
+                    }
+                }
+            } catch (GLib.Error e) { /* best-effort */ }
+
             long now_s = (long)(GLib.get_real_time() / 1000000);
             string src_field = "";
             if (source_url != null) src_field = "  \"source_url\": \"" + escape((string)source_url) + "\",\n";
             string js = "{\n" +
-                "  \"display_name\": \"" + escape(display_name) + "\",\n" +
+                "  \"display_name\": \"" + escape(write_display_name) + "\",\n" +
                 "  \"original_logo_url\": \"" + escape(logo_url) + "\",\n" +
                 src_field +
                 "  \"saved_filename\": \"" + escape(filename) + "\",\n" +
@@ -131,7 +168,7 @@ public class SourceMetadata : GLib.Object {
     // Public entry: record mapping and attempt to download the logo into
     // a canonical filename. This is best-effort and runs the network work
     // in a background thread so it won't block the UI.
-    public static void update_index_and_fetch(string provider_key, string display_name, string? logo_url, string? source_url, Soup.Session session, string? rss_feed_url = null) {
+    public static void update_index_and_fetch(string provider_key, string display_name, string? logo_url, string? source_url, Soup.Session? session = null, string? rss_feed_url = null) {
         if (logo_url == null || logo_url.length == 0) return;
         try {
             string key = provider_key != null && provider_key.length > 0 ? provider_key : display_name;

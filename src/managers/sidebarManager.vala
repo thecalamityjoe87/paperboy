@@ -853,10 +853,8 @@ public class SidebarManager : GLib.Object {
                 string name = name_entry.get_text().strip();
 
                 if (url.length > 0) {
-                    if (name.length == 0) {
-                        // Extract name from URL
-                        name = extract_name_from_url(url);
-                    }
+                    // If the user didn't provide a name, pass an empty string
+                    // so the discovery flow can fetch the proper feed title.
                     add_rss_feed(name, url);
                 }
             }

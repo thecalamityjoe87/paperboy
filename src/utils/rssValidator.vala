@@ -65,17 +65,18 @@ public class RssValidator : GLib.Object {
         }
         
         // Check 5: Basic XML well-formedness - count opening/closing tags
-        // This is a simple heuristic, not a full XML parser
-        int rss_open = count_occurrences(lower_content, "<rss");
-        int rss_close = count_occurrences(lower_content, "</rss>");
-        int feed_open = count_occurrences(lower_content, "<feed");
-        int feed_close = count_occurrences(lower_content, "</feed>");
-        
+        // Use regex-based tag detection to avoid false positives (handles
+        // attributes, namespaces, and whitespace after the tag name).
+        int rss_open = count_tag_openings(lower_content, "rss");
+        int rss_close = count_tag_closings(lower_content, "rss");
+        int feed_open = count_tag_openings(lower_content, "feed");
+        int feed_close = count_tag_closings(lower_content, "feed");
+
         if (rss_open > 0 && rss_open != rss_close) {
             error_message = "Malformed XML: <rss> tags don't match";
             return false;
         }
-        
+
         if (feed_open > 0 && feed_open != feed_close) {
             error_message = "Malformed XML: <feed> tags don't match";
             return false;
@@ -97,14 +98,36 @@ public class RssValidator : GLib.Object {
         
         string lower_content = xml_content.down();
         
-        // Count <item> tags (RSS)
-        int count = count_occurrences(lower_content, "<item");
-        
+        // Count <item> tags (RSS) or <entry> tags (Atom) using robust tag matching
+        int count = count_tag_openings(lower_content, "item");
+
         // If no items, count <entry> tags (Atom)
         if (count == 0) {
-            count = count_occurrences(lower_content, "<entry");
+            count = count_tag_openings(lower_content, "entry");
         }
-        
+
+        // If we still have zero, attempt an XML-parse fallback which will
+        // correctly handle namespaces and unusual formatting.
+        if (count == 0) {
+            try {
+                Xml.Doc* doc = Xml.Parser.parse_doc(xml_content);
+                if (doc != null) {
+                    Xml.Node* root = doc->get_root_element();
+                    if (root != null) {
+                        int xml_items = count_xml_elements(root, "item");
+                        int xml_entries = count_xml_elements(root, "entry");
+                        int xml_count = xml_items + xml_entries;
+                        delete doc;
+                        if (xml_count > 0) return xml_count;
+                    } else {
+                        delete doc;
+                    }
+                }
+            } catch (Error e) {
+                // best-effort fallback; ignore parse errors
+            }
+        }
+
         return count;
     }
     
@@ -140,6 +163,46 @@ public class RssValidator : GLib.Object {
         }
         
         return count;
+    }
+
+    // Count opening tag occurrences like <tag ...> or <tag>
+    // This handles optional namespace prefixes (e.g. <atom:entry>)
+    private static int count_tag_openings(string haystack, string tag) {
+        if (haystack == null || tag == null || tag.length == 0) return 0;
+        try {
+            string pattern = "<(?:\\w+:)?" + tag + "(\\s|>|$)";
+            var regex = new GLib.Regex(pattern, GLib.RegexCompileFlags.CASELESS);
+            GLib.MatchInfo match_info;
+            int count = 0;
+            if (regex.match(haystack, 0, out match_info)) {
+                do {
+                    count++;
+                } while (match_info.next());
+            }
+            return count;
+        } catch (GLib.Error e) {
+            return 0;
+        }
+    }
+
+    // Count closing tag occurrences like </tag>
+    // Handles optional namespace prefixes (e.g. </atom:feed>)
+    private static int count_tag_closings(string haystack, string tag) {
+        if (haystack == null || tag == null || tag.length == 0) return 0;
+        try {
+            string pattern = "</(?:\\w+:)?" + tag + "\\s*>";
+            var regex = new GLib.Regex(pattern, GLib.RegexCompileFlags.CASELESS);
+            GLib.MatchInfo match_info;
+            int count = 0;
+            if (regex.match(haystack, 0, out match_info)) {
+                do {
+                    count++;
+                } while (match_info.next());
+            }
+            return count;
+        } catch (GLib.Error e) {
+            return 0;
+        }
     }
     
     /**
@@ -228,5 +291,20 @@ public class RssValidator : GLib.Object {
             }
         }
         return sb.str;
+    }
+
+    // Recursively count element nodes with the given local name. This
+    // correctly handles namespaced elements because Xml.Node->name gives
+    // the local name independent of namespace prefix.
+    private static int count_xml_elements(Xml.Node* node, string tag) {
+        if (node == null) return 0;
+        int c = 0;
+        for (Xml.Node* child = node->children; child != null; child = child->next) {
+            if (child->type == Xml.ElementType.ELEMENT_NODE) {
+                if (child->name != null && child->name == tag) c++;
+                c += count_xml_elements(child, tag);
+            }
+        }
+        return c;
     }
 }

@@ -70,27 +70,27 @@ public class RssParser {
 
             Xml.Node* root = doc->get_root_element();
             string? favicon_url = null;
-            for (Xml.Node* ch = root->children; ch != null; ch = ch->next) {
-                if (ch->type == Xml.ElementType.ELEMENT_NODE && (ch->name == "channel" || ch->name == "feed")) {
-                    for (Xml.Node* it = ch->children; it != null; it = it->next) {
-                        if (it->type == Xml.ElementType.ELEMENT_NODE) {
-                            if (it->name == "image") { // RSS 2.0 <image>
-                                for (Xml.Node* img_child = it->children; img_child != null; img_child = img_child->next) {
-                                    if (img_child->type == Xml.ElementType.ELEMENT_NODE && img_child->name == "url") {
-                                        favicon_url = img_child->get_content();
-                                        break;
-                                    }
+
+            // Support Atom feeds where <entry> elements are direct children of the root <feed>
+            if (root != null && root->type == Xml.ElementType.ELEMENT_NODE && root->name == "feed") {
+                for (Xml.Node* it = root->children; it != null; it = it->next) {
+                    if (it->type == Xml.ElementType.ELEMENT_NODE) {
+                        if (it->name == "image") { // unlikely in Atom, but keep for parity
+                            for (Xml.Node* img_child = it->children; img_child != null; img_child = img_child->next) {
+                                if (img_child->type == Xml.ElementType.ELEMENT_NODE && img_child->name == "url") {
+                                    favicon_url = img_child->get_content();
+                                    break;
                                 }
-                            } else if (it->name == "link") { // Atom <link rel="icon"> or RSS 2.0 <link>
-                                Xml.Attr* rel_attr = null;
-                                Xml.Attr* href_attr = null;
-                                for (Xml.Attr* a = it->properties; a != null; a = a->next) {
-                                    if (a->name == "rel") rel_attr = a;
-                                    if (a->name == "href") href_attr = a;
-                                }
-                                if (rel_attr != null && rel_attr->children != null && (string)rel_attr->children->content == "icon" && href_attr != null && href_attr->children != null) {
-                                    favicon_url = (string)href_attr->children->content;
-                                }
+                            }
+                        } else if (it->name == "link") {
+                            Xml.Attr* rel_attr = null;
+                            Xml.Attr* href_attr = null;
+                            for (Xml.Attr* a = it->properties; a != null; a = a->next) {
+                                if (a->name == "rel") rel_attr = a;
+                                if (a->name == "href") href_attr = a;
+                            }
+                            if (rel_attr != null && rel_attr->children != null && (string)rel_attr->children->content == "icon" && href_attr != null && href_attr->children != null) {
+                                favicon_url = (string)href_attr->children->content;
                             }
                         }
 
@@ -160,6 +160,20 @@ public class RssParser {
                                 } else if (c->name == "description" && thumb == null) {
                                     string? desc = c->get_content();
                                     if (desc != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(desc);
+                                } else if (c->name == "content" && thumb == null) {
+                                    // Atom <content type="html"> often contains HTML with <img>
+                                    string? content_html = c->get_content();
+                                    if (content_html != null) {
+                                        thumb = Tools.ImageParser.extract_image_from_html_snippet(content_html);
+                                        if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                    }
+                                } else if (c->name == "summary" && thumb == null) {
+                                    // Atom <summary> can also include an image snippet
+                                    string? summary_html = c->get_content();
+                                    if (summary_html != null) {
+                                        thumb = Tools.ImageParser.extract_image_from_html_snippet(summary_html);
+                                        if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                    }
                                 } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
                                     string? content = c->get_content();
                                     if (content != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(content);
@@ -186,6 +200,141 @@ public class RssParser {
                                 row.add(link);
                                 row.add(thumb);
                                 items.add(row);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // RSS-style parsing: look for <channel> or nested <feed> containers
+                for (Xml.Node* ch = root->children; ch != null; ch = ch->next) {
+                    if (ch->type == Xml.ElementType.ELEMENT_NODE && (ch->name == "channel" || ch->name == "feed")) {
+                        for (Xml.Node* it = ch->children; it != null; it = it->next) {
+                            if (it->type == Xml.ElementType.ELEMENT_NODE) {
+                                if (it->name == "image") { // RSS 2.0 <image>
+                                    for (Xml.Node* img_child = it->children; img_child != null; img_child = img_child->next) {
+                                        if (img_child->type == Xml.ElementType.ELEMENT_NODE && img_child->name == "url") {
+                                            favicon_url = img_child->get_content();
+                                            break;
+                                        }
+                                    }
+                                } else if (it->name == "link") { // Atom <link rel="icon"> or RSS 2.0 <link>
+                                    Xml.Attr* rel_attr = null;
+                                    Xml.Attr* href_attr = null;
+                                    for (Xml.Attr* a = it->properties; a != null; a = a->next) {
+                                        if (a->name == "rel") rel_attr = a;
+                                        if (a->name == "href") href_attr = a;
+                                    }
+                                    if (rel_attr != null && rel_attr->children != null && (string)rel_attr->children->content == "icon" && href_attr != null && href_attr->children != null) {
+                                        favicon_url = (string)href_attr->children->content;
+                                    }
+                                }
+                            }
+
+                            if (it->type == Xml.ElementType.ELEMENT_NODE && (it->name == "item" || it->name == "entry")) {
+                                string? title = null;
+                                string? link = null;
+                                string? thumb = null;
+                                for (Xml.Node* c = it->children; c != null; c = c->next) {
+                                    if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
+                                    if (c->name == "title") {
+                                        title = c->get_content();
+                                    } else if (c->name == "link") {
+                                        Xml.Attr* href = c->properties;
+                                        while (href != null) {
+                                            if (href->name == "href") {
+                                                link = href->children != null ? (string) href->children->content : null;
+                                                break;
+                                            }
+                                            href = href->next;
+                                        }
+                                        if (link == null) link = c->get_content();
+                                    } else if (c->name == "enclosure") {
+                                        Xml.Attr* a = c->properties;
+                                        while (a != null) {
+                                            if (a->name == "url") {
+                                                thumb = a->children != null ? (string) a->children->content : null;
+                                                if (thumb != null) {
+                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                    thumb = thumb.replace("&amp;", "&");
+                                                }
+                                                break;
+                                            }
+                                            a = a->next;
+                                        }
+                                    } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
+                                        Xml.Attr* a2 = c->properties;
+                                        while (a2 != null) {
+                                            if (a2->name == "url") {
+                                                thumb = a2->children != null ? (string) a2->children->content : null;
+                                                if (thumb != null) {
+                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                }
+                                                break;
+                                            }
+                                            a2 = a2->next;
+                                        }
+                                    } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
+                                        Xml.Attr* a3 = c->properties;
+                                        string? media_url = null;
+                                        string? media_type = null;
+                                        string? media_medium = null;
+                                        while (a3 != null) {
+                                            if (a3->name == "url") media_url = a3->children != null ? (string) a3->children->content : null;
+                                            else if (a3->name == "type") media_type = a3->children != null ? (string) a3->children->content : null;
+                                            else if (a3->name == "medium") media_medium = a3->children != null ? (string) a3->children->content : null;
+                                            a3 = a3->next;
+                                        }
+                                        if (media_url != null && thumb == null) {
+                                            bool is_image = false;
+                                            if (media_type != null && media_type.has_prefix("image")) is_image = true;
+                                            if (media_medium != null && media_medium == "image") is_image = true;
+                                            string mu_lower = media_url.down();
+                                            if (mu_lower.has_suffix(".jpg") || mu_lower.has_suffix(".jpeg") || mu_lower.has_suffix(".png") || mu_lower.has_suffix(".webp") || mu_lower.has_suffix(".gif")) is_image = true;
+                                            if (!is_image && media_url.contains("images.wsj.net/im-")) is_image = true;
+                                            if (is_image) thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
+                                        }
+                                    } else if (c->name == "description" && thumb == null) {
+                                        string? desc = c->get_content();
+                                        if (desc != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(desc);
+                                    } else if (c->name == "content" && thumb == null) {
+                                        string? content_html = c->get_content();
+                                        if (content_html != null) {
+                                            thumb = Tools.ImageParser.extract_image_from_html_snippet(content_html);
+                                            if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                        }
+                                    } else if (c->name == "summary" && thumb == null) {
+                                        string? summary_html = c->get_content();
+                                        if (summary_html != null) {
+                                            thumb = Tools.ImageParser.extract_image_from_html_snippet(summary_html);
+                                            if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                        }
+                                    } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
+                                        string? content = c->get_content();
+                                        if (content != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(content);
+                                    }
+                                }
+
+                                if (title != null && link != null) {
+                                    if (category_id == "local_news" && items.size >= LOCAL_FEED_MAX_ITEMS) {
+                                        try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssParser: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name); } catch (GLib.Error e) { }
+                                        continue;
+                                    }
+
+                                    var row = new Gee.ArrayList<string?>();
+                                    if (thumb != null && bbc_enabled) {
+                                        string thumb_l = thumb.down();
+                                        if (thumb_l.contains("bbc.") || thumb_l.contains("bbci.co.uk")) {
+                                            string before = thumb;
+                                            thumb = Tools.ImageParser.normalize_bbc_image_url(thumb);
+                                            try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssParser: normalized thumb %s -> %s", before, thumb); } catch (GLib.Error e) { }
+                                        }
+                                    }
+
+                                    row.add(title);
+                                    row.add(link);
+                                    row.add(thumb);
+                                    items.add(row);
+                                }
                             }
                         }
                     }

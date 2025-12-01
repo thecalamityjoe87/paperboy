@@ -153,6 +153,33 @@ namespace Paperboy {
                 try { source_added(added); } catch (GLib.Error e) { }
             }
 
+            // Best-effort: write per-source metadata so user-provided display
+            // names appear in `source_info/*.json`. We attempt to derive a host
+            // key from the feed URL and use a favicon fallback for logo_url.
+            // However, avoid persisting domain-only fallbacks: if the provided
+            // `name` equals the host (or host without www) then it was likely
+            // an inferred fallback and we should not write metadata here. The
+            // discovery flow (caller) will write proper metadata when available.
+            try {
+                string? host = UrlUtils.extract_host_from_url(url);
+                string? logo_url = null;
+                if (host != null && host.length > 0) {
+                    string host_no_www = host.replace("www.", "");
+                    bool name_is_host_fallback = (name == host) || (name == host_no_www) || (name == url);
+                    if (!name_is_host_fallback) {
+                        logo_url = "https://" + host + "/favicon.ico";
+                        try {
+                            SourceMetadata.update_index_and_fetch(host, name, logo_url, "https://" + host, null, url);
+                        } catch (GLib.Error e) { }
+                    }
+                } else {
+                    // Fallback: still write metadata keyed by sanitized display name
+                    try {
+                        SourceMetadata.update_index_and_fetch(name, name, "", null, null, url);
+                    } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
+
             return true;
         }
 
@@ -221,6 +248,35 @@ namespace Paperboy {
             if (added != null) {
                 try { source_added(added); } catch (GLib.Error e) { }
             }
+
+            // Best-effort metadata write for generated feeds: prefer original_url host
+            try {
+                string? host_key = null;
+                if (original_url != null && original_url.length > 0) {
+                    host_key = UrlUtils.extract_host_from_url(original_url);
+                }
+                if (host_key == null || host_key.length == 0) {
+                    host_key = UrlUtils.extract_host_from_url(url);
+                }
+
+                string? logo_url = null;
+                if (host_key != null && host_key.length > 0) {
+                    logo_url = "https://" + host_key + "/favicon.ico";
+                }
+
+                string key_for_meta = host_key != null && host_key.length > 0 ? host_key : name;
+                // Avoid persisting a domain-only display name if `name` is just the host
+                bool skip_meta = false;
+                if (host_key != null && host_key.length > 0) {
+                    string host_no_www = host_key.replace("www.", "");
+                    if (name == host_key || name == host_no_www || name == url) skip_meta = true;
+                }
+                if (!skip_meta) {
+                    try {
+                        SourceMetadata.update_index_and_fetch(key_for_meta, name, logo_url, original_url != null ? original_url : (host_key != null ? "https://" + host_key : null), null, url);
+                    } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
 
             return true;
         }

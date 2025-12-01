@@ -17,6 +17,7 @@
 
 using GLib;
 using Gee;
+using Xml;
 
 /*
  *SourceManager - Centralized source management
@@ -469,14 +470,27 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 // Step 2: Try to get a logo/favicon
                 // Priority 1: Check if we already have metadata for this source
                 string? existing_display_name = null;
+                bool force_update_meta = false;
                 if (host != null) {
                     string? existing_logo_url = null;
                     string? existing_filename = null;
                     SourceMetadata.get_source_info_by_url(feed_url, out existing_display_name, out existing_logo_url, out existing_filename);
 
-                    // If we have existing display name from source_info, use it
+                    // If we have existing display name from source_info, decide whether
+                    // to keep it or prefer the newly-discovered feed title. We prefer
+                    // the discovered title when the existing name looks like a domain
+                    // (contains a dot and no spaces) and the discovered title appears
+                    // more human (contains a space or has uppercase letters).
                     if (existing_display_name != null && existing_display_name.length > 0) {
-                        final_name = existing_display_name;
+                        bool existing_is_domain = existing_display_name.index_of(".") >= 0 && existing_display_name.index_of(" ") < 0;
+                        bool new_is_more_human = (final_name.index_of(" ") >= 0) || (final_name != final_name.down());
+                        if (existing_is_domain && new_is_more_human) {
+                            // Keep our discovered final_name and request metadata overwrite
+                            force_update_meta = true;
+                        } else {
+                            // Keep the existing curated display name
+                            final_name = existing_display_name;
+                        }
                     }
 
                     if (existing_logo_url != null && existing_logo_url.length > 0) {
@@ -484,17 +498,19 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     }
                 }
 
-                // Priority 2: Try standard favicon
+                // Priority 2: Try Google Favicon Service (robust fallback)
                 if (logo_url == null && host != null) {
-                    logo_url = "https://" + host + "/favicon.ico";
+                    logo_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
                 }
 
                 // Step 3: Add to database
                 var store = Paperboy.RssSourceStore.get_instance();
                 bool success = store.add_source(final_name, feed_url, null);
 
-                // Step 4: Save metadata and fetch logo (only if we don't already have it)
-                if (success && logo_url != null && host != null && existing_display_name == null) {
+                // Step 4: Save metadata and fetch logo. If we discovered a more
+                // human title than an existing domain-like metadata entry, force
+                // an update of the metadata file (overwrite the domain fallback).
+                if (success && logo_url != null && host != null && (existing_display_name == null || force_update_meta)) {
                     try {
                         SourceMetadata.update_index_and_fetch(host, final_name, logo_url, "https://" + host, window.session, feed_url);
                     } catch (GLib.Error e) {
@@ -521,32 +537,52 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     }
 
     // Extract feed title from RSS/Atom XML
+    // Helper: recursively search an Xml.Node subtree for the first <title> element
+    private string? find_first_title_in_xml(Xml.Node* node) {
+        if (node == null) return null;
+        for (Xml.Node* ch = node->children; ch != null; ch = ch->next) {
+            if (ch->type == Xml.ElementType.ELEMENT_NODE) {
+                string local = ch->name != null ? (string) ch->name : "";
+                if (local == "title") {
+                    string val = ch->get_content();
+                    if (val != null) return val.strip();
+                }
+                string? sub = find_first_title_in_xml(ch);
+                if (sub != null && sub.length > 0) return sub;
+            }
+        }
+        return null;
+    }
+
     private string extract_feed_title_from_xml(string xml_content) {
         try {
-            // Try parsing as XML to extract title
-            var parser = new Json.Parser();
+            // Prefer proper XML parsing rather than regex so we handle
+            // Atom titles with attributes (e.g. <title type="html">) and CDATA.
+            Xml.Doc* doc = null;
+            try {
+                // Use same safe parser options as rssParser
+                int parser_options = (int) (Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS);
+                doc = Xml.Parser.read_memory(xml_content, (int) xml_content.length, null, null, parser_options);
+            } catch (GLib.Error e) {
+                // Fallback: try to repair common issues by removing NULs
+                string cleaned = xml_content.replace("\0", "");
+                try { doc = Xml.Parser.read_memory(cleaned, (int) cleaned.length, null, null, (int)(Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS)); } catch (GLib.Error ee) { doc = null; }
+            }
 
-            // Simple regex-based extraction for RSS and Atom feeds
-            // RSS 2.0: <title>Feed Title</title>
-            // Atom: <title>Feed Title</title>
-            var title_regex = new GLib.Regex("<title>([^<]+)</title>", GLib.RegexCompileFlags.CASELESS);
-            GLib.MatchInfo match_info;
-
-            if (title_regex.match(xml_content, 0, out match_info)) {
-                string? title = match_info.fetch(1);
-                if (title != null && title.length > 0) {
-                    // Decode HTML entities and clean up
-                    title = title.strip();
-                    title = title.replace("&amp;", "&");
-                    title = title.replace("&lt;", "<");
-                    title = title.replace("&gt;", ">");
-                    title = title.replace("&quot;", "\"");
-                    title = title.replace("&#39;", "'");
-                    title = title.replace("&apos;", "'");
-
-                    // Don't use if it's too long (likely a description)
-                    if (title.length <= 100) {
-                        return title;
+            if (doc != null) {
+                Xml.Node* root = doc->get_root_element();
+                if (root != null) {
+                    string? found = find_first_title_in_xml(root);
+                    if (found != null) {
+                        // Decode common HTML entities
+                        found = found.replace("&amp;", "&");
+                        found = found.replace("&lt;", "<");
+                        found = found.replace("&gt;", ">");
+                        found = found.replace("&quot;", "\"");
+                        found = found.replace("&#39;", "'");
+                        found = found.replace("&apos;", "'");
+                        found = found.strip();
+                        if (found.length > 0 && found.length <= 200) return found;
                     }
                 }
             }
