@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.5.1a'
+  version : '0.6.0a'
 )
 
 gtk = dependency('gtk4')
@@ -120,6 +120,11 @@ install_data('data/icons/paperboy.png', install_dir: join_paths(get_option('data
 install_data('data/resources/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_data('data/usZips.csv', install_dir: join_paths(get_option('datadir'), 'paperboy'))
+
+# Ensure adblock stylesheet is installed under the namespaced datadir so
+# runtime lookups like DataPaths.find_data_file("resources/adblock.css")
+# can locate it both in development and when the app is installed.
+install_data('data/resources/adblock.css', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))
 
 # Build and install the html2rss helper via Cargo so it is available
 # when running `ninja` / `ninja install`. We use a custom_target that

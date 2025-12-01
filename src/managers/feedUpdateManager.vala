@@ -366,37 +366,54 @@ public class FeedUpdateManager : GLib.Object {
      */
     private string? find_html2rss_binary() {
         var candidates = new Gee.ArrayList<string>();
-        
-        // Installed binary locations
+
+        // Preferred: meson-configured bindir
         candidates.add(BuildConstants.RSSFINDER_BINDIR + "/html2rss");
-        
+
+        // Standard system locations
+        candidates.add("/usr/bin/html2rss");
+        candidates.add("/usr/local/bin/html2rss");
+        candidates.add("/usr/share/org.gnome.Paperboy/tools/html2rss");
+
+        // Check all system data dirs
         var sys_dirs = GLib.Environment.get_system_data_dirs();
-        if (sys_dirs != null && sys_dirs.length > 0) {
-            candidates.add(GLib.Path.build_filename(sys_dirs[0], "org.gnome.Paperboy", "tools", "html2rss"));
+        if (sys_dirs != null) {
+            for (int i = 0; i < sys_dirs.length; i++) {
+                var dir = sys_dirs[i];
+                if (dir != null && dir.length > 0) {
+                    candidates.add(GLib.Path.build_filename(dir, "org.gnome.Paperboy", "tools", "html2rss"));
+                }
+            }
         }
-        
+
+        // Flatpak/AppImage style
         candidates.add("/app/share/org.gnome.Paperboy/tools/html2rss");
-        
+
         // Development build locations
         candidates.add("tools/html2rss/target/release/html2rss");
         candidates.add("./tools/html2rss/target/release/html2rss");
         candidates.add("../tools/html2rss/target/release/html2rss");
-        
+
         string? cwd = GLib.Environment.get_current_dir();
         if (cwd != null) {
             candidates.add(GLib.Path.build_filename(cwd, "tools", "html2rss", "target", "release", "html2rss"));
         }
-        
+
         string? home_env = GLib.Environment.get_variable("HOME");
         if (home_env != null) {
             string home_candidate = GLib.Path.build_filename(home_env, "paperboy", "tools", "html2rss", "target", "release", "html2rss");
             candidates.add(home_candidate);
         }
-        
-        // Check each candidate
+
+        // Check each candidate and return the first executable match
         foreach (string c in candidates) {
-            if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
-                return c;
+            try {
+                if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
+                    GLib.message("Using html2rss at: %s", c);
+                    return c;
+                }
+            } catch (GLib.Error e) {
+                // ignore and continue
             }
         }
         

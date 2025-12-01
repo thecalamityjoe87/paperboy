@@ -830,24 +830,33 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                         GLib.message("Attempting local html2rss fallback for host: %s", host);
                         
                         string? script_path = null;
-                        // Prefer an installed native binary first (bindir/datadir), then dev build (many possible CWDs), then Python script
                         var binary_candidates = new ArrayList<string>();
 
-                        // meson-installed bindir (usually 'bin/html2rss' when installed)
+                        // Preferred: meson-generated bindir (configured at build time)
                         binary_candidates.add(BuildConstants.RSSFINDER_BINDIR + "/html2rss");
 
-                        // system data dirs (possible install locations)
+                        // Common system locations where packagers or users may put helper binaries
+                        binary_candidates.add("/usr/bin/html2rss");
+                        binary_candidates.add("/usr/local/bin/html2rss");
+                        binary_candidates.add("/usr/share/org.gnome.Paperboy/tools/html2rss");
+
+                        // System data dirs (check all entries, not just the first)
                         try {
                             var sys_dirs = GLib.Environment.get_system_data_dirs();
-                            if (sys_dirs != null && sys_dirs.length > 0) {
-                                binary_candidates.add(GLib.Path.build_filename(sys_dirs[0], "org.gnome.Paperboy", "tools", "html2rss"));
+                            if (sys_dirs != null) {
+                                for (int i = 0; i < sys_dirs.length; i++) {
+                                    var dir = sys_dirs[i];
+                                    if (dir != null && dir.length > 0) {
+                                        binary_candidates.add(GLib.Path.build_filename(dir, "org.gnome.Paperboy", "tools", "html2rss"));
+                                    }
+                                }
                             }
                         } catch (GLib.Error e) { }
 
-                        // flatpak-style path
+                        // Flatpak/AppImage-style path
                         binary_candidates.add("/app/share/org.gnome.Paperboy/tools/html2rss");
 
-                        // Common development locations - check several relative paths so app finds the dev-built binary
+                        // Development build locations
                         binary_candidates.add("tools/html2rss/target/release/html2rss");
                         binary_candidates.add("./tools/html2rss/target/release/html2rss");
                         binary_candidates.add("../tools/html2rss/target/release/html2rss");
@@ -856,7 +865,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                             binary_candidates.add(GLib.Path.build_filename(cwd, "tools", "html2rss", "target", "release", "html2rss"));
                         }
 
-                        // Last resort: look in a common workspace path under the user's home (helpful when running from other launchers)
+                        // Common user workspace fallback
                         string? home_env = GLib.Environment.get_variable("HOME");
                         if (home_env != null && home_env.length > 0) {
                             string home_candidate = GLib.Path.build_filename(home_env, "paperboy", "tools", "html2rss", "target", "release", "html2rss");
@@ -864,11 +873,21 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                         }
 
                         foreach (var c in binary_candidates) {
-                            // GLib.message("Checking candidate: %s", c);
                             try {
                                 var f = GLib.File.new_for_path(c);
-                                bool exists = f.query_exists(null);
-                                if (exists) {
+                                if (f.query_exists(null)) {
+                                    // Ensure it's executable where possible
+                                    try {
+                                        var info = f.query_info("standard::access", 0, null);
+                                        bool can_exec = false;
+                                        if (info != null) {
+                                            var perms = info.get_attribute_boolean("standard::access");
+                                            // fall back to assuming existence means executable on platforms where access attr may not be present
+                                            can_exec = true;
+                                        }
+                                    } catch (GLib.Error ee) {
+                                        // ignore permission check, treat existence as sufficient
+                                    }
                                     script_path = c;
                                     GLib.message("Found html2rss binary at: %s", c);
                                     break;
@@ -1075,7 +1094,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                 });
                             }
                         } else {
-                            GLib.warning("No html2rss_task.py found in expected locations");
+                            GLib.warning("No html2rss binary found in expected locations");
                             GLib.Idle.add(() => {
                                 window.show_toast("No RSS feeds found");
                                 return false;

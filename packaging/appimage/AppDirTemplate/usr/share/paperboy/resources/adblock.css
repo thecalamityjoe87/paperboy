@@ -1,0 +1,40 @@
+/* ===========================================
+   Gentle Cosmetic Ad Hiding for WebKitGTK 6
+   =========================================== */
+
+/* Hide specific ad iframes from major ad networks */
+iframe[src*="doubleclick"],
+iframe[src*="googlesyndication"],
+iframe[src*="taboola"],
+iframe[src*="outbrain"],
+iframe[src*="doubleclick.net"],
+iframe[src*="googlesyndication.com"],
+iframe[src*="googleadservices.com"],
+iframe[src*="pagead2.googlesyndication.com"] {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    border: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* AdChoices logos / overlays and descendants */
+.adchoices,
+.adChoice,
+.adchoice-icon,
+.adchoices-logo,
+.adchoice-badge,
+.adchoices *,
+.ad-choices,
+.ad-Choice,
+.adchoices-badge,
+.adchoices-link {
+    display: none !important;
+}
+
+/* Hide a few very common ad container classes */
+.ad-banner,
+.ad-container {
+    display: none !important;
+}
