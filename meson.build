@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.6.2a'
+  version : '0.6.3a'
 )
 
 gtk = dependency('gtk4')
@@ -115,6 +115,9 @@ install_data('data/icons/128x128/paperboy.png', install_dir: join_paths(get_opti
 install_data('data/icons/256x256/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '256x256', 'apps'))
 install_data('data/icons/512x512/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '512x512', 'apps'))
 install_data('data/icons/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '1024x1024', 'apps'))
+
+# Scalable SVG
+install_data('data/icons/scalable/paperboy.svg', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps'))
 
 # Install app data (styles, icons) to a namespaced datadir for runtime lookup
 install_data('data/resources/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))

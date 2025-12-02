@@ -1,0 +1,13 @@
+Source: paperboy
+Section: web
+Priority: optional
+Maintainer: Isaac Joseph <calamityjoe87@gmail.com>
+Build-Depends: debhelper-compat (= 13), meson, ninja-build, pkg-config, valac, libgtk-4-dev, libadwaita-1-dev, libgdk-pixbuf-2.0-dev, libjson-glib-dev, libgee-0.8-dev, libglib2.0-dev, libsqlite3-dev, libxml2-dev, libwebkitgtk-6.0-dev
+Standards-Version: 4.6.0
+
+Package: paperboy
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: RSS reader and article browser (Paperboy)
+ A small Vala/GTK4 application for reading RSS/Atom feeds and
+ viewing articles.
