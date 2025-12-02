@@ -861,25 +861,6 @@ public class PrefsDialog : GLib.Object {
                 // to see the full descriptor without expanding the layout.
                 try { custom_row.set_tooltip_text(display_name + "\n" + rss_source.url); } catch (GLib.Error ee) { }
 
-                // Try to load icon with priority order:
-                // 1. Check SourceMetadata for saved filename (from Front Page/Top Ten)
-                // 2. Use RSS database icon_filename
-                // 3. Guess from source name
-                string? icon_filename = null;
-                
-                // Priority 1: Check SourceMetadata first (matches cardBuilder.vala pattern)
-                icon_filename = SourceMetadata.get_saved_filename_for_source(rss_source.name);
-                
-                // Priority 2: Fall back to RSS database icon_filename
-                if (icon_filename == null || icon_filename.length == 0) {
-                    icon_filename = rss_source.icon_filename;
-                }
-                
-                // Priority 3: Guess from source name as last resort
-                if (icon_filename == null || icon_filename.length == 0) {
-                    icon_filename = SourceMetadata.sanitize_filename(rss_source.name) + "-logo.png";
-                }
-
                 // Helper function to load icon from file with Cairo circular clipping
                 void try_load_icon_circular(string path, Gtk.Picture picture) {
                     if (GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
@@ -912,47 +893,44 @@ public class PrefsDialog : GLib.Object {
                     }
                 }
 
-                // Check if icon file exists and load it
-                if (icon_filename != null) {
+                bool icon_loaded = false;
+
+                // Priority 1: Try to load from saved file (SourceMetadata saved filename)
+                string? icon_filename = SourceMetadata.get_saved_filename_for_source(rss_source.name);
+                if (icon_filename != null && icon_filename.length > 0) {
                     var data_dir = GLib.Environment.get_user_data_dir();
                     var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
-
-                    // Try to load immediately
-                    try_load_icon_circular(icon_path, custom_picture);
-
-                    // If icon file doesn't exist yet, set up a watcher to check periodically
-                    // This handles the case where the logo is still being downloaded
-                    if (!GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                        uint timeout_id = 0;
-                        int check_count = 0;
-                        int max_checks = 20; // Check for up to 10 seconds (20 * 500ms)
-
-                        timeout_id = GLib.Timeout.add(500, () => {
-                            check_count++;
-
-                            // Try to load the icon
-                            if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                                try_load_icon_circular(icon_path, custom_picture);
-                                // Also update the database with the icon filename
-                                rss_store.update_source_icon(rss_source.url, icon_filename);
-                                return false; // Stop the timeout
-                            }
-
-                            // Stop checking after max_checks attempts
-                            if (check_count >= max_checks) {
-                                return false;
-                            }
-
-                            return true; // Continue checking
-                        });
-
-                        // Clean up timeout when row is destroyed
-                        custom_row.destroy.connect(() => {
-                            if (timeout_id > 0) {
-                                GLib.Source.remove(timeout_id);
-                            }
-                        });
+                    if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
+                        try_load_icon_circular(icon_path, custom_picture);
+                        icon_loaded = true;
                     }
+                }
+
+                // Priority 2: Try API logo URL from SourceMetadata (high quality from logo.dev)
+                if (!icon_loaded) {
+                    string? meta_logo_url = SourceMetadata.get_logo_url_for_source(rss_source.name);
+                    if (meta_logo_url != null && meta_logo_url.length > 0 &&
+                        (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
+                        load_favicon_circular(custom_picture, meta_logo_url);
+                        icon_loaded = true;
+                    }
+                }
+
+                // Priority 3: Try Google favicon service
+                if (!icon_loaded) {
+                    string? host = UrlUtils.extract_host_from_url(rss_source.url);
+                    if (host != null && host.length > 0) {
+                        string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+                        load_favicon_circular(custom_picture, google_favicon_url);
+                        icon_loaded = true;
+                    }
+                }
+
+                // Priority 4: Try RSS favicon_url
+                if (!icon_loaded && rss_source.favicon_url != null && rss_source.favicon_url.length > 0 &&
+                    (rss_source.favicon_url.has_prefix("http://") || rss_source.favicon_url.has_prefix("https://"))) {
+                    load_favicon_circular(custom_picture, rss_source.favicon_url);
+                    icon_loaded = true;
                 }
 
                 // Create delete button
@@ -1052,6 +1030,16 @@ public class PrefsDialog : GLib.Object {
     sep.set_margin_bottom(6);
     main_container.append(sep);
 
+        // App Settings header
+        var app_settings_header = new Gtk.Label("App Settings");
+        app_settings_header.set_xalign(0);
+        app_settings_header.add_css_class("heading");
+        app_settings_header.set_margin_start(12);
+        app_settings_header.set_margin_end(12);
+        app_settings_header.set_margin_top(12);
+        app_settings_header.set_margin_bottom(6);
+        main_container.append(app_settings_header);
+
         // Personalized feed toggle (separate from the source list)
         var personalized_row = new Adw.ActionRow();
         personalized_row.set_title("Enable personalized feed");
@@ -1110,6 +1098,78 @@ public class PrefsDialog : GLib.Object {
         custom_only_row.activatable = true;
         custom_only_row.activated.connect(() => { custom_only_switch.set_active(!custom_only_switch.get_active()); });
         main_container.append(custom_only_row);
+
+        // Unread count badges preference
+        var unread_badges_row = new Adw.ActionRow();
+        unread_badges_row.set_title("Show unread count badges");
+        unread_badges_row.set_subtitle("Display unread article counts in the sidebar");
+        var unread_badges_switch = new Gtk.Switch();
+        unread_badges_switch.set_active(prefs.unread_badges_enabled);
+        unread_badges_switch.set_halign(Gtk.Align.END);
+        unread_badges_switch.set_valign(Gtk.Align.CENTER);
+        unread_badges_switch.set_hexpand(false);
+        unread_badges_switch.set_vexpand(false);
+
+        // Create the settings button for badge visibility options
+        var badge_settings_btn = new Gtk.Button();
+        badge_settings_btn.set_valign(Gtk.Align.CENTER);
+        badge_settings_btn.set_has_frame(false);
+        var badge_settings_icon = new Gtk.Image.from_icon_name("settings-symbolic");
+        badge_settings_icon.set_pixel_size(16);
+        badge_settings_btn.set_child(badge_settings_icon);
+        badge_settings_btn.set_tooltip_text("Badge visibility settings");
+
+        // When toggled, persist the preference and refresh sidebar
+        unread_badges_switch.state_set.connect((sw, state) => {
+            prefs.unread_badges_enabled = state;
+            prefs.save_config();
+            // Refresh sidebar badges to show/hide them
+            if (win != null && win.sidebar_manager != null) {
+                win.sidebar_manager.refresh_all_badges();
+            }
+            return false;
+        });
+
+        // Settings button shows a popover with category/source toggles
+        badge_settings_btn.clicked.connect(() => {
+            var popover = new Gtk.Popover();
+            var popover_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
+            popover_box.set_margin_start(12);
+            popover_box.set_margin_end(12);
+            popover_box.set_margin_top(12);
+            popover_box.set_margin_bottom(12);
+
+            var categories_check = new Gtk.CheckButton.with_label("Show on categories");
+            categories_check.set_active(prefs.unread_badges_categories);
+            categories_check.toggled.connect(() => {
+                prefs.unread_badges_categories = categories_check.get_active();
+                prefs.save_config();
+                if (win != null && win.sidebar_manager != null) {
+                    win.sidebar_manager.refresh_all_badges();
+                }
+            });
+
+            var sources_check = new Gtk.CheckButton.with_label("Show on followed sources");
+            sources_check.set_active(prefs.unread_badges_sources);
+            sources_check.toggled.connect(() => {
+                prefs.unread_badges_sources = sources_check.get_active();
+                prefs.save_config();
+                if (win != null && win.sidebar_manager != null) {
+                    win.sidebar_manager.refresh_all_badges();
+                }
+            });
+
+            popover_box.append(categories_check);
+            popover_box.append(sources_check);
+            popover.set_child(popover_box);
+            popover.set_parent(badge_settings_btn);
+            popover.popup();
+        });
+
+        // Add settings button first (left), then switch (right)
+        unread_badges_row.add_suffix(badge_settings_btn);
+        unread_badges_row.add_suffix(unread_badges_switch);
+        main_container.append(unread_badges_row);
 
         // No Local News image limit preference: keep UX simple and load a
         // small, fixed amount by default to avoid excessive memory use.

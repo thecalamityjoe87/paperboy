@@ -767,11 +767,11 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                                     save_logo_url = api_logo_url;
                                                 }
 
-                                                // Priority 4: Final fallback - construct favicon URL from the domain
+                                                // Priority 4: Final fallback - use Google favicon service (better quality)
                                                 // This ensures we ALWAYS create metadata, even for brand new sources
                                                 if (save_logo_url == null || save_logo_url.length == 0) {
-                                                    save_logo_url = "https://" + host + "/favicon.ico";
-                                                    GLib.warning("RSS Discovery: Using favicon fallback for %s", host);
+                                                    save_logo_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+                                                    GLib.warning("RSS Discovery: Using Google favicon service for %s", host);
                                                 }
 
                                                 // Create metadata - we always have a logo URL now (at minimum, favicon)
@@ -1055,7 +1055,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                             if (article_logo_url != null && article_logo_url.length > 0) {
                                                 logo_url_to_save = article_logo_url;
                                             } else {
-                                                logo_url_to_save = "https://" + host + "/favicon.ico";
+                                                // Use Google favicon service (better quality than direct favicon.ico)
+                                                logo_url_to_save = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
                                             }
                                         }
                                         

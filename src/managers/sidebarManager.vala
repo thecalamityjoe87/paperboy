@@ -687,7 +687,7 @@ public class SidebarManager : GLib.Object {
         if (window.article_state_store != null) {
             unread_count = window.article_state_store.get_unread_count_for_source(source.name);
         }
-        var badge = build_unread_count_badge(unread_count);
+        var badge = build_unread_count_badge_for_source(unread_count);
         feed_box.append(badge);
         source_badges.set(source.name, badge);
 
@@ -933,30 +933,17 @@ public class SidebarManager : GLib.Object {
     // Load RSS source icon from SourceMetadata (same logic as prefsDialog)
     // Create a Widget (usually an Image or Picture) with rendered logo.
     private Gtk.Widget create_rss_source_picture(Paperboy.RssSource source) {
-        string? icon_filename = null;
+        int size = CategoryIcons.SIDEBAR_ICON_SIZE;
+        bool icon_loaded = false;
 
-        // Priority 1: Check SourceMetadata first
-        icon_filename = SourceMetadata.get_saved_filename_for_source(source.name);
-
-        // Priority 2: Fall back to RSS database icon_filename
-        if (icon_filename == null || icon_filename.length == 0) {
-            icon_filename = source.icon_filename;
-        }
-
-        // Priority 3: Guess from source name as last resort
-        if (icon_filename == null || icon_filename.length == 0) {
-            icon_filename = SourceMetadata.sanitize_filename(source.name) + "-logo.png";
-        }
-
-        // Check if icon file exists and load it using Cairo
-        if (icon_filename != null) {
+        // Priority 1: Check SourceMetadata saved file first
+        string? icon_filename = SourceMetadata.get_saved_filename_for_source(source.name);
+        if (icon_filename != null && icon_filename.length > 0) {
             var data_dir = GLib.Environment.get_user_data_dir();
             var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
 
             if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
                 try {
-                    // Load and scale using ImageCache (like cardBuilder)
-                    int size = CategoryIcons.SIDEBAR_ICON_SIZE;
                     var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
                     if (probe != null) {
                         int orig_w = 0; int orig_h = 0;
@@ -971,7 +958,6 @@ public class SidebarManager : GLib.Object {
 
                         var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
 
-                        // Render centered on Cairo surface
                         var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, size, size);
                         var cr = new Cairo.Context(surface);
                         int x = (size - sw) / 2;
@@ -987,22 +973,39 @@ public class SidebarManager : GLib.Object {
                             return pic;
                         }
                     }
-                } catch (GLib.Error e) {
-                    // Fall through to fallback icon
-                }
+                } catch (GLib.Error e) { }
             }
         }
 
+        // Priority 2: Try API logo URL from SourceMetadata (high quality from logo.dev)
+        string? meta_logo_url = SourceMetadata.get_logo_url_for_source(source.name);
+        if (!icon_loaded && meta_logo_url != null && meta_logo_url.length > 0 &&
+            (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
+            var pic = new Gtk.Picture();
+            pic.set_size_request(size, size);
+            try { if (window.image_handler != null) window.image_handler.load_image_async(pic, meta_logo_url, size, size); } catch (GLib.Error e) { }
+            return pic;
+        }
+
+        // Priority 3: Try Google favicon service (better quality than raw favicon)
+        string? host = UrlUtils.extract_host_from_url(source.url);
+        if (!icon_loaded && host != null && host.length > 0) {
+            string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+            var pic = new Gtk.Picture();
+            pic.set_size_request(size, size);
+            try { if (window.image_handler != null) window.image_handler.load_image_async(pic, google_favicon_url, size, size); } catch (GLib.Error e) { }
+            return pic;
+        }
+
         // Fallback: return a themed RSS icon (as Gtk.Image) sized for sidebar
-        int fsize = CategoryIcons.SIDEBAR_ICON_SIZE;
         try {
             var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
-            fallback.set_pixel_size(fsize);
+            fallback.set_pixel_size(size);
             return fallback;
         } catch (GLib.Error e) {
             // As a very last resort return an empty Picture sized correctly
             var pic = new Gtk.Picture();
-            pic.set_size_request(fsize, fsize);
+            pic.set_size_request(size, size);
             return pic;
         }
     }
@@ -1094,7 +1097,7 @@ public class SidebarManager : GLib.Object {
                 unread_count = window.article_state_store.get_unread_count_for_category(category_id);
             }
             var badge = category_badges.get(category_id);
-            update_unread_count_badge(badge, unread_count);
+            update_unread_count_badge(badge, unread_count, false);
         }
     }
 
@@ -1106,7 +1109,7 @@ public class SidebarManager : GLib.Object {
                 unread_count = window.article_state_store.get_unread_count_for_source(source_name);
             }
             var badge = source_badges.get(source_name);
-            update_unread_count_badge(badge, unread_count);
+            update_unread_count_badge(badge, unread_count, true);
         }
     }
 
@@ -1123,7 +1126,7 @@ public class SidebarManager : GLib.Object {
         }
     }
 
-    // Helper: Build unread count badge widget
+    // Helper: Build unread count badge widget for categories
     private Gtk.Widget build_unread_count_badge(int count) {
         var label = new Gtk.Label(count > 99 ? "99+" : count.to_string());
         label.add_css_class("unread-count-badge");
@@ -1133,27 +1136,48 @@ public class SidebarManager : GLib.Object {
         // Store the count in widget data for easy updates
         label.set_data("unread_count", count);
 
-        // Hide if count is 0
-        if (count == 0) {
-            label.set_visible(false);
-        }
+        // Check if badges are enabled globally and for categories
+        var prefs = NewsPreferences.get_instance();
+        bool should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories && count > 0;
+        label.set_visible(should_show);
+
+        return label;
+    }
+
+    // Helper: Build unread count badge widget for RSS sources
+    private Gtk.Widget build_unread_count_badge_for_source(int count) {
+        var label = new Gtk.Label(count > 99 ? "99+" : count.to_string());
+        label.add_css_class("unread-count-badge");
+        label.set_valign(Gtk.Align.CENTER);
+        label.set_halign(Gtk.Align.END);
+
+        // Store the count in widget data for easy updates
+        label.set_data("unread_count", count);
+
+        // Check if badges are enabled globally and for sources
+        var prefs = NewsPreferences.get_instance();
+        bool should_show = prefs.unread_badges_enabled && prefs.unread_badges_sources && count > 0;
+        label.set_visible(should_show);
 
         return label;
     }
 
     // Helper: Update unread count badge widget
-    private void update_unread_count_badge(Gtk.Widget badge, int count) {
+    private void update_unread_count_badge(Gtk.Widget badge, int count, bool is_source) {
         if (badge is Gtk.Label) {
             var label = (Gtk.Label) badge;
             label.set_label(count > 99 ? "99+" : count.to_string());
             label.set_data("unread_count", count);
 
-            // Hide badge if count is 0
-            if (count == 0) {
-                badge.set_visible(false);
+            // Check if badges are enabled based on type
+            var prefs = NewsPreferences.get_instance();
+            bool should_show = false;
+            if (is_source) {
+                should_show = prefs.unread_badges_enabled && prefs.unread_badges_sources && count > 0;
             } else {
-                badge.set_visible(true);
+                should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories && count > 0;
             }
+            badge.set_visible(should_show);
         }
     }
 }

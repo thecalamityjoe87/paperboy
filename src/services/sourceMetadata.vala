@@ -177,15 +177,19 @@ public class SourceMetadata : GLib.Object {
             string base_name = sanitize_filename(display_name);
             string filename = base_name + "-logo.png";
 
-            // If the canonical file already exists, nothing to do
+            // If the canonical file already exists, do NOT re-download or overwrite
             string? dir = get_user_logos_dir();
             if (dir == null) return;
             string target = GLib.Path.build_filename(dir, filename);
-            try { if (GLib.FileUtils.test(target, GLib.FileTest.EXISTS)) return; } catch (GLib.Error e) { }
+            bool logo_exists = false;
+            try { logo_exists = GLib.FileUtils.test(target, GLib.FileTest.EXISTS); } catch (GLib.Error e) { }
 
-            // Write lightweight per-provider metadata into the `source_info`
-            // directory and fetch the image in background. The metadata file
-            // is a small JSON record and is stored separately from the image.
+            if (logo_exists) {
+                // Logo file already exists - NEVER overwrite or re-download
+                return;
+            }
+
+            // Logo doesn't exist yet - write metadata and download
             try { write_provider_meta(filename, display_name, logo_url, source_url); } catch (GLib.Error e) { }
 
             new Thread<void*>("source-logo-fetch", () => {

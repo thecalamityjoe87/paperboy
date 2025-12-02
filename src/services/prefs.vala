@@ -99,6 +99,21 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_string("user-location-city", value); }
     }
 
+    public bool unread_badges_enabled {
+        get { return settings.get_boolean("unread-badges-enabled"); }
+        set { settings.set_boolean("unread-badges-enabled", value); }
+    }
+
+    public bool unread_badges_categories {
+        get { return settings.get_boolean("unread-badges-categories"); }
+        set { settings.set_boolean("unread-badges-categories", value); }
+    }
+
+    public bool unread_badges_sources {
+        get { return settings.get_boolean("unread-badges-sources"); }
+        set { settings.set_boolean("unread-badges-sources", value); }
+    }
+
     public Gee.ArrayList<string> personalized_categories {
         owned get {
             var list = new Gee.ArrayList<string>();

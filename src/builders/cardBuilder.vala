@@ -388,53 +388,50 @@ public class CardBuilder : GLib.Object {
                         }
                     }
 
-                    // Priority 2: Try RSS icon_filename as fallback
-                    if (!icon_loaded && src.icon_filename != null && src.icon_filename.length > 0) {
-                        var data_dir = GLib.Environment.get_user_data_dir();
-                        var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", src.icon_filename);
-                        if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                            try {
-                                var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
-                                if (probe != null) {
-                                    int orig_w = 0; int orig_h = 0;
-                                    try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                                    try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
-                                    double scale = 1.0;
-                                    if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
-                                    int sw = (int)(orig_w * scale);
-                                    int sh = (int)(orig_h * scale);
-                                    if (sw < 1) sw = 1; if (sh < 1) sh = 1;
+                    // Priority 2: Try loading directly from API logo URL (high quality from logo.dev)
+                    if (!icon_loaded && meta_logo_url != null && meta_logo_url.length > 0 &&
+                        (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
+                        var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
+                        logo_wrapper.add_css_class("circular-logo");
+                        logo_wrapper.set_size_request(20, 20);
+                        logo_wrapper.set_valign(Gtk.Align.CENTER);
+                        logo_wrapper.set_halign(Gtk.Align.CENTER);
 
-                                    var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
+                        var pic = new Gtk.Picture();
+                        pic.set_size_request(20, 20);
+                        pic.set_valign(Gtk.Align.CENTER);
+                        pic.set_halign(Gtk.Align.CENTER);
+                        try { if (win.image_handler != null) win.image_handler.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
 
-                                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                                    var cr = new Cairo.Context(surface);
-                                    int x = (20 - sw) / 2;
-                                    int y = (20 - sh) / 2;
-                                    try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
-                                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, 20, 20);
-                                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
+                        logo_wrapper.append(pic);
+                        box.append(logo_wrapper);
+                        icon_loaded = true;
+                    }
 
-                                    var pic = new Gtk.Picture();
-                                    if (pb_surf != null) {
-                                        try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf)); } catch (GLib.Error e) { }
-                                    }
-                                    pic.set_size_request(20, 20);
+                    // Priority 3: Try Google favicon service
+                    if (!icon_loaded) {
+                        string? host = UrlUtils.extract_host_from_url(src.url);
+                        if (host != null && host.length > 0) {
+                            string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+                            var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
+                            logo_wrapper.add_css_class("circular-logo");
+                            logo_wrapper.set_size_request(20, 20);
+                            logo_wrapper.set_valign(Gtk.Align.CENTER);
+                            logo_wrapper.set_halign(Gtk.Align.CENTER);
 
-                                    var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                                    logo_wrapper.add_css_class("circular-logo");
-                                    logo_wrapper.set_size_request(20, 20);
-                                    logo_wrapper.set_valign(Gtk.Align.CENTER);
-                                    logo_wrapper.set_halign(Gtk.Align.CENTER);
-                                    logo_wrapper.append(pic);
-                                    box.append(logo_wrapper);
-                                    icon_loaded = true;
-                                }
-                            } catch (GLib.Error e) { }
+                            var pic = new Gtk.Picture();
+                            pic.set_size_request(20, 20);
+                            pic.set_valign(Gtk.Align.CENTER);
+                            pic.set_halign(Gtk.Align.CENTER);
+                            try { if (win.image_handler != null) win.image_handler.load_image_async(pic, google_favicon_url, 20, 20); } catch (GLib.Error e) { }
+
+                            logo_wrapper.append(pic);
+                            box.append(logo_wrapper);
+                            icon_loaded = true;
                         }
                     }
 
-                    // Priority 3: Last resort - use RSS favicon_url
+                    // Priority 4: Try RSS favicon_url
                     if (!icon_loaded && src.favicon_url != null && src.favicon_url.length > 0 &&
                         (src.favicon_url.has_prefix("http://") || src.favicon_url.has_prefix("https://"))) {
                         var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
