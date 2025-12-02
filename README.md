@@ -36,7 +36,7 @@ Summary of required toolchain and libraries:
 - Vala compiler and toolchain: `valac`
 - Meson & Ninja: `meson`, `ninja-build` (or `ninja`)
 - GTK4 development headers and Libadwaita: `libgtk-4-dev`, `libadwaita-1-dev`
-- WebKitGTK (for embedded web view): `libwebkit2gtk-6.0` development headers
+- WebKitGTK (for embedded web view): `libwebkitgtk-6.0` development headers
 - Libsoup 3 (HTTP client used by the app): `libsoup-3.0` development headers
 - JSON-GLib: `libjson-glib-dev`
 - GdkPixbuf: `libgdk-pixbuf2.0-dev`
@@ -56,8 +56,8 @@ Debian / Ubuntu:
 ```bash
 sudo apt update
 sudo apt install build-essential valac meson ninja-build pkg-config \
-	libgtk-4-dev libadwaita-1-dev libwebkit2gtk-6.0-dev \
-	libsoup3.0-dev libjson-glib-dev libgdk-pixbuf2.0-dev \
+	libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev \
+	libsoup3.0-dev libjson-glib-dev libgdk-pixbuf-2.0-dev \
 	libxml2-dev libgee-0.8-dev libsqlite3-dev
 
 # Rust (recommended via rustup) and appimagetool (optional):
@@ -70,7 +70,7 @@ Fedora:
 
 ```bash
 sudo dnf install @development-tools vala meson ninja pkgconf-pkg-config \
-  gtk4-devel libadwaita-devel webkit2gtk6-devel libsoup3-devel json-glib-devel \
+  gtk4-devel libadwaita-devel webkitgtk6-devel libsoup3-devel json-glib-devel \
   gdk-pixbuf2-devel libxml2-devel libgee-devel sqlite-devel
 
 # Rust toolchain and appimagetool (if desired):
@@ -92,7 +92,7 @@ pacman -S appimagetool || true
 OpenSUSE Tumbleweed:
 ```bash
 sudo zypper in -t pattern devel_basis && sudo zypper in meson vala gtk4-devel \
-  webkit2gtk6-devel libsoup3-devel json-glib-devel libadwaita-devel libgee-devel sqlite3-devel
+  libwebkitgtk6.0-devel libsoup3-devel json-glib-devel libadwaita-devel libgee-devel sqlite3-devel
 ```
 
 Build & run
