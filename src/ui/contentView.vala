@@ -192,11 +192,6 @@ public class ContentView : GLib.Object {
         toast_viewport_proxy.set_hexpand(false);
         toast_viewport_proxy.set_vexpand(false);
         toast_overlay.set_child(toast_viewport_proxy);
-        try { stderr.printf("DEBUG: ContentView: toast_overlay=%p visible=%s proxy=%p\n", toast_overlay, toast_overlay.get_visible() ? "YES" : "NO", toast_viewport_proxy); } catch (GLib.Error e) { }
-
-
-
-
 
         // Loading spinner container (initially hidden) - centered over main content
         loading_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 16);
@@ -287,7 +282,7 @@ public class ContentView : GLib.Object {
         try { local_news_title.set_wrap(true); } catch (GLib.Error e) { }
         ln_inner.append(local_news_title);
 
-        local_news_hint = new Gtk.Label("Open the main menu (☰) and choose 'Set User Location' to configure your city or ZIP code.");
+        local_news_hint = new Gtk.Label("Open the main menu (☰) → choose 'Set User Location' to configure your city or ZIP code.");
         local_news_hint.add_css_class("dim-label");
         local_news_hint.set_halign(Gtk.Align.CENTER);
         local_news_hint.set_valign(Gtk.Align.CENTER);

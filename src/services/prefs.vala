@@ -21,7 +21,7 @@ using GLib;
 public class NewsPreferences : GLib.Object {
     private static NewsPreferences? instance = null;
     private GLib.Settings settings;
-    private GLib.KeyFile config;  // Still used for viewed_articles (user-generated data)
+    private GLib.KeyFile config;  // Used for preferred_sources (user-generated data)
     private string config_path;
     // True while we're loading/migrating the KeyFile to avoid triggering
     // saves from setters during initialization.
@@ -41,6 +41,7 @@ public class NewsPreferences : GLib.Object {
                 case "reuters": return NewsSource.REUTERS;
                 case "npr": return NewsSource.NPR;
                 case "fox": return NewsSource.FOX;
+                case "unknown": return NewsSource.UNKNOWN;
                 default: return NewsSource.GUARDIAN;
             }
         }
@@ -56,6 +57,7 @@ public class NewsPreferences : GLib.Object {
                 case NewsSource.REUTERS: source_str = "reuters"; break;
                 case NewsSource.NPR: source_str = "npr"; break;
                 case NewsSource.FOX: source_str = "fox"; break;
+                case NewsSource.UNKNOWN: source_str = "unknown"; break;
                 default: source_str = "guardian"; break;
             }
             settings.set_string("news-source", source_str);
@@ -259,7 +261,7 @@ public class NewsPreferences : GLib.Object {
         // Initialize GSettings for UI preferences
         settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
         
-        // Initialize KeyFile for user-generated data (viewed_articles)
+        // Initialize KeyFile for user-generated data (preferred_sources)
         config = new GLib.KeyFile();
         config_path = get_config_file_path();
         
@@ -289,37 +291,45 @@ public class NewsPreferences : GLib.Object {
 
     public void save_config() {
         // GSettings automatically persists UI preferences, so we only need to
-        // save user-generated data (viewed_articles and preferred_sources) to KeyFile
+        // save user-generated data (preferred_sources) to KeyFile
         try {
             warning("NewsPreferences.save_config: writing config_path=%s", config_path);
+
+            // Create a clean KeyFile with ONLY the keys that belong in config.ini
+            var clean_config = new GLib.KeyFile();
 
             // Persist preferred sources (user-followed sources including custom RSS feeds)
             if (_preferred_sources != null && _preferred_sources.size > 0) {
                 warning("NewsPreferences.save_config: saving %d preferred_sources to config", _preferred_sources.size);
                 string[] parr = new string[_preferred_sources.size];
                 for (int i = 0; i < _preferred_sources.size; i++) parr[i] = _preferred_sources.get(i);
-                config.set_string_list("preferences", "preferred_sources", parr);
+                clean_config.set_string_list("preferences", "preferred_sources", parr);
             } else {
-                warning("NewsPreferences.save_config: _preferred_sources is null or empty (size=%d), will reload from disk", _preferred_sources != null ? _preferred_sources.size : -1);
-                // If the running instance has no in-memory preferred list, reload
-                // the config file to preserve any existing value on disk rather than
-                // overwriting with an empty config.
+                warning("NewsPreferences.save_config: _preferred_sources is null or empty (size=%d), will try to preserve from disk", _preferred_sources != null ? _preferred_sources.size : -1);
+                // If the running instance has no in-memory preferred list, try to preserve
+                // the existing value from disk rather than overwriting with an empty config.
                 if (GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
-                    config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
+                    try {
+                        var temp_config = new GLib.KeyFile();
+                        temp_config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
+                        if (temp_config.has_key("preferences", "preferred_sources")) {
+                            string[] parr = temp_config.get_string_list("preferences", "preferred_sources");
+                            clean_config.set_string_list("preferences", "preferred_sources", parr);
+                        }
+                    } catch (GLib.Error e) {
+                        warning("Failed to load existing preferred_sources: %s", e.message);
+                    }
                 }
                 // Only seed the default list on a true first-run (config file did
                 // not exist at startup). If the config file exists but lacks the
-                // key, leave it untouched so we don't accidentally overwrite a
-                // user's data or remove the opportunity for migration to recover
-                // richer data.
-                if (first_run && !config.has_key("preferences", "preferred_sources")) {
+                // key, leave it empty rather than seeding defaults.
+                if (first_run && !clean_config.has_key("preferences", "preferred_sources")) {
                     string[] default_sources = {"guardian", "reddit", "bbc", "nytimes", "wsj", "bloomberg", "reuters", "npr", "fox"};
-                    config.set_string_list("preferences", "preferred_sources", default_sources);
+                    clean_config.set_string_list("preferences", "preferred_sources", default_sources);
                 }
-                // Otherwise: leave the existing on-disk value untouched.
             }
-            
-            string config_data = config.to_data();
+
+            string config_data = clean_config.to_data();
             // Write file and confirm
             GLib.FileUtils.set_contents(config_path, config_data);
             warning("NewsPreferences.save_config: wrote %d bytes to %s", config_data.length, config_path);

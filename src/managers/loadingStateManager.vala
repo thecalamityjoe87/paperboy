@@ -153,11 +153,11 @@ public class LoadingStateManager : GLib.Object {
         bool show_message = false;
         try {
             if (is_myfeed) {
-                // Only show messages if BOTH personalized categories AND custom RSS are not configured
-                if (!enabled && !has_custom_rss) {
-                    if (personalized_message_label != null) personalized_message_label.set_text("Enable personalized feed or add custom RSS sources.");
+                // Show message if personalized feed is disabled (no content will be fetched regardless of sources)
+                if (!enabled) {
+                    if (personalized_message_label != null) personalized_message_label.set_text("Personalized feed is disabled.");
                     if (personalized_message_sub_label != null) {
-                        personalized_message_sub_label.set_text("Open Preferences to configure personalized categories or follow custom RSS sources.");
+                        personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → choose 'Configure settings' → enable the personalized feed toggle to see content from your followed sources.");
                         personalized_message_sub_label.set_visible(true);
                     }
                     if (personalized_message_action != null) personalized_message_action.set_visible(true);
@@ -165,7 +165,7 @@ public class LoadingStateManager : GLib.Object {
                 } else if (enabled && !has_personalized && !has_custom_rss) {
                     if (personalized_message_label != null) personalized_message_label.set_text("Personalized Feed is enabled but no categories are selected.");
                     if (personalized_message_sub_label != null) {
-                        personalized_message_sub_label.set_text("Open Preferences → Personalized Feed and choose categories, or follow custom RSS sources.");
+                        personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → choose 'Configure settings' → Personalized Feed and choose categories, or follow custom RSS sources.");
                         personalized_message_sub_label.set_visible(true);
                     }
                     if (personalized_message_action != null) personalized_message_action.set_visible(true);
@@ -179,7 +179,8 @@ public class LoadingStateManager : GLib.Object {
 
             personalized_message_box.set_visible(show_message);
 
-            if (!initial_phase && window.main_content_container != null) {
+            // Hide main content when showing the overlay (regardless of initial_phase)
+            if (window.main_content_container != null) {
                 window.main_content_container.set_visible(!show_message);
             }
         } catch (GLib.Error e) { }
@@ -242,6 +243,16 @@ public class LoadingStateManager : GLib.Object {
     }
 
     public void show_end_of_feed_message() {
+        // Don't show "no more articles" if any instruction overlay is visible
+        try {
+            if (personalized_message_box != null && personalized_message_box.get_visible()) {
+                return;
+            }
+            if (local_news_message_box != null && local_news_message_box.get_visible()) {
+                return;
+            }
+        } catch (GLib.Error e) { }
+
         try {
             var children = window.content_box.observe_children();
             for (uint i = 0; i < children.get_n_items(); i++) {

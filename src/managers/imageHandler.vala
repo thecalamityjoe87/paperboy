@@ -31,10 +31,16 @@ public class ImageHandler : GLib.Object {
         } catch (GLib.Error e) { prefer_local = false; }
 
         if (prefer_local) {
-            try { window.set_local_placeholder_image(pic, w, h); } catch (GLib.Error e) { try { window.set_placeholder_image_for_source(pic, w, h, window.infer_source_from_url(url)); } catch (GLib.Error _e) { } }
+            try { window.set_local_placeholder_image(pic, w, h); } catch (GLib.Error e) { try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error _e) { } }
             try { if (window.pending_local_placeholder != null) window.pending_local_placeholder.remove(pic); } catch (GLib.Error e) { }
         } else {
-            try { window.set_placeholder_image_for_source(pic, w, h, window.infer_source_from_url(url)); } catch (GLib.Error e) { try { window.set_local_placeholder_image(pic, w, h); } catch (GLib.Error _e) { } }
+            NewsSource source = window.infer_source_from_url(url);
+            // For unknown sources, use generic gradient placeholder instead of source branding
+            if (source == NewsSource.UNKNOWN) {
+                try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error e) { }
+            } else {
+                try { window.set_placeholder_image_for_source(pic, w, h, source); } catch (GLib.Error e) { try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error _e) { } }
+            }
         }
     }
 

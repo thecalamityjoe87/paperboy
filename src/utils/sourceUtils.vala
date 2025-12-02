@@ -40,6 +40,8 @@ public class SourceUtils {
                 return "NPR";
             case NewsSource.FOX:
                 return "Fox News";
+            case NewsSource.UNKNOWN:
+                return "News";
             default:
                 return "News";
         }
@@ -76,6 +78,8 @@ public class SourceUtils {
             case NewsSource.WALL_STREET_JOURNAL:
                 icon_filename = "wsj-logo.png";
                 break;
+            case NewsSource.UNKNOWN:
+                return null;
             default:
                 return null;
         }
@@ -87,8 +91,7 @@ public class SourceUtils {
 
     // Infer source from a URL by checking known domain substrings
     public static NewsSource infer_source_from_url(string? url) {
-        var prefs = NewsPreferences.get_instance();
-        if (url == null || url.length == 0) return prefs.news_source;
+        if (url == null || url.length == 0) return NewsSource.UNKNOWN;
         string low = url.down();
         if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) return NewsSource.GUARDIAN;
         if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) return NewsSource.BBC;
@@ -99,7 +102,7 @@ public class SourceUtils {
         if (low.index_of("reuters") >= 0) return NewsSource.REUTERS;
         if (low.index_of("npr.org") >= 0) return NewsSource.NPR;
         if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) return NewsSource.FOX;
-        // Unknown, return preference as a sensible default
-        return prefs.news_source;
+        // Unknown source - don't default to user preference to avoid incorrect branding
+        return NewsSource.UNKNOWN;
     }
 }
