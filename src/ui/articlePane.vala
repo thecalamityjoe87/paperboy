@@ -62,7 +62,7 @@ public class ArticlePane : GLib.Object {
     // platform Gio.AppInfo API first; on failure fall back to executing
     // `xdg-open` as a last resort. We log failures to the debug log when
     // PAPERBOY_DEBUG is enabled so failures can be diagnosed remotely.
-    private void open_article_in_browser(string uri) {
+    public void open_article_in_browser(string uri) {
         // Log the click and the raw URI so debugging is reliable even when
         // AppInfo doesn't report an error (AppInfo may succeed silently
         // or the desktop may be misconfigured).

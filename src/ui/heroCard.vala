@@ -25,9 +25,17 @@ public class HeroCard : GLib.Object {
     public Gtk.Picture image;
     public Gtk.Label title_label;
     public string url;
+    public string? source_name;
+    public string? category_id;
+    public string? thumbnail_url;
 
     // Signal emitted when the hero/slide is activated (clicked)
     public signal void activated(string url);
+
+    // Signal emitted when context menu action is requested
+    public signal void open_in_app_requested(string url);
+    public signal void open_in_browser_requested(string url);
+    public signal void follow_source_requested(string url, string? source_name);
 
     public HeroCard(string title, string url, int max_total_height, int image_h, Gtk.Widget? chip) {
         GLib.Object();
@@ -89,5 +97,48 @@ public class HeroCard : GLib.Object {
         motion.enter.connect(() => { root.add_css_class("card-hover"); });
         motion.leave.connect(() => { root.remove_css_class("card-hover"); });
         root.add_controller(motion);
+
+        // Right-click context menu
+        var right_click = new Gtk.GestureClick();
+        try { right_click.set_button(3); } catch (GLib.Error e) { }
+        right_click.pressed.connect((n_press, x, y) => {
+            try { show_context_menu(x, y); } catch (GLib.Error e) { }
+        });
+        root.add_controller(right_click);
+    }
+
+    private void show_context_menu(double x, double y) {
+        var menu = new GLib.Menu();
+        menu.append("View in app", "card.open-in-app");
+        menu.append("Open in browser", "card.open-in-browser");
+        menu.append("Follow this source", "card.follow-source");
+
+        var open_in_app_action = new GLib.SimpleAction("open-in-app", null);
+        open_in_app_action.activate.connect(() => {
+            try { open_in_app_requested(url); } catch (GLib.Error e) { }
+        });
+
+        var open_in_browser_action = new GLib.SimpleAction("open-in-browser", null);
+        open_in_browser_action.activate.connect(() => {
+            try { open_in_browser_requested(url); } catch (GLib.Error e) { }
+        });
+
+        var follow_action = new GLib.SimpleAction("follow-source", null);
+        follow_action.activate.connect(() => {
+            try { follow_source_requested(url, source_name); } catch (GLib.Error e) { }
+        });
+
+        var action_group = new GLib.SimpleActionGroup();
+        action_group.add_action(open_in_app_action);
+        action_group.add_action(open_in_browser_action);
+        action_group.add_action(follow_action);
+
+        var popover = new Gtk.PopoverMenu.from_model(menu);
+        popover.set_parent(root);
+        popover.set_has_arrow(false);
+        popover.set_pointing_to({ (int)x, (int)y, 1, 1 });
+
+        root.insert_action_group("card", action_group);
+        popover.popup();
     }
 }

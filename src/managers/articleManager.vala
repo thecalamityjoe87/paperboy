@@ -376,7 +376,36 @@ namespace Managers {
                     Timeout.add(300, () => { var info = window.hero_requests.get(hero_card.image); if (info != null) window.maybe_refetch_hero_for(hero_card.image, info); return false; });
                 }
 
+                // Set metadata for context menu
+                hero_card.source_name = source_name;
+                hero_card.category_id = category_id;
+                hero_card.thumbnail_url = thumbnail_url;
+
                 hero_card.activated.connect((s) => { try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { } });
+
+                // Connect context menu signals
+                hero_card.open_in_app_requested.connect((article_url) => {
+                    try {
+                        string normalized = window.normalize_article_url(article_url);
+                        window.mark_article_viewed(normalized);
+                        if (window.article_sheet != null) window.article_sheet.open(normalized);
+                    } catch (GLib.Error e) { }
+                });
+
+                hero_card.open_in_browser_requested.connect((article_url) => {
+                    try {
+                        string normalized = window.normalize_article_url(article_url);
+                        window.mark_article_viewed(normalized);
+                        window.article_pane.open_article_in_browser(article_url);
+                    } catch (GLib.Error e) { }
+                });
+
+                hero_card.follow_source_requested.connect((article_url, src_name) => {
+                    try {
+                        window.show_persistent_toast("Searching for feed...");
+                        window.source_manager.follow_rss_source(article_url, src_name);
+                    } catch (GLib.Error e) { }
+                });
 
                 if (window.prefs.category == "topten") {
                     if (topten_hero_count < 2) {
@@ -671,8 +700,37 @@ namespace Managers {
             }
         } catch (GLib.Error e) { }
 
+        // Set metadata for context menu
+        article_card.source_name = source_name;
+        article_card.category_id = category_id;
+        article_card.thumbnail_url = thumbnail_url;
+
         article_card.activated.connect((s) => {
             try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { }
+        });
+
+        // Connect context menu signals
+        article_card.open_in_app_requested.connect((article_url) => {
+            try {
+                string normalized = window.normalize_article_url(article_url);
+                window.mark_article_viewed(normalized);
+                if (window.article_sheet != null) window.article_sheet.open(normalized);
+            } catch (GLib.Error e) { }
+        });
+
+        article_card.open_in_browser_requested.connect((article_url) => {
+            try {
+                string normalized = window.normalize_article_url(article_url);
+                window.mark_article_viewed(normalized);
+                window.article_pane.open_article_in_browser(article_url);
+            } catch (GLib.Error e) { }
+        });
+
+        article_card.follow_source_requested.connect((article_url, src_name) => {
+            try {
+                window.show_persistent_toast("Searching for feed...");
+                window.source_manager.follow_rss_source(article_url, src_name);
+            } catch (GLib.Error e) { }
         });
 
         if (target_col == -1) {
