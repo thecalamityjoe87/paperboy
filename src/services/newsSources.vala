@@ -28,7 +28,8 @@ public enum NewsSource {
     BLOOMBERG,
     REUTERS,
     NPR,
-    FOX
+    FOX,
+    UNKNOWN
 }
 
 public delegate void SetLabelFunc(string text);

@@ -578,6 +578,15 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     } catch (GLib.Error e) { }
 
+    // My Feed overlay: wire the "Select news sources" button to open the sources dialog
+    try {
+        if (loading_state.personalized_message_action != null) {
+            loading_state.personalized_message_action.clicked.connect(() => {
+                try { PrefsDialog.show_sources_list_dialog(this); } catch (GLib.Error e) { }
+            });
+        }
+    } catch (GLib.Error e) { }
+
     try { if (loading_state.local_news_message_box != null) root_overlay.add_overlay(loading_state.local_news_message_box); } catch (GLib.Error e) { }
 
     // Add error message overlay and wire up retry button
@@ -1012,7 +1021,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Infer source from a URL by checking known domain substrings. Falls back
     // to the current prefs.news_source when uncertain.
     public NewsSource infer_source_from_url(string? url) {
-        if (url == null || url.length == 0) return prefs.news_source;
+        if (url == null || url.length == 0) return NewsSource.UNKNOWN;
     string low = url.down();
         if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) return NewsSource.GUARDIAN;
         if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) return NewsSource.BBC;
@@ -1023,8 +1032,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (low.index_of("reuters") >= 0) return NewsSource.REUTERS;
         if (low.index_of("npr.org") >= 0) return NewsSource.NPR;
         if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) return NewsSource.FOX;
-        // Unknown, return preference as a sensible default
-        return prefs.news_source;
+        // Unknown source - don't default to user preference to avoid incorrect branding
+        return NewsSource.UNKNOWN;
     }
 
     // Resolve a NewsSource from a provided display/source name if possible;
@@ -1564,22 +1573,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // (ArticleManager will handle button cleanup internally)
         
         // If the user selected "My Feed" but personalization is disabled,
-        // check if they have custom RSS sources. If they do, continue to fetch those.
-        // Otherwise, show the personalized overlay and return.
-        bool is_myfeed_view = category_manager.is_myfeed_view();
-        bool has_custom_sources = false;
-        if (is_myfeed_view) {
-            var rss_store = Paperboy.RssSourceStore.get_instance();
-            var all_custom = rss_store.get_all_sources();
-            foreach (var src in all_custom) {
-                if (prefs.preferred_source_enabled("custom:" + src.url)) {
-                    has_custom_sources = true;
-                    break;
-                }
-            }
-        }
+        // show the personalized overlay and return (no content should be fetched).
+        bool is_myfeed_category = category_manager.is_myfeed_category();
 
-        bool is_myfeed_disabled = (is_myfeed_view && !prefs.personalized_feed_enabled && !has_custom_sources);
+        bool is_myfeed_disabled = (is_myfeed_category && !prefs.personalized_feed_enabled);
         if (is_myfeed_disabled) {
             try { update_content_header(); } catch (GLib.Error e) { }
             try { update_personalization_ui(); } catch (GLib.Error e) { }

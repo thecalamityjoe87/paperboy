@@ -60,9 +60,16 @@ using Gee;
         return get_current_category() == "topten";
     }
 
-    // Check if we're viewing My Feed
-    public bool is_myfeed_view() {
+    // Check if the current category is "myfeed" (regardless of whether it's enabled)
+    // Use this to determine if we're LOOKING AT the My Feed page
+    public bool is_myfeed_category() {
         return get_current_category() == "myfeed";
+    }
+
+    // Check if we're viewing My Feed AND it's properly enabled
+    // Use this to determine if My Feed should SHOW CONTENT
+    public bool is_myfeed_view() {
+        return is_myfeed_category() && prefs.personalized_feed_enabled;
     }
 
     // Check if we're viewing Local News

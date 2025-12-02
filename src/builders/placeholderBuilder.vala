@@ -139,6 +139,10 @@ public class PlaceholderBuilder : GLib.Object {
                     gradient.add_color_stop_rgb(0, 0.0, 0.2, 0.6);
                     gradient.add_color_stop_rgb(1, 0.1, 0.3, 0.8);
                     break;
+                case NewsSource.UNKNOWN:
+                    gradient.add_color_stop_rgb(0, 0.9, 0.9, 0.9);
+                    gradient.add_color_stop_rgb(1, 0.8, 0.8, 0.8);
+                    break;
                 default:
                     gradient.add_color_stop_rgb(0, 0.3, 0.3, 0.4);
                     gradient.add_color_stop_rgb(1, 0.5, 0.5, 0.6);
@@ -218,7 +222,7 @@ public class PlaceholderBuilder : GLib.Object {
             } catch (GLib.Error e) { }
         } catch (GLib.Error e) {
             // Fallback to text-based placeholder
-            string src = "News";
+            string src = "News Source";
             try { src = PlaceholderBuilder.get_source_name(source); } catch (GLib.Error ee) { }
             PlaceholderBuilder.create_source_text_placeholder(image, src, source, width, height);
         }
@@ -262,6 +266,10 @@ public class PlaceholderBuilder : GLib.Object {
                 case NewsSource.FOX:
                     gradient.add_color_stop_rgb(0, 0.0, 0.3, 0.7);
                     gradient.add_color_stop_rgb(1, 0.2, 0.5, 0.9);
+                    break;
+                case NewsSource.UNKNOWN:
+                    gradient.add_color_stop_rgb(0, 0.9, 0.9, 0.9);
+                    gradient.add_color_stop_rgb(1, 0.8, 0.8, 0.8);
                     break;
                 default:
                     gradient.add_color_stop_rgb(0, 0.4, 0.4, 0.4);
@@ -483,6 +491,7 @@ public class PlaceholderBuilder : GLib.Object {
             case NewsSource.REUTERS: return "Reuters";
             case NewsSource.NPR: return "NPR";
             case NewsSource.FOX: return "Fox News";
+            case NewsSource.UNKNOWN: return "News Source";
             default: return "News";
         }
     }
@@ -499,6 +508,7 @@ public class PlaceholderBuilder : GLib.Object {
             case NewsSource.NPR: icon_filename = "npr-logo.png"; break;
             case NewsSource.FOX: icon_filename = "foxnews-logo.png"; break;
             case NewsSource.WALL_STREET_JOURNAL: icon_filename = "wsj-logo.png"; break;
+            case NewsSource.UNKNOWN: return null;
             default: return null;
         }
         return DataPaths.find_data_file(GLib.Path.build_filename("icons", icon_filename));
