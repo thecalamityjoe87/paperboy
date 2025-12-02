@@ -1,5 +1,6 @@
 project('paperboy', 'vala',
-  version : '0.6.4a'
+  version : '0.6.4a',
+  meson_version : '>=0.59.0'
 )
 
 gtk = dependency('gtk4')
@@ -139,7 +140,7 @@ if files('tools/html2rss/Cargo.toml').length() > 0
   message('Found html2rss Rust project; building with Cargo...')
   # Run cargo build at configure time so the produced binary is available
   # for installation and for runtime lookup paths used by the app.
-  run_result = run_command('bash', '-lc', 'cd ' + meson.source_root() + '/tools/html2rss && cargo build --release')
+  run_result = run_command('bash', '-lc', 'cd ' + meson.project_source_root() + '/tools/html2rss && cargo build --release', check: true)
   if run_result.returncode() != 0
     message('Warning: cargo build for html2rss failed; html2rss will not be installed')
   endif
