@@ -29,6 +29,11 @@ public class ArticleStateStore : GLib.Object {
     private Gee.HashSet<string> viewed_meta_paths;
     private Mutex meta_lock = new Mutex();
 
+    // Track articles by category and source for unread count
+    private Gee.HashMap<string, Gee.HashSet<string>> category_articles;  // category_id -> set of URLs
+    private Gee.HashMap<string, Gee.HashSet<string>> source_articles;    // source_name -> set of URLs
+    private Mutex article_tracking_lock = new Mutex();
+
     public ArticleStateStore() {
         GLib.Object();
         var cache_base = Environment.get_user_cache_dir();
@@ -37,6 +42,12 @@ public class ArticleStateStore : GLib.Object {
         try { DirUtils.create_with_parents(cache_dir_path, 0755); } catch (GLib.Error e) { }
         cache_dir = cache_dir_path;
         viewed_meta_paths = new Gee.HashSet<string>();
+        category_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
+        source_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
+
+        // Load persisted article tracking
+        load_article_tracking();
+
         // preload small metadata set: scan .meta files for viewed flag
         try {
             var meta_dir = File.new_for_path(cache_dir_path);
@@ -160,5 +171,189 @@ public class ArticleStateStore : GLib.Object {
 
     public void save_state() {
         // noop: writes are atomic per-item via mark_viewed/set_favorite
+    }
+
+    // Register an article with its category and source for unread tracking
+    public void register_article(string url, string? category_id, string? source_name) {
+        article_tracking_lock.lock();
+        try {
+            if (category_id != null && category_id.length > 0) {
+                if (!category_articles.has_key(category_id)) {
+                    category_articles.set(category_id, new Gee.HashSet<string>());
+                }
+                category_articles.get(category_id).add(url);
+            }
+            if (source_name != null && source_name.length > 0) {
+                if (!source_articles.has_key(source_name)) {
+                    source_articles.set(source_name, new Gee.HashSet<string>());
+                }
+                source_articles.get(source_name).add(url);
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+    }
+
+    // Explicitly save article tracking to disk
+    public void save_article_tracking_to_disk() {
+        save_article_tracking();
+    }
+
+    // Get unread count for a specific category
+    public int get_unread_count_for_category(string category_id) {
+        int total = 0;
+        int viewed = 0;
+
+        article_tracking_lock.lock();
+        try {
+            if (!category_articles.has_key(category_id)) {
+                return 0;
+            }
+
+            var articles = category_articles.get(category_id);
+            total = articles.size;
+
+            foreach (string url in articles) {
+                if (is_viewed(url)) {
+                    viewed++;
+                }
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+
+        return total - viewed;
+    }
+
+    // Get unread count for a specific source
+    public int get_unread_count_for_source(string source_name) {
+        int total = 0;
+        int viewed = 0;
+
+        article_tracking_lock.lock();
+        try {
+            if (!source_articles.has_key(source_name)) {
+                return 0;
+            }
+
+            var articles = source_articles.get(source_name);
+            total = articles.size;
+
+            foreach (string url in articles) {
+                if (is_viewed(url)) {
+                    viewed++;
+                }
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+
+        return total - viewed;
+    }
+
+    // Clear all article tracking (useful when refreshing/reloading)
+    public void clear_article_tracking() {
+        article_tracking_lock.lock();
+        try {
+            category_articles.clear();
+            source_articles.clear();
+        } finally {
+            article_tracking_lock.unlock();
+        }
+        // Persist the cleared state
+        save_article_tracking();
+    }
+
+    // Save article tracking to disk
+    private void save_article_tracking() {
+        string tracking_file = Path.build_filename(cache_dir_path, "article_tracking.json");
+        article_tracking_lock.lock();
+        try {
+            var builder = new Json.Builder();
+            builder.begin_object();
+
+            // Save category articles
+            builder.set_member_name("categories");
+            builder.begin_object();
+            foreach (var entry in category_articles.entries) {
+                builder.set_member_name(entry.key);
+                builder.begin_array();
+                foreach (string url in entry.value) {
+                    builder.add_string_value(url);
+                }
+                builder.end_array();
+            }
+            builder.end_object();
+
+            // Save source articles
+            builder.set_member_name("sources");
+            builder.begin_object();
+            foreach (var entry in source_articles.entries) {
+                builder.set_member_name(entry.key);
+                builder.begin_array();
+                foreach (string url in entry.value) {
+                    builder.add_string_value(url);
+                }
+                builder.end_array();
+            }
+            builder.end_object();
+
+            builder.end_object();
+
+            var generator = new Json.Generator();
+            generator.set_root(builder.get_root());
+            generator.to_file(tracking_file);
+        } catch (GLib.Error e) {
+            stderr.printf("Failed to save article tracking: %s\n", e.message);
+        } finally {
+            article_tracking_lock.unlock();
+        }
+    }
+
+    // Load article tracking from disk
+    private void load_article_tracking() {
+        string tracking_file = Path.build_filename(cache_dir_path, "article_tracking.json");
+        if (!FileUtils.test(tracking_file, FileTest.EXISTS)) {
+            return;
+        }
+
+        try {
+            var parser = new Json.Parser();
+            parser.load_from_file(tracking_file);
+            var root = parser.get_root();
+            if (root == null || root.get_node_type() != Json.NodeType.OBJECT) {
+                return;
+            }
+
+            var obj = root.get_object();
+
+            // Load category articles
+            if (obj.has_member("categories")) {
+                var categories_obj = obj.get_object_member("categories");
+                foreach (string category_id in categories_obj.get_members()) {
+                    var urls_array = categories_obj.get_array_member(category_id);
+                    var url_set = new Gee.HashSet<string>();
+                    urls_array.foreach_element((arr, index, node) => {
+                        url_set.add(node.get_string());
+                    });
+                    category_articles.set(category_id, url_set);
+                }
+            }
+
+            // Load source articles
+            if (obj.has_member("sources")) {
+                var sources_obj = obj.get_object_member("sources");
+                foreach (string source_name in sources_obj.get_members()) {
+                    var urls_array = sources_obj.get_array_member(source_name);
+                    var url_set = new Gee.HashSet<string>();
+                    urls_array.foreach_element((arr, index, node) => {
+                        url_set.add(node.get_string());
+                    });
+                    source_articles.set(source_name, url_set);
+                }
+            }
+        } catch (GLib.Error e) {
+            stderr.printf("Failed to load article tracking: %s\n", e.message);
+        }
     }
 }

@@ -44,12 +44,18 @@ public class SidebarManager : GLib.Object {
     // Track currently selected button for highlighting
     private Gtk.Button? currently_selected_button = null;
 
+    // Track unread count badges for categories and sources
+    private Gee.HashMap<string, Gtk.Widget> category_badges;
+    private Gee.HashMap<string, Gtk.Widget> source_badges;
+
     public signal void category_selected(string category);
 
     public SidebarManager(NewsWindow window, SidebarActivateHandler? activate_cb = null) {
         GLib.Object();
         this.window = window;
         this.sidebar_icon_holders = new Gee.HashMap<string, Gtk.Box>();
+        this.category_badges = new Gee.HashMap<string, Gtk.Widget>();
+        this.source_badges = new Gee.HashMap<string, Gtk.Widget>();
         this.activate_cb = activate_cb;
 
         // Load saved expanded states from preferences
@@ -296,6 +302,9 @@ public class SidebarManager : GLib.Object {
             vadj.set_value(to_set);
         } catch (GLib.Error e) { }
         }
+
+        // Refresh badge counts after rebuilding sidebar
+        refresh_all_badges();
     }
 
     private NewsSource effective_news_source() {
@@ -456,6 +465,15 @@ public class SidebarManager : GLib.Object {
         if (prefix_widget != null) { holder.append(prefix_widget); }
         row.add_prefix(holder);
         sidebar_icon_holders.set(cat, holder);
+
+        // Add unread count badge as suffix
+        int unread_count = 0;
+        if (window.article_state_store != null) {
+            unread_count = window.article_state_store.get_unread_count_for_category(cat);
+        }
+        var badge = build_unread_count_badge(unread_count);
+        row.add_suffix(badge);
+        category_badges.set(cat, badge);
 
         // store category on the row for future retrieval
         row.set_data("category_id", cat);
@@ -663,6 +681,15 @@ public class SidebarManager : GLib.Object {
         name_label.set_hexpand(true);
         name_label.set_ellipsize(Pango.EllipsizeMode.END);
         feed_box.append(name_label);
+
+        // Add unread count badge
+        int unread_count = 0;
+        if (window.article_state_store != null) {
+            unread_count = window.article_state_store.get_unread_count_for_source(source.name);
+        }
+        var badge = build_unread_count_badge(unread_count);
+        feed_box.append(badge);
+        source_badges.set(source.name, badge);
 
         var feed_button = new Gtk.Button();
         feed_button.set_child(feed_box);
@@ -1008,6 +1035,15 @@ public class SidebarManager : GLib.Object {
         label.set_hexpand(true);
         row_box.append(label);
 
+        // Add unread count badge
+        int unread_count = 0;
+        if (window.article_state_store != null) {
+            unread_count = window.article_state_store.get_unread_count_for_category(cat);
+        }
+        var badge = build_unread_count_badge(unread_count);
+        row_box.append(badge);
+        category_badges.set(cat, badge);
+
         var button = new Gtk.Button();
         // Prevent the button grabbing keyboard focus which can trigger the
         // scrolled window to scroll and jump the view when clicked.
@@ -1048,5 +1084,76 @@ public class SidebarManager : GLib.Object {
         });
 
         popular_categories_container.append(button);
+    }
+
+    // Update unread count badge for a specific category
+    public void update_badge_for_category(string category_id) {
+        if (category_badges.has_key(category_id)) {
+            int unread_count = 0;
+            if (window.article_state_store != null) {
+                unread_count = window.article_state_store.get_unread_count_for_category(category_id);
+            }
+            var badge = category_badges.get(category_id);
+            update_unread_count_badge(badge, unread_count);
+        }
+    }
+
+    // Update unread count badge for a specific source
+    public void update_badge_for_source(string source_name) {
+        if (source_badges.has_key(source_name)) {
+            int unread_count = 0;
+            if (window.article_state_store != null) {
+                unread_count = window.article_state_store.get_unread_count_for_source(source_name);
+            }
+            var badge = source_badges.get(source_name);
+            update_unread_count_badge(badge, unread_count);
+        }
+    }
+
+    // Refresh all unread count badges
+    public void refresh_all_badges() {
+        // Update category badges
+        foreach (string category_id in category_badges.keys) {
+            update_badge_for_category(category_id);
+        }
+
+        // Update source badges
+        foreach (string source_name in source_badges.keys) {
+            update_badge_for_source(source_name);
+        }
+    }
+
+    // Helper: Build unread count badge widget
+    private Gtk.Widget build_unread_count_badge(int count) {
+        var label = new Gtk.Label(count > 99 ? "99+" : count.to_string());
+        label.add_css_class("unread-count-badge");
+        label.set_valign(Gtk.Align.CENTER);
+        label.set_halign(Gtk.Align.END);
+
+        // Store the count in widget data for easy updates
+        label.set_data("unread_count", count);
+
+        // Hide if count is 0
+        if (count == 0) {
+            label.set_visible(false);
+        }
+
+        return label;
+    }
+
+    // Helper: Update unread count badge widget
+    private void update_unread_count_badge(Gtk.Widget badge, int count) {
+        if (badge is Gtk.Label) {
+            var label = (Gtk.Label) badge;
+            label.set_label(count > 99 ? "99+" : count.to_string());
+            label.set_data("unread_count", count);
+
+            // Hide badge if count is 0
+            if (count == 0) {
+                badge.set_visible(false);
+            } else {
+                badge.set_visible(true);
+            }
+        }
     }
 }

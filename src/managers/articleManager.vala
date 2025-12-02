@@ -344,6 +344,8 @@ namespace Managers {
                 var hero_chip = window.build_category_chip(hero_display_cat);
                 var hero_card = new HeroCard(title, url, max_hero_height, default_hero_h, hero_chip);
 
+                string _norm = window.normalize_article_url(url);
+
                 bool hero_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
                     (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
 
@@ -361,7 +363,6 @@ namespace Managers {
                     try { window.pending_local_placeholder.set(hero_card.image, category_id == "local_news"); } catch (GLib.Error e) { }
                     window.image_handler.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier);
                     window.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
-                    string _norm = window.normalize_article_url(url);
                     try { if (window.view_state != null) window.view_state.register_picture_for_url(_norm, hero_card.image); } catch (GLib.Error e) { }
                     try { if (window.view_state != null) window.view_state.normalized_to_url.set(_norm, url); } catch (GLib.Error e) { }
                     try { if (window.view_state != null) window.view_state.register_card_for_url(_norm, hero_card.root); } catch (GLib.Error e) { }
@@ -380,6 +381,11 @@ namespace Managers {
                 hero_card.source_name = source_name;
                 hero_card.category_id = category_id;
                 hero_card.thumbnail_url = thumbnail_url;
+
+                // Register article for unread count tracking
+                if (window.article_state_store != null) {
+                    window.article_state_store.register_article(_norm, category_id, source_name);
+                }
 
                 hero_card.activated.connect((s) => { try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { } });
 
@@ -705,6 +711,11 @@ namespace Managers {
         article_card.category_id = category_id;
         article_card.thumbnail_url = thumbnail_url;
 
+        // Register article for unread count tracking
+        if (window.article_state_store != null) {
+            window.article_state_store.register_article(_norm, category_id, source_name);
+        }
+
         article_card.activated.connect((s) => {
             try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { }
         });
@@ -912,6 +923,9 @@ namespace Managers {
 
         // Public helper to clear all article state and destroy article widgets
         public void clear_articles() {
+            // DON'T clear article tracking - we want to accumulate articles across all categories
+            // for persistent unread counts that survive category switches
+
             // Clear article buffer
             if (article_buffer != null) {
                 article_buffer.clear();

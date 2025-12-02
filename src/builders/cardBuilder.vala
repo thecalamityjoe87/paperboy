@@ -770,4 +770,5 @@ public class CardBuilder : GLib.Object {
         box.append(lbl);
         return box;
     }
+
 }

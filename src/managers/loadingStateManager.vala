@@ -98,6 +98,16 @@ public class LoadingStateManager : GLib.Object {
             try { update_personalization_ui(); } catch (GLib.Error e) { }
             try { update_local_news_ui(); } catch (GLib.Error e) { }
 
+            // Save article tracking and refresh sidebar badges after content is loaded
+            try {
+                if (window.article_state_store != null) {
+                    window.article_state_store.save_article_tracking_to_disk();
+                }
+                if (window.sidebar_manager != null) {
+                    window.sidebar_manager.refresh_all_badges();
+                }
+            } catch (GLib.Error e) { }
+
             if (window.article_manager.remaining_articles != null && window.article_manager.remaining_articles.length > 0 && window.article_manager.articles_shown >= Managers.ArticleManager.INITIAL_ARTICLE_LIMIT) {
                 try { window.article_manager.show_load_more_button(); } catch (GLib.Error e) { }
             } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.length == 0) {
@@ -157,7 +167,7 @@ public class LoadingStateManager : GLib.Object {
                 if (!enabled) {
                     if (personalized_message_label != null) personalized_message_label.set_text("Personalized feed is disabled.");
                     if (personalized_message_sub_label != null) {
-                        personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → choose 'Configure settings' → enable the personalized feed toggle to see content from your followed sources.");
+                        personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → choose 'Configure settings' → enable the personalized feed toggle to see content from your sources.");
                         personalized_message_sub_label.set_visible(true);
                     }
                     if (personalized_message_action != null) personalized_message_action.set_visible(true);
@@ -231,6 +241,15 @@ public class LoadingStateManager : GLib.Object {
 
         Timeout.add(500, () => {
             try { window.upgrade_images_after_initial(); } catch (GLib.Error e) { }
+            // Save article tracking and refresh sidebar badges after initial content is loaded
+            try {
+                if (window.article_state_store != null) {
+                    window.article_state_store.save_article_tracking_to_disk();
+                }
+                if (window.sidebar_manager != null) {
+                    window.sidebar_manager.refresh_all_badges();
+                }
+            } catch (GLib.Error e) { }
             return false;
         });
     }

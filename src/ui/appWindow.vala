@@ -235,6 +235,14 @@ public class NewsWindow : Adw.ApplicationWindow {
         article_manager = new Managers.ArticleManager(this);
         // Instantiate view-state manager which owns URL/card mappings and viewed state
         view_state = new Managers.ViewStateManager(this);
+
+        // Connect signal to update unread count badges when articles are viewed
+        view_state.article_viewed.connect((url) => {
+            if (sidebar_manager != null) {
+                sidebar_manager.refresh_all_badges();
+            }
+        });
+
         // Initialize in-memory cache and pending-downloads map
         // Capacity reduced to 30 (from 50) to prevent memory bloat with multiple sources
         // With all sources enabled, this prevents caching 200+ images in RAM
@@ -358,6 +366,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         });
 
         sidebar_manager.rebuild_rows();
+
+        // Fetch article metadata for all categories in background to populate unread counts
+        Timeout.add(1000, () => {
+            try { fetch_all_category_metadata_for_counts(); } catch (GLib.Error e) { }
+            return false;
+        });
 
         // Request the completed navigation page from the manager (use the
         // `sidebar_header` built earlier above)
@@ -2507,5 +2521,67 @@ public class NewsWindow : Adw.ApplicationWindow {
                 );
             }
         }
+    }
+
+    // Fetch article metadata for all categories and RSS sources in background to populate unread counts
+    private void fetch_all_category_metadata_for_counts() {
+        string[] categories = {"general", "us", "sports", "science", "health", "technology",
+                              "business", "entertainment", "politics", "lifestyle", "markets", "industries"};
+
+        // Simple metadata-only add function that just registers articles
+        AddItemFunc metadata_add = (title, url, thumbnail_url, category_id, source_name) => {
+            try {
+                if (article_state_store != null) {
+                    string normalized = normalize_article_url(url);
+                    article_state_store.register_article(normalized, category_id, source_name);
+                }
+            } catch (GLib.Error e) { }
+        };
+
+        // Fetch articles for all hardcoded categories
+        foreach (string cat in categories) {
+            NewsSources.fetch(
+                effective_news_source(),
+                cat,
+                "",  // no search query
+                session,
+                (s) => {},  // no label updates
+                () => {},   // no clear
+                metadata_add  // just register articles
+            );
+        }
+
+        // Fetch articles from all custom RSS sources
+        try {
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var all_sources = rss_store.get_all_sources();
+
+            foreach (var rss_src in all_sources) {
+                RssParser.fetch_rss_url(
+                    rss_src.url,
+                    rss_src.name,
+                    rss_src.name,  // category_name = source name
+                    "custom:" + rss_src.url,  // category_id
+                    "",  // no search query
+                    session,
+                    (s) => {},  // no label updates
+                    () => {},   // no clear
+                    metadata_add  // just register articles
+                );
+            }
+        } catch (GLib.Error e) { }
+
+        // Save after fetching all metadata and refresh badges
+        Timeout.add(5000, () => {
+            try {
+                if (article_state_store != null) {
+                    article_state_store.save_article_tracking_to_disk();
+                }
+                if (sidebar_manager != null) {
+                    sidebar_manager.refresh_all_badges();
+                }
+            } catch (GLib.Error e) { }
+            return false;
+        });
     }
 }

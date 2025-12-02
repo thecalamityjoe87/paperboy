@@ -32,6 +32,9 @@ public class ViewStateManager : GLib.Object {
     public string? last_previewed_url;
     public double last_scroll_value = -1.0;
 
+    // Signal emitted when an article is marked as viewed
+    public signal void article_viewed(string url);
+
     public ViewStateManager(NewsWindow w) {
         window = w;
         viewed_articles = new Gee.HashSet<string>();
@@ -96,6 +99,9 @@ public class ViewStateManager : GLib.Object {
         } else {
             stderr.printf("[ARTICLE_STATE] article_state_store is NULL!\n");
         }
+
+        // Emit signal for unread count updates
+        article_viewed(n);
     }
 
     public void preview_opened(string url) {
