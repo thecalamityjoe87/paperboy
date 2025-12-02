@@ -1,0 +1,5 @@
+paperboy (0.6.3a-1) unstable; urgency=low
+
+  * Initial Debian packaging.
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Tue, 01 Dec 2025 00:00:00 +0000

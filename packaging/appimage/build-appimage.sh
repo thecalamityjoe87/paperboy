@@ -192,14 +192,75 @@ fi
 # Write AppRun
 cat > "$APPDIR/AppRun" <<'APP_RUN'
 #!/usr/bin/env bash
+set -euo pipefail
 HERE="$(dirname "$(readlink -f "${0}")")"
 # Ensure application can find its data files inside the AppDir
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-}"
-# Ensure bundled libraries are preferred
-export LD_LIBRARY_PATH="$HERE/usr/lib:${LD_LIBRARY_PATH:-}"
+# Prepend bundled fallback libs so libxml2.so.16 from the AppDir is preferred.
+# Keep $HERE/usr/lib in the search path for other bundled libs if present.
+# Use a safe expansion under `set -u` so referencing an unset LD_LIBRARY_PATH
+# doesn't trigger an unbound variable error inside the AppImage runtime.
+if [ -n "${LD_LIBRARY_PATH-}" ]; then
+  export LD_LIBRARY_PATH="$HERE/opt/fallback-libs:$LD_LIBRARY_PATH:$HERE/usr/lib"
+else
+  export LD_LIBRARY_PATH="$HERE/opt/fallback-libs:$HERE/usr/lib"
+fi
 exec "$HERE/usr/bin/paperboy" "$@"
 APP_RUN
 chmod +x "$APPDIR/AppRun"
+
+# Bundle libxml2.so.16 into AppDir/opt/fallback-libs.
+# Prefer a .deb shipped under packaging/appimage/; if none exists, try to
+# download the known upstream .deb from the official Ubuntu archive URL.
+DEB_CANDIDATE="$(ls "$ROOT_DIR/packaging/appimage"/*.deb 2>/dev/null | head -n1 || true)"
+if [ -z "$DEB_CANDIDATE" ]; then
+  echo "No .deb found in packaging/appimage/; attempting to download libxml2 .deb from upstream archive..."
+  TMPDIR="$(mktemp -d)"
+  # Official upstream package (frozen to the version this project previously bundled)
+  LIBXML_DEB_URL="https://archive.ubuntu.com/ubuntu/pool/main/libx/libxml2/libxml2-16_2.14.5+dfsg-0.2_amd64.deb"
+  if curl -L -f -o "$TMPDIR/libxml2.deb" "$LIBXML_DEB_URL"; then
+    DEB_CANDIDATE="$TMPDIR/libxml2.deb"
+    echo "Downloaded $DEB_CANDIDATE"
+  else
+    echo "Warning: failed to download libxml2 .deb from $LIBXML_DEB_URL; not bundling libxml2." >&2
+    rm -rf "$TMPDIR"
+    DEB_CANDIDATE=""
+  fi
+fi
+
+if [ -n "$DEB_CANDIDATE" ]; then
+  echo "Found .deb for libxml2: $DEB_CANDIDATE — extracting libxml2.so.16 into AppDir..."
+  # If TMPDIR wasn't set by the download branch, create one for extraction
+  TMPDIR="${TMPDIR:-$(mktemp -d)}"
+  if command -v dpkg-deb >/dev/null 2>&1; then
+    dpkg-deb -x "$DEB_CANDIDATE" "$TMPDIR"
+  else
+    (cd "$TMPDIR" && ar x "$DEB_CANDIDATE")
+    # extract data.tar.* if present
+    for t in "$TMPDIR"/data.tar.*; do
+      [ -f "$t" ] || continue
+      case "$t" in
+        *.gz) tar xzf "$t" -C "$TMPDIR" ;;
+        *.xz) tar xJf "$t" -C "$TMPDIR" ;;
+        *.zst) tar --use-compress-program=unzstd -xf "$t" -C "$TMPDIR" ;;
+        *) tar xf "$t" -C "$TMPDIR" ;;
+      esac
+      break
+    done
+  fi
+  # Find libxml2.so.16 in extracted tree
+  LIBXML="$(find "$TMPDIR" -type f -name 'libxml2.so.16*' | head -n1 || true)"
+  if [ -n "$LIBXML" ]; then
+    mkdir -p "$APPDIR/opt/fallback-libs"
+    cp -a "$LIBXML" "$APPDIR/opt/fallback-libs/"
+    BASENAME="$(basename "$LIBXML")"
+    (cd "$APPDIR/opt/fallback-libs" && ln -sf "$BASENAME" libxml2.so.16) || true
+    echo "Bundled $BASENAME and created libxml2.so.16 symlink in AppDir/opt/fallback-libs"
+  else
+    echo "Warning: libxml2.so.16 not found inside $DEB_CANDIDATE; not bundling libxml2." >&2
+  fi
+  rm -rf "$TMPDIR"
+fi
 
 # Create optional .DirIcon and desktop file copy to top-level AppDir
 if [ -f "$APPDIR/usr/share/icons/hicolor/256x256/apps/paperboy.png" ]; then
@@ -211,11 +272,49 @@ if [ -f "$APPDIR/usr/share/icons/hicolor/scalable/apps/paperboy.svg" ]; then
   cp "$APPDIR/usr/share/icons/hicolor/scalable/apps/paperboy.svg" "$APPDIR/paperboy.svg" 2>/dev/null || true
 fi
 
-# Build AppImage if appimagetool is available
+# Build AppImage: robustly locate an appimagetool executable (accept names
+# like 'appimagetool', 'appimagetool-ARCH' or 'appimagetool-ARCH.AppImage')
+# and run it.
+APPIMAGETOOL_BIN=""
 if command -v appimagetool >/dev/null 2>&1; then
-  echo "Running appimagetool to create $APP"
-  appimagetool "$APPDIR" "$APP"
-  echo "Created $APP"
+  APPIMAGETOOL_BIN="$(command -v appimagetool)"
+else
+  # Search PATH for any executable whose basename contains 'appimagetool'
+  IFS=':' read -ra _pdirs <<< "$PATH"
+  for _d in "${_pdirs[@]}"; do
+    [ -d "$_d" ] || continue
+    for _cand in "$_d"/*; do
+      [ -x "$_cand" ] || continue
+      _base="$(basename "$_cand")"
+      case "$_base" in
+        *appimagetool*) APPIMAGETOOL_BIN="$_cand"; break 2 ;;
+      esac
+    done
+  done
+  unset IFS
+fi
+
+if [ -n "$APPIMAGETOOL_BIN" ]; then
+  echo "Running $APPIMAGETOOL_BIN to create $APP"
+  "$APPIMAGETOOL_BIN" "$APPDIR" "$APP"
+  # Ensure produced artifact has the normalized name. Some appimagetool
+  # variants may produce filenames that include architecture or different
+  # casing; find the most-recent matching artifact and rename it to $APP.
+  if [ -f "$APP" ]; then
+    echo "Created $APP"
+  else
+    CREATED="$(ls -t paperboy*.AppImage paperboy*.appimage 2>/dev/null | head -n1 || true)"
+    if [ -n "$CREATED" ]; then
+      if [ "$CREATED" != "$APP" ]; then
+        mv -f "$CREATED" "$APP"
+        echo "Renamed $CREATED -> $APP"
+      else
+        echo "Created $APP"
+      fi
+    else
+      echo "Warning: appimagetool reported success but no AppImage found" >&2
+    fi
+  fi
 else
   echo "appimagetool not found. To produce an AppImage, download appimagetool and run:" 
   echo "  appimagetool $APPDIR $APP"

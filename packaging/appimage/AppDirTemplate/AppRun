@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
+set -euo pipefail
 HERE="$(dirname "$(readlink -f "${0}")")"
 # Ensure application can find its data files inside the AppDir
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-}"
-# Ensure bundled libraries are preferred
-export LD_LIBRARY_PATH="$HERE/usr/lib:${LD_LIBRARY_PATH:-}"
+# Prepend bundled fallback libs so libxml2.so.16 from the AppDir is preferred.
+# Keep $HERE/usr/lib in the search path for other bundled libs if present.
+# Use a safe expansion under `set -u` so referencing an unset LD_LIBRARY_PATH
+# doesn't trigger an unbound variable error inside the AppImage runtime.
+if [ -n "${LD_LIBRARY_PATH-}" ]; then
+  export LD_LIBRARY_PATH="$HERE/opt/fallback-libs:$LD_LIBRARY_PATH:$HERE/usr/lib"
+else
+  export LD_LIBRARY_PATH="$HERE/opt/fallback-libs:$HERE/usr/lib"
+fi
 exec "$HERE/usr/bin/paperboy" "$@"

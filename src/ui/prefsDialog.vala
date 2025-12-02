@@ -1527,7 +1527,7 @@ public class PrefsDialog : GLib.Object {
     var about = new Adw.AboutDialog();
     about.set_application_name("Paperboy");
     about.set_application_icon("paperboy"); // Use the correct icon name
-    about.set_version("0.6.2a");
+    about.set_version("0.6.3a");
     about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
     about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
     about.set_website("https://github.com/thecalamityjoe87/paperboy");
@@ -1536,6 +1536,7 @@ public class PrefsDialog : GLib.Object {
     about.present(parent);
     }
 
+    
     // Simple dialog to set a free-form user location string. This is a UI
     // shell that persists the value to NewsPreferences. Validation is minimal
     // (non-empty) and saving happens immediately when the user clicks Save.
