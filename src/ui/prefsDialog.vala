@@ -669,6 +669,207 @@ public class PrefsDialog : GLib.Object {
         app_group.add(unread_badges_row);
 
         app_page.add(app_group);
+
+        // ========== UPDATE INTERVAL GROUP ==========
+        var update_interval_group = new Adw.PreferencesGroup();
+        update_interval_group.set_title("Update Interval");
+        update_interval_group.set_description("Short update intervals may lead to getting blocked by sites for causing high traffic");
+
+        // Manual row
+        var manual_row = new Adw.ActionRow();
+        manual_row.set_title("Manual");
+        manual_row.set_subtitle("No automatic synchronization");
+
+        var manual_check = new Gtk.CheckButton();
+        manual_check.set_valign(Gtk.Align.CENTER);
+        manual_row.add_prefix(manual_check);
+        manual_row.set_activatable_widget(manual_check);
+
+        // Sync Every row with dropdown
+        var sync_row = new Adw.ActionRow();
+        sync_row.set_title("Sync Every");
+
+        var sync_check = new Gtk.CheckButton();
+        sync_check.set_group(manual_check);
+        sync_check.set_valign(Gtk.Align.CENTER);
+        sync_row.add_prefix(sync_check);
+
+        var interval_dropdown = new Gtk.DropDown.from_strings(new string[] {
+            "15 Minutes", "30 Minutes", "1 Hour", "2 Hours", "4 Hours"
+        });
+        interval_dropdown.set_valign(Gtk.Align.CENTER);
+
+        // Set initial state based on prefs
+        string current_interval = prefs.update_interval;
+        if (current_interval == "manual") {
+            manual_check.set_active(true);
+            interval_dropdown.set_sensitive(false);
+        } else {
+            sync_check.set_active(true);
+            switch (current_interval) {
+                case "15min": interval_dropdown.set_selected(0); break;
+                case "30min": interval_dropdown.set_selected(1); break;
+                case "1hour": interval_dropdown.set_selected(2); break;
+                case "2hours": interval_dropdown.set_selected(3); break;
+                case "4hours": interval_dropdown.set_selected(4); break;
+                default: interval_dropdown.set_selected(1); break;
+            }
+        }
+
+        // Handle radio button changes
+        manual_check.toggled.connect(() => {
+            if (manual_check.get_active()) {
+                interval_dropdown.set_sensitive(false);
+                prefs.update_interval = "manual";
+                prefs.save_config();
+            }
+        });
+
+        sync_check.toggled.connect(() => {
+            if (sync_check.get_active()) {
+                interval_dropdown.set_sensitive(true);
+                uint selected = interval_dropdown.get_selected();
+                string new_interval = "";
+                switch (selected) {
+                    case 0: new_interval = "15min"; break;
+                    case 1: new_interval = "30min"; break;
+                    case 2: new_interval = "1hour"; break;
+                    case 3: new_interval = "2hours"; break;
+                    case 4: new_interval = "4hours"; break;
+                }
+                prefs.update_interval = new_interval;
+                prefs.save_config();
+            }
+        });
+
+        // Handle dropdown changes
+        interval_dropdown.notify["selected"].connect(() => {
+            if (sync_check.get_active()) {
+                uint selected = interval_dropdown.get_selected();
+                string new_interval = "";
+                switch (selected) {
+                    case 0: new_interval = "15min"; break;
+                    case 1: new_interval = "30min"; break;
+                    case 2: new_interval = "1hour"; break;
+                    case 3: new_interval = "2hours"; break;
+                    case 4: new_interval = "4hours"; break;
+                }
+                prefs.update_interval = new_interval;
+                prefs.save_config();
+            }
+        });
+
+        sync_row.add_suffix(interval_dropdown);
+        sync_row.set_activatable_widget(sync_check);
+
+        update_interval_group.add(manual_row);
+        update_interval_group.add(sync_row);
+        app_page.add(update_interval_group);
+
+        // ========== DATA GROUP ==========
+        var data_group = new Adw.PreferencesGroup();
+        data_group.set_title("Data");
+
+        // Cache row
+        var cache_row = new Adw.ActionRow();
+        cache_row.set_title("Cache");
+
+        // Calculate cache size
+        string cache_size_text = "Calculating...";
+        try {
+            var cache_base = Environment.get_user_cache_dir();
+            if (cache_base != null) {
+                string cache_path = Path.build_filename(cache_base, "paperboy", "metadata");
+                int64 total_size = 0;
+
+                // Count metadata files (.meta files)
+                var cache_dir = File.new_for_path(cache_path);
+                if (cache_dir.query_exists()) {
+                    FileEnumerator? enumerator = cache_dir.enumerate_children("standard::size,standard::type", FileQueryInfoFlags.NONE);
+                    FileInfo? info;
+                    while ((info = enumerator.next_file()) != null) {
+                        if (info.get_file_type() == FileType.REGULAR) {
+                            total_size += info.get_size();
+                        }
+                    }
+                    enumerator.close();
+                }
+
+                // Count image files in images subdirectory
+                string images_path = Path.build_filename(cache_path, "images");
+                var images_dir = File.new_for_path(images_path);
+                if (images_dir.query_exists()) {
+                    FileEnumerator? img_enum = images_dir.enumerate_children("standard::size,standard::type", FileQueryInfoFlags.NONE);
+                    FileInfo? img_info;
+                    while ((img_info = img_enum.next_file()) != null) {
+                        if (img_info.get_file_type() == FileType.REGULAR) {
+                            total_size += img_info.get_size();
+                        }
+                    }
+                    img_enum.close();
+                }
+
+                // Format size
+                if (total_size < 1024) {
+                    cache_size_text = "%lld bytes".printf(total_size);
+                } else if (total_size < 1024 * 1024) {
+                    cache_size_text = "%.1f KB".printf(total_size / 1024.0);
+                } else {
+                    cache_size_text = "%.1f MB".printf(total_size / (1024.0 * 1024.0));
+                }
+            }
+        } catch (GLib.Error e) {
+            cache_size_text = "Unknown";
+        }
+
+        cache_row.set_subtitle(cache_size_text);
+
+        var clear_cache_btn = new Gtk.Button.with_label("Clear");
+        clear_cache_btn.set_valign(Gtk.Align.CENTER);
+        clear_cache_btn.add_css_class("destructive-action");
+        clear_cache_btn.clicked.connect(() => {
+            try {
+                // Show confirmation dialog
+                var confirm_dialog = new Adw.AlertDialog(
+                    "Clear Cache?",
+                    "This will delete all cached images and metadata. Articles will need to be re-downloaded."
+                );
+                confirm_dialog.add_response("cancel", "Cancel");
+                confirm_dialog.add_response("clear", "Clear Cache");
+                confirm_dialog.set_response_appearance("clear", Adw.ResponseAppearance.DESTRUCTIVE);
+                confirm_dialog.set_default_response("cancel");
+                confirm_dialog.set_close_response("cancel");
+
+                confirm_dialog.response.connect((response_id) => {
+                    if (response_id == "clear") {
+                        try {
+                            // Get window reference for MetaCache
+                            var parent_win = parent as NewsWindow;
+                            if (parent_win != null && parent_win.meta_cache != null) {
+                                parent_win.meta_cache.clear();
+                                cache_row.set_subtitle("0 bytes");
+
+                                // Show toast notification
+                                if (parent_win.toast_manager != null) {
+                                    parent_win.toast_manager.show_toast("Cache cleared successfully");
+                                }
+                            }
+                        } catch (GLib.Error e) {
+                            warning("Failed to clear cache: %s", e.message);
+                        }
+                    }
+                });
+
+                confirm_dialog.present(dialog);
+            } catch (GLib.Error e) {
+                warning("Failed to show confirmation dialog: %s", e.message);
+            }
+        });
+
+        cache_row.add_suffix(clear_cache_btn);
+        data_group.add(cache_row);
+
+        app_page.add(data_group);
         dialog.add(app_page);
 
         // Handle dialog close to refresh if sources or categories changed

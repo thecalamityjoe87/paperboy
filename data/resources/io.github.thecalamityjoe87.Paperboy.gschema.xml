@@ -97,5 +97,12 @@
       <description>List of category IDs included in the personalized feed</description>
     </key>
 
+    <!-- App Settings -->
+    <key name="update-interval" type="s">
+      <default>'manual'</default>
+      <summary>Auto-update interval</summary>
+      <description>How often to automatically refresh feeds ('manual', '15min', '30min', '1hour', '2hours', '4hours')</description>
+    </key>
+
   </schema>
 </schemalist>

@@ -425,10 +425,10 @@ public class ImageHandler : GLib.Object {
                         uint8[] data = new uint8[body_data.length];
                         Memory.copy(data, body_data, body_data.length);
 
-                        // Note: Response headers (ETag, Last-Modified, Content-Type) not captured in HttpClient migration
-                        etag = null;
-                        last_modified = null;
-                        content_type = null;
+                        // Extract response headers
+                        etag = http_response.get_header("etag");
+                        last_modified = http_response.get_header("last-modified");
+                        content_type = http_response.get_header("content-type");
 
                         if (meta_cache != null) {
                             try {

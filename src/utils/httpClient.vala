@@ -136,6 +136,7 @@ public class HttpClient : Object {
         public uint status_code;
         public GLib.Bytes? body;
         public string? error_message;
+        public Gee.HashMap<string, string>? headers;
 
         public bool is_success() {
             return status_code == Soup.Status.OK;
@@ -152,6 +153,11 @@ public class HttpClient : Object {
             uint8[] copy = new uint8[data.length];
             Memory.copy(copy, data, data.length);
             return copy;
+        }
+
+        public string? get_header(string name) {
+            if (headers == null) return null;
+            return headers.get(name.down());
         }
     }
 
@@ -305,6 +311,13 @@ public class HttpClient : Object {
             // Extract response
             response.status_code = msg.get_status();
             response.body = body;
+
+            // Extract response headers
+            response.headers = new Gee.HashMap<string, string>();
+            var response_headers = msg.get_response_headers();
+            response_headers.foreach((name, value) => {
+                response.headers.set(name.down(), value);
+            });
 
             // Update cache
             if (options.enable_deduplication) {

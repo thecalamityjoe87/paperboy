@@ -114,6 +114,11 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("unread-badges-sources", value); }
     }
 
+    public string update_interval {
+        owned get { return settings.get_string("update-interval"); }
+        set { settings.set_string("update-interval", value); }
+    }
+
     public Gee.ArrayList<string> personalized_categories {
         owned get {
             var list = new Gee.ArrayList<string>();
