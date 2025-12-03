@@ -373,6 +373,11 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return true;
         }
 
+        // RSS feed views - show all articles from that feed (no source filtering)
+        if (category.has_prefix("rssfeed:")) {
+            return true;
+        }
+
         // My Feed with custom RSS sources - allow articles from custom sources
         // Custom RSS articles will have category "myfeed" but URLs that don't match built-in sources
         if (category == "myfeed") {

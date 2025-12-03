@@ -32,6 +32,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     # UI
     'src/ui/appWindow.vala',
     'src/ui/prefsDialog.vala',
+    'src/ui/locationDialog.vala',
     'src/ui/contentView.vala',
     'src/ui/articlePane.vala',
     'src/ui/articleCard.vala',
@@ -65,6 +66,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/lruCache.vala',
     'src/services/sourceMetadata.vala',
     'src/services/previewCache.vala',
+    'src/services/rssFinderService.vala',
     'src/services/rssSourceStore.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',

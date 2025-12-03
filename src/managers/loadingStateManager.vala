@@ -256,7 +256,8 @@ public class LoadingStateManager : GLib.Object {
 
     public void mark_initial_items_populated() {
         initial_items_populated = true;
-        if (initial_phase && pending_images == 0) {
+        // Hide spinner immediately when first article appears, don't wait for images
+        if (initial_phase) {
             reveal_initial_content();
         }
     }

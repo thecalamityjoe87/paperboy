@@ -264,6 +264,34 @@ public class ArticleStateStore : GLib.Object {
         save_article_tracking();
     }
 
+    // Clear article tracking for a specific source (useful when refreshing an RSS feed)
+    public void clear_article_tracking_for_source(string source_name) {
+        article_tracking_lock.lock();
+        try {
+            if (source_articles.has_key(source_name)) {
+                source_articles.unset(source_name);
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+        // Persist the cleared state
+        save_article_tracking();
+    }
+
+    // Clear article tracking for a specific category (useful when refreshing a category feed)
+    public void clear_article_tracking_for_category(string category_id) {
+        article_tracking_lock.lock();
+        try {
+            if (category_articles.has_key(category_id)) {
+                category_articles.unset(category_id);
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+        // Persist the cleared state
+        save_article_tracking();
+    }
+
     // Save article tracking to disk
     private void save_article_tracking() {
         string tracking_file = Path.build_filename(cache_dir_path, "article_tracking.json");

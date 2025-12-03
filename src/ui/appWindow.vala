@@ -89,6 +89,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         public static int active_downloads = 0;
         // Restored fields required by window logic (many are accessed from other modules)
         public NewsPreferences prefs;
+        public LocationDialog location_dialog;
         public GLib.Rand rng;
         public Gee.HashMap<Gtk.Picture, HeroRequest> hero_requests;
         public Managers.ViewStateManager? view_state;
@@ -587,7 +588,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     try {
         if (loading_state.local_news_button != null) {
             loading_state.local_news_button.clicked.connect(() => {
-                try { PrefsDialog.show_set_location_dialog(this); } catch (GLib.Error e) { }
+                try { location_dialog.show(this); } catch (GLib.Error e) { }
             });
         }
     } catch (GLib.Error e) { }
@@ -596,7 +597,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     try {
         if (loading_state.personalized_message_action != null) {
             loading_state.personalized_message_action.clicked.connect(() => {
-                try { PrefsDialog.show_sources_list_dialog(this); } catch (GLib.Error e) { }
+                try { PrefsDialog.show_preferences_dialog(this); } catch (GLib.Error e) { }
             });
         }
     } catch (GLib.Error e) { }
@@ -1464,6 +1465,18 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Clear all old articles and widgets before loading new category
         try { if (article_manager != null) article_manager.clear_articles(); } catch (GLib.Error e) { }
 
+        // Clear old article tracking for this category so unread counts reflect current content
+        if (article_state_store != null && prefs.category != null && prefs.category.length > 0) {
+            article_state_store.clear_article_tracking_for_category(prefs.category);
+            // Refresh badges after articles load (single smooth update instead of flicker)
+            GLib.Timeout.add(600, () => {
+                if (sidebar_manager != null) {
+                    sidebar_manager.refresh_all_badges();
+                }
+                return false;
+            });
+        }
+
         // Ensure sidebar visibility reflects current source
         update_sidebar_for_source();
         // Clear featured hero and randomize columns count per fetch between 2 and 4 for extra variety
@@ -2096,10 +2109,24 @@ public class NewsWindow : Adw.ApplicationWindow {
                 self_ref.rss_feed_layout_timeout_id = 0;
             }
 
+            // Clear old article tracking for this source so unread counts reflect current feed content
+            // Don't refresh badges yet - wait for new articles to be registered first for smoother UI
+            if (self_ref.article_state_store != null) {
+                self_ref.article_state_store.clear_article_tracking_for_source(feed_name);
+            }
+
             // Fetch articles from the RSS feed
             // Don't set featured_used - let articles populate normally, adaptive layout will handle it
             RssParser.fetch_rss_url(feed_url, feed_name, feed_name, "myfeed", current_search_query, session, label_fn, no_op_clear, wrapped_add);
-            
+
+            // Refresh badges after articles load (single smooth update instead of flicker)
+            GLib.Timeout.add(600, () => {
+                if (self_ref.sidebar_manager != null) {
+                    self_ref.sidebar_manager.refresh_all_badges();
+                }
+                return false;
+            });
+
             return;
         }
         // If the user selected "Front Page", always request the backend

@@ -60,7 +60,7 @@ namespace Managers {
         
         public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
             // Trace entry for debugging UI regressions (always printed)
-            
+
             bool viewing_limited_category = (
                 window.prefs.category == "general" ||
                 window.prefs.category == "us" ||
@@ -79,6 +79,7 @@ namespace Managers {
                 window.prefs.category == "green"
                 || window.prefs.category == "local_news"
                 || window.prefs.category == "myfeed"
+                || window.prefs.category.has_prefix("rssfeed:")  // Apply limit to RSS feeds too
             );
             
             if (viewing_limited_category) {
@@ -106,6 +107,15 @@ namespace Managers {
                             new_arr[remaining_articles.length] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
                             remaining_articles = new_arr;
                         }
+
+                        // Register overflow articles for unread tracking so badge shows total count
+                        try {
+                            string _norm = url.strip();
+                            if (_norm.length > 0 && window.article_state_store != null) {
+                                window.article_state_store.register_article(_norm, category_id, source_name);
+                            }
+                        } catch (GLib.Error e) { }
+
                         show_load_more_button();
                         return;
                     }
@@ -218,7 +228,7 @@ namespace Managers {
         public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
 
             string check_category = original_category ?? window.prefs.category;
-            
+
             bool is_limited_category = (
                 check_category == "general" ||
                 check_category == "us" ||
@@ -237,6 +247,7 @@ namespace Managers {
                 check_category == "green"
                 || check_category == "local_news"
                 || check_category == "myfeed"
+                || check_category.has_prefix("rssfeed:")  // Apply limit to RSS feeds too
             );
 
             
@@ -254,11 +265,11 @@ namespace Managers {
                             if (dbg != null && dbg.length > 0) {
                             }
                         } catch (GLib.Error e) { }
-                        
+
                         if (title == null || url == null) {
                             return;
                         }
-                        
+
                         if (remaining_articles == null) {
                             remaining_articles = new ArticleItem[1];
                             remaining_articles[0] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
@@ -270,7 +281,15 @@ namespace Managers {
                             new_arr[remaining_articles.length] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
                             remaining_articles = new_arr;
                         }
-                        
+
+                        // Register overflow articles for unread tracking so badge shows total count
+                        try {
+                            string _norm = url.strip();
+                            if (_norm.length > 0 && window.article_state_store != null) {
+                                window.article_state_store.register_article(_norm, category_id, source_name);
+                            }
+                        } catch (GLib.Error e) { }
+
                         if (load_more_button == null) {
                             show_load_more_button();
                         }
