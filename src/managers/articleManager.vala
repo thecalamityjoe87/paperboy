@@ -96,15 +96,31 @@ namespace Managers {
                             if (dbg != null && dbg.length > 0) {
                             }
                         } catch (GLib.Error e) { }
+
+                        // Normalize source name before storing in ArticleItem
+                        string? normalized_source = source_name;
+                        try {
+                            if (normalized_source == null || normalized_source.length == 0) {
+                                if (category_id == "local_news") {
+                                    var prefs_local = NewsPreferences.get_instance();
+                                    normalized_source = (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
+                                        ? prefs_local.user_location_city : "Local News";
+                                } else {
+                                    NewsSource inferred = window.infer_source_from_url(url);
+                                    normalized_source = window.get_source_name(inferred);
+                                }
+                            }
+                        } catch (GLib.Error e) { normalized_source = source_name; }
+
                         if (remaining_articles == null) {
                             remaining_articles = new ArticleItem[1];
-                            remaining_articles[0] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
+                            remaining_articles[0] = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source);
                         } else {
                             var new_arr = new ArticleItem[remaining_articles.length + 1];
                             for (int i = 0; i < remaining_articles.length; i++) {
                                 new_arr[i] = remaining_articles[i];
                             }
-                            new_arr[remaining_articles.length] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
+                            new_arr[remaining_articles.length] = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source);
                             remaining_articles = new_arr;
                         }
 
@@ -112,7 +128,7 @@ namespace Managers {
                         try {
                             string _norm = url.strip();
                             if (_norm.length > 0 && window.article_state_store != null) {
-                                window.article_state_store.register_article(_norm, category_id, source_name);
+                                window.article_state_store.register_article(_norm, category_id, normalized_source);
                             }
                         } catch (GLib.Error e) { }
 
@@ -121,7 +137,7 @@ namespace Managers {
                     }
                 }
             }
-            
+
             string? final_source_name = source_name;
             try {
                 var prefs_local = NewsPreferences.get_instance();
@@ -135,6 +151,23 @@ namespace Managers {
                         NewsSource inferred = window.infer_source_from_url(url);
                         final_source_name = window.get_source_name(inferred);
                     }
+                } else {
+                    // If we have a source name, try to match it to an RSS source in the database
+                    // This ensures articles are registered with the same name the sidebar queries for
+                    // NOTE: This uses cached results from RssSourceStore to avoid memory corruption
+                    try {
+                        var rss_store = Paperboy.RssSourceStore.get_instance();
+                        var all_sources = rss_store.get_all_sources();
+                        foreach (var src in all_sources) {
+                            string src_lower = src.name.down();
+                            string final_lower = final_source_name.down();
+                            // Match if the source name contains or is contained in the RSS source name
+                            if (src_lower.contains(final_lower) || final_lower.contains(src_lower)) {
+                                final_source_name = src.name;  // Use the database name
+                                break;
+                            }
+                        }
+                    } catch (GLib.Error e) { }
                 }
             } catch (GLib.Error e) {
                 final_source_name = source_name;
@@ -280,15 +313,30 @@ namespace Managers {
                             return;
                         }
 
+                        // Normalize source name before storing in ArticleItem
+                        string? normalized_source = source_name;
+                        try {
+                            if (normalized_source == null || normalized_source.length == 0) {
+                                if (category_id == "local_news") {
+                                    var prefs_local = NewsPreferences.get_instance();
+                                    normalized_source = (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
+                                        ? prefs_local.user_location_city : "Local News";
+                                } else {
+                                    NewsSource inferred = window.infer_source_from_url(url);
+                                    normalized_source = window.get_source_name(inferred);
+                                }
+                            }
+                        } catch (GLib.Error e) { normalized_source = source_name; }
+
                         if (remaining_articles == null) {
                             remaining_articles = new ArticleItem[1];
-                            remaining_articles[0] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
+                            remaining_articles[0] = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source);
                         } else {
                             var new_arr = new ArticleItem[remaining_articles.length + 1];
                             for (int i = 0; i < remaining_articles.length; i++) {
                                 new_arr[i] = remaining_articles[i];
                             }
-                            new_arr[remaining_articles.length] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
+                            new_arr[remaining_articles.length] = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source);
                             remaining_articles = new_arr;
                         }
 
@@ -296,7 +344,7 @@ namespace Managers {
                         try {
                             string _norm = url.strip();
                             if (_norm.length > 0 && window.article_state_store != null) {
-                                window.article_state_store.register_article(_norm, category_id, source_name);
+                                window.article_state_store.register_article(_norm, category_id, normalized_source);
                             }
                         } catch (GLib.Error e) { }
 
@@ -357,23 +405,24 @@ namespace Managers {
                     }
                 } catch (GLib.Error e) { }
 
-                try {
-                    var rss_store = Paperboy.RssSourceStore.get_instance();
-                    var all_sources = rss_store.get_all_sources();
-                    foreach (var src in all_sources) {
-                        bool is_match = false;
-                        if (source_name != null && source_name == src.name) is_match = true;
-                        if (!is_match && url != null && url.length > 0) {
-                            string src_host = UrlUtils.extract_host_from_url(src.url);
-                            string article_host = UrlUtils.extract_host_from_url(url);
-                            if (src_host != null && article_host != null && src_host == article_host) is_match = true;
-                        }
-                        if (is_match) {
-                            hero_display_cat = "rssfeed:" + src.url;
-                            break;
-                        }
-                    }
-                } catch (GLib.Error e) { }
+                // TEMPORARILY DISABLED: This was causing memory corruption
+                // try {
+                //     var rss_store = Paperboy.RssSourceStore.get_instance();
+                //     var all_sources = rss_store.get_all_sources();
+                //     foreach (var src in all_sources) {
+                //         bool is_match = false;
+                //         if (source_name != null && source_name == src.name) is_match = true;
+                //         if (!is_match && url != null && url.length > 0) {
+                //             string src_host = UrlUtils.extract_host_from_url(src.url);
+                //             string article_host = UrlUtils.extract_host_from_url(url);
+                //             if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+                //         }
+                //         if (is_match) {
+                //             hero_display_cat = "rssfeed:" + src.url;
+                //             break;
+                //         }
+                //     }
+                // } catch (GLib.Error e) { }
 
                 var hero_chip = window.build_category_chip(hero_display_cat);
 
@@ -426,6 +475,7 @@ namespace Managers {
                 hero_card.thumbnail_url = thumbnail_url;
 
                 // Register article for unread count tracking
+                // Note: source_name is already normalized by add_item() before being passed here
                 if (window.article_state_store != null) {
                     window.article_state_store.register_article(_norm, category_id, source_name);
                 }
@@ -563,23 +613,24 @@ namespace Managers {
                     if (idx2 >= 0 && source_name.length > idx2 + 11) slide_display_cat = source_name.substring(idx2 + 11).strip();
                 }
             } catch (GLib.Error e) { }
-            try {
-                var rss_store = Paperboy.RssSourceStore.get_instance();
-                var all_sources = rss_store.get_all_sources();
-                foreach (var src in all_sources) {
-                    bool is_match = false;
-                    if (source_name != null && source_name == src.name) is_match = true;
-                    if (!is_match && url != null && url.length > 0) {
-                        string src_host = UrlUtils.extract_host_from_url(src.url);
-                        string article_host = UrlUtils.extract_host_from_url(url);
-                        if (src_host != null && article_host != null && src_host == article_host) is_match = true;
-                    }
-                    if (is_match) {
-                        slide_display_cat = "rssfeed:" + src.url;
-                        break;
-                    }
-                }
-            } catch (GLib.Error e) { }
+            // TEMPORARILY DISABLED: This was causing memory corruption
+            // try {
+            //     var rss_store = Paperboy.RssSourceStore.get_instance();
+            //     var all_sources = rss_store.get_all_sources();
+            //     foreach (var src in all_sources) {
+            //         bool is_match = false;
+            //         if (source_name != null && source_name == src.name) is_match = true;
+            //         if (!is_match && url != null && url.length > 0) {
+            //             string src_host = UrlUtils.extract_host_from_url(src.url);
+            //             string article_host = UrlUtils.extract_host_from_url(url);
+            //             if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+            //         }
+            //         if (is_match) {
+            //             slide_display_cat = "rssfeed:" + src.url;
+            //             break;
+            //         }
+            //     }
+            // } catch (GLib.Error e) { }
 
             var slide_chip = window.build_category_chip(slide_display_cat);
             slide_overlay.add_overlay(slide_chip);
@@ -699,23 +750,24 @@ namespace Managers {
             }
         } catch (GLib.Error e) { }
 
-        try {
-            var rss_store = Paperboy.RssSourceStore.get_instance();
-            var all_sources = rss_store.get_all_sources();
-            foreach (var src in all_sources) {
-                bool is_match = false;
-                if (source_name != null && source_name == src.name) is_match = true;
-                if (!is_match && url != null && url.length > 0) {
-                    string src_host = UrlUtils.extract_host_from_url(src.url);
-                    string article_host = UrlUtils.extract_host_from_url(url);
-                    if (src_host != null && article_host != null && src_host == article_host) is_match = true;
-                }
-                if (is_match) {
-                    card_display_cat = "rssfeed:" + src.url;
-                    break;
-                }
-            }
-        } catch (GLib.Error e) { }
+        // TEMPORARILY DISABLED: This was causing memory corruption
+        // try {
+        //     var rss_store = Paperboy.RssSourceStore.get_instance();
+        //     var all_sources = rss_store.get_all_sources();
+        //     foreach (var src in all_sources) {
+        //         bool is_match = false;
+        //         if (source_name != null && source_name == src.name) is_match = true;
+        //         if (!is_match && url != null && url.length > 0) {
+        //             string src_host = UrlUtils.extract_host_from_url(src.url);
+        //             string article_host = UrlUtils.extract_host_from_url(url);
+        //             if (src_host != null && article_host != null && src_host == article_host) is_match = true;
+        //         }
+        //         if (is_match) {
+        //             card_display_cat = "rssfeed:" + src.url;
+        //             break;
+        //         }
+        //     }
+        // } catch (GLib.Error e) { }
 
         var chip = window.build_category_chip(card_display_cat);
 
@@ -787,7 +839,10 @@ namespace Managers {
         article_card.thumbnail_url = thumbnail_url;
 
         // Register article for unread count tracking
-        if (window.article_state_store != null) {
+        // Skip registration if bypass_limit is true - these articles were already
+        // registered when added to the overflow queue (lines 131 & 314)
+        // Note: source_name is already normalized by add_item() before being passed here
+        if (window.article_state_store != null && !bypass_limit) {
             window.article_state_store.register_article(_norm, category_id, source_name);
         }
 

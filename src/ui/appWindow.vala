@@ -1525,12 +1525,20 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Clear old article tracking for this category so unread counts reflect current content
         if (article_state_store != null && prefs.category != null && prefs.category.length > 0) {
+            // Set badge to placeholder before clearing article tracking
+            // This prevents showing partial counts during async article loading
+            if (sidebar_manager != null) {
+                sidebar_manager.set_badge_placeholder_for_category(prefs.category);
+            }
+
             article_state_store.clear_article_tracking_for_category(prefs.category);
-            // Refresh badge for this specific category after articles load
+            // Refresh badge after loading completes with a delay to ensure all async registration finishes
+            // This replaces the "--" placeholder with the actual count
             string current_cat = prefs.category;
-            GLib.Timeout.add(1200, () => {
-                if (sidebar_manager != null) {
-                    sidebar_manager.update_badge_for_category(current_cat);
+            weak NewsWindow? weak_self = this;
+            GLib.Timeout.add(2000, () => {
+                if (weak_self != null && weak_self.sidebar_manager != null) {
+                    weak_self.sidebar_manager.update_badge_for_category(current_cat);
                 }
                 return false;
             });
@@ -2238,16 +2246,8 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Clear UI and schedule feed fetch
             try { wrapped_clear(); } catch (GLib.Error e) { }
             ClearItemsFunc no_op_clear = () => { };
-            SetLabelFunc label_fn = (text) => {
-                // Schedule UI update on main loop
-                Idle.add(() => {
-                    if (my_seq != self_ref.fetch_sequence) return false;
-                    try {
-                        self_ref.update_content_header();
-                    } catch (GLib.Error e) { }
-                    return false;
-                });
-            };
+            // SIMPLIFIED: Just use a no-op label function to avoid closure issues
+            SetLabelFunc label_fn = (text) => { };
 
             // Header will be updated by update_content_header_now() call later
 
@@ -2258,8 +2258,13 @@ public class NewsWindow : Adw.ApplicationWindow {
                 self_ref.rss_feed_layout_timeout_id = 0;
             }
 
+            // Set badge to placeholder before clearing article tracking
+            // This prevents showing partial counts during async article loading
+            if (self_ref.sidebar_manager != null) {
+                self_ref.sidebar_manager.set_badge_placeholder_for_source(feed_name);
+            }
+
             // Clear old article tracking for this source so unread counts reflect current feed content
-            // Don't refresh badges yet - wait for new articles to be registered first for smoother UI
             if (self_ref.article_state_store != null) {
                 self_ref.article_state_store.clear_article_tracking_for_source(feed_name);
             }
@@ -2269,10 +2274,12 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Use a unique category ID for single RSS feeds to avoid "myfeed" logic
             RssParser.fetch_rss_url(feed_url, feed_name, feed_name, "rssfeed:" + feed_url, current_search_query, session, label_fn, no_op_clear, wrapped_add);
 
-            // Refresh badge for this specific RSS source after articles load
-            GLib.Timeout.add(1200, () => {
-                if (self_ref.sidebar_manager != null) {
-                    self_ref.sidebar_manager.update_badge_for_source(feed_name);
+            // Update badge after articles finish loading
+            // Use a 5-second delay to ensure all articles have been registered
+            weak NewsWindow? weak_self = self_ref;
+            GLib.Timeout.add(3000, () => {
+                if (weak_self != null && weak_self.sidebar_manager != null) {
+                    weak_self.sidebar_manager.update_badge_for_source(feed_name);
                 }
                 return false;
             });

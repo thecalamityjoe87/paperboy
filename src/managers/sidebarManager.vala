@@ -1104,7 +1104,7 @@ public class SidebarManager : GLib.Object {
                 unread_count = window.article_state_store.get_unread_count_for_category(category_id);
             }
             var badge = category_badges.get(category_id);
-            update_unread_count_badge(badge, unread_count, false);
+            update_unread_count_badge_force(badge, unread_count, false);
         }
     }
 
@@ -1116,20 +1116,35 @@ public class SidebarManager : GLib.Object {
                 unread_count = window.article_state_store.get_unread_count_for_source(source_name);
             }
             var badge = source_badges.get(source_name);
-            update_unread_count_badge(badge, unread_count, true);
+            update_unread_count_badge_force(badge, unread_count, true);
         }
     }
 
     // Refresh all unread count badges
+    // Skips badges showing "--" placeholder to avoid showing partial counts during async loading
     public void refresh_all_badges() {
         // Update category badges
         foreach (string category_id in category_badges.keys) {
-            update_badge_for_category(category_id);
+            if (category_badges.has_key(category_id)) {
+                int unread_count = 0;
+                if (window.article_state_store != null) {
+                    unread_count = window.article_state_store.get_unread_count_for_category(category_id);
+                }
+                var badge = category_badges.get(category_id);
+                update_unread_count_badge(badge, unread_count, false);
+            }
         }
 
         // Update source badges
         foreach (string source_name in source_badges.keys) {
-            update_badge_for_source(source_name);
+            if (source_badges.has_key(source_name)) {
+                int unread_count = 0;
+                if (window.article_state_store != null) {
+                    unread_count = window.article_state_store.get_unread_count_for_source(source_name);
+                }
+                var badge = source_badges.get(source_name);
+                update_unread_count_badge(badge, unread_count, true);
+            }
         }
     }
 
@@ -1173,6 +1188,14 @@ public class SidebarManager : GLib.Object {
     private void update_unread_count_badge(Gtk.Widget badge, int count, bool is_source) {
         if (badge is Gtk.Label) {
             var label = (Gtk.Label) badge;
+
+            // Skip updating if the badge is showing a placeholder "--"
+            // This prevents partial counts from appearing during async loading
+            string current_text = label.get_label();
+            if (current_text == "--") {
+                return;
+            }
+
             label.set_label(count > 99 ? "99+" : count.to_string());
             label.set_data("unread_count", count);
 
@@ -1185,6 +1208,58 @@ public class SidebarManager : GLib.Object {
                 should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories && count > 0;
             }
             badge.set_visible(should_show);
+        }
+    }
+
+    // Helper: Force update unread count badge widget (ignores placeholder)
+    // Used by delayed refresh to replace the "--" placeholder with actual count
+    private void update_unread_count_badge_force(Gtk.Widget badge, int count, bool is_source) {
+        if (badge is Gtk.Label) {
+            var label = (Gtk.Label) badge;
+            label.set_label(count > 99 ? "99+" : count.to_string());
+            label.set_data("unread_count", count);
+
+            // Check if badges are enabled based on type
+            var prefs = NewsPreferences.get_instance();
+            bool should_show = false;
+            if (is_source) {
+                should_show = prefs.unread_badges_enabled && prefs.unread_badges_sources && count > 0;
+            } else {
+                should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories && count > 0;
+            }
+            badge.set_visible(should_show);
+        }
+    }
+
+    // Helper: Set badge to show loading placeholder instead of a partial count
+    public void set_badge_placeholder_for_source(string source_name) {
+        if (source_badges.has_key(source_name)) {
+            var badge = source_badges.get(source_name);
+            if (badge is Gtk.Label) {
+                var label = (Gtk.Label) badge;
+                label.set_label("--");
+
+                // Show placeholder if badges are enabled
+                var prefs = NewsPreferences.get_instance();
+                bool should_show = prefs.unread_badges_enabled && prefs.unread_badges_sources;
+                badge.set_visible(should_show);
+            }
+        }
+    }
+
+    // Helper: Set badge to show loading placeholder for category
+    public void set_badge_placeholder_for_category(string category_id) {
+        if (category_badges.has_key(category_id)) {
+            var badge = category_badges.get(category_id);
+            if (badge is Gtk.Label) {
+                var label = (Gtk.Label) badge;
+                label.set_label("--");
+
+                // Show placeholder if badges are enabled
+                var prefs = NewsPreferences.get_instance();
+                bool should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories;
+                badge.set_visible(should_show);
+            }
         }
     }
 }

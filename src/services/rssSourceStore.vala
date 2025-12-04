@@ -33,10 +33,18 @@ namespace Paperboy {
         private static RssSourceStore? instance = null;
         private Sqlite.Database? db = null;
         private string db_path;
+        
+        // Cache for get_all_sources() to prevent repeated database queries
+        private Gee.ArrayList<RssSource>? cached_sources = null;
 
         private RssSourceStore() {
             db_path = get_database_path();
             init_database();
+            
+            // Invalidate cache when sources change
+            source_added.connect(() => { cached_sources = null; });
+            source_removed.connect(() => { cached_sources = null; });
+            source_updated.connect(() => { cached_sources = null; });
         }
 
         public static RssSourceStore get_instance() {
@@ -461,6 +469,11 @@ namespace Paperboy {
         }
 
         public Gee.ArrayList<RssSource> get_all_sources() {
+            // Return cached results if available
+            if (cached_sources != null) {
+                return cached_sources;
+            }
+            
             var sources = new Gee.ArrayList<RssSource>();
 
             if (db == null) {
@@ -492,6 +505,8 @@ namespace Paperboy {
                 sources.add(source);
             }
 
+            // Cache the results
+            cached_sources = sources;
             return sources;
         }
 
