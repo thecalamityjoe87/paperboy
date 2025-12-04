@@ -186,6 +186,19 @@
     /* ensure border doesn't overlay the image */
 }
 
+.sheet-header {
+    background-color: @view_bg_color;
+}
+
+.sheet .background {
+    background-color: @view_bg_color;
+}
+
+.sheet {
+    background-color: @view_bg_color;  /* ADD THIS */
+    overflow: hidden;
+}
+
 /* Circular logo styling for sidebar RSS feeds */
 .navigation-sidebar .circular-logo {
     width: 24px;
@@ -619,4 +632,9 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     border-radius: 12px;
     min-width: 20px;
     margin-left: 8px;
+}
+
+/* Menu item styling for context menus */
+.menu-item label {
+    font-weight: normal;
 }

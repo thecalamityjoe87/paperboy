@@ -345,72 +345,142 @@ public class ArticlePane : GLib.Object {
         // Create a single menu button for "Open" which exposes both
         // "Open in app" and "Open in browser" as menu items to reduce
         // visual clutter.
-        var open_menu = new GLib.Menu();
-        open_menu.append("View in app", "article.open-in-app");
-        open_menu.append("Open in browser", "article.open-in-browser");
-        // Keep the follow-source item as well under the same menu
-        open_menu.append("Follow this source", "article.follow-source");
+
+        // Check if article is already saved to show correct menu label
+        bool is_saved = false;
+        if (parent_window.article_state_store != null) {
+            try { is_saved = parent_window.article_state_store.is_saved(url); } catch (GLib.Error e) { }
+        }
+
+        // Create custom popover with buttons that have icons
+        var menu_popover = new Gtk.Popover();
+        var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        menu_box.add_css_class("menu");
+
+        // View in app button
+        var view_in_app_btn = new Gtk.Button();
+        view_in_app_btn.set_halign(Gtk.Align.START);
+        var view_in_app_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var view_in_app_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
+        var view_in_app_label = new Gtk.Label("View article in app");
+        view_in_app_label.set_xalign(0);
+        view_in_app_box.append(view_in_app_icon);
+        view_in_app_box.append(view_in_app_label);
+        view_in_app_btn.set_child(view_in_app_box);
+        view_in_app_btn.add_css_class("flat");
+        view_in_app_btn.add_css_class("menu-item");
+        view_in_app_btn.clicked.connect(() => {
+            try {
+                string normalized = parent_window.normalize_article_url(url);
+                if (parent_window.article_sheet != null) parent_window.article_sheet.open(normalized);
+                if (preview_split != null) preview_split.set_show_sidebar(false);
+                menu_popover.popdown();
+            } catch (GLib.Error e) { }
+        });
+        menu_box.append(view_in_app_btn);
+
+        // Open in browser button
+        var browser_btn = new Gtk.Button();
+        browser_btn.set_halign(Gtk.Align.START);
+        var browser_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var browser_icon = new Gtk.Image.from_icon_name("web-browser-symbolic");
+        var browser_label = new Gtk.Label("Open article in browser");
+        browser_label.set_xalign(0);
+        browser_box.append(browser_icon);
+        browser_box.append(browser_label);
+        browser_btn.set_child(browser_box);
+        browser_btn.add_css_class("flat");
+        browser_btn.add_css_class("menu-item");
+        browser_btn.clicked.connect(() => {
+            try { open_article_in_browser(url); menu_popover.popdown(); } catch (GLib.Error e) { }
+        });
+        menu_box.append(browser_btn);
+
+        // Follow this source button
+        var follow_btn = new Gtk.Button();
+        follow_btn.set_halign(Gtk.Align.START);
+        var follow_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var follow_icon = new Gtk.Image.from_icon_name("list-add-symbolic");
+        var follow_label = new Gtk.Label("Follow this source");
+        follow_label.set_xalign(0);
+        follow_box.append(follow_icon);
+        follow_box.append(follow_label);
+        follow_btn.set_child(follow_box);
+        follow_btn.add_css_class("flat");
+        follow_btn.add_css_class("menu-item");
+        bool is_builtin = SourceManager.is_article_from_builtin(url);
+        follow_btn.set_sensitive(!is_builtin);
+        follow_btn.clicked.connect(() => {
+            try {
+                parent_window.show_persistent_toast("Searching for feed...");
+                parent_window.source_manager.follow_rss_source(url, article_source_name);
+                menu_popover.popdown();
+            } catch (GLib.Error e) { }
+        });
+        menu_box.append(follow_btn);
+
+        // Save/Remove from saved button
+        var save_btn = new Gtk.Button();
+        save_btn.set_halign(Gtk.Align.START);
+        var save_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var save_icon = new Gtk.Image.from_icon_name(is_saved ? "user-trash-symbolic" : "user-bookmarks-symbolic");
+        var save_label = new Gtk.Label(is_saved ? "Remove from saved" : "Save this article");
+        save_label.set_xalign(0);
+        save_box.append(save_icon);
+        save_box.append(save_label);
+        save_btn.set_child(save_box);
+        save_btn.add_css_class("flat");
+        save_btn.add_css_class("menu-item");
+        save_btn.clicked.connect(() => {
+            if (parent_window.article_state_store != null) {
+                bool article_is_saved = parent_window.article_state_store.is_saved(url);
+                if (article_is_saved) {
+                    parent_window.article_state_store.unsave_article(url);
+                    parent_window.show_toast("Removed from saved articles");
+                    if (parent_window.prefs.category == "saved") {
+                        try {
+                            parent_window.fetch_news();
+                            if (preview_split != null) preview_split.set_show_sidebar(false);
+                        } catch (GLib.Error e) { }
+                    }
+                } else {
+                    parent_window.article_state_store.save_article(url, title, thumbnail_url, article_source_name);
+                    parent_window.show_toast("Saved for later");
+                }
+            }
+            menu_popover.popdown();
+        });
+        menu_box.append(save_btn);
+
+        // Share button
+        var share_btn = new Gtk.Button();
+        share_btn.set_halign(Gtk.Align.START);
+        var share_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var share_icon = new Gtk.Image.from_icon_name("share-symbolic");
+        var share_label = new Gtk.Label("Share this article");
+        share_label.set_xalign(0);
+        share_box.append(share_icon);
+        share_box.append(share_label);
+        share_btn.set_child(share_box);
+        share_btn.add_css_class("flat");
+        share_btn.add_css_class("menu-item");
+        share_btn.clicked.connect(() => {
+            show_share_dialog(url);
+            menu_popover.popdown();
+        });
+        menu_box.append(share_btn);
+
+        menu_popover.set_child(menu_box);
 
         var open_menu_btn = new Gtk.MenuButton();
         var menu_content = new Adw.ButtonContent();
         menu_content.set_icon_name("view-more-symbolic");
         menu_content.set_label("Article options");
         open_menu_btn.set_child(menu_content);
-        open_menu_btn.set_menu_model(open_menu);
+        open_menu_btn.set_popover(menu_popover);
         open_menu_btn.set_hexpand(true);
         open_menu_btn.add_css_class("suggested-action");
         open_menu_btn.set_tooltip_text("Article view and source options");
-
-        // Actions backing the menu entries
-        var open_in_app_action = new GLib.SimpleAction("open-in-app", null);
-        open_in_app_action.activate.connect(() => {
-            try {
-                string normalized = parent_window.normalize_article_url(url);
-                if (parent_window.article_sheet != null) parent_window.article_sheet.open(normalized);
-                if (preview_split != null) preview_split.set_show_sidebar(false);
-            } catch (GLib.Error e) { }
-        });
-
-        var open_in_browser_action = new GLib.SimpleAction("open-in-browser", null);
-        open_in_browser_action.activate.connect(() => {
-            try { open_article_in_browser(url); } catch (GLib.Error e) { }
-        });
-
-        var follow_action = new GLib.SimpleAction("follow-source", null);
-        follow_action.activate.connect(() => {
-            try {
-                // Show immediate feedback while the feed discovery runs.
-                // Use the global window.toast_overlay directly so the
-                // message is visible even if the content-local overlay
-                // is not yet ready or has unexpected layout behavior.
-                        try {
-                        // Show a persistent (sticky) toast while feed discovery runs.
-                        // It will be removed automatically when the next non-persistent
-                        // toast is shown (e.g. success/failure message) or you can
-                        // explicitly clear it by calling clear_persistent_toast().
-                        parent_window.show_persistent_toast("Searching for feed...");
-                } catch (GLib.Error _e) {
-                    try { parent_window.show_persistent_toast("Searching for feed..."); } catch (GLib.Error __e) { }
-                }
-
-                parent_window.source_manager.follow_rss_source(url, article_source_name);
-            } catch (GLib.Error e) { }
-        });
-
-        // Disable follow action for built-in sources (can't follow built-in providers)
-        try {
-            bool is_builtin = SourceManager.is_article_from_builtin(url);
-            follow_action.set_enabled(!is_builtin);
-        } catch (GLib.Error e) { }
-
-        var action_group = new GLib.SimpleActionGroup();
-        action_group.add_action(open_in_app_action);
-        action_group.add_action(open_in_browser_action);
-        action_group.add_action(follow_action);
-
-        // Attach actions to the actions container so the menu can reference
-        // them with the "article." prefix.
-        actions.insert_action_group("article", action_group);
 
         actions.append(back_local);
         actions.append(open_menu_btn);
@@ -706,5 +776,26 @@ public class ArticlePane : GLib.Object {
     // Generate a cache key for preview textures (url + requested size)
     private string make_preview_cache_key(string u, int w, int h) {
         return u + "@" + w.to_string() + "x" + h.to_string();
+    }
+
+    // Show share dialog for article URL
+    public void show_share_dialog(string article_url) {
+        var dialog = new Adw.MessageDialog(parent_window, "Share Article", null);
+        dialog.set_body("Copy link to share this article");
+        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("copy", "Copy Link");
+        dialog.set_response_appearance("copy", Adw.ResponseAppearance.SUGGESTED);
+        dialog.set_default_response("copy");
+        dialog.set_close_response("cancel");
+
+        dialog.response.connect((response) => {
+            if (response == "copy") {
+                var clipboard = parent_window.get_clipboard();
+                clipboard.set_text(article_url);
+                parent_window.show_toast("Link copied to clipboard");
+            }
+        });
+
+        dialog.present();
     }
 }

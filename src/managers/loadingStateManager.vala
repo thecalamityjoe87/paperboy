@@ -241,14 +241,17 @@ public class LoadingStateManager : GLib.Object {
 
         Timeout.add(500, () => {
             try { window.upgrade_images_after_initial(); } catch (GLib.Error e) { }
-            // Save article tracking and refresh sidebar badges after initial content is loaded
+            // Save article tracking (disabled - no longer persisting)
+            // Badge refreshes are now handled per-category/source in fetch_news()
+            // to avoid race conditions and ensure accurate counts
             try {
                 if (window.article_state_store != null) {
                     window.article_state_store.save_article_tracking_to_disk();
                 }
-                if (window.sidebar_manager != null) {
-                    window.sidebar_manager.refresh_all_badges();
-                }
+                // REMOVED: global badge refresh moved to targeted per-source/category updates
+                // if (window.sidebar_manager != null) {
+                //     window.sidebar_manager.refresh_all_badges();
+                // }
             } catch (GLib.Error e) { }
             return false;
         });

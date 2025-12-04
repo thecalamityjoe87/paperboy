@@ -43,6 +43,7 @@ public class CategoryIcons : GLib.Object {
             case "topten": filename = "topten-mono.svg"; break;
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
+            case "saved": filename = "saved-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
             case "markets": filename = "markets-mono.svg"; break;
             case "industries": filename = "industries-mono.svg"; break;
@@ -122,6 +123,9 @@ public class CategoryIcons : GLib.Object {
             case "frontpage":
                 candidates = { "go-home-symbolic", "applications-home-symbolic", "home-symbolic" };
                 break;
+            case "saved":
+                candidates = { "user-bookmarks-symbolic", "bookmark-new-symbolic", "emblem-documents-symbolic" };
+                break;
             case "general":
                 candidates = { "globe-symbolic", "emblem-web-symbolic" };
                 break;
@@ -178,6 +182,7 @@ public class CategoryIcons : GLib.Object {
         switch (cat) {
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
+            case "saved": filename = "saved-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
             case "markets": filename = "markets-mono.svg"; break;
             case "industries": filename = "industries-mono.svg"; break;

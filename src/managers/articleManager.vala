@@ -200,25 +200,30 @@ namespace Managers {
                     }
             }
 
-            // Use CategoryManager for category filtering
-            if (!window.category_manager.should_display_article(category_id)) {
-                if (debug_enabled()) {
-                    warning("Article filtered by category: view=%s article_cat=%s title=%s",
-                            window.category_manager.get_current_category(), category_id, title);
-                }
-                return;
-            }
+            // Skip filtering for saved articles - they should always be displayed regardless of source
+            bool is_saved_view = (window.prefs.category == "saved");
 
-            // Use SourceManager for source filtering
-            if (!window.source_manager.should_display_article(url, category_id)) {
-                if (debug_enabled()) {
-                    string article_src_id = SourceManager.infer_source_id_from_url(url);
-                    debug("Article filtered by source: url=%s, inferred_src=%s, enabled_sources=%s",
-                          url.length > 80 ? url.substring(0, 80) : url,
-                          article_src_id,
-                          string.joinv(",", (string[])window.source_manager.get_enabled_sources().to_array()));
+            if (!is_saved_view) {
+                // Use CategoryManager for category filtering
+                if (!window.category_manager.should_display_article(category_id)) {
+                    if (debug_enabled()) {
+                        warning("Article filtered by category: view=%s article_cat=%s title=%s",
+                                window.category_manager.get_current_category(), category_id, title);
+                    }
+                    return;
                 }
-                return;
+
+                // Use SourceManager for source filtering
+                if (!window.source_manager.should_display_article(url, category_id)) {
+                    if (debug_enabled()) {
+                        string article_src_id = SourceManager.infer_source_id_from_url(url);
+                        debug("Article filtered by source: url=%s, inferred_src=%s, enabled_sources=%s",
+                              url.length > 80 ? url.substring(0, 80) : url,
+                              article_src_id,
+                              string.joinv(",", (string[])window.source_manager.get_enabled_sources().to_array()));
+                    }
+                    return;
+                }
             }
 
             // Add articles immediately
@@ -309,7 +314,10 @@ namespace Managers {
             }
             
             bool should_be_hero = false;
-            if (window.prefs.category == "topten") {
+            if (window.prefs.category == "saved") {
+                // Saved articles: skip hero, display as regular cards
+                should_be_hero = false;
+            } else if (window.prefs.category == "topten") {
                 should_be_hero = (topten_hero_count < 2);
             } else if (window.prefs.category == "frontpage") {
                 // For frontpage, only make the first article a hero (same as other categories)
@@ -663,7 +671,7 @@ namespace Managers {
 
         var chip = window.build_category_chip(card_display_cat);
 
-        var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant);
+        var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant, window.article_state_store);
 
         // Enforce uniform card size for Top Ten view so rows line up evenly.
         if (window.prefs.category == "topten") {
@@ -760,6 +768,31 @@ namespace Managers {
             try {
                 window.show_persistent_toast("Searching for feed...");
                 window.source_manager.follow_rss_source(article_url, src_name);
+            } catch (GLib.Error e) { }
+        });
+
+        article_card.save_for_later_requested.connect((article_url) => {
+            try {
+                if (window.article_state_store != null) {
+                    bool is_saved = window.article_state_store.is_saved(article_url);
+                    if (is_saved) {
+                        window.article_state_store.unsave_article(article_url);
+                        window.show_toast("Removed from saved articles");
+                        // If we're in the saved articles view, refresh to remove the card
+                        if (window.prefs.category == "saved") {
+                            try { window.fetch_news(); } catch (GLib.Error e) { }
+                        }
+                    } else {
+                        window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                        window.show_toast("Saved for later");
+                    }
+                }
+            } catch (GLib.Error e) { }
+        });
+
+        article_card.share_requested.connect((article_url) => {
+            try {
+                window.show_share_dialog(article_url);
             } catch (GLib.Error e) { }
         });
 

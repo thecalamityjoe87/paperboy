@@ -190,6 +190,7 @@ public class SidebarManager : GLib.Object {
         add_row("Front Page", "frontpage", window.prefs.category == "frontpage");
         add_row("My Feed", "myfeed", window.prefs.category == "myfeed");
         add_row("Local News", "local_news", window.prefs.category == "local_news");
+        add_row("Saved", "saved", window.prefs.category == "saved");
 
         // Add expandable Custom RSS Feeds section
         build_followed_sources_section();
@@ -406,6 +407,11 @@ public class SidebarManager : GLib.Object {
     }
 
     private string validate_category_for_sources(string requested_cat) {
+        // App-level categories that don't depend on news sources
+        if (requested_cat == "saved" || requested_cat == "topten" || requested_cat == "myfeed" || requested_cat == "local_news" || requested_cat.has_prefix("rssfeed:")) {
+            return requested_cat;
+        }
+
         bool category_supported = false;
         if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
             foreach (var id in window.prefs.preferred_sources) {

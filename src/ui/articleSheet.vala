@@ -56,7 +56,7 @@ public class ArticleSheet : GLib.Object {
         content_box.set_hexpand(true);
         content_box.set_vexpand(true);
         // Ensure the content box uses the standard card styling (solid background)
-        content_box.add_css_class("card");
+        content_box.add_css_class("sheet");
 
         // Header with close and external-open buttons
         var header = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
@@ -65,6 +65,7 @@ public class ArticleSheet : GLib.Object {
         header.set_margin_start(8);
         header.set_margin_end(8);
         header.set_hexpand(true);
+        header.add_css_class("sheet-header");
 
         // Use a button with icon and text
         close_btn = new Gtk.Button();

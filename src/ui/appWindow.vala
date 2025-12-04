@@ -264,6 +264,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
         try {
             article_state_store = new ArticleStateStore();
+            // Clear stale article tracking from previous session on startup.
+            // Fresh articles will be registered as they're fetched, preventing
+            // inflated unread counts from persisted data.
+            if (article_state_store != null) {
+                article_state_store.clear_article_tracking();
+            }
         } catch (GLib.Error e) { article_state_store = null; }
         try {
             image_cache = new ImageCache(256);
@@ -1171,6 +1177,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
+    public void show_share_dialog(string url) {
+        if (article_pane != null) {
+            article_pane.show_share_dialog(url);
+        }
+    }
+
     private void create_icon_placeholder(Gtk.Picture image, string icon_path, int width, int height) {
         // Delegate to centralized placeholder builder which accepts a NewsSource
         try {
@@ -1468,10 +1480,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Clear old article tracking for this category so unread counts reflect current content
         if (article_state_store != null && prefs.category != null && prefs.category.length > 0) {
             article_state_store.clear_article_tracking_for_category(prefs.category);
-            // Refresh badges after articles load (single smooth update instead of flicker)
-            GLib.Timeout.add(600, () => {
+            // Refresh badge for this specific category after articles load
+            string current_cat = prefs.category;
+            GLib.Timeout.add(1200, () => {
                 if (sidebar_manager != null) {
-                    sidebar_manager.refresh_all_badges();
+                    sidebar_manager.update_badge_for_category(current_cat);
                 }
                 return false;
             });
@@ -1960,6 +1973,66 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         }
 
+        // Saved Articles: display articles the user has saved for later
+        if (prefs.category == "saved") {
+            stderr.printf("[SAVED] Starting saved articles display, seq=%u\n", my_seq);
+
+            try { self_ref.source_label.set_text("Saved Articles"); } catch (GLib.Error e) { }
+            try { self_ref.source_logo.set_from_icon_name("user-bookmarks-symbolic"); } catch (GLib.Error e) { }
+
+            if (article_state_store == null) {
+                try { wrapped_set_label("Saved Articles — Unable to load saved articles"); } catch (GLib.Error e) { }
+                hide_loading_spinner();
+                return;
+            }
+
+            var saved_articles = article_state_store.get_saved_articles();
+            stderr.printf("[SAVED] Got %d articles, current_seq=%u\n", saved_articles.size, self_ref.fetch_sequence);
+            if (saved_articles.size == 0) {
+                try { wrapped_set_label("Saved Articles — No saved articles yet"); } catch (GLib.Error e) { }
+                hide_loading_spinner();
+                return;
+            }
+
+            // Clear and repopulate in a single idle callback to ensure proper ordering
+            Idle.add(() => {
+                if (my_seq != self_ref.fetch_sequence) return false;
+
+                // Clear columns
+                for (int i = 0; i < self_ref.layout_manager.columns.length; i++) {
+                    Gtk.Widget? child = self_ref.layout_manager.columns[i].get_first_child();
+                    while (child != null) {
+                        Gtk.Widget? next = child.get_next_sibling();
+                        self_ref.layout_manager.columns[i].remove(child);
+                        child = next;
+                    }
+                    self_ref.layout_manager.column_heights[i] = 0;
+                }
+                self_ref.article_buffer.clear();
+                self_ref.articles_shown = 0;
+
+                // Add saved articles immediately after clearing
+                foreach (var article in saved_articles) {
+                    if (article != null && my_seq == self_ref.fetch_sequence) {
+                        try {
+                            wrapped_add(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved");
+                        } catch (GLib.Error e) { }
+                    }
+                }
+
+                stderr.printf("[SAVED] Finished adding %d articles, seq=%u current_seq=%u\n", saved_articles.size, my_seq, self_ref.fetch_sequence);
+
+                // Force queue draw to ensure UI updates
+                self_ref.layout_manager.columns[0].queue_draw();
+                self_ref.layout_manager.columns[1].queue_draw();
+                self_ref.layout_manager.columns[2].queue_draw();
+
+                self_ref.hide_loading_spinner();
+                return false;
+            });
+            return;
+        }
+
         // Local News: if the user selected the Local News sidebar item,
         // attempt to read per-user feeds from ~/.config/paperboy/local_feeds
         // and fetch each feed URL with the RSS parser. This allows the
@@ -2117,12 +2190,13 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             // Fetch articles from the RSS feed
             // Don't set featured_used - let articles populate normally, adaptive layout will handle it
-            RssParser.fetch_rss_url(feed_url, feed_name, feed_name, "myfeed", current_search_query, session, label_fn, no_op_clear, wrapped_add);
+            // Use a unique category ID for single RSS feeds to avoid "myfeed" logic
+            RssParser.fetch_rss_url(feed_url, feed_name, feed_name, "rssfeed:" + feed_url, current_search_query, session, label_fn, no_op_clear, wrapped_add);
 
-            // Refresh badges after articles load (single smooth update instead of flicker)
-            GLib.Timeout.add(600, () => {
+            // Refresh badge for this specific RSS source after articles load
+            GLib.Timeout.add(1200, () => {
                 if (self_ref.sidebar_manager != null) {
-                    self_ref.sidebar_manager.refresh_all_badges();
+                    self_ref.sidebar_manager.update_badge_for_source(feed_name);
                 }
                 return false;
             });

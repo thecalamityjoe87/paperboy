@@ -29,6 +29,7 @@ public class ArticleCard : GLib.Object {
     public string? source_name;
     public string? category_id;
     public string? thumbnail_url;
+    private ArticleStateStore? article_state_store;
 
     // Signal emitted when the card is activated (clicked/tapped)
     public signal void activated(string url);
@@ -37,10 +38,13 @@ public class ArticleCard : GLib.Object {
     public signal void open_in_app_requested(string url);
     public signal void open_in_browser_requested(string url);
     public signal void follow_source_requested(string url, string? source_name);
+    public signal void save_for_later_requested(string url);
+    public signal void share_requested(string url);
 
-    public ArticleCard(string title, string url, int col_w, int img_h, Gtk.Widget chip, int variant) {
+    public ArticleCard(string title, string url, int col_w, int img_h, Gtk.Widget chip, int variant, ArticleStateStore? state_store = null) {
         GLib.Object();
         this.url = url;
+        this.article_state_store = state_store;
 
         root = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         root.add_css_class("card");
@@ -118,37 +122,107 @@ public class ArticleCard : GLib.Object {
     }
 
     private void show_context_menu(double x, double y) {
-        var menu = new GLib.Menu();
-        menu.append("View in app", "card.open-in-app");
-        menu.append("Open in browser", "card.open-in-browser");
-        menu.append("Follow this source", "card.follow-source");
+        // Check if article is already saved
+        bool is_saved = false;
+        if (article_state_store != null) {
+            try { is_saved = article_state_store.is_saved(url); } catch (GLib.Error e) { }
+        }
 
-        var open_in_app_action = new GLib.SimpleAction("open-in-app", null);
-        open_in_app_action.activate.connect(() => {
-            try { open_in_app_requested(url); } catch (GLib.Error e) { }
-        });
-
-        var open_in_browser_action = new GLib.SimpleAction("open-in-browser", null);
-        open_in_browser_action.activate.connect(() => {
-            try { open_in_browser_requested(url); } catch (GLib.Error e) { }
-        });
-
-        var follow_action = new GLib.SimpleAction("follow-source", null);
-        follow_action.activate.connect(() => {
-            try { follow_source_requested(url, source_name); } catch (GLib.Error e) { }
-        });
-
-        var action_group = new GLib.SimpleActionGroup();
-        action_group.add_action(open_in_app_action);
-        action_group.add_action(open_in_browser_action);
-        action_group.add_action(follow_action);
-
-        var popover = new Gtk.PopoverMenu.from_model(menu);
+        // Create custom popover with buttons that have icons
+        var popover = new Gtk.Popover();
         popover.set_parent(root);
         popover.set_has_arrow(false);
         popover.set_pointing_to({ (int)x, (int)y, 1, 1 });
 
-        root.insert_action_group("card", action_group);
+        var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        menu_box.add_css_class("menu");
+
+        // View in app
+        var view_btn = new Gtk.Button();
+        view_btn.set_halign(Gtk.Align.START);
+        var view_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var view_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
+        var view_label = new Gtk.Label("View article in app");
+        view_label.set_xalign(0);
+        view_box.append(view_icon);
+        view_box.append(view_label);
+        view_btn.set_child(view_box);
+        view_btn.add_css_class("flat");
+        view_btn.add_css_class("menu-item");
+        view_btn.clicked.connect(() => {
+            try { open_in_app_requested(url); popover.popdown(); } catch (GLib.Error e) { }
+        });
+        menu_box.append(view_btn);
+
+        // Open in browser
+        var browser_btn = new Gtk.Button();
+        browser_btn.set_halign(Gtk.Align.START);
+        var browser_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var browser_icon = new Gtk.Image.from_icon_name("web-browser-symbolic");
+        var browser_label = new Gtk.Label("Open article in browser");
+        browser_label.set_xalign(0);
+        browser_box.append(browser_icon);
+        browser_box.append(browser_label);
+        browser_btn.set_child(browser_box);
+        browser_btn.add_css_class("flat");
+        browser_btn.add_css_class("menu-item");
+        browser_btn.clicked.connect(() => {
+            try { open_in_browser_requested(url); popover.popdown(); } catch (GLib.Error e) { }
+        });
+        menu_box.append(browser_btn);
+
+        // Follow this source
+        var follow_btn = new Gtk.Button();
+        follow_btn.set_halign(Gtk.Align.START);
+        var follow_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var follow_icon = new Gtk.Image.from_icon_name("list-add-symbolic");
+        var follow_label = new Gtk.Label("Follow this source");
+        follow_label.set_xalign(0);
+        follow_box.append(follow_icon);
+        follow_box.append(follow_label);
+        follow_btn.set_child(follow_box);
+        follow_btn.add_css_class("flat");
+        follow_btn.add_css_class("menu-item");
+        follow_btn.clicked.connect(() => {
+            try { follow_source_requested(url, source_name); popover.popdown(); } catch (GLib.Error e) { }
+        });
+        menu_box.append(follow_btn);
+
+        // Save/Remove from saved
+        var save_btn = new Gtk.Button();
+        save_btn.set_halign(Gtk.Align.START);
+        var save_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var save_icon = new Gtk.Image.from_icon_name(is_saved ? "user-trash-symbolic" : "user-bookmarks-symbolic");
+        var save_label = new Gtk.Label(is_saved ? "Remove from saved" : "Save this article");
+        save_label.set_xalign(0);
+        save_box.append(save_icon);
+        save_box.append(save_label);
+        save_btn.set_child(save_box);
+        save_btn.add_css_class("flat");
+        save_btn.add_css_class("menu-item");
+        save_btn.clicked.connect(() => {
+            try { save_for_later_requested(url); popover.popdown(); } catch (GLib.Error e) { }
+        });
+        menu_box.append(save_btn);
+
+        // Share
+        var share_btn = new Gtk.Button();
+        share_btn.set_halign(Gtk.Align.START);
+        var share_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var share_icon = new Gtk.Image.from_icon_name("share-symbolic");
+        var share_label = new Gtk.Label("Share this article");
+        share_label.set_xalign(0);
+        share_box.append(share_icon);
+        share_box.append(share_label);
+        share_btn.set_child(share_box);
+        share_btn.add_css_class("flat");
+        share_btn.add_css_class("menu-item");
+        share_btn.clicked.connect(() => {
+            try { share_requested(url); popover.popdown(); } catch (GLib.Error e) { }
+        });
+        menu_box.append(share_btn);
+
+        popover.set_child(menu_box);
         popover.popup();
     }
 }

@@ -34,6 +34,26 @@ public class ArticleStateStore : GLib.Object {
     private Gee.HashMap<string, Gee.HashSet<string>> source_articles;    // source_name -> set of URLs
     private Mutex article_tracking_lock = new Mutex();
 
+    // Track saved articles with metadata
+    private Gee.HashMap<string, SavedArticle> saved_articles;  // URL -> SavedArticle
+    private Mutex saved_lock = new Mutex();
+
+    public class SavedArticle {
+        public string url;
+        public string title;
+        public string? thumbnail;
+        public string? source;
+        public int64 saved_timestamp;
+
+        public SavedArticle(string url, string title, string? thumbnail, string? source) {
+            this.url = url;
+            this.title = title;
+            this.thumbnail = thumbnail;
+            this.source = source;
+            this.saved_timestamp = GLib.get_real_time() / 1000000; // Unix timestamp
+        }
+    }
+
     public ArticleStateStore() {
         GLib.Object();
         var cache_base = Environment.get_user_cache_dir();
@@ -44,9 +64,12 @@ public class ArticleStateStore : GLib.Object {
         viewed_meta_paths = new Gee.HashSet<string>();
         category_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
         source_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
+        saved_articles = new Gee.HashMap<string, SavedArticle>();
 
         // Load persisted article tracking
         load_article_tracking();
+        // Load saved articles
+        load_saved_articles();
 
         // preload small metadata set: scan .meta files for viewed flag
         try {
@@ -196,7 +219,9 @@ public class ArticleStateStore : GLib.Object {
 
     // Explicitly save article tracking to disk
     public void save_article_tracking_to_disk() {
-        save_article_tracking();
+        // DISABLED: Article tracking is no longer persisted across sessions.
+        // Unread counts are rebuilt fresh each session to prevent stale data.
+        // save_article_tracking();
     }
 
     // Get unread count for a specific category
@@ -260,8 +285,8 @@ public class ArticleStateStore : GLib.Object {
         } finally {
             article_tracking_lock.unlock();
         }
-        // Persist the cleared state
-        save_article_tracking();
+        // DISABLED: No longer persisting article tracking
+        // save_article_tracking();
     }
 
     // Clear article tracking for a specific source (useful when refreshing an RSS feed)
@@ -274,8 +299,8 @@ public class ArticleStateStore : GLib.Object {
         } finally {
             article_tracking_lock.unlock();
         }
-        // Persist the cleared state
-        save_article_tracking();
+        // DISABLED: No longer persisting article tracking
+        // save_article_tracking();
     }
 
     // Clear article tracking for a specific category (useful when refreshing a category feed)
@@ -288,8 +313,8 @@ public class ArticleStateStore : GLib.Object {
         } finally {
             article_tracking_lock.unlock();
         }
-        // Persist the cleared state
-        save_article_tracking();
+        // DISABLED: No longer persisting article tracking
+        // save_article_tracking();
     }
 
     // Save article tracking to disk
@@ -382,6 +407,150 @@ public class ArticleStateStore : GLib.Object {
             }
         } catch (GLib.Error e) {
             stderr.printf("Failed to load article tracking: %s\n", e.message);
+        }
+    }
+
+    // Saved articles management
+    public void save_article(string url, string title, string? thumbnail = null, string? source = null) {
+        saved_lock.lock();
+        try {
+            var article = new SavedArticle(url, title, thumbnail, source);
+            saved_articles.set(url, article);
+            persist_saved_articles();
+        } finally {
+            saved_lock.unlock();
+        }
+    }
+
+    public void unsave_article(string url) {
+        saved_lock.lock();
+        try {
+            saved_articles.unset(url);
+            persist_saved_articles();
+        } finally {
+            saved_lock.unlock();
+        }
+    }
+
+    public bool is_saved(string url) {
+        saved_lock.lock();
+        try {
+            return saved_articles.has_key(url);
+        } finally {
+            saved_lock.unlock();
+        }
+    }
+
+    public Gee.ArrayList<SavedArticle?> get_saved_articles() {
+        saved_lock.lock();
+        try {
+            var list = new Gee.ArrayList<SavedArticle?>();
+            foreach (var article in saved_articles.values) {
+                list.add(article);
+            }
+            // Sort by saved timestamp, newest first
+            list.sort((a, b) => {
+                return (int)(b.saved_timestamp - a.saved_timestamp);
+            });
+            return list;
+        } finally {
+            saved_lock.unlock();
+        }
+    }
+
+    public SavedArticle? get_saved_article(string url) {
+        saved_lock.lock();
+        try {
+            if (saved_articles.has_key(url)) {
+                return saved_articles.get(url);
+            }
+            return null;
+        } finally {
+            saved_lock.unlock();
+        }
+    }
+
+    public int get_saved_count() {
+        saved_lock.lock();
+        try {
+            return saved_articles.size;
+        } finally {
+            saved_lock.unlock();
+        }
+    }
+
+    private void persist_saved_articles() {
+        string saved_file = Path.build_filename(cache_dir_path, "saved_articles.json");
+        try {
+            var builder = new Json.Builder();
+            builder.begin_object();
+            builder.set_member_name("saved");
+            builder.begin_array();
+            foreach (var article in saved_articles.values) {
+                builder.begin_object();
+                builder.set_member_name("url");
+                builder.add_string_value(article.url);
+                builder.set_member_name("title");
+                builder.add_string_value(article.title);
+                if (article.thumbnail != null) {
+                    builder.set_member_name("thumbnail");
+                    builder.add_string_value(article.thumbnail);
+                }
+                if (article.source != null) {
+                    builder.set_member_name("source");
+                    builder.add_string_value(article.source);
+                }
+                builder.set_member_name("saved_timestamp");
+                builder.add_int_value(article.saved_timestamp);
+                builder.end_object();
+            }
+            builder.end_array();
+            builder.end_object();
+
+            var generator = new Json.Generator();
+            generator.set_root(builder.get_root());
+            generator.set_pretty(true);
+            generator.to_file(saved_file);
+        } catch (GLib.Error e) {
+            stderr.printf("Failed to save saved articles: %s\n", e.message);
+        }
+    }
+
+    private void load_saved_articles() {
+        string saved_file = Path.build_filename(cache_dir_path, "saved_articles.json");
+        if (!FileUtils.test(saved_file, FileTest.EXISTS)) {
+            return;
+        }
+
+        try {
+            var parser = new Json.Parser();
+            parser.load_from_file(saved_file);
+            var root = parser.get_root();
+            if (root == null || root.get_node_type() != Json.NodeType.OBJECT) {
+                return;
+            }
+
+            var obj = root.get_object();
+            if (obj.has_member("saved")) {
+                var saved_array = obj.get_array_member("saved");
+                saved_array.foreach_element((arr, index, node) => {
+                    if (node.get_node_type() == Json.NodeType.OBJECT) {
+                        var article_obj = node.get_object();
+                        string url = article_obj.get_string_member("url");
+                        string title = article_obj.get_string_member("title");
+                        string? thumbnail = article_obj.has_member("thumbnail") ? article_obj.get_string_member("thumbnail") : null;
+                        string? source = article_obj.has_member("source") ? article_obj.get_string_member("source") : null;
+
+                        var article = new SavedArticle(url, title, thumbnail, source);
+                        if (article_obj.has_member("saved_timestamp")) {
+                            article.saved_timestamp = article_obj.get_int_member("saved_timestamp");
+                        }
+                        saved_articles.set(url, article);
+                    }
+                });
+            }
+        } catch (GLib.Error e) {
+            stderr.printf("Failed to load saved articles: %s\n", e.message);
         }
     }
 }
