@@ -29,6 +29,8 @@ public class ArticlePane : GLib.Object {
     // Preview overlay components
     private Adw.OverlaySplitView? preview_split;
     private Gtk.Box? preview_content_box;
+    // Store current article data for sharing
+    private string? current_article_title = null;
     // In-memory cache for article preview textures (url@WxH -> Gdk.Texture).
     // Use an LRU cache with a small capacity so previews don't accumulate
     // indefinitely and cause unbounded memory growth.
@@ -110,6 +112,9 @@ public class ArticlePane : GLib.Object {
     // app-local placeholder so previews for Local News items match the
     // card/hero placeholders used in the main UI.
     public void show_article_preview(string title, string url, string? thumbnail_url, string? category_id = null, string? source_name = null) {
+        // Store current article data for sharing
+        current_article_title = title;
+
         // Notify parent window that a preview is opening so it can track
         // the active preview (used to mark viewed on return).
         try { parent_window.preview_opened(url); } catch (GLib.Error e) { }
@@ -780,22 +785,6 @@ public class ArticlePane : GLib.Object {
 
     // Show share dialog for article URL
     public void show_share_dialog(string article_url) {
-        var dialog = new Adw.MessageDialog(parent_window, "Share Article", null);
-        dialog.set_body("Copy link to share this article");
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("copy", "Copy Link");
-        dialog.set_response_appearance("copy", Adw.ResponseAppearance.SUGGESTED);
-        dialog.set_default_response("copy");
-        dialog.set_close_response("cancel");
-
-        dialog.response.connect((response) => {
-            if (response == "copy") {
-                var clipboard = parent_window.get_clipboard();
-                clipboard.set_text(article_url);
-                parent_window.show_toast("Link copied to clipboard");
-            }
-        });
-
-        dialog.present();
+        ShareDialog.show(article_url, current_article_title, parent_window);
     }
 }

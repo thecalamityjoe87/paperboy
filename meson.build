@@ -39,10 +39,15 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/articleSheet.vala',
     'src/ui/heroCard.vala',
     'src/ui/heroCarousel.vala',
+    'src/ui/shareDialog.vala',
+    'src/ui/menus/articleMenu.vala',
 
     # Builders
     'src/builders/cardBuilder.vala',
     'src/builders/placeholderBuilder.vala',
+
+    # Actions
+    'src/actions/articleActions.vala',
 
     # Managers
     'src/managers/sourceManager.vala',
