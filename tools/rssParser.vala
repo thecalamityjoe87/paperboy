@@ -351,7 +351,21 @@ public class RssParser {
 
                 clear_items();
                 foreach (var row in items) {
-                    add_item(row[0] ?? "No title", row[1] ?? "", row[2], category_id, source_name);
+                    string title = row[0] ?? "No title";
+                    string url = row[1] ?? "";
+
+                    // Filter by search query if provided (case-insensitive substring match)
+                    if (current_search_query.length > 0) {
+                        string query_lower = current_search_query.down();
+                        string title_lower = title.down();
+                        string url_lower = url.down();
+
+                        if (!title_lower.contains(query_lower) && !url_lower.contains(query_lower)) {
+                            continue;
+                        }
+                    }
+
+                    add_item(title, url, row[2], category_id, source_name);
                 }
 
                 if (category_id == "myfeed" && favicon_url != null && favicon_url.length > 0) {

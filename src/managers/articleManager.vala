@@ -369,7 +369,16 @@ namespace Managers {
                 } catch (GLib.Error e) { }
 
                 var hero_chip = window.build_category_chip(hero_display_cat);
-                var hero_card = new HeroCard(title, url, max_hero_height, default_hero_h, hero_chip);
+
+                // Enable context menu for: 1) Top Ten hero cards, 2) RSS feeds with < 15 articles
+                bool enable_hero_context_menu = false;
+                if (window.prefs.category == "topten") {
+                    enable_hero_context_menu = true;
+                } else if (window.category_manager.is_rssfeed_view() && articles_shown < 15) {
+                    enable_hero_context_menu = true;
+                }
+
+                var hero_card = new HeroCard(title, url, max_hero_height, default_hero_h, hero_chip, enable_hero_context_menu, window.article_state_store, window);
 
                 string _norm = window.normalize_article_url(url);
 
@@ -437,6 +446,31 @@ namespace Managers {
                     try {
                         window.show_persistent_toast("Searching for feed...");
                         window.source_manager.follow_rss_source(article_url, src_name);
+                    } catch (GLib.Error e) { }
+                });
+
+                hero_card.save_for_later_requested.connect((article_url) => {
+                    try {
+                        if (window.article_state_store != null) {
+                            bool is_saved = window.article_state_store.is_saved(article_url);
+                            if (is_saved) {
+                                window.article_state_store.unsave_article(article_url);
+                                window.show_toast("Removed from saved articles");
+                                // If we're in the saved articles view, refresh to remove the card
+                                if (window.prefs.category == "saved") {
+                                    try { window.fetch_news(); } catch (GLib.Error e) { }
+                                }
+                            } else {
+                                window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                                window.show_toast("Saved for later");
+                            }
+                        }
+                    } catch (GLib.Error e) { }
+                });
+
+                hero_card.share_requested.connect((article_url) => {
+                    try {
+                        window.show_share_dialog(article_url);
                     } catch (GLib.Error e) { }
                 });
 

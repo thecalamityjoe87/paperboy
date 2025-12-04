@@ -1987,9 +1987,30 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
 
             var saved_articles = article_state_store.get_saved_articles();
+
+            // Filter by search query if provided
+            if (current_search_query.length > 0) {
+                var filtered_articles = new Gee.ArrayList<ArticleStateStore.SavedArticle?>();
+                string query_lower = current_search_query.down();
+                foreach (var article in saved_articles) {
+                    if (article != null) {
+                        string title_lower = article.title != null ? article.title.down() : "";
+                        string url_lower = article.url != null ? article.url.down() : "";
+                        if (title_lower.contains(query_lower) || url_lower.contains(query_lower)) {
+                            filtered_articles.add(article);
+                        }
+                    }
+                }
+                saved_articles = filtered_articles;
+            }
+
             stderr.printf("[SAVED] Got %d articles, current_seq=%u\n", saved_articles.size, self_ref.fetch_sequence);
             if (saved_articles.size == 0) {
-                try { wrapped_set_label("Saved Articles — No saved articles yet"); } catch (GLib.Error e) { }
+                if (current_search_query.length > 0) {
+                    try { wrapped_set_label(@"Saved Articles — No results for \"$(current_search_query)\""); } catch (GLib.Error e) { }
+                } else {
+                    try { wrapped_set_label("Saved Articles — No saved articles yet"); } catch (GLib.Error e) { }
+                }
                 hide_loading_spinner();
                 return;
             }
@@ -1997,6 +2018,13 @@ public class NewsWindow : Adw.ApplicationWindow {
             // Clear and repopulate in a single idle callback to ensure proper ordering
             Idle.add(() => {
                 if (my_seq != self_ref.fetch_sequence) return false;
+
+                // Set label based on search query
+                if (current_search_query.length > 0) {
+                    try { wrapped_set_label(@"Search Results: \"$(current_search_query)\" in Saved Articles"); } catch (GLib.Error e) { }
+                } else {
+                    try { wrapped_set_label("Saved Articles"); } catch (GLib.Error e) { }
+                }
 
                 // Clear columns
                 for (int i = 0; i < self_ref.layout_manager.columns.length; i++) {

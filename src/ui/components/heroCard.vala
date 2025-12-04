@@ -28,6 +28,11 @@ public class HeroCard : GLib.Object {
     public string? source_name;
     public string? category_id;
     public string? thumbnail_url;
+    private bool enable_context_menu;
+    private ArticleStateStore? article_state_store;
+    private NewsWindow? parent_window;
+    private ArticleMenu? current_menu;
+    private Gtk.Popover? current_popover;
 
     // Signal emitted when the hero/slide is activated (clicked)
     public signal void activated(string url);
@@ -36,10 +41,15 @@ public class HeroCard : GLib.Object {
     public signal void open_in_app_requested(string url);
     public signal void open_in_browser_requested(string url);
     public signal void follow_source_requested(string url, string? source_name);
+    public signal void save_for_later_requested(string url);
+    public signal void share_requested(string url);
 
-    public HeroCard(string title, string url, int max_total_height, int image_h, Gtk.Widget? chip) {
+    public HeroCard(string title, string url, int max_total_height, int image_h, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null) {
         GLib.Object();
         this.url = url;
+        this.enable_context_menu = enable_context_menu;
+        this.article_state_store = state_store;
+        this.parent_window = window;
 
         root = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         root.add_css_class("card");
@@ -98,47 +108,46 @@ public class HeroCard : GLib.Object {
         motion.leave.connect(() => { root.remove_css_class("card-hover"); });
         root.add_controller(motion);
 
-        // Right-click context menu
-        var right_click = new Gtk.GestureClick();
-        try { right_click.set_button(3); } catch (GLib.Error e) { }
-        right_click.pressed.connect((n_press, x, y) => {
-            try { show_context_menu(x, y); } catch (GLib.Error e) { }
-        });
-        root.add_controller(right_click);
+        // Right-click context menu (only if enabled)
+        if (enable_context_menu) {
+            var right_click = new Gtk.GestureClick();
+            try { right_click.set_button(3); } catch (GLib.Error e) { }
+            right_click.pressed.connect((n_press, x, y) => {
+                try { show_context_menu(x, y); } catch (GLib.Error e) { }
+            });
+            root.add_controller(right_click);
+        }
     }
 
     private void show_context_menu(double x, double y) {
-        var menu = new GLib.Menu();
-        menu.append("View in app", "card.open-in-app");
-        menu.append("Open in browser", "card.open-in-browser");
-        menu.append("Follow this source", "card.follow-source");
+        // Check if article is already saved
+        bool is_saved = false;
+        if (article_state_store != null) {
+            try { is_saved = article_state_store.is_saved(url); } catch (GLib.Error e) { }
+        }
 
-        var open_in_app_action = new GLib.SimpleAction("open-in-app", null);
-        open_in_app_action.activate.connect(() => {
-            try { open_in_app_requested(url); } catch (GLib.Error e) { }
+        // Create ArticleMenu instance and keep reference to prevent garbage collection
+        current_menu = new ArticleMenu(url, source_name, is_saved, parent_window);
+
+        // Connect menu signals to card signals
+        current_menu.open_in_app_requested.connect((url) => {
+            open_in_app_requested(url);
+        });
+        current_menu.open_in_browser_requested.connect((url) => {
+            open_in_browser_requested(url);
+        });
+        current_menu.follow_source_requested.connect((url, source_name) => {
+            follow_source_requested(url, source_name);
+        });
+        current_menu.save_for_later_requested.connect((url) => {
+            save_for_later_requested(url);
+        });
+        current_menu.share_requested.connect((url) => {
+            share_requested(url);
         });
 
-        var open_in_browser_action = new GLib.SimpleAction("open-in-browser", null);
-        open_in_browser_action.activate.connect(() => {
-            try { open_in_browser_requested(url); } catch (GLib.Error e) { }
-        });
-
-        var follow_action = new GLib.SimpleAction("follow-source", null);
-        follow_action.activate.connect(() => {
-            try { follow_source_requested(url, source_name); } catch (GLib.Error e) { }
-        });
-
-        var action_group = new GLib.SimpleActionGroup();
-        action_group.add_action(open_in_app_action);
-        action_group.add_action(open_in_browser_action);
-        action_group.add_action(follow_action);
-
-        var popover = new Gtk.PopoverMenu.from_model(menu);
-        popover.set_parent(root);
-        popover.set_has_arrow(false);
-        popover.set_pointing_to({ (int)x, (int)y, 1, 1 });
-
-        root.insert_action_group("card", action_group);
-        popover.popup();
+        // Create and show popover, keep reference to prevent garbage collection
+        current_popover = current_menu.create_popover(root, x, y);
+        current_popover.popup();
     }
 }

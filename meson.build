@@ -31,15 +31,15 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
 
     # UI
     'src/ui/appWindow.vala',
-    'src/ui/prefsDialog.vala',
-    'src/ui/locationDialog.vala',
     'src/ui/contentView.vala',
-    'src/ui/articlePane.vala',
-    'src/ui/articleCard.vala',
-    'src/ui/articleSheet.vala',
-    'src/ui/heroCard.vala',
-    'src/ui/heroCarousel.vala',
-    'src/ui/shareDialog.vala',
+    'src/ui/components/articlePane.vala',
+    'src/ui/components/articleCard.vala',
+    'src/ui/components/articleSheet.vala',
+    'src/ui/components/heroCard.vala',
+    'src/ui/components/heroCarousel.vala',
+    'src/ui/dialogs/prefsDialog.vala',
+    'src/ui/dialogs/locationDialog.vala',
+    'src/ui/dialogs/shareDialog.vala',
     'src/ui/menus/articleMenu.vala',
 
     # Builders
@@ -66,7 +66,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/metaCache.vala',
     'src/services/articleStateStore.vala',
     'src/services/imageCache.vala',
-    'src/services/newsSources.vala',
+    'src/services/newsService.vala',
     'src/services/prefs.vala',
     'src/services/lruCache.vala',
     'src/services/sourceMetadata.vala',
@@ -75,6 +75,20 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/rssSourceStore.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
+
+    # Fetchers
+    'src/services/fetchers/baseFetcher.vala',
+    'src/services/fetchers/fetcherUtils.vala',
+    'src/services/fetchers/bbcFetcher.vala',
+    'src/services/fetchers/guardianFetcher.vala',
+    'src/services/fetchers/nytFetcher.vala',
+    'src/services/fetchers/wsjFetcher.vala',
+    'src/services/fetchers/redditFetcher.vala',
+    'src/services/fetchers/bloombergFetcher.vala',
+    'src/services/fetchers/reutersFetcher.vala',
+    'src/services/fetchers/nprFetcher.vala',
+    'src/services/fetchers/foxFetcher.vala',
+    'src/services/fetchers/paperboyFetcher.vala',
 
     # Utils
     'src/utils/appDebugger.vala',

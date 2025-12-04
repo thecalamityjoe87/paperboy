@@ -239,7 +239,11 @@ public class PaperboyFetcher : BaseFetcher {
                 }
 
                 Idle.add(() => {
-                    set_label("Top Ten — Paperboy");
+                    if (current_search_query.length > 0) {
+                        set_label(@"Search Results: \"$(current_search_query)\" in Top Ten — Paperboy");
+                    } else {
+                        set_label("Top Ten — Paperboy");
+                    }
                     clear_items();
                     uint len = articles.get_length();
 
@@ -377,6 +381,13 @@ public class PaperboyFetcher : BaseFetcher {
                         if (display_source == null) display_source = "";
                         display_source = display_source + "##category::" + category_id;
 
+                        // Filter by search query if provided
+                        if (current_search_query.length > 0) {
+                            if (!title.contains(current_search_query) && !article_url.contains(current_search_query)) {
+                                continue;
+                            }
+                        }
+
                         string norm = normalize_article_url(article_url);
                         string norm_title = title != null ? title.down().strip() : "";
                         if ((norm.length > 0 && seen_urls.contains(norm)) || (norm_title.length > 0 && seen_titles.contains(norm_title))) {
@@ -421,6 +432,13 @@ public class PaperboyFetcher : BaseFetcher {
                                         if (json_get_string_safe(a, "thumbnail") != null) thumb = json_get_string_safe(a, "thumbnail");
                                         else if (json_get_string_safe(a, "image") != null) thumb = json_get_string_safe(a, "image");
                                         else if (json_get_string_safe(a, "image_url") != null) thumb = json_get_string_safe(a, "image_url");
+
+                                        // Filter by search query if provided
+                                        if (current_search_query.length > 0) {
+                                            if (!t.contains(current_search_query) && !u.contains(current_search_query)) {
+                                                continue;
+                                            }
+                                        }
 
                                         string n = normalize_article_url(u);
                                         string nt = t != null ? t.down().strip() : "";
