@@ -345,6 +345,7 @@ public class SidebarManager : GLib.Object {
             // source-specific picture so saved logos (or the RSS fallback)
             // are used instead of category icons.
             if (key.has_prefix("rss:")) {
+                if (key.length <= 4) continue; // Skip malformed keys
                 string url = key.substring(4);
                 try {
                     var src = store.get_source_by_url(url);

@@ -107,9 +107,12 @@ public class PrefsDialog : GLib.Object {
                         string use_path = icon_path;
                         if (dark) {
                             string alt_name;
-                            if (filename.has_suffix(".svg"))
-                                alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
-                            else
+                            if (filename.has_suffix(".svg")) {
+                                if (filename.length > 4)
+                                    alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                                else
+                                    alt_name = filename + "-white.svg";
+                            } else
                                 alt_name = filename + "-white.svg";
 
                             string? white_candidate = find_data_file_local(GLib.Path.build_filename("icons", "symbolic", alt_name));
@@ -372,6 +375,7 @@ public class PrefsDialog : GLib.Object {
         // Helper to elide long strings
         string elide_string(string s, int max) {
             if (s == null) return s;
+            if (max < 1) return s;
             if (s.length <= max) return s;
             return s.substring(0, max - 1) + "…";
         }
@@ -491,9 +495,11 @@ public class PrefsDialog : GLib.Object {
                         // Check if we're currently viewing this RSS source
                         bool is_currently_viewing = false;
                         if (win.prefs.category != null && win.prefs.category.has_prefix("rssfeed:")) {
-                            string current_url = win.prefs.category.substring(8);
-                            if (current_url == rss_source.url) {
-                                is_currently_viewing = true;
+                            if (win.prefs.category.length > 8) {
+                                string current_url = win.prefs.category.substring(8);
+                                if (current_url == rss_source.url) {
+                                    is_currently_viewing = true;
+                                }
                             }
                         }
 

@@ -48,7 +48,7 @@ public class ShareDialog : GLib.Object {
             "mail-send-symbolic",
             "Send link",
             () => {
-                ArticleActions.share_via_email(url, title, parent_window);
+                ArticleShare.share_via_email(url, title, parent_window);
                 dialog.close();
             }
         );
@@ -66,7 +66,7 @@ public class ShareDialog : GLib.Object {
             "reddit-mono",
             "Reddit",
             () => {
-                ArticleActions.share_to_reddit(url, parent_window);
+                ArticleShare.share_to_reddit(url, parent_window);
                 dialog.close();
             }
         );
@@ -77,7 +77,7 @@ public class ShareDialog : GLib.Object {
             "x-mono",
             "X (Twitter)",
             () => {
-                ArticleActions.share_to_twitter(url, title, parent_window);
+                ArticleShare.share_to_twitter(url, title, parent_window);
                 dialog.close();
             }
         );
@@ -88,7 +88,7 @@ public class ShareDialog : GLib.Object {
             "facebook-mono",
             "Facebook",
             () => {
-                ArticleActions.share_to_facebook(url, parent_window);
+                ArticleShare.share_to_facebook(url, parent_window);
                 dialog.close();
             }
         );
@@ -106,7 +106,7 @@ public class ShareDialog : GLib.Object {
             "edit-copy-symbolic",
             "Copy link to clipboard",
             () => {
-                ArticleActions.copy_to_clipboard(url, parent_window);
+                ArticleShare.copy_to_clipboard(url, parent_window);
                 dialog.close();
             }
         );

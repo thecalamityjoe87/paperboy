@@ -1065,12 +1065,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (source_name != null && source_name.length > 0) {
             // Strip logo URL if present
             int pipe_idx = source_name.index_of("||");
-            if (pipe_idx >= 0) {
+            if (pipe_idx >= 0 && source_name.length > pipe_idx) {
                 clean_name = source_name.substring(0, pipe_idx).strip();
             }
             // Strip category suffix if present
             int cat_idx = clean_name.index_of("##category::");
-            if (cat_idx >= 0) {
+            if (cat_idx >= 0 && clean_name.length > cat_idx) {
                 clean_name = clean_name.substring(0, cat_idx).strip();
             }
         }
@@ -1168,6 +1168,45 @@ public class NewsWindow : Adw.ApplicationWindow {
     public void show_persistent_toast(string message) {
         if (toast_manager != null) {
             toast_manager.show_persistent_toast(message);
+        }
+    }
+
+    // Cleanup stale downloads to prevent unbounded HashMap growth and memory leaks
+    public void cleanup_stale_downloads() {
+        download_mutex.lock();
+        try {
+            const int MAX_PENDING_DOWNLOADS = 100;
+            
+            // If pending_downloads exceeds threshold, clear oldest entries
+            if (pending_downloads.size > MAX_PENDING_DOWNLOADS) {
+                warning("cleanup_stale_downloads: pending_downloads size=%d exceeds limit, clearing oldest entries", pending_downloads.size);
+                
+                // Clear half of the entries to avoid frequent cleanup
+                int to_remove = pending_downloads.size / 2;
+                var keys_to_remove = new Gee.ArrayList<string>();
+                
+                // Collect keys to remove (can't modify HashMap while iterating)
+                int count = 0;
+                foreach (var entry in pending_downloads.entries) {
+                    if (count >= to_remove) break;
+                    keys_to_remove.add(entry.key);
+                    count++;
+                }
+                
+                // Remove collected keys
+                foreach (var key in keys_to_remove) {
+                    try {
+                        pending_downloads.unset(key);
+                        requested_image_sizes.unset(key);
+                    } catch (GLib.Error e) { }
+                }
+                
+                warning("cleanup_stale_downloads: removed %d stale entries, new size=%d", keys_to_remove.size, pending_downloads.size);
+            }
+        } catch (GLib.Error e) {
+            warning("cleanup_stale_downloads: error during cleanup: %s", e.message);
+        } finally {
+            download_mutex.unlock();
         }
     }
 
@@ -1288,6 +1327,10 @@ public class NewsWindow : Adw.ApplicationWindow {
     // in the overlay label; otherwise we use a generic "no articles" text.
     private void show_error_message(string? msg = null) {
         try { if (loading_state != null) loading_state.show_error_message(msg); } catch (GLib.Error e) { }
+        
+        // Also show a user-visible toast for immediate feedback
+        string toast_msg = msg != null && msg.length > 0 ? msg : "Failed to load articles. Please try again.";
+        try { show_toast(toast_msg); } catch (GLib.Error e) { }
     }
 
     private void hide_error_message() {
@@ -1368,7 +1411,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 var rec = requested_image_sizes.get(norm_url);
                 if (rec == null || rec.length == 0) continue;
                 string[] parts = rec.split("x");
-                if (parts.length != 2) continue;
+                if (parts.length < 2) continue;
                 int last_w = 0; int last_h = 0;
                 try { last_w = int.parse(parts[0]); last_h = int.parse(parts[1]); } catch (GLib.Error e) { continue; }
 
@@ -1466,6 +1509,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     public void fetch_news() {
+        // Clean up stale downloads to prevent memory leaks
+        try { cleanup_stale_downloads(); } catch (GLib.Error e) { }
+        
         // Debug: log fetch_news invocation and current sequence
         try {
             string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
@@ -2050,10 +2096,12 @@ public class NewsWindow : Adw.ApplicationWindow {
 
                 stderr.printf("[SAVED] Finished adding %d articles, seq=%u current_seq=%u\n", saved_articles.size, my_seq, self_ref.fetch_sequence);
 
-                // Force queue draw to ensure UI updates
-                self_ref.layout_manager.columns[0].queue_draw();
-                self_ref.layout_manager.columns[1].queue_draw();
-                self_ref.layout_manager.columns[2].queue_draw();
+                // Force queue draw to ensure UI updates - with bounds checking
+                if (self_ref.layout_manager != null && self_ref.layout_manager.columns != null) {
+                    if (self_ref.layout_manager.columns.length > 0) self_ref.layout_manager.columns[0].queue_draw();
+                    if (self_ref.layout_manager.columns.length > 1) self_ref.layout_manager.columns[1].queue_draw();
+                    if (self_ref.layout_manager.columns.length > 2) self_ref.layout_manager.columns[2].queue_draw();
+                }
 
                 self_ref.hide_loading_spinner();
                 return false;

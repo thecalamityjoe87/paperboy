@@ -629,19 +629,19 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 if (source_metadata != null && source_metadata.length > 0) {
                     article_display_name = source_metadata;
                     int pipe_idx = source_metadata.index_of("||");
-                    if (pipe_idx >= 0) {
+                    if (pipe_idx >= 0 && source_metadata.length > pipe_idx + 2) {
                         article_display_name = source_metadata.substring(0, pipe_idx).strip();
                         article_logo_url = source_metadata.substring(pipe_idx + 2).strip();
                         // Remove category suffix if present
                         int cat_idx = article_logo_url.index_of("##category::");
-                        if (cat_idx >= 0) {
-                            article_logo_url = article_logo_url.substring(0, cat_idx).strip();
+                            if (cat_idx >= 0 && article_logo_url.length > cat_idx) {
+                                article_logo_url = article_logo_url.substring(0, cat_idx).strip();
                         }
                     }
                     // Remove category suffix from display name if present
                     int cat_idx = article_display_name.index_of("##category::");
-                    if (cat_idx >= 0) {
-                        article_display_name = article_display_name.substring(0, cat_idx).strip();
+                        if (cat_idx >= 0 && article_display_name.length > cat_idx) {
+                            article_display_name = article_display_name.substring(0, cat_idx).strip();
                     }
                 }
 

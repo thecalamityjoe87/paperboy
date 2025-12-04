@@ -262,14 +262,16 @@ public class RssValidator : GLib.Object {
         int rss_end = lower.last_index_of("</rss>");
         if (rss_end >= 0) {
             // Keep the closing tag (length is 6)
-            return content.substring(0, rss_end + 6).strip();
+            if (rss_end + 6 <= content.length)
+                return content.substring(0, rss_end + 6).strip();
         }
         
         // Check for Atom closing tag
         int feed_end = lower.last_index_of("</feed>");
         if (feed_end >= 0) {
             // Keep the closing tag (length is 7)
-            return content.substring(0, feed_end + 7).strip();
+            if (feed_end + 7 <= content.length)
+                return content.substring(0, feed_end + 7).strip();
         }
         
         return content;

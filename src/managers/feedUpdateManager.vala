@@ -161,11 +161,15 @@ public class FeedUpdateManager : GLib.Object {
                         
                         // Check if content actually changed by comparing with old feed
                         bool content_changed = true;
-                        string old_file_path = source.url.substring(7); // Remove "file://" prefix
-                        
-                        try {
-                            var old_file = GLib.File.new_for_path(old_file_path);
-                            if (old_file.query_exists()) {
+                        string old_file_path = "";
+                        if (source.url.length > 7) {
+                            old_file_path = source.url.substring(7); // Remove "file://" prefix
+                        }
+
+                        if (old_file_path.length > 0) {
+                            try {
+                                var old_file = GLib.File.new_for_path(old_file_path);
+                                if (old_file.query_exists()) {
                                 // Read old feed content
                                 uint8[] old_contents;
                                 old_file.load_contents(null, out old_contents, null);
@@ -188,23 +192,26 @@ public class FeedUpdateManager : GLib.Object {
                                         }
                                     }
                                 }
-                            }
-                        } catch (Error e) {
+                                }
+                            } catch (Error e) {
                             // If we can't read old file, assume content changed
                             GLib.warning("  ⚠ Could not read old feed for comparison: %s", e.message);
+                        }
                         }
                         
                         // Only update if content actually changed
                         if (content_changed) {
                             // Delete old XML file
-                            try {
-                                var old_file = GLib.File.new_for_path(old_file_path);
+                            if (old_file_path.length > 0) {
+                                try {
+                                    var old_file = GLib.File.new_for_path(old_file_path);
                                 if (old_file.query_exists()) {
                                     old_file.delete();
                                     GLib.print("  ✓ Deleted old feed file: %s\n", GLib.Path.get_basename(old_file_path));
                                 }
                             } catch (Error e) {
                                 GLib.warning("  ⚠ Failed to delete old feed file: %s", e.message);
+                            }
                             }
 
                             // Save new XML file

@@ -18,7 +18,7 @@
 using Gtk;
 using GLib;
 
-namespace ArticleActions {
+namespace ArticleShare {
     // Share article via email
     public void share_via_email(string url, string? title, Gtk.Window parent_window) {
         try {

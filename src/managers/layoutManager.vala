@@ -22,7 +22,7 @@ using Gee;
 namespace Managers {
 
 public class LayoutManager : GLib.Object {
-    private NewsWindow window;
+    private weak NewsWindow window;
 
     // Layout constants
     public const int H_MARGIN = 12;

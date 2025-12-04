@@ -20,7 +20,7 @@ using Gtk;
 using Adw;
 
 public class HeaderManager : GLib.Object {
-    private NewsWindow window;
+    private weak NewsWindow window;
 
     public Gtk.Label category_label;
     public Gtk.Label category_subtitle;
@@ -66,7 +66,13 @@ public class HeaderManager : GLib.Object {
 
             // For RSS feeds, show the source logo on the LEFT (category icon position)
             if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
-                string feed_url = window.prefs.category.substring(8);
+                string feed_url;
+                if (window.prefs.category.length > 8) {
+                    feed_url = window.prefs.category.substring(8);
+                } else {
+                    warning("Malformed rssfeed category: too short");
+                    return;
+                }
                 var rss_store = Paperboy.RssSourceStore.get_instance();
                 var rss_source = rss_store.get_source_by_url(feed_url);
 
@@ -402,6 +408,10 @@ public class HeaderManager : GLib.Object {
     public string category_display_name_for(string cat) {
         // Handle RSS feed categories
         if (cat != null && cat.has_prefix("rssfeed:")) {
+            if (cat.length <= 8) {
+                warning("Malformed rssfeed category in display name");
+                return "RSS Feed";
+            }
             string feed_url = cat.substring(8); // Extract URL after "rssfeed:" prefix
             var rss_store = Paperboy.RssSourceStore.get_instance();
             var rss_source = rss_store.get_source_by_url(feed_url);

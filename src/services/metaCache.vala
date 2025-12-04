@@ -224,7 +224,7 @@ public class MetaCache : GLib.Object {
         if (content_type != null) {
             string ct = content_type;
             int semi = ct.index_of(";");
-            if (semi >= 0) ct = ct.substring(0, semi).strip();
+            if (semi >= 0 && ct.length > semi) ct = ct.substring(0, semi).strip();
             if (ct == "image/jpeg") ext = ".jpg";
             else if (ct == "image/png") ext = ".png";
             else if (ct == "image/webp") ext = ".webp";

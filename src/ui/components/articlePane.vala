@@ -515,11 +515,11 @@ public class ArticlePane : GLib.Object {
         // Parse encoded source name (format: "SourceName||logo_url##category::cat")
         if (explicit_source_name != null && explicit_source_name.length > 0) {
             int pipe_idx = explicit_source_name.index_of("||");
-            if (pipe_idx >= 0) {
+            if (pipe_idx >= 0 && explicit_source_name.length > pipe_idx) {
                 explicit_source_name = explicit_source_name.substring(0, pipe_idx);
             }
             int cat_idx = explicit_source_name.index_of("##category::");
-            if (cat_idx >= 0) {
+            if (cat_idx >= 0 && explicit_source_name.length > cat_idx) {
                 explicit_source_name = explicit_source_name.substring(0, cat_idx);
             }
 
@@ -714,7 +714,8 @@ public class ArticlePane : GLib.Object {
                         int pos = 0;
                         while ((pos = lower.index_of("<meta", pos)) >= 0) {
                             int end = lower.index_of(">", pos);
-                            if (end < 0) break;
+                            if (end < 0 || end <= pos) break;
+                            if (html.length < end + 1 || lower.length < end + 1) break;
                             string tag = html.substring(pos, end - pos + 1);
                             string tl = lower.substring(pos, end - pos + 1);
                             if (tl.index_of("datepublished") >= 0 || tl.index_of("article:published_time") >= 0 || tl.index_of("property=\"article:published_time\"") >= 0 || tl.index_of("name=\"pubdate\"") >= 0 || tl.index_of("itemprop=\"datePublished\"") >= 0) {
@@ -728,14 +729,14 @@ public class ArticlePane : GLib.Object {
                             int tpos = lower.index_of("<time");
                             if (tpos >= 0) {
                                 int tend = lower.index_of(">", tpos);
-                                if (tend > tpos) {
+                                if (tend > tpos && html.length >= tend + 1) {
                                     string ttag = html.substring(tpos, tend - tpos + 1);
                                     string dt = HtmlUtils.extract_attr(ttag, "datetime");
                                     if (dt != null && dt.strip().length > 0) published = dt.strip();
                                     else {
                                         // fallback inner text
                                         int close = lower.index_of("</time>", tend);
-                                        if (close > tend) {
+                                        if (close > tend && html.length >= close && close > tend + 1) {
                                             string inner = html.substring(tend + 1, close - (tend + 1));
                                             inner = HtmlUtils.strip_html(inner).strip();
                                             if (inner.length > 0) published = inner;

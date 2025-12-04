@@ -91,6 +91,14 @@ using Gee;
         }
         string cat = get_current_category();
         // Extract URL after "rssfeed:" prefix
+        return extract_feed_url_from_category(cat);
+    }
+
+    public string extract_feed_url_from_category(string cat) {
+        if (cat.length <= 8) {
+            warning("Malformed rssfeed category: too short");
+            return "";
+        }
         return cat.substring(8); // "rssfeed:".length == 8
     }
 

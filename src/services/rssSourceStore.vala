@@ -288,12 +288,13 @@ namespace Paperboy {
 
             // Remove trailing slash
             if (normalized.has_suffix("/")) {
-                normalized = normalized.substring(0, normalized.length - 1);
+                if (normalized.length > 1)
+                    normalized = normalized.substring(0, normalized.length - 1);
             }
 
             // Remove URL fragments (#...)
             int fragment_pos = normalized.index_of("#");
-            if (fragment_pos >= 0) {
+            if (fragment_pos >= 0 && normalized.length > fragment_pos) {
                 normalized = normalized.substring(0, fragment_pos);
             }
 
@@ -407,15 +408,19 @@ namespace Paperboy {
 
             // Delete generated XML file if it's a file:// URL
             if (source.url.has_prefix("file://")) {
-                string file_path = source.url.substring(7); // Remove "file://" prefix
-                try {
-                    var xml_file = GLib.File.new_for_path(file_path);
-                    if (xml_file.query_exists()) {
-                        xml_file.delete();
-                        GLib.print("  ✓ Deleted generated feed: %s\n", GLib.Path.get_basename(file_path));
-                    }
-                } catch (Error e) {
+                string file_path = "";
+                if (source.url.length > 7) file_path = source.url.substring(7); // Remove "file://" prefix
+                
+                if (file_path.length > 0) {
+                    try {
+                        var xml_file = GLib.File.new_for_path(file_path);
+                        if (xml_file.query_exists()) {
+                            xml_file.delete();
+                            GLib.print("  ✓ Deleted generated feed: %s\n", GLib.Path.get_basename(file_path));
+                        }
+                    } catch (Error e) {
                     GLib.warning("  ✗ Failed to delete generated feed file: %s", e.message);
+                }
                 }
             }
 

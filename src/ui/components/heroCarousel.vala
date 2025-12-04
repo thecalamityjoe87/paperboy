@@ -184,4 +184,8 @@ public class HeroCarousel : GLib.Object {
     public void stop_timer() {
         if (timeout_id != 0) { Source.remove(timeout_id); timeout_id = 0; }
     }
+
+    ~HeroCarousel() {
+        stop_timer();
+    }
 }

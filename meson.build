@@ -46,9 +46,6 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/builders/cardBuilder.vala',
     'src/builders/placeholderBuilder.vala',
 
-    # Actions
-    'src/actions/articleActions.vala',
-
     # Managers
     'src/managers/sourceManager.vala',
     'src/managers/categoryManager.vala',
@@ -72,6 +69,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/sourceMetadata.vala',
     'src/services/previewCache.vala',
     'src/services/rssFinderService.vala',
+    'src/services/articleShare.vala',
     'src/services/rssSourceStore.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',

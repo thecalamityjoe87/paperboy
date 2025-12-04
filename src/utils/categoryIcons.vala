@@ -79,9 +79,12 @@ public class CategoryIcons : GLib.Object {
                     string use_path = icon_path;
                     if (is_dark_mode()) {
                         string alt_name;
-                        if (filename.has_suffix(".svg"))
-                            alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
-                        else
+                        if (filename.has_suffix(".svg")) {
+                            if (filename.length > 4)
+                                alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                            else
+                                alt_name = filename + "-white.svg";
+                        } else
                             alt_name = filename + "-white.svg";
 
                         string? white_candidate = null;
@@ -219,9 +222,12 @@ public class CategoryIcons : GLib.Object {
                     string use_path = icon_path;
                     if (is_dark_mode()) {
                         string alt_name;
-                        if (filename.has_suffix(".svg"))
-                            alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
-                        else
+                        if (filename.has_suffix(".svg")) {
+                            if (filename.length > 4)
+                                alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                            else
+                                alt_name = filename + "-white.svg"; // Fallback
+                        } else
                             alt_name = filename + "-white.svg";
                         string? white_candidate = null;
                         white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "128x128", alt_name));

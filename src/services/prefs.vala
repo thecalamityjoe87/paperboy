@@ -367,8 +367,49 @@ public class NewsPreferences : GLib.Object {
 
             bool exists = false;
             try { exists = GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS); } catch (GLib.Error e) { exists = false; }
-            warning("NewsPreferences.load_config: config_path=%s exists=%s", config_path, exists ? "true" : "false");            
-            config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
+            warning("NewsPreferences.load_config: config_path=%s exists=%s", config_path, exists ? "true" : "false");
+            
+            // Validate config file before loading to prevent crashes from corrupted files
+            if (exists) {
+                try {
+                    var config_file = File.new_for_path(config_path);
+                    var info = config_file.query_info("standard::size", FileQueryInfoFlags.NONE, null);
+                    int64 size = info.get_size();
+                    
+                    // If config file is unreasonably large (>10MB), treat as corrupted
+                    const int64 MAX_CONFIG_SIZE = 10 * 1024 * 1024;
+                    if (size > MAX_CONFIG_SIZE) {
+                        warning("NewsPreferences.load_config: config file too large (%lld bytes), treating as corrupted", size);
+                        exists = false;
+                        // Backup corrupted file and start fresh
+                        try {
+                            string backup_path = config_path + ".corrupted";
+                            FileUtils.rename(config_path, backup_path);
+                            warning("NewsPreferences.load_config: backed up corrupted config to %s", backup_path);
+                        } catch (GLib.Error e) {
+                            warning("Failed to backup corrupted config: %s", e.message);
+                        }
+                    }
+                } catch (GLib.Error e) {
+                    warning("NewsPreferences.load_config: failed to validate config file: %s", e.message);
+                }
+            }
+            
+            if (exists) {
+                try {
+                    config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
+                } catch (GLib.Error e) {
+                    warning("NewsPreferences.load_config: failed to parse config file: %s - starting with defaults", e.message);
+                    // Backup corrupted file
+                    try {
+                        string backup_path = config_path + ".parse-error";
+                        FileUtils.rename(config_path, backup_path);
+                        warning("NewsPreferences.load_config: backed up unparseable config to %s", backup_path);
+                    } catch (GLib.Error e2) { }
+                    // Continue with empty config
+                    config = new GLib.KeyFile();
+                }
+            }
             
             // MIGRATION: If old preferences exist in KeyFile, migrate them to GSettings
             bool needs_migration = config.has_key("preferences", "news_source");

@@ -255,10 +255,10 @@ public class PaperboyFetcher : BaseFetcher {
                         if (u == null) return "";
                         string s = u.strip();
                         int q = s.index_of("?");
-                        if (q >= 0) s = s.substring(0, q);
+                        if (q >= 0 && s.length > q) s = s.substring(0, q);
                         int h = s.index_of("#");
-                        if (h >= 0) s = s.substring(0, h);
-                        while (s.length > 1 && s.substring(s.length - 1) == "/") s = s.substring(0, s.length - 1);
+                        if (h >= 0 && s.length > h) s = s.substring(0, h);
+                        while (s.length > 1 && s.has_suffix("/")) s = s.substring(0, s.length - 1);
                         return s;
                     }
 
@@ -500,12 +500,12 @@ public class PaperboyFetcher : BaseFetcher {
         string u = url.strip();
         if (u.length == 0) return "Paperboy";
         int pos = u.index_of("://");
-        if (pos >= 0) u = u.substring(pos + 3);
+        if (pos >= 0 && u.length > pos + 3) u = u.substring(pos + 3);
         int slash = u.index_of("/");
-        if (slash >= 0) u = u.substring(0, slash);
+        if (slash >= 0 && u.length > slash) u = u.substring(0, slash);
         int colon = u.index_of(":");
-        if (colon >= 0) u = u.substring(0, colon);
-        if (u.has_prefix("www.")) u = u.substring(4);
+        if (colon >= 0 && u.length > colon) u = u.substring(0, colon);
+        if (u.has_prefix("www.") && u.length > 4) u = u.substring(4);
         if (u.length == 0) return "Paperboy";
         string[] parts = u.split(".");
         string label = parts.length > 0 ? parts[0] : u;
@@ -515,6 +515,7 @@ public class PaperboyFetcher : BaseFetcher {
         for (int i = 0; i < words.length; i++) {
             string w = words[i].strip();
             if (w.length == 0) continue;
+            if (w.length < 1) continue; // Extra safety
             string head = w.substring(0, 1);
             string tail = w.length > 1 ? w.substring(1) : "";
             if (out.length > 0) out += " ";

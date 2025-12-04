@@ -36,16 +36,17 @@ public class DateUtils {
         string date_part = "";
         string time_part = s;
         int tpos = s.index_of("T");
-        if (tpos >= 0) {
+        if (tpos >= 0 && s.length > tpos) {
             date_part = s.substring(0, tpos);
-            time_part = s.substring(tpos + 1);
+            if (s.length > tpos + 1)
+                time_part = s.substring(tpos + 1);
         }
 
         // Trim timezone designators from time_part (Z or +hh:mm or -hh:mm)
         int tzpos = time_part.index_of("Z");
         if (tzpos < 0) tzpos = time_part.index_of("+");
         if (tzpos < 0) tzpos = time_part.index_of("-");
-        if (tzpos >= 0) time_part = time_part.substring(0, tzpos);
+        if (tzpos >= 0 && time_part.length > tzpos) time_part = time_part.substring(0, tzpos);
 
         // Extract HH:MM using regex (cached to avoid repeated compilation)
         try {
@@ -83,7 +84,7 @@ public class DateUtils {
                         else if (mo == "11") mon_name = "Nov";
                         else if (mo == "12") mon_name = "Dec";
                         // Trim leading zero from day for nicer display
-                        if (day.has_prefix("0")) day = day.substring(1);
+                        if (day.has_prefix("0") && day.length > 1) day = day.substring(1);
                         // Include year in the display per UX request
                         return "%s %s, %s • %s".printf(mon_name, day, year, hhmm);
                     }
@@ -98,8 +99,8 @@ public class DateUtils {
 
         // No time matched — strip milliseconds/extra and return trimmed
         int dot = s.index_of(".");
-        if (dot >= 0) s = s.substring(0, dot);
-        if (s.has_suffix("Z")) s = s.substring(0, s.length - 1);
+        if (dot >= 0 && s.length > dot) s = s.substring(0, dot);
+        if (s.has_suffix("Z") && s.length > 0) s = s.substring(0, s.length - 1);
         return s;
     }
 }

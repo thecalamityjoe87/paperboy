@@ -21,7 +21,7 @@ using Gee;
 
 namespace Managers {
     public class ArticleManager : GLib.Object {
-        private NewsWindow window;
+        private weak NewsWindow window;
         
         public const int INITIAL_ARTICLE_LIMIT = 25;
         public const int LOCAL_NEWS_IMAGE_LOAD_LIMIT = 12;
@@ -190,7 +190,12 @@ namespace Managers {
                     // create separate cards even when an image mapping exists.
                     if (window.prefs.category != "topten") {
                         var info = window.hero_requests.get(existing);
-                        int target_w = info != null ? info.last_requested_w : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+                        int target_w = 400;
+                        if (info != null) {
+                            target_w = info.last_requested_w;
+                        } else if (window.layout_manager != null) {
+                            target_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+                        }
                         int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
                         if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
                         try { window.pending_local_placeholder.set(existing, category_id == "local_news"); } catch (GLib.Error e) { }
@@ -310,7 +315,9 @@ namespace Managers {
                 target_col = forced_column;
             } else {
                 target_col = next_column_index;
-                next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
+                if (window.layout_manager != null && window.layout_manager.columns != null) {
+                    next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
+                }
             }
             
             bool should_be_hero = false;
@@ -346,7 +353,7 @@ namespace Managers {
                 try {
                     if (hero_display_cat == "frontpage" && source_name != null) {
                         int idx = source_name.index_of("##category::");
-                        if (idx >= 0) hero_display_cat = source_name.substring(idx + 11).strip();
+                        if (idx >= 0 && source_name.length > idx + 11) hero_display_cat = source_name.substring(idx + 11).strip();
                     }
                 } catch (GLib.Error e) { }
 
@@ -475,7 +482,7 @@ namespace Managers {
                 });
 
                 if (window.prefs.category == "topten") {
-                    if (topten_hero_count < 2) {
+                    if (topten_hero_count < 2 && window.layout_manager != null && window.layout_manager.hero_container != null) {
                         try { hero_card.root.set_size_request(-1, max_hero_height); } catch (GLib.Error e) { }
                         window.layout_manager.hero_container.append(hero_card.root);
                         topten_hero_count++;
@@ -485,7 +492,9 @@ namespace Managers {
                     }
                 } else {
                     if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
-                    if (hero_carousel == null) hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
+                    if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
+                        hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
+                    }
                     featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
                     featured_carousel_category = category_id;
 
@@ -551,7 +560,7 @@ namespace Managers {
             try {
                 if (slide_display_cat == "frontpage" && source_name != null) {
                     int idx2 = source_name.index_of("##category::");
-                    if (idx2 >= 0) slide_display_cat = source_name.substring(idx2 + 11).strip();
+                    if (idx2 >= 0 && source_name.length > idx2 + 11) slide_display_cat = source_name.substring(idx2 + 11).strip();
                 }
             } catch (GLib.Error e) { }
             try {
@@ -632,7 +641,9 @@ namespace Managers {
             slide.add_controller(slide_click);
 
             int new_index = featured_carousel_items.size;
-            if (hero_carousel == null) hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
+            if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
+                hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
+            }
             hero_carousel.add_slide(slide);
             featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
 
@@ -650,7 +661,10 @@ namespace Managers {
         }
 
         int variant = window.rng.int_range(0, 3);
-        int col_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+        int col_w = 400;
+        if (window.layout_manager != null) {
+            col_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+        }
         int img_w = col_w;
         int img_h = 0;
 
@@ -681,7 +695,7 @@ namespace Managers {
         try {
             if (card_display_cat == "frontpage" && source_name != null) {
                 int idx3 = source_name.index_of("##category::");
-                if (idx3 >= 0) card_display_cat = source_name.substring(idx3 + 11).strip();
+                if (idx3 >= 0 && source_name.length > idx3 + 11) card_display_cat = source_name.substring(idx3 + 11).strip();
             }
         } catch (GLib.Error e) { }
 
@@ -831,17 +845,26 @@ namespace Managers {
         });
 
         if (target_col == -1) {
+            if (window.layout_manager == null || window.layout_manager.columns == null || window.layout_manager.column_heights == null) {
+                warning("ArticleManager: layout_manager or columns not initialized, cannot place card");
+                return;
+            }
+            
             if (window.prefs.category == "topten") {
                 target_col = next_column_index;
-                next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
+                if (window.layout_manager.columns.length > 0) {
+                    next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
+                }
             } else {
                 target_col = 0;
-                int random_noise = window.rng.int_range(0, 11);
-                int best_score = window.layout_manager.column_heights[0] + random_noise;
-                for (int i = 1; i < window.layout_manager.columns.length; i++) {
-                    random_noise = window.rng.int_range(0, 11);
-                    int score = window.layout_manager.column_heights[i] + random_noise;
-                    if (score < best_score) { best_score = score; target_col = i; }
+                if (window.layout_manager.column_heights.length > 0 && window.layout_manager.columns.length > 0) {
+                    int random_noise = window.rng.int_range(0, 11);
+                    int best_score = window.layout_manager.column_heights[0] + random_noise;
+                    for (int i = 1; i < window.layout_manager.columns.length && i < window.layout_manager.column_heights.length; i++) {
+                        random_noise = window.rng.int_range(0, 11);
+                        int score = window.layout_manager.column_heights[i] + random_noise;
+                        if (score < best_score) { best_score = score; target_col = i; }
+                    }
                 }
             }
         }
@@ -860,6 +883,14 @@ namespace Managers {
         } catch (GLib.Error e) { }
         // Note: cannot reliably connect to dispose; rely on notify("parent") to track unparenting
 
+        // Bounds check before accessing columns and column_heights arrays
+        if (window.layout_manager == null || window.layout_manager.columns == null || 
+            target_col < 0 || target_col >= window.layout_manager.columns.length) {
+            warning("ArticleManager: invalid target_col=%d, columns.length=%d", target_col, 
+                    window.layout_manager != null && window.layout_manager.columns != null ? window.layout_manager.columns.length : -1);
+            return;
+        }
+
         window.layout_manager.columns[target_col].append(article_card.root);
 
         // Debug: log number of children in target column after append
@@ -873,7 +904,9 @@ namespace Managers {
         } catch (GLib.Error e) { }
 
         int estimated_card_h = (int)((img_h + 120) * 0.95);
-        window.layout_manager.column_heights[target_col] += estimated_card_h + 12;
+        if (window.layout_manager.column_heights != null && target_col < window.layout_manager.column_heights.length) {
+            window.layout_manager.column_heights[target_col] += estimated_card_h + 12;
+        }
 
         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
     }

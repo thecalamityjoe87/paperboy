@@ -22,7 +22,7 @@ using GLib;
 namespace Managers {
 
 public class LoadingStateManager : GLib.Object {
-    private NewsWindow window;
+    private weak NewsWindow window;
 
     // UI widgets (public so NewsWindow can set them during construction)
     public Gtk.Widget? loading_container;

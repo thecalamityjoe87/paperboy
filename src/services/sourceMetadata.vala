@@ -68,9 +68,11 @@ public class SourceMetadata : GLib.Object {
             // Remove .png extension from meta filename to make it cleaner
             string base_filename = filename;
             if (base_filename.has_suffix("-logo.png")) {
-                base_filename = base_filename.substring(0, base_filename.length - 9);
+                if (base_filename.length > 9)
+                    base_filename = base_filename.substring(0, base_filename.length - 9);
             } else if (base_filename.has_suffix(".png")) {
-                base_filename = base_filename.substring(0, base_filename.length - 4);
+                if (base_filename.length > 4)
+                    base_filename = base_filename.substring(0, base_filename.length - 4);
             }
             string meta_path = GLib.Path.build_filename(info_dir, base_filename + ".json");
 
@@ -157,6 +159,7 @@ public class SourceMetadata : GLib.Object {
         foreach (var p in parts) {
             if (p.length == 0) continue;
             // Capitalize first char, keep rest as-is (preserve case for acronyms)
+            if (p.length < 1) continue; // Extra safety
             string first = p.substring(0, 1).up();
             string rest = p.length > 1 ? p.substring(1) : "";
             out += first + rest;
@@ -410,18 +413,18 @@ public class SourceMetadata : GLib.Object {
 
         // Remove scheme
         int pos = u.index_of("://");
-        if (pos >= 0) u = u.substring(pos + 3);
+        if (pos >= 0 && u.length > pos + 3) u = u.substring(pos + 3);
 
         // Remove path
         int slash = u.index_of("/");
-        if (slash >= 0) u = u.substring(0, slash);
+        if (slash >= 0 && u.length > slash) u = u.substring(0, slash);
 
         // Remove port
         int colon = u.index_of(":");
-        if (colon >= 0) u = u.substring(0, colon);
+        if (colon >= 0 && u.length > colon) u = u.substring(0, colon);
 
         // Strip www prefix
-        if (u.has_prefix("www.")) u = u.substring(4);
+        if (u.has_prefix("www.") && u.length > 4) u = u.substring(4);
 
         return u.length > 0 ? u : null;
     }

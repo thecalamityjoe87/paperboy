@@ -158,12 +158,12 @@ public class CardBuilder : GLib.Object {
             if (parts.length >= 2) {
                 provided_logo_url = parts[1].strip();
                 int cat_idx = provided_logo_url.index_of("##category::");
-                if (cat_idx >= 0) provided_logo_url = provided_logo_url.substring(0, cat_idx).strip();
+            if (cat_idx >= 0 && provided_logo_url.length > cat_idx) provided_logo_url = provided_logo_url.substring(0, cat_idx).strip();
             }
         }
         if (display_name != null) {
             int cat_idx = display_name.index_of("##category::");
-            if (cat_idx >= 0) display_name = display_name.substring(0, cat_idx).strip();
+            if (cat_idx >= 0 && display_name.length > cat_idx) display_name = display_name.substring(0, cat_idx).strip();
         }
 
         // For My Feed articles, prioritize source_info metadata from when the article
