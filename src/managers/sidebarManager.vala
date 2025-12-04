@@ -220,7 +220,7 @@ public class SidebarManager : GLib.Object {
                     case "npr": src = NewsSource.NPR; break;
                     case "fox": src = NewsSource.FOX; break;
                 }
-                if (NewsSources.supports_category(src, "lifestyle")) {
+                if (NewsService.supports_category(src, "lifestyle")) {
                     any_source_supports_lifestyle = true;
                 }
             }
@@ -287,7 +287,7 @@ public class SidebarManager : GLib.Object {
             build_category_row_to_container("Entertainment", "entertainment", window.prefs.category == "entertainment");
             build_category_row_to_container("Politics", "politics", window.prefs.category == "politics");
             try {
-                if (NewsSources.supports_category(sidebar_eff, "lifestyle")) {
+                if (NewsService.supports_category(sidebar_eff, "lifestyle")) {
                     build_category_row_to_container("Lifestyle", "lifestyle", window.prefs.category == "lifestyle");
                 }
             } catch (GLib.Error e) { build_category_row_to_container("Lifestyle", "lifestyle", window.prefs.category == "lifestyle"); }
@@ -416,11 +416,11 @@ public class SidebarManager : GLib.Object {
         if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
             foreach (var id in window.prefs.preferred_sources) {
                 NewsSource src = parse_source_id(id);
-                if (NewsSources.supports_category(src, requested_cat)) { category_supported = true; break; }
+                if (NewsService.supports_category(src, requested_cat)) { category_supported = true; break; }
             }
         } else {
             NewsSource current_source = effective_news_source();
-            try { category_supported = NewsSources.supports_category(current_source, requested_cat); } catch (GLib.Error e) { category_supported = false; }
+            try { category_supported = NewsService.supports_category(current_source, requested_cat); } catch (GLib.Error e) { category_supported = false; }
         }
 
         if (!category_supported) return "frontpage";

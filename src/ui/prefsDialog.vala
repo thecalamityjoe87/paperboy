@@ -899,14 +899,14 @@ public class PrefsDialog : GLib.Object {
                             }
 
                             // Check if this source supports the current category
-                            if (NewsSources.supports_category(source, current_category)) {
+                            if (NewsService.supports_category(source, current_category)) {
                                 category_supported = true;
                                 break;
                             }
                         }
                     } else {
                         // No sources enabled, fallback to default source
-                        category_supported = NewsSources.supports_category(prefs.news_source, current_category);
+                        category_supported = NewsService.supports_category(prefs.news_source, current_category);
                     }
 
                     // If category no longer supported, redirect to frontpage

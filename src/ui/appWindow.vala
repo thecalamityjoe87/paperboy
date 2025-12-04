@@ -1929,7 +1929,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Support fetching from multiple preferred sources when the user
         // has enabled more than one in preferences. The preferences store
         // string ids (e.g. "guardian", "reddit"). Map those to the
-        // NewsSource enum and invoke NewsSources.fetch for each. Ensure
+        // NewsSource enum and invoke NewsService.fetch for each. Ensure
         // we only clear the UI once (for the first fetch) so subsequent
         // fetches append their results.
         bool used_multi = false;
@@ -2251,7 +2251,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 string s = "frontpage-early-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
                 append_debug_log(s);
             } catch (GLib.Error e) { }
-            NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+            NewsService.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
             return;
         }
 
@@ -2300,7 +2300,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 string s = "topten-early-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
                 append_debug_log(s);
             } catch (GLib.Error e) { }
-            NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+            NewsService.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
 
             return;
         }
@@ -2352,11 +2352,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                 } catch (GLib.Error e) { }
                 used_multi = true;
 
-                // Clear UI and ask the backend frontpage fetcher once. NewsSources
+                // Clear UI and ask the backend frontpage fetcher once. NewsService
                 // will route a request with current_category == "frontpage" to
                 // the Paperboy backend fetcher regardless of the NewsSource value.
                 try { wrapped_clear(); } catch (GLib.Error e) { }
-                NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+                NewsService.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
                 return;
             }
 
@@ -2398,7 +2398,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 used_multi = true;
 
                 try { wrapped_clear(); } catch (GLib.Error e) { }
-                NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+                NewsService.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
                 return;
             }
 
@@ -2447,7 +2447,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             // If mapping failed or produced no sources, fall back to single source
             if (srcs.size == 0) {
-                NewsSources.fetch(
+                NewsService.fetch(
                     prefs.news_source,
                     prefs.category,
                     current_search_query,
@@ -2475,11 +2475,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                                 include = true;
                             } else {
                                 foreach (var cat in myfeed_cats) {
-                                    if (NewsSources.supports_category(s, cat)) { include = true; break; }
+                                    if (NewsService.supports_category(s, cat)) { include = true; break; }
                                 }
                             }
                         } else {
-                            if (NewsSources.supports_category(s, prefs.category)) include = true;
+                            if (NewsService.supports_category(s, prefs.category)) include = true;
                         }
                         if (include) filtered.add(s);
                     } catch (GLib.Error e) {
@@ -2516,10 +2516,10 @@ public class NewsWindow : Adw.ApplicationWindow {
                     foreach (var s in use_srcs) {
                         if (is_myfeed_mode) {
                             foreach (var cat in myfeed_cats) {
-                                NewsSources.fetch(s, cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                                NewsService.fetch(s, cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
                             }
                         } else {
-                            NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                            NewsService.fetch(s, prefs.category, current_search_query, session, label_fn, no_op_clear, wrapped_add);
                         }
                     }
                 }
@@ -2557,7 +2557,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                     string s = "frontpage-single-source-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
                     append_debug_log(s);
                 } catch (GLib.Error e) { }
-                NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+                NewsService.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
                 return;
             }
 
@@ -2569,7 +2569,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                     string s = "topten-single-source-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
                     append_debug_log(s);
                 } catch (GLib.Error e) { }
-                NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
+                NewsService.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
                 return;
             }
 
@@ -2588,7 +2588,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // Fetch from built-in source (unless custom_only mode is enabled in My Feed)
                 if (!prefs.myfeed_custom_only) {
                     foreach (var cat in myfeed_cats) {
-                        NewsSources.fetch(effective_news_source(), cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
+                        NewsService.fetch(effective_news_source(), cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
                     }
                 }
 
@@ -2611,7 +2611,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             } else {
                 try { wrapped_clear(); } catch (GLib.Error e) { }
-                NewsSources.fetch(
+                NewsService.fetch(
                     effective_news_source(),
                     prefs.category,
                     current_search_query,
@@ -2641,7 +2641,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Fetch articles for all hardcoded categories
         foreach (string cat in categories) {
-            NewsSources.fetch(
+            NewsService.fetch(
                 effective_news_source(),
                 cat,
                 "",  // no search query
