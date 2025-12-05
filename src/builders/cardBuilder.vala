@@ -473,7 +473,7 @@ public class CardBuilder : GLib.Object {
             if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
             else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
             else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
-            else if (low.index_of("nytimes") >= 0 || low.index_of("new york") >= 0) resolved = NewsSource.NEW_YORK_TIMES;
+            else if (low.index_of("nytimes") >= 0) resolved = NewsSource.NEW_YORK_TIMES;
             else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
             else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
             else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;

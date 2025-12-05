@@ -943,8 +943,8 @@ public class SidebarManager : GLib.Object {
         int size = CategoryIcons.SIDEBAR_ICON_SIZE;
         bool icon_loaded = false;
 
-        // Priority 1: Check SourceMetadata saved file first
-        string? icon_filename = SourceMetadata.get_saved_filename_for_source(source.name);
+        // Priority 1: Check SourceMetadata saved file first (and validate it)
+        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, size, size);
         if (icon_filename != null && icon_filename.length > 0) {
             var data_dir = GLib.Environment.get_user_data_dir();
             var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
@@ -988,6 +988,7 @@ public class SidebarManager : GLib.Object {
         string? meta_logo_url = SourceMetadata.get_logo_url_for_source(source.name);
         if (!icon_loaded && meta_logo_url != null && meta_logo_url.length > 0 &&
             (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
+            try { GLib.message("Sidebar: falling back to meta logo URL for %s -> %s (requested size %dx%d)", source.name, meta_logo_url, size, size); } catch (GLib.Error e) { }
             var pic = new Gtk.Picture();
             pic.set_size_request(size, size);
             try { if (window.image_handler != null) window.image_handler.load_image_async(pic, meta_logo_url, size, size); } catch (GLib.Error e) { }
@@ -998,6 +999,7 @@ public class SidebarManager : GLib.Object {
         string? host = UrlUtils.extract_host_from_url(source.url);
         if (!icon_loaded && host != null && host.length > 0) {
             string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+            try { GLib.message("Sidebar: falling back to Google favicon for %s -> %s (requested size %dx%d)", host, google_favicon_url, size, size); } catch (GLib.Error e) { }
             var pic = new Gtk.Picture();
             pic.set_size_request(size, size);
             try { if (window.image_handler != null) window.image_handler.load_image_async(pic, google_favicon_url, size, size); } catch (GLib.Error e) { }

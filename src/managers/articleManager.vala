@@ -827,8 +827,6 @@ namespace Managers {
             if (window.article_state_store != null) {
                 bool was = false;
                 try { was = window.article_state_store.is_viewed(_norm); } catch (GLib.Error e) { was = false; }
-                try { window.append_debug_log("meta_check: card url=" + _norm + " was=" + (was ? "true" : "false")); } catch (GLib.Error e) { }
-                stderr.printf("[VIEWED_CHECK] URL: %s | Viewed: %s\n", _norm, was ? "YES" : "NO");
                 if (was) { try { window.mark_article_viewed(_norm); } catch (GLib.Error e) { } }
             }
         } catch (GLib.Error e) { }

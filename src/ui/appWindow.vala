@@ -1082,7 +1082,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
             else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
             else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
-            else if (low.index_of("nytimes") >= 0 || low.index_of("new york") >= 0) resolved = NewsSource.NEW_YORK_TIMES;
+            else if (low.index_of("nytimes") >= 0) resolved = NewsSource.NEW_YORK_TIMES;
             else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
             else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
             else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
@@ -2275,9 +2275,9 @@ public class NewsWindow : Adw.ApplicationWindow {
             RssParser.fetch_rss_url(feed_url, feed_name, feed_name, "rssfeed:" + feed_url, current_search_query, session, label_fn, no_op_clear, wrapped_add);
 
             // Update badge after articles finish loading
-            // Use a 5-second delay to ensure all articles have been registered
+            // Use a 1.5-second delay to ensure all articles have been registered
             weak NewsWindow? weak_self = self_ref;
-            GLib.Timeout.add(3000, () => {
+            GLib.Timeout.add(1500, () => {
                 if (weak_self != null && weak_self.sidebar_manager != null) {
                     weak_self.sidebar_manager.update_badge_for_source(feed_name);
                 }

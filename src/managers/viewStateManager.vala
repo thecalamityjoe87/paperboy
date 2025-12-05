@@ -93,13 +93,6 @@ public class ViewStateManager : GLib.Object {
             return false;
         });
 
-        if (window.article_state_store != null) {
-            stderr.printf("[ARTICLE_STATE] Saving viewed state for: %s\n", n);
-            try { window.article_state_store.mark_viewed(n); stderr.printf("[ARTICLE_STATE] Successfully saved\n"); } catch (GLib.Error e) { stderr.printf("[ARTICLE_STATE] Error in mark_viewed: %s\n", e.message); }
-        } else {
-            stderr.printf("[ARTICLE_STATE] article_state_store is NULL!\n");
-        }
-
         // Emit signal for unread count updates
         article_viewed(n);
     }

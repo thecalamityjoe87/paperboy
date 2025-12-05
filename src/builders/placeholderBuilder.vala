@@ -517,18 +517,33 @@ public class PlaceholderBuilder : GLib.Object {
     // Create a placeholder for RSS feed sources using their logo from source_logos directory
     public static void set_rss_placeholder_image(Gtk.Picture image, int width, int height, string source_name) {
         try {
-            // Try to get the logo filename from SourceMetadata
-            string? icon_filename = SourceMetadata.get_saved_filename_for_source(source_name);
-            
-            // Fall back to sanitized filename if not found
+            // Try to get a validated saved filename from SourceMetadata. This
+            // avoids using corrupted/zero-byte files that can create blank icons.
+            string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source_name, width, height);
+
+            // Fall back to sanitized filename (validate that as well)
             if (icon_filename == null || icon_filename.length == 0) {
-                icon_filename = SourceMetadata.sanitize_filename(source_name) + "-logo.png";
+                string cand = SourceMetadata.sanitize_filename(source_name) + "-logo.png";
+                var data_dir = GLib.Environment.get_user_data_dir();
+                if (data_dir != null) {
+                    var logo_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", cand);
+                    if (GLib.FileUtils.test(logo_path, GLib.FileTest.EXISTS)) {
+                        try {
+                            var logo_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, width, height), logo_path, width, height);
+                            if (logo_pixbuf != null && logo_pixbuf.get_width() > 1 && logo_pixbuf.get_height() > 1) {
+                                icon_filename = cand;
+                            } else {
+                                try { GLib.FileUtils.remove(logo_path); } catch (GLib.Error _) { }
+                            }
+                        } catch (GLib.Error _) { }
+                    }
+                }
             }
-            
+
             if (icon_filename != null && icon_filename.length > 0) {
                 var data_dir = GLib.Environment.get_user_data_dir();
                 var logo_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
-                
+
                 if (GLib.FileUtils.test(logo_path, GLib.FileTest.EXISTS)) {
                     // Load the logo and create a placeholder with it
                     try {

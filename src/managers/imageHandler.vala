@@ -796,6 +796,7 @@ public class ImageHandler : GLib.Object {
         // 1000px but returns 403 for larger sizes like 2000px/2400px)
         int download_w = clampi(target_w, target_w, 2400);
         int download_h = clampi(target_h, target_h, 2400);
+        //try { GLib.message("ImageHandler: queue download for %s target=%dx%d download=%dx%d", url, target_w, target_h, download_w, download_h); } catch (GLib.Error e) { }
         ensure_start_download(url, download_w, download_h);
     }
 }

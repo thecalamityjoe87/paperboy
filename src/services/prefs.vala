@@ -367,7 +367,7 @@ public class NewsPreferences : GLib.Object {
 
             bool exists = false;
             try { exists = GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS); } catch (GLib.Error e) { exists = false; }
-            warning("NewsPreferences.load_config: config_path=%s exists=%s", config_path, exists ? "true" : "false");
+            //warning("NewsPreferences.load_config: config_path=%s exists=%s", config_path, exists ? "true" : "false");
             
             // Validate config file before loading to prevent crashes from corrupted files
             if (exists) {
@@ -532,7 +532,7 @@ public class NewsPreferences : GLib.Object {
                     if (config.has_group("preferences") && config.has_key("preferences", "preferred_sources")) {
                         string[] parr = config.get_string_list("preferences", "preferred_sources");
                         foreach (var s in parr) _preferred_sources.add(s);
-                        warning("NewsPreferences.load_config: loaded %d preferred_sources from preferences", _preferred_sources.size);
+                        //warning("NewsPreferences.load_config: loaded %d preferred_sources from preferences", _preferred_sources.size);
                     }
                 } catch (GLib.Error e) {
                     warning("NewsPreferences.load_config: could not read from preferences: %s", e.message);

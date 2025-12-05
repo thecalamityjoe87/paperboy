@@ -32,6 +32,8 @@ public class ArticleStateStore : GLib.Object {
     // Track articles by category and source for unread count
     private Gee.HashMap<string, Gee.HashSet<string>> category_articles;  // category_id -> set of URLs
     private Gee.HashMap<string, Gee.HashSet<string>> source_articles;    // source_name -> set of URLs
+    // Track last registration time (ms since epoch) per source to help debounce badge updates
+    private Gee.HashMap<string, long?> source_last_registration_time;
     private Mutex article_tracking_lock = new Mutex();
 
     // Track saved articles with metadata
@@ -64,6 +66,7 @@ public class ArticleStateStore : GLib.Object {
         viewed_meta_paths = new Gee.HashSet<string>();
         category_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
         source_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
+        source_last_registration_time = new Gee.HashMap<string, long?>();
         saved_articles = new Gee.HashMap<string, SavedArticle>();
 
         // Load persisted article tracking
@@ -200,17 +203,30 @@ public class ArticleStateStore : GLib.Object {
     public void register_article(string url, string? category_id, string? source_name) {
         article_tracking_lock.lock();
         try {
+            // Normalize the URL here to ensure all callers result in a
+            // stable, consistent key in our tracking sets. Some callsites
+            // normalize before calling, others do not; normalizing here
+            // prevents duplicates caused by differing representations.
+            string norm_url = "";
+            try {
+                norm_url = UrlUtils.normalize_article_url(url);
+            } catch (GLib.Error e) { norm_url = url.strip(); }
+
             if (category_id != null && category_id.length > 0) {
                 if (!category_articles.has_key(category_id)) {
                     category_articles.set(category_id, new Gee.HashSet<string>());
                 }
-                category_articles.get(category_id).add(url);
+                category_articles.get(category_id).add(norm_url);
             }
             if (source_name != null && source_name.length > 0) {
                 if (!source_articles.has_key(source_name)) {
                     source_articles.set(source_name, new Gee.HashSet<string>());
                 }
-                source_articles.get(source_name).add(url);
+                source_articles.get(source_name).add(norm_url);
+                try {
+                    long now_ms = (long)(GLib.get_real_time() / 1000);
+                    source_last_registration_time.set(source_name, now_ms);
+                } catch (GLib.Error e) { }
             }
         } finally {
             article_tracking_lock.unlock();
@@ -325,27 +341,39 @@ public class ArticleStateStore : GLib.Object {
             var builder = new Json.Builder();
             builder.begin_object();
 
-            // Save category articles
+            // Save category articles (write canonical normalized URLs)
             builder.set_member_name("categories");
             builder.begin_object();
             foreach (var entry in category_articles.entries) {
                 builder.set_member_name(entry.key);
                 builder.begin_array();
                 foreach (string url in entry.value) {
-                    builder.add_string_value(url);
+                    try {
+                        string norm = UrlUtils.normalize_article_url(url);
+                        if (norm == null || norm.length == 0) norm = url.strip();
+                        builder.add_string_value(norm);
+                    } catch (GLib.Error e) {
+                        builder.add_string_value(url);
+                    }
                 }
                 builder.end_array();
             }
             builder.end_object();
 
-            // Save source articles
+            // Save source articles (write canonical normalized URLs)
             builder.set_member_name("sources");
             builder.begin_object();
             foreach (var entry in source_articles.entries) {
                 builder.set_member_name(entry.key);
                 builder.begin_array();
                 foreach (string url in entry.value) {
-                    builder.add_string_value(url);
+                    try {
+                        string norm = UrlUtils.normalize_article_url(url);
+                        if (norm == null || norm.length == 0) norm = url.strip();
+                        builder.add_string_value(norm);
+                    } catch (GLib.Error e) {
+                        builder.add_string_value(url);
+                    }
                 }
                 builder.end_array();
             }
@@ -380,27 +408,41 @@ public class ArticleStateStore : GLib.Object {
 
             var obj = root.get_object();
 
-            // Load category articles
+            // Load category articles (normalize loaded URLs to canonical form)
             if (obj.has_member("categories")) {
                 var categories_obj = obj.get_object_member("categories");
                 foreach (string category_id in categories_obj.get_members()) {
                     var urls_array = categories_obj.get_array_member(category_id);
                     var url_set = new Gee.HashSet<string>();
                     urls_array.foreach_element((arr, index, node) => {
-                        url_set.add(node.get_string());
+                        try {
+                            string raw = node.get_string();
+                            string norm = UrlUtils.normalize_article_url(raw);
+                            if (norm == null || norm.length == 0) norm = raw.strip();
+                            url_set.add(norm);
+                        } catch (GLib.Error e) {
+                            try { url_set.add(node.get_string()); } catch (GLib.Error _) { }
+                        }
                     });
                     category_articles.set(category_id, url_set);
                 }
             }
 
-            // Load source articles
+            // Load source articles (normalize loaded URLs to canonical form)
             if (obj.has_member("sources")) {
                 var sources_obj = obj.get_object_member("sources");
                 foreach (string source_name in sources_obj.get_members()) {
                     var urls_array = sources_obj.get_array_member(source_name);
                     var url_set = new Gee.HashSet<string>();
                     urls_array.foreach_element((arr, index, node) => {
-                        url_set.add(node.get_string());
+                        try {
+                            string raw = node.get_string();
+                            string norm = UrlUtils.normalize_article_url(raw);
+                            if (norm == null || norm.length == 0) norm = raw.strip();
+                            url_set.add(norm);
+                        } catch (GLib.Error e) {
+                            try { url_set.add(node.get_string()); } catch (GLib.Error _) { }
+                        }
                     });
                     source_articles.set(source_name, url_set);
                 }
