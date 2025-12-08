@@ -112,8 +112,20 @@ public class RssFinderService : GLib.Object {
                                 string u = lines[i].strip();
                                 if (u.length > 0) tmp.add(u);
                             }
-                            discovered_feeds = new string[tmp.size];
-                            for (int i = 0; i < tmp.size; i++) discovered_feeds[i] = tmp.get(i);
+                            // Filter discovered feeds: remove obviously malformed or unsupported URLs
+                            var valid = new Gee.ArrayList<string>();
+                            for (int i = 0; i < tmp.size; i++) {
+                                string cand = tmp.get(i).strip();
+                                if (cand.length == 0) continue;
+                                // Basic validation: no spaces and supported schemes only
+                                if (cand.contains(" ") || !(cand.has_prefix("http://") || cand.has_prefix("https://") || cand.has_prefix("file://"))) {
+                                    try { GLib.warning("rssFinderService: skipping malformed/unsupported discovered feed: %s", cand); } catch (GLib.Error _) { }
+                                    continue;
+                                }
+                                valid.add(cand);
+                            }
+                            discovered_feeds = new string[valid.size];
+                            for (int i = 0; i < valid.size; i++) discovered_feeds[i] = valid.get(i);
                         }
                     }
                 } catch (GLib.Error ee) { }

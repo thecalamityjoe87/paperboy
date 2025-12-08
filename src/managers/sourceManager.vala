@@ -503,7 +503,35 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     }
                 }
 
-                // Priority 2: Try Google Favicon Service (robust fallback)
+                // Priority 2: Try Paperboy API /logos endpoint (high quality logos)
+                if (logo_url == null && host != null) {
+                    try {
+                        string api_url = "https://paperboybackend.onrender.com/logos?domain=" + host;
+                        var msg = new Soup.Message("GET", api_url);
+                        msg.get_request_headers().append("User-Agent", "paperboy/0.5.1a");
+                        
+                        GLib.Bytes? response = window.session.send_and_read(msg, null);
+                        var status = msg.get_status();
+                        
+                        if (status == Soup.Status.OK && response != null) {
+                            string body = (string) response.get_data();
+                            var parser = new Json.Parser();
+                            parser.load_from_data(body, -1);
+                            var root = parser.get_root();
+                            
+                            if (root != null && root.get_node_type() == Json.NodeType.OBJECT) {
+                                var obj = root.get_object();
+                                if (obj.has_member("logo_url") && !obj.get_null_member("logo_url")) {
+                                    logo_url = obj.get_string_member("logo_url");
+                                }
+                            }
+                        }
+                    } catch (GLib.Error e) {
+                        GLib.warning("Failed to fetch logo from Paperboy API: %s", e.message);
+                    }
+                }
+
+                // Priority 3: Try Google Favicon Service (robust fallback)
                 if (logo_url == null && host != null) {
                     logo_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
                 }
@@ -512,10 +540,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 var store = Paperboy.RssSourceStore.get_instance();
                 bool success = store.add_source(final_name, feed_url, null);
 
-                // Step 4: Save metadata and fetch logo. If we discovered a more
-                // human title than an existing domain-like metadata entry, force
-                // an update of the metadata file (overwrite the domain fallback).
-                if (success && logo_url != null && host != null && (existing_display_name == null || force_update_meta)) {
+                // Step 4: Save metadata and fetch logo
+                // Always fetch logo for newly added sources to ensure we have the best quality image
+                if (success && logo_url != null && host != null) {
                     try {
                         SourceMetadata.update_index_and_fetch(host, final_name, logo_url, "https://" + host, window.session, feed_url);
                     } catch (GLib.Error e) {

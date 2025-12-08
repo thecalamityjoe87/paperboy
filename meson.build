@@ -31,16 +31,20 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
 
     # UI
     'src/ui/appWindow.vala',
+    'src/ui/fetchNewsController.vala',
     'src/ui/contentView.vala',
+    'src/ui/sidebarView.vala',
     'src/ui/components/articlePane.vala',
     'src/ui/components/articleCard.vala',
     'src/ui/components/articleSheet.vala',
     'src/ui/components/heroCard.vala',
     'src/ui/components/heroCarousel.vala',
+    'src/ui/components/toastWidget.vala',
     'src/ui/dialogs/prefsDialog.vala',
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',
     'src/ui/menus/articleMenu.vala',
+    'src/ui/menus/sidebarMenu.vala',
 
     # Builders
     'src/builders/cardBuilder.vala',
@@ -55,11 +59,12 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/layoutManager.vala',
     'src/managers/articleManager.vala',
     'src/managers/sidebarManager.vala',
-    'src/managers/imageHandler.vala',
+    'src/managers/imageManager.vala',
     'src/managers/toastManager.vala',
     'src/managers/feedUpdateManager.vala',
 
     # Services / models
+    'src/services/unreadFetchService.vala',
     'src/services/metaCache.vala',
     'src/services/articleStateStore.vala',
     'src/services/imageCache.vala',
@@ -99,6 +104,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/workerPool.vala',
     'src/utils/httpClient.vala',
     'src/utils/rssValidator.vala',
+    'src/utils/fetchSequence.vala',
 
     # Tools used at build/runtime
     'tools/rssParser.vala',

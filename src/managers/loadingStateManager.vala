@@ -53,6 +53,31 @@ public class LoadingStateManager : GLib.Object {
         window = w;
     }
 
+    /**
+     * Begin a new fetch - resets initial phase state and shows loading spinner.
+     * Call this at the start of fetch_news() to initialize loading state.
+     */
+    public void begin_fetch() {
+        // Reset initial-phase gating state
+        initial_phase = true;
+        hero_image_loaded = false;
+        pending_images = 0;
+        initial_items_populated = false;
+        network_failure_detected = false;
+
+        // Cancel any pending initial reveal timeout
+        if (initial_reveal_timeout_id > 0) {
+            Source.remove(initial_reveal_timeout_id);
+            initial_reveal_timeout_id = 0;
+        }
+
+        // Hide any previous error message
+        hide_error_message();
+
+        // Show loading spinner
+        show_loading_spinner();
+    }
+
     public void show_loading_spinner() {
         if (loading_container != null && loading_spinner != null && loading_label != null) {
             // Remove "No more articles" message when starting a new load
@@ -104,13 +129,13 @@ public class LoadingStateManager : GLib.Object {
                     window.article_state_store.save_article_tracking_to_disk();
                 }
                 if (window.sidebar_manager != null) {
-                    window.sidebar_manager.refresh_all_badges();
+                    window.sidebar_manager.refresh_all_badge_counts();
                 }
             } catch (GLib.Error e) { }
 
-            if (window.article_manager.remaining_articles != null && window.article_manager.remaining_articles.length > 0 && window.article_manager.articles_shown >= Managers.ArticleManager.INITIAL_ARTICLE_LIMIT) {
+            if (window.article_manager.remaining_articles != null && window.article_manager.remaining_articles.size > 0 && window.article_manager.articles_shown >= Managers.ArticleManager.INITIAL_ARTICLE_LIMIT) {
                 try { window.article_manager.show_load_more_button(); } catch (GLib.Error e) { }
-            } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.length == 0) {
+            } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.size == 0) {
                 Timeout.add(800, () => {
                     if (loading_container == null || !loading_container.get_visible()) {
                         show_end_of_feed_message();

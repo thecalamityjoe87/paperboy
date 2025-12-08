@@ -80,8 +80,14 @@
 
     <key name="unread-badges-categories" type="b">
       <default>true</default>
-      <summary>Show badges on categories</summary>
-      <description>Whether unread count badges are shown on category items (e.g., World News, Technology)</description>
+      <summary>Show badges on popular categories</summary>
+      <description>Whether unread count badges are shown on popular category items (e.g., World News, Technology)</description>
+    </key>
+
+    <key name="unread-badges-special-categories" type="b">
+      <default>true</default>
+      <summary>Show badges on special categories</summary>
+      <description>Whether unread count badges are shown on special categories (Front Page, Top Ten, My Feed, Local News, Saved)</description>
     </key>
 
     <key name="unread-badges-sources" type="b">

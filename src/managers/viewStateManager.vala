@@ -62,6 +62,13 @@ public class ViewStateManager : GLib.Object {
         if (viewed_articles == null) viewed_articles = new Gee.HashSet<string>();
         viewed_articles.add(n);
 
+        // Mark as viewed in article state store (persists to disk)
+        if (window.article_state_store != null) {
+            try {
+                window.article_state_store.mark_viewed(n);
+            } catch (GLib.Error e) { }
+        }
+
         Timeout.add(50, () => {
             try {
                 Gtk.Widget? card = null;
@@ -168,6 +175,53 @@ public class ViewStateManager : GLib.Object {
         } catch (GLib.Error e) { }
 
         last_scroll_value = -1.0;
+    }
+
+    /**
+     * Refresh viewed badges for all articles from a specific source
+     * Used after marking all as read/unread
+     */
+    public void refresh_viewed_badges_for_source(string source_name) {
+        if (window.article_state_store == null) return;
+        
+        var articles = window.article_state_store.get_articles_for_source(source_name);
+        if (articles == null) return;
+        
+        foreach (string url in articles) {
+            string normalized = normalize_article_url(url);
+            if (normalized == null || normalized.length == 0) continue;
+            
+            Gtk.Widget? card = null;
+            try { card = url_to_card.get(normalized); } catch (GLib.Error e) { }
+            if (card == null) continue;
+            
+            bool is_viewed = window.article_state_store.is_viewed(normalized);
+            
+            Gtk.Widget? first = card.get_first_child();
+            if (first != null && first is Gtk.Overlay) {
+                var overlay = (Gtk.Overlay) first;
+                
+                // Find and remove existing viewed badge if present
+                Gtk.Widget? child = overlay.get_first_child();
+                while (child != null) {
+                    Gtk.Widget? next = child.get_next_sibling();
+                    try {
+                        if (child.get_style_context().has_class("viewed-badge")) {
+                            overlay.remove_overlay(child);
+                        }
+                    } catch (GLib.Error e) { }
+                    child = next;
+                }
+                
+                // Add viewed badge if article is viewed
+                if (is_viewed) {
+                    var badge = CardBuilder.build_viewed_badge();
+                    overlay.add_overlay(badge);
+                    badge.set_visible(true);
+                    overlay.queue_draw();
+                }
+            }
+        }
     }
 }
 

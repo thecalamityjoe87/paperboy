@@ -269,7 +269,7 @@ public class CardBuilder : GLib.Object {
                     pic.set_size_request(20, 20);
                     pic.set_valign(Gtk.Align.CENTER);
                     pic.set_halign(Gtk.Align.CENTER);
-                    try { if (win.image_handler != null) win.image_handler.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
+                    try { if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
 
                     logo_wrapper.append(pic);
                     box.append(logo_wrapper);
@@ -401,7 +401,7 @@ public class CardBuilder : GLib.Object {
                         pic.set_size_request(20, 20);
                         pic.set_valign(Gtk.Align.CENTER);
                         pic.set_halign(Gtk.Align.CENTER);
-                        try { if (win.image_handler != null) win.image_handler.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
+                        try { if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
 
                         logo_wrapper.append(pic);
                         box.append(logo_wrapper);
@@ -423,7 +423,7 @@ public class CardBuilder : GLib.Object {
                             pic.set_size_request(20, 20);
                             pic.set_valign(Gtk.Align.CENTER);
                             pic.set_halign(Gtk.Align.CENTER);
-                            try { if (win.image_handler != null) win.image_handler.load_image_async(pic, google_favicon_url, 20, 20); } catch (GLib.Error e) { }
+                            try { if (win.image_manager != null) win.image_manager.load_image_async(pic, google_favicon_url, 20, 20); } catch (GLib.Error e) { }
 
                             logo_wrapper.append(pic);
                             box.append(logo_wrapper);
@@ -444,7 +444,7 @@ public class CardBuilder : GLib.Object {
                         pic.set_size_request(20, 20);
                         pic.set_valign(Gtk.Align.CENTER);
                         pic.set_halign(Gtk.Align.CENTER);
-                        try { if (win.image_handler != null) win.image_handler.load_image_async(pic, src.favicon_url, 20, 20); } catch (GLib.Error e) { }
+                        try { if (win.image_manager != null) win.image_manager.load_image_async(pic, src.favicon_url, 20, 20); } catch (GLib.Error e) { }
 
                         logo_wrapper.append(pic);
                         box.append(logo_wrapper);
@@ -473,7 +473,9 @@ public class CardBuilder : GLib.Object {
             if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
             else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
             else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
-            else if (low.index_of("nytimes") >= 0) resolved = NewsSource.NEW_YORK_TIMES;
+            // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
+            else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 || 
+                     (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
             else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
             else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
             else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
@@ -565,7 +567,7 @@ public class CardBuilder : GLib.Object {
                     pic.set_size_request(20, 20);
                     pic.set_valign(Gtk.Align.CENTER);
                     pic.set_halign(Gtk.Align.CENTER);
-                    try { if (win.image_handler != null) win.image_handler.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
+                    try { if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
 
                     logo_wrapper.append(pic);
                     box.append(logo_wrapper);
@@ -627,7 +629,7 @@ public class CardBuilder : GLib.Object {
             pic.set_size_request(20, 20);
             pic.set_valign(Gtk.Align.CENTER);
             pic.set_halign(Gtk.Align.CENTER);
-            try { if (win.image_handler != null) win.image_handler.load_image_async(pic, provided_logo_url, 20, 20); } catch (GLib.Error e) { }
+            try { if (win.image_manager != null) win.image_manager.load_image_async(pic, provided_logo_url, 20, 20); } catch (GLib.Error e) { }
 
             logo_wrapper.append(pic);
             box.append(logo_wrapper);

@@ -27,6 +27,13 @@ public class HeroCarousel : GLib.Object {
     public ArrayList<Widget>? widgets;
     public int index = 0;
     public uint timeout_id = 0;
+    
+    // Layout constants
+    public const int SLIDE_MAX_HEIGHT = 350;
+    public const int SLIDE_IMAGE_HEIGHT = 250;
+    
+    // Signal emitted when a slide is activated (clicked)
+    public signal void slide_activated(string title, string url, string? thumbnail_url, string category_id, string? source_name);
 
     public HeroCarousel(Gtk.Box parent) {
         GLib.Object();
@@ -114,6 +121,73 @@ public class HeroCarousel : GLib.Object {
         update_dots();
     }
 
+    /**
+     * Create and add an article slide to the carousel.
+     * This encapsulates all slide widget construction that was previously in ArticleManager.
+     * Returns the slide widget and its image for external image loading.
+     */
+    public SlideComponents create_article_slide(string title, string url, string? thumbnail_url, 
+                                                  string category_id, string? source_name,
+                                                  Gtk.Widget? category_chip) {
+        var slide = new Gtk.Box(Orientation.VERTICAL, 0);
+        slide.set_size_request(-1, SLIDE_MAX_HEIGHT);
+        slide.set_hexpand(true);
+        slide.set_vexpand(false);
+        slide.set_halign(Gtk.Align.FILL);
+        slide.set_valign(Gtk.Align.START);
+        slide.set_margin_start(0);
+        slide.set_margin_end(0);
+
+        var slide_image = new Gtk.Picture();
+        slide_image.set_halign(Gtk.Align.FILL);
+        slide_image.set_hexpand(true);
+        slide_image.set_size_request(-1, SLIDE_IMAGE_HEIGHT);
+        slide_image.set_content_fit(Gtk.ContentFit.COVER);
+        slide_image.set_can_shrink(true);
+
+        var slide_overlay = new Gtk.Overlay();
+        slide_overlay.set_child(slide_image);
+        
+        if (category_chip != null) {
+            slide_overlay.add_overlay(category_chip);
+        }
+        
+        slide.append(slide_overlay);
+
+        var slide_title_box = new Gtk.Box(Orientation.VERTICAL, 8);
+        slide_title_box.set_margin_start(16);
+        slide_title_box.set_margin_end(16);
+        slide_title_box.set_margin_top(16);
+        slide_title_box.set_margin_bottom(16);
+        slide_title_box.set_vexpand(true);
+
+        var slide_label = new Gtk.Label(title);
+        slide_label.set_ellipsize(Pango.EllipsizeMode.END);
+        slide_label.set_xalign(0);
+        slide_label.set_wrap(true);
+        slide_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
+        slide_label.set_lines(8);
+        slide_label.set_max_width_chars(88);
+        slide_title_box.append(slide_label);
+        slide.append(slide_title_box);
+
+        // Connect click handler - emit signal with article details
+        var slide_click = new Gtk.GestureClick();
+        slide_click.released.connect(() => {
+            slide_activated(title, url, thumbnail_url, category_id, source_name);
+        });
+        slide.add_controller(slide_click);
+
+        // Add to carousel
+        if (widgets.size == 0) {
+            add_initial_slide(slide);
+        } else {
+            add_slide(slide);
+        }
+
+        return new SlideComponents(slide, slide_image);
+    }
+
     public void update_dots() {
         if (dot_widgets == null || widgets == null) return;
         int total = widgets.size;
@@ -187,5 +261,18 @@ public class HeroCarousel : GLib.Object {
 
     ~HeroCarousel() {
         stop_timer();
+    }
+}
+
+/**
+ * Helper class to return slide components for external image loading
+ */
+public class SlideComponents : GLib.Object {
+    public Gtk.Widget slide { get; private set; }
+    public Gtk.Picture image { get; private set; }
+    
+    public SlideComponents(Gtk.Widget slide, Gtk.Picture image) {
+        this.slide = slide;
+        this.image = image;
     }
 }

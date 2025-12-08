@@ -620,7 +620,7 @@ public class PrefsDialog : GLib.Object {
             prefs.unread_badges_enabled = unread_badges_switch.get_active();
             prefs.save_config();
             if (win != null && win.sidebar_manager != null) {
-                win.sidebar_manager.refresh_all_badges();
+                win.sidebar_manager.refresh_all_badge_counts();
             }
         });
 
@@ -640,13 +640,23 @@ public class PrefsDialog : GLib.Object {
             popover_box.set_margin_top(12);
             popover_box.set_margin_bottom(12);
 
-            var categories_check = new Gtk.CheckButton.with_label("Show on categories");
+            var categories_check = new Gtk.CheckButton.with_label("Show on popular categories");
             categories_check.set_active(prefs.unread_badges_categories);
             categories_check.toggled.connect(() => {
                 prefs.unread_badges_categories = categories_check.get_active();
                 prefs.save_config();
                 if (win != null && win.sidebar_manager != null) {
-                    win.sidebar_manager.refresh_all_badges();
+                    win.sidebar_manager.refresh_all_badge_counts();
+                }
+            });
+
+            var special_check = new Gtk.CheckButton.with_label("Show on special categories");
+            special_check.set_active(prefs.unread_badges_special_categories);
+            special_check.toggled.connect(() => {
+                prefs.unread_badges_special_categories = special_check.get_active();
+                prefs.save_config();
+                if (win != null && win.sidebar_manager != null) {
+                    win.sidebar_manager.refresh_all_badge_counts();
                 }
             });
 
@@ -656,11 +666,12 @@ public class PrefsDialog : GLib.Object {
                 prefs.unread_badges_sources = sources_check.get_active();
                 prefs.save_config();
                 if (win != null && win.sidebar_manager != null) {
-                    win.sidebar_manager.refresh_all_badges();
+                    win.sidebar_manager.refresh_all_badge_counts();
                 }
             });
 
             popover_box.append(categories_check);
+            popover_box.append(special_check);
             popover_box.append(sources_check);
             popover.set_child(popover_box);
             popover.popup();

@@ -109,6 +109,13 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("unread-badges-categories", value); }
     }
 
+    // Whether to show badges on special categories
+    // (Front Page, Top Ten, My Feed, Local News, Saved)
+    public bool unread_badges_special_categories {
+        get { return settings.get_boolean("unread-badges-special-categories"); }
+        set { settings.set_boolean("unread-badges-special-categories", value); }
+    }
+
     public bool unread_badges_sources {
         get { return settings.get_boolean("unread-badges-sources"); }
         set { settings.set_boolean("unread-badges-sources", value); }

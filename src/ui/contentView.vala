@@ -20,6 +20,8 @@ using Gtk;
 using Adw;
 
 public class ContentView : GLib.Object {
+    private weak NewsWindow? window;
+    
     public Gtk.ScrolledWindow main_scrolled;
     public Gtk.Box content_area;
     public Gtk.Box content_box;
@@ -50,6 +52,8 @@ public class ContentView : GLib.Object {
     public Gtk.Image error_icon;
     public Gtk.Label error_message_label;
     public Gtk.Button error_retry_button;
+    
+    private Gtk.Button? load_more_button_widget = null;
 
     public ContentView(NewsPreferences prefs) {
         // Scrolled viewport that will be pushed into the NavigationPage by the caller
@@ -348,4 +352,84 @@ public class ContentView : GLib.Object {
         content_area.append(content_box);
         main_scrolled.set_child(content_area);
     }
+    
+    public void set_window(NewsWindow win) {
+        window = win;
+    }
+    
+    // Load more button UI handlers (called by ArticleManager signals)
+    public void create_and_show_load_more_button() {
+        if (load_more_button_widget != null) return;
+        
+        load_more_button_widget = new Gtk.Button.with_label("Load more articles");
+        load_more_button_widget.add_css_class("suggested-action");
+        load_more_button_widget.add_css_class("pill");
+        load_more_button_widget.set_margin_top(20);
+        load_more_button_widget.set_margin_bottom(20);
+        load_more_button_widget.set_halign(Gtk.Align.CENTER);
+        
+        load_more_button_widget.clicked.connect(() => {
+            load_more_button_widget.set_label("Loading...");
+            load_more_button_widget.set_sensitive(false);
+            load_more_button_widget.remove_css_class("suggested-action");
+            load_more_button_widget.add_css_class("loading");
+            
+            Timeout.add(150, () => {
+                if (window != null && window.article_manager != null) {
+                    window.article_manager.load_more_articles();
+                }
+                return false;
+            });
+        });
+        
+        // Remove any "no more articles" message
+        remove_end_of_feed_message();
+        
+        load_more_button_widget.add_css_class("fade-out");
+        content_box.append(load_more_button_widget);
+        
+        Timeout.add(50, () => {
+            if (load_more_button_widget != null) {
+                load_more_button_widget.remove_css_class("fade-out");
+                load_more_button_widget.add_css_class("fade-in");
+            }
+            return false;
+        });
+    }
+    
+    public void hide_load_more_button() {
+        if (load_more_button_widget == null) return;
+        
+        // Capture the current widget reference to avoid race conditions
+        // where a new button is created before this timeout fires
+        var button_to_remove = load_more_button_widget;
+        load_more_button_widget = null;  // Clear immediately so new button can be shown
+        
+        button_to_remove.add_css_class("fade-out");
+        Timeout.add(300, () => {
+            if (button_to_remove != null) {
+                var parent = button_to_remove.get_parent() as Gtk.Box;
+                if (parent != null) {
+                    parent.remove(button_to_remove);
+                }
+            }
+            return false;
+        });
+    }
+    
+    public void remove_end_of_feed_message() {
+        var children = content_box.observe_children();
+        for (uint i = 0; i < children.get_n_items(); i++) {
+            var child = children.get_item(i) as Gtk.Widget;
+            if (child is Gtk.Label) {
+                var lbl = child as Gtk.Label;
+                var txt = lbl.get_label();
+                if (txt == "<b>No more articles</b>" || txt == "No more articles") {
+                    content_box.remove(lbl);
+                    break;
+                }
+            }
+        }
+    }
 }
+

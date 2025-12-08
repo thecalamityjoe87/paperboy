@@ -25,7 +25,7 @@ public class ArticlePane : GLib.Object {
     private Adw.NavigationView nav_view;
     private Soup.Session session;
     private NewsWindow parent_window;
-    private ImageHandler? image_handler;
+    private ImageManager? image_manager;
     // Preview overlay components
     private Adw.OverlaySplitView? preview_split;
     private Gtk.Box? preview_content_box;
@@ -47,11 +47,11 @@ public class ArticlePane : GLib.Object {
     // Callback type for snippet results
     private delegate void SnippetCallback(string text);
 
-    public ArticlePane(Adw.NavigationView navigation_view, Soup.Session soup_session, NewsWindow window, ImageHandler? img_handler = null) {
+    public ArticlePane(Adw.NavigationView navigation_view, Soup.Session soup_session, NewsWindow window, ImageManager? img_handler = null) {
         nav_view = navigation_view;
         session = soup_session;
         parent_window = window;
-        image_handler = img_handler;
+        image_manager = img_handler;
         // Initialize shared preview cache (centralized)
         try { PreviewCacheManager.get_cache(); } catch (GLib.Error e) { }
     }
@@ -148,7 +148,7 @@ public class ArticlePane : GLib.Object {
     
     // Only look up in buffer if source_name wasn't provided
     if (article_source_name == null || article_source_name.length == 0) {
-        foreach (var item in parent_window.article_buffer) {
+        foreach (var item in parent_window.article_manager.article_buffer) {
             if (item.url == url && item is ArticleItem) {
                 var ai = (ArticleItem) item;
                 article_source_name = ai.source_name;
@@ -476,7 +476,7 @@ public class ArticlePane : GLib.Object {
         }
 
         // Also check for NewsArticle entries which may have published dates
-        foreach (var item in parent_window.article_buffer) {
+        foreach (var item in parent_window.article_manager.article_buffer) {
             if (item.url == url) {
                 try {
                     if (item.get_type().name() == "Paperboy.NewsArticle") {
@@ -567,7 +567,7 @@ public class ArticlePane : GLib.Object {
             // Try to get snippet from parent_window/article_buffer
             string? homepage_snippet = null;
             string? homepage_published = null;
-            foreach (var item in parent_window.article_buffer) {
+            foreach (var item in parent_window.article_manager.article_buffer) {
                 if (item.url == url && item.get_type().name() == "Paperboy.NewsArticle") {
                     var na = (Paperboy.NewsArticle)item;
                     homepage_snippet = na.snippet;
@@ -598,11 +598,11 @@ public class ArticlePane : GLib.Object {
         
     }
 
-    // Load image using centralized ImageHandler if available
+    // Load image using centralized ImageManager if available
     private void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, NewsSource source, string? category_id = null, bool source_is_mapped = true) {
-        if (image_handler != null) {
-            // Use centralized ImageHandler for consistency
-            image_handler.load_image_async(image, url, target_w, target_h, true);
+        if (image_manager != null) {
+            // Use centralized ImageManager for consistency
+            image_manager.load_image_async(image, url, target_w, target_h, true);
         } else {
             // Fallback: set placeholder directly
             if (category_id != null && category_id == "local_news") {
