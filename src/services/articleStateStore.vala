@@ -76,9 +76,12 @@ public class ArticleStateStore : GLib.Object {
         // The background metadata fetch will populate fresh counts
         // We only use persistence to save counts when app closes
         // load_article_tracking();
-        
-        // Load saved articles
-        load_saved_articles();
+
+        // Load saved articles asynchronously to avoid blocking startup
+        Timeout.add(100, () => {
+            load_saved_articles();
+            return false;
+        });
 
         // Ensure saved articles also participate in category-based tracking so
         // the "saved" category has a stable backing set for unread counts and
@@ -240,28 +243,35 @@ public class ArticleStateStore : GLib.Object {
         // noop: writes are atomic per-item via mark_viewed/set_favorite
     }
 
-    // Register an article with its category and source for unread tracking
-    public void register_article(string url, string? category_id, string? source_name) {
+    // Clear all articles for a specific category (used before re-fetching to avoid accumulation)
+    public void clear_category_articles(string category_id) {
         article_tracking_lock.lock();
         try {
-            // Normalize the URL here to ensure all callers result in a
-            // stable, consistent key in our tracking sets. Some callsites
-            // normalize before calling, others do not; normalizing here
-            // prevents duplicates caused by differing representations.
-            string norm_url = "";
-            try {
-                norm_url = UrlUtils.normalize_article_url(url);
-            } catch (GLib.Error e) { norm_url = url.strip(); }
+            if (category_articles.has_key(category_id)) {
+                category_articles.get(category_id).clear();
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+    }
+
+    // Register an article with its category and source for unread tracking
+    public void register_article(string url, string? category_id, string? source_name) {
+        // Normalize the URL OUTSIDE the lock to reduce lock contention
+        // when many threads are calling this simultaneously
+        string norm_url = "";
+        try {
+            norm_url = UrlUtils.normalize_article_url(url);
+        } catch (GLib.Error e) { norm_url = url.strip(); }
+
+        article_tracking_lock.lock();
+        try {
 
             if (category_id != null && category_id.length > 0) {
                 if (!category_articles.has_key(category_id)) {
                     category_articles.set(category_id, new Gee.HashSet<string>());
                 }
-                bool was_new = category_articles.get(category_id).add(norm_url);
-                if (was_new) {
-                    stderr.printf("DEBUG: register_article: category=%s, url=%s (NEW, count now=%d)\n", 
-                                 category_id, norm_url.substring(0, 50), category_articles.get(category_id).size);
-                }
+                category_articles.get(category_id).add(norm_url);
             }
             if (source_name != null && source_name.length > 0) {
                 if (!source_articles.has_key(source_name)) {
@@ -293,6 +303,19 @@ public class ArticleStateStore : GLib.Object {
         return initial_metadata_fetch_complete;
     }
 
+    // Get total article count for a specific category (all articles, viewed or not)
+    public int get_total_count_for_category(string category_id) {
+        article_tracking_lock.lock();
+        try {
+            if (!category_articles.has_key(category_id)) {
+                return 0;
+            }
+            return category_articles.get(category_id).size;
+        } finally {
+            article_tracking_lock.unlock();
+        }
+    }
+
     // Get unread count for a specific category
     public int get_unread_count_for_category(string category_id) {
         int total = 0;
@@ -301,21 +324,25 @@ public class ArticleStateStore : GLib.Object {
         article_tracking_lock.lock();
         try {
             if (!category_articles.has_key(category_id)) {
-                stderr.printf("DEBUG: get_unread_count_for_category(%s) = 0 (no key)\n", category_id);
                 return 0;
             }
 
             var articles = category_articles.get(category_id);
             total = articles.size;
 
-            foreach (string url in articles) {
-                if (is_viewed(url)) {
-                    viewed++;
+            // PERFORMANCE: Only check viewed status from in-memory cache
+            // Don't do disk I/O during count calculation - that's too slow
+            meta_lock.lock();
+            try {
+                foreach (string url in articles) {
+                    string meta_path = meta_path_for(url);
+                    if (viewed_meta_paths.contains(meta_path)) {
+                        viewed++;
+                    }
                 }
+            } finally {
+                meta_lock.unlock();
             }
-            
-            stderr.printf("DEBUG: get_unread_count_for_category(%s) = %d (total=%d, viewed=%d)\n", 
-                         category_id, total - viewed, total, viewed);
         } finally {
             article_tracking_lock.unlock();
         }
@@ -337,10 +364,18 @@ public class ArticleStateStore : GLib.Object {
             var articles = source_articles.get(source_name);
             total = articles.size;
 
-            foreach (string url in articles) {
-                if (is_viewed(url)) {
-                    viewed++;
+            // PERFORMANCE: Only check viewed status from in-memory cache
+            // Don't do disk I/O during count calculation - that's too slow
+            meta_lock.lock();
+            try {
+                foreach (string url in articles) {
+                    string meta_path = meta_path_for(url);
+                    if (viewed_meta_paths.contains(meta_path)) {
+                        viewed++;
+                    }
                 }
+            } finally {
+                meta_lock.unlock();
             }
         } finally {
             article_tracking_lock.unlock();

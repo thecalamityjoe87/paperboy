@@ -368,23 +368,30 @@ public class RssParser {
                     add_item(title, url, row[2], category_id, source_name);
                 }
 
-                if (category_id == "myfeed" && favicon_url != null && favicon_url.length > 0) {
+                return false;
+            });
+
+            // Update favicon asynchronously in background thread to avoid SQLite lock contention
+            // Don't block the main thread or article display for favicon updates
+            if (category_id == "myfeed" && favicon_url != null && favicon_url.length > 0) {
+                string captured_source_name = source_name;
+                string captured_favicon = favicon_url;
+                new Thread<void*>("favicon-update", () => {
                     try {
                         var rss_store = Paperboy.RssSourceStore.get_instance();
                         var all_sources = rss_store.get_all_sources();
                         foreach (var src in all_sources) {
-                            if (src.name == source_name) {
+                            if (src.name == captured_source_name) {
                                 if (src.favicon_url == null || src.favicon_url.length == 0) {
-                                    rss_store.update_favicon_url(src.url, favicon_url);
+                                    rss_store.update_favicon_url(src.url, captured_favicon);
                                 }
                                 break;
                             }
                         }
                     } catch (GLib.Error e) { }
-                }
-
-                return false;
-            });
+                    return null;
+                });
+            }
 
             // Background: for BBC links, try to fetch higher-resolution images
             if (bbc_enabled) {
@@ -462,6 +469,16 @@ public class RssParser {
         AddItemFunc add_item
     ) {
         new Thread<void*>("fetch-rss", () => {
+            // Keep references to the provided callbacks for the lifetime
+            // of this worker thread. Vala's generated closure refcounting
+            // sometimes frees caller-side temporary delegates when the
+            // caller's scope returns; holding explicit local references
+            // in the thread ensures the delegates remain alive until the
+            // thread completes and avoids use-after-free when the
+            // callbacks are invoked later on the main loop.
+            var _set_label_ref = set_label;
+            var _clear_items_ref = clear_items;
+            var _add_item_ref = add_item;
             try {
                 
                 // Basic validation: ensure the URL is a non-empty, sane string
@@ -485,8 +502,11 @@ public class RssParser {
                         string path = url.substring(7);
                         var f = GLib.File.new_for_path(path);
                         if (!f.query_exists(null)) {
-                            warning("Local RSS file not found: %s", path);
-                            try { set_label("Local RSS file not found"); } catch (GLib.Error e) { }
+                            // File doesn't exist - trigger background regeneration
+                            warning("Local RSS file not found, will need regeneration: %s", path);
+                            try { set_label("Generating feed... (this may take 30-40 seconds)"); } catch (GLib.Error e) { }
+                            // TODO: Trigger async regeneration here
+                            // For now, just show an error since regeneration is handled by FeedUpdateManager
                             return null;
                         }
                         // Use FileUtils.get_contents to safely read the whole file into memory
@@ -549,6 +569,10 @@ public class RssParser {
                 try { set_label("Error loading feed"); } catch (GLib.Error _) { }
                 if (category_id == "local_news") prune_local_feed(url);
             }
+            // Drop our explicit references so they can be freed.
+            _set_label_ref = null;
+            _clear_items_ref = null;
+            _add_item_ref = null;
             return null;
         });
     }

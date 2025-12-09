@@ -645,9 +645,23 @@ public class SidebarManager : GLib.Object {
 
     /**
      * Refresh all unread count badges
+     * Runs asynchronously to avoid blocking main thread with expensive count calculations
      */
     public void refresh_all_badge_counts() {
-        all_badges_refresh_requested();
+        // CRITICAL: Do NOT refresh badges during initial_phase
+        // Modifying the sidebar widget tree (via badge.set_visible()) while images
+        // are being loaded can cause GTK to invalidate or lose paintable references
+        // on Picture widgets in the main content area
+        if (window.loading_state != null && window.loading_state.initial_phase) {
+            return;
+        }
+
+        // Run badge refresh in Idle to avoid blocking if called during startup
+        // This prevents hanging when multiple RSS sources need unread counts calculated
+        Idle.add(() => {
+            all_badges_refresh_requested();
+            return false;
+        });
     }
 
     /**

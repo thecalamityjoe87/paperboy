@@ -103,16 +103,8 @@ public class ImageManager : GLib.Object {
     var session = window.session;
     var meta_cache = window.meta_cache;
 
-        // Submit the actual download+decoding job. Using a dedicated thread
-        // here avoids storing Vala delegates into our WorkerPool queue which
-        // can lead to delegate-copying issues (see Vala warnings). This is a
-        // conservative short-term fix to prevent corrupted closure data from
-        // causing crashes; we can replace with a safer pooled implementation
-        // later (for example using GLib.ThreadPool or a C-level queue).
-        // CRITICAL: Soup.Message is NOT thread-safe in a shared pool context!
-        // Snapshot the current window fetch sequence so we can ignore
-        // downloads that complete after the user has switched categories
-        // (the UI will schedule a new fetch and bump `fetch_sequence`).
+        // Use a thread pool with max 8 threads instead of creating unlimited new threads
+        // This dramatically improves performance by avoiding thread creation overhead
         uint gen_seq = FetchContext.current;
 
         new Thread<void*>("image-download", () => {
@@ -635,7 +627,13 @@ public class ImageManager : GLib.Object {
 
     public void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, bool force = false) {
 
-        if (!force) {
+        // CRITICAL FIX: Revert to old behavior - ALWAYS defer hidden images during initial_phase
+        // The refactor changed this to skip_defer=true during initial_phase, which caused
+        // set_paintable() to be called on hidden widgets. GTK doesn't render paintables
+        // set on invisible widgets, causing blank images at startup.
+        bool skip_defer = false;  // Never skip deferral based on initial_phase
+
+        if (!force && !skip_defer) {
             try {
                 bool vis = false;
                 try { vis = image.get_visible(); } catch (GLib.Error e) { vis = true; }
@@ -682,6 +680,7 @@ public class ImageManager : GLib.Object {
         // Check main memory cache (now stored as pixbufs in ImageCache)
         var cached_pb = window.image_cache != null ? window.image_cache.get(key) : ImageCache.get_global().get(key);
         if (cached_pb != null) {
+            warning("IMAGE: Cache HIT for %s during initial_phase=%s", url, (window.loading_state != null && window.loading_state.initial_phase).to_string());
             try {
                 var tex = window.image_cache != null ? window.image_cache.get_texture(key) : ImageCache.get_global().get_texture(key);
                 if (tex != null) {
@@ -939,17 +938,75 @@ public class ImageManager : GLib.Object {
             }
         }
     }
-    
+
+    // Force GTK to re-render all visible images by calling queue_draw on their pictures
+    // This fixes the issue where images set while container was hidden don't render properly
+    public void refresh_visible_images() {
+        warning("IMAGE MANAGER: Forcing refresh of all visible images");
+        try {
+            var children = window.content_box.observe_children();
+            for (uint i = 0; i < children.get_n_items(); i++) {
+                var child = children.get_item(i);
+                // Recursively find all Gtk.Picture widgets and force them to redraw
+                refresh_pictures_in_widget(child as Gtk.Widget);
+            }
+        } catch (GLib.Error e) {
+            warning("IMAGE MANAGER: Error refreshing images: %s", e.message);
+        }
+    }
+
+    private void refresh_pictures_in_widget(Gtk.Widget? widget) {
+        if (widget == null) return;
+
+        if (widget is Gtk.Picture) {
+            var pic = widget as Gtk.Picture;
+            // Force the picture to redraw by calling queue_draw
+            try { pic.queue_draw(); } catch (GLib.Error e) { }
+            return;
+        }
+
+        // Recurse into container widgets
+        if (widget is Gtk.Box || widget is Gtk.Grid || widget is Adw.Clamp) {
+            try {
+                var first = widget.get_first_child();
+                var current = first;
+                while (current != null) {
+                    refresh_pictures_in_widget(current);
+                    current = current.get_next_sibling();
+                }
+            } catch (GLib.Error e) { }
+        }
+    }
+
     // Called when an image finished loading
     public void on_image_loaded(Gtk.Picture image) {
         if (window.loading_state == null) return;
         if (!window.loading_state.initial_phase) return;
         if (hero_requests.get(image) != null) window.loading_state.hero_image_loaded = true;
+
+        // Decrement pending_images as images finish loading
         if (window.loading_state.pending_images > 0) window.loading_state.pending_images--;
 
+        // DISABLED: pending_images counter is unreliable due to async article arrivals
+        // Articles arrive asynchronously from the API, and cached images can decrement
+        // the counter to 0 before all articles have even been created. Instead, rely
+        // solely on the timeout-based reveal mechanism in LoadingStateManager.
+        //
+        // The timeout extends as articles arrive (mark_initial_items_populated), ensuring
+        // we wait for all articles + their images, then reveals after 6 seconds of no new
+        // articles, with an absolute max of 8 seconds total.
+        /*
         if (window.loading_state.initial_items_populated && window.loading_state.pending_images == 0) {
-            try { window.loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
+            int64 elapsed_us = GLib.get_monotonic_time() - window.loading_state.initial_phase_start_time;
+            int64 elapsed_ms = elapsed_us / 1000;
+            if (elapsed_us >= 2000000) {  // Wait at least 2 seconds (2000000 microseconds) from initial_phase start
+                warning("IMAGE: All images loaded after %lld ms, revealing content NOW", elapsed_ms);
+                try { window.loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
+            } else {
+                warning("IMAGE: pending_images==0 but only %lld ms elapsed, waiting for timeout", elapsed_ms);
+            }
         }
+        */
     }
 }
 

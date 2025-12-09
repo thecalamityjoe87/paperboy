@@ -57,7 +57,7 @@ public class ArticleMenu : GLib.Object {
         });
         menu_box.append(browser_btn);
 
-        // Follow this source
+        /* Follow this source
         var follow_btn = create_menu_item("list-add-symbolic", "Follow this source");
         bool is_builtin = SourceManager.is_article_from_builtin(article_url);
         follow_btn.set_sensitive(!is_builtin);
@@ -65,12 +65,30 @@ public class ArticleMenu : GLib.Object {
             follow_source_requested(article_url, article_source_name);
             if (popover != null) popover.popdown();
         });
+        menu_box.append(follow_btn);*/
+
+        // Follow this source (or built-in label)
+        bool is_builtin = SourceManager.is_article_from_builtin(article_url);
+        string label = is_builtin ? "Built-in source" : "Follow this source";
+        // Change to a neutral info icon for builtin
+        string icon = is_builtin ? "emblem-default-symbolic" : "list-add-symbolic";
+        var follow_btn = create_menu_item(icon, label);
+        // For built-in sources: make it non-clickable
+        if (is_builtin) {
+            follow_btn.set_sensitive(false);
+            follow_btn.set_tooltip_text("This is a built-in source. You can be enable or disable it in preferences.");
+        } else {
+            follow_btn.clicked.connect(() => {
+            follow_source_requested(article_url, article_source_name);
+            if (popover != null) popover.popdown();
+        });
+        }
         menu_box.append(follow_btn);
 
         // Save/Remove from saved
         var save_btn = create_menu_item(
             is_saved ? "user-trash-symbolic" : "user-bookmarks-symbolic",
-            is_saved ? "Remove from saved" : "Save this article"
+            is_saved ? "Remove from saved" : "Add to saved"
         );
         save_btn.clicked.connect(() => {
             save_for_later_requested(article_url);

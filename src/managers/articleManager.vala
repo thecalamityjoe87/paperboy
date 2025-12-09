@@ -109,6 +109,29 @@ namespace Managers {
                 category.has_prefix("rssfeed:")
             );
         }
+
+        /**
+         * Check if this is a regular news category (not frontpage, topten, myfeed, local_news, saved, or RSS)
+         */
+        private bool is_regular_news_category(string category) {
+            return (
+                category == "general" ||
+                category == "us" ||
+                category == "sports" ||
+                category == "science" ||
+                category == "health" ||
+                category == "technology" ||
+                category == "business" ||
+                category == "entertainment" ||
+                category == "politics" ||
+                category == "lifestyle" ||
+                category == "markets" ||
+                category == "industries" ||
+                category == "economics" ||
+                category == "wealth" ||
+                category == "green"
+            );
+        }
         
         /**
          * Normalize source name for consistent tracking
@@ -262,9 +285,11 @@ namespace Managers {
                             target_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
                         }
                         int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
-                        if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
                         try { window.image_manager.pending_local_placeholder.set(existing, category_id == "local_news"); } catch (GLib.Error e) { }
-                        window.image_manager.load_image_async(existing, thumbnail_url, target_w, target_h);
+                        // Track image loading during initial phase
+                        if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
+                        // Force immediate loading for reused images (don't defer) since they're already visible
+                        window.image_manager.load_image_async(existing, thumbnail_url, target_w, target_h, true);
                         return;
                     } else {
                     }
@@ -394,9 +419,11 @@ namespace Managers {
                     if (hero_will_load) {
                     // Hero images are the most prominent feature - always use maximum quality
                     int multiplier = 6;
+                    // Track hero image loading to gate initial content reveal
                     if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
                     try { window.image_manager.pending_local_placeholder.set(hero_card.image, category_id == "local_news"); } catch (GLib.Error e) { }
-                    window.image_manager.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier);
+                    // Force immediate loading for hero images (don't defer) to ensure they load quickly
+                    window.image_manager.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, true);
                     window.image_manager.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
                     try { if (window.view_state != null) window.view_state.register_picture_for_url(_norm, hero_card.image); } catch (GLib.Error e) { }
                     try { if (window.view_state != null) window.view_state.normalized_to_url.set(_norm, url); } catch (GLib.Error e) { }
@@ -455,7 +482,7 @@ namespace Managers {
                             bool is_saved = window.article_state_store.is_saved(article_url);
                             if (is_saved) {
                                 window.article_state_store.unsave_article(article_url);
-                                window.show_toast("Removed from saved articles");
+                                window.show_toast("Removed article from saved");
                                 // Refresh saved badge
                                 try { window.sidebar_manager.update_badge_for_category("saved"); } catch (GLib.Error e) { }
                                 // If we're in the saved articles view, refresh to remove the card
@@ -464,7 +491,7 @@ namespace Managers {
                                 }
                             } else {
                                 window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
-                                window.show_toast("Saved for later");
+                                window.show_toast("Added article to saved");
                                 // Refresh saved badge
                                 try { window.sidebar_manager.update_badge_for_category("saved"); } catch (GLib.Error e) { }
                             }
@@ -575,9 +602,11 @@ namespace Managers {
             } else {
                 // Carousel slides are prominent features - always use maximum quality
                 int multiplier = IMAGE_QUALITY_MULTIPLIER_HIGH;
+                // Track carousel image loading to gate initial content reveal
                 if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
                 try { window.image_manager.pending_local_placeholder.set(slide_image, category_id == "local_news"); } catch (GLib.Error e) { }
-                window.image_manager.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier);
+                // Force immediate loading for carousel images (don't defer) to ensure they load quickly
+                window.image_manager.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier, true);
                 window.image_manager.hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));
                 string _norm = window.normalize_article_url(url);
                 try { if (window.view_state != null) window.view_state.register_picture_for_url(_norm, slide_image); } catch (GLib.Error e) { }
@@ -593,6 +622,14 @@ namespace Managers {
             }
 
             featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
+
+            // Register article for unread count tracking
+            // Carousel slides 2-5 need to be registered just like the first hero card
+            string _norm2 = window.normalize_article_url(url);
+            if (window.article_state_store != null) {
+                window.article_state_store.register_article(_norm2, category_id, source_name);
+            }
+
             return;
         }
 
@@ -669,9 +706,13 @@ namespace Managers {
             // In single-source mode, use higher 3x multiplier for crisp quality; in multi-source mode, use 2x initially then 3x
             bool single_source = (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size == 1);
             int multiplier = single_source ? 3 : ((window.loading_state != null && window.loading_state.initial_phase) ? 2 : 3);
+            // Track regular card images in pending_images counter during initial phase
             if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
             try { window.image_manager.pending_local_placeholder.set(article_card.image, category_id == "local_news"); } catch (GLib.Error e) { }
-            window.image_manager.load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier);
+            // Force load when NOT in initial_phase (container is already visible)
+            // During initial_phase, let images defer until container becomes visible
+            bool force_load = (window.loading_state == null || !window.loading_state.initial_phase);
+            window.image_manager.load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier, force_load);
             try { if (window.view_state != null) window.view_state.register_picture_for_url(_norm, article_card.image); } catch (GLib.Error e) { }
         } else {
             if (category_id == "local_news") {
@@ -738,14 +779,14 @@ namespace Managers {
                     bool is_saved = window.article_state_store.is_saved(article_url);
                     if (is_saved) {
                         window.article_state_store.unsave_article(article_url);
-                        window.show_toast("Removed from saved articles");
+                        window.show_toast("Removed article from saved");
                         // If we're in the saved articles view, refresh to remove the card
                         if (window.prefs.category == "saved") {
                             try { window.fetch_news(); } catch (GLib.Error e) { }
                         }
                     } else {
                         window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
-                        window.show_toast("Saved for later");
+                        window.show_toast("Added article to saved");
                     }
                 }
             } catch (GLib.Error e) { }

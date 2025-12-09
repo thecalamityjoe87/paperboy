@@ -224,6 +224,13 @@ public class HeaderManager : GLib.Object {
     }
 
     public void update_source_info() {
+        // Handle saved articles - keep "Saved Articles" header that was set by update_for_saved_articles()
+        try {
+            if (window.prefs.category == "saved") {
+                return;  // Header already set by update_for_saved_articles(), don't override
+            }
+        } catch (GLib.Error e) { }
+
         // Handle RSS feeds - show RSS icon and "Followed Source" on the right
         try {
             if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {

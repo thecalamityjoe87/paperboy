@@ -34,13 +34,14 @@
 public class FetchContext : GLib.Object {
     private static FetchContext? _current_context = null;
     private static uint _sequence = 0;
-    
+    private static GLib.RecMutex _context_mutex = GLib.RecMutex();
+
     /** The sequence number for this fetch context */
     public uint seq { get; private set; }
-    
+
     /** Whether this context has been superseded by a newer fetch */
     public bool cancelled { get; private set; default = false; }
-    
+
     /** Weak reference to the window - may become null if window is destroyed */
     public weak NewsWindow? window { get; private set; default = null; }
     
@@ -55,22 +56,27 @@ public class FetchContext : GLib.Object {
     /**
      * Begin a new fetch context, invalidating any previous context.
      * Call this at the start of fetch_news().
-     * 
+     *
      * @param w The NewsWindow initiating the fetch
      * @return The new FetchContext to capture in callbacks
      */
     public static FetchContext begin_new(NewsWindow? w) {
+        _context_mutex.lock();
+
         // Mark old context as cancelled
         if (_current_context != null) {
             _current_context.cancelled = true;
         }
-        
+
         // Increment sequence
         _sequence++;
-        
+
         // Create and store new context
         _current_context = new FetchContext(_sequence, w);
-        return _current_context;
+        var result = _current_context;
+
+        _context_mutex.unlock();
+        return result;
     }
     
     /**
@@ -88,8 +94,12 @@ public class FetchContext : GLib.Object {
     /**
      * Check if this context's sequence matches the current sequence.
      * Use this for lightweight staleness checks without window access.
+     * Note: Accesses _sequence without mutex for performance. May have
+     * a tiny race window, but worst case is a false positive which is safe.
      */
     public bool is_current_seq() {
+        // Atomic read of _sequence without mutex to avoid deadlock
+        // during object construction
         return seq == _sequence;
     }
     
@@ -102,32 +112,46 @@ public class FetchContext : GLib.Object {
      * Get the current fetch sequence number (backward compat).
      */
     public static uint current {
-        get { return _sequence; }
+        get {
+            _context_mutex.lock();
+            uint result = _sequence;
+            _context_mutex.unlock();
+            return result;
+        }
     }
-    
+
     /**
      * Increment and return the new sequence number (backward compat).
      * NOTE: This does NOT create a context. Use begin_new() for full safety.
      */
     public static uint next() {
+        _context_mutex.lock();
         if (_current_context != null) {
             _current_context.cancelled = true;
         }
         _sequence++;
-        return _sequence;
+        uint result = _sequence;
+        _context_mutex.unlock();
+        return result;
     }
-    
+
     /**
      * Check if a sequence is current (backward compat).
      */
     public static bool is_current(uint seq) {
-        return seq == _sequence;
+        _context_mutex.lock();
+        bool result = (seq == _sequence);
+        _context_mutex.unlock();
+        return result;
     }
-    
+
     /**
      * Get the current context, if any.
      */
     public static FetchContext? current_context() {
-        return _current_context;
+        _context_mutex.lock();
+        FetchContext? result = _current_context;
+        _context_mutex.unlock();
+        return result;
     }
 }

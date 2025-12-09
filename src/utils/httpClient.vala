@@ -29,8 +29,9 @@ using GLib;
 namespace Paperboy {
 
 public class HttpClient : Object {
-    // Singleton instance
-    private static HttpClient? _instance = null;
+    // Singleton instance (eagerly constructed at program startup to avoid
+    // lazy-construction races across threads)
+    private static HttpClient _instance = new HttpClient();
 
     // HTTP session (reused for connection pooling)
     private Soup.Session session;
@@ -168,10 +169,33 @@ public class HttpClient : Object {
 
     // Get singleton instance
     public static HttpClient get_default() {
+        // Ensure the GType for HttpClient is initialized so the class
+        // initializer has run and `_instance` is set. This avoids a race
+        // where worker threads call `get_default()` before the GType
+        // system has created the singleton in `class_init`.
+        // Use `typeof(HttpClient)` to reference the GType and force
+        // Vala/GLib to register the type before returning the instance.
+        var _type = typeof (HttpClient);
+
+        // Return the static singleton instance directly. The instance is
+        // constructed by the class initializer and intentionally never
+        // finalized to avoid cross-thread initialization/finalization races.
+        return _instance;
+    }
+
+    // Force initialization of the singleton from the calling thread.
+    // Call this from the main thread at startup to ensure the GType
+    // class initializer runs and the singleton is created before any
+    // worker threads can call `get_default()`.
+    public static void ensure_initialized() {
+        // Force the GType to be registered and the class initializer
+        // to run. This helps ensure `_instance` is set before any
+        // worker thread can call `get_default()`.
+        var _type = typeof (HttpClient);
+
         if (_instance == null) {
             _instance = new HttpClient();
         }
-        return _instance;
     }
 
 
@@ -185,17 +209,10 @@ public class HttpClient : Object {
         // Initialize request deduplication cache
         in_flight_requests = new Gee.HashMap<string, RequestState>();
 
-        // Create thread pool (reduces thread spawning overhead by ~50%)
-        try {
-            thread_pool = new ThreadPool<HttpTask>.with_owned_data(
-                (task) => { process_http_task(task); },
-                (int) MAX_CONCURRENT_REQUESTS,
-                false
-            );
-        } catch (ThreadError e) {
-            warning("Failed to create HTTP thread pool: %s", e.message);
-            thread_pool = null;
-        }
+        // Thread pool will be created lazily on first async fetch to avoid
+        // spawning worker threads during singleton construction which can
+        // cause reentrancy and mutex initialization races.
+        thread_pool = null;
     }
 
 
@@ -363,6 +380,22 @@ public class HttpClient : Object {
     public void fetch_async(string url, RequestOptions? options, owned HttpResponseCallback callback) {
         var opts = options ?? new RequestOptions();
         var task = new HttpTask(url, opts, (owned) callback);
+
+        // Create thread pool lazily (thread-safe): if it's not created yet,
+        // attempt to create it. If creation fails, fall back to spawning a
+        // dedicated thread for this task.
+        if (thread_pool == null) {
+            try {
+                thread_pool = new ThreadPool<HttpTask>.with_owned_data(
+                    (t) => { process_http_task(t); },
+                    (int) MAX_CONCURRENT_REQUESTS,
+                    false
+                );
+            } catch (ThreadError e) {
+                warning("Failed to create HTTP thread pool: %s", e.message);
+                thread_pool = null;
+            }
+        }
 
         if (thread_pool != null) {
             try {

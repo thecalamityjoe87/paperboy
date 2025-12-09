@@ -82,8 +82,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Box hero_container;
         public const int SIDEBAR_ICON_SIZE = 24;
         public const int MAX_CONCURRENT_DOWNLOADS = 10;
-        public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 3;
-        public const int INITIAL_MAX_WAIT_MS = 15000;
+        public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 10;  // Match MAX to avoid retry delays on startup
+        public const int INITIAL_MAX_WAIT_MS = 30000;  // Increased from 15s to 30s to allow more time for image downloads on startup
 
         // Track active downloads globally (used by ImageHandler)
         public static int active_downloads = 0;
@@ -383,19 +383,33 @@ public class NewsWindow : Adw.ApplicationWindow {
             });
         });
 
-        sidebar_manager.rebuild_sidebar();
+        // Delay sidebar rebuild slightly to ensure window is fully realized before starting initial fetch
+        // This prevents race conditions where images are requested before GTK widgets are ready
+        GLib.Idle.add(() => {
+            sidebar_manager.rebuild_sidebar();
+            return false;
+        });
 
-        // After the initial sidebar is built, force all badges to
-        // compute from ArticleStateStore so they are visible on startup
-        // even before the background metadata fetch finishes.
-        try {
-            if (sidebar_manager != null) {
-                sidebar_manager.refresh_all_badge_counts();
-            }
-        } catch (GLib.Error e) { }
+        // Delay badge refresh until after initial content loads to avoid competing with image downloads
+        // Badge refresh can be CPU/disk intensive and may block image loading threads
+        GLib.Timeout.add_seconds(2, () => {
+            try {
+                if (sidebar_manager != null) {
+                    sidebar_manager.refresh_all_badge_counts();
+                }
+            } catch (GLib.Error e) { }
+            return false;
+        });
 
         // Fetch article metadata for all categories in background to populate unread counts
-        Timeout.add(1000, () => {
+        // Delay longer if user is viewing an RSS feed to avoid SQLite lock contention
+        bool is_rss_view = false;
+        try {
+            is_rss_view = prefs != null && prefs.category != null && prefs.category.has_prefix("rssfeed:");
+        } catch (GLib.Error e) { }
+
+        uint delay_ms = is_rss_view ? 5000 : 1000;  // 5 seconds for RSS, 1 second otherwise
+        Timeout.add(delay_ms, () => {
             try { fetch_all_category_metadata_for_counts(); } catch (GLib.Error e) { }
             return false;
         });
@@ -850,10 +864,12 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         } catch (GLib.Error e) { fetch_news(); }
 
-        // Update RSS feeds in background after a short delay (2 seconds)
-        // This gives the app time to fully initialize before starting network requests
+        // Delay automatic feed updates to avoid startup contention
+        // Wait 45 seconds after launch so initial content loads smoothly
+        // This allows time for user to view initial content and for background
+        // metadata fetch to complete before heavy feed regeneration starts
         if (feed_updater != null) {
-            GLib.Timeout.add_seconds(2, () => {
+            GLib.Timeout.add_seconds(45, () => {
                 feed_updater.update_all_feeds_async();
                 return false; // One-shot
             });
@@ -1434,7 +1450,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (loading_state.pending_images > 0) loading_state.pending_images--;
 
         if (loading_state.initial_items_populated && loading_state.pending_images == 0) {
-            try { loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
+            // Don't reveal if waiting for adaptive layout
+            if (!loading_state.awaiting_adaptive_layout) {
+                try { loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
+            }
         }
     }
 
@@ -1508,7 +1527,6 @@ public class NewsWindow : Adw.ApplicationWindow {
                 target_w = layout_manager.estimate_column_width(layout_manager.columns_count);
             }
             int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
-            if (loading_state != null && loading_state.initial_phase) loading_state.pending_images++;
             try { pending_local_placeholder.set(existing, is_local_news); } catch (GLib.Error e) { }
             image_manager.load_image_async(existing, thumbnail_url, target_w, target_h);
         }

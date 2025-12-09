@@ -47,7 +47,10 @@ public class LoadingStateManager : GLib.Object {
     public int pending_images = 0;
     public bool initial_items_populated = false;
     public uint initial_reveal_timeout_id = 0;
+    public uint absolute_reveal_timeout_id = 0;
     public bool network_failure_detected = false;
+    public bool awaiting_adaptive_layout = false;
+    public int64 initial_phase_start_time = 0;
 
     public LoadingStateManager(NewsWindow w) {
         window = w;
@@ -64,12 +67,33 @@ public class LoadingStateManager : GLib.Object {
         pending_images = 0;
         initial_items_populated = false;
         network_failure_detected = false;
+        initial_phase_start_time = GLib.get_monotonic_time();
 
-        // Cancel any pending initial reveal timeout
+        // Clear image cache at startup to rule out stale cache data
+        try {
+            if (window.image_cache != null) {
+                window.image_cache.clear();
+            }
+        } catch (GLib.Error e) { }
+
+        // Don't reset awaiting_adaptive_layout - it may have been set before begin_fetch()
+
+        // Cancel any pending initial reveal timeouts
         if (initial_reveal_timeout_id > 0) {
             Source.remove(initial_reveal_timeout_id);
             initial_reveal_timeout_id = 0;
         }
+        if (absolute_reveal_timeout_id > 0) {
+            Source.remove(absolute_reveal_timeout_id);
+            absolute_reveal_timeout_id = 0;
+        }
+
+        // Set an absolute maximum timeout that will NOT be reset by article arrivals
+        // This ensures we ALWAYS reveal after max 8 seconds regardless of image load status
+        absolute_reveal_timeout_id = GLib.Timeout.add(8000, () => {
+            reveal_initial_content();
+            return false;
+        });
 
         // Hide any previous error message
         hide_error_message();
@@ -224,8 +248,15 @@ public class LoadingStateManager : GLib.Object {
             personalized_message_box.set_visible(show_message);
 
             // Hide main content when showing the overlay (regardless of initial_phase)
+            // Also keep it hidden if we're waiting for adaptive layout to complete
+            // CRITICAL: Also keep it hidden during initial_phase to prevent blank cards
             if (window.main_content_container != null) {
-                window.main_content_container.set_visible(!show_message);
+                if (show_message) {
+                    window.main_content_container.set_visible(false);
+                } else if (!awaiting_adaptive_layout && !initial_phase) {
+                    window.main_content_container.set_visible(true);
+                }
+                // If awaiting_adaptive_layout OR initial_phase, keep it hidden (don't change visibility)
             }
         } catch (GLib.Error e) { }
 
@@ -263,16 +294,28 @@ public class LoadingStateManager : GLib.Object {
         } catch (GLib.Error e) { needs_location = false; }
 
         try { local_news_message_box.set_visible(needs_location); } catch (GLib.Error e) { }
-        try { if (!initial_phase) window.main_content_container.set_visible(!needs_location); } catch (GLib.Error e) { }
+        // Only show main content if not in initial phase and not awaiting adaptive layout
+        try {
+            if (!initial_phase && !awaiting_adaptive_layout) {
+                window.main_content_container.set_visible(!needs_location);
+            }
+        } catch (GLib.Error e) { }
     }
 
     public void reveal_initial_content() {
         if (!initial_phase) return;
+        // Don't reveal if we're still waiting for adaptive layout to complete
+        if (awaiting_adaptive_layout) return;
+
         initial_phase = false;
         hero_image_loaded = false;
         if (initial_reveal_timeout_id > 0) {
             Source.remove(initial_reveal_timeout_id);
             initial_reveal_timeout_id = 0;
+        }
+        if (absolute_reveal_timeout_id > 0) {
+            Source.remove(absolute_reveal_timeout_id);
+            absolute_reveal_timeout_id = 0;
         }
         hide_loading_spinner();
         try {
@@ -280,6 +323,8 @@ public class LoadingStateManager : GLib.Object {
             bool lvis = local_news_message_box != null ? local_news_message_box.get_visible() : false;
             if (!pvis && !lvis) {
                 try { if (window.main_content_container != null) window.main_content_container.set_visible(true); } catch (GLib.Error e) { }
+                // Workaround removed: Images now properly defer until container is visible,
+                // so refresh_visible_images() is no longer needed
             }
         } catch (GLib.Error e) { }
 
@@ -292,10 +337,12 @@ public class LoadingStateManager : GLib.Object {
                 if (window.article_state_store != null) {
                     window.article_state_store.save_article_tracking_to_disk();
                 }
-                // REMOVED: global badge refresh moved to targeted per-source/category updates
-                // if (window.sidebar_manager != null) {
-                //     window.sidebar_manager.refresh_all_badges();
-                // }
+                // CRITICAL: Now that initial_phase is complete, refresh badges
+                // We deferred this during initial_phase to prevent widget tree
+                // modifications from invalidating Picture widget paintables
+                if (window.sidebar_manager != null) {
+                    window.sidebar_manager.refresh_all_badge_counts();
+                }
             } catch (GLib.Error e) { }
             return false;
         });
@@ -303,9 +350,17 @@ public class LoadingStateManager : GLib.Object {
 
     public void mark_initial_items_populated() {
         initial_items_populated = true;
-        // Hide spinner immediately when first article appears, don't wait for images
+
+        // Extend the timeout every time a new article is added during initial phase
+        // This ensures all articles (including late arrivals from API) get their images loaded
         if (initial_phase) {
-            reveal_initial_content();
+            if (initial_reveal_timeout_id > 0) {
+                Source.remove(initial_reveal_timeout_id);
+            }
+            initial_reveal_timeout_id = GLib.Timeout.add(6000, () => {  // 6 second timeout from LAST article to allow image downloads to complete
+                reveal_initial_content();
+                return false;
+            });
         }
     }
 

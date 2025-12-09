@@ -16,37 +16,51 @@
  */
 
 public class UnreadFetchService {
-    
+
+    // Weak reference to window for safe lifecycle management.
+    // DO NOT use FetchContext here - it would cancel the main content fetch!
+    private static weak NewsWindow? _unread_window = null;
+
+    private static void global_metadata_add(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
+        try {
+            var win = _unread_window;
+            if (win == null) return;
+
+            // Safely access article_state_store through local variable
+            var store = win.article_state_store;
+            if (store == null) return;
+
+            string normalized = win.normalize_article_url(url);
+            store.register_article(normalized, category_id, source_name);
+
+            // Also register under myfeed for RSS sources if enabled
+            if (category_id != null && category_id.has_prefix("rssfeed:")) {
+                string rss_url = category_id.substring("rssfeed:".length);
+                try {
+                    var prefs = win.prefs;
+                    if (prefs != null && prefs.preferred_source_enabled("custom:" + rss_url)) {
+                        store.register_article(normalized, "myfeed", source_name);
+                    }
+                } catch (GLib.Error e) { }
+            }
+        } catch (GLib.Error e) { }
+    }
+
     // Fetch article metadata for all *regular* categories and RSS sources in background
     // to populate unread counts. Special categories like myfeed, local_news, and saved
     // are handled separately and must not be treated as normal fetchable categories here.
     public static void fetch_all_category_metadata_for_counts(NewsWindow win) {
         if (win == null) return;
-        
+
+        // Store weak reference to window for callbacks.
+        // DO NOT use FetchContext.begin_new() here - it would cancel the main content fetch!
+        _unread_window = win;
+
         // Regular news API categories plus Paperboy-provided frontpage/topten.
-        // NOTE: myfeed and local_news are special aggregated categories, not real
-        // fetchable categories. myfeed draws from personalized categories/sources
-        // (handled by aggregation in get_unread_count_for_item). local_news uses
-        // the user's configured local RSS feeds, handled separately below.
-        // 
-        // Badge display behavior: Popular categories show "--" placeholder until
-        // the user visits them. The metadata is fetched in background so counts
-        // are ready when needed, but badges only update to show counts after
-        // user interaction.
         string[] categories = {"frontpage", "topten",
                               "general", "us", "sports", "science", "health", "technology",
                               "business", "entertainment", "politics", "lifestyle", "markets", "industries",
                               "green", "wealth", "economics"};
-
-        // Simple metadata-only add function that just registers articles
-        AddItemFunc metadata_add = (title, url, thumbnail_url, category_id, source_name) => {
-            try {
-                if (win.article_state_store != null) {
-                    string normalized = win.normalize_article_url(url);
-                    win.article_state_store.register_article(normalized, category_id, source_name);
-                }
-            } catch (GLib.Error e) { }
-        };
 
         // Fetch metadata in background (counts will be available when user visits category)
         foreach (string cat in categories) {
@@ -57,7 +71,7 @@ public class UnreadFetchService {
                 win.session,
                 (s) => {},  // no label updates
                 () => {},   // no clear
-                metadata_add  // just register articles
+                UnreadFetchService.global_metadata_add  // global forwarder
             );
         }
 
@@ -82,41 +96,20 @@ public class UnreadFetchService {
                             win.session,
                             (s) => {},  // no label updates
                             () => {},   // no clear
-                            metadata_add  // Reuse same metadata adder
+                            UnreadFetchService.global_metadata_add
                         );
                     }
                 }
             }
         } catch (GLib.Error e) { }
 
-        // Use a single metadata_add function that handles both registrations based on category_id
-        // (already defined above as metadata_add for regular categories, but simpler for RSS)
-
         // Fetch metadata for ALL custom RSS sources
         // This ensures the "RSS Feeds" expander badges are populated
         try {
             var rss_store = Paperboy.RssSourceStore.get_instance();
             var all_sources = rss_store.get_all_sources();
-            
-            if (all_sources.size > 0) {
-                AddItemFunc rss_metadata_add = (title, url, thumbnail_url, category_id, source_name) => {
-                    try {
-                        if (win.article_state_store != null) {
-                            string normalized = win.normalize_article_url(url);
-                            // Register under the rssfeed: category for individual source badge
-                            win.article_state_store.register_article(normalized, category_id, source_name);
-                            // Also register under myfeed for My Feed badge (only if this RSS source is enabled for My Feed)
-                            if (category_id != null && category_id.has_prefix("rssfeed:")) {
-                                // Extract the URL from the category_id and check if it's enabled
-                                string rss_url = category_id.substring("rssfeed:".length);
-                                if (win.prefs.preferred_source_enabled("custom:" + rss_url)) {
-                                    win.article_state_store.register_article(normalized, "myfeed", source_name);
-                                }
-                            }
-                        }
-                    } catch (GLib.Error e) { }
-                };
 
+            if (all_sources.size > 0) {
                 foreach (var rss_src in all_sources) {
                     string rss_category_id = "rssfeed:" + rss_src.url;
                     RssParser.fetch_rss_url(
@@ -128,7 +121,7 @@ public class UnreadFetchService {
                         win.session,
                         (s) => {},  // no label updates
                         () => {},   // no clear
-                        rss_metadata_add
+                        UnreadFetchService.global_metadata_add
                     );
                 }
             }
@@ -137,15 +130,22 @@ public class UnreadFetchService {
         // Save after fetching all metadata and refresh badges
         Timeout.add(5000, () => {
             try {
-                if (win.article_state_store != null) {
-                    win.article_state_store.mark_initial_fetch_complete();
-                    win.article_state_store.save_article_tracking_to_disk();
+                var w = _unread_window;
+                if (w == null) return false;
+
+                // Safely access managers through local variables
+                var store = w.article_state_store;
+                if (store != null) {
+                    store.mark_initial_fetch_complete();
+                    store.save_article_tracking_to_disk();
                 }
-                if (win.sidebar_manager != null) {
+
+                var sidebar_mgr = w.sidebar_manager;
+                if (sidebar_mgr != null) {
                     // Refresh all badges so regular categories and frontpage/topten
                     // reflect their initial metadata, and Saved reflects the
                     // registered saved-article set from ArticleStateStore.
-                    win.sidebar_manager.refresh_all_badge_counts();
+                    sidebar_mgr.refresh_all_badge_counts();
                 }
             } catch (GLib.Error e) { }
             return false;

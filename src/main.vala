@@ -27,6 +27,10 @@ public class PaperboyApp : Adw.Application {
     }
 
     protected override void activate() {
+        // Ensure global HttpClient is constructed on the main thread
+        // before any other subsystem can spawn worker threads.
+        try { Paperboy.HttpClient.ensure_initialized(); } catch (GLib.Error e) { }
+        
         var win = new NewsWindow(this);
         win.present();
         // Eagerly instantiate ZipLookup so it starts loading the CSV in
@@ -65,6 +69,7 @@ public class PaperboyApp : Adw.Application {
 }
 
 public static int main(string[] args) {
+
     var app = new PaperboyApp();
     return app.run(args);
 }

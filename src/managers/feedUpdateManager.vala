@@ -90,6 +90,7 @@ public class FeedUpdateManager : GLib.Object {
             
             // Show summary toast
             GLib.Idle.add(() => {
+                if (window == null) return false; // Window destroyed
                 if (updated_count > 0 || failed_count > 0) {
                     string message = "RSS feeds: %d updated".printf(updated_count);
                     if (failed_count > 0) {

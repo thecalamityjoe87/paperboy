@@ -31,7 +31,6 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
 
     # UI
     'src/ui/appWindow.vala',
-    'src/ui/fetchNewsController.vala',
     'src/ui/contentView.vala',
     'src/ui/sidebarView.vala',
     'src/ui/components/articlePane.vala',
@@ -40,6 +39,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/heroCard.vala',
     'src/ui/components/heroCarousel.vala',
     'src/ui/components/toastWidget.vala',
+    'src/ui/controllers/fetchNewsController.vala',
     'src/ui/dialogs/prefsDialog.vala',
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',

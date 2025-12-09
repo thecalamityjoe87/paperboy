@@ -387,7 +387,7 @@ public class ArticlePane : GLib.Object {
                 bool article_is_saved = parent_window.article_state_store.is_saved(article_url);
                 if (article_is_saved) {
                     parent_window.article_state_store.unsave_article(article_url);
-                    parent_window.show_toast("Removed from saved articles");
+                    parent_window.show_toast("Removed article from saved");
                     if (parent_window.prefs.category == "saved") {
                         try {
                             parent_window.fetch_news();
@@ -396,7 +396,7 @@ public class ArticlePane : GLib.Object {
                     }
                 } else {
                     parent_window.article_state_store.save_article(article_url, title, thumbnail_url, article_source_name);
-                    parent_window.show_toast("Saved for later");
+                    parent_window.show_toast("Added article to saved");
                 }
             }
         });

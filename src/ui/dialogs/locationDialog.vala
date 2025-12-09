@@ -91,6 +91,10 @@ public class LocationDialog : GLib.Object {
         // references on destroy so async callbacks don't call methods
         // on freed GTK objects (which can cause SIGSEGV).
         bool dialog_alive = true;
+        // Timeout source id for the outstanding lookup; used to cancel
+        // the timeout when a result arrives or dialog is destroyed.
+        uint lookup_timeout_id = 0;
+
         dialog.destroy.connect(() => {
             dialog_alive = false;
         });
@@ -138,6 +142,14 @@ public class LocationDialog : GLib.Object {
         dialog.destroy.connect(() => {
             try { spinner = null; } catch (GLib.Error e) { }
             try { spinner_box = null; } catch (GLib.Error e) { }
+            // Also cancel any pending lookup timeout to avoid leaving a
+            // stray source referencing now-freed widgets.
+            try {
+                if (lookup_timeout_id != 0) {
+                    try { GLib.Source.remove(lookup_timeout_id); } catch (GLib.Error e) { }
+                    lookup_timeout_id = 0;
+                }
+            } catch (GLib.Error e) { }
         });
 
         // Search button: user explicitly starts a ZIP lookup. This allows
@@ -321,35 +333,61 @@ public class LocationDialog : GLib.Object {
                     // Show spinner
                     try { spinner.start(); } catch (GLib.Error e) { }
                     try { spinner_box.show(); } catch (GLib.Error e) { }
+                        // Cancel any previous timeout just in case
+                        if (lookup_timeout_id != 0) {
+                            try { GLib.Source.remove(lookup_timeout_id); } catch (GLib.Error e) { }
+                            lookup_timeout_id = 0;
+                        }
+                        // Add a fallback timeout so the UI gives feedback if the
+                        // main loop is busy. Instead of stopping the spinner or
+                        // abandoning the lookup, show a gentler hint and keep
+                        // waiting — the async result will still update the UI
+                        // when it arrives.
+                        lookup_timeout_id = GLib.Timeout.add(8000, () => {
+                            lookup_timeout_id = 0;
+                            try {
+                                if (!dialog_alive) return false;
+                                try { hint.set_use_markup(false); hint.set_text("Lookup is taking longer than expected — still waiting..."); } catch (GLib.Error e) { }
+                                // Keep spinner visible so the user knows work is ongoing.
+                                update_save_button_state();
+                            } catch (GLib.Error e) { }
+                            return false; // one-shot
+                        });
                     // Ensure dialog is visible
                     try { dialog_alive = true; dialog.present(parent); } catch (GLib.Error e) { }
                     try {
                         ZipLookup.get_instance().lookup_async(txt, (resolved) => {
-                            try {
-                                if (!dialog_alive) return;
+                                try {
+                                    if (!dialog_alive) return;
 
-                                if (spinner != null) {
-                                    try { spinner.stop(); } catch (GLib.Error e) { }
-                                }
-                                if (spinner_box != null) {
-                                    try { spinner_box.hide(); } catch (GLib.Error e) { }
-                                }
+                                    // Cancel the timeout if it's still pending
+                                    if (lookup_timeout_id != 0) {
+                                        try { GLib.Source.remove(lookup_timeout_id); } catch (GLib.Error e) { }
+                                        lookup_timeout_id = 0;
+                                    }
 
-                                if (resolved.length > 0) {
-                                    last_detected_city = resolved;
-                                    try {
-                                        hint.set_use_markup(true);
-                                        hint.set_markup("Detected: <b>" + GLib.Markup.escape_text(resolved) + "</b> — click Save to use this location");
-                                    } catch (GLib.Error e) { }
-                                    // Enable Save button now that we have a valid detected city
-                                    update_save_button_state();
-                                } else {
-                                    try { hint.set_use_markup(false); hint.set_text("No local mapping found for this ZIP code."); } catch (GLib.Error e) { }
-                                    // Keep Save button disabled if search failed
-                                    last_detected_city = "";
-                                    update_save_button_state();
-                                }
-                            } catch (GLib.Error e) { }
+                                    if (spinner != null) {
+                                        try { spinner.stop(); } catch (GLib.Error e) { }
+                                    }
+                                    if (spinner_box != null) {
+                                        try { spinner_box.hide(); } catch (GLib.Error e) { }
+                                    }
+
+                                    if (resolved.length > 0) {
+                                        last_detected_city = resolved;
+                                        try {
+                                            hint.set_use_markup(true);
+                                            hint.set_markup("Detected: <b>" + GLib.Markup.escape_text(resolved) + "</b> — click Save to use this location");
+                                        } catch (GLib.Error e) { }
+                                        // Enable Save button now that we have a valid detected city
+                                        update_save_button_state();
+                                    } else {
+                                        try { hint.set_use_markup(false); hint.set_text("No local mapping found for this ZIP code."); } catch (GLib.Error e) { }
+                                        // Keep Save button disabled if search failed
+                                        last_detected_city = "";
+                                        update_save_button_state();
+                                    }
+                                } catch (GLib.Error e) { }
                         });
                     } catch (GLib.Error e) { }
                 } catch (GLib.Error e) { }

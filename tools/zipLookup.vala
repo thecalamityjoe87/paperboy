@@ -47,7 +47,6 @@ public class ZipLookup : GLib.Object {
         public string state { get; set; }
         public long population { get; set; }
     }
-
     private class MajorCity : GLib.Object {
         public string name { get; set; }
         public double lat { get; set; }
@@ -61,6 +60,7 @@ public class ZipLookup : GLib.Object {
     private bool loaded = false;
     private bool loading = false;
     private GLib.Mutex load_mutex = new GLib.Mutex();
+    private Thread<void*>? load_thread = null;
 
     public static ZipLookup get_instance() {
         if (_instance == null) _instance = new ZipLookup();
@@ -103,11 +103,15 @@ public class ZipLookup : GLib.Object {
         if (loaded) return;
         if (loading) return;
         loading = true;
-        new Thread<void*>("zip-load", () => {
-            try { ensure_loaded_sync(); } catch (GLib.Error e) { }
+        try {
+            load_thread = new Thread<void*>("zip-load", () => {
+                try { ensure_loaded_sync(); } catch (GLib.Error e) { }
+                loading = false;
+                return null;
+            });
+        } catch (GLib.Error e) {
             loading = false;
-            return null;
-        });
+        }
     }
 
     private static bool string_equal(string a, string b) { return a == b; }
@@ -116,7 +120,9 @@ public class ZipLookup : GLib.Object {
     private void load_csv() {
         // Try a few likely locations: bundled data/ directory (development)
         // and the installed user data dir for the application.
-        string[] dev_paths = { "data/us_zips.csv", "../data/us_zips.csv" };
+        int64 start_us = GLib.get_monotonic_time();
+        print("ZipLookup: load_csv() start\n");
+        string[] dev_paths = { "data/usZips.csv", "../data/usZips.csv", "data/us_zips.csv", "../data/us_zips.csv" };
         string? csv_path = null;
         foreach (var p in dev_paths) {
             if (GLib.FileUtils.test(p, GLib.FileTest.EXISTS)) { csv_path = p; break; }
@@ -124,8 +130,8 @@ public class ZipLookup : GLib.Object {
 
         if (csv_path == null) {
             var user_data = GLib.Environment.get_user_data_dir();
-            if (user_data != null && user_data.length > 0) {
-                string candidate = GLib.Path.build_filename(user_data, "paperboy", "us_zips.csv");
+                if (user_data != null && user_data.length > 0) {
+                string candidate = GLib.Path.build_filename(user_data, "paperboy", "usZips.csv");
                 if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS)) csv_path = candidate;
             }
         }
@@ -138,7 +144,7 @@ public class ZipLookup : GLib.Object {
             try {
                 string[] sys_dirs = GLib.Environment.get_system_data_dirs();
                 foreach (var s in sys_dirs) {
-                    string candidate = GLib.Path.build_filename(s, "paperboy", "us_zips.csv");
+                    string candidate = GLib.Path.build_filename(s, "paperboy", "usZips.csv");
                     if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS)) { csv_path = candidate; break; }
                 }
             } catch (GLib.Error e) {
@@ -147,11 +153,13 @@ public class ZipLookup : GLib.Object {
         }
 
         if (csv_path == null) return; // no CSV available
+        print("ZipLookup: load_csv() found CSV: %s\n", csv_path);
 
         try {
             string contents;
             try { GLib.FileUtils.get_contents(csv_path, out contents); } catch (GLib.Error e) { return; }
             string[] lines = contents.split("\n");
+            print("ZipLookup: load_csv() read %d bytes, %d lines\n", contents.length, lines.length);
 
             // Header-aware CSV parsing: the comprehensive CSV uses quoted
             // header names like "zip","lat","lng","city","state_name".
@@ -313,7 +321,11 @@ public class ZipLookup : GLib.Object {
                 }
                 major_cities = filtered;
             } catch (GLib.Error e) { }
+        int64 end_us = GLib.get_monotonic_time();
+        int64 ms = (end_us - start_us) / 1000;
         } catch (GLib.Error e) {
+            int64 end_us = GLib.get_monotonic_time();
+            int64 ms = (end_us - start_us) / 1000;
             // best-effort only
         }
     }
@@ -446,26 +458,57 @@ public class ZipLookup : GLib.Object {
     // prevents the UI from blocking if CSV loading or a large search
     // happens during a lookup.
     public void lookup_async(string zip, LookupCallback cb) {
-        new Thread<void*>("zip-lookup", () => {
-            // Ensure data is loaded on the worker thread; this will
-            // perform the potentially-heavy CSV parse off the main
-            // loop if it hasn't been run yet.
-            try { ensure_loaded_sync(); } catch (GLib.Error e) { }
-
+        // Optimization: if data is already loaded, do synchronous lookup
+        // on main thread and invoke callback immediately. This avoids
+        // spawning unnecessary threads and reduces latency.
+        if (loaded) {
             string? res = null;
             try {
                 res = lookup(zip);
             } catch (GLib.Error e) {
                 res = null;
             }
-            // Call callback on main loop; pass empty string when no result.
             string result_str = res != null ? res : "";
-            Idle.add(() => {
-                try { cb(result_str); } catch (GLib.Error e) { }
-                return false;
+            try { cb(result_str); } catch (GLib.Error e) { }
+            return;
+        }
+
+        // Data not loaded yet - spawn thread to load and lookup
+        try {
+            new Thread<void*>("zip-lookup", () => {
+                int64 worker_start_us = GLib.get_monotonic_time();
+                print("ZipLookup: lookup_async worker starting for '%s'\n", zip);
+                // Ensure data is loaded on the worker thread; this will
+                // perform the potentially-heavy CSV parse off the main
+                // loop if it hasn't been run yet.
+                try { ensure_loaded_sync(); } catch (GLib.Error e) { }
+
+                string? res = null;
+                try {
+                    res = lookup(zip);
+                } catch (GLib.Error e) {
+                    res = null;
+                }
+                // Call callback on main loop; pass empty string when no result.
+                string result_str = res != null ? res : "";
+                int64 worker_end_us = GLib.get_monotonic_time();
+                int64 worker_ms = (worker_end_us - worker_start_us) / 1000;
+                    // Use a higher-priority idle source (DEFAULT) so the callback runs
+                    // before other DEFAULT_IDLE work when the loop is busy.
+                    int64 worker_done_us = worker_end_us;
+                    GLib.Idle.add_full(0, () => {
+                        int64 now_us = GLib.get_monotonic_time();
+                        int64 mainloop_delay_ms = (now_us - worker_done_us) / 1000;
+                        print("ZipLookup: Idle running for '%s' -> '%s' (mainloop delay %lld ms)\n", zip, result_str, mainloop_delay_ms);
+                        try { cb(result_str); } catch (GLib.Error e) { }
+                        return false;
+                    });
+                return null;
             });
-            return null;
-        });
+        } catch (GLib.Error e) {
+            // Thread creation failed, call callback immediately with empty result
+            try { cb(""); } catch (GLib.Error e2) { }
+        }
     }
 
     // Haversine distance in kilometers between two lat/lng points

@@ -45,23 +45,93 @@ public class LayoutManager : GLib.Object {
     public Gtk.Box? main_content_container;
     public Gtk.Widget? content_area;
 
-    // RSS feed adaptive layout tracking
-    public uint rss_feed_layout_timeout_id = 0;
-    public int rss_feed_article_count = 0;
+    // Adaptive layout tracking (for both RSS feeds and regular categories)
+    public uint adaptive_layout_timeout_id = 0;
+    public int article_count_for_adaptive = 0;
 
     public LayoutManager(NewsWindow w) {
         window = w;
     }
 
     /**
-     * Reset RSS layout tracking counters. Call at start of fetch.
+     * Reset adaptive layout tracking counters. Call at start of fetch.
      */
-    public void reset_rss_tracking() {
-        rss_feed_article_count = 0;
-        if (rss_feed_layout_timeout_id > 0) {
-            Source.remove(rss_feed_layout_timeout_id);
-            rss_feed_layout_timeout_id = 0;
+    public void reset_adaptive_tracking() {
+        article_count_for_adaptive = 0;
+        if (adaptive_layout_timeout_id > 0) {
+            Source.remove(adaptive_layout_timeout_id);
+            adaptive_layout_timeout_id = 0;
         }
+    }
+
+    // Backward compatibility alias
+    public void reset_rss_tracking() {
+        reset_adaptive_tracking();
+    }
+
+    /**
+     * Track a regular category article arrival and schedule adaptive layout check.
+     * When article count < 15 and no new articles for 500ms, rebuilds as 2-hero layout.
+     *
+     * @param current_fetch_seq The fetch sequence to validate against
+     */
+    public void track_category_article(uint current_fetch_seq) {
+        // Don't increment counter - we'll check ArticleStateStore instead
+        // to get the actual deduplicated count
+
+        // Cancel any existing timeout and schedule a new one
+        if (adaptive_layout_timeout_id > 0) {
+            Source.remove(adaptive_layout_timeout_id);
+        }
+
+        // Schedule layout check after 500ms of no new articles
+        adaptive_layout_timeout_id = Timeout.add(500, () => {
+            if (current_fetch_seq != FetchContext.current) {
+                stderr.printf("DEBUG: adaptive layout timeout - fetch sequence stale\n");
+                adaptive_layout_timeout_id = 0;
+                return false;
+            }
+
+            // Get the actual deduplicated article count from ArticleStateStore
+            int actual_count = 0;
+            try {
+                if (window != null && window.article_state_store != null && window.prefs != null) {
+                    actual_count = window.article_state_store.get_total_count_for_category(window.prefs.category);
+                }
+            } catch (GLib.Error e) {
+                stderr.printf("ERROR: failed to get article count: %s\n", e.message);
+            }
+
+            // Check if we need to adapt the layout
+            if (actual_count < 15 && actual_count > 0) {
+                // Rebuild as 2-column hero layout
+                Idle.add(() => {
+                    if (current_fetch_seq != FetchContext.current) return false;
+                    try {
+                        rebuild_as_category_heroes();
+                        // rebuild_as_category_heroes() handles clearing awaiting_adaptive_layout
+                    } catch (GLib.Error e) {
+                        stderr.printf("ERROR: rebuild_as_category_heroes failed: %s\n", e.message);
+                    }
+                    return false;
+                });
+            } else {
+                stderr.printf("DEBUG: NOT triggering adaptive layout (count=%d >= 15 or count=0)\n", actual_count);
+                // No adaptive layout needed, allow normal spinner hiding
+                try {
+                    if (window != null && window.loading_state != null) {
+                        window.loading_state.awaiting_adaptive_layout = false;
+                        // Trigger reveal if items are already populated
+                        if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
+                            window.loading_state.reveal_initial_content();
+                        }
+                    }
+                } catch (GLib.Error e) { }
+            }
+
+            adaptive_layout_timeout_id = 0;
+            return false;
+        });
     }
 
     /**
@@ -71,33 +141,75 @@ public class LayoutManager : GLib.Object {
      * @param current_fetch_seq The fetch sequence to validate against
      */
     public void track_rss_article(uint current_fetch_seq) {
-        rss_feed_article_count++;
-        
-        // Cancel any existing timeout and schedule a new one
-        if (rss_feed_layout_timeout_id > 0) {
-            Source.remove(rss_feed_layout_timeout_id);
+        article_count_for_adaptive++;
+
+        // Once we have >= 15 articles, immediately clear the awaiting flag and reveal content
+        // No need to wait for timeout or apply adaptive layout
+        if (article_count_for_adaptive >= 15) {
+            // Cancel any pending timeout
+            if (adaptive_layout_timeout_id > 0) {
+                Source.remove(adaptive_layout_timeout_id);
+                adaptive_layout_timeout_id = 0;
+            }
+
+            // Clear awaiting flag and reveal content immediately
+            try {
+                if (window != null && window.loading_state != null) {
+                    window.loading_state.awaiting_adaptive_layout = false;
+                    if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
+                        window.loading_state.reveal_initial_content();
+                    }
+                }
+            } catch (GLib.Error e) { }
+            return;
         }
-        
+
+        // Cancel any existing timeout and schedule a new one
+        if (adaptive_layout_timeout_id > 0) {
+            Source.remove(adaptive_layout_timeout_id);
+        }
+
         // Schedule layout check after 500ms of no new articles
-        rss_feed_layout_timeout_id = Timeout.add(500, () => {
+        adaptive_layout_timeout_id = Timeout.add(500, () => {
             if (current_fetch_seq != FetchContext.current) {
-                rss_feed_layout_timeout_id = 0;
+                adaptive_layout_timeout_id = 0;
                 return false;
             }
-            
+
             // Check if we need to adapt the layout
-            if (rss_feed_article_count < 15) {
+            if (article_count_for_adaptive < 15) {
                 // Rebuild as 2-column hero layout
                 Idle.add(() => {
                     if (current_fetch_seq != FetchContext.current) return false;
                     try {
                         rebuild_as_rss_heroes();
+
+                        // After rebuild completes, hide the loading spinner and reveal content
+                        Timeout.add(100, () => {
+                            if (current_fetch_seq != FetchContext.current) return false;
+                            try {
+                                if (window != null && window.loading_state != null) {
+                                    window.loading_state.awaiting_adaptive_layout = false;
+                                    if (window.loading_state.initial_items_populated) {
+                                        window.loading_state.reveal_initial_content();
+                                    }
+                                }
+                            } catch (GLib.Error e) { }
+                            return false;
+                        });
                     } catch (GLib.Error e) { }
                     return false;
                 });
+            } else {
+                // No adaptive layout needed, allow normal spinner hiding
+                try {
+                    if (window != null && window.loading_state != null) {
+                        window.loading_state.awaiting_adaptive_layout = false;
+                    }
+                } catch (GLib.Error e) { }
             }
-            
-            rss_feed_layout_timeout_id = 0;
+
+            adaptive_layout_timeout_id = 0;
             return false;
         });
     }
@@ -307,12 +419,12 @@ public class LayoutManager : GLib.Object {
         rebuild_columns(is_topten ? 4 : 3);
     }
 
+
     /**
-     * Rebuild RSS feed layout as 2-column uniform hero cards (for feeds with < 15 articles).
-     * Hides the hero/featured area and applies uniform sizing to all cards.
+     * Common helper for when categories show less than 
+     * 15 to adaptively build hero cards
      */
-    public void rebuild_as_rss_heroes() {
-        try {
+    public void rebuild_as_adapative_heroes() {  
             // Hide the hero/featured area since we want all articles in columns
             try {
                 if (hero_container != null) {
@@ -369,8 +481,67 @@ public class LayoutManager : GLib.Object {
                     child = child.get_next_sibling();
                 }
             }
+    }
+
+
+    /**
+     * Rebuild the layout as 2-column hero cards for regular categories with <15 articles.
+     * Similar to RSS hero layout but for standard news categories.
+     */
+    public void rebuild_as_category_heroes() {
+        try {
+            // First, re-add carousel items to columns before hiding the carousel
+            // This ensures articles that were in the carousel don't get lost
+            if (window != null && window.article_manager != null) {
+                var carousel_items = window.article_manager.featured_carousel_items;
+                if (carousel_items != null && carousel_items.size > 0) {
+                    foreach (var item in carousel_items) {
+                        // Re-add each carousel item as a regular card to columns
+                        // Use bypass_limit=true since these articles were already counted
+                        try {
+                            window.article_manager.add_item_immediate_to_column(
+                                item.title,
+                                item.url,
+                                item.thumbnail_url,
+                                item.category_id,
+                                -1,  // auto column selection
+                                null, // no original_category
+                                item.source_name,
+                                true  // bypass_limit
+                            );
+                        } catch (GLib.Error e) { }
+                    }
+                }
+            }
+            rebuild_as_adapative_heroes(); // Request for our common helper to rebuild heroes
+
+            // After rebuild completes, hide the loading spinner and reveal content
+            // (same pattern as RSS feeds)
+            Timeout.add(100, () => {
+                try {
+                    if (window != null && window.loading_state != null) {
+                        window.loading_state.awaiting_adaptive_layout = false;
+                        if (window.loading_state.initial_items_populated) {
+                            window.loading_state.reveal_initial_content();
+                        }
+                    }
+                } catch (GLib.Error e) { }
+                return false;
+            });
         } catch (GLib.Error e) {
-            warning("Failed to rebuild RSS feed as heroes: %s", e.message);
+            warning("Failed to rebuild category as heroes: %s", e.message);
+        }
+    }
+
+    /**
+     * Rebuild RSS feed layout as 2-column uniform hero cards (for feeds with < 15 articles).
+     * Hides the hero/featured area and applies uniform sizing to all cards.
+     */
+    public void rebuild_as_rss_heroes() {
+        try {
+            rebuild_as_adapative_heroes(); // Request for our common helper to rebuild heroes
+        } catch (GLib.Error e) { 
+            warning("Failed to rebuild category as heroes: %s", e.message); 
         }
     }
 

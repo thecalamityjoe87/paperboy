@@ -131,11 +131,9 @@ public class NewsPreferences : GLib.Object {
             var list = new Gee.ArrayList<string>();
             string[] arr = settings.get_strv("personalized-categories");
             foreach (var s in arr) list.add(s);
-            warning("personalized_categories getter: loaded %d categories from GSettings", list.size);
             return list;
         }
         set {
-            warning("personalized_categories setter: writing %d categories to GSettings", value != null ? value.size : 0);
             if (value == null) {
                 settings.set_strv("personalized-categories", new string[0]);
             } else {
@@ -320,19 +318,15 @@ public class NewsPreferences : GLib.Object {
         // GSettings automatically persists UI preferences, so we only need to
         // save user-generated data (preferred_sources) to KeyFile
         try {
-            warning("NewsPreferences.save_config: writing config_path=%s", config_path);
-
             // Create a clean KeyFile with ONLY the keys that belong in config.ini
             var clean_config = new GLib.KeyFile();
 
             // Persist preferred sources (user-followed sources including custom RSS feeds)
             if (_preferred_sources != null && _preferred_sources.size > 0) {
-                warning("NewsPreferences.save_config: saving %d preferred_sources to config", _preferred_sources.size);
                 string[] parr = new string[_preferred_sources.size];
                 for (int i = 0; i < _preferred_sources.size; i++) parr[i] = _preferred_sources.get(i);
                 clean_config.set_string_list("preferences", "preferred_sources", parr);
             } else {
-                warning("NewsPreferences.save_config: _preferred_sources is null or empty (size=%d), will try to preserve from disk", _preferred_sources != null ? _preferred_sources.size : -1);
                 // If the running instance has no in-memory preferred list, try to preserve
                 // the existing value from disk rather than overwriting with an empty config.
                 if (GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
@@ -357,9 +351,7 @@ public class NewsPreferences : GLib.Object {
             }
 
             string config_data = clean_config.to_data();
-            // Write file and confirm
             GLib.FileUtils.set_contents(config_path, config_data);
-            warning("NewsPreferences.save_config: wrote %d bytes to %s", config_data.length, config_path);
         } catch (GLib.Error e) {
             warning("Failed to save config: %s", e.message);
         }
