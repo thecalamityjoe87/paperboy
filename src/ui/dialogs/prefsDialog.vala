@@ -301,6 +301,14 @@ public class PrefsDialog : GLib.Object {
             });
         }
 
+        // Helper to elide long strings
+        string elide_string(string s, int max) {
+            if (s == null) return s;
+            if (max < 1) return s;
+            if (s.length <= max) return s;
+            return s.substring(0, max - 1) + "…";
+        }
+
         // Helper to create circular placeholder picture with proper sizing
         Gtk.Widget create_favicon_picture(string placeholder_key, string? favicon_url) {
             var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 24, 24);
@@ -335,7 +343,9 @@ public class PrefsDialog : GLib.Object {
         Adw.ActionRow create_source_row(string title, string subtitle, string source_id, string? favicon_url) {
             var row = new Adw.ActionRow();
             row.set_title(title);
-            row.set_subtitle(subtitle);
+            row.set_subtitle(elide_string(subtitle, 36));
+            row.set_tooltip_text(subtitle);
+            //row.set_subtitle(subtitle);
 
             // Add favicon as prefix
             var picture = create_favicon_picture("placeholder:%s".printf(source_id), favicon_url);
@@ -356,29 +366,22 @@ public class PrefsDialog : GLib.Object {
         }
 
         // Add all built-in sources with favicons
-        builtin_sources_group.add(create_source_row("The Guardian", "World news with multiple categories", "guardian", "https://www.theguardian.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Reddit", "Popular posts from subreddits", "reddit", "https://www.reddit.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("BBC News", "Global news and categories", "bbc", "https://www.bbc.co.uk/favicon.ico"));
-        builtin_sources_group.add(create_source_row("New York Times", "NYT RSS feeds by section", "nytimes", "https://www.nytimes.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Bloomberg", "Financial and business news", "bloomberg", "https://www.bloomberg.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Wall Street Journal", "Business and economic news", "wsj", "https://www.wsj.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Reuters", "International news wire", "reuters", "https://www.reuters.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("NPR", "National Public Radio", "npr", "https://www.npr.org/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Fox News", "Conservative news and opinion", "fox", "https://www.foxnews.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("The Guardian", "Independent global news and analysis", "guardian", "https://www.theguardian.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("Reddit", "Community-driven news and trending topics", "reddit", "https://www.reddit.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("BBC News", "Comprehensive international and UK reporting", "bbc", "https://www.bbc.co.uk/favicon.ico"));
+        builtin_sources_group.add(create_source_row("New York Times", "In-depth journalism across major categories", "nytimes", "https://www.nytimes.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("Bloomberg", "Market, business, and finance coverage", "bloomberg", "https://www.bloomberg.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("Wall Street Journal", "Business, economic, and political reporting", "wsj", "https://www.wsj.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("Reuters", "Real-time global wire reporting", "reuters", "https://www.reuters.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("NPR", "Public radio news and feature storytelling", "npr", "https://www.npr.org/favicon.ico"));
+        builtin_sources_group.add(create_source_row("Fox News", "U.S. politics, headlines, and commentary", "fox", "https://www.foxnews.com/favicon.ico"));
+
 
         sources_page.add(builtin_sources_group);
 
         // Followed RSS Sources Group
         var rss_sources_group = new Adw.PreferencesGroup();
         rss_sources_group.set_title("Followed Sources");
-
-        // Helper to elide long strings
-        string elide_string(string s, int max) {
-            if (s == null) return s;
-            if (max < 1) return s;
-            if (s.length <= max) return s;
-            return s.substring(0, max - 1) + "…";
-        }
         
         // Helper to load icon from file with circular clipping
         void try_load_icon_circular(string path, Gtk.Picture picture) {
@@ -423,8 +426,12 @@ public class PrefsDialog : GLib.Object {
                     display_name = metadata_display_name;
                 }
 
-                rss_row.set_title(display_name);
-                rss_row.set_subtitle(elide_string(rss_source.url, 28));
+                // Escape any user-controlled text before assigning to ActionRow
+                // Some underlying label implementations parse Pango/markup, so
+                // ensure ampersands and other entities are escaped to avoid
+                // runtime markup parse errors (e.g. "Food & Wine").
+                rss_row.set_title(GLib.Markup.escape_text(display_name ?? ""));
+                rss_row.set_subtitle(GLib.Markup.escape_text(elide_string(rss_source.url ?? "", 28)));
                 rss_row.set_tooltip_text(rss_source.url);
 
                 // Add favicon/logo as prefix
@@ -690,7 +697,8 @@ public class PrefsDialog : GLib.Object {
         // ========== UPDATE INTERVAL GROUP ==========
         var update_interval_group = new Adw.PreferencesGroup();
         update_interval_group.set_title("Update Interval");
-        update_interval_group.set_description("Short update intervals may lead to getting blocked by sites for causing high traffic");
+        update_interval_group.set_description("Short update intervals can trigger rate limits or cause requests to be blocked.");
+        update_interval_group.set_tooltip_text("Updating feeds too often may look like automated traffic. Sites could temporarily block requests or refuse articles if too many are made in a short time. Choose a longer interval to avoid this.");
 
         // Manual row
         var manual_row = new Adw.ActionRow();
@@ -964,7 +972,7 @@ public class PrefsDialog : GLib.Object {
     var about = new Adw.AboutDialog();
     about.set_application_name("Paperboy");
     about.set_application_icon("paperboy"); // Use the correct icon name
-    about.set_version("0.7.0a");
+    about.set_version("0.7.1a");
     about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
     about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
     about.set_website("https://github.com/thecalamityjoe87/paperboy");

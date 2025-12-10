@@ -82,13 +82,13 @@ public class LayoutManager : GLib.Object {
         // Cancel any existing timeout and schedule a new one
         if (adaptive_layout_timeout_id > 0) {
             Source.remove(adaptive_layout_timeout_id);
+            adaptive_layout_timeout_id = 0;
         }
 
         // Schedule layout check after 500ms of no new articles
         adaptive_layout_timeout_id = Timeout.add(500, () => {
             if (current_fetch_seq != FetchContext.current) {
                 stderr.printf("DEBUG: adaptive layout timeout - fetch sequence stale\n");
-                adaptive_layout_timeout_id = 0;
                 return false;
             }
 
@@ -167,12 +167,12 @@ public class LayoutManager : GLib.Object {
         // Cancel any existing timeout and schedule a new one
         if (adaptive_layout_timeout_id > 0) {
             Source.remove(adaptive_layout_timeout_id);
+            adaptive_layout_timeout_id = 0;
         }
 
         // Schedule layout check after 500ms of no new articles
         adaptive_layout_timeout_id = Timeout.add(500, () => {
             if (current_fetch_seq != FetchContext.current) {
-                adaptive_layout_timeout_id = 0;
                 return false;
             }
 

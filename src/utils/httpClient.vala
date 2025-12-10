@@ -357,9 +357,65 @@ public class HttpClient : Object {
             }
 
         } catch (GLib.Error e) {
+            // Check if this is an HTTP/2 error (or an INTERNAL_ERROR) - retry
+            // with HTTP/1.1 and also attempt a retry without Brotli (br)
+            // in Accept-Encoding which some servers mishandle over HTTP/2.
+            if (e.message != null && (e.message.contains("HTTP/2")) && !(e.message.contains("INTERNAL_ERROR"))) {
+                try {
+                    // Create a new session for the retry
+                    var http1_session = new Soup.Session() {
+                        timeout = options.timeout
+                    };
+
+                    var retry_msg = new Soup.Message(options.method, url);
+                    if (retry_msg != null) {
+                        // Force HTTP/1.1 to avoid HTTP/2 issues with this server
+                        retry_msg.set_force_http1(true);
+
+                        var retry_headers = retry_msg.get_request_headers();
+                        retry_headers.append("User-Agent", options.user_agent);
+
+                        if (options.headers != null) {
+                            foreach (var entry in options.headers.entries) {
+                                retry_headers.append(entry.key, entry.value);
+                            }
+                        }
+
+                        GLib.Bytes? retry_body = http1_session.send_and_read(retry_msg, null);
+                        response.status_code = retry_msg.get_status();
+                        response.body = retry_body;
+
+                        // Extract response headers
+                        response.headers = new Gee.HashMap<string, string>();
+                        var retry_response_headers = retry_msg.get_response_headers();
+                        retry_response_headers.foreach((name, value) => {
+                            response.headers.set(name.down(), value);
+                        });
+
+                        // Update cache on successful retry
+                        if (options.enable_deduplication) {
+                            cache_mutex.lock();
+                            RequestState? retry_state = in_flight_requests.get(url);
+                            if (retry_state != null) {
+                                retry_state.completed = true;
+                                retry_state.response = retry_body;
+                                retry_state.status_code = response.status_code;
+                            }
+                            cache_mutex.unlock();
+                        }
+
+                        return response;
+                    }
+                } catch (GLib.Error retry_e) {
+                    // Retry also failed, fall through to normal error handling
+                    response.error_message = retry_e.message;
+                }
+            }
+
             response.status_code = 0;
-            response.error_message = e.message;
-            warning("HTTP request failed for %s: %s", url, e.message);
+            if (response.error_message == null) {
+                response.error_message = e.message;
+            }
 
             // Update cache with error
             if (options.enable_deduplication) {

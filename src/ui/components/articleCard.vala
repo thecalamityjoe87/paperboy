@@ -105,8 +105,6 @@ public class ArticleCard : GLib.Object {
         // handlers receive the article URL.
         gesture.released.connect(() => {
             try {
-                // Small runtime trace to help debugging whether the handler runs
-                try { warning("ArticleCard clicked: %s", this.url); } catch (GLib.Error e) { }
                 activated(url);
             } catch (GLib.Error e) { }
         });

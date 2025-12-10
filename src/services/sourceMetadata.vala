@@ -329,12 +329,16 @@ public class SourceMetadata : GLib.Object {
             }
             
             // Check if download is already in progress for this URL
+            // Ensure collection is initialized (race condition protection)
+            if (downloads_in_progress == null) {
+                downloads_in_progress = new Gee.HashSet<string>();
+            }
             if (downloads_in_progress.contains(logo_url)) {
                 download_mutex.unlock();
                 message("SourceMetadata: download already in progress for %s", logo_url);
                 return;
             }
-            
+
             // Mark this download as in progress
             downloads_in_progress.add(logo_url);
             download_mutex.unlock();
@@ -480,7 +484,9 @@ public class SourceMetadata : GLib.Object {
                 } finally {
                     // Always remove from in-progress set when done
                     download_mutex.lock();
-                    downloads_in_progress.remove(logo_url);
+                    if (downloads_in_progress != null) {
+                        downloads_in_progress.remove(logo_url);
+                    }
                     download_mutex.unlock();
                 }
                 

@@ -287,6 +287,10 @@ public class SidebarView : GLib.Object {
         }
         
         button.clicked.connect(() => {
+            // Close article sheet if open
+            if (window.article_sheet != null) {
+                window.article_sheet.dismiss();
+            }
             manager.handle_item_activation(item.id, item.title);
         });
         
@@ -342,6 +346,10 @@ public class SidebarView : GLib.Object {
         }
         
         feed_button.clicked.connect(() => {
+            // Close article sheet if open
+            if (window.article_sheet != null) {
+                window.article_sheet.dismiss();
+            }
             manager.handle_item_activation(item.id, item.title);
         });
         

@@ -100,13 +100,15 @@ public class FetchNewsController {
         // Reset article manager state (clears articles, stops carousel, cancels pending timeouts)
         try { if (win.article_manager != null) win.article_manager.reset_for_new_fetch(); } catch (GLib.Error e) { }
 
-        // Clear old article tracking for non-special categories
-        if (win.article_state_store != null && win.prefs.category != null && win.prefs.category.length > 0) {
+        // Clear old article tracking before fetching to prevent count accumulation
+        // Skip clearing during initial_phase (startup) so unreadFetchService counts are preserved
+        // Also skip for myfeed, local_news, and saved (which aggregate from multiple sources)
+        bool is_initial = (win.loading_state != null && win.loading_state.initial_phase);
+        if (!is_initial && win.article_state_store != null && win.prefs.category != null && win.prefs.category.length > 0) {
             string cat = win.prefs.category;
-            bool is_special = (cat == "frontpage" || cat == "topten" || cat == "myfeed" || 
-                               cat == "local_news" || cat == "saved");
-            if (!is_special) {
-                win.article_state_store.clear_article_tracking_for_category(win.prefs.category);
+            bool skip_clear = (cat == "myfeed" || cat == "local_news" || cat == "saved");
+            if (!skip_clear) {
+                win.article_state_store.clear_category_articles(win.prefs.category);
             }
         }
 
