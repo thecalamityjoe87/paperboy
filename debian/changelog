@@ -1,5 +1,13 @@
-paperboy (0.6.3a-1) unstable; urgency=low
+paperboy (0.7.0a-0ubuntu1) resolute; urgency=medium
 
-  * Initial Debian packaging.
+  * New upstream version
+  * Fix rust build system (Thanks to Jeremy Bicha)
+  * Patch to install from target location reproducibly
 
- -- Isaac Joseph <calamityjoe87@gmail.com>  Tue, 01 Dec 2025 00:00:00 +0000
+ -- Erich Eickmeyer <eeickmeyer@ubuntu.com>  Thu, 11 Dec 2025 13:24:11 -0800
+
+paperboy (0.6.3a-0ubuntu1) resolute; urgency=medium
+
+  * Initial release. (LP: #2132622)
+
+ -- Erich Eickmeyer <eeickmeyer@ubuntu.com>  Mon, 01 Dec 2025 18:50:56 -0800

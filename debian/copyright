@@ -1,11 +1,57 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Paperboy
 Source: https://github.com/thecalamityjoe87/paperboy
+Upstream-Name: paperboy
+Upstream-Contact: Isaac Joseph <calamityjoe87@gmail.com>
 
-Files: *
-Copyright: 2021-2025 The upstream authors
-License: GPL-3.0-or-later
+Files:
+ *
+Copyright:
+ 2025 Isaac Joseph <calamityjoe87@gmail.com>
+License: GPL-3+
 
-Files: packaging/debian/*
-Copyright: Isaac Joseph <calamityjoe87@gmail.com>
-License: GPL-3.0-or-later
+Files:
+ src/models/newsArticle.vala
+Copyright:
+ 2025 Isaac Joseph <calamityjoe87@gmail.com>
+License: GPL-2+
+
+Files:
+ debian/*
+Copyright:
+ 2025 Erich Eickmeyer <eeickmeyer@ubuntu.com>
+License: GPL-3+
+
+License: GPL-3+
+ This package is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this package. If not, see <https://www.gnu.org/licenses/>.
+Comment:
+ On Debian systems, the complete text of the GNU General
+ Public License version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+License: GPL-2+
+ This package is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this package. If not, see <https://www.gnu.org/licenses/>.
+Comment:
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
+

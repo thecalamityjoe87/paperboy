@@ -1,0 +1,7 @@
+# Application is in alpha stage, manpages are probably
+# an afterthought at this point.
+
+paperboy: no-manual-page [usr/bin/paperboy]
+paperboy: no-manual-page [usr/bin/rssFinder]
+paperboy: no-manual-page [usr/bin/html2rss]
+
