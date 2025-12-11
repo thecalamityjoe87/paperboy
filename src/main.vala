@@ -27,6 +27,10 @@ public class PaperboyApp : Adw.Application {
     }
 
     protected override void activate() {
+        // Ensure global HttpClient is constructed on the main thread
+        // before any other subsystem can spawn worker threads.
+        try { Paperboy.HttpClientUtils.ensure_initialized(); } catch (GLib.Error e) { }
+        
         var win = new NewsWindow(this);
         win.present();
         // Eagerly instantiate ZipLookup so it starts loading the CSV in
@@ -35,13 +39,12 @@ public class PaperboyApp : Adw.Application {
         // dialog.
         try { ZipLookup.get_instance(); } catch (GLib.Error e) { }
         // If this is the user's first time running the app, show the
-        // source-selection dialog so they can adjust sources immediately.
+        // preferences dialog so they can adjust sources immediately.
         try {
             var prefs = NewsPreferences.get_instance();
-            // On first run, show the full sources list dialog (with toggles)
-            // instead of the brief 'News Source' alert so users can immediately
-            // enable/disable individual providers.
-            if (prefs.first_run) PrefsDialog.show_sources_list_dialog(win);
+            // On first run, show the preferences dialog so users can immediately
+            // enable/disable individual providers and configure the app.
+            if (prefs.first_run) PrefsDialog.show_preferences_dialog(win);
         } catch (GLib.Error e) { }
         
         var change_source_action = new SimpleAction("change-source", null);
@@ -58,7 +61,7 @@ public class PaperboyApp : Adw.Application {
 
         var set_location_action = new SimpleAction("set-location", null);
         set_location_action.activate.connect(() => {
-            PrefsDialog.show_set_location_dialog(win);
+            LocationDialog.show(win);
         });
         this.add_action(set_location_action);
     }
@@ -66,6 +69,7 @@ public class PaperboyApp : Adw.Application {
 }
 
 public static int main(string[] args) {
+
     var app = new PaperboyApp();
     return app.run(args);
 }

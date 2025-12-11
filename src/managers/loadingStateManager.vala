@@ -22,7 +22,7 @@ using GLib;
 namespace Managers {
 
 public class LoadingStateManager : GLib.Object {
-    private NewsWindow window;
+    private weak NewsWindow window;
 
     // UI widgets (public so NewsWindow can set them during construction)
     public Gtk.Widget? loading_container;
@@ -47,10 +47,64 @@ public class LoadingStateManager : GLib.Object {
     public int pending_images = 0;
     public bool initial_items_populated = false;
     public uint initial_reveal_timeout_id = 0;
+    public uint absolute_reveal_timeout_id = 0;
     public bool network_failure_detected = false;
+    public bool awaiting_adaptive_layout = false;
+    public int64 initial_phase_start_time = 0;
 
     public LoadingStateManager(NewsWindow w) {
         window = w;
+    }
+
+    /**
+     * Begin a new fetch - resets initial phase state and shows loading spinner.
+     * Call this at the start of fetch_news() to initialize loading state.
+     */
+    public void begin_fetch() {
+        // Reset initial-phase gating state
+        initial_phase = true;
+        hero_image_loaded = false;
+        pending_images = 0;
+        initial_items_populated = false;
+        network_failure_detected = false;
+        initial_phase_start_time = GLib.get_monotonic_time();
+
+        // Clear image cache at startup to rule out stale cache data
+        try {
+            if (window.image_cache != null) {
+                window.image_cache.clear();
+            }
+        } catch (GLib.Error e) { }
+
+        // Don't reset awaiting_adaptive_layout - it may have been set before begin_fetch()
+
+        // Cancel any pending initial reveal timeouts
+        if (initial_reveal_timeout_id > 0) {
+            Source.remove(initial_reveal_timeout_id);
+            initial_reveal_timeout_id = 0;
+        }
+        if (absolute_reveal_timeout_id > 0) {
+            Source.remove(absolute_reveal_timeout_id);
+            absolute_reveal_timeout_id = 0;
+        }
+
+        // Set an absolute maximum timeout - but only reveal if content has actually arrived
+        // This prevents showing a blank white area when content takes longer than expected
+        absolute_reveal_timeout_id = GLib.Timeout.add(8000, () => {
+            // Only reveal if we have content; otherwise keep spinner visible
+            if (initial_items_populated) {
+                reveal_initial_content();
+            }
+            // Don't clear the timeout ID here - let it be cleared by reveal_initial_content
+            // or when content eventually arrives
+            return false;
+        });
+
+        // Hide any previous error message
+        hide_error_message();
+
+        // Show loading spinner
+        show_loading_spinner();
     }
 
     public void show_loading_spinner() {
@@ -98,10 +152,22 @@ public class LoadingStateManager : GLib.Object {
             try { update_personalization_ui(); } catch (GLib.Error e) { }
             try { update_local_news_ui(); } catch (GLib.Error e) { }
 
-            if (window.article_manager.remaining_articles != null && window.article_manager.remaining_articles.length > 0 && window.article_manager.articles_shown >= Managers.ArticleManager.INITIAL_ARTICLE_LIMIT) {
+            // Save article tracking and refresh sidebar badges after content is loaded
+            try {
+                if (window.article_state_store != null) {
+                    window.article_state_store.save_article_tracking_to_disk();
+                }
+                if (window.sidebar_manager != null) {
+                    window.sidebar_manager.refresh_all_badge_counts();
+                }
+            } catch (GLib.Error e) { }
+
+            if (window.article_manager.remaining_articles != null && window.article_manager.remaining_articles.size > 0 && window.article_manager.articles_shown >= Managers.ArticleManager.INITIAL_ARTICLE_LIMIT) {
                 try { window.article_manager.show_load_more_button(); } catch (GLib.Error e) { }
-            } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.length == 0) {
+            } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.size == 0) {
                 Timeout.add(800, () => {
+                    // Safety check: window may have been destroyed (weak reference)
+                    if (window == null) return false;
                     if (loading_container == null || !loading_container.get_visible()) {
                         show_end_of_feed_message();
                     }
@@ -157,7 +223,16 @@ public class LoadingStateManager : GLib.Object {
                 if (!enabled) {
                     if (personalized_message_label != null) personalized_message_label.set_text("Personalized feed is disabled.");
                     if (personalized_message_sub_label != null) {
-                        personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → choose 'Configure settings' → enable the personalized feed toggle to see content from your followed sources.");
+                        personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Sources' tab → 'Enable Personalized Feed' toggle to see content from your sources.");
+                        personalized_message_sub_label.set_visible(true);
+                    }
+                    if (personalized_message_action != null) personalized_message_action.set_visible(true);
+                    show_message = true;
+                } else if (prefs.myfeed_custom_only && !has_custom_rss) {
+                    // Custom sources only mode is enabled but no RSS sources are followed
+                    if (personalized_message_label != null) personalized_message_label.set_text("No custom RSS sources followed.");
+                    if (personalized_message_sub_label != null) {
+                        personalized_message_sub_label.set_text("You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by clicking the button below or open the main menu (☰) → Preferences → 'Sources' tab.");
                         personalized_message_sub_label.set_visible(true);
                     }
                     if (personalized_message_action != null) personalized_message_action.set_visible(true);
@@ -165,7 +240,7 @@ public class LoadingStateManager : GLib.Object {
                 } else if (enabled && !has_personalized && !has_custom_rss) {
                     if (personalized_message_label != null) personalized_message_label.set_text("Personalized Feed is enabled but no categories are selected.");
                     if (personalized_message_sub_label != null) {
-                        personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → choose 'Configure settings' → Personalized Feed and choose categories, or follow custom RSS sources.");
+                        personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Sources' tab → 'Enable Personalized Feed' toggle and click its settings icon to select categories, or follow custom RSS sources.");
                         personalized_message_sub_label.set_visible(true);
                     }
                     if (personalized_message_action != null) personalized_message_action.set_visible(true);
@@ -180,14 +255,31 @@ public class LoadingStateManager : GLib.Object {
             personalized_message_box.set_visible(show_message);
 
             // Hide main content when showing the overlay (regardless of initial_phase)
+            // Also keep it hidden if we're waiting for adaptive layout to complete
+            // CRITICAL: Also keep it hidden during initial_phase to prevent blank cards
             if (window.main_content_container != null) {
-                window.main_content_container.set_visible(!show_message);
+                if (show_message) {
+                    window.main_content_container.set_visible(false);
+                } else if (!awaiting_adaptive_layout && !initial_phase) {
+                    window.main_content_container.set_visible(true);
+                }
+                // If awaiting_adaptive_layout OR initial_phase, keep it hidden (don't change visibility)
             }
         } catch (GLib.Error e) { }
 
         try {
             if (loading_container != null && show_message) {
                 loading_container.set_visible(false);
+                
+                // Cancel the initial reveal timeout to prevent error overlay from showing
+                if (initial_reveal_timeout_id > 0) {
+                    Source.remove(initial_reveal_timeout_id);
+                    initial_reveal_timeout_id = 0;
+                }
+                
+                // Mark as populated and exit initial phase to prevent timeout from triggering error
+                initial_items_populated = true;
+                initial_phase = false;
             }
         } catch (GLib.Error e) { }
 
@@ -209,16 +301,28 @@ public class LoadingStateManager : GLib.Object {
         } catch (GLib.Error e) { needs_location = false; }
 
         try { local_news_message_box.set_visible(needs_location); } catch (GLib.Error e) { }
-        try { if (!initial_phase) window.main_content_container.set_visible(!needs_location); } catch (GLib.Error e) { }
+        // Only show main content if not in initial phase and not awaiting adaptive layout
+        try {
+            if (!initial_phase && !awaiting_adaptive_layout) {
+                window.main_content_container.set_visible(!needs_location);
+            }
+        } catch (GLib.Error e) { }
     }
 
     public void reveal_initial_content() {
         if (!initial_phase) return;
+        // Don't reveal if we're still waiting for adaptive layout to complete
+        if (awaiting_adaptive_layout) return;
+
         initial_phase = false;
         hero_image_loaded = false;
         if (initial_reveal_timeout_id > 0) {
             Source.remove(initial_reveal_timeout_id);
             initial_reveal_timeout_id = 0;
+        }
+        if (absolute_reveal_timeout_id > 0) {
+            Source.remove(absolute_reveal_timeout_id);
+            absolute_reveal_timeout_id = 0;
         }
         hide_loading_spinner();
         try {
@@ -226,19 +330,104 @@ public class LoadingStateManager : GLib.Object {
             bool lvis = local_news_message_box != null ? local_news_message_box.get_visible() : false;
             if (!pvis && !lvis) {
                 try { if (window.main_content_container != null) window.main_content_container.set_visible(true); } catch (GLib.Error e) { }
+                // Workaround removed: Images now properly defer until container is visible,
+                // so refresh_visible_images() is no longer needed
             }
         } catch (GLib.Error e) { }
 
         Timeout.add(500, () => {
-            try { window.upgrade_images_after_initial(); } catch (GLib.Error e) { }
+            try { if (window.image_manager != null) window.image_manager.upgrade_images_after_initial(); } catch (GLib.Error e) { }
+            // Save article tracking (disabled - no longer persisting)
+            // Badge refreshes are now handled per-category/source in fetch_news()
+            // to avoid race conditions and ensure accurate counts
+            try {
+                if (window.article_state_store != null) {
+                    window.article_state_store.save_article_tracking_to_disk();
+                }
+                // CRITICAL: Now that initial_phase is complete, refresh badges
+                // We deferred this during initial_phase to prevent widget tree
+                // modifications from invalidating Picture widget paintables
+                if (window.sidebar_manager != null) {
+                    window.sidebar_manager.refresh_all_badge_counts();
+                }
+            } catch (GLib.Error e) { }
             return false;
         });
     }
 
     public void mark_initial_items_populated() {
         initial_items_populated = true;
-        if (initial_phase && pending_images == 0) {
-            reveal_initial_content();
+
+        // Reset timeout every time a new article is added during initial phase
+        // Use a short timeout (500ms) after each article - if no more articles arrive
+        // within that window, we reveal. This ensures we wait for the batch to complete.
+        if (initial_phase) {
+            if (initial_reveal_timeout_id > 0) {
+                Source.remove(initial_reveal_timeout_id);
+            }
+            // Short delay after last article to allow any remaining articles in the batch
+            initial_reveal_timeout_id = GLib.Timeout.add(500, () => {
+                // Clear the timeout ID since we're now executing
+                initial_reveal_timeout_id = 0;
+
+                // Only reveal if we have a reasonable number of articles
+                // This prevents revealing with just 1-2 articles when more are expected
+                int article_count = 0;
+                try {
+                    if (window.layout_manager != null && window.layout_manager.columns != null) {
+                        foreach (var col in window.layout_manager.columns) {
+                            if (col != null) {
+                                var child = col.get_first_child();
+                                while (child != null) {
+                                    article_count++;
+                                    child = child.get_next_sibling();
+                                }
+                            }
+                        }
+                    }
+                    // Also count hero items
+                    if (window.layout_manager != null && window.layout_manager.featured_box != null) {
+                        var hero_child = window.layout_manager.featured_box.get_first_child();
+                        while (hero_child != null) {
+                            article_count++;
+                            hero_child = hero_child.get_next_sibling();
+                        }
+                    }
+                } catch (GLib.Error e) { }
+
+                // Reveal if we have at least 3 articles, or if we've been waiting a while
+                if (article_count >= 3) {
+                    reveal_initial_content();
+                } else {
+                    // Not enough articles yet - set a longer timeout
+                    initial_reveal_timeout_id = GLib.Timeout.add(2000, () => {
+                        initial_reveal_timeout_id = 0;
+                        reveal_initial_content();
+                        return false;
+                    });
+                }
+                return false;
+            });
+        }
+    }
+
+    /**
+     * Called when an image finished being set (success or fallback). During the
+     * initial phase we decrement the pending counter and reveal the UI when all
+     * initial items are populated and no pending image loads remain.
+     */
+    public void on_image_loaded(Gtk.Picture image) {
+        if (!initial_phase) return;
+        if (window.image_manager != null && window.image_manager.hero_requests.get(image) != null) {
+            hero_image_loaded = true;
+        }
+        if (pending_images > 0) pending_images--;
+
+        if (initial_items_populated && pending_images == 0) {
+            // Don't reveal if waiting for adaptive layout
+            if (!awaiting_adaptive_layout) {
+                try { reveal_initial_content(); } catch (GLib.Error e) { }
+            }
         }
     }
 

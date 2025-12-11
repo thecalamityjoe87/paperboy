@@ -99,16 +99,41 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_string("user-location-city", value); }
     }
 
+    public bool unread_badges_enabled {
+        get { return settings.get_boolean("unread-badges-enabled"); }
+        set { settings.set_boolean("unread-badges-enabled", value); }
+    }
+
+    public bool unread_badges_categories {
+        get { return settings.get_boolean("unread-badges-categories"); }
+        set { settings.set_boolean("unread-badges-categories", value); }
+    }
+
+    // Whether to show badges on special categories
+    // (Front Page, Top Ten, My Feed, Local News, Saved)
+    public bool unread_badges_special_categories {
+        get { return settings.get_boolean("unread-badges-special-categories"); }
+        set { settings.set_boolean("unread-badges-special-categories", value); }
+    }
+
+    public bool unread_badges_sources {
+        get { return settings.get_boolean("unread-badges-sources"); }
+        set { settings.set_boolean("unread-badges-sources", value); }
+    }
+
+    public string update_interval {
+        owned get { return settings.get_string("update-interval"); }
+        set { settings.set_string("update-interval", value); }
+    }
+
     public Gee.ArrayList<string> personalized_categories {
         owned get {
             var list = new Gee.ArrayList<string>();
             string[] arr = settings.get_strv("personalized-categories");
             foreach (var s in arr) list.add(s);
-            warning("personalized_categories getter: loaded %d categories from GSettings", list.size);
             return list;
         }
         set {
-            warning("personalized_categories setter: writing %d categories to GSettings", value != null ? value.size : 0);
             if (value == null) {
                 settings.set_strv("personalized-categories", new string[0]);
             } else {
@@ -293,19 +318,15 @@ public class NewsPreferences : GLib.Object {
         // GSettings automatically persists UI preferences, so we only need to
         // save user-generated data (preferred_sources) to KeyFile
         try {
-            warning("NewsPreferences.save_config: writing config_path=%s", config_path);
-
             // Create a clean KeyFile with ONLY the keys that belong in config.ini
             var clean_config = new GLib.KeyFile();
 
             // Persist preferred sources (user-followed sources including custom RSS feeds)
             if (_preferred_sources != null && _preferred_sources.size > 0) {
-                warning("NewsPreferences.save_config: saving %d preferred_sources to config", _preferred_sources.size);
                 string[] parr = new string[_preferred_sources.size];
                 for (int i = 0; i < _preferred_sources.size; i++) parr[i] = _preferred_sources.get(i);
                 clean_config.set_string_list("preferences", "preferred_sources", parr);
             } else {
-                warning("NewsPreferences.save_config: _preferred_sources is null or empty (size=%d), will try to preserve from disk", _preferred_sources != null ? _preferred_sources.size : -1);
                 // If the running instance has no in-memory preferred list, try to preserve
                 // the existing value from disk rather than overwriting with an empty config.
                 if (GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
@@ -330,9 +351,7 @@ public class NewsPreferences : GLib.Object {
             }
 
             string config_data = clean_config.to_data();
-            // Write file and confirm
             GLib.FileUtils.set_contents(config_path, config_data);
-            warning("NewsPreferences.save_config: wrote %d bytes to %s", config_data.length, config_path);
         } catch (GLib.Error e) {
             warning("Failed to save config: %s", e.message);
         }
@@ -347,8 +366,49 @@ public class NewsPreferences : GLib.Object {
 
             bool exists = false;
             try { exists = GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS); } catch (GLib.Error e) { exists = false; }
-            warning("NewsPreferences.load_config: config_path=%s exists=%s", config_path, exists ? "true" : "false");            
-            config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
+            //warning("NewsPreferences.load_config: config_path=%s exists=%s", config_path, exists ? "true" : "false");
+            
+            // Validate config file before loading to prevent crashes from corrupted files
+            if (exists) {
+                try {
+                    var config_file = File.new_for_path(config_path);
+                    var info = config_file.query_info("standard::size", FileQueryInfoFlags.NONE, null);
+                    int64 size = info.get_size();
+                    
+                    // If config file is unreasonably large (>10MB), treat as corrupted
+                    const int64 MAX_CONFIG_SIZE = 10 * 1024 * 1024;
+                    if (size > MAX_CONFIG_SIZE) {
+                        warning("NewsPreferences.load_config: config file too large (%lld bytes), treating as corrupted", size);
+                        exists = false;
+                        // Backup corrupted file and start fresh
+                        try {
+                            string backup_path = config_path + ".corrupted";
+                            FileUtils.rename(config_path, backup_path);
+                            warning("NewsPreferences.load_config: backed up corrupted config to %s", backup_path);
+                        } catch (GLib.Error e) {
+                            warning("Failed to backup corrupted config: %s", e.message);
+                        }
+                    }
+                } catch (GLib.Error e) {
+                    warning("NewsPreferences.load_config: failed to validate config file: %s", e.message);
+                }
+            }
+            
+            if (exists) {
+                try {
+                    config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
+                } catch (GLib.Error e) {
+                    warning("NewsPreferences.load_config: failed to parse config file: %s - starting with defaults", e.message);
+                    // Backup corrupted file
+                    try {
+                        string backup_path = config_path + ".parse-error";
+                        FileUtils.rename(config_path, backup_path);
+                        warning("NewsPreferences.load_config: backed up unparseable config to %s", backup_path);
+                    } catch (GLib.Error e2) { }
+                    // Continue with empty config
+                    config = new GLib.KeyFile();
+                }
+            }
             
             // MIGRATION: If old preferences exist in KeyFile, migrate them to GSettings
             bool needs_migration = config.has_key("preferences", "news_source");
@@ -471,7 +531,7 @@ public class NewsPreferences : GLib.Object {
                     if (config.has_group("preferences") && config.has_key("preferences", "preferred_sources")) {
                         string[] parr = config.get_string_list("preferences", "preferred_sources");
                         foreach (var s in parr) _preferred_sources.add(s);
-                        warning("NewsPreferences.load_config: loaded %d preferred_sources from preferences", _preferred_sources.size);
+                        //warning("NewsPreferences.load_config: loaded %d preferred_sources from preferences", _preferred_sources.size);
                     }
                 } catch (GLib.Error e) {
                     warning("NewsPreferences.load_config: could not read from preferences: %s", e.message);

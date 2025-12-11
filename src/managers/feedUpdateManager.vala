@@ -90,6 +90,7 @@ public class FeedUpdateManager : GLib.Object {
             
             // Show summary toast
             GLib.Idle.add(() => {
+                if (window == null) return false; // Window destroyed
                 if (updated_count > 0 || failed_count > 0) {
                     string message = "RSS feeds: %d updated".printf(updated_count);
                     if (failed_count > 0) {
@@ -156,16 +157,20 @@ public class FeedUpdateManager : GLib.Object {
                 if (exit_status == 0 && gen_feed.length > 0) {
                     // Validate the generated feed
                     string? error = null;
-                    if (RssValidator.is_valid_rss(gen_feed, out error)) {
-                        int item_count = RssValidator.get_item_count(gen_feed);
+                    if (RssValidatorUtils.is_valid_rss(gen_feed, out error)) {
+                        int item_count = RssValidatorUtils.get_item_count(gen_feed);
                         
                         // Check if content actually changed by comparing with old feed
                         bool content_changed = true;
-                        string old_file_path = source.url.substring(7); // Remove "file://" prefix
-                        
-                        try {
-                            var old_file = GLib.File.new_for_path(old_file_path);
-                            if (old_file.query_exists()) {
+                        string old_file_path = "";
+                        if (source.url.length > 7) {
+                            old_file_path = source.url.substring(7); // Remove "file://" prefix
+                        }
+
+                        if (old_file_path.length > 0) {
+                            try {
+                                var old_file = GLib.File.new_for_path(old_file_path);
+                                if (old_file.query_exists()) {
                                 // Read old feed content
                                 uint8[] old_contents;
                                 old_file.load_contents(null, out old_contents, null);
@@ -173,8 +178,8 @@ public class FeedUpdateManager : GLib.Object {
                                 
                                 // Compare feeds by checking if they have the same items
                                 // We'll use a simple heuristic: compare item count and a hash of GUIDs/links
-                                if (RssValidator.is_valid_rss(old_feed, out error)) {
-                                    int old_item_count = RssValidator.get_item_count(old_feed);
+                                if (RssValidatorUtils.is_valid_rss(old_feed, out error)) {
+                                    int old_item_count = RssValidatorUtils.get_item_count(old_feed);
                                     
                                     if (old_item_count == item_count) {
                                         // Same number of items - do a deeper comparison
@@ -188,23 +193,26 @@ public class FeedUpdateManager : GLib.Object {
                                         }
                                     }
                                 }
-                            }
-                        } catch (Error e) {
+                                }
+                            } catch (Error e) {
                             // If we can't read old file, assume content changed
                             GLib.warning("  ⚠ Could not read old feed for comparison: %s", e.message);
+                        }
                         }
                         
                         // Only update if content actually changed
                         if (content_changed) {
                             // Delete old XML file
-                            try {
-                                var old_file = GLib.File.new_for_path(old_file_path);
+                            if (old_file_path.length > 0) {
+                                try {
+                                    var old_file = GLib.File.new_for_path(old_file_path);
                                 if (old_file.query_exists()) {
                                     old_file.delete();
                                     GLib.print("  ✓ Deleted old feed file: %s\n", GLib.Path.get_basename(old_file_path));
                                 }
                             } catch (Error e) {
                                 GLib.warning("  ⚠ Failed to delete old feed file: %s", e.message);
+                            }
                             }
 
                             // Save new XML file
@@ -222,7 +230,7 @@ public class FeedUpdateManager : GLib.Object {
                             var f = GLib.File.new_for_path(new_file_path);
                             var out_stream = f.replace(null, false, GLib.FileCreateFlags.NONE, null);
                             var writer = new DataOutputStream(out_stream);
-                            string safe_feed = RssValidator.sanitize_for_xml(gen_feed);
+                            string safe_feed = RssValidatorUtils.sanitize_for_xml(gen_feed);
                             writer.put_string(safe_feed);
                             writer.close(null);
 
@@ -271,8 +279,8 @@ public class FeedUpdateManager : GLib.Object {
                 
                 // Validate RSS
                 string? error = null;
-                if (RssValidator.is_valid_rss(body, out error)) {
-                    int item_count = RssValidator.get_item_count(body);
+                if (RssValidatorUtils.is_valid_rss(body, out error)) {
+                    int item_count = RssValidatorUtils.get_item_count(body);
                     
                     // Update last_fetched_at timestamp
                     var store = Paperboy.RssSourceStore.get_instance();

@@ -129,6 +129,32 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         }
     }
 
+    // Get human-readable display name for a NewsSource
+    public static string get_source_name(NewsSource source) {
+        switch (source) {
+            case NewsSource.GUARDIAN:
+                return "The Guardian";
+            case NewsSource.WALL_STREET_JOURNAL:
+                return "Wall Street Journal";
+            case NewsSource.BBC:
+                return "BBC News";
+            case NewsSource.REDDIT:
+                return "Reddit";
+            case NewsSource.NEW_YORK_TIMES:
+                return "NY Times";
+            case NewsSource.BLOOMBERG:
+                return "Bloomberg";
+            case NewsSource.REUTERS:
+                return "Reuters";
+            case NewsSource.NPR:
+                return "NPR";
+            case NewsSource.FOX:
+                return "Fox News";
+            default:
+                return "News";
+        }
+    }
+
     // Get list of enabled sources as NewsSource enums
     public ArrayList<NewsSource> get_enabled_source_enums() {
         var result = new ArrayList<NewsSource>();
@@ -139,10 +165,21 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         return result;
     }
 
-    // Infer source from URL
+    // Return the NewsSource the UI should treat as "active". If the
+    // user has enabled exactly one preferred source, map that id to the
+    // corresponding enum; otherwise use the explicit prefs.news_source.
+    public NewsSource effective_news_source() {
+        if (prefs.preferred_sources != null && prefs.preferred_sources.size == 1) {
+            return source_id_to_enum(prefs.preferred_sources.get(0));
+        }
+        return prefs.news_source;
+    }
+
+    // Infer source from URL by checking known domain substrings.
+    // Returns UNKNOWN for unrecognized URLs to avoid incorrect branding.
     public static NewsSource infer_source_from_url(string? url) {
         if (url == null || url.length == 0) {
-            return NewsSource.GUARDIAN; // fallback
+            return NewsSource.UNKNOWN;
         }
 
         string low = url.down();
@@ -150,16 +187,16 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) {
             return NewsSource.GUARDIAN;
         }
-        if (low.index_of("reddit") >= 0 || low.index_of("redd.it") >= 0) {
-            return NewsSource.REDDIT;
-        }
         if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) {
             return NewsSource.BBC;
+        }
+        if (low.index_of("reddit.com") >= 0 || low.index_of("redd.it") >= 0) {
+            return NewsSource.REDDIT;
         }
         if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) {
             return NewsSource.NEW_YORK_TIMES;
         }
-        if (low.index_of("wsj.com") >= 0 || low.index_of("on.wsj.com") >= 0) {
+        if (low.index_of("wsj.com") >= 0 || low.index_of("dowjones") >= 0) {
             return NewsSource.WALL_STREET_JOURNAL;
         }
         if (low.index_of("bloomberg") >= 0) {
@@ -175,7 +212,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return NewsSource.FOX;
         }
 
-        return NewsSource.GUARDIAN; // fallback
+        // Unknown source - don't default to user preference to avoid incorrect branding
+        return NewsSource.UNKNOWN;
     }
 
 
@@ -184,26 +222,100 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         return source_enum_to_id(infer_source_from_url(url));
     }
 
-    // Determine whether the given article URL belongs to a built-in source
-    // This performs the same domain-based checks used elsewhere to avoid
-    // treating the fallback "guardian" enum as a custom source.
+    // Resolve a NewsSource from a provided display/source name if possible;
+    // fall back to URL inference when the name is missing or unrecognized.
+    public static NewsSource resolve_source(string? source_name, string url) {
+        // Parse encoded source name format: "SourceName||logo_url##category::cat"
+        string? clean_name = source_name;
+        if (source_name != null && source_name.length > 0) {
+            // Strip logo URL if present
+            int pipe_idx = source_name.index_of("||");
+            if (pipe_idx >= 0 && source_name.length > pipe_idx) {
+                clean_name = source_name.substring(0, pipe_idx).strip();
+            }
+            // Strip category suffix if present
+            int cat_idx = clean_name.index_of("##category::");
+            if (cat_idx >= 0 && clean_name.length > cat_idx) {
+                clean_name = clean_name.substring(0, cat_idx).strip();
+            }
+        }
+
+        // Start with URL-inferred source as a sensible default
+        NewsSource resolved = infer_source_from_url(url);
+        if (clean_name != null && clean_name.length > 0) {
+            string low = clean_name.down();
+            if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
+            else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
+            else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
+            // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
+            else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
+                     (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
+            else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
+            else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
+            else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
+            else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
+            else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
+            // If we couldn't match the provided name, keep the URL-inferred value
+        }
+        return resolved;
+    }
+
+    // Normalize a source name for consistent tracking across the app.
+    // Handles local news special case and tries to match RSS source names.
+    public static string? normalize_source_name(string? source_name, string category_id, string url) {
+        string? result = source_name;
+        try {
+            if (result == null || result.length == 0) {
+                if (category_id == "local_news") {
+                    var prefs_local = NewsPreferences.get_instance();
+                    result = (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
+                        ? prefs_local.user_location_city : "Local News";
+                } else {
+                    NewsSource inferred = infer_source_from_url(url);
+                    result = get_source_name(inferred);
+                }
+            } else {
+                // Try to match to an RSS source in the database for consistent naming
+                var rss_store = Paperboy.RssSourceStore.get_instance();
+                var all_sources = rss_store.get_all_sources();
+                foreach (var src in all_sources) {
+                    string src_lower = src.name.down();
+                    string result_lower = result.down();
+                    if (src_lower.contains(result_lower) || result_lower.contains(src_lower)) {
+                        result = src.name;
+                        break;
+                    }
+                }
+            }
+        } catch (GLib.Error e) {
+            result = source_name;
+        }
+        return result;
+    }
+
+    // Check if a source name string matches a known NewsSource enum.
+    // Used to determine if a provided name corresponds to a built-in source.
+    public static bool source_name_matches(NewsSource source, string name) {
+        string n = name.down();
+        switch (source) {
+            case NewsSource.GUARDIAN: return n.contains("guardian");
+            case NewsSource.BBC: return n.contains("bbc");
+            case NewsSource.REDDIT: return n.contains("reddit");
+            case NewsSource.NEW_YORK_TIMES: return n.contains("nytimes") || n.contains("new york times");
+            case NewsSource.WALL_STREET_JOURNAL: return n.contains("wsj") || n.contains("wall street");
+            case NewsSource.BLOOMBERG: return n.contains("bloomberg");
+            case NewsSource.REUTERS: return n.contains("reuters");
+            case NewsSource.NPR: return n.contains("npr");
+            case NewsSource.FOX: return n.contains("fox");
+            default: return false;
+        }
+    }
+
+    // Determine whether the given article URL belongs to a built-in source.
+    // Returns true if infer_source_from_url returns a known source (not UNKNOWN).
     public static bool is_article_from_builtin(string? article_url) {
         if (article_url == null || article_url.length == 0) return false;
-
-        NewsSource inferred = infer_source_from_url(article_url);
-        string url_lower = article_url.down();
-
-        if (inferred == NewsSource.GUARDIAN && (url_lower.contains("guardian") || url_lower.contains("theguardian"))) return true;
-        if (inferred == NewsSource.BBC && (url_lower.contains("bbc.") || url_lower.contains("bbc.co"))) return true;
-        if (inferred == NewsSource.REDDIT && (url_lower.contains("reddit") || url_lower.contains("redd.it"))) return true;
-        if (inferred == NewsSource.NEW_YORK_TIMES && (url_lower.contains("nytimes") || url_lower.contains("nyti.ms"))) return true;
-        if (inferred == NewsSource.WALL_STREET_JOURNAL && (url_lower.contains("wsj.com") || url_lower.contains("on.wsj.com"))) return true;
-        if (inferred == NewsSource.BLOOMBERG && url_lower.contains("bloomberg")) return true;
-        if (inferred == NewsSource.REUTERS && url_lower.contains("reuters")) return true;
-        if (inferred == NewsSource.NPR && url_lower.contains("npr.org")) return true;
-        if (inferred == NewsSource.FOX && (url_lower.contains("foxnews") || url_lower.contains("fox.com"))) return true;
-
-        return false;
+        return infer_source_from_url(article_url) != NewsSource.UNKNOWN;
     }
 
 
@@ -241,20 +353,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     }
 
 
-    // Check if a category is a Bloomberg category (including overlaps)
+    // Check if a category is a Bloomberg category (including overlaps with standard categories)
     public static bool is_bloomberg_category(string category) {
-        switch (category) {
-            case "markets":
-            case "industries":
-            case "economics":
-            case "wealth":
-            case "green":
-            case "politics":
-            case "technology":
-                return true;
-            default:
-                return false;
-        }
+        return is_bloomberg_exclusive_category(category) ||
+               category == "politics" || category == "technology";
     }
 
 
@@ -373,40 +475,23 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return true;
         }
 
+        // RSS feed views - show all articles from that feed (no source filtering)
+        if (category.has_prefix("rssfeed:")) {
+            return true;
+        }
+
         // My Feed with custom RSS sources - allow articles from custom sources
         // Custom RSS articles will have category "myfeed" but URLs that don't match built-in sources
         if (category == "myfeed") {
             // Check if this URL belongs to a built-in source
-            string article_source_id = infer_source_id_from_url(article_url);
-
-            // If it's not a recognized built-in source (fallback to guardian), it's likely a custom RSS source
-            // We need to check if the inferred source is actually a match or just the fallback
-            NewsSource inferred = infer_source_from_url(article_url);
-            bool is_builtin_match = false;
-
-            // Check if URL actually contains source domain
-            string url_lower = article_url.down();
-            if (inferred == NewsSource.GUARDIAN && (url_lower.contains("guardian") || url_lower.contains("theguardian"))) is_builtin_match = true;
-            else if (inferred == NewsSource.BBC && (url_lower.contains("bbc."))) is_builtin_match = true;
-            else if (inferred == NewsSource.REDDIT && (url_lower.contains("reddit") || url_lower.contains("redd.it"))) is_builtin_match = true;
-            else if (inferred == NewsSource.NEW_YORK_TIMES && (url_lower.contains("nytimes") || url_lower.contains("nyti.ms"))) is_builtin_match = true;
-            else if (inferred == NewsSource.WALL_STREET_JOURNAL && (url_lower.contains("wsj.com") || url_lower.contains("on.wsj.com"))) is_builtin_match = true;
-            else if (inferred == NewsSource.BLOOMBERG && url_lower.contains("bloomberg")) is_builtin_match = true;
-            else if (inferred == NewsSource.REUTERS && url_lower.contains("reuters")) is_builtin_match = true;
-            else if (inferred == NewsSource.NPR && url_lower.contains("npr.org")) is_builtin_match = true;
-            else if (inferred == NewsSource.FOX && (url_lower.contains("foxnews") || url_lower.contains("fox.com"))) is_builtin_match = true;
-
-            if (!is_builtin_match) {
+            if (!is_article_from_builtin(article_url)) {
                 // This is likely a custom RSS source - allow it in My Feed
                 return true;
             }
 
             // For built-in sources in My Feed, check if they're enabled
-            if (!is_source_enabled(article_source_id)) {
-                return false;
-            }
-
-            return true;
+            string article_source_id = infer_source_id_from_url(article_url);
+            return is_source_enabled(article_source_id);
         }
 
         // Infer article's source
@@ -498,7 +583,35 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     }
                 }
 
-                // Priority 2: Try Google Favicon Service (robust fallback)
+                // Priority 2: Try Paperboy API /logos endpoint (high quality logos)
+                if (logo_url == null && host != null) {
+                    try {
+                        string api_url = "https://paperboybackend.onrender.com/logos?domain=" + host;
+                        var msg = new Soup.Message("GET", api_url);
+                        msg.get_request_headers().append("User-Agent", "paperboy/0.5.1a");
+                        
+                        GLib.Bytes? response = window.session.send_and_read(msg, null);
+                        var status = msg.get_status();
+                        
+                        if (status == Soup.Status.OK && response != null) {
+                            string body = (string) response.get_data();
+                            var parser = new Json.Parser();
+                            parser.load_from_data(body, -1);
+                            var root = parser.get_root();
+                            
+                            if (root != null && root.get_node_type() == Json.NodeType.OBJECT) {
+                                var obj = root.get_object();
+                                if (obj.has_member("logo_url") && !obj.get_null_member("logo_url")) {
+                                    logo_url = obj.get_string_member("logo_url");
+                                }
+                            }
+                        }
+                    } catch (GLib.Error e) {
+                        GLib.warning("Failed to fetch logo from Paperboy API: %s", e.message);
+                    }
+                }
+
+                // Priority 3: Try Google Favicon Service (robust fallback)
                 if (logo_url == null && host != null) {
                     logo_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
                 }
@@ -507,10 +620,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 var store = Paperboy.RssSourceStore.get_instance();
                 bool success = store.add_source(final_name, feed_url, null);
 
-                // Step 4: Save metadata and fetch logo. If we discovered a more
-                // human title than an existing domain-like metadata entry, force
-                // an update of the metadata file (overwrite the domain fallback).
-                if (success && logo_url != null && host != null && (existing_display_name == null || force_update_meta)) {
+                // Step 4: Save metadata and fetch logo
+                // Always fetch logo for newly added sources to ensure we have the best quality image
+                if (success && logo_url != null && host != null) {
                     try {
                         SourceMetadata.update_index_and_fetch(host, final_name, logo_url, "https://" + host, window.session, feed_url);
                     } catch (GLib.Error e) {
@@ -624,19 +736,19 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 if (source_metadata != null && source_metadata.length > 0) {
                     article_display_name = source_metadata;
                     int pipe_idx = source_metadata.index_of("||");
-                    if (pipe_idx >= 0) {
+                    if (pipe_idx >= 0 && source_metadata.length > pipe_idx + 2) {
                         article_display_name = source_metadata.substring(0, pipe_idx).strip();
                         article_logo_url = source_metadata.substring(pipe_idx + 2).strip();
                         // Remove category suffix if present
                         int cat_idx = article_logo_url.index_of("##category::");
-                        if (cat_idx >= 0) {
-                            article_logo_url = article_logo_url.substring(0, cat_idx).strip();
+                            if (cat_idx >= 0 && article_logo_url.length > cat_idx) {
+                                article_logo_url = article_logo_url.substring(0, cat_idx).strip();
                         }
                     }
                     // Remove category suffix from display name if present
                     int cat_idx = article_display_name.index_of("##category::");
-                    if (cat_idx >= 0) {
-                        article_display_name = article_display_name.substring(0, cat_idx).strip();
+                        if (cat_idx >= 0 && article_display_name.length > cat_idx) {
+                            article_display_name = article_display_name.substring(0, cat_idx).strip();
                     }
                 }
 
@@ -694,10 +806,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                             if (first_feed.has_member("source_name")) {
                                                 api_source_name = first_feed.get_string_member("source_name");
                                             }
-                                            if (first_feed.has_member("logo_url")) {
-                                                api_logo_url = first_feed.get_string_member("logo_url");
-                                            }
-
                                             if (first_feed.has_member("logo_url")) {
                                                 api_logo_url = first_feed.get_string_member("logo_url");
                                             }
@@ -767,11 +875,11 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                                     save_logo_url = api_logo_url;
                                                 }
 
-                                                // Priority 4: Final fallback - construct favicon URL from the domain
+                                                // Priority 4: Final fallback - use Google favicon service (better quality)
                                                 // This ensures we ALWAYS create metadata, even for brand new sources
                                                 if (save_logo_url == null || save_logo_url.length == 0) {
-                                                    save_logo_url = "https://" + host + "/favicon.ico";
-                                                    GLib.warning("RSS Discovery: Using favicon fallback for %s", host);
+                                                    save_logo_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+                                                    GLib.warning("RSS Discovery: Using Google favicon service for %s", host);
                                                 }
 
                                                 // Create metadata - we always have a logo URL now (at minimum, favicon)
@@ -958,11 +1066,11 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                     string gen_feed = out_stdout.strip();
                                     
                                     // Clean up any trailing garbage (e.g. HTML links appended by html2rss)
-                                    gen_feed = RssValidator.clean_rss_content(gen_feed);
+                                    gen_feed = RssValidatorUtils.clean_rss_content(gen_feed);
 
                                     // VALIDATE RSS before saving
                                     string? validation_error = null;
-                                    bool is_valid = RssValidator.is_valid_rss(gen_feed, out validation_error);
+                                    bool is_valid = RssValidatorUtils.is_valid_rss(gen_feed, out validation_error);
                                     
                                     if (!is_valid) {
                                         GLib.warning("Generated RSS is invalid: %s", validation_error);
@@ -974,7 +1082,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                         return null;
                                     }
                                     
-                                    int item_count = RssValidator.get_item_count(gen_feed);
+                                    int item_count = RssValidatorUtils.get_item_count(gen_feed);
                                     if (item_count == 0) {
                                         GLib.warning("Generated RSS has no items");
                                         GLib.Idle.add(() => {
@@ -1006,7 +1114,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                             var out_stream = f.replace(null, false, GLib.FileCreateFlags.NONE, null);
                                             var writer = new DataOutputStream(out_stream);
                                             // Ensure generated feed is safe for XML storage (strip illegal control chars)
-                                            string safe_feed = RssValidator.sanitize_for_xml(gen_feed);
+                                            string safe_feed = RssValidatorUtils.sanitize_for_xml(gen_feed);
                                             writer.put_string(safe_feed);
                                             writer.close(null);
 
@@ -1055,7 +1163,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                             if (article_logo_url != null && article_logo_url.length > 0) {
                                                 logo_url_to_save = article_logo_url;
                                             } else {
-                                                logo_url_to_save = "https://" + host + "/favicon.ico";
+                                                // Use Google favicon service (better quality than direct favicon.ico)
+                                                logo_url_to_save = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
                                             }
                                         }
                                         

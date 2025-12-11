@@ -71,11 +71,37 @@
       <description>Resolved canonical city name for the provided location (e.g., "San Francisco, California")</description>
     </key>
 
+    <!-- Unread Badge Preferences -->
+    <key name="unread-badges-enabled" type="b">
+      <default>true</default>
+      <summary>Unread count badges enabled</summary>
+      <description>Whether unread count badges are displayed in the sidebar</description>
+    </key>
+
+    <key name="unread-badges-categories" type="b">
+      <default>true</default>
+      <summary>Show badges on categories</summary>
+      <description>Whether unread count badges are shown on category items (e.g., World News, Technology)</description>
+    </key>
+
+    <key name="unread-badges-sources" type="b">
+      <default>true</default>
+      <summary>Show badges on followed sources</summary>
+      <description>Whether unread count badges are shown on custom RSS feed sources</description>
+    </key>
+
     <!-- List Preferences (stored as string arrays) -->
     <key name="personalized-categories" type="as">
       <default>[]</default>
       <summary>Personalized feed categories</summary>
       <description>List of category IDs included in the personalized feed</description>
+    </key>
+
+    <!-- App Settings -->
+    <key name="update-interval" type="s">
+      <default>'manual'</default>
+      <summary>Auto-update interval</summary>
+      <description>How often to automatically refresh feeds ('manual', '30min', '1hour', '2hours', '4hours')</description>
     </key>
 
   </schema>

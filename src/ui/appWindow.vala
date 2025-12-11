@@ -21,55 +21,6 @@ using Adw;
 using Soup;
 
 
-public class ArticleItem : GLib.Object {
-    public string title { get; set; }
-    public string url { get; set; }
-    public string? thumbnail_url { get; set; }
-    public string category_id { get; set; }
-    public string? source_name { get; set; }
-    public string? published { get; set; }
-    
-    public ArticleItem(string title, string url, string? thumbnail_url, string category_id, string? source_name = null, string? published = null) {
-        this.title = title;
-        this.url = url;
-        this.thumbnail_url = thumbnail_url;
-        this.category_id = category_id;
-        this.source_name = source_name;
-        this.published = published;
-    }
-}
-
-// Small helper object to track hero image requests (size, multiplier, retries)
-public class HeroRequest : GLib.Object {
-    public string url { get; set; }
-    public int last_requested_w { get; set; }
-    public int last_requested_h { get; set; }
-    public int multiplier { get; set; }
-    public int retries { get; set; }
-
-    public HeroRequest(string url, int w, int h, int multiplier) {
-        this.url = url;
-        this.last_requested_w = w;
-        this.last_requested_h = h;
-        this.multiplier = multiplier;
-        this.retries = 0;
-    }
-}
-
-// Deferred request holder for widgets that postpone downloads until visible
-public class DeferredRequest : GLib.Object {
-    public string url { get; set; }
-    public int w { get; set; }
-    public int h { get; set; }
-
-    public DeferredRequest(string url, int w, int h) {
-        this.url = url;
-        this.w = w;
-        this.h = h;
-    }
-}
-    
-
 public class NewsWindow : Adw.ApplicationWindow {
     // Centralized source and category management
     public SourceManager source_manager;
@@ -82,15 +33,15 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Box hero_container;
         public const int SIDEBAR_ICON_SIZE = 24;
         public const int MAX_CONCURRENT_DOWNLOADS = 10;
-        public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 3;
-        public const int INITIAL_MAX_WAIT_MS = 15000;
+        public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 10;  // Match MAX to avoid retry delays on startup
+        public const int INITIAL_MAX_WAIT_MS = 30000;  // Increased from 15s to 30s to allow more time for image downloads on startup
 
         // Track active downloads globally (used by ImageHandler)
         public static int active_downloads = 0;
         // Restored fields required by window logic (many are accessed from other modules)
         public NewsPreferences prefs;
+        public LocationDialog location_dialog;
         public GLib.Rand rng;
-        public Gee.HashMap<Gtk.Picture, HeroRequest> hero_requests;
         public Managers.ViewStateManager? view_state;
         // Image caching moved to ImageCache (pixbuf-backed). Do not store
         // Gdk.Texture or Gdk.Pixbuf in window fields; use `image_cache`.
@@ -106,9 +57,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         public MetaCache? meta_cache;
         public ArticleStateStore? article_state_store;
         public ImageCache? image_cache;
-        public ImageHandler image_handler;
+        public ImageManager image_manager;
         public Soup.Session session;
         public SidebarManager sidebar_manager;
+        public SidebarView sidebar_view;
         public Adw.NavigationSplitView split_view;
         public Adw.NavigationView nav_view;
         public Adw.OverlaySplitView article_preview_split;
@@ -119,12 +71,14 @@ public class NewsWindow : Adw.ApplicationWindow {
         public Adw.ToastOverlay toast_overlay;
         public Adw.ToastOverlay? content_toast_overlay;
         public ToastManager? toast_manager;
+        private Gtk.Widget? current_toast_widget;
         public Gtk.Widget dim_overlay;
         public Gtk.Box main_content_container;
         public Gtk.ScrolledWindow main_scrolled;
         public Gtk.Widget content_area;
         public Gtk.Box content_box;
         // ContentView-provided widgets (wired in constructor)
+        public ContentView? content_view;
         public Gtk.Label category_label;
         public Gtk.Label category_subtitle;
         public Gtk.Box? category_icon_holder;
@@ -132,8 +86,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         public Gtk.Label source_label;
         public Gtk.Box featured_box_dummy;
 
-        // Manager instance for header-related UI (kept private)
-        private HeaderManager header_manager;
+        // Manager instance for header-related UI
+        public HeaderManager header_manager;
         // Manager instance for loading/overlay UI
         public Managers.LoadingStateManager? loading_state;
         // Manager instance for RSS feed updates
@@ -143,19 +97,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         private string current_search_query = "";
         private string debug_log_path = "/tmp/paperboy-debug.log";
 
-        // Fetch / initial state tracking
-        public uint fetch_sequence = 0;
+        // Deferred download check timeout
         public uint deferred_check_timeout_id = 0;
-
-        // RSS feed adaptive layout tracking
-        private uint rss_feed_layout_timeout_id = 0;
-        private int rss_feed_article_count = 0;
     
-        // Convenience accessors for ArticleManager properties (for backward compatibility)
-        public ArticleItem[]? remaining_articles { get { return article_manager.remaining_articles; } set { article_manager.remaining_articles = value; } }
-        public int articles_shown { get { return article_manager.articles_shown; } set { article_manager.articles_shown = value; } }
-        public Gee.ArrayList<ArticleItem> article_buffer { get { return article_manager.article_buffer; } }
-        public bool is_featured_used() { return article_manager.featured_used; }
         // Update the source/logo label via HeaderManager
         private void update_source_info() {
             try { if (header_manager != null) header_manager.update_source_info(); } catch (GLib.Error e) { }
@@ -166,26 +110,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // user has enabled exactly one preferred source, map that id to the
     // corresponding enum; otherwise use the explicit prefs.news_source.
     public NewsSource effective_news_source() {
-        if (prefs.preferred_sources != null && prefs.preferred_sources.size == 1) {
-            try {
-                string id = prefs.preferred_sources.get(0);
-                switch (id) {
-                    case "guardian": return NewsSource.GUARDIAN;
-                    case "reddit": return NewsSource.REDDIT;
-                    case "bbc": return NewsSource.BBC;
-                    case "nytimes": return NewsSource.NEW_YORK_TIMES;
-                    case "wsj": return NewsSource.WALL_STREET_JOURNAL;
-                    case "bloomberg": return NewsSource.BLOOMBERG;
-                    case "reuters": return NewsSource.REUTERS;
-                    case "npr": return NewsSource.NPR;
-                    case "fox": return NewsSource.FOX;
-                    default: return prefs.news_source;
-                }
-            } catch (GLib.Error e) {
-                return prefs.news_source;
-            }
-        }
-        return prefs.news_source;
+        return source_manager.effective_news_source();
     }
 
     // Determine if the system is currently using dark mode
@@ -229,12 +154,38 @@ public class NewsWindow : Adw.ApplicationWindow {
         source_manager = new SourceManager(prefs);
         source_manager.set_window(this);
         category_manager = new CategoryManager(prefs, source_manager);
-        // Initialize hero request tracking map
-        hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
         // Initialize ArticleManager early (before any article-related code)
         article_manager = new Managers.ArticleManager(this);
+        
+        // Connect ArticleManager signals for UI operations
+        article_manager.request_show_load_more_button.connect(() => {
+            if (content_view != null) {
+                content_view.create_and_show_load_more_button();
+            }
+        });
+        
+        article_manager.request_hide_load_more_button.connect(() => {
+            if (content_view != null) {
+                content_view.hide_load_more_button();
+            }
+        });
+        
+        article_manager.request_remove_end_feed_message.connect(() => {
+            if (content_view != null) {
+                content_view.remove_end_of_feed_message();
+            }
+        });
+        
         // Instantiate view-state manager which owns URL/card mappings and viewed state
         view_state = new Managers.ViewStateManager(this);
+
+        // Connect signal to update unread count badges when articles are viewed
+        view_state.article_viewed.connect((url) => {
+            if (sidebar_manager != null) {
+                sidebar_manager.refresh_all_badge_counts();
+            }
+        });
+
         // Initialize in-memory cache and pending-downloads map
         // Capacity reduced to 30 (from 50) to prevent memory bloat with multiple sources
         // With all sources enabled, this prevents caching 200+ images in RAM
@@ -255,19 +206,23 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
         try {
             article_state_store = new ArticleStateStore();
+            // Clear stale article tracking from previous session on startup.
+            // Fresh articles will be registered as they're fetched, preventing
+            // inflated unread counts from persisted data.
+            if (article_state_store != null) {
+                article_state_store.clear_article_tracking();
+            }
         } catch (GLib.Error e) { article_state_store = null; }
         try {
-            image_cache = new ImageCache(256);
-        } catch (GLib.Error e) { image_cache = null; }
-        // Initialize external image handler that owns download/cache logic
-        image_handler = new ImageHandler(this);
-
-        
+        image_cache = new ImageCache(256);
+    } catch (GLib.Error e) { image_cache = null; }
+    // Initialize external image handler that owns download/cache logic
+    image_manager = new ImageManager(this);        
 
         // Load CSS
         var css_provider = new Gtk.CssProvider();
         try {
-            string? css_path = DataPaths.find_data_file("style.css");
+            string? css_path = DataPathsUtils.find_data_file("style.css");
             if (css_path != null) {
                 css_provider.load_from_path(css_path);
             }
@@ -341,8 +296,35 @@ public class NewsWindow : Adw.ApplicationWindow {
         menu_button.set_menu_model(menu);
         menu_button.set_tooltip_text("Main Menu");
         content_header.pack_end(menu_button);
-        // Create SidebarManager (it now builds its own UI)
+        // Create SidebarManager (logic only)
         sidebar_manager = new SidebarManager(this);
+
+        // When saved articles finish loading, refresh badge counts so the
+        // "Saved" badge appears promptly on startup.
+        try {
+            if (article_state_store != null) {
+                article_state_store.saved_articles_loaded.connect(() => {
+                    try { if (sidebar_manager != null) sidebar_manager.refresh_all_badge_counts(); } catch (GLib.Error e) { }
+
+                    // If the user was viewing Saved when the app started, the
+                    // saved articles may have been loaded after `fetch_news()`
+                    // ran. In that case, re-run `fetch_news()` so the Saved
+                    // view is populated now that saved articles are available.
+                    try {
+                        var p = NewsPreferences.get_instance();
+                        if (p != null && p.category == "saved") {
+                            Idle.add(() => {
+                                try { fetch_news(); } catch (GLib.Error _) { }
+                                return false;
+                            });
+                        }
+                    } catch (GLib.Error e) { }
+                });
+            }
+        } catch (GLib.Error e) { }
+
+        // Create SidebarView (UI only)
+        sidebar_view = new SidebarView(this, sidebar_manager);
 
         // Listen for category selections and trigger fetch/update from the window
         sidebar_manager.category_selected.connect((category) => {
@@ -357,11 +339,40 @@ public class NewsWindow : Adw.ApplicationWindow {
             });
         });
 
-        sidebar_manager.rebuild_rows();
+        // Delay sidebar rebuild slightly to ensure window is fully realized before starting initial fetch
+        // This prevents race conditions where images are requested before GTK widgets are ready
+        GLib.Idle.add(() => {
+            sidebar_manager.rebuild_sidebar();
+            return false;
+        });
 
-        // Request the completed navigation page from the manager (use the
+        // Delay badge refresh until after initial content loads to avoid competing with image downloads
+        // Badge refresh can be CPU/disk intensive and may block image loading threads
+        GLib.Timeout.add_seconds(2, () => {
+            try {
+                if (sidebar_manager != null) {
+                    sidebar_manager.refresh_all_badge_counts();
+                }
+            } catch (GLib.Error e) { }
+            return false;
+        });
+
+        // Fetch article metadata for all categories in background to populate unread counts
+        // Delay longer if user is viewing an RSS feed to avoid SQLite lock contention
+        bool is_rss_view = false;
+        try {
+            is_rss_view = prefs != null && prefs.category != null && prefs.category.has_prefix("rssfeed:");
+        } catch (GLib.Error e) { }
+
+        uint delay_ms = is_rss_view ? 5000 : 1000;  // 5 seconds for RSS, 1 second otherwise
+        Timeout.add(delay_ms, () => {
+            try { fetch_all_category_metadata_for_counts(); } catch (GLib.Error e) { }
+            return false;
+        });
+
+        // Request the completed navigation page from the view (use the
         // `sidebar_header` built earlier above)
-        Adw.NavigationPage sidebar_page = sidebar_manager.build_navigation_page(sidebar_header);
+        Adw.NavigationPage sidebar_page = sidebar_view.build_navigation_page(sidebar_header);
 
     // Wrap content in a NavigationPage for NavigationSplitView
     // We need to create the content page after setting up root_overlay
@@ -369,7 +380,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Build main content UI in a separate helper object so the window
     // constructor stays concise. ContentView constructs the widgets and
     // exposes them; we then wire them into the existing NewsWindow fields.
-    var content_view = new ContentView(prefs);
+    content_view = new ContentView(prefs);
+    content_view.set_window(this);
     category_label = content_view.category_label;
     category_subtitle = content_view.category_subtitle;
     category_icon_holder = content_view.category_icon_holder;
@@ -392,9 +404,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     layout_manager.columns_row = content_view.columns_row;
     layout_manager.content_area = content_view.content_area;
     // Ensure UI containers are visible after wiring
-    try { layout_manager.hero_container?.set_visible(true); } catch (GLib.Error e) { }
-    try { layout_manager.columns_row?.set_visible(true); } catch (GLib.Error e) { }
-    try { content_box?.set_visible(true); } catch (GLib.Error e) { }
+    layout_manager.hero_container?.set_visible(true);
+    layout_manager.columns_row?.set_visible(true);
+    content_box?.set_visible(true);
     // Ensure hero container visibility via helper
     layout_manager.ensure_hero_container_visible();
     // Wire loading/overlay widgets into LoadingStateManager (manager owns these now)
@@ -573,7 +585,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     try {
         if (loading_state.local_news_button != null) {
             loading_state.local_news_button.clicked.connect(() => {
-                try { PrefsDialog.show_set_location_dialog(this); } catch (GLib.Error e) { }
+                try { location_dialog.show(this); } catch (GLib.Error e) { }
             });
         }
     } catch (GLib.Error e) { }
@@ -582,7 +594,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     try {
         if (loading_state.personalized_message_action != null) {
             loading_state.personalized_message_action.clicked.connect(() => {
-                try { PrefsDialog.show_sources_list_dialog(this); } catch (GLib.Error e) { }
+                try { PrefsDialog.show_preferences_dialog(this); } catch (GLib.Error e) { }
             });
         }
     } catch (GLib.Error e) { }
@@ -633,7 +645,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     sidebar_toggle.toggled.connect(() => {
         bool active = sidebar_toggle.get_active();
         split_view.set_collapsed(!active);
-        try { if (sidebar_manager != null) sidebar_manager.set_revealed(active); } catch (GLib.Error e) { }
+        if (sidebar_view != null) sidebar_view.set_revealed(active);
     });
     
     content_page.set_can_pop(false); // Prevent accidental navigation away
@@ -669,7 +681,32 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Initialize toast manager with root_overlay so custom toasts
         // can be positioned in the content area without blocking scrolling
-        toast_manager = new ToastManager(root_overlay);
+        toast_manager = new ToastManager();
+        current_toast_widget = null;
+        
+        // Connect toast manager signals to handle GTK overlay manipulation
+        toast_manager.request_show_toast.connect((message, persistent) => {
+            // Dismiss any existing toast
+            if (current_toast_widget != null) {
+                root_overlay.remove_overlay(current_toast_widget);
+                current_toast_widget = null;
+            }
+            
+            // Create and show new toast
+            current_toast_widget = ToastWidget.create_toast_widget(message, true, () => {
+                if (toast_manager != null) {
+                    toast_manager.clear_persistent_toast();
+                }
+            });
+            root_overlay.add_overlay(current_toast_widget);
+        });
+        
+        toast_manager.request_dismiss_toast.connect(() => {
+            if (current_toast_widget != null) {
+                root_overlay.remove_overlay(current_toast_widget);
+                current_toast_widget = null;
+            }
+        });
 
         // Initialize feed update manager for automatic RSS feed updates
         feed_updater = new FeedUpdateManager(this);
@@ -680,7 +717,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         };
 
         // Initialize article window with image handler for loading preview images
-        article_pane = new ArticlePane(nav_view, session, this, image_handler);
+        article_pane = new ArticlePane(nav_view, session, this, image_manager);
         article_pane.set_preview_overlay(article_preview_split, article_preview_content);
 
         // Add keyboard event controller for closing article preview with Escape
@@ -759,7 +796,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             // white variants or back to the original variant as appropriate.
             sm.notify["dark"].connect(() => {
                 try {
-                    try { if (sidebar_manager != null) sidebar_manager.update_icons_for_theme(); } catch (GLib.Error e) { }
+                    if (sidebar_view != null) sidebar_view.update_icons_for_theme();
                     // Update the top-right source logo to pick the correct
                     // white or normal variant based on the new theme.
                     try { update_source_info(); } catch (GLib.Error e) { }
@@ -783,10 +820,12 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         } catch (GLib.Error e) { fetch_news(); }
 
-        // Update RSS feeds in background after a short delay (2 seconds)
-        // This gives the app time to fully initialize before starting network requests
+        // Delay automatic feed updates to avoid startup contention
+        // Wait 45 seconds after launch so initial content loads smoothly
+        // This allows time for user to view initial content and for background
+        // metadata fetch to complete before heavy feed regeneration starts
         if (feed_updater != null) {
-            GLib.Timeout.add_seconds(2, () => {
+            GLib.Timeout.add_seconds(45, () => {
                 feed_updater.update_all_feeds_async();
                 return false; // One-shot
             });
@@ -816,81 +855,15 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
-    // Debug helper: dump memory cache stats and counts of widget-held textures.
-    // This is a best-effort diagnostic and is intended to be called only when
-    // PAPERBOY_DEBUG is set. It logs to the debug log path via append_debug_log().
-    public void debug_dump_cache_stats() {
-        try {
-            int cache_size = 0;
-            try { cache_size = image_cache != null ? image_cache.size() : ImageCache.get_global().size(); } catch (GLib.Error e) { cache_size = -1; }
-            append_debug_log("DEBUG: image_cache.size=" + cache_size.to_string());
-
-            // If the cache supports key enumeration, dump each entry and pixbuf dimensions
-            try {
-                var keys = image_cache != null ? image_cache.keys() : ImageCache.get_global().keys();
-                int key_count = 0;
-                try { key_count = keys.size; } catch (GLib.Error e) { key_count = 0; }
-                append_debug_log("DEBUG: image_cache.keys_count=" + key_count.to_string());
-                for (int i = 0; i < keys.size; i++) {
-                    string k = keys.get(i);
-                    try {
-                        var pb = image_cache != null ? image_cache.get(k) : ImageCache.get_global().get(k);
-                        if (pb != null) {
-                            int w = 0; int h = 0;
-                            try { w = pb.get_width(); } catch (GLib.Error e) { }
-                            try { h = pb.get_height(); } catch (GLib.Error e) { }
-                            append_debug_log("DEBUG: cache_entry: " + k.to_string() + " => pixbuf " + w.to_string() + "x" + h.to_string());
-                        } else {
-                            append_debug_log("DEBUG: cache_entry: " + k.to_string() + " => <null pixbuf>");
-                        }
-                    } catch (GLib.Error e) {
-                        try { append_debug_log("DEBUG: cache_entry_error for " + k.to_string()); } catch (GLib.Error _e) { }
-                    }
-                }
-            } catch (GLib.Error e) {
-                // ignore diagnostic failures
-            }
-            
-            // Count unique textures referenced by registered Picture widgets
-            int widget_tex_count = 0;
-            try {
-                var set = new Gee.HashSet<Gdk.Texture>();
-                if (view_state != null) {
-                    foreach (var kv in view_state.url_to_picture.entries) {
-                        try {
-                            var pic = kv.value;
-                            var p = pic.get_paintable();
-                            if (p is Gdk.Texture) {
-                                set.add((Gdk.Texture)p);
-                            }
-                        } catch (GLib.Error e) { }
-                    }
-                }
-                widget_tex_count = set.size;
-            } catch (GLib.Error e) { widget_tex_count = -1; }
-
-            append_debug_log("DEBUG: unique_textures_referenced_by_widgets=" + widget_tex_count.to_string());
-
-            // Report total registered pictures and pending downloads
-            int pictures_registered = 0;
-            try { pictures_registered = view_state != null ? view_state.url_to_picture.size : 0; } catch (GLib.Error e) { pictures_registered = -1; }
-            int pending = 0;
-            try { pending = pending_downloads.size; } catch (GLib.Error e) { pending = -1; }
-            append_debug_log("DEBUG: url_to_picture.count=" + pictures_registered.to_string() + " pending_downloads.count=" + pending.to_string());
-        } catch (GLib.Error e) {
-            // best-effort only
-        }
-    }
-
     public void update_category_icon() {
         try { if (header_manager != null) header_manager.update_category_icon(); } catch (GLib.Error e) { }
     }
 
-    private void update_content_header() {
+    public void update_content_header() {
         try { if (header_manager != null) header_manager.update_content_header(); } catch (GLib.Error e) { }
     }
 
-    private void update_content_header_now() {
+    public void update_content_header_now() {
         try { if (header_manager != null) header_manager.update_content_header_now(); } catch (GLib.Error e) { }
     }
 
@@ -906,48 +879,16 @@ public class NewsWindow : Adw.ApplicationWindow {
         try { if (loading_state != null) loading_state.update_local_news_ui(); } catch (GLib.Error e) { }
     }
 
-    private bool source_has_categories(NewsSource s) {
-        switch (s) {
-            // So far, all our sources support categories
-            // but I'll leave this here in case I add one that doesn't
-            /*case NewsSource.BLOOMBERG:
-                return true;
-            case NewsSource.REUTERS:
-            case NewsSource.NPR:
-            case NewsSource.FOX:
-                return true;*/
-            default:
-                return true;
-        }
-    }
-
-    private void update_sidebar_for_source() {
+    public void update_sidebar_for_source() {
         try { if (sidebar_manager != null) sidebar_manager.update_for_source_change(); } catch (GLib.Error e) { }
     }
 
-    // SidebarManager handles sidebar icon updates on theme changes now.
-
     public string category_display_name_for(string cat) {
-        try { if (header_manager != null) return header_manager.category_display_name_for(cat); } catch (GLib.Error e) { }
-        // Fallback: if header_manager not ready, return a simple humanized label
-        if (cat == null || cat.length == 0) return "News";
-        string s = cat.strip();
-        if (s.length == 0) return "News";
-        s = s.replace("_", " ").replace("-", " ");
-        string out = "";
-        string[] parts = s.split(" ");
-        foreach (var p in parts) {
-            if (p.length == 0) continue;
-            string w = p;
-            char c = w[0];
-            char up = c;
-            if (c >= 'a' && c <= 'z') up = (char)(c - 32);
-            string first = "%c".printf(up);
-            string rest = w.length > 1 ? w.substring(1).down() : "";
-            out += (out.length > 0 ? " " : "") + first + rest;
+        if (header_manager != null) {
+            return header_manager.category_display_name_for(cat);
         }
-        if (out.length == 0) return "News";
-        return out;
+        // Fallback to CategoryManager's static lookup if header_manager not ready
+        return CategoryManager.get_category_display_name(cat);
     }
 
     public Gtk.Widget build_category_chip(string category_id) {
@@ -955,151 +896,15 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     public string get_source_name(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN:
-                return "The Guardian";
-            case NewsSource.WALL_STREET_JOURNAL:
-                return "Wall Street Journal";
-            case NewsSource.BBC:
-                return "BBC News";
-            case NewsSource.REDDIT:
-                return "Reddit";
-            case NewsSource.NEW_YORK_TIMES:
-                return "NY Times";
-            case NewsSource.BLOOMBERG:
-                return "Bloomberg";
-            case NewsSource.REUTERS:
-                return "Reuters";
-            case NewsSource.NPR:
-                return "NPR";
-            case NewsSource.FOX:
-                return "Fox News";
-            default:
-                return "News";
-        }
+        return SourceManager.get_source_name(source);
     }
 
-    private string? get_source_icon_path(NewsSource source) {
-        string icon_filename;
-        switch (source) {
-            case NewsSource.GUARDIAN:
-                icon_filename = "guardian-logo.png";
-                break;
-            case NewsSource.BBC:
-                icon_filename = "bbc-logo.png";
-                break;
-            case NewsSource.REDDIT:
-                icon_filename = "reddit-logo.png";
-                break;
-            case NewsSource.NEW_YORK_TIMES:
-                icon_filename = "nytimes-logo.png";
-                break;
-            case NewsSource.BLOOMBERG:
-                icon_filename = "bloomberg-logo.png";
-                break;
-            case NewsSource.REUTERS:
-                icon_filename = "reuters-logo.png";
-                break;
-            case NewsSource.NPR:
-                icon_filename = "npr-logo.png";
-                break;
-            case NewsSource.FOX:
-                icon_filename = "foxnews-logo.png";
-                break;
-            case NewsSource.WALL_STREET_JOURNAL:
-                icon_filename = "wsj-logo.png";
-                break;
-            default:
-                return null;
-        }
-        
-        // Try to find icon in data directory
-    string icon_path = DataPaths.find_data_file("icons/" + icon_filename);
-        return icon_path;
-    }
-
-    // Infer source from a URL by checking known domain substrings. Falls back
-    // to the current prefs.news_source when uncertain.
     public NewsSource infer_source_from_url(string? url) {
-        if (url == null || url.length == 0) return NewsSource.UNKNOWN;
-    string low = url.down();
-        if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) return NewsSource.GUARDIAN;
-        if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) return NewsSource.BBC;
-        if (low.index_of("reddit.com") >= 0 || low.index_of("redd.it") >= 0) return NewsSource.REDDIT;
-        if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) return NewsSource.NEW_YORK_TIMES;
-        if (low.index_of("wsj.com") >= 0 || low.index_of("dowjones") >= 0) return NewsSource.WALL_STREET_JOURNAL;
-        if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
-        if (low.index_of("reuters") >= 0) return NewsSource.REUTERS;
-        if (low.index_of("npr.org") >= 0) return NewsSource.NPR;
-        if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) return NewsSource.FOX;
-        // Unknown source - don't default to user preference to avoid incorrect branding
-        return NewsSource.UNKNOWN;
+        return SourceManager.infer_source_from_url(url);
     }
 
-    // Resolve a NewsSource from a provided display/source name if possible;
-    // fall back to URL inference when the name is missing or unrecognized.
     public NewsSource resolve_source(string? source_name, string url) {
-        // Parse encoded source name format: "SourceName||logo_url##category::cat"
-        string? clean_name = source_name;
-        if (source_name != null && source_name.length > 0) {
-            // Strip logo URL if present
-            int pipe_idx = source_name.index_of("||");
-            if (pipe_idx >= 0) {
-                clean_name = source_name.substring(0, pipe_idx).strip();
-            }
-            // Strip category suffix if present
-            int cat_idx = clean_name.index_of("##category::");
-            if (cat_idx >= 0) {
-                clean_name = clean_name.substring(0, cat_idx).strip();
-            }
-        }
-        
-        // Start with URL-inferred source as a sensible default
-        NewsSource resolved = infer_source_from_url(url);
-        if (clean_name != null && clean_name.length > 0) {
-            string low = clean_name.down();
-            if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
-            else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
-            else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
-            else if (low.index_of("nytimes") >= 0 || low.index_of("new york") >= 0) resolved = NewsSource.NEW_YORK_TIMES;
-            else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
-            else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
-            else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
-            else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
-            // If we couldn't match the provided name, keep the URL-inferred value
-        }
-
-        // Debug: write a trace when PAPERBOY_DEBUG is set so we can inspect decisions
-        try {
-            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-            if (_dbg != null && _dbg.length > 0) {
-                string in_src = source_name != null ? source_name : "<null>";
-                string clean_src = clean_name != null ? clean_name : "<null>";
-                append_debug_log("resolve_source: input_name=" + in_src + " clean_name=" + clean_src + " url=" + (url != null ? url : "<null>") + " resolved=" + get_source_name(resolved));
-            }
-        } catch (GLib.Error e) { }
-
-        return resolved;
-    }
-
-    // Normalize an arbitrary source display name into candidate icon basenames.
-    // e.g. "Associated Press" -> "associated-press" / "associated_press"
-    private string[] source_name_to_icon_candidates(string name) {
-        string low = name.down();
-        // Remove punctuation except spaces and dashes/underscores
-        var sb = new StringBuilder();
-        for (int i = 0; i < low.length; i++) {
-            char c = low[i];
-            if (c.isalnum() || c == ' ' || c == '-' || c == '_') sb.append_c(c);
-            else sb.append_c(' ');
-        }
-        string cleaned = sb.str.strip();
-        // Variants: hyphen, underscore, concatenated
-    string hyphen = cleaned.replace(" ", "-").replace("--", "-");
-    string underscore = cleaned.replace(" ", "_").replace("__", "_");
-    string concat = cleaned.replace(" ", "");
-        return new string[] { hyphen, underscore, concat };
+        return SourceManager.resolve_source(source_name, url);
     }
 
     // Build a source badge using the provided arbitrary source name (often
@@ -1109,18 +914,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     // back to a text-only badge using the provided name.
     public Gtk.Widget build_source_badge_dynamic(string? source_name, string url, string category_id) {
         return CardBuilder.build_source_badge_dynamic(this, source_name, url, category_id);
-    }
-
-    // Build a small source badge widget (icon + short name) to place in the
-    // top-right corner of cards and hero slides.
-    private Gtk.Widget build_source_badge(NewsSource source) {
-        return CardBuilder.build_source_badge(source);
-    }
-
-    // Build a small 'Viewed' badge with a check icon to place in the top-right
-    // corner of a card/hero when the user has already opened the preview.
-    private Gtk.Widget build_viewed_badge() {
-        return CardBuilder.build_viewed_badge();
     }
 
     // Delegate marking an article viewed to the ViewStateManager
@@ -1156,30 +949,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
-    private void create_icon_placeholder(Gtk.Picture image, string icon_path, int width, int height) {
-        // Delegate to centralized placeholder builder which accepts a NewsSource
-        try {
-            PlaceholderBuilder.create_icon_placeholder(image, icon_path, prefs.news_source, width, height);
-        } catch (GLib.Error e) {
-            // Best-effort fallback
-            try { create_source_text_placeholder(image, get_source_name(prefs.news_source), width, height); } catch (GLib.Error ee) { }
-        }
-    }
-
-    private void create_source_text_placeholder(Gtk.Picture image, string source_name, int width, int height) {
-        try {
-            PlaceholderBuilder.create_source_text_placeholder(image, source_name, prefs.news_source, width, height);
-        } catch (GLib.Error e) {
-            try { create_gradient_placeholder(image, width, height); } catch (GLib.Error ee) { }
-        }
-    }
-
-    private void set_placeholder_image(Gtk.Picture image, int width, int height) {
-        // Delegate to PlaceholderBuilder using the app-level news source
-        try {
-            PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, prefs.news_source);
-        } catch (GLib.Error e) {
-            try { PlaceholderBuilder.create_gradient_placeholder(image, width, height); } catch (GLib.Error ee) { }
+    public void show_share_dialog(string url) {
+        if (article_pane != null) {
+            article_pane.show_share_dialog(url);
         }
     }
 
@@ -1218,10 +990,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
-    private void create_gradient_placeholder(Gtk.Picture image, int width, int height) {
-        try { PlaceholderBuilder.create_gradient_placeholder(image, width, height); } catch (GLib.Error e) { }
-    }
-
     // Layout-related logic has been moved to LayoutManager; delegate to it.
     public int estimate_content_width() {
         try { if (layout_manager != null) return layout_manager.estimate_content_width(); } catch (GLib.Error e) { }
@@ -1232,24 +1000,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         try { if (layout_manager != null) layout_manager.update_main_content_size(sidebar_visible); } catch (GLib.Error e) { }
     }
 
-    private void update_existing_hero_card_size() {
-        try { if (layout_manager != null) layout_manager.update_existing_hero_card_size(); } catch (GLib.Error e) { }
-    }
-
     public void maybe_refetch_hero_for(Gtk.Picture pic, HeroRequest info) {
         try { if (layout_manager != null) layout_manager.maybe_refetch_hero_for(pic, info); } catch (GLib.Error e) { }
     }
 
-    private int estimate_column_width(int cols) {
-        try { if (layout_manager != null) return layout_manager.estimate_column_width(cols); } catch (GLib.Error e) { }
-        return 200;
-    }
-
-    private void rebuild_columns(int count) {
-        try { if (layout_manager != null) layout_manager.rebuild_columns(count); } catch (GLib.Error e) { }
-    }
-    
-    private void show_loading_spinner() {
+    public void show_loading_spinner() {
         try { if (loading_state != null) loading_state.show_loading_spinner(); } catch (GLib.Error e) { }
     }
     
@@ -1259,16 +1014,16 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Show the global error overlay. If `msg` is provided it will be shown
     // in the overlay label; otherwise we use a generic "no articles" text.
-    private void show_error_message(string? msg = null) {
+    public void show_error_message(string? msg = null) {
         try { if (loading_state != null) loading_state.show_error_message(msg); } catch (GLib.Error e) { }
-    }
-
-    private void hide_error_message() {
-        try { if (loading_state != null) loading_state.hide_error_message(); } catch (GLib.Error e) { }
+        
+        // Also show a user-visible toast for immediate feedback
+        string toast_msg = msg != null && msg.length > 0 ? msg : "Failed to load articles. Please try again.";
+        try { show_toast(toast_msg); } catch (GLib.Error e) { }
     }
 
     // Reveal main content (stop showing the loading spinner)
-    private void reveal_initial_content() {
+    public void reveal_initial_content() {
         try { if (loading_state != null) loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
     }
 
@@ -1278,125 +1033,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         return "pixbuf::url:%s::%dx%d".printf(url, w, h);
     }
 
-    // Process deferred download requests: if a deferred widget becomes visible,
-    // start its download. This runs on the main loop and reschedules itself
-    // only when there are remaining deferred requests.
-    public void process_deferred_downloads() {
-        // Process only a few at a time to avoid scroll jank
-        const int MAX_BATCH = 5;
-        int processed = 0;
-        
-        // Collect to-start entries to avoid modifying map while iterating
-        var to_start = new Gee.ArrayList<Gtk.Picture>();
-        foreach (var kv in deferred_downloads.entries) {
-            if (processed >= MAX_BATCH) break;
-            Gtk.Picture pic = kv.key;
-            DeferredRequest req = kv.value;
-            bool vis = false;
-            try { vis = pic.get_visible(); } catch (GLib.Error e) { vis = true; }
-            if (vis) {
-                to_start.add(pic);
-                processed++;
-            }
-        }
-
-        foreach (var pic in to_start) {
-            var req = deferred_downloads.get(pic);
-            if (req == null) continue;
-            // Remove before starting to avoid races
-            try { deferred_downloads.remove(pic); } catch (GLib.Error e) { }
-            // Start immediately (force bypass visibility deferral)
-            try { image_handler.load_image_async(pic, req.url, req.w, req.h, true); } catch (GLib.Error e) { }
-        }
-        // If there are still deferred entries, schedule another check
-        if (deferred_downloads.size > 0) {
-            if (deferred_check_timeout_id == 0) {
-                deferred_check_timeout_id = Timeout.add(1200, () => {
-                    try { process_deferred_downloads(); } catch (GLib.Error e) { }
-                    deferred_check_timeout_id = 0;
-                    return false;
-                });
-            }
-        }
-    }
-
-    // After initial-phase end: request higher-res images for items we loaded
-    // at reduced sizes. To avoid flooding the network/CPU we only upgrade
-    // images that are still present in the UI (`url_to_picture`) and we do
-    // them in small batches with a short delay between batches.
-    public void upgrade_images_after_initial() {
-        // Be conservative: smaller batches and longer pause to avoid
-        // saturating network/CPU and doing many main-thread decodes.
-        const int UPGRADE_BATCH_SIZE = 3;
-        int processed = 0;
-
-        if (view_state != null) {
-            foreach (var kv in view_state.url_to_picture.entries) {
-                // kv.key is the normalized article URL
-                string norm_url = kv.key;
-                Gtk.Picture? pic = kv.value;
-                if (pic == null) continue;
-
-                // Look up the last requested size (may be stored under normalized key)
-                var rec = requested_image_sizes.get(norm_url);
-                if (rec == null || rec.length == 0) continue;
-                string[] parts = rec.split("x");
-                if (parts.length != 2) continue;
-                int last_w = 0; int last_h = 0;
-                try { last_w = int.parse(parts[0]); last_h = int.parse(parts[1]); } catch (GLib.Error e) { continue; }
-
-                int new_w = (int)(last_w * 2);
-                int new_h = (int)(last_h * 2);
-                new_w = layout_manager.clampi(new_w, last_w, 1600);
-                new_h = layout_manager.clampi(new_h, last_h, 1600);
-
-                // Check memory cache for both normalized-keyed and original-keyed entries
-                bool has_large = false;
-                string key_norm = make_cache_key(norm_url, new_w, new_h);
-                if ((image_cache != null ? image_cache.get(key_norm) : ImageCache.get_global().get(key_norm)) != null) has_large = true;
-
-                string? original = null;
-                try { if (view_state != null) original = view_state.normalized_to_url.get(norm_url); } catch (GLib.Error e) { original = null; }
-                if (!has_large && original != null) {
-                    string key_orig = make_cache_key(original, new_w, new_h);
-                    if ((image_cache != null ? image_cache.get(key_orig) : ImageCache.get_global().get(key_orig)) != null) has_large = true;
-                }
-
-                if (has_large) continue; // already have larger
-
-                // Find original URL to request (don't use normalized URL for network)
-                if (original == null) continue;
-                image_handler.load_image_async(pic, original, new_w, new_h);
-
-                processed += 1;
-                if (processed >= UPGRADE_BATCH_SIZE) {
-                    // Schedule the next batch after a short pause
-                    Timeout.add(1000, () => {
-                        upgrade_images_after_initial();
-                        return false;
-                    });
-                    return;
-                }
-            }
-        }
-        // finished all entries (no-op)
-    }
-
-    // Called when an image finished being set on a Picture. If it's a hero image and we're
-    // Called when an image finished being set (success or fallback). During the
-    // initial phase we decrement the pending counter and reveal the UI when all
-    // initial items are populated and no pending image loads remain.
-    public void on_image_loaded(Gtk.Picture image) {
-        if (loading_state == null) return;
-        if (!loading_state.initial_phase) return;
-        if (hero_requests.get(image) != null) loading_state.hero_image_loaded = true;
-        if (loading_state.pending_images > 0) loading_state.pending_images--;
-
-        if (loading_state.initial_items_populated && loading_state.pending_images == 0) {
-            try { loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
-        }
-    }
-
     // Helper to mark that initial items have been added to the UI. If there are
     // no pending image loads, reveal the UI immediately.
     public void mark_initial_items_populated() {
@@ -1404,7 +1040,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     // Clean up memory by releasing old textures and widget references
-    private void cleanup_old_content() {
+    public void cleanup_old_content() {
         // Force clear all Picture widgets to release texture references
         foreach (var pic in view_state != null ? view_state.url_to_picture.values : new Gee.ArrayList<Gtk.Picture>()) {
             pic.set_paintable(null);
@@ -1419,7 +1055,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         pending_downloads.clear();
         
         // Clear hero requests
-        hero_requests.clear();
+        image_manager.hero_requests.clear();
         
         // Clear deferred downloads
         deferred_downloads.clear();
@@ -1431,1081 +1067,22 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Suppress clearing here to avoid excessive eviction when switching
         // categories; rely on the LRU policy instead. Window-close still
         // frees widget-held textures elsewhere.
+    }
+
+    // Thin wrapper delegating to FetchNewsController. Keeps public API stable
+    // while the heavy implementation lives in `fetch_news_impl` for easier
+    // staged extraction.
+    public void fetch_news() {
         try {
-            if (AppDebugger.debug_enabled()) {
-                try { stderr.printf("DEBUG: suppressed ImageCache.clear() during category navigation\n"); } catch (GLib.Error e) { }
-            }
+            FetchNewsController.fetch_news(this);
         } catch (GLib.Error e) { }
     }
 
-    public void fetch_news() {
-        // Debug: log fetch_news invocation and current sequence
-        try {
-            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-            if (_dbg != null && _dbg.length > 0) {
-                append_debug_log("fetch_news: entering seq=" + fetch_sequence.to_string() + " category=" + prefs.category + " preferred_sources=" + AppDebugger.array_join(prefs.preferred_sources));
-            }
-        } catch (GLib.Error e) { }
-
-        // Clear all old articles and widgets before loading new category
-        try { if (article_manager != null) article_manager.clear_articles(); } catch (GLib.Error e) { }
-
-        // Ensure sidebar visibility reflects current source
-        update_sidebar_for_source();
-        // Clear featured hero and randomize columns count per fetch between 2 and 4 for extra variety
-        // Clear featured and destroy widgets
-        Gtk.Widget? fchild = layout_manager.featured_box.get_first_child();
-        while (fchild != null) {
-            Gtk.Widget? next = fchild.get_next_sibling();
-            try {
-                var parent = fchild.get_parent();
-                stderr.printf("TRACE remove: featured_box.remove child=%p parent_is_featured_box=%s\n", fchild, (parent == layout_manager.featured_box) ? "YES" : "NO");
-            } catch (GLib.Error e) { }
-            layout_manager.featured_box.remove(fchild);
-            fchild.unparent();
-            fchild = next;
-        }
-        article_manager.featured_used = false;
-        // Reset featured carousel state so new category fetches start fresh
-            if (article_manager.hero_carousel != null) {
-            article_manager.hero_carousel.stop_timer();
-            try {
-                if (article_manager.hero_carousel.container != null) {
-                    try {
-                        var parent = article_manager.hero_carousel.container.get_parent();
-                        stderr.printf("TRACE remove: featured_box.remove hero_carousel.container parent_is_featured_box=%s\n", (parent == layout_manager.featured_box) ? "YES" : "NO");
-                    } catch (GLib.Error e) { }
-                    layout_manager.featured_box.remove(article_manager.hero_carousel.container);
-                }
-            } catch (GLib.Error e) { }
-            article_manager.hero_carousel = null;
-        }
-        if (article_manager.featured_carousel_items != null) {
-            article_manager.featured_carousel_items.clear();
-        }
-
-        // Restore hero/featured container visibility (may have been hidden by RSS adaptive layout)
-        try {
-            if (layout_manager.hero_container != null) {
-                layout_manager.hero_container.set_visible(true);
-            }
-        } catch (GLib.Error e) { }
-        try {
-            if (layout_manager.featured_box != null) {
-                layout_manager.featured_box.set_visible(true);
-            }
-        } catch (GLib.Error e) { }
-        article_manager.featured_carousel_category = null;
-        
-        // Clear hero_container for Top Ten (remove all children including featured_box)
-        // For other categories, hero_container should just have featured_box
-        if (category_manager.is_topten_view()) {
-            // Remove and destroy all children from hero_container
-            Gtk.Widget? hchild = layout_manager.hero_container.get_first_child();
-            while (hchild != null) {
-                Gtk.Widget? next = hchild.get_next_sibling();
-                try {
-                    var parent = hchild.get_parent();
-                    stderr.printf("TRACE remove: hero_container.remove child=%p parent_is_hero_container=%s\n", hchild, (parent == layout_manager.hero_container) ? "YES" : "NO");
-                } catch (GLib.Error e) { }
-                layout_manager.hero_container.remove(hchild);
-                hchild.unparent();
-                hchild = next;
-            }
-            article_manager.topten_hero_count = 0;
-        } else {
-            // For non-topten views, clear and destroy everything first then add featured_box
-            Gtk.Widget? hchild = layout_manager.hero_container.get_first_child();
-            while (hchild != null) {
-                Gtk.Widget? next = hchild.get_next_sibling();
-                layout_manager.hero_container.remove(hchild);
-                hchild.unparent();
-                hchild = next;
-            }
-            // Now add featured_box for carousel
-            layout_manager.hero_container.append(layout_manager.featured_box);
-        }
-        
-        // Top Ten uses special 2-row grid layout (2 heroes + 2 rows of 4 cards)
-        // Other categories use standard 3-column masonry
-        if (category_manager.is_topten_view()) {
-            rebuild_columns(4); // 4 columns for grid layout
-        } else {
-            rebuild_columns(3); // Standard masonry
-        }
-        
-        // Clean up memory: clear image caches and widget references
-        cleanup_old_content();
-        
-        // Reset category distribution tracking for new content
-        article_manager.category_column_counts.clear();
-        article_manager.recent_categories.clear();
-        article_manager.next_column_index = 0;
-        article_buffer.clear();
-        article_manager.category_last_column.clear();
-        
-        // Clean up category tracking
-        article_manager.recent_category_queue.clear();
-        articles_shown = 0;
-
-        // Adjust preview cache size for Local News view to conserve memory.
-        // Local News can have many items; reduce preview cache to a small number
-        // when active. Restore default capacity for other views.
-        try {
-            if (category_manager.is_local_news_view()) {
-                try { PreviewCacheManager.get_cache().set_capacity(6); } catch (GLib.Error e) { }
-            } else {
-                try { PreviewCacheManager.get_cache().set_capacity(12); } catch (GLib.Error e) { }
-            }
-        } catch (GLib.Error e) { }
-        
-        // Cancel any pending buffer flush
-        if (article_manager.buffer_flush_timeout_id > 0) {
-            Source.remove(article_manager.buffer_flush_timeout_id);
-            article_manager.buffer_flush_timeout_id = 0;
-        }
-        
-        // Clear remaining articles from previous session
-        remaining_articles = null;
-        article_manager.remaining_articles_index = 0;
-        
-        // Remove any existing Load More button - now managed by ArticleManager
-        // (ArticleManager will handle button cleanup internally)
-        
-        // If the user selected "My Feed" but personalization is disabled,
-        // show the personalized overlay and return (no content should be fetched).
-        bool is_myfeed_category = category_manager.is_myfeed_category();
-
-        bool is_myfeed_disabled = (is_myfeed_category && !prefs.personalized_feed_enabled);
-        if (is_myfeed_disabled) {
-            try { update_content_header(); } catch (GLib.Error e) { }
-            try { update_personalization_ui(); } catch (GLib.Error e) { }
-            // Ensure any spinner is hidden and don't proceed to fetch
-            hide_loading_spinner();
-            return;
-        }
-
-    // Show loading spinner while fetching content
-    show_loading_spinner();
-    // Ensure content header (icon + category + optional search text)
-    // is painted immediately before we begin creating hero/article widgets.
-    // update_sidebar_for_source() above has already updated source-related
-    // state; call the synchronous header update now to guarantee ordering.
-    try { update_content_header_now(); } catch (GLib.Error e) { }
-        
-        // Hide error message if it was visible from a previous failed fetch
-        hide_error_message();
-
-        // Start initial-phase gating: wait for initial items and their images
-        if (loading_state != null) {
-            loading_state.initial_phase = true;
-            loading_state.hero_image_loaded = false;
-            loading_state.pending_images = 0;
-            loading_state.initial_items_populated = false;
-            loading_state.network_failure_detected = false;
-            if (loading_state.initial_reveal_timeout_id > 0) {
-                Source.remove(loading_state.initial_reveal_timeout_id);
-                loading_state.initial_reveal_timeout_id = 0;
-            }
-        }
-        
-        // Capture a strong reference to `this` so the wrapped callbacks hold
-        // the NewsWindow alive while they're queued. Without this the window
-        // may be freed before the callback runs and member access will crash.
-        var self_ref = this;
-        // Explicitly bump the GLib reference count for the duration of this
-        // fetch. We'll unref after a short safety timeout so we don't leak
-        // refs if something goes wrong. This prevents callbacks from racing
-        // against object destruction.
-        // Increase and later decrease the object's reference count so the
-        // callbacks won't race with object destruction.
-        self_ref.ref();
-        
-        // Safety timeout: reveal after a reasonable maximum to avoid blocking forever
-        if (loading_state != null) {
-            loading_state.initial_reveal_timeout_id = Timeout.add(INITIAL_MAX_WAIT_MS, () => {
-                if (!self_ref.loading_state.initial_items_populated) {
-                    try {
-                        if (self_ref.loading_state.network_failure_detected) {
-                            self_ref.show_error_message("No network connection detected. Check your connection and try again.");
-                        } else {
-                            self_ref.show_error_message();
-                        }
-                    } catch (GLib.Error e) { }
-                } else {
-                    self_ref.reveal_initial_content();
-                }
-                self_ref.loading_state.initial_reveal_timeout_id = 0;
-                return false;
-            });
-        }
-        
-        
-        // Bump fetch_sequence so callbacks from older fetches are ignored
-        uint before_seq = fetch_sequence;
-        fetch_sequence += 1;
-        uint my_seq = fetch_sequence;
-        try {
-            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-            if (_dbg != null && _dbg.length > 0) append_debug_log("fetch_news: bumped fetch_sequence " + before_seq.to_string() + " -> " + fetch_sequence.to_string());
-        } catch (GLib.Error e) { }
-
-        Timeout.add(INITIAL_MAX_WAIT_MS + 2000, () => {
-            try { self_ref.unref(); } catch (GLib.Error e) { }
-            return false;
-        });
-
-        // Wrapped set_label: only update if this fetch is still current
-        SetLabelFunc wrapped_set_label = (text) => {
-            // Schedule UI updates on the main loop to avoid touching
-            // window fields from worker threads. The Idle callback will
-            // check the fetch_sequence token before applying changes.
-            Idle.add(() => {
-                if (my_seq != self_ref.fetch_sequence) {
-                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_set_label: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string()); } catch (GLib.Error e) { }
-                    return false;
-                }
-                // Detect error-like labels emitted by fetchers and mark a
-                // network failure flag so the timeout can present a more
-                // specific offline message. Many fetchers call set_label
-                // with "... Error loading ..." when network issues occur.
-                try {
-                    if (text != null) {
-                        string lower = text.down();
-                        if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
-                            if (self_ref.loading_state != null) self_ref.loading_state.network_failure_detected = true;
-                            try { append_debug_log("DEBUG: wrapped_set_label detected error label='" + text + "'"); } catch (GLib.Error e) { }
-                        }
-                    }
-                } catch (GLib.Error e) { }
-
-                // Use the centralized header updater which enforces the exact
-                // UI contract (icon + category, or Search Results when active).
-                try { self_ref.update_content_header(); } catch (GLib.Error e) { }
-                return false;
-            });
-        };
-
-        // Wrapped clear_items: only clear if this fetch is still current
-        // Ensure we only clear once per fetch: some fetchers may call the
-        // provided clear callback multiple times during retries/fallbacks.
-        bool wrapped_clear_ran = false;
-        ClearItemsFunc wrapped_clear = () => {
-            // Schedule the clear on the main loop to avoid worker-thread UI access
-            Idle.add(() => {
-                if (my_seq != self_ref.fetch_sequence) {
-                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_clear: ignoring stale seq=" + my_seq.to_string() + " current=" + self_ref.fetch_sequence.to_string()); } catch (GLib.Error e) { }
-                    return false;
-                }
-                // Guard: make this clear idempotent per-fetch
-                if (wrapped_clear_ran) {
-                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) append_debug_log("wrapped_clear: already ran for seq=" + my_seq.to_string()); } catch (GLib.Error e) { }
-                    return false;
-                }
-                wrapped_clear_ran = true;
-
-                // Log execution of wrapped_clear so we can correlate clears with fetch sequences and view
-                long _ts = (long) GLib.get_monotonic_time();
-                try { stderr.printf("TRACE wrapped_clear: time=%lld executing seq=%u current=%u category=%s\n", _ts, my_seq, self_ref.fetch_sequence, self_ref.prefs.category); } catch (GLib.Error e) { }
-                // Clearing was already done above in fetch_news(), but some sources
-                // call clear_items again from worker threads; guard to avoid
-                // clearing content created by a newer fetch.
-                Gtk.Widget? cur = self_ref.layout_manager.featured_box.get_first_child();
-                while (cur != null) {
-                    Gtk.Widget? next = cur.get_next_sibling();
-                                    try {
-                                        var parent = cur.get_parent();
-                                        stderr.printf("TRACE wrapped_clear: featured_box.remove child=%p parent_is_featured_box=%s time=%lld\n", cur, (parent == self_ref.layout_manager.featured_box) ? "YES" : "NO", (long) GLib.get_monotonic_time());
-                                    } catch (GLib.Error e) { }
-                    self_ref.layout_manager.featured_box.remove(cur);
-                    cur = next;
-                }
-                self_ref.article_manager.featured_used = false;
-                // Remove columns' children
-                        for (int i = 0; i < self_ref.layout_manager.columns.length; i++) {
-                            Gtk.Widget? curc = self_ref.layout_manager.columns[i].get_first_child();
-                            while (curc != null) {
-                                Gtk.Widget? next = curc.get_next_sibling();
-                                try {
-                                    var parent = curc.get_parent();
-                                    stderr.printf("TRACE wrapped_clear: column[%d].remove child=%p parent_is_column=%s time=%lld\n", i, curc, (parent == self_ref.layout_manager.columns[i]) ? "YES" : "NO", (long) GLib.get_monotonic_time());
-                                } catch (GLib.Error e) { }
-                                self_ref.layout_manager.columns[i].remove(curc);
-                                curc = next;
-                            }
-                            self_ref.layout_manager.column_heights[i] = 0;
-                        }
-                // Reset load-more state
-                self_ref.article_buffer.clear();
-                
-                // Remove "No more articles" message if it exists
-                var children = self_ref.content_box.observe_children();
-                for (uint i = 0; i < children.get_n_items(); i++) {
-                    var child = children.get_item(i) as Gtk.Widget;
-                    if (child is Gtk.Label) {
-                        var label = child as Gtk.Label;
-                        var _txt = label.get_label();
-                        if (_txt == "<b>No more articles</b>" || _txt == "No more articles") {
-                            try {
-                                var parent = label.get_parent();
-                                stderr.printf("TRACE wrapped_clear: content_box.remove label=%p parent_is_content_box=%s time=%lld\n", label, (parent == self_ref.content_box) ? "YES" : "NO", (long) GLib.get_monotonic_time());
-                            } catch (GLib.Error e) { }
-                            self_ref.content_box.remove(label);
-                            break;
-                        }
-                    }
-                }
-                // Ensure any load-more button managed by ArticleManager is removed
-                try { self_ref.article_manager.clear_load_more_button(); } catch (GLib.Error e) { }
-                
-                // Also clear image bookkeeping so subsequent fetches create
-                // fresh widgets instead of updating removed ones.
-                try { if (self_ref.view_state != null) self_ref.view_state.url_to_picture.clear(); } catch (GLib.Error e) { }
-                try { self_ref.hero_requests.clear(); } catch (GLib.Error e) { }
-                self_ref.remaining_articles = null;
-                article_manager.remaining_articles_index = 0;
-                // Note: load_more_button is now managed by ArticleManager
-                self_ref.articles_shown = 0;
-                return false;
-            });
-        };
-
-        // Wrapped add_item: ignore items from stale fetches
-        // Throttled add for Local News: queue incoming items and process in small batches
-        var local_news_queue = new Gee.ArrayList<ArticleItem>();
-        bool local_news_flush_scheduled = false;
-        int local_news_items_enqueued = 0; // debug counter
-        bool local_news_stats_scheduled = false;
-        // General UI add queue to batch worker->main-thread article additions.
-        // Using a single Idle to drain this queue avoids per-item refs on the
-        // window/object and reduces thread churn that previously caused races
-        // during heavy fetches.
-        var ui_add_queue = new Gee.ArrayList<ArticleItem>();
-        bool ui_add_idle_scheduled = false;
-
-    AddItemFunc wrapped_add = (title, url, thumbnail, category_id, source_name) => {
-            // Debug: log all wrapped_add calls for topten
-            try {
-                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (dbg != null && dbg.length > 0 && self_ref.prefs.category == "topten") {
-                    self_ref.append_debug_log("wrapped_add called for TOPTEN: category_id=" + category_id + " title=" + title);
-                }
-            } catch (GLib.Error e) { }
-            
-            // Check article limit ONLY for limited categories, NOT frontpage/topten/all
-            bool viewing_limited_category = (
-                self_ref.prefs.category == "general" ||
-                self_ref.prefs.category == "us" ||
-                self_ref.prefs.category == "sports" ||
-                self_ref.prefs.category == "science" ||
-                self_ref.prefs.category == "health" ||
-                self_ref.prefs.category == "technology" ||
-                self_ref.prefs.category == "business" ||
-                self_ref.prefs.category == "entertainment" ||
-                self_ref.prefs.category == "politics" ||
-                self_ref.prefs.category == "lifestyle" ||
-                self_ref.prefs.category == "markets" ||
-                self_ref.prefs.category == "industries" ||
-                self_ref.prefs.category == "economics" ||
-                self_ref.prefs.category == "wealth" ||
-                self_ref.prefs.category == "green"
-                || self_ref.prefs.category == "local_news"
-                || self_ref.prefs.category == "myfeed"
-            );
-                        
-            // Don't check limit here - let add_item_immediate_to_column() handle it after filtering
-            
-            // If we're in Local News mode, enqueue and process in small batches to avoid UI lockups
-            try {
-                var prefs_local = NewsPreferences.get_instance();
-                if (prefs_local != null && prefs_local.category == "local_news") {
-                    local_news_queue.add(new ArticleItem(title, url, thumbnail, category_id, source_name));
-                    local_news_items_enqueued++;
-                    if (!local_news_flush_scheduled) {
-                        local_news_flush_scheduled = true;
-                        // Process up to 6 items per tick to keep UI responsive
-                        Timeout.add(60, () => {
-                            int processed = 0;
-                            int batch = 6;
-                            while (local_news_queue.size > 0 && processed < batch) {
-                                var ai = local_news_queue.get(0);
-                                local_news_queue.remove_at(0);
-                                // Ensure still current before adding
-                                if (my_seq == self_ref.fetch_sequence) {
-                                    self_ref.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name);
-                                }
-                                processed++;
-                            }
-                            if (local_news_queue.size > 0) {
-                                // Keep the timeout running until the queue is drained
-                                return true;
-                            } else {
-                                local_news_flush_scheduled = false;
-                                return false;
-                            }
-                        });
-                    }
-                    return;
-                }
-            } catch (GLib.Error e) { /* best-effort */ }
-            
-            // Track RSS feed articles for adaptive layout
-            if (self_ref.category_manager.is_rssfeed_view()) {
-                self_ref.rss_feed_article_count++;
-                                
-                // Cancel any existing timeout and schedule a new one
-                // This ensures we wait until all articles have arrived
-                if (self_ref.rss_feed_layout_timeout_id > 0) {
-                    Source.remove(self_ref.rss_feed_layout_timeout_id);
-                }
-                
-                // Schedule layout check after 500ms of no new articles
-                self_ref.rss_feed_layout_timeout_id = Timeout.add(500, () => {
-                    if (my_seq != self_ref.fetch_sequence) {
-                        self_ref.rss_feed_layout_timeout_id = 0;
-                        return false;
-                    }
-                    
-                    // Check if we need to adapt the layout
-                    if (self_ref.rss_feed_article_count < 15) {
-                        // Rebuild as 2-column hero layout
-                        Idle.add(() => {
-                            if (my_seq != self_ref.fetch_sequence) return false;
-                            try {
-                                self_ref.article_manager.rebuild_rss_feed_as_heroes();
-                            } catch (GLib.Error e) { }
-                            return false;
-                        });
-                    }
-                    
-                    self_ref.rss_feed_layout_timeout_id = 0;
-                    return false;
-                });
-            }
-            
-            self_ref.article_manager.add_item(title, url, thumbnail, category_id, source_name);
-        };
-
-        // Support fetching from multiple preferred sources when the user
-        // has enabled more than one in preferences. The preferences store
-        // string ids (e.g. "guardian", "reddit"). Map those to the
-        // NewsSource enum and invoke NewsSources.fetch for each. Ensure
-        // we only clear the UI once (for the first fetch) so subsequent
-        // fetches append their results.
-        bool used_multi = false;
-        // Use CategoryManager for My Feed logic
-        bool is_myfeed_mode = category_manager.is_myfeed_view();
-        string[] myfeed_cats = new string[0];
-
-        // Load custom RSS sources if in My Feed mode
-        Gee.ArrayList<Paperboy.RssSource>? custom_rss_sources = null;
-        if (is_myfeed_mode) {
-            var rss_store = Paperboy.RssSourceStore.get_instance();
-            var all_custom = rss_store.get_all_sources();
-            custom_rss_sources = new Gee.ArrayList<Paperboy.RssSource>();
-
-            // Filter to only enabled custom sources
-            foreach (var src in all_custom) {
-                if (prefs.preferred_source_enabled("custom:" + src.url)) {
-                    custom_rss_sources.add(src);
-                }
-            }
-        }
-
-        if (is_myfeed_mode) {
-            // Load personalized categories if configured (applies only to built-in sources)
-            if (category_manager.is_myfeed_configured()) {
-                var cats = category_manager.get_myfeed_categories();
-                myfeed_cats = new string[cats.size];
-                for (int i = 0; i < cats.size; i++) myfeed_cats[i] = cats.get(i);
-            }
-
-            // Check if we have ANY content to show (personalized categories OR custom RSS sources)
-            bool has_personalized_cats = (myfeed_cats != null && myfeed_cats.length > 0);
-            bool has_custom_rss = (custom_rss_sources != null && custom_rss_sources.size > 0);
-
-            if (!has_personalized_cats && !has_custom_rss) {
-                // No personalized categories AND no custom RSS sources - nothing to show
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                try { wrapped_set_label("My Feed — No personalized categories or custom RSS feeds configured"); } catch (GLib.Error e) { }
-                hide_loading_spinner();
-                return;
-            }
-        }
-
-        // Local News: if the user selected the Local News sidebar item,
-        // attempt to read per-user feeds from ~/.config/paperboy/local_feeds
-        // and fetch each feed URL with the RSS parser. This allows the
-        // rssFinder helper (a separate binary) to populate the file and
-        // the app to display the resulting feeds.
-        if (category_manager.is_local_news_view()) {
-            string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
-            string file_path = config_dir + "/local_feeds";
-
-            // If no local_feeds file exists, show a helpful label and stop.
-            if (!GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
-                try { wrapped_set_label("Local News — No local feeds configured"); } catch (GLib.Error e) { }
-                hide_loading_spinner();
-                return;
-            }
-
-            string contents = "";
-            try { GLib.FileUtils.get_contents(file_path, out contents); } catch (GLib.Error e) { contents = ""; }
-            if (contents == null || contents.strip() == "") {
-                try { wrapped_set_label("Local News — No local feeds configured"); } catch (GLib.Error e) { }
-                hide_loading_spinner();
-                return;
-            }
-
-            // Clear UI and schedule per-feed fetches
-            try { wrapped_clear(); } catch (GLib.Error e) { }
-            ClearItemsFunc no_op_clear = () => { };
-                SetLabelFunc label_fn = (text) => {
-                // Schedule UI update on main loop
-                Idle.add(() => {
-                    if (my_seq != self_ref.fetch_sequence) return false;
-                    try {
-                        self_ref.update_content_header();
-                    } catch (GLib.Error e) { }
-                    return false;
-                });
-            };
-
-            // Ensure the top-right source badge shows a generic/local affordance
-            // when we're displaying Local News (feeds may represent many sources).
-            try { self_ref.source_label.set_text("Local News"); } catch (GLib.Error e) { }
-            // Prefer a repo-local symbolic "local-mono" icon when available so the
-            // top-right logo matches the app's iconography. Fall back to the
-            // generic RSS symbolic icon if no local asset is found.
-            try {
-                string? local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-                if (local_icon == null) local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
-                if (local_icon != null) {
-                    string use_path = local_icon;
-                    try {
-                        if (self_ref.is_dark_mode()) {
-                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
-                            if (white_cand != null) use_path = white_cand;
-                        }
-                    } catch (GLib.Error e) { }
-                    string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                    Gdk.Pixbuf? cached_pb = null;
-                    try {
-                        cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
-                    } catch (GLib.Error e) { cached_pb = null; }
-                    if (cached_pb != null) {
-                        try {
-                            var tex = Gdk.Texture.for_pixbuf(cached_pb);
-                            try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                        } catch (GLib.Error e) {
-                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
-                        }
-                    } else {
-                        try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                    }
-                } else {
-                    try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-
-            string[] lines = contents.split("\n");
-            bool found_feed = false;
-            for (int i = 0; i < lines.length; i++) {
-                string u = lines[i].strip();
-                if (u.length == 0) continue;
-                article_manager.featured_used = true;
-                RssParser.fetch_rss_url(u, "Local Feed", "Local News", "local_news", current_search_query, session, label_fn, no_op_clear, wrapped_add);
-            }
-            try {
-                string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (dbg != null && dbg.length > 0) {
-                    // Log the fact that we scheduled multiple local feeds — helpful
-                    // when diagnosing memory spikes from many small feeds.
-                    append_debug_log("Local News: scheduled " + lines.length.to_string() + " feed candidates");
-                    // Also schedule a short timeout to report how many items were enqueued
-                    // for UI processing. This gets updated as RssParser.fetch_rss_url
-                    // invokes `wrapped_add` asynchronously.
-                    if (!local_news_stats_scheduled) {
-                        local_news_stats_scheduled = true;
-                        Timeout.add(250, () => {
-                            try {
-                                append_debug_log("Local News: enqueued items=" + local_news_items_enqueued.to_string() + " queue_size=" + local_news_queue.size.to_string());
-                            } catch (GLib.Error e) { }
-                            return false;
-                        });
-                    }
-                }
-            } catch (GLib.Error e) { }
-            if (!found_feed) {
-                try { wrapped_set_label("Local News — No local feeds configured"); } catch (GLib.Error e) { }
-            }
-            return;
-        }
-
-        // RSS Feed: if the user selected an individual RSS feed from the sidebar,
-        // fetch articles from that specific feed URL using the RSS parser.
-        if (category_manager.is_rssfeed_view()) {
-            string? feed_url = category_manager.get_rssfeed_url();
-            if (feed_url == null || feed_url.length == 0) {
-                try { wrapped_set_label("RSS Feed — Invalid feed URL"); } catch (GLib.Error e) { }
-                hide_loading_spinner();
-                return;
-            }
-
-            // Get the RSS source details from the database
-            var rss_store = Paperboy.RssSourceStore.get_instance();
-            var rss_source = rss_store.get_source_by_url(feed_url);
-            
-            string feed_name = rss_source != null ? rss_source.name : "RSS Feed";
-            
-            // Clear UI and schedule feed fetch
-            try { wrapped_clear(); } catch (GLib.Error e) { }
-            ClearItemsFunc no_op_clear = () => { };
-            SetLabelFunc label_fn = (text) => {
-                // Schedule UI update on main loop
-                Idle.add(() => {
-                    if (my_seq != self_ref.fetch_sequence) return false;
-                    try {
-                        self_ref.update_content_header();
-                    } catch (GLib.Error e) { }
-                    return false;
-                });
-            };
-
-            // Header will be updated by update_content_header_now() call later
-
-            // Reset RSS feed article counter for adaptive layout
-            self_ref.rss_feed_article_count = 0;
-            if (self_ref.rss_feed_layout_timeout_id > 0) {
-                Source.remove(self_ref.rss_feed_layout_timeout_id);
-                self_ref.rss_feed_layout_timeout_id = 0;
-            }
-
-            // Fetch articles from the RSS feed
-            // Don't set featured_used - let articles populate normally, adaptive layout will handle it
-            RssParser.fetch_rss_url(feed_url, feed_name, feed_name, "myfeed", current_search_query, session, label_fn, no_op_clear, wrapped_add);
-            
-            return;
-        }
-        // If the user selected "Front Page", always request the backend
-        // frontpage endpoint regardless of preferred_sources. Place this
-        // before the multi-source branch so frontpage works even when the
-        // user has zero or one preferred source selected.
-        if (category_manager.is_frontpage_view()) {
-            // Present the multi-source label/logo in the header
-            try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
-            try {
-                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-                if (multi_icon != null) {
-                    string use_path = multi_icon;
-                    try {
-                        if (self_ref.is_dark_mode()) {
-                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                            if (white_cand != null) use_path = white_cand;
-                        }
-                    } catch (GLib.Error e) { }
-                    try {
-                        string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                        Gdk.Pixbuf? cached_pb = null;
-                        try { cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32); } catch (GLib.Error e) { cached_pb = null; }
-                        if (cached_pb != null) {
-                            try {
-                                var tex = Gdk.Texture.for_pixbuf(cached_pb);
-                                try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                            } catch (GLib.Error e) {
-                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
-                            }
-                        } else {
-                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                        }
-                    } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                } else {
-                    try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
-            used_multi = true;
-
-            try { wrapped_clear(); } catch (GLib.Error e) { }
-            // Debug marker: set a distinct label so we can confirm this branch runs
-            try { wrapped_set_label("Frontpage — Loading from backend (branch 1)"); } catch (GLib.Error e) { }
-            try {
-                // Write an entry to the debug log so we can inspect behavior when running with PAPERBOY_DEBUG
-                string s = "frontpage-early-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
-                append_debug_log(s);
-            } catch (GLib.Error e) { }
-            NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
-            return;
-        }
-
-        // If the user selected "Top Ten", request the backend headlines endpoint
-        // regardless of preferred_sources. Same early-return logic as frontpage.
-        if (category_manager.is_topten_view()) {
-            // Present the multi-source label/logo in the header
-            try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
-            try {
-                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-                if (multi_icon != null) {
-                    string use_path = multi_icon;
-                    try {
-                        if (self_ref.is_dark_mode()) {
-                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                            if (white_cand != null) use_path = white_cand;
-                        }
-                    } catch (GLib.Error e) { }
-                    try {
-                        string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                        Gdk.Pixbuf? cached_pb = null;
-                        try { cached_pb = image_cache != null ? image_cache.get(cache_key) : ImageCache.get_global().get(cache_key); } catch (GLib.Error e) { cached_pb = null; }
-                        if (cached_pb == null) {
-                            try {
-                                cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
-                            } catch (GLib.Error e) { cached_pb = null; }
-                        }
-                        if (cached_pb != null) {
-                            var tex = Gdk.Texture.for_pixbuf(cached_pb);
-                            try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                        } else {
-                            try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                        }
-                    } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                } else {
-                    try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
-            used_multi = true;
-
-            try { wrapped_clear(); } catch (GLib.Error e) { }
-            try { wrapped_set_label("Top Ten — Loading from backend"); } catch (GLib.Error e) { }
-            try {
-                string s = "topten-early-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
-                append_debug_log(s);
-            } catch (GLib.Error e) { }
-            NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
-
-            return;
-        }
-
-        // Check if we should use multi-source mode (multiple built-in sources OR custom RSS sources in My Feed)
-        int total_sources = (prefs.preferred_sources != null ? prefs.preferred_sources.size : 0);
-        if (is_myfeed_mode && custom_rss_sources != null) {
-            total_sources += custom_rss_sources.size;
-        }
-
-        if (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0)) {
-            // Treat The Frontpage as a multi-source view visually, but do NOT
-            // let the user's preferred_sources list influence which providers
-            // are queried. Instead, when viewing the special "frontpage"
-            // category, simply request the backend frontpage once and present
-            // the combined/multi-source UI.
-            if (category_manager.is_frontpage_view()) {
-                try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
-                try {
-                    string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                    if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-                    if (multi_icon != null) {
-                        string use_path = multi_icon;
-                        try {
-                            if (self_ref.is_dark_mode()) {
-                                string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                                if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                                if (white_cand != null) use_path = white_cand;
-                            }
-                        } catch (GLib.Error e) { }
-                        try {
-                            string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                            Gdk.Pixbuf? cached_pb = null;
-                            try { cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32); } catch (GLib.Error e) { cached_pb = null; }
-                            if (cached_pb != null) {
-                                try {
-                                    var tex = Gdk.Texture.for_pixbuf(cached_pb);
-                                    try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                                } catch (GLib.Error e) {
-                                    try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
-                                }
-                            } else {
-                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                            }
-                        } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                    } else {
-                        try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                    }
-                } catch (GLib.Error e) { }
-                used_multi = true;
-
-                // Clear UI and ask the backend frontpage fetcher once. NewsSources
-                // will route a request with current_category == "frontpage" to
-                // the Paperboy backend fetcher regardless of the NewsSource value.
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
-                return;
-            }
-
-            // Same logic for Top Ten: request backend headlines endpoint
-            if (category_manager.is_topten_view()) {
-                try { self_ref.source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
-                try {
-                    string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                    if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-                    if (multi_icon != null) {
-                        string use_path = multi_icon;
-                        try {
-                            if (self_ref.is_dark_mode()) {
-                                string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                                if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                                if (white_cand != null) use_path = white_cand;
-                            }
-                        } catch (GLib.Error e) { }
-                        try {
-                            string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                            Gdk.Pixbuf? cached_pb = null;
-                            try { cached_pb = image_cache != null ? image_cache.get(cache_key) : ImageCache.get_global().get(cache_key); } catch (GLib.Error e) { cached_pb = null; }
-                            if (cached_pb == null) {
-                                try {
-                                    cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
-                                } catch (GLib.Error e) { cached_pb = null; }
-                            }
-                            if (cached_pb != null) {
-                                var tex = Gdk.Texture.for_pixbuf(cached_pb);
-                                try { self_ref.source_logo.set_from_paintable(tex); } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                            } else {
-                                try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                            }
-                        } catch (GLib.Error e) { try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { } }
-                    } else {
-                        try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                    }
-                } catch (GLib.Error e) { }
-                used_multi = true;
-
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
-                return;
-            }
-
-            // Display a combined label and bundled monochrome logo for multi-source mode
-            try {
-                self_ref.source_label.set_text("Multiple Sources");
-                // Try symbolic first (includes -white variants), then fall back
-                // to the old location for compatibility.
-                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-                if (multi_icon != null) {
-                    try {
-                        string use_path = multi_icon;
-                        try {
-                            if (self_ref.is_dark_mode()) {
-                                string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                                if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                                if (white_cand != null) use_path = white_cand;
-                            }
-                        } catch (GLib.Error e) { }
-                        string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                        Gdk.Pixbuf? cached_pb = null;
-                        try { cached_pb = image_cache != null ? image_cache.get(cache_key) : ImageCache.get_global().get(cache_key); } catch (GLib.Error e) { cached_pb = null; }
-                        if (cached_pb == null) {
-                            try {
-                                cached_pb = image_cache != null ? image_cache.get_or_load_file(cache_key, use_path, 32, 32) : ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
-                            } catch (GLib.Error e) { cached_pb = null; }
-                        }
-                        if (cached_pb != null) {
-                            var tex = Gdk.Texture.for_pixbuf(cached_pb);
-                            self_ref.source_logo.set_from_paintable(tex);
-                        } else {
-                            self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic");
-                        }
-                    } catch (GLib.Error e) {
-                        try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
-                    }
-                } else {
-                    try { self_ref.source_logo.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
-            used_multi = true;
-
-            //Use SourceManager to get enabled sources as enums
-            Gee.ArrayList<NewsSource> srcs = source_manager.get_enabled_source_enums();
-
-            // If mapping failed or produced no sources, fall back to single source
-            if (srcs.size == 0) {
-                NewsSources.fetch(
-                    prefs.news_source,
-                    prefs.category,
-                    current_search_query,
-                    session,
-                    wrapped_set_label,
-                    wrapped_clear,
-                    wrapped_add
-                );
-            } else {
-                // Filter the selected sources to those that actually support
-                // the requested category. Special-case the personalized
-                // My Feed mode: prefs.category == "myfeed" is not a real
-                // provider category, so check per-personalized-category
-                // support (e.g., Bloomberg supports markets/industries but
-                // not a generic "myfeed"). This ensures Bloomberg isn't
-                // excluded from the combined fetch when the user has
-                // selected Bloomberg-specific personalized categories.
-                var filtered = new Gee.ArrayList<NewsSource>();
-                foreach (var s in srcs) {
-                    try {
-                        bool include = false;
-                        if (is_myfeed_mode) {
-                            // If no personalized categories selected, be permissive
-                            if (myfeed_cats == null || myfeed_cats.length == 0) {
-                                include = true;
-                            } else {
-                                foreach (var cat in myfeed_cats) {
-                                    if (NewsSources.supports_category(s, cat)) { include = true; break; }
-                                }
-                            }
-                        } else {
-                            if (NewsSources.supports_category(s, prefs.category)) include = true;
-                        }
-                        if (include) filtered.add(s);
-                    } catch (GLib.Error e) {
-                        // If something goes wrong querying support, include the source
-                        filtered.add(s);
-                    }
-                }
-
-                // If filtering removed all sources (unlikely), fall back to original
-                // list so we at least attempt to fetch something.
-                var use_srcs = filtered.size > 0 ? filtered : srcs;
-
-                // Clear the UI once up-front so we don't race with asynchronous
-                // fetch completions (a later-completing fetch shouldn't be able
-                // to wipe results added by an earlier one).
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-
-                // Use a no-op clear for all individual fetches since we've
-                // already cleared above. Keep a combined label while in multi
-                // source mode. If we're in My Feed personalized mode, request
-                // each personalized category separately and combine results.
-                ClearItemsFunc no_op_clear = () => { };
-                SetLabelFunc label_fn = (text) => {
-                    Idle.add(() => {
-                        if (my_seq != self_ref.fetch_sequence) return false;
-                        try { self_ref.update_content_header(); } catch (GLib.Error e) { }
-                        return false;
-                    });
-                };
-
-                // Fetch from built-in sources (unless in My Feed with custom_only mode enabled)
-                bool skip_builtin = is_myfeed_mode && prefs.myfeed_custom_only;
-                if (!skip_builtin) {
-                    foreach (var s in use_srcs) {
-                        if (is_myfeed_mode) {
-                            foreach (var cat in myfeed_cats) {
-                                NewsSources.fetch(s, cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
-                            }
-                        } else {
-                            NewsSources.fetch(s, prefs.category, current_search_query, session, label_fn, no_op_clear, wrapped_add);
-                        }
-                    }
-                }
-
-                // Fetch from custom RSS sources if in My Feed mode and sources are enabled
-                if (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0) {
-                    // Don't set featured_used - allow first article to become hero/carousel
-                    GLib.print("DEBUG: Fetching %d custom RSS sources\n", custom_rss_sources.size);
-                    foreach (var rss_src in custom_rss_sources) {
-                        GLib.print("DEBUG: Fetching RSS from %s (%s)\n", rss_src.name, rss_src.url);
-                        RssParser.fetch_rss_url(
-                            rss_src.url,
-                            rss_src.name,
-                            "My Feed",
-                            "myfeed",
-                            current_search_query,
-                            session,
-                            label_fn,
-                            no_op_clear,
-                            wrapped_add
-                        );
-                    }
-                }
-            }
-        } else {
-            // Single-source path: keep existing behavior. Use the
-            // effective source so a single selected preferred_source is
-            // respected without requiring prefs.news_source to be changed.
-            // Special-case: when viewing The Frontpage in single-source
-            // mode, make sure we still request the backend frontpage API.
-            if (category_manager.is_frontpage_view()) {
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                try { wrapped_set_label("Frontpage — Loading from backend (single-source)"); } catch (GLib.Error e) { }
-                try {
-                    string s = "frontpage-single-source-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
-                    append_debug_log(s);
-                } catch (GLib.Error e) { }
-                NewsSources.fetch(prefs.news_source, "frontpage", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
-                return;
-            }
-
-            // Same for Top Ten in single-source mode
-            if (category_manager.is_topten_view()) {
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                try { wrapped_set_label("Top Ten — Loading from backend (single-source)"); } catch (GLib.Error e) { }
-                try {
-                    string s = "topten-single-source-branch: preferred_sources_size=" + (prefs.preferred_sources != null ? prefs.preferred_sources.size.to_string() : "0") + "\n";
-                    append_debug_log(s);
-                } catch (GLib.Error e) { }
-                NewsSources.fetch(prefs.news_source, "topten", current_search_query, session, wrapped_set_label, wrapped_clear, wrapped_add);
-                return;
-            }
-
-            if (is_myfeed_mode) {
-                // Fetch each personalized category for the single effective source
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                ClearItemsFunc no_op_clear = () => { };
-                SetLabelFunc label_fn = (text) => {
-                    Idle.add(() => {
-                        if (my_seq != self_ref.fetch_sequence) return false;
-                        try { self_ref.update_content_header(); } catch (GLib.Error e) { }
-                        return false;
-                    });
-                };
-
-                // Fetch from built-in source (unless custom_only mode is enabled in My Feed)
-                if (!prefs.myfeed_custom_only) {
-                    foreach (var cat in myfeed_cats) {
-                        NewsSources.fetch(effective_news_source(), cat, current_search_query, session, label_fn, no_op_clear, wrapped_add);
-                    }
-                }
-
-                // Fetch from custom RSS sources if sources are enabled
-                if (custom_rss_sources != null && custom_rss_sources.size > 0) {
-                    article_manager.featured_used = true;
-                    foreach (var rss_src in custom_rss_sources) {
-                        RssParser.fetch_rss_url(
-                            rss_src.url,
-                            rss_src.name,
-                            "My Feed",
-                            "myfeed",
-                            current_search_query,
-                            session,
-                            label_fn,
-                            no_op_clear,
-                            wrapped_add
-                        );
-                    }
-                }
-            } else {
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                NewsSources.fetch(
-                    effective_news_source(),
-                    prefs.category,
-                    current_search_query,
-                    session,
-                    wrapped_set_label,
-                    wrapped_clear,
-                    wrapped_add
-                );
-            }
-        }
+    // Fetch article metadata for all *regular* categories and RSS sources in background
+    // to populate unread counts. Special categories like myfeed, local_news, and saved
+    // are handled separately and must not be treated as normal fetchable categories here.
+    private void fetch_all_category_metadata_for_counts() {
+        UnreadFetchService.fetch_all_category_metadata_for_counts(this);
     }
 }
+

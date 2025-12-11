@@ -16,21 +16,40 @@
  */
 
 
-using Gtk;
+using Gtk;  // TODO: Further refactor to remove GTK dependencies from carousel/widget manipulation
 using Gee;
 
 namespace Managers {
     public class ArticleManager : GLib.Object {
-        private NewsWindow window;
+        private unowned NewsWindow window;
         
+        // Article limits
         public const int INITIAL_ARTICLE_LIMIT = 25;
         public const int LOCAL_NEWS_IMAGE_LOAD_LIMIT = 12;
         public const int MAX_RECENT_CATEGORIES = 6;
+        public const int LOAD_MORE_BATCH_SIZE = 10;
+        public const int MAX_CAROUSEL_SLIDES = 5;
+        
+        // Layout dimensions
+        public const int HERO_MAX_HEIGHT = 350;
+        public const int HERO_DEFAULT_HEIGHT = 250;
+        public const int TOPTEN_HERO_MAX_HEIGHT = 364;  // 280 * 1.30
+        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 273;  // 210 * 1.30
+        public const int CARD_IMAGE_HEIGHT = 200;  // Fixed image height for uniform layout (Top Ten)
+        public const int CARD_TEXT_HEIGHT = 120;   // Minimum card text area height
+        public const int MIN_CARD_IMAGE_HEIGHT = 80;  // Absolute minimum image height
+        public const int CARD_HEIGHT_ESTIMATE_OFFSET = 120;
+        public const int IMAGE_QUALITY_MULTIPLIER_HIGH = 6;
+        public const int IMAGE_QUALITY_MULTIPLIER_MEDIUM = 3;
+        public const int IMAGE_QUALITY_MULTIPLIER_LOW = 2;
         
         public Gee.ArrayList<ArticleItem> article_buffer;
-        public ArticleItem[]? remaining_articles = null;
+        public Gee.ArrayList<ArticleItem> remaining_articles;
         public int remaining_articles_index = 0;
         public int articles_shown = 0;
+        
+        // Track URLs seen in current view to prevent duplicate cards (race condition fix)
+        private Gee.HashSet<string> seen_urls;
         
         // Category distribution
         public Gee.HashMap<string, int> category_column_counts;
@@ -45,114 +64,131 @@ namespace Managers {
         public string? featured_carousel_category = null;
         public bool featured_used = false;
         
-        private Gtk.Button? load_more_button = null;
+        private bool load_more_button_visible = false;
         public uint buffer_flush_timeout_id = 0;
+        
+        // Signals for UI operations
+        public signal void request_show_load_more_button();
+        public signal void request_hide_load_more_button();
+        public signal void request_remove_end_feed_message();
         
         public ArticleManager(NewsWindow w) {
             window = w;
             article_buffer = new Gee.ArrayList<ArticleItem>();
+            remaining_articles = new Gee.ArrayList<ArticleItem>();
             category_column_counts = new Gee.HashMap<string, int>();
             recent_categories = new Gee.ArrayList<string>();
             category_last_column = new Gee.HashMap<string, int>();
             recent_category_queue = new Gee.ArrayList<string>();
+            seen_urls = new Gee.HashSet<string>();
             next_column_index = 0;
         }
         
+        /**
+         * Check if a category has article limits applied (most categories do)
+         */
+        private bool is_limited_category(string category) {
+            return CategoryManager.is_limited_category(category);
+        }
+
+        /**
+         * Check if this is a regular news category (not frontpage, topten, myfeed, local_news, saved, or RSS)
+         */
+        private bool is_regular_news_category(string category) {
+            return CategoryManager.is_regular_news_category(category);
+        }
+        
+        /**
+         * Normalize source name for consistent tracking
+         */
+        private string? normalize_source_name(string? source_name, string category_id, string url) {
+            return SourceManager.normalize_source_name(source_name, category_id, url);
+        }
+        
+        /**
+         * Queue an article for the "Load More" overflow
+         * Returns true if article was queued, false if it was a duplicate
+         */
+        private bool queue_overflow_article(string title, string url, string? thumbnail_url, 
+                                            string category_id, string? source_name) {
+            // Normalize and check for duplicates
+            string normalized_url = "";
+            try { 
+                normalized_url = window.normalize_article_url(url); 
+            } catch (GLib.Error e) { 
+                normalized_url = url ?? ""; 
+            }
+            
+            if (normalized_url.length > 0 && seen_urls.contains(normalized_url)) {
+                return false;  // Duplicate
+            }
+            if (normalized_url.length > 0) {
+                seen_urls.add(normalized_url);
+            }
+
+            // Normalize source name
+            string? normalized_source = normalize_source_name(source_name, category_id, url);
+
+            // Add to overflow queue
+            remaining_articles.add(new ArticleItem(title, url, thumbnail_url, category_id, normalized_source));
+
+            // Register for unread tracking
+            try {
+                string norm = url.strip();
+                if (norm.length > 0 && window.article_state_store != null) {
+                    window.article_state_store.register_article(norm, category_id, normalized_source);
+                }
+            } catch (GLib.Error e) { }
+
+            return true;
+        }
+        
+        /**
+         * Check if debug mode is enabled
+         */
+        private bool debug_enabled() {
+            string? e = Environment.get_variable("PAPERBOY_DEBUG");
+            return e != null && e.length > 0;
+        }
+
         public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
-            // Trace entry for debugging UI regressions (always printed)
-            
-            bool viewing_limited_category = (
-                window.prefs.category == "general" ||
-                window.prefs.category == "us" ||
-                window.prefs.category == "sports" ||
-                window.prefs.category == "science" ||
-                window.prefs.category == "health" ||
-                window.prefs.category == "technology" ||
-                window.prefs.category == "business" ||
-                window.prefs.category == "entertainment" ||
-                window.prefs.category == "politics" ||
-                window.prefs.category == "lifestyle" ||
-                window.prefs.category == "markets" ||
-                window.prefs.category == "industries" ||
-                window.prefs.category == "economics" ||
-                window.prefs.category == "wealth" ||
-                window.prefs.category == "green"
-                || window.prefs.category == "local_news"
-                || window.prefs.category == "myfeed"
-            );
-            
-            if (viewing_limited_category) {
+            // Check if we're viewing a category with article limits
+            if (is_limited_category(window.prefs.category)) {
                 lock (articles_shown) {
-                    try {
-                        string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                        if (dbg != null && dbg.length > 0) {
+                    // If we've reached the limit, queue remaining articles for "Load More"
+                    if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name)) {
+                            show_load_more_button();
                         }
-                    } catch (GLib.Error e) { }
-                    
-                    if (articles_shown >= INITIAL_ARTICLE_LIMIT && load_more_button == null) {
-                        try {
-                            string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                            if (dbg != null && dbg.length > 0) {
-                            }
-                        } catch (GLib.Error e) { }
-                        if (remaining_articles == null) {
-                            remaining_articles = new ArticleItem[1];
-                            remaining_articles[0] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
-                        } else {
-                            var new_arr = new ArticleItem[remaining_articles.length + 1];
-                            for (int i = 0; i < remaining_articles.length; i++) {
-                                new_arr[i] = remaining_articles[i];
-                            }
-                            new_arr[remaining_articles.length] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
-                            remaining_articles = new_arr;
-                        }
-                        show_load_more_button();
                         return;
                     }
                 }
             }
-            
-            string? final_source_name = source_name;
-            try {
-                var prefs_local = NewsPreferences.get_instance();
-                if (final_source_name == null || final_source_name.length == 0) {
-                    if (category_id == "local_news") {
-                        if (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
-                            final_source_name = prefs_local.user_location_city;
-                        else
-                            final_source_name = "Local News";
-                    } else {
-                        NewsSource inferred = window.infer_source_from_url(url);
-                        final_source_name = window.get_source_name(inferred);
-                    }
-                }
-            } catch (GLib.Error e) {
-                final_source_name = source_name;
-            }
 
-            bool debug_enabled() {
-                string? e = Environment.get_variable("PAPERBOY_DEBUG");
-                return e != null && e.length > 0;
-            }
-
-            if (debug_enabled()) {
-                warning("add_item called: current_view=%s article_cat=%s title=%s", window.prefs.category, category_id, title);
-            }
-            try {
-                string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (_dbg != null && _dbg.length > 0) {
-                    window.append_debug_log("add_item: view=" + window.prefs.category + " article_cat=" + category_id + " title=" + title);
-                }
-            } catch (GLib.Error e) { }
+            // Normalize source name for consistent tracking
+            string? final_source_name = normalize_source_name(source_name, category_id, url);
             
+            // Normalize URL for deduplication
             string normalized = "";
             try {
                 if (url != null) normalized = window.normalize_article_url(url);
             } catch (GLib.Error e) {
                 normalized = url != null ? url : "";
             }
-
             if (normalized == null) normalized = "";
+
+            // Early dedup check: Skip if we've already seen this URL in this view session.
+            // This prevents race conditions where multiple async fetches add the same article
+            // before the first one registers its picture in url_to_picture.
+            // Note: Top Ten allows duplicates intentionally to show headlines from multiple providers.
+            if (window.prefs.category != "topten" && normalized.length > 0 && seen_urls != null) {
+                lock (seen_urls) {
+                    if (seen_urls.contains(normalized)) {
+                        return;  // Already added this article
+                    }
+                    seen_urls.add(normalized);
+                }
+            }
 
             Gtk.Picture? existing = null;
             if (window.view_state != null) {
@@ -179,36 +215,41 @@ namespace Managers {
                     // URL (tracking/query params removed). Allow Top Ten to
                     // create separate cards even when an image mapping exists.
                     if (window.prefs.category != "topten") {
-                        var info = window.hero_requests.get(existing);
-                        int target_w = info != null ? info.last_requested_w : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+                        var info = window.image_manager.hero_requests.get(existing);
+                        int target_w = 400;
+                        if (info != null) {
+                            target_w = info.last_requested_w;
+                        } else if (window.layout_manager != null) {
+                            target_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+                        }
                         int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
+                        try { window.image_manager.pending_local_placeholder.set(existing, category_id == "local_news"); } catch (GLib.Error e) { }
+                        // Track image loading during initial phase
                         if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
-                        try { window.pending_local_placeholder.set(existing, category_id == "local_news"); } catch (GLib.Error e) { }
-                        window.image_handler.load_image_async(existing, thumbnail_url, target_w, target_h);
+                        // Force immediate loading for reused images (don't defer) since they're already visible
+                        window.image_manager.load_image_async(existing, thumbnail_url, target_w, target_h, true);
                         return;
                     } else {
                     }
             }
 
-            // Use CategoryManager for category filtering
-            if (!window.category_manager.should_display_article(category_id)) {
-                if (debug_enabled()) {
-                    warning("Article filtered by category: view=%s article_cat=%s title=%s",
-                            window.category_manager.get_current_category(), category_id, title);
-                }
-                return;
-            }
+            // Skip filtering for saved articles - they should always be displayed regardless of source
+            bool is_saved_view = (window.prefs.category == "saved");
 
-            // Use SourceManager for source filtering
-            if (!window.source_manager.should_display_article(url, category_id)) {
-                if (debug_enabled()) {
-                    string article_src_id = SourceManager.infer_source_id_from_url(url);
-                    debug("Article filtered by source: url=%s, inferred_src=%s, enabled_sources=%s",
-                          url.length > 80 ? url.substring(0, 80) : url,
-                          article_src_id,
-                          string.joinv(",", (string[])window.source_manager.get_enabled_sources().to_array()));
+            if (!is_saved_view) {
+                // Use CategoryManager for category filtering
+                if (!window.category_manager.should_display_article(category_id)) {
+                    if (debug_enabled()) {
+                        warning("Article filtered by category: view=%s article_cat=%s title=%s",
+                                window.category_manager.get_current_category(), category_id, title);
+                    }
+                    return;
                 }
-                return;
+
+                // Use SourceManager for source filtering
+                if (!window.source_manager.should_display_article(url, category_id)) {
+                    return;
+                }
             }
 
             // Add articles immediately
@@ -218,61 +259,21 @@ namespace Managers {
         public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
 
             string check_category = original_category ?? window.prefs.category;
-            
-            bool is_limited_category = (
-                check_category == "general" ||
-                check_category == "us" ||
-                check_category == "sports" ||
-                check_category == "science" ||
-                check_category == "health" ||
-                check_category == "technology" ||
-                check_category == "business" ||
-                check_category == "entertainment" ||
-                check_category == "politics" ||
-                check_category == "lifestyle" ||
-                check_category == "markets" ||
-                check_category == "industries" ||
-                check_category == "economics" ||
-                check_category == "wealth" ||
-                check_category == "green"
-                || check_category == "local_news"
-                || check_category == "myfeed"
-            );
 
-            
-            if (is_limited_category && !bypass_limit) {
+            // Use helper to check if category has article limits
+            if (is_limited_category(check_category) && !bypass_limit) {
                 lock (articles_shown) {
-                    try {
-                        string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                        if (dbg != null && dbg.length > 0) {
-                        }
-                    } catch (GLib.Error e) { }
-                    
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
-                        try {
-                            string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                            if (dbg != null && dbg.length > 0) {
-                            }
-                        } catch (GLib.Error e) { }
-                        
                         if (title == null || url == null) {
                             return;
                         }
-                        
-                        if (remaining_articles == null) {
-                            remaining_articles = new ArticleItem[1];
-                            remaining_articles[0] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
-                        } else {
-                            var new_arr = new ArticleItem[remaining_articles.length + 1];
-                            for (int i = 0; i < remaining_articles.length; i++) {
-                                new_arr[i] = remaining_articles[i];
+
+                        // Queue overflow article using helper
+                        string normalized_src = normalize_source_name(source_name, category_id, url);
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, normalized_src)) {
+                            if (!load_more_button_visible) {
+                                show_load_more_button();
                             }
-                            new_arr[remaining_articles.length] = new ArticleItem(title, url, thumbnail_url, category_id, source_name);
-                            remaining_articles = new_arr;
-                        }
-                        
-                        if (load_more_button == null) {
-                            show_load_more_button();
                         }
                         return;
                     }
@@ -286,11 +287,16 @@ namespace Managers {
                 target_col = forced_column;
             } else {
                 target_col = next_column_index;
-                next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
+                if (window.layout_manager != null && window.layout_manager.columns != null) {
+                    next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
+                }
             }
             
             bool should_be_hero = false;
-            if (window.prefs.category == "topten") {
+            if (window.prefs.category == "saved") {
+                // Saved articles: skip hero, display as regular cards
+                should_be_hero = false;
+            } else if (window.prefs.category == "topten") {
                 should_be_hero = (topten_hero_count < 2);
             } else if (window.prefs.category == "frontpage") {
                 // For frontpage, only make the first article a hero (same as other categories)
@@ -310,39 +316,33 @@ namespace Managers {
             }
             
             if (should_be_hero) {
+                // Top Ten uses slightly scaled hero cards
                 double hero_scale = (window.prefs.category == "topten") ? 1.30 : 1.0;
-                int max_hero_height = (window.prefs.category == "topten") ? (int)(280 * hero_scale) : 350;
+                int max_hero_height = (window.prefs.category == "topten") ? TOPTEN_HERO_MAX_HEIGHT : HERO_MAX_HEIGHT;
                 int default_hero_w = window.estimate_content_width();
-                int default_hero_h = (window.prefs.category == "topten") ? (int)(210 * hero_scale) : 250;
+                int default_hero_h = (window.prefs.category == "topten") ? TOPTEN_HERO_DEFAULT_HEIGHT : HERO_DEFAULT_HEIGHT;
 
                 string hero_display_cat = category_id;
                 try {
                     if (hero_display_cat == "frontpage" && source_name != null) {
                         int idx = source_name.index_of("##category::");
-                        if (idx >= 0) hero_display_cat = source_name.substring(idx + 11).strip();
-                    }
-                } catch (GLib.Error e) { }
-
-                try {
-                    var rss_store = Paperboy.RssSourceStore.get_instance();
-                    var all_sources = rss_store.get_all_sources();
-                    foreach (var src in all_sources) {
-                        bool is_match = false;
-                        if (source_name != null && source_name == src.name) is_match = true;
-                        if (!is_match && url != null && url.length > 0) {
-                            string src_host = UrlUtils.extract_host_from_url(src.url);
-                            string article_host = UrlUtils.extract_host_from_url(url);
-                            if (src_host != null && article_host != null && src_host == article_host) is_match = true;
-                        }
-                        if (is_match) {
-                            hero_display_cat = "rssfeed:" + src.url;
-                            break;
-                        }
+                        if (idx >= 0 && source_name.length > idx + 11) hero_display_cat = source_name.substring(idx + 11).strip();
                     }
                 } catch (GLib.Error e) { }
 
                 var hero_chip = window.build_category_chip(hero_display_cat);
-                var hero_card = new HeroCard(title, url, max_hero_height, default_hero_h, hero_chip);
+
+                // Enable context menu for: 1) Top Ten hero cards, 2) RSS feeds with < 15 articles
+                bool enable_hero_context_menu = false;
+                if (window.prefs.category == "topten") {
+                    enable_hero_context_menu = true;
+                } else if (window.category_manager.is_rssfeed_view() && articles_shown < 15) {
+                    enable_hero_context_menu = true;
+                }
+
+                var hero_card = new HeroCard(title, url, max_hero_height, default_hero_h, hero_chip, enable_hero_context_menu, window.article_state_store, window);
+
+                string _norm = window.normalize_article_url(url);
 
                 bool hero_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
                     (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
@@ -357,11 +357,12 @@ namespace Managers {
                     if (hero_will_load) {
                     // Hero images are the most prominent feature - always use maximum quality
                     int multiplier = 6;
+                    // Track hero image loading to gate initial content reveal
                     if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
-                    try { window.pending_local_placeholder.set(hero_card.image, category_id == "local_news"); } catch (GLib.Error e) { }
-                    window.image_handler.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier);
-                    window.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
-                    string _norm = window.normalize_article_url(url);
+                    try { window.image_manager.pending_local_placeholder.set(hero_card.image, category_id == "local_news"); } catch (GLib.Error e) { }
+                    // Force immediate loading for hero images (don't defer) to ensure they load quickly
+                    window.image_manager.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, true);
+                    window.image_manager.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
                     try { if (window.view_state != null) window.view_state.register_picture_for_url(_norm, hero_card.image); } catch (GLib.Error e) { }
                     try { if (window.view_state != null) window.view_state.normalized_to_url.set(_norm, url); } catch (GLib.Error e) { }
                     try { if (window.view_state != null) window.view_state.register_card_for_url(_norm, hero_card.root); } catch (GLib.Error e) { }
@@ -373,13 +374,77 @@ namespace Managers {
                             if (was) { try { window.mark_article_viewed(_norm); } catch (GLib.Error e) { } }
                         }
                     } catch (GLib.Error e) { }
-                    Timeout.add(300, () => { var info = window.hero_requests.get(hero_card.image); if (info != null) window.maybe_refetch_hero_for(hero_card.image, info); return false; });
+                    Timeout.add(300, () => { var info = window.image_manager.hero_requests.get(hero_card.image); if (info != null) window.maybe_refetch_hero_for(hero_card.image, info); return false; });
+                }
+
+                // Set metadata for context menu
+                hero_card.source_name = source_name;
+                hero_card.category_id = category_id;
+                hero_card.thumbnail_url = thumbnail_url;
+
+                // Register article for unread count tracking
+                // Note: source_name is already normalized by add_item() before being passed here
+                if (window.article_state_store != null) {
+                    window.article_state_store.register_article(_norm, category_id, source_name);
                 }
 
                 hero_card.activated.connect((s) => { try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { } });
 
+                // Connect context menu signals
+                hero_card.open_in_app_requested.connect((article_url) => {
+                    try {
+                        string normalized = window.normalize_article_url(article_url);
+                        window.mark_article_viewed(normalized);
+                        if (window.article_sheet != null) window.article_sheet.open(normalized);
+                    } catch (GLib.Error e) { }
+                });
+
+                hero_card.open_in_browser_requested.connect((article_url) => {
+                    try {
+                        string normalized = window.normalize_article_url(article_url);
+                        window.mark_article_viewed(normalized);
+                        window.article_pane.open_article_in_browser(article_url);
+                    } catch (GLib.Error e) { }
+                });
+
+                hero_card.follow_source_requested.connect((article_url, src_name) => {
+                    try {
+                        window.show_persistent_toast("Searching for feed...");
+                        window.source_manager.follow_rss_source(article_url, src_name);
+                    } catch (GLib.Error e) { }
+                });
+
+                hero_card.save_for_later_requested.connect((article_url) => {
+                    try {
+                        if (window.article_state_store != null) {
+                            bool is_saved = window.article_state_store.is_saved(article_url);
+                            if (is_saved) {
+                                window.article_state_store.unsave_article(article_url);
+                                window.show_toast("Removed article from saved");
+                                // Refresh saved badge
+                                try { window.sidebar_manager.update_badge_for_category("saved"); } catch (GLib.Error e) { }
+                                // If we're in the saved articles view, refresh to remove the card
+                                if (window.prefs.category == "saved") {
+                                    try { window.fetch_news(); } catch (GLib.Error e) { }
+                                }
+                            } else {
+                                window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                                window.show_toast("Added article to saved");
+                                // Refresh saved badge
+                                try { window.sidebar_manager.update_badge_for_category("saved"); } catch (GLib.Error e) { }
+                            }
+                        }
+                    } catch (GLib.Error e) { }
+                });
+
+                hero_card.share_requested.connect((article_url) => {
+                    try {
+                        window.show_share_dialog(article_url);
+                    } catch (GLib.Error e) { }
+                });
+
                 if (window.prefs.category == "topten") {
-                    if (topten_hero_count < 2) {
+                    if (topten_hero_count < 2 && window.layout_manager != null && window.layout_manager.hero_container != null) {
                         try { hero_card.root.set_size_request(-1, max_hero_height); } catch (GLib.Error e) { }
                         window.layout_manager.hero_container.append(hero_card.root);
                         topten_hero_count++;
@@ -389,7 +454,12 @@ namespace Managers {
                     }
                 } else {
                     if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
-                    if (hero_carousel == null) hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
+                    if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
+                        hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
+                        hero_carousel.slide_activated.connect((t, u, thumb, cat, src) => {
+                            window.article_pane.show_article_preview(t, u, thumb, cat, src);
+                        });
+                    }
                     featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
                     featured_carousel_category = category_id;
 
@@ -431,72 +501,51 @@ namespace Managers {
                 return;
             }
 
-            var slide = new Gtk.Box(Orientation.VERTICAL, 0);
-
-            int max_hero_height = 350;
-            slide.set_size_request(-1, max_hero_height);
-            slide.set_hexpand(true);
-            slide.set_vexpand(false);
-            slide.set_halign(Gtk.Align.FILL);
-            slide.set_valign(Gtk.Align.START);
-            slide.set_margin_start(0);
-            slide.set_margin_end(0);
-
-            var slide_image = new Gtk.Picture();
-            slide_image.set_halign(Gtk.Align.FILL);
-            slide_image.set_hexpand(true);
-            slide_image.set_size_request(-1, 250);
-            slide_image.set_content_fit(Gtk.ContentFit.COVER);
-            slide_image.set_can_shrink(true);
-
-            var slide_overlay = new Gtk.Overlay();
-            slide_overlay.set_child(slide_image);
+            // Extract display category from source_name if available
             string slide_display_cat = category_id;
             try {
                 if (slide_display_cat == "frontpage" && source_name != null) {
                     int idx2 = source_name.index_of("##category::");
-                    if (idx2 >= 0) slide_display_cat = source_name.substring(idx2 + 11).strip();
-                }
-            } catch (GLib.Error e) { }
-            try {
-                var rss_store = Paperboy.RssSourceStore.get_instance();
-                var all_sources = rss_store.get_all_sources();
-                foreach (var src in all_sources) {
-                    bool is_match = false;
-                    if (source_name != null && source_name == src.name) is_match = true;
-                    if (!is_match && url != null && url.length > 0) {
-                        string src_host = UrlUtils.extract_host_from_url(src.url);
-                        string article_host = UrlUtils.extract_host_from_url(url);
-                        if (src_host != null && article_host != null && src_host == article_host) is_match = true;
-                    }
-                    if (is_match) {
-                        slide_display_cat = "rssfeed:" + src.url;
-                        break;
-                    }
+                    if (idx2 >= 0 && source_name.length > idx2 + 11) slide_display_cat = source_name.substring(idx2 + 11).strip();
                 }
             } catch (GLib.Error e) { }
 
+            // Ensure carousel exists
+            if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
+                hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
+                // Connect slide activation signal
+                hero_carousel.slide_activated.connect((t, u, thumb, cat, src) => {
+                    window.article_pane.show_article_preview(t, u, thumb, cat, src);
+                });
+            }
+
+            // Build category chip and create slide via HeroCarousel
             var slide_chip = window.build_category_chip(slide_display_cat);
-            slide_overlay.add_overlay(slide_chip);
+            var components = hero_carousel.create_article_slide(title, url, thumbnail_url, category_id, source_name, slide_chip);
+            var slide = components.slide;
+            var slide_image = components.image;
 
+            // Handle image loading (this logic stays in ArticleManager as it coordinates with ImageManager)
             int default_w = window.estimate_content_width();
-            int default_h = 250;
+            int default_h = HeroCarousel.SLIDE_IMAGE_HEIGHT;
             bool slide_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
                 (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+            
             if (!slide_will_load) {
                 if (category_id == "local_news") {
                     window.set_local_placeholder_image(slide_image, default_w, default_h);
                 } else {
                     set_smart_placeholder(slide_image, default_w, default_h, source_name, url);
                 }
-            }
-            if (slide_will_load) {
+            } else {
                 // Carousel slides are prominent features - always use maximum quality
-                int multiplier = 6;
+                int multiplier = IMAGE_QUALITY_MULTIPLIER_HIGH;
+                // Track carousel image loading to gate initial content reveal
                 if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
-                try { window.pending_local_placeholder.set(slide_image, category_id == "local_news"); } catch (GLib.Error e) { }
-                window.image_handler.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier);
-                window.hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));
+                try { window.image_manager.pending_local_placeholder.set(slide_image, category_id == "local_news"); } catch (GLib.Error e) { }
+                // Force immediate loading for carousel images (don't defer) to ensure they load quickly
+                window.image_manager.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier, true);
+                window.image_manager.hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));
                 string _norm = window.normalize_article_url(url);
                 try { if (window.view_state != null) window.view_state.register_picture_for_url(_norm, slide_image); } catch (GLib.Error e) { }
                 try { if (window.view_state != null) window.view_state.normalized_to_url.set(_norm, url); } catch (GLib.Error e) { }
@@ -505,68 +554,40 @@ namespace Managers {
                     if (window.article_state_store != null) {
                         bool was = false;
                         try { was = window.article_state_store.is_viewed(_norm); } catch (GLib.Error e) { was = false; }
-                        try { window.append_debug_log("meta_check: slide url=" + _norm + " was=" + (was ? "true" : "false")); } catch (GLib.Error e) { }
                         if (was) { try { window.mark_article_viewed(_norm); } catch (GLib.Error e) { } }
                     }
                 } catch (GLib.Error e) { }
             }
-            slide.append(slide_overlay);
 
-            var slide_title_box = new Gtk.Box(Orientation.VERTICAL, 8);
-            slide_title_box.set_margin_start(16);
-            slide_title_box.set_margin_end(16);
-            slide_title_box.set_margin_top(16);
-            slide_title_box.set_margin_bottom(16);
-            slide_title_box.set_vexpand(true);
-
-            var slide_label = new Gtk.Label(title);
-            slide_label.set_ellipsize(Pango.EllipsizeMode.END);
-            slide_label.set_xalign(0);
-            slide_label.set_wrap(true);
-            slide_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
-            slide_label.set_lines(8);
-            slide_label.set_max_width_chars(88);
-            slide_title_box.append(slide_label);
-            slide.append(slide_title_box);
-
-            var slide_click = new Gtk.GestureClick();
-            slide_click.released.connect(() => {
-                window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
-            });
-            slide.add_controller(slide_click);
-
-            int new_index = featured_carousel_items.size;
-            if (hero_carousel == null) hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
-            hero_carousel.add_slide(slide);
             featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
 
-            try {
-                string? _dbg2 = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                if (_dbg2 != null && _dbg2.length > 0) {
-                    print("DEBUG: added slide idx=%d category=%s title=%s\n", new_index, category_id, title);
-                    window.append_debug_log("slide_added: idx=" + new_index.to_string() + " category=" + category_id + " title=" + title);
-                }
-            } catch (GLib.Error e) { }
-
-            if (hero_carousel != null) hero_carousel.update_dots();
+            // Register article for unread count tracking
+            // Carousel slides 2-5 need to be registered just like the first hero card
+            string _norm2 = window.normalize_article_url(url);
+            if (window.article_state_store != null) {
+                window.article_state_store.register_article(_norm2, category_id, source_name);
+            }
 
             return;
         }
 
         int variant = window.rng.int_range(0, 3);
-        int col_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+        int col_w = 400;
+        if (window.layout_manager != null) {
+            col_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+        }
         int img_w = col_w;
         int img_h = 0;
 
         // Top Ten uses uniform card heights (non-masonry layout)
         if (category_id == "topten") {
-            img_h = 200;  // Fixed image height for uniform layout
+            img_h = CARD_IMAGE_HEIGHT;  // Fixed image height for uniform layout
             variant = 0;  // Use consistent variant
         } else {
             switch (variant) {
                 case 0:
                     img_h = (int)(col_w * 0.42);
-                    if (img_h < 80) img_h = 80;
+                    if (img_h < MIN_CARD_IMAGE_HEIGHT) img_h = MIN_CARD_IMAGE_HEIGHT;
                     break;
                 case 1:
                     img_h = (int)(col_w * 0.5);
@@ -574,7 +595,7 @@ namespace Managers {
                     break;
                 default:
                     img_h = (int)(col_w * 0.58);
-                    if (img_h < 120) img_h = 120;
+                    if (img_h < CARD_TEXT_HEIGHT) img_h = CARD_TEXT_HEIGHT;
                     break;
             }
 
@@ -585,31 +606,13 @@ namespace Managers {
         try {
             if (card_display_cat == "frontpage" && source_name != null) {
                 int idx3 = source_name.index_of("##category::");
-                if (idx3 >= 0) card_display_cat = source_name.substring(idx3 + 11).strip();
-            }
-        } catch (GLib.Error e) { }
-
-        try {
-            var rss_store = Paperboy.RssSourceStore.get_instance();
-            var all_sources = rss_store.get_all_sources();
-            foreach (var src in all_sources) {
-                bool is_match = false;
-                if (source_name != null && source_name == src.name) is_match = true;
-                if (!is_match && url != null && url.length > 0) {
-                    string src_host = UrlUtils.extract_host_from_url(src.url);
-                    string article_host = UrlUtils.extract_host_from_url(url);
-                    if (src_host != null && article_host != null && src_host == article_host) is_match = true;
-                }
-                if (is_match) {
-                    card_display_cat = "rssfeed:" + src.url;
-                    break;
-                }
+                if (idx3 >= 0 && source_name.length > idx3 + 11) card_display_cat = source_name.substring(idx3 + 11).strip();
             }
         } catch (GLib.Error e) { }
 
         var chip = window.build_category_chip(card_display_cat);
 
-        var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant);
+        var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant, window.article_state_store, window);
 
         // Enforce uniform card size for Top Ten view so rows line up evenly.
         if (window.prefs.category == "topten") {
@@ -634,12 +637,6 @@ namespace Managers {
                         if (articles_shown >= LOCAL_NEWS_IMAGE_LOAD_LIMIT) {
                         window.set_local_placeholder_image(article_card.image, img_w, img_h);
                         try { if (window.view_state != null) window.view_state.register_picture_for_url(_norm, article_card.image); } catch (GLib.Error e) { }
-                        try {
-                            string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                            if (dbg != null && dbg.length > 0) {
-                                window.append_debug_log("Local News: skipped image load for item index=" + articles_shown.to_string() + " url=" + _norm);
-                            }
-                        } catch (GLib.Error e) { }
                         card_will_load = false;
                     }
                 } catch (GLib.Error e) { }
@@ -647,9 +644,13 @@ namespace Managers {
             // In single-source mode, use higher 3x multiplier for crisp quality; in multi-source mode, use 2x initially then 3x
             bool single_source = (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size == 1);
             int multiplier = single_source ? 3 : ((window.loading_state != null && window.loading_state.initial_phase) ? 2 : 3);
+            // Track regular card images in pending_images counter during initial phase
             if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
-            try { window.pending_local_placeholder.set(article_card.image, category_id == "local_news"); } catch (GLib.Error e) { }
-            window.image_handler.load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier);
+            try { window.image_manager.pending_local_placeholder.set(article_card.image, category_id == "local_news"); } catch (GLib.Error e) { }
+            // Force load when NOT in initial_phase (container is already visible)
+            // During initial_phase, let images defer until container becomes visible
+            bool force_load = (window.loading_state == null || !window.loading_state.initial_phase);
+            window.image_manager.load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier, force_load);
             try { if (window.view_state != null) window.view_state.register_picture_for_url(_norm, article_card.image); } catch (GLib.Error e) { }
         } else {
             if (category_id == "local_news") {
@@ -665,38 +666,101 @@ namespace Managers {
             if (window.article_state_store != null) {
                 bool was = false;
                 try { was = window.article_state_store.is_viewed(_norm); } catch (GLib.Error e) { was = false; }
-                try { window.append_debug_log("meta_check: card url=" + _norm + " was=" + (was ? "true" : "false")); } catch (GLib.Error e) { }
-                stderr.printf("[VIEWED_CHECK] URL: %s | Viewed: %s\n", _norm, was ? "YES" : "NO");
                 if (was) { try { window.mark_article_viewed(_norm); } catch (GLib.Error e) { } }
             }
         } catch (GLib.Error e) { }
+
+        // Set metadata for context menu
+        article_card.source_name = source_name;
+        article_card.category_id = category_id;
+        article_card.thumbnail_url = thumbnail_url;
+
+        // Register article for unread count tracking
+        // Skip registration if bypass_limit is true - these articles were already
+        // registered when added to the overflow queue (lines 131 & 314)
+        // Note: source_name is already normalized by add_item() before being passed here
+        if (window.article_state_store != null && !bypass_limit) {
+            window.article_state_store.register_article(_norm, category_id, source_name);
+        }
 
         article_card.activated.connect((s) => {
             try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { }
         });
 
+        // Connect context menu signals
+        article_card.open_in_app_requested.connect((article_url) => {
+            try {
+                string normalized = window.normalize_article_url(article_url);
+                window.mark_article_viewed(normalized);
+                if (window.article_sheet != null) window.article_sheet.open(normalized);
+            } catch (GLib.Error e) { }
+        });
+
+        article_card.open_in_browser_requested.connect((article_url) => {
+            try {
+                string normalized = window.normalize_article_url(article_url);
+                window.mark_article_viewed(normalized);
+                window.article_pane.open_article_in_browser(article_url);
+            } catch (GLib.Error e) { }
+        });
+
+        article_card.follow_source_requested.connect((article_url, src_name) => {
+            try {
+                window.show_persistent_toast("Searching for feed...");
+                window.source_manager.follow_rss_source(article_url, src_name);
+            } catch (GLib.Error e) { }
+        });
+
+        article_card.save_for_later_requested.connect((article_url) => {
+            try {
+                if (window.article_state_store != null) {
+                    bool is_saved = window.article_state_store.is_saved(article_url);
+                    if (is_saved) {
+                        window.article_state_store.unsave_article(article_url);
+                        window.show_toast("Removed article from saved");
+                        // If we're in the saved articles view, refresh to remove the card
+                        if (window.prefs.category == "saved") {
+                            try { window.fetch_news(); } catch (GLib.Error e) { }
+                        }
+                    } else {
+                        window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                        window.show_toast("Added article to saved");
+                    }
+                }
+            } catch (GLib.Error e) { }
+        });
+
+        article_card.share_requested.connect((article_url) => {
+            try {
+                window.show_share_dialog(article_url);
+            } catch (GLib.Error e) { }
+        });
+
         if (target_col == -1) {
+            if (window.layout_manager == null || window.layout_manager.columns == null || window.layout_manager.column_heights == null) {
+                warning("ArticleManager: layout_manager or columns not initialized, cannot place card");
+                return;
+            }
+            
             if (window.prefs.category == "topten") {
                 target_col = next_column_index;
-                next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
+                if (window.layout_manager.columns.length > 0) {
+                    next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
+                }
             } else {
                 target_col = 0;
-                int random_noise = window.rng.int_range(0, 11);
-                int best_score = window.layout_manager.column_heights[0] + random_noise;
-                for (int i = 1; i < window.layout_manager.columns.length; i++) {
-                    random_noise = window.rng.int_range(0, 11);
-                    int score = window.layout_manager.column_heights[i] + random_noise;
-                    if (score < best_score) { best_score = score; target_col = i; }
+                if (window.layout_manager.column_heights.length > 0 && window.layout_manager.columns.length > 0) {
+                    int random_noise = window.rng.int_range(0, 11);
+                    int best_score = window.layout_manager.column_heights[0] + random_noise;
+                    for (int i = 1; i < window.layout_manager.columns.length && i < window.layout_manager.column_heights.length; i++) {
+                        random_noise = window.rng.int_range(0, 11);
+                        int score = window.layout_manager.column_heights[i] + random_noise;
+                        if (score < best_score) { best_score = score; target_col = i; }
+                    }
                 }
             }
         }
         
-        try {
-            string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-            if (dbg != null && dbg.length > 0) {
-                window.append_debug_log("APPENDING CARD: target_col=" + target_col.to_string() + " title=" + title);
-            }
-        } catch (GLib.Error e) { }
         long _ts = (long) GLib.get_monotonic_time();
         // Attach debug hooks to the created widget so we can observe parent changes and disposals
         try {
@@ -705,9 +769,18 @@ namespace Managers {
         } catch (GLib.Error e) { }
         // Note: cannot reliably connect to dispose; rely on notify("parent") to track unparenting
 
+        // Bounds check before accessing columns and column_heights arrays
+        if (window.layout_manager == null || window.layout_manager.columns == null || 
+            target_col < 0 || target_col >= window.layout_manager.columns.length) {
+            warning("ArticleManager: invalid target_col=%d, columns.length=%d", target_col, 
+                    window.layout_manager != null && window.layout_manager.columns != null ? window.layout_manager.columns.length : -1);
+            return;
+        }
+
         window.layout_manager.columns[target_col].append(article_card.root);
 
-        // Debug: log number of children in target column after append
+        // Debug: log number of children in target column after append 
+
         try {
             int child_count = 0;
             var c = window.layout_manager.columns[target_col].get_first_child();
@@ -717,27 +790,23 @@ namespace Managers {
             }
         } catch (GLib.Error e) { }
 
-        int estimated_card_h = (int)((img_h + 120) * 0.95);
-        window.layout_manager.column_heights[target_col] += estimated_card_h + 12;
+        int estimated_card_h = (int)((img_h + CARD_HEIGHT_ESTIMATE_OFFSET) * 0.95);
+        if (window.layout_manager.column_heights != null && target_col < window.layout_manager.column_heights.length) {
+            window.layout_manager.column_heights[target_col] += estimated_card_h + 12;
+        }
 
         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
     }
         
         public void load_more_articles() {
-            if (remaining_articles == null || remaining_articles_index >= remaining_articles.length) {
-                if (load_more_button != null) {
-                    load_more_button.add_css_class("fade-out");
+            if (remaining_articles == null || remaining_articles_index >= remaining_articles.size) {
+                if (load_more_button_visible) {
+                    request_hide_load_more_button();
+                    load_more_button_visible = false;
+                    
                     Timeout.add(300, () => {
-                        if (load_more_button != null) {
-                            var parent = load_more_button.get_parent() as Gtk.Box;
-                            if (parent != null) {
-                                parent.remove(load_more_button);
-                            }
-                            load_more_button = null;
-                            
-                            if (window.loading_state.loading_container == null || !window.loading_state.loading_container.get_visible()) {
-                                show_end_of_feed_message();
-                            }
+                        if (window.loading_state.loading_container == null || !window.loading_state.loading_container.get_visible()) {
+                            show_end_of_feed_message();
                         }
                         return false;
                     });
@@ -745,39 +814,35 @@ namespace Managers {
                 return;
             }
             
-            int articles_to_load = int.min(10, remaining_articles.length - remaining_articles_index);
+            int articles_to_load = int.min(10, remaining_articles.size - remaining_articles_index);
             
             for (int i = 0; i < articles_to_load; i++) {
-                var article = remaining_articles[remaining_articles_index + i];
+                var article = remaining_articles.get(remaining_articles_index + i);
+                // No need to check seen_urls here - articles were already deduplicated
+                // when they were added to remaining_articles queue
                 article_buffer.add(article);
                 add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, -1, null, article.source_name, true);
             }
             
             remaining_articles_index += articles_to_load;
             
-            if (load_more_button != null) {
-                load_more_button.add_css_class("fade-out");
+            if (load_more_button_visible) {
+                request_hide_load_more_button();
+                load_more_button_visible = false;
+                
                 Timeout.add(300, () => {
-                    if (load_more_button != null) {
-                        var parent = load_more_button.get_parent() as Gtk.Box;
-                        if (parent != null) {
-                            parent.remove(load_more_button);
-                        }
-                        load_more_button = null;
-                    }
-                    
-                    if (remaining_articles_index < remaining_articles.length) {
+                    if (remaining_articles_index < remaining_articles.size) {
                         Timeout.add(500, () => {
                             show_load_more_button();
                             return false;
                         });
                     } else {
-                            Timeout.add(500, () => {
-                                if (window.loading_state.loading_container == null || !window.loading_state.loading_container.get_visible()) {
-                                    show_end_of_feed_message();
-                                }
-                                return false;
-                            });
+                        Timeout.add(500, () => {
+                            if (window.loading_state.loading_container == null || !window.loading_state.loading_container.get_visible()) {
+                                show_end_of_feed_message();
+                            }
+                            return false;
+                        });
                     }
                     return false;
                 });
@@ -785,84 +850,55 @@ namespace Managers {
         }
 
         public void show_load_more_button() {
-            if (load_more_button != null) return;
+            if (load_more_button_visible) return;
             
             if (window.loading_state.loading_container != null && window.loading_state.loading_container.get_visible()) {
                 return;
             }
             
-            load_more_button = new Gtk.Button.with_label("Load more articles");
-            load_more_button.add_css_class("suggested-action");
-            load_more_button.add_css_class("pill");
-            load_more_button.set_margin_top(20);
-            load_more_button.set_margin_bottom(20);
-            load_more_button.set_halign(Gtk.Align.CENTER);
+            // Remove any end of feed message
+            request_remove_end_feed_message();
             
-            load_more_button.clicked.connect(() => {
-            load_more_button.set_label("Loading...");
-                load_more_button.set_sensitive(false);
-                load_more_button.remove_css_class("suggested-action");
-                load_more_button.add_css_class("loading");
-                
-                Timeout.add(150, () => {
-                    load_more_articles();
-                    return false;
-                });
-            });
-            
-            var children = window.content_box.observe_children();
-            for (uint i = 0; i < children.get_n_items(); i++) {
-                var child = children.get_item(i) as Gtk.Widget;
-                if (child is Gtk.Label) {
-                    var lbl = child as Gtk.Label;
-                    var txt = lbl.get_label();
-                    if (txt == "<b>No more articles</b>" || txt == "No more articles") {
-                        window.content_box.remove(lbl);
-                        break;
-                    }
-                }
-            }
-
-            load_more_button.add_css_class("fade-out");
-            window.content_box.append(load_more_button);
-            
-            Timeout.add(50, () => {
-                load_more_button.remove_css_class("fade-out");
-                load_more_button.add_css_class("fade-in");
-                return false;
-            });
+            // Request UI to show the load more button
+            request_show_load_more_button();
+            load_more_button_visible = true;
         }
-
+                
         // Ensure any existing load-more button is removed and cleared.
         public void clear_load_more_button() {
-            if (load_more_button == null) return;
-            try {
-                var parent = load_more_button.get_parent() as Gtk.Box;
-                if (parent != null) {
-                    parent.remove(load_more_button);
-                }
-            } catch (GLib.Error e) { }
-            load_more_button = null;
+            if (!load_more_button_visible) return;
+            request_hide_load_more_button();
+            load_more_button_visible = false;
         }
 
         // Public query so other managers can know whether a load-more
         // button is currently present. This avoids races where two
         // managers append conflicting UI elements (button vs end label).
         public bool has_load_more_button() {
-            return load_more_button != null;
+            return load_more_button_visible;
         }
 
         // Public helper to clear all article state and destroy article widgets
         public void clear_articles() {
+            // DON'T clear article tracking - we want to accumulate articles across all categories
+            // for persistent unread counts that survive category switches
+
             // Clear article buffer
             if (article_buffer != null) {
                 article_buffer.clear();
             }
 
-            // Clear remaining articles array
-            remaining_articles = null;
+            // Clear remaining articles list
+            if (remaining_articles != null) {
+                remaining_articles.clear();
+            }
             remaining_articles_index = 0;
             articles_shown = 0;
+
+            // Clear seen_urls to allow fresh deduplication for new fetch
+            if (seen_urls != null) {
+                seen_urls.clear();
+            }
 
             // Clear category tracking maps
             if (category_column_counts != null) {
@@ -907,11 +943,6 @@ namespace Managers {
                                 removed_count++;
                                 child = next;
                             }
-                            try {
-                                if (removed_count > 0) {
-                                    stderr.printf("DEBUG: clear_articles() removed %d widgets from column %d\n", removed_count, col);
-                                }
-                            } catch (GLib.Error e) { }
                         }
                     }
 
@@ -926,89 +957,44 @@ namespace Managers {
                 }
             } catch (GLib.Error e) { }
         }
+
+        /**
+         * Reset article manager state for a new fetch.
+         * Call this at the start of fetch_news() to prepare for new content.
+         * Clears articles, stops carousel timer, and resets tracking state.
+         */
+        public void reset_for_new_fetch() {
+            // Clear all articles and widgets
+            clear_articles();
+
+            // Stop and clear hero carousel
+            if (hero_carousel != null) {
+                hero_carousel.stop_timer();
+                try {
+                    if (hero_carousel.container != null && window.layout_manager.featured_box != null) {
+                        window.layout_manager.featured_box.remove(hero_carousel.container);
+                    }
+                } catch (GLib.Error e) { }
+                hero_carousel = null;
+            }
+
+            // Reset carousel state
+            if (featured_carousel_items != null) {
+                featured_carousel_items.clear();
+            }
+            featured_carousel_category = null;
+            featured_used = false;
+            topten_hero_count = 0;
+
+            // Cancel any pending buffer flush timeout
+            if (buffer_flush_timeout_id > 0) {
+                Source.remove(buffer_flush_timeout_id);
+                buffer_flush_timeout_id = 0;
+            }
+        }
         
         private void show_end_of_feed_message() {
             try { if (window.loading_state != null) window.loading_state.show_end_of_feed_message(); } catch (GLib.Error e) { }
-        }
-
-        // Rebuild RSS feed layout as 2-column uniform hero cards (for feeds with < 15 articles)
-        public void rebuild_rss_feed_as_heroes() {
-            try {
-                try {
-                    string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                    if (dbg != null && dbg.length > 0) {
-                        window.append_debug_log("RSS FEED: rebuild_rss_feed_as_heroes() called");
-                    }
-                } catch (GLib.Error e) { }
-
-                // Hide the hero/featured area since we want all articles in columns
-                try {
-                    if (window.layout_manager.hero_container != null) {
-                        window.layout_manager.hero_container.set_visible(false);
-                    }
-                } catch (GLib.Error e) { }
-
-                try {
-                    if (window.layout_manager.featured_box != null) {
-                        window.layout_manager.featured_box.set_visible(false);
-                    }
-                } catch (GLib.Error e) { }
-
-                // Rebuild with 2 columns - existing cards will redistribute
-                window.layout_manager.rebuild_columns(2);
-
-                // Apply uniform sizing to all article cards in columns
-                for (int i = 0; i < window.layout_manager.columns.length; i++) {
-                    Gtk.Widget? child = window.layout_manager.columns[i].get_first_child();
-                    while (child != null) {
-                        try {
-                            // Force uniform tall hero card dimensions
-                            // Total height: 380px (300px image + 80px text)
-                            child.set_size_request(-1, 380);
-                            child.add_css_class("rss-hero-card");
-
-                            // Dive into the card structure to set uniform heights on image and text sections
-                            if (child is Gtk.Box) {
-                                Gtk.Box card_root = (Gtk.Box) child;
-                                Gtk.Widget? card_child = card_root.get_first_child();
-                                int child_index = 0;
-
-                                while (card_child != null) {
-                                    if (child_index == 0) {
-                                        // First child is the overlay with image - set to 300px
-                                        if (card_child is Gtk.Overlay) {
-                                            Gtk.Overlay overlay = (Gtk.Overlay) card_child;
-                                            Gtk.Widget? image = overlay.get_child();
-                                            if (image != null) {
-                                                image.set_size_request(-1, 300);
-                                            }
-                                        }
-                                    } else if (child_index == 1) {
-                                        // Second child is the title_box (white part) - set to 80px
-                                        if (card_child is Gtk.Box) {
-                                            card_child.set_size_request(-1, 80);
-                                            card_child.set_vexpand(false);
-                                        }
-                                    }
-                                    child_index++;
-                                    card_child = card_child.get_next_sibling();
-                                }
-                            }
-                        } catch (GLib.Error e) { }
-                        child = child.get_next_sibling();
-                    }
-                }
-
-                try {
-                    string? dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                    if (dbg != null && dbg.length > 0) {
-                        window.append_debug_log("RSS FEED: Converted to uniform 2-column hero layout");
-                    }
-                } catch (GLib.Error e) { }
-
-            } catch (GLib.Error e) {
-                warning("Failed to rebuild RSS feed as heroes: %s", e.message);
-            }
         }
 
 
@@ -1035,19 +1021,18 @@ namespace Managers {
     }
 
     private bool source_name_matches(NewsSource source, string name) {
-        string n = name.down();
-        switch (source) {
-            case NewsSource.GUARDIAN: return n.contains("guardian");
-            case NewsSource.BBC: return n.contains("bbc");
-            case NewsSource.REDDIT: return n.contains("reddit");
-            case NewsSource.NEW_YORK_TIMES: return n.contains("nytimes") || n.contains("new york times");
-            case NewsSource.WALL_STREET_JOURNAL: return n.contains("wsj") || n.contains("wall street");
-            case NewsSource.BLOOMBERG: return n.contains("bloomberg");
-            case NewsSource.REUTERS: return n.contains("reuters");
-            case NewsSource.NPR: return n.contains("npr");
-            case NewsSource.FOX: return n.contains("fox");
-            default: return false;
-        }
+        return SourceManager.source_name_matches(source, name);
+    }
+    public void clear_article_buffer() {
+        article_buffer.clear();
+    }
+
+    public void reset_featured_state() {
+        featured_used = false;
+        topten_hero_count = 0;
+        if (featured_carousel_items != null) featured_carousel_items.clear();
+        hero_carousel = null;
+        featured_carousel_category = null;
     }
 }
 }

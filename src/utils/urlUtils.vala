@@ -25,7 +25,7 @@ public class UrlUtils {
         string u = url.strip();
         // Remove query string entirely (utm and tracking params commonly appended)
         int qpos = u.index_of("?");
-        if (qpos >= 0) {
+        if (qpos >= 0 && u.length > qpos) {
             u = u.substring(0, qpos);
         }
         // Remove trailing slash
@@ -52,16 +52,16 @@ public class UrlUtils {
         if (u.length == 0) return "";
         // Strip scheme
         int scheme_end = u.index_of("://");
-        if (scheme_end >= 0) u = u.substring(scheme_end + 3);
+        if (scheme_end >= 0 && u.length > scheme_end + 3) u = u.substring(scheme_end + 3);
         // Cut at first slash
         int slash = u.index_of("/");
-        if (slash >= 0) u = u.substring(0, slash);
+        if (slash >= 0 && u.length > slash) u = u.substring(0, slash);
         // Remove port if present
         int colon = u.index_of(":");
-        if (colon >= 0) u = u.substring(0, colon);
+        if (colon >= 0 && u.length > colon) u = u.substring(0, colon);
         u = u.down();
         // Strip common www prefix
-        if (u.has_prefix("www.")) u = u.substring(4);
+        if (u.has_prefix("www.") && u.length > 4) u = u.substring(4);
         return u;
     }
 
@@ -74,7 +74,7 @@ public class UrlUtils {
         if (h.length == 0) return "News";
         // Take left-most label as the short name (e.g., "example-news")
         int dot = h.index_of(".");
-        if (dot >= 0) h = h.substring(0, dot);
+        if (dot >= 0 && h.length > dot) h = h.substring(0, dot);
         // Replace hyphens/underscores with spaces and split into words
         h = h.replace("-", " ");
         h = h.replace("_", " ");
@@ -90,7 +90,7 @@ public class UrlUtils {
         // e.g. "theguardian" -> "The Guardian", "nytimes" -> "NY Times"
         string lower_out = out.down();
         if (lower_out.has_prefix("the") && lower_out.length > 3 && lower_out.index_of(" ") < 0) {
-            // Split off the leading "the" into a separate word
+            // Split off the leading "the" into a separate word (length already checked above)
             string rest = lower_out.substring(3);
             if (rest.length > 0) {
                 // Capitalize the remainder nicely and return
