@@ -24,6 +24,13 @@ using Gee;
  */
 
 public class ArticleStateStore : GLib.Object {
+    // Emitted when saved articles have been loaded from disk
+    public signal void saved_articles_loaded();
+    // Emitted when a single article is saved or unsaved at runtime
+    public signal void saved_article_added(string url);
+    public signal void saved_article_removed(string url);
+    // Emitted when an article's viewed/unviewed status changes at runtime
+    public signal void viewed_status_changed(string url, bool viewed);
     private string cache_dir_path;
     private string cache_dir;
     private Gee.HashSet<string> viewed_meta_paths;
@@ -193,6 +200,11 @@ public class ArticleStateStore : GLib.Object {
             kf.set_string("meta", "viewed_at", "%d".printf((int)now_s));
             write_meta_for_url(url, kf);
             meta_lock_add_viewed(meta_path);
+            try {
+                string norm = url;
+                try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+                try { viewed_status_changed(norm, true); } catch (GLib.Error e) { }
+            } catch (GLib.Error e) { }
         } catch (GLib.Error e) { }
     }
 
@@ -205,6 +217,11 @@ public class ArticleStateStore : GLib.Object {
             kf.set_string("meta", "viewed", "0");
             kf.remove_key("meta", "viewed_at");
             write_meta_for_url(url, kf);
+            try {
+                string norm = url;
+                try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+                try { viewed_status_changed(norm, false); } catch (GLib.Error e) { }
+            } catch (GLib.Error e) { }
         } catch (GLib.Error e) { }
     }
 
@@ -421,6 +438,44 @@ public class ArticleStateStore : GLib.Object {
         }
     }
 
+    // Get list of category IDs that a specific URL belongs to
+    public Gee.ArrayList<string> get_categories_for_url(string url) {
+        var out = new Gee.ArrayList<string>();
+        string norm = url;
+        try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+        article_tracking_lock.lock();
+        try {
+            foreach (var entry in category_articles.entries) {
+                try {
+                    var set = entry.value;
+                    if (set.contains(norm)) out.add(entry.key);
+                } catch (GLib.Error e) { }
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+        return out;
+    }
+
+    // Get list of source names that a specific URL belongs to
+    public Gee.ArrayList<string> get_sources_for_url(string url) {
+        var out = new Gee.ArrayList<string>();
+        string norm = url;
+        try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+        article_tracking_lock.lock();
+        try {
+            foreach (var entry in source_articles.entries) {
+                try {
+                    var set = entry.value;
+                    if (set.contains(norm)) out.add(entry.key);
+                } catch (GLib.Error e) { }
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+        return out;
+    }
+
     // Clear all article tracking (useful when refreshing/reloading)
     // Preserves the "saved" category since saved articles are persistent user data
     public void clear_article_tracking() {
@@ -612,6 +667,7 @@ public class ArticleStateStore : GLib.Object {
             string norm = UrlUtils.normalize_article_url(url);
             if (norm == null || norm.length == 0) norm = url.strip();
             register_article(norm, "saved", source);
+            try { saved_article_added(url); } catch (GLib.Error e) { }
         } catch (GLib.Error e) { }
     }
 
@@ -620,7 +676,29 @@ public class ArticleStateStore : GLib.Object {
         // unread counts update correctly.
         saved_lock.lock();
         try {
-            saved_articles.unset(url);
+            // Attempt direct remove first
+            if (saved_articles.has_key(url)) {
+                saved_articles.unset(url);
+            } else {
+                // Fallback: remove any entry whose canonical normalized URL
+                // matches the requested URL's normalized form. This covers
+                // situations where saved entries were stored with a slightly
+                // different URL form (scheme missing, trailing slash, etc.).
+                string norm = url;
+                try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+                var keys_to_remove = new Gee.ArrayList<string>();
+                foreach (var k in saved_articles.keys) {
+                    try {
+                        string kn = UrlUtils.normalize_article_url(k);
+                        if (kn == norm) keys_to_remove.add(k);
+                    } catch (GLib.Error e) {
+                        if (k == url) keys_to_remove.add(k);
+                    }
+                }
+                foreach (var k in keys_to_remove) {
+                    try { saved_articles.unset(k); } catch (GLib.Error e) { }
+                }
+            }
             persist_saved_articles();
         } finally {
             saved_lock.unlock();
@@ -639,13 +717,26 @@ public class ArticleStateStore : GLib.Object {
             } finally {
                 article_tracking_lock.unlock();
             }
+            try { saved_article_removed(url); } catch (GLib.Error e) { }
         } catch (GLib.Error e) { }
     }
 
     public bool is_saved(string url) {
         saved_lock.lock();
         try {
-            return saved_articles.has_key(url);
+            if (saved_articles.has_key(url)) return true;
+            // Check normalized match
+            string norm = url;
+            try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+            foreach (var k in saved_articles.keys) {
+                try {
+                    string kn = UrlUtils.normalize_article_url(k);
+                    if (kn == norm) return true;
+                } catch (GLib.Error e) {
+                    if (k == url) return true;
+                }
+            }
+            return false;
         } finally {
             saved_lock.unlock();
         }
@@ -671,8 +762,17 @@ public class ArticleStateStore : GLib.Object {
     public SavedArticle? get_saved_article(string url) {
         saved_lock.lock();
         try {
-            if (saved_articles.has_key(url)) {
-                return saved_articles.get(url);
+            if (saved_articles.has_key(url)) return saved_articles.get(url);
+            // Try normalized lookup
+            string norm = url;
+            try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+            foreach (var k in saved_articles.keys) {
+                try {
+                    string kn = UrlUtils.normalize_article_url(k);
+                    if (kn == norm) return saved_articles.get(k);
+                } catch (GLib.Error e) {
+                    if (k == url) return saved_articles.get(k);
+                }
             }
             return null;
         } finally {
@@ -765,20 +865,35 @@ public class ArticleStateStore : GLib.Object {
             if (obj.has_member("saved")) {
                 var saved_array = obj.get_array_member("saved");
                 saved_array.foreach_element((arr, index, node) => {
-                    if (node.get_node_type() == Json.NodeType.OBJECT) {
-                        var article_obj = node.get_object();
-                        string url = article_obj.get_string_member("url");
-                        string title = article_obj.get_string_member("title");
-                        string? thumbnail = article_obj.has_member("thumbnail") ? article_obj.get_string_member("thumbnail") : null;
-                        string? source = article_obj.has_member("source") ? article_obj.get_string_member("source") : null;
+                if (node.get_node_type() == Json.NodeType.OBJECT) {
+                    var article_obj = node.get_object();
+                    string url = article_obj.get_string_member("url");
+                    string title = article_obj.get_string_member("title");
+                    string? thumbnail = article_obj.has_member("thumbnail") ? article_obj.get_string_member("thumbnail") : null;
+                    string? source = article_obj.has_member("source") ? article_obj.get_string_member("source") : null;
 
-                        var article = new SavedArticle(url, title, thumbnail, source);
-                        if (article_obj.has_member("saved_timestamp")) {
-                            article.saved_timestamp = article_obj.get_int_member("saved_timestamp");
-                        }
-                        saved_articles.set(url, article);
+                    var article = new SavedArticle(url, title, thumbnail, source);
+                    if (article_obj.has_member("saved_timestamp")) {
+                        article.saved_timestamp = article_obj.get_int_member("saved_timestamp");
                     }
-                });
+                    saved_articles.set(url, article);
+                }
+            });
+
+            // Register loaded saved articles into category tracking so the
+            // sidebar can immediately show the correct "Saved" badge count.
+            try {
+                foreach (var article in saved_articles.values) {
+                    try {
+                        string norm = UrlUtils.normalize_article_url(article.url);
+                        if (norm == null || norm.length == 0) norm = article.url.strip();
+                        register_article(norm, "saved", article.source);
+                    } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
+
+            // Notify listeners (UI) that saved articles are now available
+            try { saved_articles_loaded(); } catch (GLib.Error e) { }
             }
         } catch (GLib.Error e) {
             stderr.printf("Failed to load saved articles: %s\n", e.message);

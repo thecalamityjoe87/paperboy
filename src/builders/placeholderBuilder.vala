@@ -36,7 +36,7 @@ public class PlaceholderBuilder : GLib.Object {
             cr.paint();
 
             // Try to load and display the no-image.png icon
-            string? icon_path = DataPaths.find_data_file(GLib.Path.build_filename("icons", "no-image.png"));
+            string? icon_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "no-image.png"));
             if (icon_path != null) {
                 try {
                     // Calculate target icon size (40% of placeholder)
@@ -324,15 +324,15 @@ public class PlaceholderBuilder : GLib.Object {
     // Local-news specific placeholder
     public static void set_local_placeholder_image(Gtk.Picture image, int width, int height) {
         try {
-            string? local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-            if (local_icon == null) local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
+            string? local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
+            if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
             string? use_path = local_icon;
             if (use_path != null) {
                 try {
                     var sm = Adw.StyleManager.get_default();
                     if (sm != null && sm.dark) {
-                        string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                        if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
+                        string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
+                        if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
                         if (white_cand != null) use_path = white_cand;
                     }
                 } catch (GLib.Error e) { }
@@ -511,7 +511,7 @@ public class PlaceholderBuilder : GLib.Object {
             case NewsSource.UNKNOWN: return null;
             default: return null;
         }
-        return DataPaths.find_data_file(GLib.Path.build_filename("icons", icon_filename));
+        return DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", icon_filename));
     }
 
     // Create a placeholder for RSS feed sources using their logo from source_logos directory

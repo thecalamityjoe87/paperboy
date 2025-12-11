@@ -87,7 +87,7 @@ public class UnreadFetchService {
                     foreach (string line in lines) {
                         string u = line.strip();
                         if (u.length == 0) continue;
-                        RssParser.fetch_rss_url(
+                        RssFeedProcessor.fetch_rss_url(
                             u,
                             "Local Feed",
                             "Local News",
@@ -112,7 +112,7 @@ public class UnreadFetchService {
             if (all_sources.size > 0) {
                 foreach (var rss_src in all_sources) {
                     string rss_category_id = "rssfeed:" + rss_src.url;
-                    RssParser.fetch_rss_url(
+                    RssFeedProcessor.fetch_rss_url(
                         rss_src.url,
                         rss_src.name,
                         rss_src.name,  // category_name = source name

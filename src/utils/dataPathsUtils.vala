@@ -18,12 +18,12 @@
 using GLib;
 
 /*
- * Centralized helpers for locating runtime data files (development tree
+ * Centralized utility helpers for locating runtime data files (development tree
  * and installed locations). This encapsulates the cached environment
  * lookups used across the app.
  */
 
-public class DataPaths : GLib.Object {
+public class DataPathsUtils : GLib.Object {
     private static string? user_data_dir_cached = null;
     private static string[]? system_data_dirs_cached = null;
 

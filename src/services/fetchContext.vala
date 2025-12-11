@@ -104,7 +104,7 @@ public class FetchContext : GLib.Object {
     }
     
     // ============================================================
-    // BACKWARD COMPATIBILITY: Static FetchSequence-style API
+    // BACKWARD COMPATIBILITY: Static sequence-based API
     // These allow existing code to continue working during migration
     // ============================================================
     

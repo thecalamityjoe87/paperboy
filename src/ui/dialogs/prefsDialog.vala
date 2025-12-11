@@ -256,7 +256,7 @@ public class PrefsDialog : GLib.Object {
         void load_favicon_circular(Gtk.Picture picture, string url) {
             new Thread<void*>("load-favicon", () => {
                 try {
-                    var client = Paperboy.HttpClient.get_default();
+                    var client = Paperboy.HttpClientUtils.get_default();
                     var http_response = client.fetch_sync(url, null);
 
                     if (http_response.is_success() && http_response.body != null && http_response.body.get_size() > 0) {
@@ -581,6 +581,15 @@ public class PrefsDialog : GLib.Object {
         personalized_switch.notify["active"].connect(() => {
             prefs.personalized_feed_enabled = personalized_switch.get_active();
             prefs.save_config();
+            // Refresh My Feed badge to show/hide it based on the enabled state
+            if (win != null && win.sidebar_manager != null) {
+                win.sidebar_manager.update_badge_for_category("myfeed");
+            }
+            // If user is currently viewing My Feed when they disable it, refresh the view
+            // to show the "disabled" message
+            if (win != null && win.prefs.category == "myfeed") {
+                win.fetch_news();
+            }
         });
 
         // Track if personalized categories changed
@@ -972,7 +981,7 @@ public class PrefsDialog : GLib.Object {
     var about = new Adw.AboutDialog();
     about.set_application_name("Paperboy");
     about.set_application_icon("paperboy"); // Use the correct icon name
-    about.set_version("0.7.1a");
+    about.set_version("0.7.2a");
     about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
     about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
     about.set_website("https://github.com/thecalamityjoe87/paperboy");

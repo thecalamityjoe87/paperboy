@@ -56,7 +56,7 @@ public class BloombergFetcher : BaseFetcher {
                 url = "https://feeds.bloomberg.com/markets/news.rss";
                 break;
         }
-        RssParser.fetch_rss_url(url, "Bloomberg", FetcherUtils.category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, "Bloomberg", FetcherUtils.category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
     }
 
     public override string get_source_name() {
@@ -79,6 +79,6 @@ public class BloombergFetcher : BaseFetcher {
         }
         string url = @"$(base_url)?q=$(Uri.escape_string(query))&$(ceid)";
 
-        RssParser.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, set_label, clear_items, add_item);
     }
 }

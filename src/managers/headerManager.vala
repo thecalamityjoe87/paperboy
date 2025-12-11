@@ -54,14 +54,14 @@ public class HeaderManager : GLib.Object {
     public void setup_multi_source_header() {
         try { source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
         try {
-            string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-            if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+            string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+            if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
             if (multi_icon != null) {
                 string use_path = multi_icon;
                 try {
                     if (window.is_dark_mode()) {
-                        string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                        if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                        string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                        if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                         if (white_cand != null) use_path = white_cand;
                     }
                 } catch (GLib.Error e) { }
@@ -90,14 +90,14 @@ public class HeaderManager : GLib.Object {
     public void setup_local_news_header() {
         try { source_label.set_text("Local News"); } catch (GLib.Error e) { }
         try {
-            string? local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-            if (local_icon == null) local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
+            string? local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
+            if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
             if (local_icon != null) {
                 string use_path = local_icon;
                 try {
                     if (window.is_dark_mode()) {
-                        string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                        if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
+                        string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
+                        if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
                         if (white_cand != null) use_path = white_cand;
                     }
                 } catch (GLib.Error e) { }
@@ -218,7 +218,7 @@ public class HeaderManager : GLib.Object {
             }
 
             // Regular category icons
-            var hdr = CategoryIcons.create_category_header_icon(window.prefs.category, 36);
+            var hdr = CategoryIconsUtils.create_category_header_icon(window.prefs.category, 36);
             if (hdr != null) category_icon_holder.append(hdr);
         } catch (GLib.Error e) { }
     }
@@ -244,14 +244,14 @@ public class HeaderManager : GLib.Object {
             if (window.prefs != null && window.prefs.category == "local_news") {
                 try { source_label.set_text("Local News"); } catch (GLib.Error e) { }
                 try {
-                        string? local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-                    if (local_icon == null) local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
+                        string? local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
+                    if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
                     if (local_icon != null) {
                         string use_path = local_icon;
                         try {
                             if (window.is_dark_mode()) {
-                                string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                                if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
+                                string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
+                                if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
                                 if (white_cand != null) use_path = white_cand;
                             }
                         } catch (GLib.Error e) { }
@@ -276,14 +276,14 @@ public class HeaderManager : GLib.Object {
         if (window.prefs.category == "frontpage") {
             try { source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
             try {
-                    string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                    string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
                 if (multi_icon != null) {
                     string use_path = multi_icon;
                     try {
                         if (window.is_dark_mode()) {
-                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                             if (white_cand != null) use_path = white_cand;
                         }
                     } catch (GLib.Error e) { }
@@ -307,14 +307,14 @@ public class HeaderManager : GLib.Object {
         if (window.prefs.category == "topten") {
             try { source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
             try {
-                string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-                if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+                string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+                if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
                 if (multi_icon != null) {
                     string use_path = multi_icon;
                     try {
                         if (window.is_dark_mode()) {
-                            string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                            if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                             if (white_cand != null) use_path = white_cand;
                         }
                     } catch (GLib.Error e) { }
@@ -337,15 +337,15 @@ public class HeaderManager : GLib.Object {
 
         if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
             source_label.set_text("Multiple Sources");
-            string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-            if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+            string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+            if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
             if (multi_icon != null) {
                 try {
                     string use_path = multi_icon;
                     try {
                         if (window.is_dark_mode()) {
-                            string? white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                            if (white_candidate == null) white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                            string? white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                            if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                             if (white_candidate != null) use_path = white_candidate;
                         }
                     } catch (GLib.Error e) { }
@@ -420,7 +420,7 @@ public class HeaderManager : GLib.Object {
         try { source_label.set_text(source_name); } catch (GLib.Error e) { }
 
         if (logo_file != null) {
-            string? logo_path = DataPaths.find_data_file(GLib.Path.build_filename("icons", logo_file));
+            string? logo_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", logo_file));
             if (logo_path != null) {
                 try {
                     // Load or fetch cached scaled logo pixbuf
@@ -598,15 +598,15 @@ public class HeaderManager : GLib.Object {
         try { source_label.set_text("Multiple Sources"); } catch (GLib.Error e) { }
         
         try {
-            string? multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-            if (multi_icon == null) multi_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
+            string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
+            if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
             
             if (multi_icon != null) {
                 string use_path = multi_icon;
                 try {
                     if (window.is_dark_mode()) {
-                        string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                        if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
+                        string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
+                        if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
                         if (white_cand != null) use_path = white_cand;
                     }
                 } catch (GLib.Error e) { }
@@ -634,15 +634,15 @@ public class HeaderManager : GLib.Object {
         try { source_label.set_text("Local News"); } catch (GLib.Error e) { }
         
         try {
-            string? local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-            if (local_icon == null) local_icon = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
+            string? local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
+            if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
             
             if (local_icon != null) {
                 string use_path = local_icon;
                 try {
                     if (window.is_dark_mode()) {
-                        string? white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                        if (white_cand == null) white_cand = DataPaths.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
+                        string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
+                        if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
                         if (white_cand != null) use_path = white_cand;
                     }
                 } catch (GLib.Error e) { }

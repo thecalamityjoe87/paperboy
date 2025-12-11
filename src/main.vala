@@ -29,7 +29,7 @@ public class PaperboyApp : Adw.Application {
     protected override void activate() {
         // Ensure global HttpClient is constructed on the main thread
         // before any other subsystem can spawn worker threads.
-        try { Paperboy.HttpClient.ensure_initialized(); } catch (GLib.Error e) { }
+        try { Paperboy.HttpClientUtils.ensure_initialized(); } catch (GLib.Error e) { }
         
         var win = new NewsWindow(this);
         win.present();

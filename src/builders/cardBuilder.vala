@@ -83,7 +83,7 @@ public class CardBuilder : GLib.Object {
 
         string? filename = source_icon_filename(source);
         if (filename != null) {
-            string? path = DataPaths.find_data_file("icons/" + filename);
+            string? path = DataPathsUtils.find_data_file("icons/" + filename);
             if (path != null) {
                 try {
                     // Use ImageCache for all generated pixbufs so we never keep long-lived
@@ -486,7 +486,7 @@ public class CardBuilder : GLib.Object {
             if (resolved != null) {
                 string? icon_path = null;
                 string? fname = source_icon_filename(resolved);
-                if (fname != null) icon_path = DataPaths.find_data_file("icons/" + fname);
+                if (fname != null) icon_path = DataPathsUtils.find_data_file("icons/" + fname);
                 if (icon_path != null) return build_source_badge(resolved);
             }
         }
@@ -668,7 +668,7 @@ public class CardBuilder : GLib.Object {
                     GLib.Path.build_filename("icons", cand + ".svg")
                 };
                 foreach (var rel in paths) {
-                    string? full = DataPaths.find_data_file(rel);
+                    string? full = DataPathsUtils.find_data_file(rel);
                     if (full != null) {
                         var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
                         box.add_css_class("source-badge");

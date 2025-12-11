@@ -25,7 +25,7 @@ public class FetchNewsController {
     public static void global_forward_label(string? text) {
         Idle.add(() => {
             var cur = FetchContext.current_context();
-            if (cur == null) return false;
+            if (cur == null || !cur.is_valid()) return false;
             var w = cur.window;
             if (w == null) return false;
             try {
@@ -51,7 +51,7 @@ public class FetchNewsController {
     public static void global_add_item(string title, string url, string? thumbnail, string category_id, string? source_name) {
         Idle.add(() => {
             var cur = FetchContext.current_context();
-            if (cur == null) return false;
+            if (cur == null || !cur.is_valid()) return false;
             var w = cur.window;
             if (w == null) return false;
 
@@ -95,7 +95,7 @@ public class FetchNewsController {
         if (win == null) return;
 
         // === PHASE 1: Cleanup and preparation ===
-        try { win.cleanup_stale_downloads(); } catch (GLib.Error e) { }
+        try { if (win.image_manager != null) win.image_manager.cleanup_stale_downloads(); } catch (GLib.Error e) { }
 
         // Reset article manager state (clears articles, stops carousel, cancels pending timeouts)
         try { if (win.article_manager != null) win.article_manager.reset_for_new_fetch(); } catch (GLib.Error e) { }
@@ -701,7 +701,7 @@ public class FetchNewsController {
                 if (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0) {
                     // Don't set featured_used - allow first article to become hero/carousel
                     foreach (var rss_src in custom_rss_sources) {
-                        RssParser.fetch_rss_url(
+                        RssFeedProcessor.fetch_rss_url(
                             rss_src.url,
                             rss_src.name,
                             "My Feed",
@@ -775,7 +775,7 @@ public class FetchNewsController {
                 if (custom_rss_sources != null && custom_rss_sources.size > 0) {
                     win.article_manager.featured_used = true;
                     foreach (var rss_src in custom_rss_sources) {
-                        RssParser.fetch_rss_url(
+                        RssFeedProcessor.fetch_rss_url(
                             rss_src.url,
                             rss_src.name,
                             "My Feed",
@@ -976,7 +976,7 @@ public class FetchNewsController {
         } catch (GLib.Error e) { }
 
         // Fetch articles from the RSS feed
-        RssParser.fetch_rss_url(
+        RssFeedProcessor.fetch_rss_url(
             feed_url,
             feed_name,
             feed_name,
@@ -1169,7 +1169,7 @@ public class FetchNewsController {
                     article_mgr.featured_used = true;
                 }
             } catch (GLib.Error e) { }
-            RssParser.fetch_rss_url(
+            RssFeedProcessor.fetch_rss_url(
                 u,
                 "Local Feed",
                 "Local News",

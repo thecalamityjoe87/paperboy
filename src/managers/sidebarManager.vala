@@ -60,7 +60,7 @@ public delegate void RssFeedAddedCallback(bool success, string discovered_name);
  * All UI building is delegated to SidebarView.
  */
 public class SidebarManager : GLib.Object {
-    private NewsWindow window;
+    private weak NewsWindow window;
     private SidebarActivateHandler? activate_cb;
 
     // Expandable sections state tracking (logic only)
@@ -122,6 +122,38 @@ public class SidebarManager : GLib.Object {
                 return false;
             });
         });
+
+        // Listen for article viewed/unviewed changes so badges update immediately
+        try {
+            if (window.article_state_store != null) {
+                window.article_state_store.viewed_status_changed.connect((url, viewed) => {
+                    // Run in Idle to avoid contention with the emitter
+                    Idle.add(() => {
+                        try {
+                            // Update categories containing this URL
+                            var cats = window.article_state_store.get_categories_for_url(url);
+                            foreach (var c in cats) {
+                                try { update_badge_for_category(c); } catch (GLib.Error e) { }
+                            }
+
+                            // Update sources containing this URL
+                            var srcs = window.article_state_store.get_sources_for_url(url);
+                            foreach (var s in srcs) {
+                                try { update_badge_for_source(s); } catch (GLib.Error e) { }
+                            }
+
+                            // If the article is saved, update the Saved badge as well
+                            try {
+                                if (window.article_state_store.is_saved(url)) {
+                                    update_badge_for_category("saved");
+                                }
+                            } catch (GLib.Error e) { }
+                        } catch (GLib.Error e) { }
+                        return false;
+                    });
+                });
+            }
+        } catch (GLib.Error e) { }
     }
 
     private void load_expanded_states() {
@@ -336,39 +368,47 @@ public class SidebarManager : GLib.Object {
             return 0;
         }
 
-        // Special categories with custom backing logic
-        if (type == SidebarItemType.CATEGORY) {
-            // Saved: badge shows total number of saved articles (bookmarks)
-            // This is more useful than "unread saved" since saved articles are
-            // meant to be a user's reading list, not an unread queue.
-            if (id == "saved") {
-                return window.article_state_store.get_saved_count();
-            }
+        // Special category logic (applies to both SPECIAL and CATEGORY types)
+        // These checks are type-independent and based on ID
 
-            // Frontpage and Top Ten: populated by startup metadata fetch and
-            // their own fetchers, so use category-based unread count
-            if (id == "frontpage" || id == "topten") {
-                return window.article_state_store.get_unread_count_for_category(id);
-            }
-
-            // My Feed: Articles fetched for My Feed are registered under the
-            // "myfeed" category_id, so we can use category-based unread count.
-            // This includes articles from personalized categories and custom
-            // RSS sources that the user has configured for My Feed.
-            if (id == "myfeed") {
-                return window.article_state_store.get_unread_count_for_category(id);
-            }
-
-            // Local News: use category-based unread count (articles registered
-            // under "local_news" are local articles)
-            if (id == "local_news") {
-                return window.article_state_store.get_unread_count_for_category(id);
-            }
+        // Saved: badge shows total number of saved articles (bookmarks)
+        // This is more useful than "unread saved" since saved articles are
+        // meant to be a user's reading list, not an unread queue.
+        if (id == "saved") {
+            // Show number of unread saved items rather than total saved count
+            // so the badge reflects items still to read.
+            return window.article_state_store.get_unread_saved_count();
         }
 
-        // Popular categories: return -1 (placeholder) until user visits them
-        if (is_popular_category(id) && !is_category_visited(id)) {
-            return -1;
+        // Frontpage and Top Ten: populated by startup metadata fetch and
+        // their own fetchers, so use category-based unread count
+        if (id == "frontpage" || id == "topten") {
+            return window.article_state_store.get_unread_count_for_category(id);
+        }
+
+        // My Feed: Articles fetched for My Feed are registered under the
+        // "myfeed" category_id, so we can use category-based unread count.
+        // This includes articles from personalized categories and custom
+        // RSS sources that the user has configured for My Feed.
+        // IMPORTANT: Only show badge if personalized_feed_enabled is true
+        if (id == "myfeed") {
+            if (!window.prefs.personalized_feed_enabled) {
+                return 0;
+            }
+            return window.article_state_store.get_unread_count_for_category(id);
+        }
+
+        // Local News: use category-based unread count (articles registered
+        // under "local_news" are local articles)
+        if (id == "local_news") {
+            return window.article_state_store.get_unread_count_for_category(id);
+        }
+
+        // Popular categories (CATEGORY type only): return -1 (placeholder) until user visits them
+        if (type == SidebarItemType.CATEGORY) {
+            if (is_popular_category(id) && !is_category_visited(id)) {
+                return -1;
+            }
         }
 
         // All other categories
@@ -500,7 +540,7 @@ public class SidebarManager : GLib.Object {
 
     private string? get_icon_path_for_source(Paperboy.RssSource source) {
         // Use SourceMetadata.get_valid_saved_filename_for_source (validates file exists)
-        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, CategoryIcons.SIDEBAR_ICON_SIZE, CategoryIcons.SIDEBAR_ICON_SIZE);
+        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, CategoryIconsUtils.SIDEBAR_ICON_SIZE, CategoryIconsUtils.SIDEBAR_ICON_SIZE);
         if (icon_filename != null && icon_filename.length > 0) {
             var data_dir = GLib.Environment.get_user_data_dir();
             var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);

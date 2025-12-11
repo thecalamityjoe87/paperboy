@@ -207,7 +207,7 @@ public class SidebarView : GLib.Object {
         icon_holder.set_hexpand(false);
         icon_holder.set_vexpand(false);
         
-        var icon = CategoryIcons.create_category_icon(item.icon_key);
+        var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
         if (icon != null) {
             icon_holder.append(icon);
         }
@@ -256,7 +256,7 @@ public class SidebarView : GLib.Object {
         icon_holder.set_hexpand(false);
         icon_holder.set_vexpand(false);
         
-        var icon = CategoryIcons.create_category_icon(item.icon_key);
+        var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
         if (icon != null) {
             icon_holder.append(icon);
         }
@@ -310,7 +310,7 @@ public class SidebarView : GLib.Object {
         
         var icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         icon_holder.add_css_class("circular-logo");
-        icon_holder.set_size_request(CategoryIcons.SIDEBAR_ICON_SIZE, CategoryIcons.SIDEBAR_ICON_SIZE);
+        icon_holder.set_size_request(CategoryIconsUtils.SIDEBAR_ICON_SIZE, CategoryIconsUtils.SIDEBAR_ICON_SIZE);
         icon_holder.set_valign(Gtk.Align.CENTER);
         icon_holder.set_halign(Gtk.Align.CENTER);
         icon_holder.append(icon_widget);
@@ -369,7 +369,7 @@ public class SidebarView : GLib.Object {
     }
     
     private Gtk.Widget create_rss_icon_widget(RssSourceItemData? source_data) {
-        int size = CategoryIcons.SIDEBAR_ICON_SIZE;
+        int size = CategoryIconsUtils.SIDEBAR_ICON_SIZE;
         
         if (source_data == null) {
             var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
@@ -442,7 +442,7 @@ public class SidebarView : GLib.Object {
         button_box.set_margin_bottom(4);
         
         var icon = new Gtk.Image.from_icon_name("list-add-symbolic");
-        icon.set_pixel_size(CategoryIcons.SIDEBAR_ICON_SIZE);
+        icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
         button_box.append(icon);
         
         var label = new Gtk.Label("Add RSS Feed");
@@ -798,7 +798,7 @@ public class SidebarView : GLib.Object {
                 holder.append(new_icon);
             } else {
                 // Category icon
-                var icon = CategoryIcons.create_category_icon(key);
+                var icon = CategoryIconsUtils.create_category_icon(key);
                 if (icon != null) {
                     holder.append(icon);
                 }

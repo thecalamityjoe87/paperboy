@@ -33,8 +33,8 @@ public class ArticleScraper {
         foreach (string candidate_url in section_urls) {
             if (section_count >= max_sections) break;
             section_count++;
-            var client = Paperboy.HttpClient.get_default();
-            var options = new Paperboy.HttpClient.RequestOptions()
+            var client = Paperboy.HttpClientUtils.get_default();
+            var options = new Paperboy.HttpClientUtils.RequestOptions()
                 .with_browser_headers()
                 .with_timeout(8);
             var http_response = client.fetch_sync(candidate_url, options);

@@ -120,14 +120,19 @@ public class HeroCard : GLib.Object {
     }
 
     private void show_context_menu(double x, double y) {
-        // Check if article is already saved
+        // Check if article is already saved and if it's viewed
         bool is_saved = false;
+        bool is_viewed = false;
+        // Normalize URL before checking view/save state
+        string norm_url = url;
+        try { if (parent_window != null) norm_url = parent_window.normalize_article_url(url); } catch (GLib.Error e) { norm_url = url; }
         if (article_state_store != null) {
-            try { is_saved = article_state_store.is_saved(url); } catch (GLib.Error e) { }
+            try { is_saved = article_state_store.is_saved(norm_url); } catch (GLib.Error e) { }
+            try { is_viewed = article_state_store.is_viewed(norm_url); } catch (GLib.Error e) { }
         }
 
         // Create ArticleMenu instance and keep reference to prevent garbage collection
-        current_menu = new ArticleMenu(url, source_name, is_saved, parent_window);
+        current_menu = new ArticleMenu(url, source_name, is_saved, is_viewed, parent_window);
 
         // Connect menu signals to card signals
         current_menu.open_in_app_requested.connect((url) => {
@@ -144,6 +149,44 @@ public class HeroCard : GLib.Object {
         });
         current_menu.share_requested.connect((url) => {
             share_requested(url);
+        });
+
+        current_menu.mark_unread_requested.connect((article_url) => {
+            string nurl = article_url;
+            try { if (parent_window != null) nurl = parent_window.normalize_article_url(article_url); } catch (GLib.Error e) { nurl = article_url; }
+
+            if (article_state_store != null) {
+                try { article_state_store.mark_unviewed(nurl); } catch (GLib.Error e) { }
+            }
+
+            // Remove from in-memory viewed set so UI updates immediately
+            try { if (parent_window != null && parent_window.view_state != null) parent_window.view_state.viewed_articles.remove(nurl); } catch (GLib.Error e) { }
+
+            // Also defensively remove any viewed-badge overlay directly from this hero
+            try {
+                if (overlay != null) {
+                    Gtk.Widget? child = overlay.get_first_child();
+                    while (child != null) {
+                        Gtk.Widget? next = child.get_next_sibling();
+                        try {
+                            if (child.get_style_context().has_class("viewed-badge")) {
+                                overlay.remove_overlay(child);
+                            }
+                        } catch (GLib.Error e) { }
+                        child = next;
+                    }
+                    try { overlay.queue_draw(); } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
+
+            // Badge update is handled via ArticleStateStore.viewed_status_changed signal
+            try {
+                if (parent_window != null && parent_window.view_state != null && source_name != null) {
+                    parent_window.view_state.refresh_viewed_badges_for_source(source_name);
+                    // Also refresh the single URL so carousel-registered hero widgets update immediately
+                    try { parent_window.view_state.refresh_viewed_badge_for_url(nurl); } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
         });
 
         // Create and show popover, keep reference to prevent garbage collection

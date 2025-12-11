@@ -44,7 +44,7 @@ public class SourceMetadata : GLib.Object {
     // Return the user data dir for saved source logos, creating it when needed.
     public static string? get_user_logos_dir() {
         try {
-            string? ud = DataPaths.get_user_data_dir();
+            string? ud = DataPathsUtils.get_user_data_dir();
             if (ud == null) return null;
             string path = GLib.Path.build_filename(ud, "paperboy", "source_logos");
             try {
@@ -61,7 +61,7 @@ public class SourceMetadata : GLib.Object {
     // or rotate without touching the saved images.
     public static string? get_user_source_info_dir() {
         try {
-            string? ud = DataPaths.get_user_data_dir();
+            string? ud = DataPathsUtils.get_user_data_dir();
             if (ud == null) return null;
             string path = GLib.Path.build_filename(ud, "paperboy", "source_info");
             try {
@@ -356,7 +356,7 @@ public class SourceMetadata : GLib.Object {
                     string tpath = GLib.Path.build_filename(ldir, filename);
 
                     message("SourceMetadata: fetching logo from %s", logo_url);
-                    var client = Paperboy.HttpClient.get_default();
+                    var client = Paperboy.HttpClientUtils.get_default();
                     var http_response = client.fetch_sync(logo_url, null);
 
                     if (!http_response.is_success()) {

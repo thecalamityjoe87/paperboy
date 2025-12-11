@@ -47,12 +47,13 @@ public class RssFinderService : GLib.Object {
                 string prog;
                 SpawnFlags flags;
                 // Guard against null return from locate_rssfinder();
+                // Security: Do not fall back to PATH search - only use explicitly located binary
                 if (found != null && found.length > 0) {
                     prog = found;
                     flags = (SpawnFlags) 0; // execute explicit path
                 } else {
-                    prog = "rssFinder";
-                    flags = SpawnFlags.SEARCH_PATH; // fall back to PATH lookup
+                    // Binary not found in any expected location - fail safely
+                    throw new GLib.Error(GLib.Quark.from_string("rssfinder"), 2, "rssFinder binary not found. Please ensure it is installed correctly.");
                 }
                 try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "spawn_rssfinder_async: prog='" + prog + "' flags=" + flags.to_string() + " query='" + q + "'"); } catch (GLib.Error _) { }
 
@@ -74,7 +75,11 @@ public class RssFinderService : GLib.Object {
                 string out = "";
                 string err = "";
                 int status = 0;
-                Process.spawn_sync(null, argv, null, flags, null, out out, out err, out status);
+                try {
+                    Process.spawn_sync(null, argv, null, flags, null, out out, out err, out status);
+                } catch (SpawnError e) {
+                    throw new GLib.Error(GLib.Quark.from_string("rssfinder"), 1, "Failed to spawn rssFinder: %s", e.message);
+                }
                 try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "spawn_rssfinder_async: exit=" + status.to_string() + " out_len=" + (out != null ? out.length.to_string() : "0") + " err_len=" + (err != null ? err.length.to_string() : "0")); } catch (GLib.Error _) { }
 
                 string message;

@@ -88,10 +88,15 @@ public class LoadingStateManager : GLib.Object {
             absolute_reveal_timeout_id = 0;
         }
 
-        // Set an absolute maximum timeout that will NOT be reset by article arrivals
-        // This ensures we ALWAYS reveal after max 8 seconds regardless of image load status
+        // Set an absolute maximum timeout - but only reveal if content has actually arrived
+        // This prevents showing a blank white area when content takes longer than expected
         absolute_reveal_timeout_id = GLib.Timeout.add(8000, () => {
-            reveal_initial_content();
+            // Only reveal if we have content; otherwise keep spinner visible
+            if (initial_items_populated) {
+                reveal_initial_content();
+            }
+            // Don't clear the timeout ID here - let it be cleared by reveal_initial_content
+            // or when content eventually arrives
             return false;
         });
 
@@ -161,6 +166,8 @@ public class LoadingStateManager : GLib.Object {
                 try { window.article_manager.show_load_more_button(); } catch (GLib.Error e) { }
             } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.size == 0) {
                 Timeout.add(800, () => {
+                    // Safety check: window may have been destroyed (weak reference)
+                    if (window == null) return false;
                     if (loading_container == null || !loading_container.get_visible()) {
                         show_end_of_feed_message();
                     }
@@ -329,7 +336,7 @@ public class LoadingStateManager : GLib.Object {
         } catch (GLib.Error e) { }
 
         Timeout.add(500, () => {
-            try { window.upgrade_images_after_initial(); } catch (GLib.Error e) { }
+            try { if (window.image_manager != null) window.image_manager.upgrade_images_after_initial(); } catch (GLib.Error e) { }
             // Save article tracking (disabled - no longer persisting)
             // Badge refreshes are now handled per-category/source in fetch_news()
             // to avoid race conditions and ensure accurate counts
@@ -351,16 +358,76 @@ public class LoadingStateManager : GLib.Object {
     public void mark_initial_items_populated() {
         initial_items_populated = true;
 
-        // Extend the timeout every time a new article is added during initial phase
-        // This ensures all articles (including late arrivals from API) get their images loaded
+        // Reset timeout every time a new article is added during initial phase
+        // Use a short timeout (500ms) after each article - if no more articles arrive
+        // within that window, we reveal. This ensures we wait for the batch to complete.
         if (initial_phase) {
             if (initial_reveal_timeout_id > 0) {
                 Source.remove(initial_reveal_timeout_id);
             }
-            initial_reveal_timeout_id = GLib.Timeout.add(6000, () => {  // 6 second timeout from LAST article to allow image downloads to complete
-                reveal_initial_content();
+            // Short delay after last article to allow any remaining articles in the batch
+            initial_reveal_timeout_id = GLib.Timeout.add(500, () => {
+                // Clear the timeout ID since we're now executing
+                initial_reveal_timeout_id = 0;
+
+                // Only reveal if we have a reasonable number of articles
+                // This prevents revealing with just 1-2 articles when more are expected
+                int article_count = 0;
+                try {
+                    if (window.layout_manager != null && window.layout_manager.columns != null) {
+                        foreach (var col in window.layout_manager.columns) {
+                            if (col != null) {
+                                var child = col.get_first_child();
+                                while (child != null) {
+                                    article_count++;
+                                    child = child.get_next_sibling();
+                                }
+                            }
+                        }
+                    }
+                    // Also count hero items
+                    if (window.layout_manager != null && window.layout_manager.featured_box != null) {
+                        var hero_child = window.layout_manager.featured_box.get_first_child();
+                        while (hero_child != null) {
+                            article_count++;
+                            hero_child = hero_child.get_next_sibling();
+                        }
+                    }
+                } catch (GLib.Error e) { }
+
+                // Reveal if we have at least 3 articles, or if we've been waiting a while
+                if (article_count >= 3) {
+                    reveal_initial_content();
+                } else {
+                    // Not enough articles yet - set a longer timeout
+                    initial_reveal_timeout_id = GLib.Timeout.add(2000, () => {
+                        initial_reveal_timeout_id = 0;
+                        reveal_initial_content();
+                        return false;
+                    });
+                }
                 return false;
             });
+        }
+    }
+
+    /**
+     * Called when an image finished being set (success or fallback). During the
+     * initial phase we decrement the pending counter and reveal the UI when all
+     * initial items are populated and no pending image loads remain.
+     */
+    public void on_image_loaded(Gtk.Picture image) {
+        if (!initial_phase) return;
+        if (window.image_manager != null && window.image_manager.hero_requests.get(image) != null) {
+            hero_image_loaded = true;
+        }
+        if (pending_images > 0) pending_images--;
+
+        if (initial_items_populated && pending_images == 0) {
+            // Don't reveal if waiting for adaptive layout
+            if (!awaiting_adaptive_layout) {
+                try { reveal_initial_content(); } catch (GLib.Error e) { }
+            }
         }
     }
 

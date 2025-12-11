@@ -59,7 +59,7 @@ public class WsjFetcher : BaseFetcher {
                 url = "https://feeds.content.dowjones.io/public/rss/RSSWorldNews";
                 break;
         }
-        RssParser.fetch_rss_url(url, "WSJ", FetcherUtils.category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, "WSJ", FetcherUtils.category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
     }
 
     public override string get_source_name() {
@@ -82,6 +82,6 @@ public class WsjFetcher : BaseFetcher {
         }
         string url = @"$(base_url)?q=$(Uri.escape_string(query))&$(ceid)";
 
-        RssParser.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, set_label, clear_items, add_item);
     }
 }

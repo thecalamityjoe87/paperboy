@@ -28,10 +28,10 @@ using GLib;
 
 namespace Paperboy {
 
-public class HttpClient : Object {
+public class HttpClientUtils : Object {
     // Singleton instance (eagerly constructed at program startup to avoid
     // lazy-construction races across threads)
-    private static HttpClient _instance = new HttpClient();
+    private static HttpClientUtils _instance = new HttpClientUtils();
 
     // HTTP session (reused for connection pooling)
     private Soup.Session session;
@@ -168,14 +168,14 @@ public class HttpClient : Object {
 
 
     // Get singleton instance
-    public static HttpClient get_default() {
-        // Ensure the GType for HttpClient is initialized so the class
+    public static HttpClientUtils get_default() {
+        // Ensure the GType for HttpClientUtils is initialized so the class
         // initializer has run and `_instance` is set. This avoids a race
         // where worker threads call `get_default()` before the GType
         // system has created the singleton in `class_init`.
-        // Use `typeof(HttpClient)` to reference the GType and force
+        // Use `typeof(HttpClientUtils)` to reference the GType and force
         // Vala/GLib to register the type before returning the instance.
-        var _type = typeof (HttpClient);
+        var _type = typeof (HttpClientUtils);
 
         // Return the static singleton instance directly. The instance is
         // constructed by the class initializer and intentionally never
@@ -191,16 +191,16 @@ public class HttpClient : Object {
         // Force the GType to be registered and the class initializer
         // to run. This helps ensure `_instance` is set before any
         // worker thread can call `get_default()`.
-        var _type = typeof (HttpClient);
+        var _type = typeof (HttpClientUtils);
 
         if (_instance == null) {
-            _instance = new HttpClient();
+            _instance = new HttpClientUtils();
         }
     }
 
 
     // Private constructor (singleton pattern)
-    private HttpClient() {
+    private HttpClientUtils() {
         // Create HTTP session with keep-alive and connection pooling
         session = new Soup.Session() {
             timeout = TIMEOUT_DEFAULT
@@ -263,10 +263,36 @@ public class HttpClient : Object {
                     cache_mutex.unlock();
                     return response;
                 } else {
-                    // Request in flight, wait for completion
+                    // Request in flight, wait for completion with retry limit
                     cache_mutex.unlock();
-                    Thread.usleep(100000); // 100ms
-                    return fetch_sync_internal(url, options); // Retry
+
+                    // Check retry count to prevent unbounded recursion
+                    const int MAX_DEDUP_RETRIES = 50; // 50 * 100ms = 5 seconds max wait
+                    int retry_count = 0;
+                    while (retry_count < MAX_DEDUP_RETRIES) {
+                        Thread.usleep(100000); // 100ms
+                        retry_count++;
+
+                        cache_mutex.lock();
+                        RequestState? retry_state = in_flight_requests.get(url);
+                        if (retry_state != null && retry_state.completed) {
+                            // Request completed, return cached response
+                            var cached_response = new HttpResponse();
+                            cached_response.status_code = retry_state.status_code;
+                            cached_response.body = retry_state.response;
+                            cached_response.error_message = retry_state.error != null ? retry_state.error.message : null;
+                            cache_mutex.unlock();
+                            return cached_response;
+                        }
+                        cache_mutex.unlock();
+                    }
+
+                    // Timeout waiting for in-flight request - make our own request
+                    // First remove stale entry
+                    cache_mutex.lock();
+                    in_flight_requests.unset(url);
+                    cache_mutex.unlock();
+                    return fetch_sync_internal(url, options);
                 }
             }
 

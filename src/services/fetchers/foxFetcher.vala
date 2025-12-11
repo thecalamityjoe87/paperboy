@@ -109,7 +109,7 @@ public class FoxFetcher : BaseFetcher {
         int count = 0;
         foreach (var article in articles) {
             if (article.image_url == null && count < 6 && article.url != null) {
-                Tools.ImageParser.fetch_open_graph_image(article.url, session, add_item, current_category, "Fox News");
+                Tools.ImageProcessor.fetch_open_graph_image(article.url, session, add_item, current_category, "Fox News");
                 count++;
             }
             if (count >= 6) break;

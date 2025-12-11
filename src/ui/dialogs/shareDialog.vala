@@ -152,7 +152,7 @@ public class ShareDialog : GLib.Object {
             };
             string? icon_path = null;
             foreach (var c in candidates) {
-                icon_path = DataPaths.find_data_file(c);
+                icon_path = DataPathsUtils.find_data_file(c);
                 if (icon_path != null) break;
             }
             

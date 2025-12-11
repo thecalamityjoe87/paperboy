@@ -85,7 +85,7 @@ public class SourceUtils {
         }
 
         // Try to find icon in data directory
-        string icon_path = DataPaths.find_data_file("icons/" + icon_filename);
+        string icon_path = DataPathsUtils.find_data_file("icons/" + icon_filename);
         return icon_path;
     }
 

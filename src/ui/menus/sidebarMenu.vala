@@ -50,7 +50,7 @@ public class SidebarMenu : GLib.Object {
         menu_box.add_css_class("menu");
         
         // Mark all as read
-        var mark_read_btn = create_menu_item("emblem-ok-symbolic", "Mark All as Read");
+        var mark_read_btn = create_menu_item("emblem-ok-symbolic", "Mark all as read");
         mark_read_btn.clicked.connect(() => {
             on_mark_all_read();
             popover.popdown();
@@ -58,7 +58,7 @@ public class SidebarMenu : GLib.Object {
         menu_box.append(mark_read_btn);
         
         // Mark all as unread
-        var mark_unread_btn = create_menu_item("edit-undo-symbolic", "Mark All as Unread");
+        var mark_unread_btn = create_menu_item("edit-undo-symbolic", "Mark all as unread");
         mark_unread_btn.clicked.connect(() => {
             on_mark_all_unread();
             popover.popdown();
@@ -66,7 +66,7 @@ public class SidebarMenu : GLib.Object {
         menu_box.append(mark_unread_btn);
         
         // Remove this source
-        var remove_btn = create_menu_item("user-trash-symbolic", "Remove This Source");
+        var remove_btn = create_menu_item("user-trash-symbolic", "Remove this source");
         remove_btn.add_css_class("destructive-action");
         remove_btn.clicked.connect(() => {
             on_remove_source();

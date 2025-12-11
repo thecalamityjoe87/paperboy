@@ -21,55 +21,6 @@ using Adw;
 using Soup;
 
 
-public class ArticleItem : GLib.Object {
-    public string title { get; set; }
-    public string url { get; set; }
-    public string? thumbnail_url { get; set; }
-    public string category_id { get; set; }
-    public string? source_name { get; set; }
-    public string? published { get; set; }
-    
-    public ArticleItem(string title, string url, string? thumbnail_url, string category_id, string? source_name = null, string? published = null) {
-        this.title = title;
-        this.url = url;
-        this.thumbnail_url = thumbnail_url;
-        this.category_id = category_id;
-        this.source_name = source_name;
-        this.published = published;
-    }
-}
-
-// Small helper object to track hero image requests (size, multiplier, retries)
-public class HeroRequest : GLib.Object {
-    public string url { get; set; }
-    public int last_requested_w { get; set; }
-    public int last_requested_h { get; set; }
-    public int multiplier { get; set; }
-    public int retries { get; set; }
-
-    public HeroRequest(string url, int w, int h, int multiplier) {
-        this.url = url;
-        this.last_requested_w = w;
-        this.last_requested_h = h;
-        this.multiplier = multiplier;
-        this.retries = 0;
-    }
-}
-
-// Deferred request holder for widgets that postpone downloads until visible
-public class DeferredRequest : GLib.Object {
-    public string url { get; set; }
-    public int w { get; set; }
-    public int h { get; set; }
-
-    public DeferredRequest(string url, int w, int h) {
-        this.url = url;
-        this.w = w;
-        this.h = h;
-    }
-}
-    
-
 public class NewsWindow : Adw.ApplicationWindow {
     // Centralized source and category management
     public SourceManager source_manager;
@@ -159,26 +110,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // user has enabled exactly one preferred source, map that id to the
     // corresponding enum; otherwise use the explicit prefs.news_source.
     public NewsSource effective_news_source() {
-        if (prefs.preferred_sources != null && prefs.preferred_sources.size == 1) {
-            try {
-                string id = prefs.preferred_sources.get(0);
-                switch (id) {
-                    case "guardian": return NewsSource.GUARDIAN;
-                    case "reddit": return NewsSource.REDDIT;
-                    case "bbc": return NewsSource.BBC;
-                    case "nytimes": return NewsSource.NEW_YORK_TIMES;
-                    case "wsj": return NewsSource.WALL_STREET_JOURNAL;
-                    case "bloomberg": return NewsSource.BLOOMBERG;
-                    case "reuters": return NewsSource.REUTERS;
-                    case "npr": return NewsSource.NPR;
-                    case "fox": return NewsSource.FOX;
-                    default: return prefs.news_source;
-                }
-            } catch (GLib.Error e) {
-                return prefs.news_source;
-            }
-        }
-        return prefs.news_source;
+        return source_manager.effective_news_source();
     }
 
     // Determine if the system is currently using dark mode
@@ -290,7 +222,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Load CSS
         var css_provider = new Gtk.CssProvider();
         try {
-            string? css_path = DataPaths.find_data_file("style.css");
+            string? css_path = DataPathsUtils.find_data_file("style.css");
             if (css_path != null) {
                 css_provider.load_from_path(css_path);
             }
@@ -366,6 +298,30 @@ public class NewsWindow : Adw.ApplicationWindow {
         content_header.pack_end(menu_button);
         // Create SidebarManager (logic only)
         sidebar_manager = new SidebarManager(this);
+
+        // When saved articles finish loading, refresh badge counts so the
+        // "Saved" badge appears promptly on startup.
+        try {
+            if (article_state_store != null) {
+                article_state_store.saved_articles_loaded.connect(() => {
+                    try { if (sidebar_manager != null) sidebar_manager.refresh_all_badge_counts(); } catch (GLib.Error e) { }
+
+                    // If the user was viewing Saved when the app started, the
+                    // saved articles may have been loaded after `fetch_news()`
+                    // ran. In that case, re-run `fetch_news()` so the Saved
+                    // view is populated now that saved articles are available.
+                    try {
+                        var p = NewsPreferences.get_instance();
+                        if (p != null && p.category == "saved") {
+                            Idle.add(() => {
+                                try { fetch_news(); } catch (GLib.Error _) { }
+                                return false;
+                            });
+                        }
+                    } catch (GLib.Error e) { }
+                });
+            }
+        } catch (GLib.Error e) { }
 
         // Create SidebarView (UI only)
         sidebar_view = new SidebarView(this, sidebar_manager);
@@ -448,9 +404,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     layout_manager.columns_row = content_view.columns_row;
     layout_manager.content_area = content_view.content_area;
     // Ensure UI containers are visible after wiring
-    try { layout_manager.hero_container?.set_visible(true); } catch (GLib.Error e) { }
-    try { layout_manager.columns_row?.set_visible(true); } catch (GLib.Error e) { }
-    try { content_box?.set_visible(true); } catch (GLib.Error e) { }
+    layout_manager.hero_container?.set_visible(true);
+    layout_manager.columns_row?.set_visible(true);
+    content_box?.set_visible(true);
     // Ensure hero container visibility via helper
     layout_manager.ensure_hero_container_visible();
     // Wire loading/overlay widgets into LoadingStateManager (manager owns these now)
@@ -923,48 +879,16 @@ public class NewsWindow : Adw.ApplicationWindow {
         try { if (loading_state != null) loading_state.update_local_news_ui(); } catch (GLib.Error e) { }
     }
 
-    private bool source_has_categories(NewsSource s) {
-        switch (s) {
-            // So far, all our sources support categories
-            // but I'll leave this here in case I add one that doesn't
-            /*case NewsSource.BLOOMBERG:
-                return true;
-            case NewsSource.REUTERS:
-            case NewsSource.NPR:
-            case NewsSource.FOX:
-                return true;*/
-            default:
-                return true;
-        }
-    }
-
     public void update_sidebar_for_source() {
         try { if (sidebar_manager != null) sidebar_manager.update_for_source_change(); } catch (GLib.Error e) { }
     }
 
-    // SidebarManager handles sidebar icon updates on theme changes now.
-
     public string category_display_name_for(string cat) {
-        try { if (header_manager != null) return header_manager.category_display_name_for(cat); } catch (GLib.Error e) { }
-        // Fallback: if header_manager not ready, return a simple humanized label
-        if (cat == null || cat.length == 0) return "News";
-        string s = cat.strip();
-        if (s.length == 0) return "News";
-        s = s.replace("_", " ").replace("-", " ");
-        string out = "";
-        string[] parts = s.split(" ");
-        foreach (var p in parts) {
-            if (p.length == 0) continue;
-            string w = p;
-            char c = w[0];
-            char up = c;
-            if (c >= 'a' && c <= 'z') up = (char)(c - 32);
-            string first = "%c".printf(up);
-            string rest = w.length > 1 ? w.substring(1).down() : "";
-            out += (out.length > 0 ? " " : "") + first + rest;
+        if (header_manager != null) {
+            return header_manager.category_display_name_for(cat);
         }
-        if (out.length == 0) return "News";
-        return out;
+        // Fallback to CategoryManager's static lookup if header_manager not ready
+        return CategoryManager.get_category_display_name(cat);
     }
 
     public Gtk.Widget build_category_chip(string category_id) {
@@ -972,142 +896,15 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     public string get_source_name(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN:
-                return "The Guardian";
-            case NewsSource.WALL_STREET_JOURNAL:
-                return "Wall Street Journal";
-            case NewsSource.BBC:
-                return "BBC News";
-            case NewsSource.REDDIT:
-                return "Reddit";
-            case NewsSource.NEW_YORK_TIMES:
-                return "NY Times";
-            case NewsSource.BLOOMBERG:
-                return "Bloomberg";
-            case NewsSource.REUTERS:
-                return "Reuters";
-            case NewsSource.NPR:
-                return "NPR";
-            case NewsSource.FOX:
-                return "Fox News";
-            default:
-                return "News";
-        }
+        return SourceManager.get_source_name(source);
     }
 
-    private string? get_source_icon_path(NewsSource source) {
-        string icon_filename;
-        switch (source) {
-            case NewsSource.GUARDIAN:
-                icon_filename = "guardian-logo.png";
-                break;
-            case NewsSource.BBC:
-                icon_filename = "bbc-logo.png";
-                break;
-            case NewsSource.REDDIT:
-                icon_filename = "reddit-logo.png";
-                break;
-            case NewsSource.NEW_YORK_TIMES:
-                icon_filename = "nytimes-logo.png";
-                break;
-            case NewsSource.BLOOMBERG:
-                icon_filename = "bloomberg-logo.png";
-                break;
-            case NewsSource.REUTERS:
-                icon_filename = "reuters-logo.png";
-                break;
-            case NewsSource.NPR:
-                icon_filename = "npr-logo.png";
-                break;
-            case NewsSource.FOX:
-                icon_filename = "foxnews-logo.png";
-                break;
-            case NewsSource.WALL_STREET_JOURNAL:
-                icon_filename = "wsj-logo.png";
-                break;
-            default:
-                return null;
-        }
-        
-        // Try to find icon in data directory
-    string icon_path = DataPaths.find_data_file("icons/" + icon_filename);
-        return icon_path;
-    }
-
-    // Infer source from a URL by checking known domain substrings. Falls back
-    // to the current prefs.news_source when uncertain.
     public NewsSource infer_source_from_url(string? url) {
-        if (url == null || url.length == 0) return NewsSource.UNKNOWN;
-    string low = url.down();
-        if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) return NewsSource.GUARDIAN;
-        if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) return NewsSource.BBC;
-        if (low.index_of("reddit.com") >= 0 || low.index_of("redd.it") >= 0) return NewsSource.REDDIT;
-        if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) return NewsSource.NEW_YORK_TIMES;
-        if (low.index_of("wsj.com") >= 0 || low.index_of("dowjones") >= 0) return NewsSource.WALL_STREET_JOURNAL;
-        if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
-        if (low.index_of("reuters") >= 0) return NewsSource.REUTERS;
-        if (low.index_of("npr.org") >= 0) return NewsSource.NPR;
-        if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) return NewsSource.FOX;
-        // Unknown source - don't default to user preference to avoid incorrect branding
-        return NewsSource.UNKNOWN;
+        return SourceManager.infer_source_from_url(url);
     }
 
-    // Resolve a NewsSource from a provided display/source name if possible;
-    // fall back to URL inference when the name is missing or unrecognized.
     public NewsSource resolve_source(string? source_name, string url) {
-        // Parse encoded source name format: "SourceName||logo_url##category::cat"
-        string? clean_name = source_name;
-        if (source_name != null && source_name.length > 0) {
-            // Strip logo URL if present
-            int pipe_idx = source_name.index_of("||");
-            if (pipe_idx >= 0 && source_name.length > pipe_idx) {
-                clean_name = source_name.substring(0, pipe_idx).strip();
-            }
-            // Strip category suffix if present
-            int cat_idx = clean_name.index_of("##category::");
-            if (cat_idx >= 0 && clean_name.length > cat_idx) {
-                clean_name = clean_name.substring(0, cat_idx).strip();
-            }
-        }
-        
-        // Start with URL-inferred source as a sensible default
-        NewsSource resolved = infer_source_from_url(url);
-        if (clean_name != null && clean_name.length > 0) {
-            string low = clean_name.down();
-            if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
-            else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
-            else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
-            // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
-            else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 || 
-                     (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
-            else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
-            else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
-            else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
-            else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
-            // If we couldn't match the provided name, keep the URL-inferred value
-        }
-        return resolved;
-    }
-
-    // Normalize an arbitrary source display name into candidate icon basenames.
-    // e.g. "Associated Press" -> "associated-press" / "associated_press"
-    private string[] source_name_to_icon_candidates(string name) {
-        string low = name.down();
-        // Remove punctuation except spaces and dashes/underscores
-        var sb = new StringBuilder();
-        for (int i = 0; i < low.length; i++) {
-            char c = low[i];
-            if (c.isalnum() || c == ' ' || c == '-' || c == '_') sb.append_c(c);
-            else sb.append_c(' ');
-        }
-        string cleaned = sb.str.strip();
-        // Variants: hyphen, underscore, concatenated
-    string hyphen = cleaned.replace(" ", "-").replace("--", "-");
-    string underscore = cleaned.replace(" ", "_").replace("__", "_");
-    string concat = cleaned.replace(" ", "");
-        return new string[] { hyphen, underscore, concat };
+        return SourceManager.resolve_source(source_name, url);
     }
 
     // Build a source badge using the provided arbitrary source name (often
@@ -1117,18 +914,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     // back to a text-only badge using the provided name.
     public Gtk.Widget build_source_badge_dynamic(string? source_name, string url, string category_id) {
         return CardBuilder.build_source_badge_dynamic(this, source_name, url, category_id);
-    }
-
-    // Build a small source badge widget (icon + short name) to place in the
-    // top-right corner of cards and hero slides.
-    private Gtk.Widget build_source_badge(NewsSource source) {
-        return CardBuilder.build_source_badge(source);
-    }
-
-    // Build a small 'Viewed' badge with a check icon to place in the top-right
-    // corner of a card/hero when the user has already opened the preview.
-    private Gtk.Widget build_viewed_badge() {
-        return CardBuilder.build_viewed_badge();
     }
 
     // Delegate marking an article viewed to the ViewStateManager
@@ -1158,45 +943,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
-    // Cleanup stale downloads to prevent unbounded HashMap growth and memory leaks
-    public void cleanup_stale_downloads() {
-        download_mutex.lock();
-        try {
-            const int MAX_PENDING_DOWNLOADS = 100;
-            
-            // If pending_downloads exceeds threshold, clear oldest entries
-            if (pending_downloads.size > MAX_PENDING_DOWNLOADS) {
-                warning("cleanup_stale_downloads: pending_downloads size=%d exceeds limit, clearing oldest entries", pending_downloads.size);
-                
-                // Clear half of the entries to avoid frequent cleanup
-                int to_remove = pending_downloads.size / 2;
-                var keys_to_remove = new Gee.ArrayList<string>();
-                
-                // Collect keys to remove (can't modify HashMap while iterating)
-                int count = 0;
-                foreach (var entry in pending_downloads.entries) {
-                    if (count >= to_remove) break;
-                    keys_to_remove.add(entry.key);
-                    count++;
-                }
-                
-                // Remove collected keys
-                foreach (var key in keys_to_remove) {
-                    try {
-                        pending_downloads.unset(key);
-                        requested_image_sizes.unset(key);
-                    } catch (GLib.Error e) { }
-                }
-                
-                warning("cleanup_stale_downloads: removed %d stale entries, new size=%d", keys_to_remove.size, pending_downloads.size);
-            }
-        } catch (GLib.Error e) {
-            warning("cleanup_stale_downloads: error during cleanup: %s", e.message);
-        } finally {
-            download_mutex.unlock();
-        }
-    }
-
     public void clear_persistent_toast() {
         if (toast_manager != null) {
             toast_manager.clear_persistent_toast();
@@ -1206,33 +952,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     public void show_share_dialog(string url) {
         if (article_pane != null) {
             article_pane.show_share_dialog(url);
-        }
-    }
-
-    private void create_icon_placeholder(Gtk.Picture image, string icon_path, int width, int height) {
-        // Delegate to centralized placeholder builder which accepts a NewsSource
-        try {
-            PlaceholderBuilder.create_icon_placeholder(image, icon_path, prefs.news_source, width, height);
-        } catch (GLib.Error e) {
-            // Best-effort fallback
-            try { create_source_text_placeholder(image, get_source_name(prefs.news_source), width, height); } catch (GLib.Error ee) { }
-        }
-    }
-
-    private void create_source_text_placeholder(Gtk.Picture image, string source_name, int width, int height) {
-        try {
-            PlaceholderBuilder.create_source_text_placeholder(image, source_name, prefs.news_source, width, height);
-        } catch (GLib.Error e) {
-            try { create_gradient_placeholder(image, width, height); } catch (GLib.Error ee) { }
-        }
-    }
-
-    private void set_placeholder_image(Gtk.Picture image, int width, int height) {
-        // Delegate to PlaceholderBuilder using the app-level news source
-        try {
-            PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, prefs.news_source);
-        } catch (GLib.Error e) {
-            try { PlaceholderBuilder.create_gradient_placeholder(image, width, height); } catch (GLib.Error ee) { }
         }
     }
 
@@ -1271,10 +990,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
-    private void create_gradient_placeholder(Gtk.Picture image, int width, int height) {
-        try { PlaceholderBuilder.create_gradient_placeholder(image, width, height); } catch (GLib.Error e) { }
-    }
-
     // Layout-related logic has been moved to LayoutManager; delegate to it.
     public int estimate_content_width() {
         try { if (layout_manager != null) return layout_manager.estimate_content_width(); } catch (GLib.Error e) { }
@@ -1285,23 +1000,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         try { if (layout_manager != null) layout_manager.update_main_content_size(sidebar_visible); } catch (GLib.Error e) { }
     }
 
-    private void update_existing_hero_card_size() {
-        try { if (layout_manager != null) layout_manager.update_existing_hero_card_size(); } catch (GLib.Error e) { }
-    }
-
     public void maybe_refetch_hero_for(Gtk.Picture pic, HeroRequest info) {
         try { if (layout_manager != null) layout_manager.maybe_refetch_hero_for(pic, info); } catch (GLib.Error e) { }
     }
 
-    private int estimate_column_width(int cols) {
-        try { if (layout_manager != null) return layout_manager.estimate_column_width(cols); } catch (GLib.Error e) { }
-        return 200;
-    }
-
-    private void rebuild_columns(int count) {
-        try { if (layout_manager != null) layout_manager.rebuild_columns(count); } catch (GLib.Error e) { }
-    }
-    
     public void show_loading_spinner() {
         try { if (loading_state != null) loading_state.show_loading_spinner(); } catch (GLib.Error e) { }
     }
@@ -1320,10 +1022,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         try { show_toast(toast_msg); } catch (GLib.Error e) { }
     }
 
-    private void hide_error_message() {
-        try { if (loading_state != null) loading_state.hide_error_message(); } catch (GLib.Error e) { }
-    }
-
     // Reveal main content (stop showing the loading spinner)
     public void reveal_initial_content() {
         try { if (loading_state != null) loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
@@ -1333,128 +1031,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     public string make_cache_key(string url, int w, int h) {
         // Use deterministic pixbuf keys: origin=url, include size
         return "pixbuf::url:%s::%dx%d".printf(url, w, h);
-    }
-
-    // Process deferred download requests: if a deferred widget becomes visible,
-    // start its download. This runs on the main loop and reschedules itself
-    // only when there are remaining deferred requests.
-    public void process_deferred_downloads() {
-        // Process only a few at a time to avoid scroll jank
-        const int MAX_BATCH = 5;
-        int processed = 0;
-        
-        // Collect to-start entries to avoid modifying map while iterating
-        var to_start = new Gee.ArrayList<Gtk.Picture>();
-        foreach (var kv in deferred_downloads.entries) {
-            if (processed >= MAX_BATCH) break;
-            Gtk.Picture pic = kv.key;
-            DeferredRequest req = kv.value;
-            bool vis = false;
-            try { vis = pic.get_visible(); } catch (GLib.Error e) { vis = true; }
-            if (vis) {
-                to_start.add(pic);
-                processed++;
-            }
-        }
-
-        foreach (var pic in to_start) {
-            var req = deferred_downloads.get(pic);
-            if (req == null) continue;
-            // Remove before starting to avoid races
-            try { deferred_downloads.remove(pic); } catch (GLib.Error e) { }
-            // Start immediately (force bypass visibility deferral)
-            try { image_manager.load_image_async(pic, req.url, req.w, req.h, true); } catch (GLib.Error e) { }
-        }
-        // If there are still deferred entries, schedule another check
-        if (deferred_downloads.size > 0) {
-            if (deferred_check_timeout_id == 0) {
-                deferred_check_timeout_id = Timeout.add(1200, () => {
-                    try { process_deferred_downloads(); } catch (GLib.Error e) { }
-                    deferred_check_timeout_id = 0;
-                    return false;
-                });
-            }
-        }
-    }
-
-    // After initial-phase end: request higher-res images for items we loaded
-    // at reduced sizes. To avoid flooding the network/CPU we only upgrade
-    // images that are still present in the UI (`url_to_picture`) and we do
-    // them in small batches with a short delay between batches.
-    public void upgrade_images_after_initial() {
-        // Be conservative: smaller batches and longer pause to avoid
-        // saturating network/CPU and doing many main-thread decodes.
-        const int UPGRADE_BATCH_SIZE = 3;
-        int processed = 0;
-
-        if (view_state != null) {
-            foreach (var kv in view_state.url_to_picture.entries) {
-                // kv.key is the normalized article URL
-                string norm_url = kv.key;
-                Gtk.Picture? pic = kv.value;
-                if (pic == null) continue;
-
-                // Look up the last requested size (may be stored under normalized key)
-                var rec = requested_image_sizes.get(norm_url);
-                if (rec == null || rec.length == 0) continue;
-                string[] parts = rec.split("x");
-                if (parts.length < 2) continue;
-                int last_w = 0; int last_h = 0;
-                try { last_w = int.parse(parts[0]); last_h = int.parse(parts[1]); } catch (GLib.Error e) { continue; }
-
-                int new_w = (int)(last_w * 2);
-                int new_h = (int)(last_h * 2);
-                new_w = layout_manager.clampi(new_w, last_w, 1600);
-                new_h = layout_manager.clampi(new_h, last_h, 1600);
-
-                // Check memory cache for both normalized-keyed and original-keyed entries
-                bool has_large = false;
-                string key_norm = make_cache_key(norm_url, new_w, new_h);
-                if ((image_cache != null ? image_cache.get(key_norm) : ImageCache.get_global().get(key_norm)) != null) has_large = true;
-
-                string? original = null;
-                try { if (view_state != null) original = view_state.normalized_to_url.get(norm_url); } catch (GLib.Error e) { original = null; }
-                if (!has_large && original != null) {
-                    string key_orig = make_cache_key(original, new_w, new_h);
-                    if ((image_cache != null ? image_cache.get(key_orig) : ImageCache.get_global().get(key_orig)) != null) has_large = true;
-                }
-
-                if (has_large) continue; // already have larger
-
-                // Find original URL to request (don't use normalized URL for network)
-                if (original == null) continue;
-                image_manager.load_image_async(pic, original, new_w, new_h);
-
-                processed += 1;
-                if (processed >= UPGRADE_BATCH_SIZE) {
-                    // Schedule the next batch after a short pause
-                    Timeout.add(1000, () => {
-                        upgrade_images_after_initial();
-                        return false;
-                    });
-                    return;
-                }
-            }
-        }
-        // finished all entries (no-op)
-    }
-
-    // Called when an image finished being set on a Picture. If it's a hero image and we're
-    // Called when an image finished being set (success or fallback). During the
-    // initial phase we decrement the pending counter and reveal the UI when all
-    // initial items are populated and no pending image loads remain.
-    public void on_image_loaded(Gtk.Picture image) {
-        if (loading_state == null) return;
-        if (!loading_state.initial_phase) return;
-        if (image_manager.hero_requests.get(image) != null) loading_state.hero_image_loaded = true;
-        if (loading_state.pending_images > 0) loading_state.pending_images--;
-
-        if (loading_state.initial_items_populated && loading_state.pending_images == 0) {
-            // Don't reveal if waiting for adaptive layout
-            if (!loading_state.awaiting_adaptive_layout) {
-                try { loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
-            }
-        }
     }
 
     // Helper to mark that initial items have been added to the UI. If there are
@@ -1493,8 +1069,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         // frees widget-held textures elsewhere.
     }
 
-
-
     // Thin wrapper delegating to FetchNewsController. Keeps public API stable
     // while the heavy implementation lives in `fetch_news_impl` for easier
     // staged extraction.
@@ -1509,27 +1083,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     // are handled separately and must not be treated as normal fetchable categories here.
     private void fetch_all_category_metadata_for_counts() {
         UnreadFetchService.fetch_all_category_metadata_for_counts(this);
-    }
-    
-    // Helper for ArticleManager to reload existing picture widgets
-    public void reload_existing_picture(string normalized_url, string thumbnail_url, bool is_local_news) {
-        Gtk.Picture? existing = null;
-        if (view_state != null) {
-            try { existing = view_state.url_to_picture.get(normalized_url); } catch (GLib.Error e) { existing = null; }
-        }
-        
-        if (existing != null) {
-            var info = image_manager.hero_requests.get(existing);
-            int target_w = 400;
-            if (info != null) {
-                target_w = info.last_requested_w;
-            } else if (layout_manager != null) {
-                target_w = layout_manager.estimate_column_width(layout_manager.columns_count);
-            }
-            int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
-            try { pending_local_placeholder.set(existing, is_local_news); } catch (GLib.Error e) { }
-            image_manager.load_image_async(existing, thumbnail_url, target_w, target_h);
-        }
     }
 }
 

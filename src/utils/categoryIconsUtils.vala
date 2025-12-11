@@ -26,7 +26,7 @@ using Adw;
  * so other modules can reuse the same icon-selection behavior.
  */
 
-public class CategoryIcons : GLib.Object {
+public class CategoryIconsUtils : GLib.Object {
     public const int SIDEBAR_ICON_SIZE = 28;
 
     // Use centralized DataPaths helpers for file location logic
@@ -70,7 +70,7 @@ public class CategoryIcons : GLib.Object {
             };
             string? icon_path = null;
             foreach (var c in candidates) {
-                icon_path = DataPaths.find_data_file(c);
+                icon_path = DataPathsUtils.find_data_file(c);
                 if (icon_path != null) break;
             }
 
@@ -88,8 +88,8 @@ public class CategoryIcons : GLib.Object {
                             alt_name = filename + "-white.svg";
 
                         string? white_candidate = null;
-                        white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
-                        if (white_candidate == null) white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", alt_name));
+                        white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
+                        if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", alt_name));
                         if (white_candidate != null) use_path = white_candidate;
                     }
 
@@ -213,7 +213,7 @@ public class CategoryIcons : GLib.Object {
             };
             string? icon_path = null;
             foreach (var c in candidates) {
-                icon_path = DataPaths.find_data_file(c);
+                icon_path = DataPathsUtils.find_data_file(c);
                 if (icon_path != null) break;
             }
 
@@ -230,8 +230,8 @@ public class CategoryIcons : GLib.Object {
                         } else
                             alt_name = filename + "-white.svg";
                         string? white_candidate = null;
-                        white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", "symbolic", "128x128", alt_name));
-                        if (white_candidate == null) white_candidate = DataPaths.find_data_file(GLib.Path.build_filename("icons", "128x128", alt_name));
+                        white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "128x128", alt_name));
+                        if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "128x128", alt_name));
                         if (white_candidate != null) use_path = white_candidate;
                     }
                     if (use_path.has_suffix(".svg")) {

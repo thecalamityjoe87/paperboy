@@ -88,83 +88,21 @@ namespace Managers {
          * Check if a category has article limits applied (most categories do)
          */
         private bool is_limited_category(string category) {
-            return (
-                category == "general" ||
-                category == "us" ||
-                category == "sports" ||
-                category == "science" ||
-                category == "health" ||
-                category == "technology" ||
-                category == "business" ||
-                category == "entertainment" ||
-                category == "politics" ||
-                category == "lifestyle" ||
-                category == "markets" ||
-                category == "industries" ||
-                category == "economics" ||
-                category == "wealth" ||
-                category == "green" ||
-                category == "local_news" ||
-                category == "myfeed" ||
-                category.has_prefix("rssfeed:")
-            );
+            return CategoryManager.is_limited_category(category);
         }
 
         /**
          * Check if this is a regular news category (not frontpage, topten, myfeed, local_news, saved, or RSS)
          */
         private bool is_regular_news_category(string category) {
-            return (
-                category == "general" ||
-                category == "us" ||
-                category == "sports" ||
-                category == "science" ||
-                category == "health" ||
-                category == "technology" ||
-                category == "business" ||
-                category == "entertainment" ||
-                category == "politics" ||
-                category == "lifestyle" ||
-                category == "markets" ||
-                category == "industries" ||
-                category == "economics" ||
-                category == "wealth" ||
-                category == "green"
-            );
+            return CategoryManager.is_regular_news_category(category);
         }
         
         /**
          * Normalize source name for consistent tracking
          */
         private string? normalize_source_name(string? source_name, string category_id, string url) {
-            string? result = source_name;
-            try {
-                if (result == null || result.length == 0) {
-                    if (category_id == "local_news") {
-                        var prefs_local = NewsPreferences.get_instance();
-                        result = (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
-                            ? prefs_local.user_location_city : "Local News";
-                    } else {
-                        NewsSource inferred = window.infer_source_from_url(url);
-                        result = window.get_source_name(inferred);
-                    }
-                } else {
-                    // Try to match to an RSS source in the database for consistent naming
-                    var rss_store = Paperboy.RssSourceStore.get_instance();
-                    var all_sources = rss_store.get_all_sources();
-                    foreach (var src in all_sources) {
-                        string src_lower = src.name.down();
-                        string result_lower = result.down();
-                        if (src_lower.contains(result_lower) || result_lower.contains(src_lower)) {
-                            result = src.name;
-                            break;
-                        }
-                    }
-                }
-            } catch (GLib.Error e) {
-                result = source_name;
-            }
-            return result;
+            return SourceManager.normalize_source_name(source_name, category_id, url);
         }
         
         /**
@@ -674,7 +612,7 @@ namespace Managers {
 
         var chip = window.build_category_chip(card_display_cat);
 
-        var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant, window.article_state_store);
+        var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant, window.article_state_store, window);
 
         // Enforce uniform card size for Top Ten view so rows line up evenly.
         if (window.prefs.category == "topten") {
@@ -1083,19 +1021,7 @@ namespace Managers {
     }
 
     private bool source_name_matches(NewsSource source, string name) {
-        string n = name.down();
-        switch (source) {
-            case NewsSource.GUARDIAN: return n.contains("guardian");
-            case NewsSource.BBC: return n.contains("bbc");
-            case NewsSource.REDDIT: return n.contains("reddit");
-            case NewsSource.NEW_YORK_TIMES: return n.contains("nytimes") || n.contains("new york times");
-            case NewsSource.WALL_STREET_JOURNAL: return n.contains("wsj") || n.contains("wall street");
-            case NewsSource.BLOOMBERG: return n.contains("bloomberg");
-            case NewsSource.REUTERS: return n.contains("reuters");
-            case NewsSource.NPR: return n.contains("npr");
-            case NewsSource.FOX: return n.contains("fox");
-            default: return false;
-        }
+        return SourceManager.source_name_matches(source, name);
     }
     public void clear_article_buffer() {
         article_buffer.clear();
