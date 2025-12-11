@@ -1,0 +1,30 @@
+Index: paperboy/meson.build
+===================================================================
+--- paperboy.orig/meson.build
++++ paperboy/meson.build
+@@ -165,10 +165,19 @@ if files('tools/html2rss/Cargo.toml').le
+   endif
+ endif
+ 
+-# Install the html2rss helper binary if present (built via Cargo).
+-# Place it under the app's namespaced datadir and also into bindir so the
+-# runtime can find it either as a tool in the data dir or in PATH.
+-if files('tools/html2rss/target/release/html2rss').length() > 0
+-  install_data('tools/html2rss/target/release/html2rss', install_dir: join_paths(get_option('datadir'), 'org.gnome.Paperboy', 'tools'))
+-  install_data('tools/html2rss/target/release/html2rss', install_dir: get_option('bindir'))
++# Try to locate the built html2rss binary under any Cargo target triple
++# (e.g. target/<triple>/release/html2rss). Use `find` so this works for
++# both `tools/html2rss/target/...` and a workspace-level `target/...`.
++find_cmd = 'find ' + meson.project_source_root() + ' -type f -name html2rss -path "*/target/*/release/html2rss" -printf "%p" -quit'
++find_res = run_command('bash', '-lc', find_cmd)
++found = find_res.stdout()
++if found != ''
++  install_data(found, install_dir: join_paths(get_option('datadir'), 'org.gnome.Paperboy', 'tools'))
++  install_data(found, install_dir: get_option('bindir'))
++else
++  # Fallback to the simple release location (non-cross/straight build)
++  if files('tools/html2rss/target/release/html2rss').length() > 0
++    install_data('tools/html2rss/target/release/html2rss', install_dir: join_paths(get_option('datadir'), 'org.gnome.Paperboy', 'tools'))
++    install_data('tools/html2rss/target/release/html2rss', install_dir: get_option('bindir'))
++  endif
+ endif

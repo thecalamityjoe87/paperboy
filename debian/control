@@ -1,13 +1,78 @@
 Source: paperboy
-Section: web
+Section: news
 Priority: optional
-Maintainer: Isaac Joseph <calamityjoe87@gmail.com>
-Build-Depends: debhelper-compat (= 13), meson, ninja-build, pkg-config, valac, libgtk-4-dev, libadwaita-1-dev, libgdk-pixbuf-2.0-dev, libjson-glib-dev, libgee-0.8-dev, libglib2.0-dev, libsqlite3-dev, libxml2-dev, libwebkitgtk-6.0-dev
-Standards-Version: 4.6.0
+Maintainer: Erich Eickmeyer <eeickmeyer@ubuntu.com>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-cargo,
+ cargo:native,
+ valac,
+ meson,
+ pkgconf,
+ libgtk-4-dev,
+ libadwaita-1-dev,
+ libsoup-3.0-dev,
+ libjson-glib-dev,
+ libgdk-pixbuf-2.0-dev,
+ libwebkitgtk-6.0-dev,
+ libxml2-dev,
+ libgee-0.8-dev,
+ librust-chrono-0.4+default-dev,
+ librust-clap-4+default-dev,
+ librust-clap-4+derive-dev,
+ librust-encoding-rs-0.8+default-dev,
+ librust-html-escape-0.2+default-dev,
+ librust-once-cell-1+default-dev (>= 1.19-~~),
+ librust-quick-xml-0.36+default-dev,
+ librust-rand-0.8+default-dev,
+ librust-regex-1+default-dev,
+ librust-reqwest-0.12+blocking-dev,
+ librust-reqwest-0.12+default-dev,
+ librust-reqwest-0.12+rustls-tls-dev,
+ librust-scraper-0.20+default-dev,
+ librust-serde-json-1+default-dev,
+ librust-unicode-normalization-0.1+default-dev,
+ librust-url-2+default-dev,
+ libsqlite3-dev,
+ libstd-rust-dev,
+ rustc:native,
+Standards-Version: 4.7.2
+Homepage: https://github.com/thecalamityjoe87/paperboy
 
 Package: paperboy
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: RSS reader and article browser (Paperboy)
- A small Vala/GTK4 application for reading RSS/Atom feeds and
- viewing articles.
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ paperboy-common
+Description: Simple news app written in Vala, built with GTK4 and Libadwaita
+ Simple, but beautiful native GTK4 news application similar to Apple News.
+ .
+ Some cool features of Paperboy:
+  - Ships with curated sources like The Guardian, Reddit, BBC, and FOX News.
+  - Fetches articles through PaperboyAPI, a custom API that aggregates news
+    from multiple sources and categories.
+  - Lets you build a custom feed by combining any sources and categories you
+    want.
+  - Includes local news support, so you can see what’s happening near you.
+ .
+ This package contains the binary application.
+
+Package: paperboy-common
+Architecture: all
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends}
+Description: Simple news app written in Vala (common files)
+ Simple, but beautiful native GTK4 news application similar to Apple News.
+ .
+ Some cool features of Paperboy:
+  - Ships with curated sources like The Guardian, Reddit, BBC, and FOX News.
+  - Fetches articles through PaperboyAPI, a custom API that aggregates news
+    from multiple sources and categories.
+  - Lets you build a custom feed by combining any sources and categories you
+    want.
+  - Includes local news support, so you can see what’s happening near you.
+ .
+ This package contains common files used by all architectures.

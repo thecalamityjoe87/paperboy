@@ -1,6 +1,0 @@
-#!/bin/sh
-set -e
-# Update GTK icon cache
-if [ -x /usr/bin/gtk-update-icon-cache ]; then
-    gtk-update-icon-cache -f /usr/share/icons/hicolor || true
-fi
