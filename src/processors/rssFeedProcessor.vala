@@ -26,12 +26,12 @@ using Gee;
 [CCode (cname = "xmlFreeDoc")]
 private static extern void xml_free_doc (Xml.Doc* doc);
 
-public class RssParser {
+public class RssFeedProcessor {
     // Maximum items to parse from local news RSS feeds (prevents memory bloat from large feeds)
     // TODO: Make this configurable via preferences to allow power users to increase the limit
     // Currently hardcoded to prevent UI slowdowns, but users may want more items for archival feeds
     private const int LOCAL_FEED_MAX_ITEMS = 12;
-    
+
     public static void parse_rss_and_display(
         string body,
         string source_name,
@@ -159,30 +159,30 @@ public class RssParser {
                                     }
                                 } else if (c->name == "description" && thumb == null) {
                                     string? desc = c->get_content();
-                                    if (desc != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(desc);
+                                    if (desc != null) thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
                                 } else if (c->name == "content" && thumb == null) {
                                     // Atom <content type="html"> often contains HTML with <img>
                                     string? content_html = c->get_content();
                                     if (content_html != null) {
-                                        thumb = Tools.ImageParser.extract_image_from_html_snippet(content_html);
+                                        thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content_html);
                                         if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
                                     }
                                 } else if (c->name == "summary" && thumb == null) {
                                     // Atom <summary> can also include an image snippet
                                     string? summary_html = c->get_content();
                                     if (summary_html != null) {
-                                        thumb = Tools.ImageParser.extract_image_from_html_snippet(summary_html);
+                                        thumb = Tools.ImageProcessor.extract_image_from_html_snippet(summary_html);
                                         if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
                                     }
                                 } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
                                     string? content = c->get_content();
-                                    if (content != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(content);
+                                    if (content != null) thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content);
                                 }
                             }
 
                             if (title != null && link != null) {
                                 if (category_id == "local_news" && items.size >= LOCAL_FEED_MAX_ITEMS) {
-                                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssParser: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name); } catch (GLib.Error e) { }
+                                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssFeedProcessor: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name); } catch (GLib.Error e) { }
                                     continue;
                                 }
 
@@ -191,8 +191,8 @@ public class RssParser {
                                     string thumb_l = thumb.down();
                                     if (thumb_l.contains("bbc.") || thumb_l.contains("bbci.co.uk")) {
                                         string before = thumb;
-                                        thumb = Tools.ImageParser.normalize_bbc_image_url(thumb);
-                                        try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssParser: normalized thumb %s -> %s", before, thumb); } catch (GLib.Error e) { }
+                                        thumb = Tools.ImageProcessor.normalize_bbc_image_url(thumb);
+                                        try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssFeedProcessor: normalized thumb %s -> %s", before, thumb); } catch (GLib.Error e) { }
                                     }
                                 }
 
@@ -295,28 +295,28 @@ public class RssParser {
                                         }
                                     } else if (c->name == "description" && thumb == null) {
                                         string? desc = c->get_content();
-                                        if (desc != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(desc);
+                                        if (desc != null) thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
                                     } else if (c->name == "content" && thumb == null) {
                                         string? content_html = c->get_content();
                                         if (content_html != null) {
-                                            thumb = Tools.ImageParser.extract_image_from_html_snippet(content_html);
+                                            thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content_html);
                                             if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
                                         }
                                     } else if (c->name == "summary" && thumb == null) {
                                         string? summary_html = c->get_content();
                                         if (summary_html != null) {
-                                            thumb = Tools.ImageParser.extract_image_from_html_snippet(summary_html);
+                                            thumb = Tools.ImageProcessor.extract_image_from_html_snippet(summary_html);
                                             if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
                                         }
                                     } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
                                         string? content = c->get_content();
-                                        if (content != null) thumb = Tools.ImageParser.extract_image_from_html_snippet(content);
+                                        if (content != null) thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content);
                                     }
                                 }
 
                                 if (title != null && link != null) {
                                     if (category_id == "local_news" && items.size >= LOCAL_FEED_MAX_ITEMS) {
-                                        try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssParser: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name); } catch (GLib.Error e) { }
+                                        try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssFeedProcessor: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name); } catch (GLib.Error e) { }
                                         continue;
                                     }
 
@@ -325,8 +325,8 @@ public class RssParser {
                                         string thumb_l = thumb.down();
                                         if (thumb_l.contains("bbc.") || thumb_l.contains("bbci.co.uk")) {
                                             string before = thumb;
-                                            thumb = Tools.ImageParser.normalize_bbc_image_url(thumb);
-                                            try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssParser: normalized thumb %s -> %s", before, thumb); } catch (GLib.Error e) { }
+                                            thumb = Tools.ImageProcessor.normalize_bbc_image_url(thumb);
+                                            try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssFeedProcessor: normalized thumb %s -> %s", before, thumb); } catch (GLib.Error e) { }
                                         }
                                     }
 
@@ -368,23 +368,30 @@ public class RssParser {
                     add_item(title, url, row[2], category_id, source_name);
                 }
 
-                if (category_id == "myfeed" && favicon_url != null && favicon_url.length > 0) {
+                return false;
+            });
+
+            // Update favicon asynchronously in background thread to avoid SQLite lock contention
+            // Don't block the main thread or article display for favicon updates
+            if (category_id == "myfeed" && favicon_url != null && favicon_url.length > 0) {
+                string captured_source_name = source_name;
+                string captured_favicon = favicon_url;
+                new Thread<void*>("favicon-update", () => {
                     try {
                         var rss_store = Paperboy.RssSourceStore.get_instance();
                         var all_sources = rss_store.get_all_sources();
                         foreach (var src in all_sources) {
-                            if (src.name == source_name) {
+                            if (src.name == captured_source_name) {
                                 if (src.favicon_url == null || src.favicon_url.length == 0) {
-                                    rss_store.update_favicon_url(src.url, favicon_url);
+                                    rss_store.update_favicon_url(src.url, captured_favicon);
                                 }
                                 break;
                             }
                         }
                     } catch (GLib.Error e) { }
-                }
-
-                return false;
-            });
+                    return null;
+                });
+            }
 
             // Background: for BBC links, try to fetch higher-resolution images
             if (bbc_enabled) {
@@ -403,7 +410,7 @@ public class RssParser {
                             string link_l = link.down();
                             if ((link_l.contains("bbc.") || link_l.contains("bbci.co.uk"))) {
                                 if (thumb == null || thumb.length < 50) {
-                                    Tools.ImageParser.fetch_bbc_highres_image(link, session, safe_add, category_id, source_name);
+                                    Tools.ImageProcessor.fetch_bbc_highres_image(link, session, safe_add, category_id, source_name);
                                     upgrades++;
                                 }
                             }
@@ -422,6 +429,34 @@ public class RssParser {
         }
     }
 
+    // Remove a dead URL from the user's `local_feeds` list. This is best-effort
+    // and will log warnings on failure. Kept as a static method so it can be
+    // called from worker threads safely (it performs file I/O synchronously).
+    private static void prune_local_feed(string bad_url) {
+        try {
+            string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
+            string file_path = config_dir + "/local_feeds";
+            string contents = "";
+            bool ok = false;
+            try { ok = GLib.FileUtils.get_contents(file_path, out contents); } catch (GLib.Error ee) { contents = ""; ok = false; }
+            if (!ok || contents == null) return;
+            string[] lines = contents.split("\n");
+            var kept = new Gee.ArrayList<string>();
+            foreach (var l in lines) {
+                string t = l.strip();
+                if (t.length == 0) continue;
+                if (t == bad_url) continue;
+                kept.add(t);
+            }
+            string new_contents = "";
+            foreach (var e in kept) new_contents += e + "\n";
+            try { GLib.FileUtils.set_contents(file_path, new_contents); } catch (GLib.Error eee) { warning("Failed to update local_feeds: %s", eee.message); }
+            warning("Pruned dead local feed: %s", bad_url);
+        } catch (GLib.Error e) {
+            warning("Error pruning local feed: %s", e.message);
+        }
+    }
+
     public static void fetch_rss_url(
         string url,
         string source_name,
@@ -434,14 +469,44 @@ public class RssParser {
         AddItemFunc add_item
     ) {
         new Thread<void*>("fetch-rss", () => {
+            // Keep references to the provided callbacks for the lifetime
+            // of this worker thread. Vala's generated closure refcounting
+            // sometimes frees caller-side temporary delegates when the
+            // caller's scope returns; holding explicit local references
+            // in the thread ensures the delegates remain alive until the
+            // thread completes and avoids use-after-free when the
+            // callbacks are invoked later on the main loop.
+            var _set_label_ref = set_label;
+            var _clear_items_ref = clear_items;
+            var _add_item_ref = add_item;
             try {
+
+                // Basic validation: ensure the URL is a non-empty, sane string
+                // (avoid passing malformed URLs into HttpClient which may return
+                // errors or a null body that propagate back into FetchContext).
+                string trimmed = url.strip();
+                if (trimmed.length == 0) {
+                    warning("RSS fetch called with empty URL for source '%s'", source_name);
+                    try { set_label("Error loading feed — invalid (empty) URL"); } catch (GLib.Error e) { }
+                    return null;
+                }
+                // Disallow obvious invalid schemes or whitespace in the URL.
+                if (trimmed.contains(" ") || !(trimmed.has_prefix("http://") || trimmed.has_prefix("https://") || trimmed.has_prefix("file://"))) {
+                    warning("RSS fetch called with malformed/unsupported URL for source '%s': %s", source_name, url);
+                    try { set_label("Error loading feed — invalid URL"); } catch (GLib.Error e) { }
+                    return null;
+                }
                 // Support local file:// feeds by reading the file directly
                 if (url.has_prefix("file://")) {
                     try {
                         string path = url.substring(7);
                         var f = GLib.File.new_for_path(path);
                         if (!f.query_exists(null)) {
-                            warning("Local RSS file not found: %s", path);
+                            // File doesn't exist - trigger background regeneration
+                            warning("Local RSS file not found, will need regeneration: %s", path);
+                            try { set_label("Generating feed... (this may take 30-40 seconds)"); } catch (GLib.Error e) { }
+                            // TODO: Trigger async regeneration here
+                            // For now, just show an error since regeneration is handled by FeedUpdateManager
                             return null;
                         }
                         // Use FileUtils.get_contents to safely read the whole file into memory
@@ -449,6 +514,7 @@ public class RssParser {
                         bool ok = GLib.FileUtils.get_contents(path, out body);
                         if (!ok || body.length == 0) {
                             warning("Failed to read local RSS file: %s", path);
+                            try { set_label("Failed to read local RSS file"); } catch (GLib.Error e) { }
                             return null;
                         }
                         parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session);
@@ -459,16 +525,40 @@ public class RssParser {
                     }
                 }
 
-                var client = Paperboy.HttpClient.get_default();
+                var client = Paperboy.HttpClientUtils.get_default();
                 var http_response = client.fetch_sync(url, null);
 
+                // Defensive handling for network-level failures (status_code == 0)
+                if (http_response.status_code == 0) {
+                    // Prefer the error message provided by the HttpClient (GLib.Error.message)
+                    if (http_response.error_message != null && http_response.error_message.length > 0) {
+                        // Surface DNS resolution failures more clearly
+                        if (http_response.error_message.contains("Name or service not known") ||
+                            http_response.error_message.contains("Temporary failure in name resolution") ||
+                            http_response.error_message.contains("No address associated with hostname")) {
+                            warning("Network/DNS error fetching RSS for '%s' (%s): %s", source_name, url, http_response.error_message);
+                        } else {
+                            warning("Network error fetching RSS for '%s' (%s): %s", source_name, url, http_response.error_message);
+                        }
+                    } else {
+                        warning("Network error fetching RSS for '%s' (%s): unknown error", source_name, url);
+                    }
+                    try { set_label("Error loading feed — network/DNS error"); } catch (GLib.Error e) { }
+                    if (category_id == "local_news") prune_local_feed(url);
+                    return null;
+                }
+
                 if (!http_response.is_success()) {
-                    warning("HTTP %u for RSS", http_response.status_code);
+                    warning("HTTP %u fetching RSS for '%s' (%s)", http_response.status_code, source_name, url);
+                    try { set_label(("Error loading feed — HTTP %u").printf(http_response.status_code)); } catch (GLib.Error e) { }
+                    if (category_id == "local_news") prune_local_feed(url);
                     return null;
                 }
 
                 if (http_response.body == null) {
-                    warning("Empty response for RSS");
+                    warning("Empty response for RSS from '%s' (%s)", source_name, url);
+                    try { set_label("Error loading feed — empty response"); } catch (GLib.Error e) { }
+                    if (category_id == "local_news") prune_local_feed(url);
                     return null;
                 }
 
@@ -476,10 +566,16 @@ public class RssParser {
                 parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session);
             } catch (GLib.Error e) {
                 warning("RSS fetch error: %s", e.message);
+                try { set_label("Error loading feed"); } catch (GLib.Error _) { }
+                if (category_id == "local_news") prune_local_feed(url);
             }
+            // Drop our explicit references so they can be freed.
+            _set_label_ref = null;
+            _clear_items_ref = null;
+            _add_item_ref = null;
             return null;
         });
     }
 
-    
+
 }

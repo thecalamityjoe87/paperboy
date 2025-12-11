@@ -24,7 +24,7 @@ public class RedditFetcher : BaseFetcher {
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
-        var client = Paperboy.HttpClient.get_default();
+        var client = Paperboy.HttpClientUtils.get_default();
         string subreddit = "";
         string category_name = "";
         switch (category) {

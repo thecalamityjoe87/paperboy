@@ -24,16 +24,19 @@ public class ArticleMenu : GLib.Object {
     public signal void follow_source_requested(string url, string? source_name);
     public signal void save_for_later_requested(string url);
     public signal void share_requested(string url);
+    public signal void mark_unread_requested(string url);
 
     private string article_url;
     private string? article_source_name;
     private bool is_saved;
+    private bool is_viewed;
     private NewsWindow? parent_window;
-
-    public ArticleMenu(string url, string? source_name, bool saved, NewsWindow? window) {
+    private Gtk.Button? save_btn;
+    public ArticleMenu(string url, string? source_name, bool saved, bool viewed, NewsWindow? window) {
         article_url = url;
         article_source_name = source_name;
         is_saved = saved;
+        is_viewed = viewed;
         parent_window = window;
     }
 
@@ -57,7 +60,7 @@ public class ArticleMenu : GLib.Object {
         });
         menu_box.append(browser_btn);
 
-        // Follow this source
+        /* Follow this source
         var follow_btn = create_menu_item("list-add-symbolic", "Follow this source");
         bool is_builtin = SourceManager.is_article_from_builtin(article_url);
         follow_btn.set_sensitive(!is_builtin);
@@ -65,18 +68,46 @@ public class ArticleMenu : GLib.Object {
             follow_source_requested(article_url, article_source_name);
             if (popover != null) popover.popdown();
         });
+        menu_box.append(follow_btn);*/
+
+        // Follow this source (or built-in label)
+        bool is_builtin = SourceManager.is_article_from_builtin(article_url);
+        string label = is_builtin ? "Built-in source" : "Follow this source";
+        // Change to a neutral info icon for builtin
+        string icon = is_builtin ? "emblem-default-symbolic" : "list-add-symbolic";
+        var follow_btn = create_menu_item(icon, label);
+        // For built-in sources: make it non-clickable
+        if (is_builtin) {
+            follow_btn.set_sensitive(false);
+            follow_btn.set_tooltip_text("This is a built-in source. You can be enable or disable it in preferences.");
+        } else {
+            follow_btn.clicked.connect(() => {
+            follow_source_requested(article_url, article_source_name);
+            if (popover != null) popover.popdown();
+        });
+        }
         menu_box.append(follow_btn);
 
         // Save/Remove from saved
-        var save_btn = create_menu_item(
+        save_btn = create_menu_item(
             is_saved ? "user-trash-symbolic" : "user-bookmarks-symbolic",
-            is_saved ? "Remove from saved" : "Save this article"
+            is_saved ? "Remove from saved" : "Add to saved"
         );
         save_btn.clicked.connect(() => {
             save_for_later_requested(article_url);
             if (popover != null) popover.popdown();
         });
         menu_box.append(save_btn);
+
+        // Mark as unread (only active when article is currently viewed)
+        var unread_btn = create_menu_item("edit-undo-symbolic", "Mark as unread");
+        // Option should be enabled only when the article is currently viewed
+        unread_btn.set_sensitive(is_viewed);
+        unread_btn.clicked.connect(() => {
+            mark_unread_requested(article_url);
+            if (popover != null) popover.popdown();
+        });
+        menu_box.append(unread_btn);
 
         // Share
         var share_btn = create_menu_item("share-symbolic", "Share this article");
@@ -86,7 +117,74 @@ public class ArticleMenu : GLib.Object {
         });
         menu_box.append(share_btn);
 
+        // Connect to saved/unsaved signals so the save menu item reflects
+        // runtime changes immediately.
+        _connect_saved_signals();
+
         return menu_box;
+    }
+
+    private void _connect_saved_signals() {
+        if (parent_window == null) return;
+        if (parent_window.article_state_store == null) return;
+
+        try {
+            parent_window.article_state_store.saved_article_added.connect((url) => {
+                try {
+                    string n1 = UrlUtils.normalize_article_url(url);
+                    string n2 = UrlUtils.normalize_article_url(article_url);
+                    if (n1 == n2) {
+                        if (save_btn != null) {
+                            Gtk.Widget? child = save_btn.get_child();
+                            if (child != null && child is Gtk.Box) {
+                                var box = (Gtk.Box) child;
+                                Gtk.Widget? c = box.get_first_child();
+                                while (c != null) {
+                                    try {
+                                        if (c is Gtk.Image) {
+                                            var img = (Gtk.Image) c;
+                                            try { img.set_from_icon_name("user-trash-symbolic"); } catch (GLib.Error e) { }
+                                        } else if (c is Gtk.Label) {
+                                            var lbl = (Gtk.Label) c;
+                                            try { lbl.set_text("Remove from saved"); } catch (GLib.Error e) { }
+                                        }
+                                    } catch (GLib.Error e) { }
+                                    c = c.get_next_sibling();
+                                }
+                            }
+                        }
+                    }
+                } catch (GLib.Error e) { }
+            });
+
+            parent_window.article_state_store.saved_article_removed.connect((url) => {
+                try {
+                    string n1 = UrlUtils.normalize_article_url(url);
+                    string n2 = UrlUtils.normalize_article_url(article_url);
+                    if (n1 == n2) {
+                        if (save_btn != null) {
+                            Gtk.Widget? child = save_btn.get_child();
+                            if (child != null && child is Gtk.Box) {
+                                var box = (Gtk.Box) child;
+                                Gtk.Widget? c = box.get_first_child();
+                                while (c != null) {
+                                    try {
+                                        if (c is Gtk.Image) {
+                                            var img = (Gtk.Image) c;
+                                            try { img.set_from_icon_name("user-bookmarks-symbolic"); } catch (GLib.Error e) { }
+                                        } else if (c is Gtk.Label) {
+                                            var lbl = (Gtk.Label) c;
+                                            try { lbl.set_text("Add to saved"); } catch (GLib.Error e) { }
+                                        }
+                                    } catch (GLib.Error e) { }
+                                    c = c.get_next_sibling();
+                                }
+                            }
+                        }
+                    }
+                } catch (GLib.Error e) { }
+            });
+        } catch (GLib.Error e) { }
     }
 
     public Gtk.Popover create_popover(Gtk.Widget parent, double x, double y) {

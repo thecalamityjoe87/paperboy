@@ -15,98 +15,149 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-using Gtk;
-using Adw;
 using Gee;
 using GLib;
-using Cairo;
+
+// Data structures for sidebar representation
+public enum SidebarItemType {
+    CATEGORY,
+    RSS_SOURCE,
+    SPECIAL  // Front Page, My Feed, etc.
+}
+
+public struct SidebarItemData {
+    public string id;              // category ID or "rssfeed:url"
+    public string title;           // Display name
+    public string? icon_key;       // For category icons (passed to CategoryIcons)
+    public int unread_count;       // Badge count
+    public bool is_selected;       // Currently active
+    public SidebarItemType item_type;
+}
+
+public struct RssSourceItemData {
+    public string name;
+    public string url;
+    public string? display_name;
+    public string? icon_path;      // Path to saved icon file
+    public string? icon_url;       // Fallback icon URL
+    public int unread_count;
+    public bool is_selected;
+}
+
+public struct SidebarSectionData {
+    public string section_id;      // "special", "followed_sources", "popular_categories"
+    public string title;
+    public bool is_expandable;
+    public bool is_expanded;
+    public Gee.ArrayList<SidebarItemData?> items;
+}
 
 public delegate void SidebarActivateHandler(string cat, string title);
+public delegate void RssFeedAddedCallback(bool success, string discovered_name);
 
+/**
+ * Logic-only sidebar manager - handles data and business logic without GTK widgets.
+ * All UI building is delegated to SidebarView.
+ */
 public class SidebarManager : GLib.Object {
-    private NewsWindow window;
-    private Gtk.ListBox sidebar_list;
-    private Gee.HashMap<string, Gtk.Box> sidebar_icon_holders;
-    // We store RSS feed icon holders under keys prefixed with "rss:" + url
+    private weak NewsWindow window;
     private SidebarActivateHandler? activate_cb;
-    private Gtk.ScrolledWindow sidebar_scrolled;
-    private Gtk.Revealer sidebar_revealer;
-    private Adw.NavigationPage sidebar_page;
 
-    // Expandable sections tracking
-    private bool followed_sources_expanded = true;  // Start expanded
+    // Expandable sections state tracking (logic only)
+    private bool followed_sources_expanded = true;
     private bool popular_categories_expanded = true;
-    private Gtk.Box? followed_sources_container;
-    private Gtk.Box? popular_categories_container;
-    private Gtk.Button? add_rss_button;
 
-    // Track currently selected button for highlighting
-    private Gtk.Button? currently_selected_button = null;
+    // Track currently selected item ID (data only)
+    private string? currently_selected_id = null;
 
-    // Track unread count badges for categories and sources
-    private Gee.HashMap<string, Gtk.Widget> category_badges;
-    private Gee.HashMap<string, Gtk.Widget> source_badges;
+    // Track unread counts (data only - no widgets)
+    private Gee.HashMap<string, int> category_unread_counts;
+    private Gee.HashMap<string, int> source_unread_counts;
+    
+    // Track which categories have been visited by the user
+    // Popular categories show "--" until visited, then show actual count
+    private Gee.HashSet<string> visited_categories;
 
-    public signal void category_selected(string category);
+    // Signals to notify SidebarView of changes
+    public signal void sidebar_rebuild_requested(Gee.ArrayList<SidebarSectionData?> sections);
+    public signal void category_selected(string category_id, string title);
+    public signal void rss_source_added(RssSourceItemData source);
+    public signal void rss_source_removed(string url);
+    public signal void rss_source_updated(RssSourceItemData source);
+    public signal void badge_updated(string item_id, int count, bool is_source);
+    public signal void badge_updated_force(string item_id, int count, bool is_source);
+    public signal void badge_placeholder_set(string item_id, bool is_source);
+    public signal void all_badges_refresh_requested();
+    public signal void expanded_state_changed(string section_name, bool expanded);
+    public signal void selection_changed(string? item_id);
 
     public SidebarManager(NewsWindow window, SidebarActivateHandler? activate_cb = null) {
         GLib.Object();
         this.window = window;
-        this.sidebar_icon_holders = new Gee.HashMap<string, Gtk.Box>();
-        this.category_badges = new Gee.HashMap<string, Gtk.Widget>();
-        this.source_badges = new Gee.HashMap<string, Gtk.Widget>();
         this.activate_cb = activate_cb;
+        this.category_unread_counts = new Gee.HashMap<string, int>();
+        this.source_unread_counts = new Gee.HashMap<string, int>();
+        this.visited_categories = new Gee.HashSet<string>();
 
         // Load saved expanded states from preferences
         load_expanded_states();
 
-        build_sidebar_ui();
-
-        // Listen for changes to custom RSS sources and rebuild sidebar when they change
+        // Listen for changes to custom RSS sources
         var store = Paperboy.RssSourceStore.get_instance();
         store.source_added.connect((s) => {
             Idle.add(() => {
-                try { append_rss_feed_row(s); } catch (GLib.Error e) { }
+                handle_source_added(s);
                 return false;
             });
         });
         store.source_removed.connect((s) => {
             Idle.add(() => {
-                try { remove_rss_feed_row_by_url(s.url); } catch (GLib.Error e) { }
+                handle_source_removed(s);
+                return false;
+            });
+        });
+        store.source_updated.connect((s) => {
+            Idle.add(() => {
+                handle_source_updated(s);
                 return false;
             });
         });
 
-        // When a source is updated (for example its icon file was saved), update only that icon
-        store.source_updated.connect((s) => {
-            Idle.add(() => {
-                try {
-                    string key = "rss:" + s.url;
-                    try {
-                        Gtk.Box holder = sidebar_icon_holders.get(key);
-                        // Remove existing children
-                        Gtk.Widget? child = holder.get_first_child();
-                        while (child != null) {
-                            Gtk.Widget? next = child.get_next_sibling();
-                            try { holder.remove(child); } catch (GLib.Error e) { }
-                            child = next;
-                        }
-                        // Create fresh picture and append
-                        var pic = create_rss_source_picture(s);
-                        if (pic != null) holder.append(pic);
-                    } catch (GLib.Error e) {
-                        // No holder for this source yet; ignore
-                    }
-                } catch (GLib.Error e) { }
-                return false;
-            });
-        });
+        // Listen for article viewed/unviewed changes so badges update immediately
+        try {
+            if (window.article_state_store != null) {
+                window.article_state_store.viewed_status_changed.connect((url, viewed) => {
+                    // Run in Idle to avoid contention with the emitter
+                    Idle.add(() => {
+                        try {
+                            // Update categories containing this URL
+                            var cats = window.article_state_store.get_categories_for_url(url);
+                            foreach (var c in cats) {
+                                try { update_badge_for_category(c); } catch (GLib.Error e) { }
+                            }
+
+                            // Update sources containing this URL
+                            var srcs = window.article_state_store.get_sources_for_url(url);
+                            foreach (var s in srcs) {
+                                try { update_badge_for_source(s); } catch (GLib.Error e) { }
+                            }
+
+                            // If the article is saved, update the Saved badge as well
+                            try {
+                                if (window.article_state_store.is_saved(url)) {
+                                    update_badge_for_category("saved");
+                                }
+                            } catch (GLib.Error e) { }
+                        } catch (GLib.Error e) { }
+                        return false;
+                    });
+                });
+            }
+        } catch (GLib.Error e) { }
     }
 
     private void load_expanded_states() {
         var prefs = NewsPreferences.get_instance();
-        // Load from config properties, default to true (expanded) if not set
         followed_sources_expanded = prefs.sidebar_followed_sources_expanded;
         popular_categories_expanded = prefs.sidebar_popular_categories_expanded;
     }
@@ -123,309 +174,260 @@ public class SidebarManager : GLib.Object {
         prefs.save_config();
     }
 
-    private void build_sidebar_ui() {
-        // Create list
-        sidebar_list = new Gtk.ListBox();
-        sidebar_list.add_css_class("navigation-sidebar");
-        sidebar_list.set_selection_mode(Gtk.SelectionMode.NONE);
-        sidebar_list.set_activate_on_single_click(true);
-
-        // Create scrolled window
-        sidebar_scrolled = new Gtk.ScrolledWindow();
-        sidebar_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-        sidebar_scrolled.set_child(sidebar_list);
-
-        // Create revealer
-        sidebar_revealer = new Gtk.Revealer();
-        sidebar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT);
-        sidebar_revealer.set_transition_duration(200);
-        sidebar_revealer.set_reveal_child(true);
+    /**
+     * Toggle expanded state for a section
+     */
+    public void toggle_section_expanded(string section_id) {
+        if (section_id == "followed_sources") {
+            followed_sources_expanded = !followed_sources_expanded;
+            save_followed_sources_state();
+            expanded_state_changed(section_id, followed_sources_expanded);
+        } else if (section_id == "popular_categories") {
+            popular_categories_expanded = !popular_categories_expanded;
+            save_popular_categories_state();
+            expanded_state_changed(section_id, popular_categories_expanded);
+        }
     }
 
-    public Adw.NavigationPage build_navigation_page(Adw.HeaderBar header) {
-        var sidebar_toolbar = new Adw.ToolbarView();
-        sidebar_toolbar.add_top_bar(header);
-        sidebar_toolbar.set_content(sidebar_scrolled);
+    /**
+     * Get all sidebar sections with their items as data structures
+     */
+    public Gee.ArrayList<SidebarSectionData?> get_sidebar_sections() {
+        var sections = new Gee.ArrayList<SidebarSectionData?>();
 
-        sidebar_revealer.set_child(sidebar_toolbar);
-        sidebar_page = new Adw.NavigationPage(sidebar_revealer, "Categories");
-        return sidebar_page;
-    }
+        // Section 1: Special items (Top Ten, Front Page, My Feed, Local News, Saved)
+        var special_section = SidebarSectionData();
+        special_section.section_id = "special";
+        special_section.title = "";
+        special_section.is_expandable = false;
+        special_section.is_expanded = true;
+        special_section.items = new Gee.ArrayList<SidebarItemData?>();
 
-    public Adw.NavigationPage get_page() {
-        return sidebar_page;
-    }
+        special_section.items.add(create_item_data("Top Ten", "topten", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Front Page", "frontpage", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("My Feed", "myfeed", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Local News", "local_news", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Saved", "saved", SidebarItemType.SPECIAL));
 
-    // Rebuild the sidebar rows according to the currently selected source
-    public void rebuild_rows() {
-        // Debug logging removed - keep sidebar rebuild lean.
+        sections.add(special_section);
 
-        // Preserve vertical scroll position so clicking items doesn't jump to top
-        double saved_value = 0.0;
-        double saved_upper = 0.0;
-        double saved_page = 0.0;
-        try {
-            var vadj = sidebar_scrolled.get_vadjustment();
-            saved_value = vadj.get_value();
-            saved_upper = vadj.get_upper();
-            saved_page = vadj.get_page_size();
-        } catch (GLib.Error e) { }
+        // Section 2: Followed Sources (RSS feeds)
+        var followed_section = SidebarSectionData();
+        followed_section.section_id = "followed_sources";
+        followed_section.title = "Followed Sources";
+        followed_section.is_expandable = true;
+        followed_section.is_expanded = followed_sources_expanded;
+        followed_section.items = new Gee.ArrayList<SidebarItemData?>();
 
-        // Clear existing rows
-        int removed = 0;
-        Gtk.Widget? child = sidebar_list.get_first_child();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling();
-            try { sidebar_list.remove(child); } catch (GLib.Error e) { }
-            child = next;
-            removed++;
+        var store = Paperboy.RssSourceStore.get_instance();
+        var sources = store.get_all_sources();
+        foreach (var source in sources) {
+            followed_section.items.add(create_rss_item_data(source));
         }
 
-        // Reset selection tracking since we're rebuilding everything
-        currently_selected_button = null;
-        currently_selected_row = null;
+        sections.add(followed_section);
 
-        // Place "Front Page" and "My Feed" above the Categories header
-        add_row("Top Ten", "topten", window.prefs.category == "topten");
-        add_row("Front Page", "frontpage", window.prefs.category == "frontpage");
-        add_row("My Feed", "myfeed", window.prefs.category == "myfeed");
-        add_row("Local News", "local_news", window.prefs.category == "local_news");
-        add_row("Saved", "saved", window.prefs.category == "saved");
+        // Section 3: Popular Categories
+        var categories_section = SidebarSectionData();
+        categories_section.section_id = "popular_categories";
+        categories_section.title = "Popular Categories";
+        categories_section.is_expandable = true;
+        categories_section.is_expanded = popular_categories_expanded;
+        categories_section.items = new Gee.ArrayList<SidebarItemData?>();
 
-        // Add expandable Custom RSS Feeds section
-        build_followed_sources_section();
+        // Add categories based on selected sources
+        add_categories_for_sources(categories_section.items);
 
-        // Add expandable Popular Categories section
-        build_popular_categories_header();
+        sections.add(categories_section);
 
-        // If multiple preferred sources are selected, build the union of
-        // categories supported by those sources and show only those rows.
+        return sections;
+    }
+
+    /**
+     * Build the sidebar rows according to currently selected source
+     */
+    public void rebuild_sidebar() {
+        // Update currently selected ID from preferences
+        currently_selected_id = window.prefs.category;
+
+        // Get all sections with data
+        var sections = get_sidebar_sections();
+
+        // Emit signal for SidebarView to rebuild UI
+        sidebar_rebuild_requested(sections);
+
+        // Refresh badge counts after rebuild
+        refresh_all_badge_counts();
+    }
+
+    private void add_categories_for_sources(Gee.ArrayList<SidebarItemData?> items) {
+        // If multiple preferred sources are selected, build union of supported categories
         if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
             var allowed = new Gee.HashMap<string, bool>();
             string[] default_cats = { "general", "us", "technology", "business", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
-            foreach (var c in default_cats) allowed.set(c, true);
-            
+            foreach (var c in default_cats) {
+                allowed.set(c, true);
+            }
+
             // Check if at least one source supports lifestyle
             bool any_source_supports_lifestyle = false;
             foreach (var id in window.prefs.preferred_sources) {
-                NewsSource src = NewsSource.GUARDIAN; // default
-                switch (id) {
-                    case "guardian": src = NewsSource.GUARDIAN; break;
-                    case "reddit": src = NewsSource.REDDIT; break;
-                    case "bbc": src = NewsSource.BBC; break;
-                    case "nytimes": src = NewsSource.NEW_YORK_TIMES; break;
-                    case "wsj": src = NewsSource.WALL_STREET_JOURNAL; break;
-                    case "bloomberg": src = NewsSource.BLOOMBERG; break;
-                    case "reuters": src = NewsSource.REUTERS; break;
-                    case "npr": src = NewsSource.NPR; break;
-                    case "fox": src = NewsSource.FOX; break;
-                }
+                NewsSource src = parse_source_id(id);
                 if (NewsService.supports_category(src, "lifestyle")) {
                     any_source_supports_lifestyle = true;
                 }
             }
-            
+
             // If no source supports lifestyle, remove it from allowed categories
             if (!any_source_supports_lifestyle) {
                 allowed.unset("lifestyle");
             }
 
             foreach (var id in window.prefs.preferred_sources) {
-                switch (id) {
-                    case "bloomberg": {
-                        allowed.set("markets", true);
-                        allowed.set("industries", true);
-                        allowed.set("economics", true);
-                        allowed.set("wealth", true);
-                        allowed.set("green", true);
-                    }
-                    break;
-                    default: break;
+                if (id == "bloomberg") {
+                    allowed.set("markets", true);
+                    allowed.set("industries", true);
+                    allowed.set("economics", true);
+                    allowed.set("wealth", true);
+                    allowed.set("green", true);
                 }
             }
 
             string[] priority = { "general", "us", "technology", "business", "markets", "industries", "economics", "wealth", "green", "sports", "science", "health", "entertainment", "politics", "lifestyle" };
             foreach (var cat in priority) {
-                bool present = false;
-                foreach (var kv in allowed.entries) {
-                    if (kv.key == cat) { present = kv.value; break; }
+                if (allowed.has_key(cat) && allowed.get(cat)) {
+                    items.add(create_item_data(window.category_display_name_for(cat), cat, SidebarItemType.CATEGORY));
                 }
-                if (present) build_category_row_to_container(window.category_display_name_for(cat), cat, window.prefs.category == cat);
             }
-            // Restore previous scroll position (clamped to valid range) before returning
-            try {
-                var vadj = sidebar_scrolled.get_vadjustment();
-                double max_val = saved_upper - saved_page;
-                if (max_val < 0) max_val = 0;
-                double to_set = saved_value;
-                if (to_set < 0) to_set = 0;
-                if (to_set > max_val) to_set = max_val;
-                vadj.set_value(to_set);
-            } catch (GLib.Error e) { }
-
-            return;
-        }
-
-        // Single-source path: show categories appropriate to the selected source
-        NewsSource sidebar_eff = effective_news_source();
-        if (sidebar_eff == NewsSource.BLOOMBERG) {
-            build_category_row_to_container("Markets", "markets", window.prefs.category == "markets");
-            build_category_row_to_container("Industries", "industries", window.prefs.category == "industries");
-            build_category_row_to_container("Economics", "economics", window.prefs.category == "economics");
-            build_category_row_to_container("Wealth", "wealth", window.prefs.category == "wealth");
-            build_category_row_to_container("Green", "green", window.prefs.category == "green");
-            build_category_row_to_container("Technology", "technology", window.prefs.category == "technology");
-            build_category_row_to_container("Politics", "politics", window.prefs.category == "politics");
         } else {
-            build_category_row_to_container("World News", "general", window.prefs.category == "general");
-            build_category_row_to_container("US News", "us", window.prefs.category == "us");
-            build_category_row_to_container("Technology", "technology", window.prefs.category == "technology");
-            build_category_row_to_container("Business", "business", window.prefs.category == "business");
-            build_category_row_to_container("Sports", "sports", window.prefs.category == "sports");
-            build_category_row_to_container("Science", "science", window.prefs.category == "science");
-            build_category_row_to_container("Health", "health", window.prefs.category == "health");
-            build_category_row_to_container("Entertainment", "entertainment", window.prefs.category == "entertainment");
-            build_category_row_to_container("Politics", "politics", window.prefs.category == "politics");
-            try {
+            // Single-source path: show categories appropriate to the selected source
+            NewsSource sidebar_eff = effective_news_source();
+            if (sidebar_eff == NewsSource.BLOOMBERG) {
+                items.add(create_item_data("Markets", "markets", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Industries", "industries", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Economics", "economics", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Wealth", "wealth", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Green", "green", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Technology", "technology", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Politics", "politics", SidebarItemType.CATEGORY));
+            } else {
+                items.add(create_item_data("World News", "general", SidebarItemType.CATEGORY));
+                items.add(create_item_data("US News", "us", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Technology", "technology", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Business", "business", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Sports", "sports", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Science", "science", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Health", "health", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Entertainment", "entertainment", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Politics", "politics", SidebarItemType.CATEGORY));
+
                 if (NewsService.supports_category(sidebar_eff, "lifestyle")) {
-                    build_category_row_to_container("Lifestyle", "lifestyle", window.prefs.category == "lifestyle");
+                    items.add(create_item_data("Lifestyle", "lifestyle", SidebarItemType.CATEGORY));
                 }
-            } catch (GLib.Error e) { build_category_row_to_container("Lifestyle", "lifestyle", window.prefs.category == "lifestyle"); }
-        
-        // Restore previous scroll position (clamped to valid range)
-        try {
-            var vadj = sidebar_scrolled.get_vadjustment();
-            double max_val = saved_upper - saved_page;
-            if (max_val < 0) max_val = 0;
-            double to_set = saved_value;
-            if (to_set < 0) to_set = 0;
-            if (to_set > max_val) to_set = max_val;
-            vadj.set_value(to_set);
-        } catch (GLib.Error e) { }
+            }
+        }
+    }
+
+    private SidebarItemData create_item_data(string title, string id, SidebarItemType type) {
+        var item = SidebarItemData();
+        item.id = id;
+        item.title = title;
+        item.icon_key = id;  // Use ID as icon key for CategoryIcons
+        item.item_type = type;
+        item.is_selected = (currently_selected_id == id);
+        item.unread_count = get_unread_count_for_item(id, type);
+        return item;
+    }
+
+    private SidebarItemData create_rss_item_data(Paperboy.RssSource source) {
+        var item = SidebarItemData();
+        item.id = "rssfeed:" + source.url;
+        item.title = source.name;
+        item.icon_key = "rss:" + source.url;  // Special prefix for RSS sources
+        item.item_type = SidebarItemType.RSS_SOURCE;
+        item.is_selected = (currently_selected_id == item.id);
+        item.unread_count = get_unread_count_for_source(source.name);
+        return item;
+    }
+
+    private int get_unread_count_for_item(string id, SidebarItemType type) {
+        if (window.article_state_store == null) {
+            return 0;
         }
 
-        // Refresh badge counts after rebuilding sidebar
-        refresh_all_badges();
+        if (type == SidebarItemType.RSS_SOURCE) {
+            // Extract name from "rssfeed:url" format
+            if (id.has_prefix("rssfeed:")) {
+                string url = id.substring(8);
+                var store = Paperboy.RssSourceStore.get_instance();
+                var source = store.get_source_by_url(url);
+                if (source != null) {
+                    return window.article_state_store.get_unread_count_for_source(source.name);
+                }
+            }
+            return 0;
+        }
+
+        // Special category logic (applies to both SPECIAL and CATEGORY types)
+        // These checks are type-independent and based on ID
+
+        // Saved: badge shows total number of saved articles (bookmarks)
+        // This is more useful than "unread saved" since saved articles are
+        // meant to be a user's reading list, not an unread queue.
+        if (id == "saved") {
+            // Show number of unread saved items rather than total saved count
+            // so the badge reflects items still to read.
+            return window.article_state_store.get_unread_saved_count();
+        }
+
+        // Frontpage and Top Ten: populated by startup metadata fetch and
+        // their own fetchers, so use category-based unread count
+        if (id == "frontpage" || id == "topten") {
+            return window.article_state_store.get_unread_count_for_category(id);
+        }
+
+        // My Feed: Articles fetched for My Feed are registered under the
+        // "myfeed" category_id, so we can use category-based unread count.
+        // This includes articles from personalized categories and custom
+        // RSS sources that the user has configured for My Feed.
+        // IMPORTANT: Only show badge if personalized_feed_enabled is true
+        if (id == "myfeed") {
+            if (!window.prefs.personalized_feed_enabled) {
+                return 0;
+            }
+            return window.article_state_store.get_unread_count_for_category(id);
+        }
+
+        // Local News: use category-based unread count (articles registered
+        // under "local_news" are local articles)
+        if (id == "local_news") {
+            return window.article_state_store.get_unread_count_for_category(id);
+        }
+
+        // Popular categories (CATEGORY type only): return -1 (placeholder) until user visits them
+        if (type == SidebarItemType.CATEGORY) {
+            if (is_popular_category(id) && !is_category_visited(id)) {
+                return -1;
+            }
+        }
+
+        // All other categories
+        return window.article_state_store.get_unread_count_for_category(id);
+    }
+
+    private int get_unread_count_for_source(string source_name) {
+            if (window.article_state_store == null) {
+                return 0;
+            }
+            return window.article_state_store.get_unread_count_for_source(source_name);
     }
 
     private NewsSource effective_news_source() {
         if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size == 1) {
-            try {
-                string id = window.prefs.preferred_sources.get(0);
-                switch (id) {
-                    case "guardian": return NewsSource.GUARDIAN;
-                    case "reddit": return NewsSource.REDDIT;
-                    case "bbc": return NewsSource.BBC;
-                    case "nytimes": return NewsSource.NEW_YORK_TIMES;
-                    case "wsj": return NewsSource.WALL_STREET_JOURNAL;
-                    case "bloomberg": return NewsSource.BLOOMBERG;
-                    case "reuters": return NewsSource.REUTERS;
-                    case "npr": return NewsSource.NPR;
-                    case "fox": return NewsSource.FOX;
-                    default: return window.prefs.news_source;
-                }
-            } catch (GLib.Error e) { return window.prefs.news_source; }
+            string id = window.prefs.preferred_sources.get(0);
+            return parse_source_id(id);
         }
         return window.prefs.news_source;
-    }
-
-    public void update_icons_for_theme() {
-        var store = Paperboy.RssSourceStore.get_instance();
-        foreach (var kv in sidebar_icon_holders.entries) {
-            string key = kv.key;
-            Gtk.Box holder = kv.value;
-            Gtk.Widget? child = holder.get_first_child();
-            while (child != null) {
-                Gtk.Widget? next = child.get_next_sibling();
-                try { holder.remove(child); } catch (GLib.Error e) { }
-                child = next;
-            }
-
-            // If this holder is for a followed RSS source, recreate the
-            // source-specific picture so saved logos (or the RSS fallback)
-            // are used instead of category icons.
-            if (key.has_prefix("rss:")) {
-                if (key.length <= 4) continue; // Skip malformed keys
-                string url = key.substring(4);
-                try {
-                    var src = store.get_source_by_url(url);
-                    if (src != null) {
-                        var pic = create_rss_source_picture(src);
-                        if (pic != null) holder.append(pic);
-                        continue;
-                    }
-                } catch (GLib.Error e) { }
-
-                // Fallback if the source record is missing: use a themed RSS image
-                try {
-                    var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
-                    fallback.set_pixel_size(CategoryIcons.SIDEBAR_ICON_SIZE);
-                    holder.append(fallback);
-                } catch (GLib.Error e) { }
-            } else {
-                var w = CategoryIcons.create_category_icon(key);
-                if (w != null) holder.append(w);
-            }
-        }
-    }
-
-    public void update_for_source_change() {
-        rebuild_rows();
-    }
-
-    public void show() {
-        try { sidebar_revealer.set_reveal_child(true); } catch (GLib.Error e) { }
-    }
-
-    public void hide() {
-        try { sidebar_revealer.set_reveal_child(false); } catch (GLib.Error e) { }
-    }
-
-    public void toggle() {
-        try { sidebar_revealer.set_reveal_child(!sidebar_revealer.get_reveal_child()); } catch (GLib.Error e) { }
-    }
-
-    public bool is_visible() {
-        try { return sidebar_revealer.get_reveal_child(); } catch (GLib.Error e) { return false; }
-    }
-
-    public void set_revealed(bool revealed) {
-        try { sidebar_revealer.set_reveal_child(revealed); } catch (GLib.Error e) { }
-    }
-
-    private void handle_category_activation(string cat, string title) {
-        string validated = validate_category_for_sources(cat);
-
-        window.prefs.category = validated;
-        try { window.update_category_icon(); } catch (GLib.Error e) { }
-        try { window.update_local_news_ui(); } catch (GLib.Error e) { }
-        try { window.prefs.save_config(); } catch (GLib.Error e) { }
-
-        // Notify listeners (NewsWindow) to trigger fetch/update
-        try { category_selected(validated); } catch (GLib.Error e) { }
-        // Also invoke legacy callback if provided
-        try { if (activate_cb != null) activate_cb(validated, title); } catch (GLib.Error e) { }
-    }
-
-    private string validate_category_for_sources(string requested_cat) {
-        // App-level categories that don't depend on news sources
-        if (requested_cat == "saved" || requested_cat == "topten" || requested_cat == "myfeed" || requested_cat == "local_news" || requested_cat.has_prefix("rssfeed:")) {
-            return requested_cat;
-        }
-
-        bool category_supported = false;
-        if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
-            foreach (var id in window.prefs.preferred_sources) {
-                NewsSource src = parse_source_id(id);
-                if (NewsService.supports_category(src, requested_cat)) { category_supported = true; break; }
-            }
-        } else {
-            NewsSource current_source = effective_news_source();
-            try { category_supported = NewsService.supports_category(current_source, requested_cat); } catch (GLib.Error e) { category_supported = false; }
-        }
-
-        if (!category_supported) return "frontpage";
-        return requested_cat;
     }
 
     private NewsSource parse_source_id(string id) {
@@ -443,825 +445,398 @@ public class SidebarManager : GLib.Object {
         }
     }
 
-    // Add a simple section header row
-    public void add_header(string title) {
-        var header_row = new Adw.ActionRow();
-        header_row.set_title(title);
-        header_row.activatable = false;
-        header_row.selectable = false;
-        header_row.add_css_class("caption-heading");
-        header_row.set_margin_top(12);
-        header_row.set_margin_bottom(6);
-        sidebar_list.append(header_row);
-    }
+    /**
+     * Handle category/item activation
+     */
+    public void handle_item_activation(string id, string title) {
+        string validated = validate_category_for_sources(id);
 
-    // Track currently selected ListBox row for highlighting
-    private Gtk.ListBoxRow? currently_selected_row = null;
+        window.prefs.category = validated;
+        window.update_category_icon();
+        window.update_local_news_ui();
+        window.prefs.save_config();
 
-    // Add a selectable row with optional category icon and activation handling
-    public void add_row(string title, string cat, bool selected=false) {
-        var row = new Adw.ActionRow();
-        row.set_title(title);
-        row.activatable = true;
-        row.add_css_class("sidebar-item-row");
-        var holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        holder.set_hexpand(false);
-        holder.set_vexpand(false);
+        // Mark category as visited so badge can update from placeholder
+        mark_category_visited(validated);
 
-        var prefix_widget = CategoryIcons.create_category_icon(cat);
-        if (prefix_widget != null) { holder.append(prefix_widget); }
-        row.add_prefix(holder);
-        sidebar_icon_holders.set(cat, holder);
+        // Update selection state
+        currently_selected_id = validated;
+        selection_changed(validated);
 
-        // Add unread count badge as suffix
-        int unread_count = 0;
-        if (window.article_state_store != null) {
-            unread_count = window.article_state_store.get_unread_count_for_category(cat);
-        }
-        var badge = build_unread_count_badge(unread_count);
-        row.add_suffix(badge);
-        category_badges.set(cat, badge);
-
-        // store category on the row for future retrieval
-        row.set_data("category_id", cat);
-
-        // If this row is currently selected, mark it as selected
-        if (selected) {
-            row.add_css_class("selected");
-            currently_selected_row = row;
-        }
-
-        row.activated.connect(() => {
-            try {
-                // Remove selected class from any previously selected button
-                if (currently_selected_button != null) {
-                    currently_selected_button.remove_css_class("selected");
-                    currently_selected_button = null;
-                }
-
-                // Remove selected class from previously selected row
-                if (currently_selected_row != null) {
-                    currently_selected_row.remove_css_class("selected");
-                }
-
-                // Add selected class to this row
-                row.add_css_class("selected");
-                currently_selected_row = row;
-
-                // Close the article sheet if it's open — clicking a sidebar item
-                // is an obvious intent to switch content, so dismiss the sheet.
-                try { if (window.article_sheet != null) window.article_sheet.dismiss(); } catch (GLib.Error _e) { }
-
-                handle_category_activation(cat, title);
-            } catch (GLib.Error e) { }
-        });
-
-        try { row.set_can_focus(false); } catch (GLib.Error e) { }
-        sidebar_list.append(row);
-    }
-
-    // Build an expandable header with arrow icon
-    private void build_popular_categories_header() {
-        var header_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        header_box.set_margin_top(12);
-        header_box.set_margin_bottom(6);
-        header_box.set_margin_start(4); // Move the text left
-        header_box.set_margin_end(12);
-
-        var label = new Gtk.Label("Popular Categories");
-        label.add_css_class("caption-heading");
-        label.set_xalign(0);
-        label.set_hexpand(true);
-        header_box.append(label);
-
-        var arrow = new Gtk.Image.from_icon_name(popular_categories_expanded ? "go-down-symbolic" : "go-next-symbolic");
-        arrow.set_pixel_size(12);
-        arrow.add_css_class("sidebar-arrow");
-        arrow.set_opacity(0.85);
-        header_box.append(arrow);
-
-        var header_button = new Gtk.Button();
-        header_button.set_child(header_box);
-        header_button.add_css_class("flat");
-        header_button.set_hexpand(true);
-
-        try { header_button.set_can_focus(false); } catch (GLib.Error e) { }
-
-        header_button.clicked.connect(() => {
-            popular_categories_expanded = !popular_categories_expanded;
-            arrow.set_from_icon_name(popular_categories_expanded ? "go-down-symbolic" : "go-next-symbolic");
-            if (popular_categories_container != null) {
-                popular_categories_container.set_visible(popular_categories_expanded);
-            }
-            // Save the state
-            save_popular_categories_state();
-        });
-
-        var header_row = new Gtk.ListBoxRow();
-        header_row.set_child(header_button);
-        header_row.set_activatable(false);
-        header_row.set_selectable(false);
-        sidebar_list.append(header_row);
-
-        // Create container for items
-        popular_categories_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-        popular_categories_container.set_visible(popular_categories_expanded);
-        var container_row = new Gtk.ListBoxRow();
-        container_row.set_child(popular_categories_container);
-        container_row.set_activatable(false);
-        container_row.set_selectable(false);
-        sidebar_list.append(container_row);
-    }
-
-    // Build 'Followed Sources' expandable section
-    private void build_followed_sources_section() {
-        var header_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        header_box.set_margin_top(12);
-        header_box.set_margin_bottom(6);
-        header_box.set_margin_start(4); // Move the text left
-        header_box.set_margin_end(12);
-
-        var label = new Gtk.Label("Followed Sources");
-        label.add_css_class("caption-heading");
-        label.set_xalign(0);
-        label.set_hexpand(true);
-        header_box.append(label);
-
-        var arrow = new Gtk.Image.from_icon_name(followed_sources_expanded ? "go-down-symbolic" : "go-next-symbolic");
-        arrow.set_pixel_size(12);
-        arrow.add_css_class("sidebar-arrow");
-        arrow.set_opacity(0.85);
-        header_box.append(arrow);
-
-        var header_button = new Gtk.Button();
-        header_button.set_child(header_box);
-        header_button.add_css_class("flat");
-        header_button.set_hexpand(true);
-
-        try { header_button.set_can_focus(false); } catch (GLib.Error e) { }
-
-        header_button.clicked.connect(() => {
-            followed_sources_expanded = !followed_sources_expanded;
-            arrow.set_from_icon_name(followed_sources_expanded ? "go-down-symbolic" : "go-next-symbolic");
-            if (followed_sources_container != null) {
-                followed_sources_container.set_visible(followed_sources_expanded);
-            }
-            // Save the state
-            save_followed_sources_state();
-        });
-
-        var header_row = new Gtk.ListBoxRow();
-        header_row.set_child(header_button);
-        header_row.set_activatable(false);
-        header_row.set_selectable(false);
-        sidebar_list.append(header_row);
-
-        // Create container for RSS feed items
-        followed_sources_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-        followed_sources_container.set_visible(followed_sources_expanded);
-
-        // Load and display existing RSS feeds
-        load_custom_rss_feeds();
-
-        var container_row = new Gtk.ListBoxRow();
-        container_row.set_child(followed_sources_container);
-        container_row.set_activatable(false);
-        container_row.set_selectable(false);
-        sidebar_list.append(container_row);
-    }
-
-    // Load custom RSS feeds from the database
-    private void load_custom_rss_feeds() {
-        if (followed_sources_container == null) return;
-
-        // Clear existing items
-        Gtk.Widget? child = followed_sources_container.get_first_child();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling();
-            followed_sources_container.remove(child);
-            child = next;
-        }
-
-        var store = Paperboy.RssSourceStore.get_instance();
-        var sources = store.get_all_sources();
-
-        // Add all RSS feed rows
-        foreach (var source in sources) {
-            build_rss_feed_row(source);
-        }
-
-        // Add "Add RSS Feed" button at the bottom
-            var add_button = create_rss_feed_button();
-            followed_sources_container.append(add_button);
-            // Keep reference so incremental inserts can place new rows before this button
-            add_rss_button = add_button;
-    }
-
-    // Add a row for a single RSS feed
-    private Gtk.Widget create_rss_feed_widget(Paperboy.RssSource source) {
-        var feed_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        feed_box.set_margin_start(12);
-        feed_box.set_margin_end(12);
-        feed_box.set_margin_top(4);
-        feed_box.set_margin_bottom(4);
-
-        // Create icon
-        Gtk.Widget pic_widget = create_rss_source_picture(source);
-
-        var icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        icon_holder.add_css_class("circular-logo");
-        icon_holder.set_size_request(CategoryIcons.SIDEBAR_ICON_SIZE, CategoryIcons.SIDEBAR_ICON_SIZE);
-        icon_holder.set_valign(Gtk.Align.CENTER);
-        icon_holder.set_halign(Gtk.Align.CENTER);
-        icon_holder.append(pic_widget);
-        feed_box.append(icon_holder);
-
-        // Remember this holder so we can update the logo later when metadata arrives
-        try { sidebar_icon_holders.set("rss:" + source.url, icon_holder); } catch (GLib.Error e) { }
-
-        var name_label = new Gtk.Label(source.name);
-        string? display_name = SourceMetadata.get_display_name_for_source(source.name);
-        if (display_name != null && display_name.length > 0) {
-            name_label.set_text(display_name);
-        }
-        name_label.set_xalign(0);
-        name_label.set_hexpand(true);
-        name_label.set_ellipsize(Pango.EllipsizeMode.END);
-        feed_box.append(name_label);
-
-        // Add unread count badge
-        int unread_count = 0;
-        if (window.article_state_store != null) {
-            unread_count = window.article_state_store.get_unread_count_for_source(source.name);
-        }
-        var badge = build_unread_count_badge_for_source(unread_count);
-        feed_box.append(badge);
-        source_badges.set(source.name, badge);
-
-        var feed_button = new Gtk.Button();
-        feed_button.set_child(feed_box);
-        try { feed_button.set_can_focus(false); } catch (GLib.Error e) { }
-        feed_button.add_css_class("flat");
-        feed_button.add_css_class("sidebar-item-row");
-
-        // Store URL and name for later lookup and ordering when inserting/removing
-        try { feed_button.set_data("rss_url", source.url); } catch (GLib.Error e) { }
-        try { feed_button.set_data("rss_name", source.name); } catch (GLib.Error e) { }
-
-        feed_button.clicked.connect(() => {
-            try {
-                if (currently_selected_row != null) {
-                    currently_selected_row.remove_css_class("selected");
-                    currently_selected_row = null;
-                }
-                if (currently_selected_button != null) {
-                    currently_selected_button.remove_css_class("selected");
-                }
-                feed_button.add_css_class("selected");
-                currently_selected_button = feed_button;
-
-                string rss_category = "rssfeed:" + source.url;
-                handle_category_activation(rss_category, source.name);
-            } catch (GLib.Error e) { }
-        });
-
-        // If this RSS is currently active in prefs, mark it selected on creation
-        try {
-            string rss_category_check = "rssfeed:" + source.url;
-            if (window.prefs.category == rss_category_check) {
-                // Clear any previously selected row
-                if (currently_selected_row != null) {
-                    currently_selected_row.remove_css_class("selected");
-                    currently_selected_row = null;
-                }
-                feed_button.add_css_class("selected");
-                currently_selected_button = feed_button;
-            }
-        } catch (GLib.Error e) { }
-
-        return feed_button;
-    }
-
-    private void build_rss_feed_row(Paperboy.RssSource source) {
-        if (followed_sources_container == null) return;
-        var widget = create_rss_feed_widget(source);
-        followed_sources_container.append(widget);
-    }
-
-    private void append_rss_feed_row(Paperboy.RssSource source) {
-        if (followed_sources_container == null) return;
-        // Build widget for new source
-        var new_widget = create_rss_feed_widget(source);
-
-        // Gather existing widgets except the Add button
-        var widgets = new Gee.ArrayList<Gtk.Widget>();
-        Gtk.Widget? child = followed_sources_container.get_first_child();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling();
-            if (add_rss_button != null && child == add_rss_button) {
-                // skip the add button for now
-            } else {
-                widgets.add(child);
-            }
-            child = next;
-        }
-
-        // Find insertion index using authoritative DB ordering (get_all_sources() is ORDER BY name ASC)
-        int insert_at = widgets.size; // default to append
-        try {
-            var store = Paperboy.RssSourceStore.get_instance();
-            var ordered = store.get_all_sources();
-            int pos = -1;
-            for (int i = 0; i < ordered.size; i++) {
-                // SAFETY: Check for null before accessing properties to prevent segfault
-                var item = ordered.get(i);
-                if (item != null && item.url == source.url) { pos = i; break; }
-            }
-            if (pos >= 0) {
-                // Clamp to available widget count
-                if (pos < widgets.size) insert_at = pos; else insert_at = widgets.size;
-            }
-        } catch (GLib.Error e) {
-            // On error, fall back to appending
-            insert_at = widgets.size;
-        }
-
-        // Insert new_widget into the list at insert_at
-        var new_list = new Gee.ArrayList<Gtk.Widget>();
-        for (int i = 0; i < insert_at; i++) new_list.add(widgets.get(i));
-        new_list.add(new_widget);
-        for (int i = insert_at; i < widgets.size; i++) new_list.add(widgets.get(i));
-
-        // Clear container and re-append widgets in new order, then add button
-        child = followed_sources_container.get_first_child();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling();
-            try { followed_sources_container.remove(child); } catch (GLib.Error _) { }
-            child = next;
-        }
-
-        foreach (var w in new_list) followed_sources_container.append(w);
-        if (add_rss_button != null) followed_sources_container.append(add_rss_button);
-    }
-
-    private void remove_rss_feed_row_by_url(string url) {
-        if (followed_sources_container == null) return;
-        Gtk.Widget? child = followed_sources_container.get_first_child();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling();
-            try {
-                string? stored = child.get_data<string>("rss_url");
-                if (stored != null && stored == url) {
-                    followed_sources_container.remove(child);
-                    // Remove sidebar_icon_holders mapping
-                    try { sidebar_icon_holders.unset("rss:" + url); } catch (GLib.Error e) { }
-                    // If this removed widget was selected, clear selection and fall back to Front Page
-                    try {
-                        if (currently_selected_button != null && currently_selected_button == child) {
-                            currently_selected_button = null;
-                            handle_category_activation("frontpage", "Front Page");
-                        }
-                    } catch (GLib.Error e) { }
-                    return;
-                }
-            } catch (GLib.Error e) { }
-            child = next;
+        // Notify listeners
+        category_selected(validated, title);
+        if (activate_cb != null) {
+            activate_cb(validated, title);
         }
     }
 
-    // Create and return the "Add RSS Feed" button (caller appends it)
-    private Gtk.Button create_rss_feed_button() {
-        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        button_box.set_margin_start(12);
-        button_box.set_margin_end(12);
-        button_box.set_margin_top(4);
-        button_box.set_margin_bottom(4);
+    private string validate_category_for_sources(string requested_cat) {
+        // App-level categories that don't depend on news sources
+        if (requested_cat == "saved" || requested_cat == "topten" || 
+            requested_cat == "myfeed" || requested_cat == "local_news" || 
+            requested_cat.has_prefix("rssfeed:")) {
+            return requested_cat;
+        }
 
-        var icon = new Gtk.Image.from_icon_name("list-add-symbolic");
-        icon.set_pixel_size(CategoryIcons.SIDEBAR_ICON_SIZE);
-        button_box.append(icon);
-
-        var label = new Gtk.Label("Add RSS Feed");
-        label.set_xalign(0);
-        label.set_hexpand(true);
-        button_box.append(label);
-
-        var add_button = new Gtk.Button();
-        try { add_button.set_can_focus(false); } catch (GLib.Error e) { }
-        add_button.set_child(button_box);
-        add_button.add_css_class("flat");
-        add_button.add_css_class("sidebar-item-row");
-
-        add_button.clicked.connect(() => {
-            show_add_rss_dialog();
-        });
-
-        return add_button;
-    }
-
-    // Show dialog to add a new RSS feed
-    private void show_add_rss_dialog() {
-        var dialog = new Adw.MessageDialog((Gtk.Window)window, "Add RSS Feed", null);
-        dialog.set_body("Enter the RSS feed URL:");
-
-        var entry_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
-        entry_box.set_margin_top(12);
-        entry_box.set_margin_bottom(12);
-
-        var url_entry = new Gtk.Entry();
-        url_entry.set_placeholder_text("https://example.com/feed.xml");
-        entry_box.append(url_entry);
-
-        var name_entry = new Gtk.Entry();
-        name_entry.set_placeholder_text("Feed name (optional)");
-        entry_box.append(name_entry);
-
-        dialog.set_extra_child(entry_box);
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("add", "Add Feed");
-        dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
-
-        dialog.response.connect((response) => {
-            if (response == "add") {
-                string url = url_entry.get_text().strip();
-                string name = name_entry.get_text().strip();
-
-                if (url.length > 0) {
-                    // If the user didn't provide a name, pass an empty string
-                    // so the discovery flow can fetch the proper feed title.
-                    add_rss_feed(name, url);
+        bool category_supported = false;
+        if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
+            foreach (var id in window.prefs.preferred_sources) {
+                NewsSource src = parse_source_id(id);
+                if (NewsService.supports_category(src, requested_cat)) {
+                    category_supported = true;
+                    break;
                 }
             }
-            dialog.close();
-        });
-
-        dialog.present();
-    }
-
-    // Extract a name from URL
-    private string extract_name_from_url(string url) {
-        try {
-            var uri = Uri.parse(url, UriFlags.NONE);
-            string? host = uri.get_host();
-            if (host != null) {
-                return host.replace("www.", "");
-            }
-        } catch (Error e) {
-            // Fallback: just use the URL
+        } else {
+            NewsSource current_source = effective_news_source();
+            category_supported = NewsService.supports_category(current_source, requested_cat);
         }
-        return url;
+
+        if (!category_supported) {
+            return "frontpage";
+        }
+        return requested_cat;
     }
 
-    // Add a new RSS feed with robust metadata discovery
-    private void add_rss_feed(string name, string url) {
-        // Show loading toast
-        var loading_toast = new Adw.Toast("Discovering feed...");
-        loading_toast.set_timeout(0); // Keep it visible until we're done
-        window.toast_overlay.add_toast(loading_toast);
-
-        // Use SourceManager's robust discovery method
-        window.source_manager.add_rss_feed_with_discovery(url, name, (success, discovered_name) => {
-            // Dismiss loading toast
-            loading_toast.dismiss();
-
-            if (success) {
-                load_custom_rss_feeds();
-                var toast = new Adw.Toast("RSS feed added: " + discovered_name);
-                toast.set_timeout(3);
-                window.toast_overlay.add_toast(toast);
-            } else {
-                var toast = new Adw.Toast("Failed to add RSS feed");
-                toast.set_timeout(3);
-                window.toast_overlay.add_toast(toast);
-            }
-        });
+    /**
+     * Handle RSS source added
+     */
+    private void handle_source_added(Paperboy.RssSource source) {
+        var item_data = create_rss_source_item_data(source);
+        rss_source_added(item_data);
     }
 
-    // Load RSS source icon from SourceMetadata (same logic as prefsDialog)
-    // Create a Widget (usually an Image or Picture) with rendered logo.
-    private Gtk.Widget create_rss_source_picture(Paperboy.RssSource source) {
-        int size = CategoryIcons.SIDEBAR_ICON_SIZE;
-        bool icon_loaded = false;
+    /**
+     * Handle RSS source removed
+     */
+    private void handle_source_removed(Paperboy.RssSource source) {
+        rss_source_removed(source.url);
 
-        // Priority 1: Check SourceMetadata saved file first (and validate it)
-        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, size, size);
+        // If this removed source was selected, fall back to Front Page
+        if (currently_selected_id == "rssfeed:" + source.url) {
+            handle_item_activation("frontpage", "Front Page");
+        }
+    }
+
+    /**
+     * Handle RSS source updated
+     */
+    private void handle_source_updated(Paperboy.RssSource source) {
+        var item_data = create_rss_source_item_data(source);
+        rss_source_updated(item_data);
+    }
+
+    private RssSourceItemData create_rss_source_item_data(Paperboy.RssSource source) {
+        var item = RssSourceItemData();
+        item.name = source.name;
+        item.url = source.url;
+        item.display_name = SourceMetadata.get_display_name_for_source(source.name);
+        item.icon_path = get_icon_path_for_source(source);
+        item.icon_url = get_icon_url_for_source(source);
+        item.unread_count = get_unread_count_for_source(source.name);
+        item.is_selected = (currently_selected_id == "rssfeed:" + source.url);
+        return item;
+    }
+
+    private string? get_icon_path_for_source(Paperboy.RssSource source) {
+        // Use SourceMetadata.get_valid_saved_filename_for_source (validates file exists)
+        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, CategoryIconsUtils.SIDEBAR_ICON_SIZE, CategoryIconsUtils.SIDEBAR_ICON_SIZE);
         if (icon_filename != null && icon_filename.length > 0) {
             var data_dir = GLib.Environment.get_user_data_dir();
             var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
-
             if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                try {
-                    var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
-                    if (probe != null) {
-                        int orig_w = 0; int orig_h = 0;
-                        try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                        try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
-                        double scale = 1.0;
-                        if (orig_w > 0 && orig_h > 0) scale = double.max((double)size / orig_w, (double)size / orig_h);
-                        int sw = (int)(orig_w * scale);
-                        int sh = (int)(orig_h * scale);
-                        if (sw < 1) sw = 1;
-                        if (sh < 1) sh = 1;
-
-                        var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
-
-                        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, size, size);
-                        var cr = new Cairo.Context(surface);
-                        int x = (size - sw) / 2;
-                        int y = (size - sh) / 2;
-                        try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
-                        var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, size, size);
-                        var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, size, size);
-
-                        if (pb_surf != null) {
-                            var pic = new Gtk.Picture();
-                            try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf)); } catch (GLib.Error e) { }
-                            pic.set_size_request(size, size);
-                            return pic;
-                        }
-                    }
-                } catch (GLib.Error e) { }
+                return icon_path;
             }
         }
+        return null;
+    }
 
-        // Priority 2: Try API logo URL from SourceMetadata (high quality from logo.dev)
+    private string? get_icon_url_for_source(Paperboy.RssSource source) {
+        // Priority 1: API logo URL from SourceMetadata
         string? meta_logo_url = SourceMetadata.get_logo_url_for_source(source.name);
-        if (!icon_loaded && meta_logo_url != null && meta_logo_url.length > 0 &&
+        if (meta_logo_url != null && meta_logo_url.length > 0 &&
             (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
-            try { GLib.message("Sidebar: falling back to meta logo URL for %s -> %s (requested size %dx%d)", source.name, meta_logo_url, size, size); } catch (GLib.Error e) { }
-            var pic = new Gtk.Picture();
-            pic.set_size_request(size, size);
-            try { if (window.image_handler != null) window.image_handler.load_image_async(pic, meta_logo_url, size, size); } catch (GLib.Error e) { }
-            return pic;
+            return meta_logo_url;
         }
 
-        // Priority 3: Try Google favicon service (better quality than raw favicon)
+        // Priority 2: Google favicon service
         string? host = UrlUtils.extract_host_from_url(source.url);
-        if (!icon_loaded && host != null && host.length > 0) {
-            string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
-            try { GLib.message("Sidebar: falling back to Google favicon for %s -> %s (requested size %dx%d)", host, google_favicon_url, size, size); } catch (GLib.Error e) { }
-            var pic = new Gtk.Picture();
-            pic.set_size_request(size, size);
-            try { if (window.image_handler != null) window.image_handler.load_image_async(pic, google_favicon_url, size, size); } catch (GLib.Error e) { }
-            return pic;
+        if (host != null && host.length > 0) {
+            return "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
         }
 
-        // Fallback: return a themed RSS icon (as Gtk.Image) sized for sidebar
-        try {
-            var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
-            fallback.set_pixel_size(size);
-            return fallback;
-        } catch (GLib.Error e) {
-            // As a very last resort return an empty Picture sized correctly
-            var pic = new Gtk.Picture();
-            pic.set_size_request(size, size);
-            return pic;
+        return null;
+    }
+
+    /**
+     * Update for source change (rebuilds sidebar)
+     */
+    public void update_for_source_change() {
+        rebuild_sidebar();
+    }
+
+    /**
+     * Check if a category is a "popular category" (not special)
+     * Popular categories show "--" until visited by the user
+     */
+    private bool is_popular_category(string category_id) {
+        // Special categories always show their count
+        if (category_id == "frontpage" || category_id == "topten" || 
+            category_id == "myfeed" || category_id == "local_news" || 
+            category_id == "saved") {
+            return false;
+        }
+        // RSS feeds are not popular categories
+        if (category_id.has_prefix("rssfeed:")) {
+            return false;
+        }
+        // Everything else is a popular category
+        return true;
+    }
+
+    /**
+     * Mark a category as visited by the user
+     * This enables badge updates for popular categories
+     */
+    public void mark_category_visited(string category_id) {
+        visited_categories.add(category_id);
+    }
+
+    /**
+     * Check if a category has been visited
+     */
+    public bool is_category_visited(string category_id) {
+        return visited_categories.contains(category_id);
+    }
+
+    /**
+     * Update unread count badge for a specific category
+     */
+    public void update_badge_for_category(string category_id) {
+        int unread_count = 0;
+        if (window.article_state_store != null) {
+            unread_count = window.article_state_store.get_unread_count_for_category(category_id);
+        }
+        category_unread_counts.set(category_id, unread_count);
+        
+        // For popular categories, only update badge if user has visited it
+        // Otherwise keep showing "--" placeholder
+        if (is_popular_category(category_id) && !is_category_visited(category_id)) {
+            // Don't update - keep placeholder
+            return;
+        }
+        
+        badge_updated_force(category_id, unread_count, false);
+    }
+
+    /**
+     * Schedule a badge refresh for a category after a delay.
+     * Uses fetch_sequence to ignore stale updates from cancelled fetches.
+     *
+     * @param category_id The category to refresh badge for
+     * @param fetch_seq The fetch sequence number to check against
+     * @param delay_ms Delay in milliseconds before refresh (default 1500)
+     */
+    public void schedule_badge_refresh(string category_id, uint fetch_seq, uint delay_ms = 1500) {
+        Timeout.add(delay_ms, () => {
+            if (fetch_seq != FetchContext.current) return false;
+            try { update_badge_for_category(category_id); } catch (GLib.Error e) { }
+            return false;
+        });
+    }
+
+    /**
+     * Schedule a badge refresh for an RSS source after a delay.
+     * Uses fetch_sequence to ignore stale updates from cancelled fetches.
+     *
+     * @param source_name The source name to refresh badge for
+     * @param fetch_seq The fetch sequence number to check against
+     * @param delay_ms Delay in milliseconds before refresh (default 1500)
+     */
+    public void schedule_source_badge_refresh(string source_name, uint fetch_seq, uint delay_ms = 1500) {
+        Timeout.add(delay_ms, () => {
+            if (fetch_seq != FetchContext.current) return false;
+            try { update_badge_for_source(source_name); } catch (GLib.Error e) { }
+            return false;
+        });
+    }
+
+    /**
+     * Update unread count badge for a specific source
+     */
+    public void update_badge_for_source(string source_name) {
+        int unread_count = 0;
+        if (window.article_state_store != null) {
+            unread_count = window.article_state_store.get_unread_count_for_source(source_name);
+        }
+        source_unread_counts.set(source_name, unread_count);
+        
+        // Convert source name to item ID format ("rssfeed:" + url)
+        var store = Paperboy.RssSourceStore.get_instance();
+        var sources = store.get_all_sources();
+        foreach (var source in sources) {
+            if (source.name == source_name) {
+                string item_id = "rssfeed:" + source.url;
+                badge_updated_force(item_id, unread_count, true);
+                return;
+            }
         }
     }
 
-    // Helper to build category rows to the popular categories container
-    private void build_category_row_to_container(string title, string cat, bool selected=false) {
-        if (popular_categories_container == null) {
-            // Fallback to old behavior if container doesn't exist yet
-            add_row(title, cat, selected);
+    /**
+     * Refresh all unread count badges
+     * Runs asynchronously to avoid blocking main thread with expensive count calculations
+     */
+    public void refresh_all_badge_counts() {
+        // CRITICAL: Do NOT refresh badges during initial_phase
+        // Modifying the sidebar widget tree (via badge.set_visible()) while images
+        // are being loaded can cause GTK to invalidate or lose paintable references
+        // on Picture widgets in the main content area
+        if (window.loading_state != null && window.loading_state.initial_phase) {
             return;
         }
 
-        var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        row_box.set_margin_start(12);
-        row_box.set_margin_end(12);
-        row_box.set_margin_top(4);
-        row_box.set_margin_bottom(4);
-
-        var holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        holder.set_hexpand(false);
-        holder.set_vexpand(false);
-
-        var prefix_widget = CategoryIcons.create_category_icon(cat);
-        if (prefix_widget != null) { holder.append(prefix_widget); }
-        row_box.append(holder);
-        sidebar_icon_holders.set(cat, holder);
-
-        var label = new Gtk.Label(title);
-        label.set_xalign(0);
-        label.set_hexpand(true);
-        row_box.append(label);
-
-        // Add unread count badge
-        int unread_count = 0;
-        if (window.article_state_store != null) {
-            unread_count = window.article_state_store.get_unread_count_for_category(cat);
-        }
-        var badge = build_unread_count_badge(unread_count);
-        row_box.append(badge);
-        category_badges.set(cat, badge);
-
-        var button = new Gtk.Button();
-        // Prevent the button grabbing keyboard focus which can trigger the
-        // scrolled window to scroll and jump the view when clicked.
-        try { button.set_can_focus(false); } catch (GLib.Error e) { }
-        try { button.set_can_focus(false); } catch (GLib.Error e) { }
-        button.set_child(row_box);
-        button.add_css_class("flat");
-        button.add_css_class("sidebar-item-row");
-
-        // Store category ID on the button for later lookup
-        button.set_data("category_id", cat);
-
-        // If this category is currently selected, mark the button as selected
-        if (selected) {
-            button.add_css_class("selected");
-            currently_selected_button = button;
-        }
-
-        button.clicked.connect(() => {
-            try {
-                // Remove selected class from any previously selected row
-                if (currently_selected_row != null) {
-                    currently_selected_row.remove_css_class("selected");
-                    currently_selected_row = null;
-                }
-
-                // Remove selected class from previously selected button
-                if (currently_selected_button != null) {
-                    currently_selected_button.remove_css_class("selected");
-                }
-
-                // Add selected class to this button
-                button.add_css_class("selected");
-                currently_selected_button = button;
-
-                handle_category_activation(cat, title);
-            } catch (GLib.Error e) { }
+        // Run badge refresh in Idle to avoid blocking if called during startup
+        // This prevents hanging when multiple RSS sources need unread counts calculated
+        Idle.add(() => {
+            all_badges_refresh_requested();
+            return false;
         });
-
-        popular_categories_container.append(button);
     }
 
-    // Update unread count badge for a specific category
-    public void update_badge_for_category(string category_id) {
-        if (category_badges.has_key(category_id)) {
-            int unread_count = 0;
-            if (window.article_state_store != null) {
-                unread_count = window.article_state_store.get_unread_count_for_category(category_id);
-            }
-            var badge = category_badges.get(category_id);
-            update_unread_count_badge_force(badge, unread_count, false);
-        }
-    }
-
-    // Update unread count badge for a specific source
-    public void update_badge_for_source(string source_name) {
-        if (source_badges.has_key(source_name)) {
-            int unread_count = 0;
-            if (window.article_state_store != null) {
-                unread_count = window.article_state_store.get_unread_count_for_source(source_name);
-            }
-            var badge = source_badges.get(source_name);
-            update_unread_count_badge_force(badge, unread_count, true);
-        }
-    }
-
-    // Refresh all unread count badges
-    // Skips badges showing "--" placeholder to avoid showing partial counts during async loading
-    public void refresh_all_badges() {
-        // Update category badges
-        foreach (string category_id in category_badges.keys) {
-            if (category_badges.has_key(category_id)) {
-                int unread_count = 0;
-                if (window.article_state_store != null) {
-                    unread_count = window.article_state_store.get_unread_count_for_category(category_id);
-                }
-                var badge = category_badges.get(category_id);
-                update_unread_count_badge(badge, unread_count, false);
-            }
-        }
-
-        // Update source badges
-        foreach (string source_name in source_badges.keys) {
-            if (source_badges.has_key(source_name)) {
-                int unread_count = 0;
-                if (window.article_state_store != null) {
-                    unread_count = window.article_state_store.get_unread_count_for_source(source_name);
-                }
-                var badge = source_badges.get(source_name);
-                update_unread_count_badge(badge, unread_count, true);
-            }
-        }
-    }
-
-    // Helper: Build unread count badge widget for categories
-    private Gtk.Widget build_unread_count_badge(int count) {
-        var label = new Gtk.Label(count > 99 ? "99+" : count.to_string());
-        label.add_css_class("unread-count-badge");
-        label.set_valign(Gtk.Align.CENTER);
-        label.set_halign(Gtk.Align.END);
-
-        // Store the count in widget data for easy updates
-        label.set_data("unread_count", count);
-
-        // Check if badges are enabled globally and for categories
-        var prefs = NewsPreferences.get_instance();
-        bool should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories && count > 0;
-        label.set_visible(should_show);
-
-        return label;
-    }
-
-    // Helper: Build unread count badge widget for RSS sources
-    private Gtk.Widget build_unread_count_badge_for_source(int count) {
-        var label = new Gtk.Label(count > 99 ? "99+" : count.to_string());
-        label.add_css_class("unread-count-badge");
-        label.set_valign(Gtk.Align.CENTER);
-        label.set_halign(Gtk.Align.END);
-
-        // Store the count in widget data for easy updates
-        label.set_data("unread_count", count);
-
-        // Check if badges are enabled globally and for sources
-        var prefs = NewsPreferences.get_instance();
-        bool should_show = prefs.unread_badges_enabled && prefs.unread_badges_sources && count > 0;
-        label.set_visible(should_show);
-
-        return label;
-    }
-
-    // Helper: Update unread count badge widget
-    private void update_unread_count_badge(Gtk.Widget badge, int count, bool is_source) {
-        if (badge is Gtk.Label) {
-            var label = (Gtk.Label) badge;
-
-            // Skip updating if the badge is showing a placeholder "--"
-            // This prevents partial counts from appearing during async loading
-            string current_text = label.get_label();
-            if (current_text == "--") {
+    /**
+     * Set badge to show loading placeholder for source
+     */
+    public void set_badge_placeholder_for_source(string source_name) {
+        // Convert source name to item ID format ("rssfeed:" + url)
+        var store = Paperboy.RssSourceStore.get_instance();
+        var sources = store.get_all_sources();
+        foreach (var source in sources) {
+            if (source.name == source_name) {
+                string item_id = "rssfeed:" + source.url;
+                badge_placeholder_set(item_id, true);
                 return;
             }
-
-            label.set_label(count > 99 ? "99+" : count.to_string());
-            label.set_data("unread_count", count);
-
-            // Check if badges are enabled based on type
-            var prefs = NewsPreferences.get_instance();
-            bool should_show = false;
-            if (is_source) {
-                should_show = prefs.unread_badges_enabled && prefs.unread_badges_sources && count > 0;
-            } else {
-                should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories && count > 0;
-            }
-            badge.set_visible(should_show);
         }
     }
 
-    // Helper: Force update unread count badge widget (ignores placeholder)
-    // Used by delayed refresh to replace the "--" placeholder with actual count
-    private void update_unread_count_badge_force(Gtk.Widget badge, int count, bool is_source) {
-        if (badge is Gtk.Label) {
-            var label = (Gtk.Label) badge;
-            label.set_label(count > 99 ? "99+" : count.to_string());
-            label.set_data("unread_count", count);
-
-            // Check if badges are enabled based on type
-            var prefs = NewsPreferences.get_instance();
-            bool should_show = false;
-            if (is_source) {
-                should_show = prefs.unread_badges_enabled && prefs.unread_badges_sources && count > 0;
-            } else {
-                should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories && count > 0;
+    /**
+     * Mark all articles from a source as read
+     */
+    public void mark_all_read_for_source(string source_name) {
+        if (window.article_state_store == null) {
+            return;
+        }
+        
+        var articles = window.article_state_store.get_articles_for_source(source_name);
+        if (articles != null) {
+            foreach (string url in articles) {
+                window.article_state_store.mark_viewed(url);
             }
-            badge.set_visible(should_show);
+        }
+        
+        update_badge_for_source(source_name);
+        
+        // Refresh the view to update viewed badges on cards
+        if (window.view_state != null) {
+            window.view_state.refresh_viewed_badges_for_source(source_name);
         }
     }
 
-    // Helper: Set badge to show loading placeholder instead of a partial count
-    public void set_badge_placeholder_for_source(string source_name) {
-        if (source_badges.has_key(source_name)) {
-            var badge = source_badges.get(source_name);
-            if (badge is Gtk.Label) {
-                var label = (Gtk.Label) badge;
-                label.set_label("--");
-
-                // Show placeholder if badges are enabled
-                var prefs = NewsPreferences.get_instance();
-                bool should_show = prefs.unread_badges_enabled && prefs.unread_badges_sources;
-                badge.set_visible(should_show);
+    /**
+     * Mark all articles from a source as unread
+     */
+    public void mark_all_unread_for_source(string source_name) {
+        if (window.article_state_store == null) {
+            return;
+        }
+        
+        var articles = window.article_state_store.get_articles_for_source(source_name);
+        if (articles != null) {
+            foreach (string url in articles) {
+                window.article_state_store.mark_unviewed(url);
             }
+        }
+        
+        update_badge_for_source(source_name);
+        
+        // Refresh the view to update viewed badges on cards
+        if (window.view_state != null) {
+            window.view_state.refresh_viewed_badges_for_source(source_name);
         }
     }
 
-    // Helper: Set badge to show loading placeholder for category
+    /**
+     * Remove an RSS source
+     */
+    public void remove_rss_source(string source_url) {
+        var rss_store = Paperboy.RssSourceStore.get_instance();
+        
+        // Check if we're currently viewing this RSS source
+        bool is_currently_viewing = false;
+        if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
+            if (window.prefs.category.length > 8) {
+                string current_url = window.prefs.category.substring(8);
+                if (current_url == source_url) {
+                    is_currently_viewing = true;
+                }
+            }
+        }
+        
+        // Remove from database
+        rss_store.remove_source(source_url);
+        
+        // Remove from preferences if enabled
+        if (window.prefs.preferred_source_enabled("custom:" + source_url)) {
+            window.prefs.set_preferred_source_enabled("custom:" + source_url, false);
+            window.prefs.save_config();
+        }
+        
+        // If we were viewing this source, navigate to Front Page
+        if (is_currently_viewing) {
+            GLib.Idle.add(() => {
+                try {
+                    window.prefs.category = "frontpage";
+                    window.prefs.save_config();
+                    window.fetch_news();
+                } catch (GLib.Error e) { }
+                return false;
+            });
+        }
+    }
+
+    /**
+     * Set badge to show loading placeholder for category
+     */
     public void set_badge_placeholder_for_category(string category_id) {
-        if (category_badges.has_key(category_id)) {
-            var badge = category_badges.get(category_id);
-            if (badge is Gtk.Label) {
-                var label = (Gtk.Label) badge;
-                label.set_label("--");
+        badge_placeholder_set(category_id, false);
+    }
 
-                // Show placeholder if badges are enabled
-                var prefs = NewsPreferences.get_instance();
-                bool should_show = prefs.unread_badges_enabled && prefs.unread_badges_categories;
-                badge.set_visible(should_show);
-            }
+    /**
+     * Add a new RSS feed with robust metadata discovery
+     */
+    public void add_rss_feed(string name, string url, owned RssFeedAddedCallback callback) {
+        window.source_manager.add_rss_feed_with_discovery(url, name, (success, discovered_name) => {
+            callback(success, discovered_name);
+        });
+    }
+
+    /**
+     * Get current selected item ID
+     */
+    public string? get_selected_item_id() {
+        return currently_selected_id;
+    }
+
+    /**
+     * Get RSS source icon data for a given source
+     */
+    public RssSourceItemData? get_rss_source_data(string url) {
+        var store = Paperboy.RssSourceStore.get_instance();
+        var source = store.get_source_by_url(url);
+        if (source != null) {
+            return create_rss_source_item_data(source);
         }
+        return null;
     }
 }

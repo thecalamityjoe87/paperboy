@@ -22,10 +22,13 @@ using Gee;
 namespace Managers {
 
 public class ViewStateManager : GLib.Object {
-    private NewsWindow window;
+    private weak NewsWindow window;
 
     // Article viewing state
     public Gee.HashSet<string> viewed_articles;
+    // Suppress marking an article viewed when a preview closes if the user
+    // explicitly requested to mark it unread from the preview pane.
+    public Gee.HashSet<string> suppress_preview_mark;
     public Gee.HashMap<string, Gtk.Picture> url_to_picture;
     public Gee.HashMap<string, Gtk.Widget> url_to_card;
     public Gee.HashMap<string, string> normalized_to_url;
@@ -38,6 +41,7 @@ public class ViewStateManager : GLib.Object {
     public ViewStateManager(NewsWindow w) {
         window = w;
         viewed_articles = new Gee.HashSet<string>();
+        suppress_preview_mark = new Gee.HashSet<string>();
         url_to_picture = new Gee.HashMap<string, Gtk.Picture>();
         url_to_card = new Gee.HashMap<string, Gtk.Widget>();
         normalized_to_url = new Gee.HashMap<string, string>();
@@ -61,6 +65,13 @@ public class ViewStateManager : GLib.Object {
         if (n == null || n.length == 0) return;
         if (viewed_articles == null) viewed_articles = new Gee.HashSet<string>();
         viewed_articles.add(n);
+
+        // Mark as viewed in article state store (persists to disk)
+        if (window.article_state_store != null) {
+            try {
+                window.article_state_store.mark_viewed(n);
+            } catch (GLib.Error e) { }
+        }
 
         Timeout.add(50, () => {
             try {
@@ -131,7 +142,20 @@ public class ViewStateManager : GLib.Object {
             } catch (GLib.Error e) { }
         }
 
-        try { if (url_copy != null) mark_article_viewed(url_copy); } catch (GLib.Error e) { }
+        try {
+            if (url_copy != null) {
+                // If the preview requested suppression (user marked unread from the
+                // preview), honor that and do not mark viewed again.
+                string n = normalize_article_url(url_copy);
+                bool suppressed = false;
+                try { suppressed = (suppress_preview_mark != null && suppress_preview_mark.contains(n)); } catch (GLib.Error e) { suppressed = false; }
+                if (suppressed) {
+                    try { suppress_preview_mark.remove(n); } catch (GLib.Error e) { }
+                } else {
+                    try { mark_article_viewed(url_copy); } catch (GLib.Error e) { }
+                }
+            }
+        } catch (GLib.Error e) { }
 
         try {
             if (window.main_scrolled != null && saved_scroll >= 0.0) {
@@ -168,6 +192,109 @@ public class ViewStateManager : GLib.Object {
         } catch (GLib.Error e) { }
 
         last_scroll_value = -1.0;
+    }
+
+    /**
+     * Refresh viewed badges for all articles from a specific source
+     * Used after marking all as read/unread
+     */
+    public void refresh_viewed_badges_for_source(string source_name) {
+        if (window.article_state_store == null) return;
+        
+        var articles = window.article_state_store.get_articles_for_source(source_name);
+        if (articles == null) return;
+        
+        foreach (string url in articles) {
+            string normalized = normalize_article_url(url);
+            if (normalized == null || normalized.length == 0) continue;
+            
+            Gtk.Widget? card = null;
+            try { card = url_to_card.get(normalized); } catch (GLib.Error e) { }
+            if (card == null) continue;
+            
+            bool is_viewed = window.article_state_store.is_viewed(normalized);
+            
+            Gtk.Widget? first = card.get_first_child();
+            if (first != null && first is Gtk.Overlay) {
+                var overlay = (Gtk.Overlay) first;
+                
+                // Find and remove existing viewed badge if present
+                Gtk.Widget? child = overlay.get_first_child();
+                while (child != null) {
+                    Gtk.Widget? next = child.get_next_sibling();
+                    try {
+                        if (child.get_style_context().has_class("viewed-badge")) {
+                            overlay.remove_overlay(child);
+                        }
+                    } catch (GLib.Error e) { }
+                    child = next;
+                }
+                
+                // Add viewed badge if article is viewed
+                if (is_viewed) {
+                    var badge = CardBuilder.build_viewed_badge();
+                    overlay.add_overlay(badge);
+                    badge.set_visible(true);
+                    overlay.queue_draw();
+                }
+            }
+        }
+    }
+
+    /**
+     * Suppress marking the given article as viewed when a preview closes.
+     * This is used when the user explicitly marks the article unread from
+     * the preview pane so the automatic "mark viewed on close" does not
+     * re-mark it.
+     */
+    public void suppress_mark_on_preview_close(string url) {
+        if (url == null) return;
+        string n = normalize_article_url(url);
+        if (n == null || n.length == 0) return;
+        try { if (suppress_preview_mark == null) suppress_preview_mark = new Gee.HashSet<string>(); } catch (GLib.Error e) { }
+        try { suppress_preview_mark.add(n); } catch (GLib.Error e) { }
+    }
+
+    /**
+     * Refresh the viewed badge for a single article URL (if a card exists).
+     */
+    public void refresh_viewed_badge_for_url(string url) {
+        if (url == null) return;
+        string n = normalize_article_url(url);
+        if (n == null || n.length == 0) return;
+        if (window == null || window.article_state_store == null) return;
+
+        Gtk.Widget? card = null;
+        try { card = url_to_card.get(n); } catch (GLib.Error e) { card = null; }
+        if (card == null) return;
+
+        bool is_viewed = false;
+        try { is_viewed = window.article_state_store.is_viewed(n); } catch (GLib.Error e) { is_viewed = false; }
+
+        Gtk.Widget? first = card.get_first_child();
+        if (first != null && first is Gtk.Overlay) {
+            var overlay = (Gtk.Overlay) first;
+            // Remove any existing viewed badges
+            Gtk.Widget? child = overlay.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                try {
+                    if (child.get_style_context().has_class("viewed-badge")) {
+                        overlay.remove_overlay(child);
+                    }
+                } catch (GLib.Error e) { }
+                child = next;
+            }
+
+            if (is_viewed) {
+                var badge = CardBuilder.build_viewed_badge();
+                overlay.add_overlay(badge);
+                badge.set_visible(true);
+                overlay.queue_draw();
+            } else {
+                try { overlay.queue_draw(); } catch (GLib.Error e) { }
+            }
+        }
     }
 }
 

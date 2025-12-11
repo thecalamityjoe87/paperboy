@@ -38,7 +38,7 @@ public class PaperboyFetcher : BaseFetcher {
     }
 
     private void fetch_paperboy_frontpage(string current_search_query, Soup.Session session) {
-        var client = Paperboy.HttpClient.get_default();
+        var client = Paperboy.HttpClientUtils.get_default();
         string url = BASE_URL + "/news/frontpage";
 
         client.fetch_json(url, (response, parser, root) => {
@@ -209,7 +209,7 @@ public class PaperboyFetcher : BaseFetcher {
     }
 
     private void fetch_paperboy_topten(string current_search_query, Soup.Session session) {
-        var client = Paperboy.HttpClient.get_default();
+        var client = Paperboy.HttpClientUtils.get_default();
         string url = BASE_URL + "/news/headlines";
 
         client.fetch_json(url, (response, parser, root) => {

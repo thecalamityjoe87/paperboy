@@ -57,7 +57,7 @@ public class BbcFetcher : BaseFetcher {
                 break;
         }
 
-        RssParser.fetch_rss_url(url, "BBC News", category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, "BBC News", category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
     }
 
     public override string get_source_name() {

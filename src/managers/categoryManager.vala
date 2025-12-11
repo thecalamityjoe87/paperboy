@@ -240,4 +240,51 @@ using Gee;
             default: return "view-grid-symbolic";
         }
     }
+
+    // Check if a category has article limits applied (most categories do).
+    // Used by ArticleManager to determine when to queue overflow articles.
+    public static bool is_limited_category(string category) {
+        return (
+            category == "general" ||
+            category == "us" ||
+            category == "sports" ||
+            category == "science" ||
+            category == "health" ||
+            category == "technology" ||
+            category == "business" ||
+            category == "entertainment" ||
+            category == "politics" ||
+            category == "lifestyle" ||
+            category == "markets" ||
+            category == "industries" ||
+            category == "economics" ||
+            category == "wealth" ||
+            category == "green" ||
+            category == "local_news" ||
+            category == "myfeed" ||
+            category.has_prefix("rssfeed:")
+        );
+    }
+
+    // Check if this is a regular news category (not frontpage, topten, myfeed, local_news, saved, or RSS).
+    // Used for filtering and display logic.
+    public static bool is_regular_news_category(string category) {
+        return (
+            category == "general" ||
+            category == "us" ||
+            category == "sports" ||
+            category == "science" ||
+            category == "health" ||
+            category == "technology" ||
+            category == "business" ||
+            category == "entertainment" ||
+            category == "politics" ||
+            category == "lifestyle" ||
+            category == "markets" ||
+            category == "industries" ||
+            category == "economics" ||
+            category == "wealth" ||
+            category == "green"
+        );
+    }
 }

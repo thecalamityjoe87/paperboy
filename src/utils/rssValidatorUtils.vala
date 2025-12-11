@@ -22,7 +22,7 @@ using GLib;
  * 
  * Validates XML structure, checks for required elements, and counts items
  */
-public class RssValidator : GLib.Object {
+public class RssValidatorUtils : GLib.Object {
     
     /**
      * Validate RSS/Atom XML structure

@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.7.0a',
+  version : '0.7.2a',
   meson_version : '>=0.59.0'
 )
 
@@ -32,15 +32,19 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     # UI
     'src/ui/appWindow.vala',
     'src/ui/contentView.vala',
+    'src/ui/sidebarView.vala',
     'src/ui/components/articlePane.vala',
     'src/ui/components/articleCard.vala',
     'src/ui/components/articleSheet.vala',
     'src/ui/components/heroCard.vala',
     'src/ui/components/heroCarousel.vala',
+    'src/ui/components/toastWidget.vala',
+    'src/ui/controllers/fetchNewsController.vala',
     'src/ui/dialogs/prefsDialog.vala',
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',
     'src/ui/menus/articleMenu.vala',
+    'src/ui/menus/sidebarMenu.vala',
 
     # Builders
     'src/builders/cardBuilder.vala',
@@ -55,11 +59,13 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/layoutManager.vala',
     'src/managers/articleManager.vala',
     'src/managers/sidebarManager.vala',
-    'src/managers/imageHandler.vala',
+    'src/managers/imageManager.vala',
     'src/managers/toastManager.vala',
     'src/managers/feedUpdateManager.vala',
 
     # Services / models
+    'src/services/unreadFetchService.vala',
+    'src/services/fetchContext.vala',
     'src/services/metaCache.vala',
     'src/services/articleStateStore.vala',
     'src/services/imageCache.vala',
@@ -73,6 +79,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/rssSourceStore.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
+    'src/models/articleItem.vala',
+    'src/models/imageModels.vala',
 
     # Fetchers
     'src/services/fetchers/baseFetcher.vala',
@@ -93,18 +101,18 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/urlUtils.vala',
     'src/utils/sourceUtils.vala',
     'src/utils/dateUtils.vala',
-    'src/utils/dataPaths.vala',
-    'src/utils/categoryIcons.vala',
+    'src/utils/dataPathsUtils.vala',
+    'src/utils/categoryIconsUtils.vala',
     'src/utils/pixbufUtils.vala',
     'src/utils/workerPool.vala',
-    'src/utils/httpClient.vala',
-    'src/utils/rssValidator.vala',
+    'src/utils/httpClientUtils.vala',
+    'src/utils/rssValidatorUtils.vala',
+    'src/utils/stripHtmlUtils.vala',
 
-    # Tools used at build/runtime
-    'tools/rssParser.vala',
-    'tools/imageParser.vala',
+    # Processors (RSS/HTML/image processing)
+    'src/processors/rssFeedProcessor.vala',
+    'src/processors/imageProcessor.vala',
     'tools/articleScraper.vala',
-    'tools/stripHTML.vala',
     'tools/zipLookup.vala',
   ],
   dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit],

@@ -25,7 +25,7 @@ public class GuardianFetcher : BaseFetcher {
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
-        var client = Paperboy.HttpClient.get_default();
+        var client = Paperboy.HttpClientUtils.get_default();
         string base_url = "https://content.guardianapis.com/search?show-fields=thumbnail&page-size=30&api-key=test";
         string url;
         switch (category) {
@@ -128,7 +128,7 @@ public class GuardianFetcher : BaseFetcher {
             var article = results.get_element(i).get_object();
             if (article.has_member("webUrl")) {
                 string url = article.get_string_member("webUrl");
-                Tools.ImageParser.fetch_open_graph_image(url, session, add_item, current_category, "The Guardian");
+                Tools.ImageProcessor.fetch_open_graph_image(url, session, add_item, current_category, "The Guardian");
                 count++;
             }
         }

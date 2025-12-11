@@ -105,8 +105,6 @@ public class ArticleCard : GLib.Object {
         // handlers receive the article URL.
         gesture.released.connect(() => {
             try {
-                // Small runtime trace to help debugging whether the handler runs
-                try { warning("ArticleCard clicked: %s", this.url); } catch (GLib.Error e) { }
                 activated(url);
             } catch (GLib.Error e) { }
         });
@@ -128,14 +126,19 @@ public class ArticleCard : GLib.Object {
     }
 
     private void show_context_menu(double x, double y) {
-        // Check if article is already saved
+        // Check if article is already saved and if it's viewed
         bool is_saved = false;
+        bool is_viewed = false;
+        // Normalize URL before checking view/save state so we match the stored keys
+        string norm_url = url;
+        try { if (parent_window != null) norm_url = parent_window.normalize_article_url(url); } catch (GLib.Error e) { norm_url = url; }
         if (article_state_store != null) {
-            try { is_saved = article_state_store.is_saved(url); } catch (GLib.Error e) { }
+            try { is_saved = article_state_store.is_saved(norm_url); } catch (GLib.Error e) { }
+            try { is_viewed = article_state_store.is_viewed(norm_url); } catch (GLib.Error e) { }
         }
 
         // Create ArticleMenu instance and keep reference to prevent garbage collection
-        current_menu = new ArticleMenu(url, source_name, is_saved, parent_window);
+        current_menu = new ArticleMenu(url, source_name, is_saved, is_viewed, parent_window);
         
         // Connect menu signals to card signals
         current_menu.open_in_app_requested.connect((url) => {
@@ -152,6 +155,33 @@ public class ArticleCard : GLib.Object {
         });
         current_menu.share_requested.connect((url) => {
             share_requested(url);
+        });
+
+        // Handle marking a single article as unread
+        current_menu.mark_unread_requested.connect((article_url) => {
+            // Normalize and operate on canonical URL so disk/meta keys match
+            string nurl = article_url;
+            try { if (parent_window != null) nurl = parent_window.normalize_article_url(article_url); } catch (GLib.Error e) { nurl = article_url; }
+
+            if (article_state_store != null) {
+                try { article_state_store.mark_unviewed(nurl); } catch (GLib.Error e) { }
+            }
+
+            // Remove from in-memory viewed set so UI updates immediately
+            try {
+                if (parent_window != null && parent_window.view_state != null) {
+                    try { parent_window.view_state.viewed_articles.remove(nurl); } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
+
+            // Update badges and viewed badges for the source if possible
+            // Badge update is handled via ArticleStateStore.viewed_status_changed signal
+            try {
+                if (parent_window != null && parent_window.view_state != null && source_name != null) {
+                    parent_window.view_state.refresh_viewed_badges_for_source(source_name);
+                    try { parent_window.view_state.refresh_viewed_badge_for_url(nurl); } catch (GLib.Error e) { }
+                }
+            } catch (GLib.Error e) { }
         });
 
         // Create and show popover, keep reference to prevent garbage collection

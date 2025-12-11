@@ -181,32 +181,19 @@ public class ImageCache : GLib.Object {
     // texture object. This dramatically reduces GPU memory usage by avoiding
     // redundant texture creation.
     public Gdk.Texture? get_texture(string key) {
-        // First check if we already have a cached texture
-        try {
-            var cached_tex = texture_cache.get(key);
-            if (cached_tex != null) {
-                try {
-                    if (AppDebugger.debug_enabled()) {
-                    }
-                } catch (GLib.Error e) { }
-                return cached_tex;
-            }
-        } catch (GLib.Error e) { }
-        
-        // If no cached texture, create one from the cached pixbuf
+        // CRITICAL FIX: Don't cache Gdk.Texture objects - they can become invalid
+        // across widget tree rebuilds or app state changes. Always create fresh
+        // textures from the cached pixbufs to ensure they're valid for the current
+        // widget state. This fixes the issue where images appear on first run but
+        // are missing on subsequent runs when cached textures are reused.
+
+        // Get the pixbuf from cache
         var pb = get(key);
         if (pb == null) return null;
-        
+
         try {
+            // Always create a fresh texture from the pixbuf
             var tex = Gdk.Texture.for_pixbuf(pb);
-            if (tex != null) {
-                // Cache the texture so subsequent calls return the same object
-                texture_cache.set(key, tex);
-                try {
-                    if (AppDebugger.debug_enabled()) {
-                    }
-                } catch (GLib.Error e) { }
-            }
             return tex;
         } catch (GLib.Error e) {
             return null;

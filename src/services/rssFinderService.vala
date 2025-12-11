@@ -47,12 +47,13 @@ public class RssFinderService : GLib.Object {
                 string prog;
                 SpawnFlags flags;
                 // Guard against null return from locate_rssfinder();
+                // Security: Do not fall back to PATH search - only use explicitly located binary
                 if (found != null && found.length > 0) {
                     prog = found;
                     flags = (SpawnFlags) 0; // execute explicit path
                 } else {
-                    prog = "rssFinder";
-                    flags = SpawnFlags.SEARCH_PATH; // fall back to PATH lookup
+                    // Binary not found in any expected location - fail safely
+                    throw new GLib.Error(GLib.Quark.from_string("rssfinder"), 2, "rssFinder binary not found. Please ensure it is installed correctly.");
                 }
                 try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "spawn_rssfinder_async: prog='" + prog + "' flags=" + flags.to_string() + " query='" + q + "'"); } catch (GLib.Error _) { }
 
@@ -74,7 +75,11 @@ public class RssFinderService : GLib.Object {
                 string out = "";
                 string err = "";
                 int status = 0;
-                Process.spawn_sync(null, argv, null, flags, null, out out, out err, out status);
+                try {
+                    Process.spawn_sync(null, argv, null, flags, null, out out, out err, out status);
+                } catch (SpawnError e) {
+                    throw new GLib.Error(GLib.Quark.from_string("rssfinder"), 1, "Failed to spawn rssFinder: %s", e.message);
+                }
                 try { AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "spawn_rssfinder_async: exit=" + status.to_string() + " out_len=" + (out != null ? out.length.to_string() : "0") + " err_len=" + (err != null ? err.length.to_string() : "0")); } catch (GLib.Error _) { }
 
                 string message;
@@ -112,8 +117,20 @@ public class RssFinderService : GLib.Object {
                                 string u = lines[i].strip();
                                 if (u.length > 0) tmp.add(u);
                             }
-                            discovered_feeds = new string[tmp.size];
-                            for (int i = 0; i < tmp.size; i++) discovered_feeds[i] = tmp.get(i);
+                            // Filter discovered feeds: remove obviously malformed or unsupported URLs
+                            var valid = new Gee.ArrayList<string>();
+                            for (int i = 0; i < tmp.size; i++) {
+                                string cand = tmp.get(i).strip();
+                                if (cand.length == 0) continue;
+                                // Basic validation: no spaces and supported schemes only
+                                if (cand.contains(" ") || !(cand.has_prefix("http://") || cand.has_prefix("https://") || cand.has_prefix("file://"))) {
+                                    try { GLib.warning("rssFinderService: skipping malformed/unsupported discovered feed: %s", cand); } catch (GLib.Error _) { }
+                                    continue;
+                                }
+                                valid.add(cand);
+                            }
+                            discovered_feeds = new string[valid.size];
+                            for (int i = 0; i < valid.size; i++) discovered_feeds[i] = valid.get(i);
                         }
                     }
                 } catch (GLib.Error ee) { }

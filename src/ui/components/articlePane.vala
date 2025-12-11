@@ -25,7 +25,7 @@ public class ArticlePane : GLib.Object {
     private Adw.NavigationView nav_view;
     private Soup.Session session;
     private NewsWindow parent_window;
-    private ImageHandler? image_handler;
+    private ImageManager? image_manager;
     // Preview overlay components
     private Adw.OverlaySplitView? preview_split;
     private Gtk.Box? preview_content_box;
@@ -47,11 +47,11 @@ public class ArticlePane : GLib.Object {
     // Callback type for snippet results
     private delegate void SnippetCallback(string text);
 
-    public ArticlePane(Adw.NavigationView navigation_view, Soup.Session soup_session, NewsWindow window, ImageHandler? img_handler = null) {
+    public ArticlePane(Adw.NavigationView navigation_view, Soup.Session soup_session, NewsWindow window, ImageManager? img_handler = null) {
         nav_view = navigation_view;
         session = soup_session;
         parent_window = window;
-        image_handler = img_handler;
+        image_manager = img_handler;
         // Initialize shared preview cache (centralized)
         try { PreviewCacheManager.get_cache(); } catch (GLib.Error e) { }
     }
@@ -148,7 +148,7 @@ public class ArticlePane : GLib.Object {
     
     // Only look up in buffer if source_name wasn't provided
     if (article_source_name == null || article_source_name.length == 0) {
-        foreach (var item in parent_window.article_buffer) {
+        foreach (var item in parent_window.article_manager.article_buffer) {
             if (item.url == url && item is ArticleItem) {
                 var ai = (ArticleItem) item;
                 article_source_name = ai.source_name;
@@ -202,7 +202,7 @@ public class ArticlePane : GLib.Object {
         title_wrap.set_halign(Gtk.Align.FILL);
         title_wrap.set_hexpand(true);
         // Decode any HTML entities that may be present in scraped titles
-        var ttl = new Gtk.Label(HtmlUtils.strip_html(title));
+        var ttl = new Gtk.Label(stripHtmlUtils.strip_html(title));
         ttl.add_css_class("title-2");
         ttl.set_xalign(0);
         ttl.set_wrap(true);
@@ -353,14 +353,19 @@ public class ArticlePane : GLib.Object {
         // "Open in app" and "Open in browser" as menu items to reduce
         // visual clutter.
 
-        // Check if article is already saved to show correct menu label
+        // Check if article is already saved and if it's viewed to show correct menu state
         bool is_saved = false;
+        bool is_viewed = false;
+        // Normalize url to match stored keys
+        string norm_url = url;
+        try { if (parent_window != null) norm_url = parent_window.normalize_article_url(url); } catch (GLib.Error e) { norm_url = url; }
         if (parent_window.article_state_store != null) {
-            try { is_saved = parent_window.article_state_store.is_saved(url); } catch (GLib.Error e) { }
+            try { is_saved = parent_window.article_state_store.is_saved(norm_url); } catch (GLib.Error e) { }
+            try { is_viewed = parent_window.article_state_store.is_viewed(norm_url); } catch (GLib.Error e) { }
         }
 
         // Create article menu using ArticleMenu class
-        current_article_menu = new ArticleMenu(url, article_source_name, is_saved, parent_window);
+        current_article_menu = new ArticleMenu(url, article_source_name, is_saved, is_viewed, parent_window);
         
         // Connect to menu signals
         current_article_menu.open_in_app_requested.connect((article_url) => {
@@ -387,7 +392,7 @@ public class ArticlePane : GLib.Object {
                 bool article_is_saved = parent_window.article_state_store.is_saved(article_url);
                 if (article_is_saved) {
                     parent_window.article_state_store.unsave_article(article_url);
-                    parent_window.show_toast("Removed from saved articles");
+                    parent_window.show_toast("Removed article from saved");
                     if (parent_window.prefs.category == "saved") {
                         try {
                             parent_window.fetch_news();
@@ -396,13 +401,32 @@ public class ArticlePane : GLib.Object {
                     }
                 } else {
                     parent_window.article_state_store.save_article(article_url, title, thumbnail_url, article_source_name);
-                    parent_window.show_toast("Saved for later");
+                    parent_window.show_toast("Added article to saved");
                 }
             }
         });
         
         current_article_menu.share_requested.connect((article_url) => {
             show_share_dialog(article_url);
+        });
+
+        current_article_menu.mark_unread_requested.connect((article_url) => {
+            string nurl = article_url;
+            try { if (parent_window != null) nurl = parent_window.normalize_article_url(article_url); } catch (GLib.Error e) { nurl = article_url; }
+
+            try { if (parent_window.article_state_store != null) parent_window.article_state_store.mark_unviewed(nurl); } catch (GLib.Error e) { }
+
+            // Prevent preview_closed from re-marking this article as viewed
+            try { if (parent_window != null && parent_window.view_state != null) parent_window.view_state.suppress_mark_on_preview_close(nurl); } catch (GLib.Error e) { }
+
+            // Remove from in-memory viewed set so UI updates immediately
+            try { if (parent_window != null && parent_window.view_state != null) parent_window.view_state.viewed_articles.remove(nurl); } catch (GLib.Error e) { }
+
+            // Badge update is handled via ArticleStateStore.viewed_status_changed signal
+            try {
+                if (parent_window.view_state != null && article_source_name != null) parent_window.view_state.refresh_viewed_badges_for_source(article_source_name);
+            } catch (GLib.Error e) { }
+                try { parent_window.view_state.refresh_viewed_badge_for_url(nurl); } catch (GLib.Error e) { }
         });
         
         // Create the popover and menu box
@@ -476,7 +500,7 @@ public class ArticlePane : GLib.Object {
         }
 
         // Also check for NewsArticle entries which may have published dates
-        foreach (var item in parent_window.article_buffer) {
+        foreach (var item in parent_window.article_manager.article_buffer) {
             if (item.url == url) {
                 try {
                     if (item.get_type().name() == "Paperboy.NewsArticle") {
@@ -567,7 +591,7 @@ public class ArticlePane : GLib.Object {
             // Try to get snippet from parent_window/article_buffer
             string? homepage_snippet = null;
             string? homepage_published = null;
-            foreach (var item in parent_window.article_buffer) {
+            foreach (var item in parent_window.article_manager.article_buffer) {
                 if (item.url == url && item.get_type().name() == "Paperboy.NewsArticle") {
                     var na = (Paperboy.NewsArticle)item;
                     homepage_snippet = na.snippet;
@@ -583,7 +607,7 @@ public class ArticlePane : GLib.Object {
             }
 
             if (homepage_snippet != null && homepage_snippet.length > 0) {
-                snippet_label.set_text(HtmlUtils.strip_html(homepage_snippet));
+                snippet_label.set_text(stripHtmlUtils.strip_html(homepage_snippet));
                 return;
             }
         }
@@ -598,11 +622,11 @@ public class ArticlePane : GLib.Object {
         
     }
 
-    // Load image using centralized ImageHandler if available
+    // Load image using centralized ImageManager if available
     private void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, NewsSource source, string? category_id = null, bool source_is_mapped = true) {
-        if (image_handler != null) {
-            // Use centralized ImageHandler for consistency
-            image_handler.load_image_async(image, url, target_w, target_h, true);
+        if (image_manager != null) {
+            // Use centralized ImageManager for consistency
+            image_manager.load_image_async(image, url, target_w, target_h, true);
         } else {
             // Fallback: set placeholder directly
             if (category_id != null && category_id == "local_news") {
@@ -624,8 +648,8 @@ public class ArticlePane : GLib.Object {
             string result = "";
             string published = "";
             try {
-                var client = Paperboy.HttpClient.get_default();
-                var options = new Paperboy.HttpClient.RequestOptions().with_browser_headers();
+                var client = Paperboy.HttpClientUtils.get_default();
+                var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
                 var http_response = client.fetch_sync(url, options);
 
                 if (http_response.is_success() && http_response.body != null && http_response.body.get_size() > 0) {
@@ -638,8 +662,8 @@ public class ArticlePane : GLib.Object {
                     buf[body_data.length] = 0;
                     string html = (string) buf;
 
-                    // Use centralized HtmlUtils for snippet extraction
-                    result = HtmlUtils.extract_snippet_from_html(html);
+                    // Use centralized stripHtmlUtils for snippet extraction
+                    result = stripHtmlUtils.extract_snippet_from_html(html);
 
                     // Try to extract published date/time from common meta tags or <time>
                     try {
@@ -652,7 +676,7 @@ public class ArticlePane : GLib.Object {
                             string tag = html.substring(pos, end - pos + 1);
                             string tl = lower.substring(pos, end - pos + 1);
                             if (tl.index_of("datepublished") >= 0 || tl.index_of("article:published_time") >= 0 || tl.index_of("property=\"article:published_time\"") >= 0 || tl.index_of("name=\"pubdate\"") >= 0 || tl.index_of("itemprop=\"datePublished\"") >= 0) {
-                                string content = HtmlUtils.extract_attr(tag, "content");
+                                string content = stripHtmlUtils.extract_attr(tag, "content");
                                 if (content != null && content.strip().length > 0) { published = content.strip(); break; }
                             }
                             pos = end + 1;
@@ -664,14 +688,14 @@ public class ArticlePane : GLib.Object {
                                 int tend = lower.index_of(">", tpos);
                                 if (tend > tpos && html.length >= tend + 1) {
                                     string ttag = html.substring(tpos, tend - tpos + 1);
-                                    string dt = HtmlUtils.extract_attr(ttag, "datetime");
+                                    string dt = stripHtmlUtils.extract_attr(ttag, "datetime");
                                     if (dt != null && dt.strip().length > 0) published = dt.strip();
                                     else {
                                         // fallback inner text
                                         int close = lower.index_of("</time>", tend);
                                         if (close > tend && html.length >= close && close > tend + 1) {
                                             string inner = html.substring(tend + 1, close - (tend + 1));
-                                            inner = HtmlUtils.strip_html(inner).strip();
+                                            inner = stripHtmlUtils.strip_html(inner).strip();
                                             if (inner.length > 0) published = inner;
                                         }
                                     }

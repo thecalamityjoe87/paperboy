@@ -20,7 +20,7 @@ using GLib;
 using Paperboy;
 
 namespace Tools {
-public class ImageParser {
+public class ImageProcessor {
 	// Concurrency guard to avoid spawning too many short-lived threads
 	private static GLib.Mutex _fetch_mutex = new GLib.Mutex();
 	private static int _active_fetches = 0;
@@ -85,10 +85,10 @@ public class ImageParser {
 			img_url = img_url.replace("%3F", "?");
 			img_url = img_url.replace("%3D", "=");
 			img_url = img_url.replace("%26", "&");
-			
+
 			// If the URL is protocol-relative, prefer https
 			if (img_url.has_prefix("//")) img_url = "https:" + img_url;
-			
+
 			// If it's a data URI or clearly invalid, skip
 			string img_url_lower = img_url.down();
 			if (img_url_lower.has_prefix("data:") || img_url.length < 20) {
@@ -115,7 +115,7 @@ public class ImageParser {
 			int d = Random.int_range(200, 1000);
 			Timeout.add(d, () => {
 				// retry the same fetch later
-				ImageParser.fetch_open_graph_image(article_url, session, add_item, current_category, source_name);
+				ImageProcessor.fetch_open_graph_image(article_url, session, add_item, current_category, source_name);
 				return false;
 			});
 			return;
@@ -125,8 +125,8 @@ public class ImageParser {
 
 		new Thread<void*>("fetch-og-image", () => {
 			try {
-				var client = Paperboy.HttpClient.get_default();
-				var options = new Paperboy.HttpClient.RequestOptions().with_browser_headers();
+				var client = Paperboy.HttpClientUtils.get_default();
+				var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
 				var http_response = client.fetch_sync(article_url, options);
 
 				if (http_response.is_success() && http_response.body != null) {
@@ -145,7 +145,7 @@ public class ImageParser {
 							var h1_regex = new Regex("<h1[^>]*>([^<]+)</h1>", RegexCompileFlags.DEFAULT);
 							MatchInfo h1_info;
 							if (h1_regex.match(body, 0, out h1_info)) {
-								title = ImageParser.strip_html(h1_info.fetch(1)).strip();
+								title = ImageProcessor.strip_html(h1_info.fetch(1)).strip();
 							}
 						}
 						if (title.length == 0) title = article_url;
@@ -179,7 +179,7 @@ public class ImageParser {
 			_fetch_mutex.unlock();
 			int d = Random.int_range(200, 1000);
 			Timeout.add(d, () => {
-				ImageParser.fetch_bbc_highres_image(article_url, session, add_item, current_category, source_name);
+				ImageProcessor.fetch_bbc_highres_image(article_url, session, add_item, current_category, source_name);
 				return false;
 			});
 			return;
@@ -189,8 +189,8 @@ public class ImageParser {
 
 		new Thread<void*>("fetch-bbc-image", () => {
 			try {
-				var client = Paperboy.HttpClient.get_default();
-				var options = new Paperboy.HttpClient.RequestOptions().with_browser_headers();
+				var client = Paperboy.HttpClientUtils.get_default();
+				var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
 				var http_response = client.fetch_sync(article_url, options);
 
 				if (!http_response.is_success() || http_response.body == null) return null;

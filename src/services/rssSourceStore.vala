@@ -99,12 +99,18 @@ namespace Paperboy {
             // Add favicon_url column if it doesn't exist (for existing databases)
             string add_column = "ALTER TABLE rss_sources ADD COLUMN favicon_url TEXT;";
             rc = db.exec(add_column, null, out errmsg);
-            // Ignore error if column already exists
-            
+            // Only ignore "duplicate column" errors; log other errors
+            if (rc != Sqlite.OK && errmsg != null && !errmsg.down().contains("duplicate column")) {
+                GLib.warning("Failed to add favicon_url column: %s", errmsg);
+            }
+
             // Add original_url column if it doesn't exist (for existing databases)
             string add_original_url = "ALTER TABLE rss_sources ADD COLUMN original_url TEXT;";
             rc = db.exec(add_original_url, null, out errmsg);
-            // Ignore error if column already exists
+            // Only ignore "duplicate column" errors; log other errors
+            if (rc != Sqlite.OK && errmsg != null && !errmsg.down().contains("duplicate column")) {
+                GLib.warning("Failed to add original_url column: %s", errmsg);
+            }
         }
 
         public bool add_source(string name, string url, string? icon_filename = null) {
@@ -418,17 +424,33 @@ namespace Paperboy {
             if (source.url.has_prefix("file://")) {
                 string file_path = "";
                 if (source.url.length > 7) file_path = source.url.substring(7); // Remove "file://" prefix
-                
+
                 if (file_path.length > 0) {
+                    // Security: Only allow deletion of files within our data directory
+                    // to prevent path traversal attacks
+                    string allowed_dir = GLib.Path.build_filename(data_dir, "paperboy");
+                    string? real_path = null;
                     try {
-                        var xml_file = GLib.File.new_for_path(file_path);
-                        if (xml_file.query_exists()) {
-                            xml_file.delete();
-                            GLib.print("  ✓ Deleted generated feed: %s\n", GLib.Path.get_basename(file_path));
-                        }
+                        var file_for_path = GLib.File.new_for_path(file_path);
+                        var file_info = file_for_path.query_info("standard::*", GLib.FileQueryInfoFlags.NONE);
+                        real_path = file_for_path.get_path();
                     } catch (Error e) {
-                    GLib.warning("  ✗ Failed to delete generated feed file: %s", e.message);
-                }
+                        real_path = file_path;
+                    }
+
+                    if (real_path != null && real_path.has_prefix(allowed_dir)) {
+                        try {
+                            var xml_file = GLib.File.new_for_path(file_path);
+                            if (xml_file.query_exists()) {
+                                xml_file.delete();
+                                GLib.print("  ✓ Deleted generated feed: %s\n", GLib.Path.get_basename(file_path));
+                            }
+                        } catch (Error e) {
+                            GLib.warning("  ✗ Failed to delete generated feed file: %s", e.message);
+                        }
+                    } else {
+                        GLib.warning("  ✗ Refusing to delete file outside paperboy data directory: %s", file_path);
+                    }
                 }
             }
 
@@ -568,6 +590,13 @@ namespace Paperboy {
                 return false;
             }
 
+            // Notify UI that this source was updated so views (sidebar, badges)
+            // can refresh without requiring an app restart.
+            var updated = get_source_by_url(url);
+            if (updated != null) {
+                try { source_updated(updated); } catch (GLib.Error e) { }
+            }
+
             return true;
         }
 
@@ -663,6 +692,13 @@ namespace Paperboy {
             if (rc != Sqlite.DONE) {
                 GLib.warning("Failed to update source URL: %s", db.errmsg());
                 return false;
+            }
+
+            // Emit a source_updated signal for the UI to pick up the new URL
+            // and refresh any references to this source (sidebar, badges, etc.).
+            var updated = get_source_by_url(new_url);
+            if (updated != null) {
+                try { source_updated(updated); } catch (GLib.Error e) { }
             }
 
             return true;
