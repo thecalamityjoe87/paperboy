@@ -32,6 +32,32 @@ public class RssFeedProcessor {
     // Currently hardcoded to prevent UI slowdowns, but users may want more items for archival feeds
     private const int LOCAL_FEED_MAX_ITEMS = 12;
 
+    // Sanitize XML by removing invalid control characters and fixing encoding issues
+    private static string sanitize_xml(string input) {
+        var result = new StringBuilder();
+        unowned string str = input;
+
+        for (int i = 0; i < input.length; ) {
+            unichar c;
+            int prev_i = i;
+            if (!input.get_next_char(ref i, out c)) {
+                // Invalid UTF-8 sequence - skip this byte
+                i = prev_i + 1;
+                continue;
+            }
+
+            if (!c.validate()) {
+                continue;
+            }
+
+            // Allow valid XML characters: Tab, LF, CR, printable chars
+            if (c == 0x09 || c == 0x0A || c == 0x0D || c >= 0x20) {
+                result.append_unichar(c);
+            }
+        }
+        return result.str;
+    }
+
     public static void parse_rss_and_display(
         string body,
         string source_name,
@@ -48,14 +74,17 @@ public class RssFeedProcessor {
         // avoiding NOENT and enabling safe options instead.
         // NOCDATA: merge CDATA sections to text nodes
         // NOBLANKS: remove ignorable whitespace
-        var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS;
+        // RECOVER: try to recover from malformed XML where possible
+        var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER;
         Xml.Doc* doc = null;
         try {
+            // Sanitize the body to remove invalid control characters and bad UTF-8
+            string sanitized_body = sanitize_xml(body);
             doc = Xml.Parser.read_memory(
-                body,
-                (int) body.length,
+                sanitized_body,
+                (int) sanitized_body.length,
                 null,  // URL (not needed for memory parsing)
-                null,  // encoding (auto-detect)
+                "UTF-8",
                 (int) parser_options
             );
             if (doc == null) {

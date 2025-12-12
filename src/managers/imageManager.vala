@@ -189,19 +189,12 @@ public class ImageManager : GLib.Object {
                                             int sh = int.parse(parts[1]);
                                             int eff_sw = sw * device_scale;
                                             int eff_sh = sh * device_scale;
-                                            double sc = double.min((double) eff_sw / pix.get_width(), (double) eff_sh / pix.get_height());
-                                            if (sc < 1.0) {
-                                                int nw = (int)(pix.get_width() * sc);
-                                                if (nw < 1) nw = 1;
-                                                int nh = (int)(pix.get_height() * sc);
-                                                if (nh < 1) nh = 1;
-                                                try {
-                                                    string scale_key = make_cache_key(url, nw, nh);
-                                                    var scaled = window.image_cache != null ? window.image_cache.get_or_scale_pixbuf(scale_key, pix, nw, nh) : ImageCache.get_global().get_or_scale_pixbuf(scale_key, pix, nw, nh);
-                                                    if (scaled != null) pix = scaled;
-                                                } catch (GLib.Error e) { }
-                                            }
                                             string k = make_cache_key(url, sw, sh);
+                                            // Create a cover-scaled & center-cropped pixbuf for the requested size
+                                            try {
+                                                var final_pb = window.image_cache != null ? window.image_cache.get_or_scale_and_crop_pixbuf(k, pix, eff_sw, eff_sh) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(k, pix, eff_sw, eff_sh);
+                                                if (final_pb != null) pix = final_pb;
+                                            } catch (GLib.Error e) { }
                                             var pb_for_idle = pix;
                                             Idle.add(() => {
                                                 if (FetchContext.current != gen_seq) {
@@ -451,33 +444,18 @@ public class ImageManager : GLib.Object {
                         if (pixbuf != null) {
                             int width = pixbuf.get_width();
                             int height = pixbuf.get_height();
-                            double scale = double.min((double) target_w / width, (double) target_h / height);
-                                if (scale < 1.0) {
-                                int new_width = (int)(width * scale);
-                                if (new_width < 1) new_width = 1;
-                                int new_height = (int)(height * scale);
-                                if (new_height < 1) new_height = 1;
-                                try {
-                                    string scale_key = make_cache_key(url, new_width, new_height);
-                                    var scaled = window.image_cache != null ? window.image_cache.get_or_scale_pixbuf(scale_key, pixbuf, new_width, new_height) : ImageCache.get_global().get_or_scale_pixbuf(scale_key, pixbuf, new_width, new_height);
-                                    if (scaled != null) {
-                                        pixbuf = scaled;
-                                    }
-                                } catch (GLib.Error e) { }
-                            } else if (scale > 1.0) {
-                                // Allow larger upscales for hero images so high-DPI displays get crisper results.
-                                double max_upscale = 2.0;  // previously 1.5
-                                double upscale = double.min(scale, max_upscale);
-                                int new_width = (int)(width * upscale);
-                                int new_height = (int)(height * upscale);
-                                if (upscale > 1.01) {
-                                    try {
-                                        string scale_key = make_cache_key(url, new_width, new_height);
-                                        var scaled = window.image_cache != null ? window.image_cache.get_or_scale_pixbuf(scale_key, pixbuf, new_width, new_height) : ImageCache.get_global().get_or_scale_pixbuf(scale_key, pixbuf, new_width, new_height);
-                                        if (scaled != null) pixbuf = scaled;
-                                    } catch (GLib.Error e) { }
+
+                            // Use COVER strategy: scale so image fully covers the target, then center-crop
+                            int eff_w = target_w * device_scale;
+                            int eff_h = target_h * device_scale;
+
+                            string size_key = make_cache_key(url, target_w, target_h);
+                            try {
+                                var final_pb = window.image_cache != null ? window.image_cache.get_or_scale_and_crop_pixbuf(size_key, pixbuf, eff_w, eff_h) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(size_key, pixbuf, eff_w, eff_h);
+                                if (final_pb != null) {
+                                    pixbuf = final_pb;
                                 }
-                            }
+                            } catch (GLib.Error e) { }
 
                             var pb_for_idle = pixbuf;
                             Idle.add(() => {
@@ -486,7 +464,6 @@ public class ImageManager : GLib.Object {
                                     return false;
                                 }
                                 try {
-                                    string size_key = make_cache_key(url, target_w, target_h);
                                     try { if (window.image_cache != null) window.image_cache.set(size_key, pb_for_idle); else ImageCache.get_global().set(size_key, pb_for_idle); } catch (GLib.Error e) { }
 
                                     var list = pending_downloads.get(url);
@@ -726,34 +703,14 @@ public class ImageManager : GLib.Object {
 
                                 int width = pix.get_width();
                                 int height = pix.get_height();
-                                double scale = double.min((double) eff_target_w / width, (double) eff_target_h / height);
-                                if (scale < 1.0) {
-                                    // Scale down if image is too large
-                                    int new_w = (int)(width * scale);
-                                    if (new_w < 1) new_w = 1;
-                                    int new_h = (int)(height * scale);
-                                    if (new_h < 1) new_h = 1;
-                                    try {
-                                        string scale_key = make_cache_key(url, new_w, new_h);
-                                        var scaled = window.image_cache != null ? window.image_cache.get_or_scale_pixbuf(scale_key, pix, new_w, new_h) : ImageCache.get_global().get_or_scale_pixbuf(scale_key, pix, new_w, new_h);
-                                        if (scaled != null) pix = scaled;
-                                    } catch (GLib.Error e) { }
-                                } else if (scale > 1.0) {
-                                    // Allow upscaling for high-DPI displays (same logic as network download path)
-                                    double max_upscale = 2.0;
-                                    double upscale = double.min(scale, max_upscale);
-                                    int new_w = (int)(width * upscale);
-                                    int new_h = (int)(height * upscale);
-                                    if (upscale > 1.01) {
-                                        try {
-                                            string scale_key = make_cache_key(url, new_w, new_h);
-                                            var scaled = window.image_cache != null ? window.image_cache.get_or_scale_pixbuf(scale_key, pix, new_w, new_h) : ImageCache.get_global().get_or_scale_pixbuf(scale_key, pix, new_w, new_h);
-                                            if (scaled != null) pix = scaled;
-                                        } catch (GLib.Error e) { }
-                                    }
-                                }
+
+                                // Use COVER strategy: scale so image fully covers the (device-scaled) target, then crop
                                 string size_key = make_cache_key(url, target_w, target_h);
-                                try { if (window.image_cache != null) window.image_cache.set(size_key, pix); else ImageCache.get_global().set(size_key, pix); } catch (GLib.Error e) { }
+                                try {
+                                    var final_pb = window.image_cache != null ? window.image_cache.get_or_scale_and_crop_pixbuf(size_key, pix, eff_target_w, eff_target_h) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(size_key, pix, eff_target_w, eff_target_h);
+                                    if (final_pb != null) pix = final_pb;
+                                    try { if (window.image_cache != null) window.image_cache.set(size_key, pix); else ImageCache.get_global().set(size_key, pix); } catch (GLib.Error e) { }
+                                } catch (GLib.Error e) { }
                                 if (target_w <= 64 && target_h <= 64) {
                                     try {
                                         string any_key2 = make_cache_key(url, 0, 0);
