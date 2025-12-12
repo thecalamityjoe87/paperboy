@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.7.2a',
+  version : '0.7.3a',
   meson_version : '>=0.59.0'
 )
 
@@ -15,11 +15,11 @@ sqlite = dependency('sqlite3')
 webkit = dependency('webkitgtk-6.0')
 
 # Generate build-time constants so the application knows where meson
-# installed data and binaries. This avoids hardcoding candidate paths
-# like /usr/local/bin in the source; the path is templated at build
-# time and respects Meson's prefix/bindir settings.
+# installed internal binaries. This avoids hardcoding candidate paths
+# like /usr/local/libexec in the source; the path is templated at build
+# time and respects Meson's prefix/libexecdir settings.
 conf = configuration_data()
-conf.set('bindir', get_option('bindir'))
+conf.set('libexecdir', get_option('libexecdir'))
 build_constants = configure_file(input: 'meson-templates/build_constants.vala.in',
                                  output: 'buildConstants.vala',
                                  configuration: conf)
@@ -120,13 +120,12 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
   link_args : ['-lm']
 )
 
-  # Install the rssFinder helper as a separate executable so it is
-  # available in the user's PATH after "ninja install". Keep the
-  # name in camel-case so `prefsDialog` can find it at
-  # /usr/local/bin/rssFinder (the preference logic expects this name).
+  # Install the rssFinder helper as an internal binary per FHS 4.7.
+  # This is only called by the Paperboy application, not by users directly.
   executable('rssFinder', 'tools/rssFinder.vala',
     dependencies : [gio],
-    install : true
+    install : true,
+    install_dir : join_paths(get_option('libexecdir'), 'paperboy')
   )
 
 install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
@@ -174,9 +173,8 @@ if files('tools/html2rss/Cargo.toml').length() > 0
 endif
 
 # Install the html2rss helper binary if present (built via Cargo).
-# Place it under the app's namespaced datadir and also into bindir so the
-# runtime can find it either as a tool in the data dir or in PATH.
+# Per FHS 4.7, internal binaries run by other programs belong in libexecdir,
+# not bindir or datadir. Use a namespaced subdirectory to avoid conflicts.
 if files('tools/html2rss/target/release/html2rss').length() > 0
-  install_data('tools/html2rss/target/release/html2rss', install_dir: join_paths(get_option('datadir'), 'org.gnome.Paperboy', 'tools'))
-  install_data('tools/html2rss/target/release/html2rss', install_dir: get_option('bindir'))
+  install_data('tools/html2rss/target/release/html2rss', install_dir: join_paths(get_option('libexecdir'), 'paperboy'))
 endif

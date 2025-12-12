@@ -1,13 +1,47 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./packaging/appimage/build-appimage.sh [AppImageName]
-# Default name will include the version from meson.build when available.
-APP_DEFAULT="paperboy.AppImage"
-if [ "$#" -gt 0 ]; then
-  APP="$1"
+# Usage: ./packaging/appimage/build-appimage.sh [AppImageBase] [--meson-version|-M]
+# Examples:
+#   ./packaging/appimage/build-appimage.sh                -> paperboy-<ver>-<arch>.AppImage (if meson version found)
+#   ./packaging/appimage/build-appimage.sh paperboy       -> paperboy.AppImage
+#   ./packaging/appimage/build-appimage.sh paperboy -M    -> paperboy-<ver>-<arch>.AppImage
+# Default base name (when not provided) is `paperboy`.
+APP_BASE_DEFAULT="paperboy"
+USE_MESON_VERSION=0
+APP_BASE=""
+
+# Simple args parsing: accept one optional non-flag base name and a --meson-version / -M flag
+for arg in "$@"; do
+  case "$arg" in
+    --meson-version|-M)
+      USE_MESON_VERSION=1
+      ;;
+    --help|-h)
+      echo "Usage: $0 [AppImageBase] [--meson-version|-M]" && exit 0
+      ;;
+    *)
+      # First non-flag arg is treated as base name
+      if [ -z "$APP_BASE" ]; then
+        APP_BASE="$arg"
+      fi
+      ;;
+  esac
+done
+
+# If no base supplied, use default
+if [ -z "$APP_BASE" ]; then
+  APP_BASE="$APP_BASE_DEFAULT"
+fi
+
+
+
+# If user passed a full filename (ending with .AppImage) as the single positional
+# arg and did not request meson versioning, allow using that directly.
+if [ "$#" -eq 1 ] && [ "$USE_MESON_VERSION" -eq 0 ] && [[ "$APP_BASE" == *.AppImage || "$APP_BASE" == *.appimage ]]; then
+  APP="$APP_BASE"
 else
-  APP="$APP_DEFAULT"
+  APP="${APP_BASE}.AppImage"
 fi
 
 # When run from packaging/appimage, repository root is two levels up
@@ -15,10 +49,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
 APPDIR="$ROOT_DIR/AppDir"
 
-# If no explicit AppImage name was supplied, try to read the project
-# version from meson.build and use it to set a sensible output filename.
-# This keeps release artifacts named like `Paperboy-<version>.AppImage`.
-if [ "$#" -eq 0 ]; then
+# If the user requested meson-based versioning (or provided no explicit filename),
+# try to read the project version from meson.build and use it to set a sensible
+# output filename like `paperboy-<version>-<arch>.AppImage`.
+if [ "$USE_MESON_VERSION" -eq 1 ] || ( [ "$#" -eq 0 ] && [ -z "$APP_BASE" ] ); then
   # Normalize host architecture for inclusion in the filename
   UNAME_M=$(uname -m)
   case "$UNAME_M" in
@@ -33,12 +67,12 @@ if [ "$#" -eq 0 ]; then
   if [ -f "$MESON_FILE" ]; then
     VERSION=$(sed -n "s/.*version *: *'\([^']*\)'.*/\1/p" "$MESON_FILE" | head -n1)
     if [ -n "$VERSION" ]; then
-      APP="paperboy-${VERSION}-${ARCH}.AppImage"
+      APP="${APP_BASE}-${VERSION}-${ARCH}.AppImage"
     else
-      APP="paperboy-${ARCH}.AppImage"
+      APP="${APP_BASE}-${ARCH}.AppImage"
     fi
   else
-    APP="paperboy-${ARCH}.AppImage"
+    APP="${APP_BASE}-${ARCH}.AppImage"
   fi
 fi
 
@@ -105,6 +139,48 @@ fi
 cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/usr/share/applications/io.github.thecalamityjoe87.Paperboy.desktop"
 # Also copy the desktop file to the AppDir root (required by appimagetool)
 cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/io.github.thecalamityjoe87.Paperboy.desktop"
+
+# If we discovered a Meson project version, embed it in desktop and appdata
+# so software centers / AppImage tools can show the real version instead of a hash.
+if [ -n "${VERSION-}" ]; then
+  DESKTOP_ID="io.github.thecalamityjoe87.Paperboy"
+  TOP_DESKTOP="${APPDIR}/${DESKTOP_ID}.desktop"
+  APP_DESKTOP="${APPDIR}/usr/share/applications/${DESKTOP_ID}.desktop"
+
+  for d in "$TOP_DESKTOP" "$APP_DESKTOP"; do
+    if [ -f "$d" ]; then
+      if grep -q '^X-AppImage-Version=' "$d"; then
+        sed -i "s/^X-AppImage-Version=.*/X-AppImage-Version=${VERSION}/" "$d"
+      else
+        printf "\nX-AppImage-Version=%s\n" "$VERSION" >> "$d"
+      fi
+    fi
+  done
+
+  # Create AppStream appdata so GNOME Software / centers show the version
+  METAFILE="$APPDIR/usr/share/metainfo/${DESKTOP_ID}.appdata.xml"
+  mkdir -p "$(dirname "$METAFILE")"
+  cat > "$METAFILE" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<component type="desktop">
+  <id>${DESKTOP_ID}</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <name>Paperboy</name>
+  <summary>Simple news and RSS reader</summary>
+  <description>
+    <p>Paperboy is a simple news app written in Vala built with GTK4 and Libadwaita.</p>
+  </description>
+  <url type="homepage">https://github.com/thecalamityjoe87/paperboy</url>
+  <launchable type="desktop-id">io.github.thecalamityjoe87.Paperboy.desktop</launchable>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer_name>Isaac Joseph</developer_name>
+  <releases>
+    <release version="${VERSION}" date="$(date -I)">
+    </release>
+  </releases>
+</component>
+EOF
+fi
 
 # Copy GSettings schema (prefer new data/resources/ location)
 SCHEMA_SRC="$ROOT_DIR/data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml"
@@ -189,6 +265,8 @@ HERE="$(dirname "$(readlink -f "${0}")")"
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-}"
 # Point GSettings to the bundled schema directory so preferences can be saved/loaded
 export GSETTINGS_SCHEMA_DIR="$HERE/usr/share/glib-2.0/schemas:${GSETTINGS_SCHEMA_DIR:-}"
+# Let the runtime know where internal helper binaries live inside the AppDir
+export PAPERBOY_LIBEXECDIR="$HERE/usr/libexec"
 # Prepend bundled fallback libs so libxml2.so.16 from the AppDir is preferred.
 # Keep $HERE/usr/lib in the search path for other bundled libs if present.
 # Use a safe expansion under `set -u` so referencing an unset LD_LIBRARY_PATH
