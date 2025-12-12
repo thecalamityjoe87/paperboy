@@ -17,6 +17,8 @@
 
 using GLib;
 using Gee;
+using Gdk;
+using Cairo;
 
 /*
  * ImageCache: an in-memory LRU cache for Gdk.Pixbuf and Gdk.Texture objects.
@@ -151,6 +153,46 @@ public class ImageCache : GLib.Object {
             }
         } catch (GLib.Error e) { }
         return null;
+    }
+
+    // Scale-and-crop helper: scale `source` so it fully covers `w`x`h` (cover)
+    // then center-crop to exactly `w`x`h`. Cache the final pixbuf under `key`.
+    public Gdk.Pixbuf? get_or_scale_and_crop_pixbuf(string key, Gdk.Pixbuf source, int w, int h) {
+        var existing = get(key);
+        if (existing != null) return existing;
+        try {
+            int width = source.get_width();
+            int height = source.get_height();
+            if (width <= 0 || height <= 0) return null;
+
+            double scale_x = (double) w / width;
+            double scale_y = (double) h / height;
+            double scale = double.max(scale_x, scale_y);
+
+            int scaled_w = (int) (width * scale);
+            int scaled_h = (int) (height * scale);
+            if (scaled_w < 1) scaled_w = 1;
+            if (scaled_h < 1) scaled_h = 1;
+
+            // Reuse get_or_scale_pixbuf to get a high-quality scaled pixbuf
+            string tmp_key = "pixbuf::scaled-temp:%s::%dx%d".printf(key, scaled_w, scaled_h);
+            var scaled = get_or_scale_pixbuf(tmp_key, source, scaled_w, scaled_h);
+            if (scaled == null) return null;
+
+            // Paint the scaled pixbuf into a target surface and crop by centering it
+            var surface = new ImageSurface(Format.ARGB32, w, h);
+            var cr = new Context(surface);
+            // Transparent background
+            cr.set_source_rgba(0, 0, 0, 0);
+            cr.paint();
+
+            int x = (w - scaled_w) / 2;
+            int y = (h - scaled_h) / 2;
+            try { Gdk.cairo_set_source_pixbuf(cr, scaled, x, y); cr.paint(); } catch (GLib.Error e) { }
+
+            var final_pb = get_or_from_surface(key, surface, 0, 0, w, h);
+            return final_pb;
+        } catch (GLib.Error e) { return null; }
     }
 
     public Gee.ArrayList<string> keys() {
