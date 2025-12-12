@@ -226,6 +226,22 @@ public class RssFinderService : GLib.Object {
             }
 
             // FHS-compliant: check libexecdir for internal binaries (respects install prefix)
+            // First, honor an env var set by the AppImage/AppRun so the
+            // runtime can point us to the AppDir's libexec location.
+            try {
+                string? env_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
+                if (env_libexec != null && env_libexec.length > 0) {
+                    string candidate = GLib.Path.build_filename(env_libexec, "paperboy", "rssFinder");
+                    try {
+                        if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS | GLib.FileTest.IS_REGULAR)) {
+                            AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder found via PAPERBOY_LIBEXECDIR: " + candidate);
+                            return candidate;
+                        }
+                    } catch (GLib.Error _) { }
+                }
+            } catch (GLib.Error e) { }
+
+            // FHS-compliant: check libexecdir for internal binaries (respects install prefix)
             try {
                 string libexec = BuildConstants.LIBEXECDIR;
                 if (libexec != null && libexec.length > 0) {

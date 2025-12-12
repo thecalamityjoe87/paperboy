@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component type="desktop">
+  <id>io.github.thecalamityjoe87.Paperboy</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <name>Paperboy</name>
+  <summary>Simple news and RSS reader</summary>
+  <description>
+    <p>Paperboy is a simple news app written in Vala built with GTK4 and Libadwaita.</p>
+  </description>
+  <url type="homepage">https://github.com/thecalamityjoe87/paperboy</url>
+  <launchable type="desktop-id">io.github.thecalamityjoe87.Paperboy.desktop</launchable>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer_name>Isaac Joseph</developer_name>
+  <releases>
+    <release version="0.7.3a" date="2025-12-12">
+    </release>
+  </releases>
+</component>

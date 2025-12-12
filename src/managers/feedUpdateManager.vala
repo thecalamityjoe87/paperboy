@@ -373,6 +373,36 @@ public class FeedUpdateManager : GLib.Object {
      * @return Path to html2rss binary or null if not found
      */
     private string? find_html2rss_binary() {
+        // First, honor an env var set by the AppRun so the runtime can point
+        // us to the AppDir's libexec location (PAPERBOY_LIBEXECDIR).
+        try {
+            string? env_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
+            if (env_libexec != null && env_libexec.length > 0) {
+                string candidate = GLib.Path.build_filename(env_libexec, "paperboy", "html2rss");
+                try {
+                    if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS | GLib.FileTest.IS_EXECUTABLE)) {
+                        GLib.message("Using html2rss via PAPERBOY_LIBEXECDIR: %s", candidate);
+                        return candidate;
+                    }
+                } catch (GLib.Error _) { }
+            }
+        } catch (GLib.Error _) { }
+
+        // Next, check configured libexecdir from build constants (system install)
+        try {
+            string libexec = BuildConstants.LIBEXECDIR;
+            if (libexec != null && libexec.length > 0) {
+                string installed = GLib.Path.build_filename(libexec, "paperboy", "html2rss");
+                try {
+                    if (GLib.FileUtils.test(installed, GLib.FileTest.EXISTS | GLib.FileTest.IS_EXECUTABLE)) {
+                        GLib.message("Using html2rss in libexecdir: %s", installed);
+                        return installed;
+                    }
+                } catch (GLib.Error _) { }
+            }
+        } catch (GLib.Error _) { }
+
+        // Fallback candidates: system/AppImage locations and developer build locations
         var candidates = new Gee.ArrayList<string>();
 
         // FHS-compliant: check libexecdir for internal binaries
@@ -400,7 +430,7 @@ public class FeedUpdateManager : GLib.Object {
                     GLib.message("Using html2rss at: %s", c);
                     return c;
                 }
-            } catch (GLib.Error e) {
+            } catch (GLib.Error _) {
                 // ignore and continue
             }
         }
