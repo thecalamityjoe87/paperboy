@@ -1,1 +1,1 @@
-tools/html2rss/target/release/html2rss usr/bin/
+tools/html2rss/target/release/html2rss usr/libexec/paperboy/

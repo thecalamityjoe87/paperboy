@@ -201,17 +201,10 @@ public class RssFinderService : GLib.Object {
         });
     }
 
-    // Locate the rssFinder binary with a structured search. The priority
-    // is: PATH (via GLib.find_program_in_path), local repo, build dir,
-    // Meson-configured bindir, and a small set of common system paths.
+    // Locate the rssFinder binary with FHS-compliant search.
+    // Priority: development build locations, then libexecdir (FHS 4.7).
     private static string? locate_rssfinder() {
         try {
-            // We rely on the SpawnFlags.SEARCH_PATH fallback below if
-            // nothing is found here. Using PATH lookups here is not
-            // portable across all GLib versions via Vala; instead we
-            // prefer an explicit candidate search followed by the
-            // `SpawnFlags.SEARCH_PATH` fallback.
-
             // Local repo and build locations (developer-friendly)
             string[] dev_candidates = {
                 "./tools/rssFinder",
@@ -232,25 +225,24 @@ public class RssFinderService : GLib.Object {
                 } catch (GLib.Error e) { }
             }
 
-            // Meson-configured bindir (respects install prefix)
+            // FHS-compliant: check libexecdir for internal binaries (respects install prefix)
             try {
-                string b = BuildConstants.RSSFINDER_BINDIR;
-                if (b != null && b.length > 0) {
-                    string installed = GLib.Path.build_filename(b, "rssFinder");
+                string libexec = BuildConstants.LIBEXECDIR;
+                if (libexec != null && libexec.length > 0) {
+                    string installed = GLib.Path.build_filename(libexec, "paperboy", "rssFinder");
                     if (GLib.FileUtils.test(installed, GLib.FileTest.EXISTS | GLib.FileTest.IS_REGULAR)) {
-                        AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder installed in bindir: " + installed);
+                        AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder installed in libexecdir: " + installed);
                         return installed;
-                    }
-                    string installed_lower = GLib.Path.build_filename(b, "rssfinder");
-                    if (GLib.FileUtils.test(installed_lower, GLib.FileTest.EXISTS | GLib.FileTest.IS_REGULAR)) {
-                        AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssfinder installed in bindir: " + installed_lower);
-                        return installed_lower;
                     }
                 }
             } catch (GLib.Error e) { }
 
-            // Final system fallbacks - warned but used rarely.
-            string[] sys_fallbacks = { "/usr/local/bin/rssFinder", "/usr/local/bin/rssfinder", "/usr/bin/rssFinder", "/usr/bin/rssfinder" };
+            // System fallbacks (FHS-compliant locations)
+            string[] sys_fallbacks = {
+                "/usr/libexec/paperboy/rssFinder",
+                "/usr/local/libexec/paperboy/rssFinder",
+                "/app/libexec/paperboy/rssFinder"
+            };
             foreach (var s in sys_fallbacks) {
                 try {
                     if (GLib.FileUtils.test(s, GLib.FileTest.EXISTS | GLib.FileTest.IS_REGULAR)) {

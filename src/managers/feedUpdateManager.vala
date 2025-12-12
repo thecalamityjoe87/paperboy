@@ -375,29 +375,15 @@ public class FeedUpdateManager : GLib.Object {
     private string? find_html2rss_binary() {
         var candidates = new Gee.ArrayList<string>();
 
-        // Preferred: meson-configured bindir
-        candidates.add(BuildConstants.RSSFINDER_BINDIR + "/html2rss");
+        // FHS-compliant: check libexecdir for internal binaries
+        // Standard system locations (prefix-aware)
+        candidates.add("/usr/libexec/paperboy/html2rss");
+        candidates.add("/usr/local/libexec/paperboy/html2rss");
 
-        // Standard system locations
-        candidates.add("/usr/bin/html2rss");
-        candidates.add("/usr/local/bin/html2rss");
-        candidates.add("/usr/share/org.gnome.Paperboy/tools/html2rss");
+        // Flatpak/AppImage locations
+        candidates.add("/app/libexec/paperboy/html2rss");
 
-        // Check all system data dirs
-        var sys_dirs = GLib.Environment.get_system_data_dirs();
-        if (sys_dirs != null) {
-            for (int i = 0; i < sys_dirs.length; i++) {
-                var dir = sys_dirs[i];
-                if (dir != null && dir.length > 0) {
-                    candidates.add(GLib.Path.build_filename(dir, "org.gnome.Paperboy", "tools", "html2rss"));
-                }
-            }
-        }
-
-        // Flatpak/AppImage style
-        candidates.add("/app/share/org.gnome.Paperboy/tools/html2rss");
-
-        // Development build locations
+        // Development build locations (for running from source tree)
         candidates.add("tools/html2rss/target/release/html2rss");
         candidates.add("./tools/html2rss/target/release/html2rss");
         candidates.add("../tools/html2rss/target/release/html2rss");
@@ -405,12 +391,6 @@ public class FeedUpdateManager : GLib.Object {
         string? cwd = GLib.Environment.get_current_dir();
         if (cwd != null) {
             candidates.add(GLib.Path.build_filename(cwd, "tools", "html2rss", "target", "release", "html2rss"));
-        }
-
-        string? home_env = GLib.Environment.get_variable("HOME");
-        if (home_env != null) {
-            string home_candidate = GLib.Path.build_filename(home_env, "paperboy", "tools", "html2rss", "target", "release", "html2rss");
-            candidates.add(home_candidate);
         }
 
         // Check each candidate and return the first executable match
@@ -424,7 +404,7 @@ public class FeedUpdateManager : GLib.Object {
                 // ignore and continue
             }
         }
-        
+
         return null;
     }
     
