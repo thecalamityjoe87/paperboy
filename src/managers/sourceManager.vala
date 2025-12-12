@@ -936,48 +936,24 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                         });
                     } else {
                         GLib.message("Attempting local html2rss fallback for host: %s", host);
-                        
+
                         string? script_path = null;
                         var binary_candidates = new ArrayList<string>();
 
-                        // Preferred: meson-generated bindir (configured at build time)
-                        binary_candidates.add(BuildConstants.RSSFINDER_BINDIR + "/html2rss");
+                        // FHS-compliant: check libexecdir for internal binaries (per FHS 4.7)
+                        binary_candidates.add("/usr/libexec/paperboy/html2rss");
+                        binary_candidates.add("/usr/local/libexec/paperboy/html2rss");
 
-                        // Common system locations where packagers or users may put helper binaries
-                        binary_candidates.add("/usr/bin/html2rss");
-                        binary_candidates.add("/usr/local/bin/html2rss");
-                        binary_candidates.add("/usr/share/org.gnome.Paperboy/tools/html2rss");
+                        // Flatpak/AppImage locations
+                        binary_candidates.add("/app/libexec/paperboy/html2rss");
 
-                        // System data dirs (check all entries, not just the first)
-                        try {
-                            var sys_dirs = GLib.Environment.get_system_data_dirs();
-                            if (sys_dirs != null) {
-                                for (int i = 0; i < sys_dirs.length; i++) {
-                                    var dir = sys_dirs[i];
-                                    if (dir != null && dir.length > 0) {
-                                        binary_candidates.add(GLib.Path.build_filename(dir, "org.gnome.Paperboy", "tools", "html2rss"));
-                                    }
-                                }
-                            }
-                        } catch (GLib.Error e) { }
-
-                        // Flatpak/AppImage-style path
-                        binary_candidates.add("/app/share/org.gnome.Paperboy/tools/html2rss");
-
-                        // Development build locations
+                        // Development build locations (for running from source tree)
                         binary_candidates.add("tools/html2rss/target/release/html2rss");
                         binary_candidates.add("./tools/html2rss/target/release/html2rss");
                         binary_candidates.add("../tools/html2rss/target/release/html2rss");
                         string? cwd = GLib.Environment.get_variable("PWD");
                         if (cwd != null && cwd.length > 0) {
                             binary_candidates.add(GLib.Path.build_filename(cwd, "tools", "html2rss", "target", "release", "html2rss"));
-                        }
-
-                        // Common user workspace fallback
-                        string? home_env = GLib.Environment.get_variable("HOME");
-                        if (home_env != null && home_env.length > 0) {
-                            string home_candidate = GLib.Path.build_filename(home_env, "paperboy", "tools", "html2rss", "target", "release", "html2rss");
-                            binary_candidates.add(home_candidate);
                         }
 
                         foreach (var c in binary_candidates) {

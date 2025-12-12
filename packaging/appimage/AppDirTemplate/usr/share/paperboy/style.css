@@ -3,11 +3,7 @@
     border-radius: 12px;
     border: 1px solid alpha(@borders, 0.1);
     transition: all 200ms ease;
-    box-sizing: border-box;
-    overflow: hidden;
-    max-width: 100%;
     min-width: 0;
-    flex-shrink: 1;
 }
 
 .card:hover,
@@ -19,21 +15,12 @@
 .card picture {
     background-color: @shade_color;
     border-radius: 12px 12px 0 0;
-    max-width: 100%;
-    overflow: hidden;
 }
 
 .card image {
-    max-width: 100%;
-    height: auto;
-    object-fit: cover;
 }
 
 .card label {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
-    max-width: 100%;
 }
 
 /* Small pill category chip overlaid on images */
@@ -55,10 +42,6 @@
     border-radius: 9999px;
     padding: 4px 8px;
     margin-bottom: 8px;
-    margin-end: 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
     font-size: 0.82em;
     font-weight: 600;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
@@ -69,9 +52,6 @@
      available and keeps a compact pill appearance. */
 .viewed-badge {
     -gtk-icon-transform: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
     padding: 4px 8px;
     border-radius: 999px;
     background-color: rgba(0, 0, 0, 0.6);
@@ -91,17 +71,11 @@
     color: white;
     /* symbolic icons inherit this color */
     border-radius: 50%;
-    width: 16px;
-    height: 16px;
     min-width: 16px;
     min-height: 16px;
     padding: 1px;
-    box-sizing: border-box;
-    display: inline-flex;
     /* add a subtle transparent white border so the green indicator is visually contained */
     border: 1px solid rgba(255, 255, 255, 0.25);
-    align-items: center;
-    justify-content: center;
 }
 
 /* Ensure the icon area stays perfectly square and doesn't stretch
@@ -111,19 +85,15 @@
 .viewed-badge image,
 .viewed-badge picture,
 .viewed-badge .icon {
-    aspect-ratio: 1 / 1;
-    flex: 0 0 auto;
     line-height: 0;
-    max-width: 100%;
-    max-height: 100%;
 }
 
 /* Ensure the label text inside the badge is white, not dimmed, and doesn't inherit theme-dim styles */
 .viewed-badge label,
 .viewed-badge .caption,
 .viewed-badge .dim-label {
-    color: white !important;
-    opacity: 1 !important;
+    color: white;
+    opacity: 1;
     font-weight: 600;
 }
 
@@ -132,9 +102,9 @@
    color/opacity or more specific selectors. */
 .viewed-badge,
 .viewed-badge * {
-    color: white !important;
-    opacity: 1 !important;
-    filter: none !important;
+    color: white;
+    opacity: 1;
+    /* filter: none; */
 }
 
 /* For featured/hero cards, give badges more breathing room so they don't
@@ -151,29 +121,17 @@
 .source-badge .circular-logo picture,
 .source-badge .circular-logo image,
 .source-badge .circular-logo * {
-    width: 20px;
-    height: 20px;
     min-width: 20px;
     min-height: 20px;
-    max-width: 20px;
-    max-height: 20px;
     border-radius: 50%;
-    overflow: hidden;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .source-badge .circular-logo {
     padding: 0;
-    box-sizing: border-box;
 }
 
 .source-badge .circular-logo picture,
 .source-badge .circular-logo image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
 }
 
 /* Small visual treatment to help circular logos stand out on light/dark
@@ -186,21 +144,24 @@
     /* ensure border doesn't overlay the image */
 }
 
+.sheet-header {
+    background-color: @view_bg_color;
+}
+
+.sheet .background {
+    background-color: @view_bg_color;
+}
+
+.sheet {
+    background-color: @view_bg_color;  /* ADD THIS */
+}
+
 /* Circular logo styling for sidebar RSS feeds */
 .navigation-sidebar .circular-logo {
-    width: 24px;
-    height: 24px;
     min-width: 24px;
     min-height: 24px;
-    max-width: 24px;
-    max-height: 24px;
     border-radius: 50%;
-    overflow: hidden;
     padding: 0;
-    box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
     background-clip: padding-box;
 }
@@ -208,60 +169,40 @@
 .navigation-sidebar .circular-logo picture,
 .navigation-sidebar .circular-logo image,
 .navigation-sidebar .circular-logo * {
-    width: 24px;
-    height: 24px;
     min-width: 24px;
     min-height: 24px;
-    max-width: 24px;
-    max-height: 24px;
     border-radius: 50%;
 }
 
 .navigation-sidebar .circular-logo picture,
 .navigation-sidebar .circular-logo image {
-    object-fit: cover;
 }
 
 /* Circular logo styling for preferences dialog source icons */
 .source-row .circular-logo {
-    width: 24px;
-    height: 24px;
     min-width: 24px;
     min-height: 24px;
-    max-width: 24px;
-    max-height: 24px;
     border-radius: 50%;
-    overflow: hidden;
     padding: 0;
     margin: 0;
     margin-top: 8px;
     /* Center vertically in ActionRow - wait, I should check if this is needed with valign center */
-    box-sizing: border-box;
-    display: block;
     box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
     background-clip: padding-box;
-    clip-path: circle(50%);
 }
 
 .source-row .circular-logo picture,
 .source-row .circular-logo image {
-    width: 24px !important;
-    height: 24px !important;
-    min-width: 24px !important;
-    min-height: 24px !important;
-    max-width: 24px !important;
-    max-height: 24px !important;
+    min-width: 24px;
+    min-height: 24px;
+    /* max-width: 24px; */
+    /* max-height: 24px; */
     border-radius: 50%;
-    object-fit: cover;
-    display: block;
-    clip-path: circle(50%);
 }
 
 
 /* Source logo styling for content header (top right source info) */
 .header-source-logo {
-    width: 32px;
-    height: 32px;
     min-width: 32px;
     min-height: 32px;
     -gtk-icon-transform: scale(1);
@@ -269,8 +210,6 @@
 
 /* Category icon styling for content header (top left) */
 .header-category-icon {
-    width: 36px;
-    height: 36px;
     min-width: 36px;
     min-height: 36px;
     -gtk-icon-transform: scale(1);
@@ -278,10 +217,6 @@
 
 .source-badge-label {
     color: white;
-    white-space: nowrap;
-    max-width: 10ch;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 /* Smaller, lifted badge variant for hero/slide cards so long titles
@@ -296,7 +231,6 @@
     padding: 4px 10px;
     margin-bottom: 44px;
     /* lift up to avoid crowded titles */
-    gap: 6px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
@@ -311,18 +245,12 @@
 /* Featured hero card styles */
 .card-featured {
     padding-bottom: 14px;
-    max-width: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
 }
 
 .card-featured label {
     font-size: 1.2em;
     line-height: 1.3;
     font-weight: 700;
-    max-width: 100%;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
 }
 
 /* Title shown above the featured (hero) card */
@@ -333,7 +261,6 @@
     margin: 0 0 6px 0;
     /* Use the inherited label color so it matches other text in the UI */
     color: inherit;
-    text-align: left;
     letter-spacing: 0.02em;
 }
 
@@ -346,7 +273,6 @@
 */
 .card-featured {
     /* ensure normal flow spacing when an explicit title widget is used */
-    position: relative;
     /* reduce the top gap now that an explicit title widget is inserted */
     margin-top: 8px;
 }
@@ -438,14 +364,12 @@
    passes through all pointer events to the content below, but the
    actual toast widgets inside can still receive clicks for dismissal. */
 .content-toast-pass {
-    pointer-events: none;
 }
 
 /* Allow toast widgets inside the pass-through overlay to receive
    pointer events so users can interact with them (e.g., dismiss) */
 .content-toast-pass toast,
 .content-toast-pass .toast {
-    pointer-events: auto;
 }
 
 
@@ -493,7 +417,6 @@ navigation-split-view>widget.content-pane {}
 .loading {
     background-color: alpha(@accent_bg_color, 0.6);
     color: alpha(@accent_fg_color, 0.8);
-    cursor: wait;
 }
 
 /* Article preview panel that slides in from the right */
@@ -506,7 +429,6 @@ navigation-split-view>widget.content-pane {}
 /* Dim overlay to disable main area when article preview is open */
 .dim-overlay {
     background-color: alpha(black, 0.4);
-    backdrop-filter: blur(2px);
 }
 
 /* Only the headerbar for the sidebar pane */
@@ -535,8 +457,6 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     padding-top: 2px;
     padding-bottom: 2px;
     /* let the button size be determined by content + padding */
-    height: auto;
-    box-sizing: border-box;
     line-height: normal;
 }
 
@@ -569,18 +489,15 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .article-sheet .card:hover,
 .article-sheet .card.card-hover {
-    box-shadow: none !important;
-    transform: none !important;
+    box-shadow: none;
+    transform: none;
 }
 
 /* Make contained image round */
 .pane-round-image-card image {
     border-radius: 50%;
-    overflow: hidden;
     min-width: 64px;
     min-height: 64px;
-    max-width: 64px;
-    max-height: 64px;
 }
 
 /* Custom toast styling to match Adwaita toasts */
@@ -607,4 +524,21 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .custom-toast-close:hover {
     background-color: alpha(@window_bg_color, 0.1);
+}
+
+/* Unread Count Badge */
+.unread-count-badge {
+    background-color: rgba(0, 0, 0, 0.4);
+    color: @accent_fg_color;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    min-width: 20px;
+    margin-left: 8px;
+}
+
+/* Menu item styling for context menus */
+.menu-item label {
+    font-weight: normal;
 }

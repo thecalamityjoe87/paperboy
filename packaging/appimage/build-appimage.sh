@@ -59,23 +59,17 @@ fi
 cp "$BUILD_DIR/paperboy" "$APPDIR/usr/bin/paperboy"
 chmod +x "$APPDIR/usr/bin/paperboy"
 
-# Copy helper binaries (rssFinder)
+# Copy helper binaries (rssFinder) - install in libexec per FHS 4.7
 if [ -x "$BUILD_DIR/rssFinder" ]; then
-  cp "$BUILD_DIR/rssFinder" "$APPDIR/usr/bin/rssFinder"
-  chmod +x "$APPDIR/usr/bin/rssFinder"
-  # Also copy into the namespaced data dir so runtime lookups find it
-  mkdir -p "$APPDIR/usr/share/org.gnome.Paperboy/tools"
-  cp "$BUILD_DIR/rssFinder" "$APPDIR/usr/share/org.gnome.Paperboy/tools/rssFinder"
-  # Provide a lowercase name as well for packagers that lowercase the binary
-  cp "$BUILD_DIR/rssFinder" "$APPDIR/usr/share/org.gnome.Paperboy/tools/rssfinder" 2>/dev/null || true
-  chmod +x "$APPDIR/usr/share/org.gnome.Paperboy/tools/rssFinder"
+  mkdir -p "$APPDIR/usr/libexec/paperboy"
+  cp "$BUILD_DIR/rssFinder" "$APPDIR/usr/libexec/paperboy/rssFinder"
+  chmod +x "$APPDIR/usr/libexec/paperboy/rssFinder"
 else
   echo "Warning: rssFinder binary not found at $BUILD_DIR/rssFinder"
 fi
 
 # Attempt to locate html2rss built by Cargo in common build locations and copy
-# it into the AppDir so runtime fallbacks can find it both in PATH and
-# under the namespaced datadir used by the app.
+# it into the AppDir. Per FHS 4.7, internal binaries belong in libexecdir.
 HTML2RSS_CANDIDATES=(
   "$BUILD_DIR/tools/html2rss/target/release/html2rss"
   "$BUILD_DIR/html2rss"
@@ -91,13 +85,10 @@ for c in "${HTML2RSS_CANDIDATES[@]}"; do
 done
 
 if [ -n "$HTML2RSS_FOUND" ]; then
-  mkdir -p "$APPDIR/usr/share/org.gnome.Paperboy/tools"
-  mkdir -p "$APPDIR/usr/bin"
-  cp "$HTML2RSS_FOUND" "$APPDIR/usr/share/org.gnome.Paperboy/tools/html2rss"
-  cp "$HTML2RSS_FOUND" "$APPDIR/usr/bin/html2rss"
-  chmod +x "$APPDIR/usr/share/org.gnome.Paperboy/tools/html2rss"
-  chmod +x "$APPDIR/usr/bin/html2rss"
-  echo "Copied html2rss into AppDir from: $HTML2RSS_FOUND"
+  mkdir -p "$APPDIR/usr/libexec/paperboy"
+  cp "$HTML2RSS_FOUND" "$APPDIR/usr/libexec/paperboy/html2rss"
+  chmod +x "$APPDIR/usr/libexec/paperboy/html2rss"
+  echo "Copied html2rss into AppDir libexec from: $HTML2RSS_FOUND"
 else
   echo "Warning: html2rss binary not found in expected build locations"
 fi
