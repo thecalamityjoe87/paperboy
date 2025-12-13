@@ -20,7 +20,8 @@ using Gtk;
 public class ToastWidget : GLib.Object {
     // Create a custom toast widget that looks like Adwaita toast
     public static Gtk.Box create_toast_widget(string message, bool show_close_button, owned VoidFunc? dismiss_callback = null) {
-        var toast_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
+        // Reduce inter-child spacing so text and close button sit closer
+        var toast_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         toast_box.add_css_class("custom-toast");
         toast_box.set_halign(Gtk.Align.CENTER);
         toast_box.set_valign(Gtk.Align.END);  // Bottom of content area
