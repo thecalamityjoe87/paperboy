@@ -193,6 +193,15 @@ public class LoadingStateManager : GLib.Object {
     public void hide_error_message() {
         if (error_message_box != null) {
             error_message_box.set_visible(false);
+            // CRITICAL: Restore main content visibility when hiding error
+            // show_error_message() hides main_content_container, so we must restore it
+            // This fixes the dead-end issue where articles are invisible after clicking
+            // a new category following an RSS timeout error
+            try {
+                if (window.main_content_container != null && !initial_phase) {
+                    window.main_content_container.set_visible(true);
+                }
+            } catch (GLib.Error e) { }
         }
     }
 
@@ -397,12 +406,37 @@ public class LoadingStateManager : GLib.Object {
 
                 // Reveal if we have at least 3 articles, or if we've been waiting a while
                 if (article_count >= 3) {
-                    reveal_initial_content();
+                    // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
+                    // After RSS timeout, initial_phase is already false, so directly show the container
+                    try {
+                        initial_phase = false;
+                        hero_image_loaded = false;
+                        if (initial_reveal_timeout_id > 0) {
+                            Source.remove(initial_reveal_timeout_id);
+                            initial_reveal_timeout_id = 0;
+                        }
+                        if (absolute_reveal_timeout_id > 0) {
+                            Source.remove(absolute_reveal_timeout_id);
+                            absolute_reveal_timeout_id = 0;
+                        }
+                        hide_loading_spinner();
+                        if (window.main_content_container != null) {
+                            window.main_content_container.set_visible(true);
+                        }
+                    } catch (GLib.Error e) { }
                 } else {
                     // Not enough articles yet - set a longer timeout
                     initial_reveal_timeout_id = GLib.Timeout.add(2000, () => {
                         initial_reveal_timeout_id = 0;
-                        reveal_initial_content();
+                        // CRITICAL: Same fix here
+                        try {
+                            initial_phase = false;
+                            hero_image_loaded = false;
+                            hide_loading_spinner();
+                            if (window.main_content_container != null) {
+                                window.main_content_container.set_visible(true);
+                            }
+                        } catch (GLib.Error e) { }
                         return false;
                     });
                 }

@@ -20,26 +20,41 @@ public class FetchNewsController {
     // Non-capturing label forwarder used for passing a stable callback
     // into worker fetchers. It does not close over any stack state so
     // it is safe to pass across thread boundaries. It uses
-    // FetchContext.current_context() at execution time to resolve the
+    // Global label forwarder: looks up the current FetchContext and the
     // active window and update the header accordingly.
     public static void global_forward_label(string? text) {
         Idle.add(() => {
-            var cur = FetchContext.current_context();
-            if (cur == null || !cur.is_valid()) return false;
-            var w = cur.window;
-            if (w == null) return false;
+            var ctx = FetchContext.current_context();
+            if (ctx == null) return false;
+            var win = ctx.window;
+            if (win == null) return false;
+
+            // Detect errors in the label text and immediately show error message
             try {
                 if (text != null) {
                     string lower = text.down();
                     if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
-                        var ls = w.loading_state;
-                        if (ls != null) {
-                            ls.network_failure_detected = true;
+                        if (win.loading_state != null) win.loading_state.network_failure_detected = true;
+                        // Immediately show error message and hide spinner to prevent UI dead-end
+                        win.hide_loading_spinner();
+                        win.show_error_message(text);
+                        // Cancel the timeout since we're showing error now (defensive check)
+                        if (win.loading_state != null) {
+                            var timeout_id = win.loading_state.initial_reveal_timeout_id;
+                            if (timeout_id > 0) {
+                                try {
+                                    Source.remove(timeout_id);
+                                    win.loading_state.initial_reveal_timeout_id = 0;
+                                } catch (GLib.Error e) {
+                                    warning("Failed to remove timeout: %s", e.message);
+                                }
+                            }
                         }
+                        return false;
                     }
                 }
             } catch (GLib.Error e) { }
-            try { w.update_content_header(); } catch (GLib.Error e) { }
+            try { win.update_content_header(); } catch (GLib.Error e) { }
             return false;
         });
     }
@@ -157,6 +172,9 @@ public class FetchNewsController {
             var loading_state = win.loading_state;
             if (loading_state != null) {
                 loading_state.begin_fetch();
+                // Explicitly hide any previous error messages to ensure clean state
+                // This is critical when switching categories after a timeout error
+                loading_state.hide_error_message();
             }
         } catch (GLib.Error e) { }
         try { win.update_content_header_now(); } catch (GLib.Error e) { }
@@ -166,7 +184,7 @@ public class FetchNewsController {
         // to the window for safe async access. All window access must go
         // through FetchContext validation to avoid use-after-free.
         var ctx = FetchContext.begin_new(win);
-        uint my_seq = ctx.seq;  // Keep for debug logging
+        uint my_seq = ctx.seq;
 
         // Safety timeout: reveal after a reasonable maximum to avoid blocking forever
         var loading_state = win.loading_state;
@@ -191,7 +209,18 @@ public class FetchNewsController {
                         }
                     } catch (GLib.Error e) { }
                 } else {
-                    w.reveal_initial_content();
+                    // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
+                    // After RSS timeout, initial_phase is already false, so directly show the container
+                    try {
+                        if (w.loading_state != null) {
+                            w.loading_state.initial_phase = false;
+                            w.loading_state.hero_image_loaded = false;
+                        }
+                        w.hide_loading_spinner();
+                        if (w.main_content_container != null) {
+                            w.main_content_container.set_visible(true);
+                        }
+                    } catch (GLib.Error e) { }
                 }
                 ls.initial_reveal_timeout_id = 0;
                 return false;
@@ -888,8 +917,18 @@ public class FetchNewsController {
                             if (w.loading_state != null) {
                                 w.loading_state.awaiting_adaptive_layout = false;
                                 // Trigger reveal if items are already populated
-                                if (w.loading_state.initial_items_populated && w.loading_state.initial_phase) {
-                                    w.loading_state.reveal_initial_content();
+                                if (w.loading_state.initial_items_populated) {
+                                    // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
+                                    try {
+                                        if (w.loading_state != null) {
+                                            w.loading_state.initial_phase = false;
+                                            w.loading_state.hero_image_loaded = false;
+                                        }
+                                        w.hide_loading_spinner();
+                                        if (w.main_content_container != null) {
+                                            w.main_content_container.set_visible(true);
+                                        }
+                                    } catch (GLib.Error e) { }
                                 }
                             }
                         } catch (GLib.Error e) { }
@@ -944,6 +983,16 @@ public class FetchNewsController {
                         string lower = text.down();
                         if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
                             if (w.loading_state != null) w.loading_state.network_failure_detected = true;
+                            // Immediately show error message and hide spinner to prevent UI dead-end
+                            // This ensures the user can navigate to other categories after a timeout
+                            w.hide_loading_spinner();
+                            w.show_error_message(text);
+                            // Cancel the timeout since we're showing error now
+                            if (w.loading_state != null && w.loading_state.initial_reveal_timeout_id > 0) {
+                                Source.remove(w.loading_state.initial_reveal_timeout_id);
+                                w.loading_state.initial_reveal_timeout_id = 0;
+                            }
+                            return false;
                         }
                     }
                 } catch (GLib.Error e) { }
@@ -1099,8 +1148,14 @@ public class FetchNewsController {
             } catch (GLib.Error e) { }
 
             // Reveal content immediately - saved articles are local, no network wait needed
-            try { w.reveal_initial_content(); } catch (GLib.Error e) { }
+            // CRITICAL: Don't use reveal_initial_content() here because it exits early if initial_phase is false
+            // After an RSS timeout error, initial_phase is already false, so we must directly show the container
             try { w.hide_loading_spinner(); } catch (GLib.Error e) { }
+            try {
+                if (w.main_content_container != null) {
+                    w.main_content_container.set_visible(true);
+                }
+            } catch (GLib.Error e) { }
             return false;
         });
 

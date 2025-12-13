@@ -706,7 +706,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Create session with timeout (max_conns properties are read-only in libsoup3)
         session = new Soup.Session() {
-            timeout = 15 // Default timeout in seconds
+            timeout = 10 // Default timeout in seconds (reduced for faster failure recovery)
         };
 
         // Initialize article window with image handler for loading preview images
