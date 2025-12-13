@@ -1,4 +1,4 @@
-/* Paperboy - A simple news reader application
+/* Paperboy - A simple news reader and RSS application
  * 
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
@@ -16,11 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Gtk;
-using Adw;
-using Soup;
-using Gdk;
- 
 public class PaperboyApp : Adw.Application {
     public PaperboyApp() {
         GLib.Object(application_id: "io.github.thecalamityjoe87.Paperboy", flags: ApplicationFlags.FLAGS_NONE);
