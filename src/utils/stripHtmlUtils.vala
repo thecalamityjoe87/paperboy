@@ -51,6 +51,16 @@ public class stripHtmlUtils {
         out_str = out_str.replace("&rdquo;", "\"");
         out_str = out_str.replace("&ldquo;", "\"");
 
+        // Second pass for double-encoded entities (e.g., &amp;mdash; → &mdash; → —)
+        out_str = out_str.replace("&mdash;", "—");
+        out_str = out_str.replace("&ndash;", "–");
+        out_str = out_str.replace("&hellip;", "…");
+        out_str = out_str.replace("&rsquo;", "'");
+        out_str = out_str.replace("&lsquo;", "'");
+        out_str = out_str.replace("&rdquo;", "\"");
+        out_str = out_str.replace("&ldquo;", "\"");
+        out_str = out_str.replace("&nbsp;", " ");
+
         // Convert &amp;#123; → &#123;
         while (out_str.index_of("&amp;#") >= 0)
             out_str = out_str.replace("&amp;#", "&#");
