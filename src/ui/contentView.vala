@@ -35,8 +35,6 @@ public class ContentView : GLib.Object {
     public Gtk.Image source_logo;
     public Gtk.Label source_label;
     public Gtk.Overlay main_overlay;
-    public Adw.ToastOverlay toast_overlay;
-    public Gtk.Box toast_viewport_proxy;
     public Gtk.Box loading_container;
     public Gtk.Spinner loading_spinner;
     public Gtk.Label loading_label;
@@ -187,16 +185,6 @@ public class ContentView : GLib.Object {
         main_overlay = new Gtk.Overlay();
         main_overlay.set_child(main_content_container);
 
-        // Create a content-local toast overlay so toasts can be centered
-        // relative to the visible scrolled viewport instead of the whole window.
-        // The overlay child should NOT expand, so it doesn't block pointer events.
-        toast_overlay = new Adw.ToastOverlay();
-        toast_viewport_proxy = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-        // DO NOT expand - this prevents blocking the scrollable area
-        toast_viewport_proxy.set_hexpand(false);
-        toast_viewport_proxy.set_vexpand(false);
-        toast_overlay.set_child(toast_viewport_proxy);
-
         // Loading spinner container (initially hidden) - centered over main content
         loading_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 16);
         loading_container.set_halign(Gtk.Align.CENTER);
@@ -338,16 +326,6 @@ public class ContentView : GLib.Object {
         error_message_box.append(error_inner);
         error_message_box.set_visible(false);
 
-        // Compose content area
-        // Ensure the main content (wrapped in an overlay) is part of the
-        // content box so it becomes visible inside the scrolled viewport.
-        // The overlay contains the main_content_container as its child and
-        // any loading overlays; append the overlay rather than the raw
-        // container so overlays render correctly on top of content.
-        // The content-local toast overlay is intentionally not appended
-        // inside the scrolled content here. It will be added to the
-        // window's `root_overlay` so toasts are not clipped by the
-        // scrollable content area.
         content_box.append(main_overlay);
         content_area.append(content_box);
         main_scrolled.set_child(content_area);

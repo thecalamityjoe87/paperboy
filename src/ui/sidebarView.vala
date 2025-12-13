@@ -500,21 +500,16 @@ public class SidebarView : GLib.Object {
     }
     
     private void add_rss_feed(string name, string url) {
-        var loading_toast = new Adw.Toast("Discovering feed...");
-        loading_toast.set_timeout(0);
-        window.toast_overlay.add_toast(loading_toast);
-        
+        // Use the centralized ToastManager instead of creating Adw.Toast directly
+        try { if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Discovering feed..."); } catch (GLib.Error _) { }
+
         manager.add_rss_feed(name, url, (success, discovered_name) => {
-            loading_toast.dismiss();
-            
+            try { if (window.toast_manager != null) window.toast_manager.clear_persistent_toast(); } catch (GLib.Error _) { }
+
             if (success) {
-                var toast = new Adw.Toast("RSS feed added: " + discovered_name);
-                toast.set_timeout(3);
-                window.toast_overlay.add_toast(toast);
+                try { if (window.toast_manager != null) window.toast_manager.show_toast("RSS feed added: " + discovered_name); } catch (GLib.Error _) { }
             } else {
-                var toast = new Adw.Toast("Failed to add RSS feed");
-                toast.set_timeout(3);
-                window.toast_overlay.add_toast(toast);
+                try { if (window.toast_manager != null) window.toast_manager.show_toast("Failed to add RSS feed"); } catch (GLib.Error _) { }
             }
         });
     }

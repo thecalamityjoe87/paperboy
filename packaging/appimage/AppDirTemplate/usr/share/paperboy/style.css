@@ -17,12 +17,6 @@
     border-radius: 12px 12px 0 0;
 }
 
-.card image {
-}
-
-.card label {
-}
-
 /* Small pill category chip overlaid on images */
 .category-chip {
     background-color: alpha(black, 0.6);
@@ -505,9 +499,11 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     background-color: alpha(@window_fg_color, 0.9);
     color: @window_bg_color;
     border-radius: 9999px;
-    padding: 8px 16px;
+    /* Give more horizontal padding so circular close button doesn't get clipped */
+    padding: 8px 24px;
     box-shadow: 0 2px 8px alpha(@shade_color, 0.25);
     min-height: 36px;
+    overflow: visible; /* allow button shadows/outline to render fully */
 }
 
 .custom-toast-label {
@@ -516,10 +512,15 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 }
 
 .custom-toast-close {
-    min-width: 24px;
-    min-height: 24px;
-    padding: 0;
-    margin: 0;
+    /* Slightly larger hit area and a small inner padding to avoid
+       visual clipping of the circular button. */
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px;
+    margin-left: 6px;
+    margin-right: 0;
+    border-radius: 9999px;
+    box-shadow: none; /* avoid inner shadow clipping */
 }
 
 .custom-toast-close:hover {

@@ -68,8 +68,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         public ArticlePane article_pane;
         public ArticleSheet article_sheet;
         public Gtk.Overlay root_overlay;
-        public Adw.ToastOverlay toast_overlay;
-        public Adw.ToastOverlay? content_toast_overlay;
         public ToastManager? toast_manager;
         private Gtk.Widget? current_toast_widget;
         public Gtk.Widget dim_overlay;
@@ -389,9 +387,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     source_label = content_view.source_label;
     content_box = content_view.content_box;
     main_scrolled = content_view.main_scrolled;
-    // Wire content-local toast overlay so we can center toasts inside content
-    try { this.content_toast_overlay = content_view.toast_overlay; } catch (GLib.Error e) { this.content_toast_overlay = null; }
-
     // Instantiate LayoutManager and wire container refs
     layout_manager = new Managers.LayoutManager(this);
     layout_manager.main_content_container = content_view.main_content_container;
@@ -674,10 +669,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Initialize main content container size for initial state
         update_main_content_size(true);
 
-        // Wrap split_view with toast overlay for notifications
-        toast_overlay = new Adw.ToastOverlay();
-        toast_overlay.set_child(split_view);
-        set_content(toast_overlay);
+        // Set the constructed split view as the window content
+        set_content(split_view);
 
         // Initialize toast manager with root_overlay so custom toasts
         // can be positioned in the content area without blocking scrolling
