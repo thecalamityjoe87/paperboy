@@ -21,6 +21,66 @@ public class UnreadFetchService {
     // DO NOT use FetchContext here - it would cancel the main content fetch!
     private static weak NewsWindow? _unread_window = null;
 
+    // Separate session with shorter timeout for background metadata fetches
+    // This ensures background fetches fail fast and don't block the UI
+    private static Soup.Session? _metadata_session = null;
+
+    // Fetch queue and throttling
+    // NOTE: Static Gee collections must be initialized lazily in Vala
+    private static Gee.Queue<FetchTask>? _fetch_queue = null;
+    private static int _active_fetches = 0;
+    private const int MAX_CONCURRENT_FETCHES = 3;  // Limit concurrent fetches to prevent resource contention
+
+    // Task types for the fetch queue
+    private enum TaskType {
+        CATEGORY,
+        RSS_FEED,
+        LOCAL_FEED
+    }
+
+    private class FetchTask {
+        public TaskType type;
+        public string? category;
+        public NewsSource? source;
+        public string? rss_url;
+        public string? rss_name;
+        public string? category_id;
+
+        public FetchTask.for_category(string cat, NewsSource src) {
+            this.type = TaskType.CATEGORY;
+            this.category = cat;
+            this.source = src;
+        }
+
+        public FetchTask.for_rss(string url, string name, string cat_id) {
+            this.type = TaskType.RSS_FEED;
+            this.rss_url = url;
+            this.rss_name = name;
+            this.category_id = cat_id;
+        }
+
+        public FetchTask.for_local(string url) {
+            this.type = TaskType.LOCAL_FEED;
+            this.rss_url = url;
+        }
+    }
+
+    private static Soup.Session get_metadata_session() {
+        if (_metadata_session == null) {
+            _metadata_session = new Soup.Session() {
+                timeout = 5  // Shorter timeout for background fetches (5 seconds)
+            };
+        }
+        return _metadata_session;
+    }
+
+    private static Gee.Queue<FetchTask> get_fetch_queue() {
+        if (_fetch_queue == null) {
+            _fetch_queue = new Gee.LinkedList<FetchTask>();
+        }
+        return _fetch_queue;
+    }
+
     private static void global_metadata_add(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
         try {
             var win = _unread_window;
@@ -46,6 +106,104 @@ public class UnreadFetchService {
         } catch (GLib.Error e) { }
     }
 
+    private static void enqueue_fetch(FetchTask task) {
+        get_fetch_queue().offer(task);
+        process_fetch_queue();
+    }
+
+    private static void process_fetch_queue() {
+        var queue = get_fetch_queue();
+        while (_active_fetches < MAX_CONCURRENT_FETCHES && !queue.is_empty) {
+            var task = queue.poll();
+            if (task == null) break;
+
+            _active_fetches++;
+
+            // Debug logging
+            try {
+                if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) {
+                    warning("Fetch queue: %d pending, %d active (starting %s)", 
+                            get_fetch_queue().size, _active_fetches,
+                            task.type == TaskType.CATEGORY ? task.category : 
+                            task.type == TaskType.RSS_FEED ? task.rss_name : "local feed");
+                }
+            } catch (GLib.Error e) { }
+
+            // Execute the fetch based on task type
+            var win = _unread_window;
+            if (win == null) {
+                _active_fetches--;
+                continue;
+            }
+
+            switch (task.type) {
+                case TaskType.CATEGORY:
+                    NewsService.fetch(
+                        task.source,
+                        task.category,
+                        "",  // no search query
+                        get_metadata_session(),
+                        (s) => {},  // no label updates
+                        () => {},   // no clear
+                        (title, url, thumb, cat_id, src_name) => {
+                            global_metadata_add(title, url, thumb, cat_id, src_name);
+                        }
+                    );
+                    // Decrement counter after a short delay to allow fetch to start
+                    GLib.Timeout.add(100, () => {
+                        _active_fetches--;
+                        process_fetch_queue();
+                        return false;
+                    });
+                    break;
+
+                case TaskType.RSS_FEED:
+                    RssFeedProcessor.fetch_rss_url(
+                        task.rss_url,
+                        task.rss_name,
+                        task.rss_name,
+                        task.category_id,
+                        "",  // no search query
+                        get_metadata_session(),
+                        (s) => {},  // no label updates
+                        () => {},   // no clear
+                        (title, url, thumb, cat_id, src_name) => {
+                            global_metadata_add(title, url, thumb, cat_id, src_name);
+                        }
+                    );
+                    // Decrement counter after a short delay
+                    GLib.Timeout.add(100, () => {
+                        _active_fetches--;
+                        process_fetch_queue();
+                        return false;
+                    });
+                    break;
+
+                case TaskType.LOCAL_FEED:
+                    RssFeedProcessor.fetch_rss_url(
+                        task.rss_url,
+                        "Local Feed",
+                        "Local News",
+                        "local_news",
+                        "",  // no search query
+                        get_metadata_session(),
+                        (s) => {},  // no label updates
+                        () => {},   // no clear
+                        (title, url, thumb, cat_id, src_name) => {
+                            global_metadata_add(title, url, thumb, cat_id, src_name);
+                        }
+                    );
+                    // Decrement counter after a short delay
+                    GLib.Timeout.add(100, () => {
+                        _active_fetches--;
+                        process_fetch_queue();
+                        return false;
+                    });
+                    break;
+            }
+        }
+    }
+
     // Fetch article metadata for all *regular* categories and RSS sources in background
     // to populate unread counts. Special categories like myfeed, local_news, and saved
     // are handled separately and must not be treated as normal fetchable categories here.
@@ -56,23 +214,23 @@ public class UnreadFetchService {
         // DO NOT use FetchContext.begin_new() here - it would cancel the main content fetch!
         _unread_window = win;
 
-        // Regular news API categories plus Paperboy-provided frontpage/topten.
-        string[] categories = {"frontpage", "topten",
-                              "general", "us", "sports", "science", "health", "technology",
-                              "business", "entertainment", "politics", "lifestyle", "markets", "industries",
-                              "green", "wealth", "economics"};
+        // Clear any existing queue
+        get_fetch_queue().clear();
+        _active_fetches = 0;
 
-        // Fetch metadata in background (counts will be available when user visits category)
-        foreach (string cat in categories) {
-            NewsService.fetch(
-                win.effective_news_source(),
-                cat,
-                "",  // no search query
-                win.session,
-                (s) => {},  // no label updates
-                () => {},   // no clear
-                UnreadFetchService.global_metadata_add  // global forwarder
-            );
+        // Priority categories - fetch these first to ensure they load even if RSS feeds timeout
+        string[] priority_categories = {"frontpage", "topten"};
+        foreach (string cat in priority_categories) {
+            enqueue_fetch(new FetchTask.for_category(cat, win.effective_news_source()));
+        }
+
+        // Regular news API categories
+        string[] regular_categories = {"general", "us", "sports", "science", "health", "technology",
+                                       "business", "entertainment", "politics", "lifestyle", "markets", 
+                                       "industries", "green", "wealth", "economics"};
+
+        foreach (string cat in regular_categories) {
+            enqueue_fetch(new FetchTask.for_category(cat, win.effective_news_source()));
         }
 
         // Fetch local_news articles from user's configured local feeds file
@@ -87,17 +245,7 @@ public class UnreadFetchService {
                     foreach (string line in lines) {
                         string u = line.strip();
                         if (u.length == 0) continue;
-                        RssFeedProcessor.fetch_rss_url(
-                            u,
-                            "Local Feed",
-                            "Local News",
-                            "local_news",
-                            "",  // no search query
-                            win.session,
-                            (s) => {},  // no label updates
-                            () => {},   // no clear
-                            UnreadFetchService.global_metadata_add
-                        );
+                        enqueue_fetch(new FetchTask.for_local(u));
                     }
                 }
             }
@@ -112,23 +260,14 @@ public class UnreadFetchService {
             if (all_sources.size > 0) {
                 foreach (var rss_src in all_sources) {
                     string rss_category_id = "rssfeed:" + rss_src.url;
-                    RssFeedProcessor.fetch_rss_url(
-                        rss_src.url,
-                        rss_src.name,
-                        rss_src.name,  // category_name = source name
-                        rss_category_id,
-                        "",  // no search query
-                        win.session,
-                        (s) => {},  // no label updates
-                        () => {},   // no clear
-                        UnreadFetchService.global_metadata_add
-                    );
+                    enqueue_fetch(new FetchTask.for_rss(rss_src.url, rss_src.name, rss_category_id));
                 }
             }
         } catch (GLib.Error e) { }
 
         // Save after fetching all metadata and refresh badges
-        Timeout.add(5000, () => {
+        // Increased timeout to 10 seconds to allow more time for throttled fetches
+        Timeout.add(10000, () => {
             try {
                 var w = _unread_window;
                 if (w == null) return false;
