@@ -258,6 +258,9 @@ namespace Managers {
         
         public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
 
+            // Decode HTML entities in title (e.g., &mdash; → —, &amp; → &)
+            string decoded_title = stripHtmlUtils.strip_html(title);
+
             string check_category = original_category ?? window.prefs.category;
 
             // Use helper to check if category has article limits
@@ -340,7 +343,7 @@ namespace Managers {
                     enable_hero_context_menu = true;
                 }
 
-                var hero_card = new HeroCard(title, url, max_hero_height, default_hero_h, hero_chip, enable_hero_context_menu, window.article_state_store, window);
+                var hero_card = new HeroCard(decoded_title, url, max_hero_height, default_hero_h, hero_chip, enable_hero_context_menu, window.article_state_store, window);
 
                 string _norm = window.normalize_article_url(url);
 
@@ -388,7 +391,7 @@ namespace Managers {
                     window.article_state_store.register_article(_norm, category_id, source_name);
                 }
 
-                hero_card.activated.connect((s) => { try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { } });
+                hero_card.activated.connect((s) => { try { window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { } });
 
                 // Connect context menu signals
                 hero_card.open_in_app_requested.connect((article_url) => {
@@ -428,7 +431,7 @@ namespace Managers {
                                     try { window.fetch_news(); } catch (GLib.Error e) { }
                                 }
                             } else {
-                                window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                                window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name);
                                 window.show_toast("Added article to saved");
                                 // Refresh saved badge
                                 try { window.sidebar_manager.update_badge_for_category("saved"); } catch (GLib.Error e) { }
@@ -460,7 +463,7 @@ namespace Managers {
                             window.article_pane.show_article_preview(t, u, thumb, cat, src);
                         });
                     }
-                    featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
+                    featured_carousel_items.add(new ArticleItem(decoded_title, url, thumbnail_url, category_id, source_name));
                     featured_carousel_category = category_id;
 
                     hero_carousel.add_initial_slide(hero_card.root);
@@ -521,7 +524,7 @@ namespace Managers {
 
             // Build category chip and create slide via HeroCarousel
             var slide_chip = window.build_category_chip(slide_display_cat);
-            var components = hero_carousel.create_article_slide(title, url, thumbnail_url, category_id, source_name, slide_chip);
+            var components = hero_carousel.create_article_slide(decoded_title, url, thumbnail_url, category_id, source_name, slide_chip);
             var slide = components.slide;
             var slide_image = components.image;
 
@@ -559,7 +562,7 @@ namespace Managers {
                 } catch (GLib.Error e) { }
             }
 
-            featured_carousel_items.add(new ArticleItem(title, url, thumbnail_url, category_id, source_name));
+            featured_carousel_items.add(new ArticleItem(decoded_title, url, thumbnail_url, category_id, source_name));
 
             // Register article for unread count tracking
             // Carousel slides 2-5 need to be registered just like the first hero card
@@ -612,7 +615,7 @@ namespace Managers {
 
         var chip = window.build_category_chip(card_display_cat);
 
-        var article_card = new ArticleCard(title, url, col_w, img_h, chip, variant, window.article_state_store, window);
+        var article_card = new ArticleCard(decoded_title, url, col_w, img_h, chip, variant, window.article_state_store, window);
 
         // Enforce uniform card size for Top Ten view so rows line up evenly.
         if (window.prefs.category == "topten") {
@@ -684,7 +687,7 @@ namespace Managers {
         }
 
         article_card.activated.connect((s) => {
-            try { window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { }
+            try { window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); } catch (GLib.Error e) { }
         });
 
         // Connect context menu signals
@@ -723,7 +726,7 @@ namespace Managers {
                             try { window.fetch_news(); } catch (GLib.Error e) { }
                         }
                     } else {
-                        window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                        window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name);
                         window.show_toast("Added article to saved");
                     }
                 }
