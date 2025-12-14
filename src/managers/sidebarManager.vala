@@ -124,36 +124,30 @@ public class SidebarManager : GLib.Object {
         });
 
         // Listen for article viewed/unviewed changes so badges update immediately
-        try {
             if (window.article_state_store != null) {
                 window.article_state_store.viewed_status_changed.connect((url, viewed) => {
                     // Run in Idle to avoid contention with the emitter
                     Idle.add(() => {
-                        try {
                             // Update categories containing this URL
                             var cats = window.article_state_store.get_categories_for_url(url);
                             foreach (var c in cats) {
-                                try { update_badge_for_category(c); } catch (GLib.Error e) { }
+                                update_badge_for_category(c);
                             }
 
                             // Update sources containing this URL
                             var srcs = window.article_state_store.get_sources_for_url(url);
                             foreach (var s in srcs) {
-                                try { update_badge_for_source(s); } catch (GLib.Error e) { }
+                                update_badge_for_source(s);
                             }
 
                             // If the article is saved, update the Saved badge as well
-                            try {
                                 if (window.article_state_store.is_saved(url)) {
                                     update_badge_for_category("saved");
                                 }
-                            } catch (GLib.Error e) { }
-                        } catch (GLib.Error e) { }
                         return false;
                     });
                 });
             }
-        } catch (GLib.Error e) { }
     }
 
     private void load_expanded_states() {
@@ -640,7 +634,7 @@ public class SidebarManager : GLib.Object {
     public void schedule_badge_refresh(string category_id, uint fetch_seq, uint delay_ms = 1500) {
         Timeout.add(delay_ms, () => {
             if (fetch_seq != FetchContext.current) return false;
-            try { update_badge_for_category(category_id); } catch (GLib.Error e) { }
+                update_badge_for_category(category_id);
             return false;
         });
     }
@@ -656,7 +650,7 @@ public class SidebarManager : GLib.Object {
     public void schedule_source_badge_refresh(string source_name, uint fetch_seq, uint delay_ms = 1500) {
         Timeout.add(delay_ms, () => {
             if (fetch_seq != FetchContext.current) return false;
-            try { update_badge_for_source(source_name); } catch (GLib.Error e) { }
+                update_badge_for_source(source_name);
             return false;
         });
     }
@@ -795,11 +789,9 @@ public class SidebarManager : GLib.Object {
         // If we were viewing this source, navigate to Front Page
         if (is_currently_viewing) {
             GLib.Idle.add(() => {
-                try {
-                    window.prefs.category = "frontpage";
-                    window.prefs.save_config();
-                    window.fetch_news();
-                } catch (GLib.Error e) { }
+                window.prefs.category = "frontpage";
+                window.prefs.save_config();
+                window.fetch_news();
                 return false;
             });
         }

@@ -38,7 +38,6 @@ public class PlaceholderBuilder : GLib.Object {
             // Try to load and display the no-image.png icon
             string? icon_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "no-image.png"));
             if (icon_path != null) {
-                try {
                     // Calculate target icon size (40% of placeholder)
                     double max_size = double.min(width, height) * 0.4;
                     int target_w = (int)max_size;
@@ -47,10 +46,10 @@ public class PlaceholderBuilder : GLib.Object {
                     if (target_h < 1) target_h = 1;
 
                     // Load the icon
-                    var icon_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
-                    if (icon_pixbuf != null) {
-                        int orig_w = icon_pixbuf.get_width();
-                        int orig_h = icon_pixbuf.get_height();
+                var icon_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
+                if (icon_pixbuf != null) {
+                    int orig_w = icon_pixbuf.get_width();
+                    int orig_h = icon_pixbuf.get_height();
 
                         // Scale down if needed
                         int scaled_w = orig_w;
@@ -63,7 +62,7 @@ public class PlaceholderBuilder : GLib.Object {
                             if (scaled_h < 1) scaled_h = 1;
                         }
 
-                        Gdk.Pixbuf? scaled_icon;
+                        Gdk.Pixbuf? scaled_icon = null;
                         if (scaled_w != orig_w || scaled_h != orig_h) {
                             scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, scaled_w, scaled_h), icon_path, scaled_w, scaled_h);
                         } else {
@@ -78,22 +77,15 @@ public class PlaceholderBuilder : GLib.Object {
                             cr.paint_with_alpha(0.7);
                         }
                     }
-                } catch (GLib.Error e) {
-                    // If icon loading fails, continue without it
-                }
             }
 
             // Cache gradient placeholder pixbuf by size so it's managed centrally
             string key = "pixbuf::placeholder:gradient::%dx%d".printf(width, height);
             var cached = ImageCache.get_global().get(key);
             if (cached == null) cached = ImageCache.get_global().get_or_from_surface(key, surface, 0, 0, width, height);
-            try {
-                // Use get_texture() to reuse cached texture and avoid GPU memory leak
-                var tex = ImageCache.get_global().get_texture(key);
-                if (tex != null) image.set_paintable(tex);
-            } catch (GLib.Error e) { }
-            try {
-            } catch (GLib.Error e) { }
+            // Use get_texture() to reuse cached texture and avoid GPU memory leak
+            var tex = ImageCache.get_global().get_texture(key);
+            if (tex != null) image.set_paintable(tex);
         } catch (GLib.Error e) {
             // best-effort: leave image blank on error
         }
@@ -155,11 +147,8 @@ public class PlaceholderBuilder : GLib.Object {
 
             // Load icon and request a scaled variant from ImageCache
             // Check if this is an SVG (vector) or raster icon
-            bool is_svg = false;
-            try {
-                string ipath = icon_path != null ? icon_path : "";
-                is_svg = ipath.down().has_suffix(".svg");
-            } catch (GLib.Error e) { is_svg = false; }
+            string ipath = icon_path != null ? icon_path : "";
+            bool is_svg = ipath.down().has_suffix(".svg");
 
             // Calculate target icon size (50% of placeholder)
             double max_size = double.min(width, height) * 0.5;
@@ -213,13 +202,9 @@ public class PlaceholderBuilder : GLib.Object {
             string key = "pixbuf::placeholder:icon:%s::%dx%d".printf(icon_path, width, height);
             var cached = ImageCache.get_global().get(key);
             if (cached == null) cached = ImageCache.get_global().get_or_from_surface(key, surface, 0, 0, width, height);
-            try {
-                // Use get_texture() to reuse cached texture and avoid GPU memory leak
-                var tex = ImageCache.get_global().get_texture(key);
-                if (tex != null) image.set_paintable(tex);
-            } catch (GLib.Error e) { }
-            try {
-            } catch (GLib.Error e) { }
+            // Use get_texture() to reuse cached texture and avoid GPU memory leak
+            var tex = ImageCache.get_global().get_texture(key);
+            if (tex != null) image.set_paintable(tex);
         } catch (GLib.Error e) {
             // Fallback to text-based placeholder
             string src = "News Source";
@@ -297,13 +282,9 @@ public class PlaceholderBuilder : GLib.Object {
             string key = "pixbuf::placeholder:text:%s::%dx%d".printf(source_name, width, height);
             var cached = ImageCache.get_global().get(key);
             if (cached == null) cached = ImageCache.get_global().get_or_from_surface(key, surface, 0, 0, width, height);
-            try {
-                // Use get_texture() to reuse cached texture and avoid GPU memory leak
-                var tex = ImageCache.get_global().get_texture(key);
-                if (tex != null) image.set_paintable(tex);
-            } catch (GLib.Error e) { }
-            try {
-            } catch (GLib.Error e) { }
+            // Use get_texture() to reuse cached texture and avoid GPU memory leak
+            var tex = ImageCache.get_global().get_texture(key);
+            if (tex != null) image.set_paintable(tex);
         } catch (GLib.Error e) {
             // As last resort fall back to a simple gradient
             PlaceholderBuilder.create_gradient_placeholder(image, width, height);
@@ -328,86 +309,77 @@ public class PlaceholderBuilder : GLib.Object {
             if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
             string? use_path = local_icon;
             if (use_path != null) {
-                try {
-                    var sm = Adw.StyleManager.get_default();
-                    if (sm != null && sm.dark) {
-                        string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                        if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
-                        if (white_cand != null) use_path = white_cand;
+                var sm = Adw.StyleManager.get_default();
+                if (sm != null && sm.dark) {
+                    string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
+                    if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
+                    if (white_cand != null) use_path = white_cand;
+                }
+
+                // Check if this is an SVG (vector) or raster icon
+                string upath = use_path != null ? use_path : "";
+                bool is_svg = upath.down().has_suffix(".svg");
+
+                // Calculate target icon size (50% of placeholder)
+                double max_icon = double.min(width, height) * 0.5;
+                int target_w = (int)max_icon;
+                int target_h = (int)max_icon;
+                if (target_w < 1) target_w = 1;
+                if (target_h < 1) target_h = 1;
+
+                // For SVG: load directly at target size to avoid rasterization artifacts
+                // For PNG: load original then scale down if needed
+                Gdk.Pixbuf? icon_pix = null;
+                if (is_svg) {
+                    icon_pix = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(use_path, target_w, target_h), use_path, target_w, target_h);
+                } else {
+                    icon_pix = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(use_path, 0, 0), use_path, 0, 0);
+                }
+
+                if (icon_pix != null) {
+                    int orig_w = icon_pix.get_width();
+                    int orig_h = icon_pix.get_height();
+
+                    // For raster icons, scale down if needed (never upscale)
+                    int scaled_w = orig_w;
+                    int scaled_h = orig_h;
+                    if (!is_svg && (orig_w > target_w || orig_h > target_h)) {
+                        double scale = double.min((double)target_w / (double)orig_w, (double)target_h / (double)orig_h);
+                        scaled_w = (int)(orig_w * scale);
+                        scaled_h = (int)(orig_h * scale);
+                        if (scaled_w < 1) scaled_w = 1;
+                        if (scaled_h < 1) scaled_h = 1;
                     }
-                } catch (GLib.Error e) { }
 
-                try {
-                    // Check if this is an SVG (vector) or raster icon
-                    bool is_svg = false;
-                    try {
-                        string upath = use_path != null ? use_path : "";
-                        is_svg = upath.down().has_suffix(".svg");
-                    } catch (GLib.Error e) { is_svg = false; }
-
-                    // Calculate target icon size (50% of placeholder)
-                    double max_icon = double.min(width, height) * 0.5;
-                    int target_w = (int)max_icon;
-                    int target_h = (int)max_icon;
-                    if (target_w < 1) target_w = 1;
-                    if (target_h < 1) target_h = 1;
-
-                    // For SVG: load directly at target size to avoid rasterization artifacts
-                    // For PNG: load original then scale down if needed
-                    Gdk.Pixbuf? icon_pix;
-                    if (is_svg) {
-                        icon_pix = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(use_path, target_w, target_h), use_path, target_w, target_h);
+                    Gdk.Pixbuf? scaled = null;
+                    if (scaled_w != orig_w || scaled_h != orig_h) {
+                        scaled = ImageCache.get_global().get_or_scale_pixbuf("pixbuf::file:%s::%dx%d".printf(use_path, scaled_w, scaled_h), icon_pix, scaled_w, scaled_h);
                     } else {
-                        icon_pix = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(use_path, 0, 0), use_path, 0, 0);
+                        scaled = icon_pix;
                     }
 
-                    if (icon_pix != null) {
-                        int orig_w = icon_pix.get_width();
-                        int orig_h = icon_pix.get_height();
+                    var surface = new ImageSurface(Format.ARGB32, width, height);
+                    var cr = new Context(surface);
+                    var pattern = new Pattern.linear(0, 0, 0, height);
+                    pattern.add_color_stop_rgb(0, 0.80, 0.90, 0.98);
+                    pattern.add_color_stop_rgb(1, 0.70, 0.84, 0.98);
+                    cr.set_source(pattern);
+                    cr.rectangle(0, 0, width, height);
+                    cr.fill();
 
-                        // For raster icons, scale down if needed (never upscale)
-                        int scaled_w = orig_w;
-                        int scaled_h = orig_h;
-                        if (!is_svg && (orig_w > target_w || orig_h > target_h)) {
-                            double scale = double.min((double)target_w / (double)orig_w, (double)target_h / (double)orig_h);
-                            scaled_w = (int)(orig_w * scale);
-                            scaled_h = (int)(orig_h * scale);
-                            if (scaled_w < 1) scaled_w = 1;
-                            if (scaled_h < 1) scaled_h = 1;
-                        }
+                    int x = (width - scaled_w) / 2;
+                    int y = (height - scaled_h) / 2;
+                    cr.save();
+                    if (scaled != null) Gdk.cairo_set_source_pixbuf(cr, scaled, x, y);
+                    cr.paint_with_alpha(0.95);
+                    cr.restore();
 
-                        Gdk.Pixbuf? scaled;
-                        if (scaled_w != orig_w || scaled_h != orig_h) {
-                            scaled = ImageCache.get_global().get_or_scale_pixbuf("pixbuf::file:%s::%dx%d".printf(use_path, scaled_w, scaled_h), icon_pix, scaled_w, scaled_h);
-                        } else {
-                            scaled = icon_pix;
-                        }
-
-                        var surface = new ImageSurface(Format.ARGB32, width, height);
-                        var cr = new Context(surface);
-                        var pattern = new Pattern.linear(0, 0, 0, height);
-                        pattern.add_color_stop_rgb(0, 0.80, 0.90, 0.98);
-                        pattern.add_color_stop_rgb(1, 0.70, 0.84, 0.98);
-                        cr.set_source(pattern);
-                        cr.rectangle(0, 0, width, height);
-                        cr.fill();
-
-                        int x = (width - scaled_w) / 2;
-                        int y = (height - scaled_h) / 2;
-                        cr.save();
-                        if (scaled != null) Gdk.cairo_set_source_pixbuf(cr, scaled, x, y);
-                        cr.paint_with_alpha(0.95);
-                        cr.restore();
-
-                        string key = "pixbuf::placeholder:local:" + use_path + "::" + width.to_string() + "x" + height.to_string();
-                        var cached = ImageCache.get_global().get(key);
-                        if (cached == null) cached = ImageCache.get_global().get_or_from_surface(key, surface, 0, 0, width, height);
-                        try { if (cached != null) image.set_paintable(Gdk.Texture.for_pixbuf(cached)); } catch (GLib.Error e) { }
-                        try {
-                        } catch (GLib.Error e) { }
-                        return;
-                    }
-                } catch (GLib.Error e) { }
+                    string key = "pixbuf::placeholder:local:" + use_path + "::" + width.to_string() + "x" + height.to_string();
+                    var cached = ImageCache.get_global().get(key);
+                    if (cached == null) cached = ImageCache.get_global().get_or_from_surface(key, surface, 0, 0, width, height);
+                    if (cached != null) image.set_paintable(Gdk.Texture.for_pixbuf(cached));
+                    return;
+                }
             }
         } catch (GLib.Error e) { }
         // Fallback
@@ -451,11 +423,9 @@ public class PlaceholderBuilder : GLib.Object {
                 draw_h = (int)(logo_h * scale);
                 if (draw_w < 1) draw_w = 1;
                 if (draw_h < 1) draw_h = 1;
-                try {
-                    string key = "pixbuf::placeholder:logo:scaled:%dx%d::%dx%d".printf(logo_w, logo_h, draw_w, draw_h);
-                    var scaled = ImageCache.get_global().get_or_scale_pixbuf(key, logo, draw_w, draw_h);
-                    if (scaled != null) draw_pix = scaled;
-                } catch (GLib.Error e) { /* best-effort: fall back to original logo */ }
+                string key = "pixbuf::placeholder:logo:scaled:%dx%d::%dx%d".printf(logo_w, logo_h, draw_w, draw_h);
+                var scaled = ImageCache.get_global().get_or_scale_pixbuf(key, logo, draw_w, draw_h);
+                if (scaled != null) draw_pix = scaled;
             }
 
             double x = (width - draw_w) / 2.0;
@@ -466,13 +436,9 @@ public class PlaceholderBuilder : GLib.Object {
             string key = "pixbuf::placeholder:logo:%dx%d::%dx%d".printf(logo.get_width(), logo.get_height(), width, height);
             var cached = ImageCache.get_global().get(key);
             if (cached == null) cached = ImageCache.get_global().get_or_from_surface(key, surface, 0, 0, width, height);
-            try {
-                // Use get_texture() to reuse cached texture and avoid GPU memory leak
-                var tex = ImageCache.get_global().get_texture(key);
-                if (tex != null) image.set_paintable(tex);
-            } catch (GLib.Error e) { }
-            try {
-            } catch (GLib.Error e) { }
+            // Use get_texture() to reuse cached texture and avoid GPU memory leak
+            var tex = ImageCache.get_global().get_texture(key);
+            if (tex != null) image.set_paintable(tex);
         } catch (GLib.Error e) {
             PlaceholderBuilder.create_gradient_placeholder(image, width, height);
         }

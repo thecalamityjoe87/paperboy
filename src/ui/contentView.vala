@@ -225,10 +225,10 @@ public class ContentView : GLib.Object {
         personalized_message_label.add_css_class("title-4");
         personalized_message_label.set_halign(Gtk.Align.CENTER);
         personalized_message_label.set_valign(Gtk.Align.CENTER);
-        try { personalized_message_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
-        try { personalized_message_label.set_xalign(0.5f); } catch (GLib.Error e) { }
-        try { personalized_message_label.set_wrap(true); } catch (GLib.Error e) { }
-        try { personalized_message_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR); } catch (GLib.Error e) { }
+        personalized_message_label.set_justify(Gtk.Justification.CENTER);
+        personalized_message_label.set_xalign(0.5f);
+        personalized_message_label.set_wrap(true);
+        personalized_message_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
         inner_center.append(personalized_message_label);
 
         personalized_message_sub_label = new Gtk.Label("");

@@ -373,37 +373,21 @@ public class FeedUpdateManager : GLib.Object {
      * @return Path to html2rss binary or null if not found
      */
     private string? find_html2rss_binary() {
-        // First, honor an env var set by the AppRun so the runtime can point
-        // us to the AppDir's libexec location (PAPERBOY_LIBEXECDIR).
-        try {
-            string? env_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
-            if (env_libexec != null && env_libexec.length > 0) {
-                string candidate = GLib.Path.build_filename(env_libexec, "paperboy", "html2rss");
-                try {
-                    if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS | GLib.FileTest.IS_EXECUTABLE)) {
-                        GLib.message("Using html2rss via PAPERBOY_LIBEXECDIR: %s", candidate);
-                        return candidate;
-                    }
-                } catch (GLib.Error _) { }
-            }
-        } catch (GLib.Error _) { }
-
-        // Next, check configured libexecdir from build constants (system install)
-        try {
-            string libexec = BuildConstants.LIBEXECDIR;
-            if (libexec != null && libexec.length > 0) {
-                string installed = GLib.Path.build_filename(libexec, "paperboy", "html2rss");
-                try {
-                    if (GLib.FileUtils.test(installed, GLib.FileTest.EXISTS | GLib.FileTest.IS_EXECUTABLE)) {
-                        GLib.message("Using html2rss in libexecdir: %s", installed);
-                        return installed;
-                    }
-                } catch (GLib.Error _) { }
-            }
-        } catch (GLib.Error _) { }
-
         // Fallback candidates: system/AppImage locations and developer build locations
         var candidates = new Gee.ArrayList<string>();
+
+        // Environment variable override (AppRun / AppImage)
+        string? env_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
+        if (env_libexec != null && env_libexec.length > 0) {
+            candidates.add(GLib.Path.build_filename(env_libexec, "paperboy", "html2rss"));
+            candidates.add(GLib.Path.build_filename(env_libexec, "html2rss"));
+        }
+
+        // Build-time libexecdir (system install)
+        string libexec = BuildConstants.LIBEXECDIR;
+        if (libexec != null && libexec.length > 0) {
+            candidates.add(GLib.Path.build_filename(libexec, "paperboy", "html2rss"));
+        }
 
         // FHS-compliant: check libexecdir for internal binaries
         // Standard system locations (prefix-aware)
@@ -425,13 +409,9 @@ public class FeedUpdateManager : GLib.Object {
 
         // Check each candidate and return the first executable match
         foreach (string c in candidates) {
-            try {
-                if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
-                    GLib.message("Using html2rss at: %s", c);
-                    return c;
-                }
-            } catch (GLib.Error _) {
-                // ignore and continue
+            if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
+                GLib.message("Using html2rss at: %s", c);
+                return c;
             }
         }
 

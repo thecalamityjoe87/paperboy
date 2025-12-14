@@ -52,11 +52,11 @@ public class ViewStateManager : GLib.Object {
     }
 
     public void register_picture_for_url(string normalized, Gtk.Picture pic) {
-        try { url_to_picture.set(normalized, pic); } catch (GLib.Error e) { }
+        url_to_picture.set(normalized, pic);
     }
 
     public void register_card_for_url(string normalized, Gtk.Widget card) {
-        try { url_to_card.set(normalized, card); } catch (GLib.Error e) { }
+        url_to_card.set(normalized, card);
     }
 
     public void mark_article_viewed(string url) {
@@ -68,39 +68,32 @@ public class ViewStateManager : GLib.Object {
 
         // Mark as viewed in article state store (persists to disk)
         if (window.article_state_store != null) {
-            try {
-                window.article_state_store.mark_viewed(n);
-            } catch (GLib.Error e) { }
+            window.article_state_store.mark_viewed(n);
         }
 
         Timeout.add(50, () => {
-            try {
-                Gtk.Widget? card = null;
-                try { card = url_to_card.get(n); } catch (GLib.Error e) { card = null; }
-                if (card != null) {
-                    Gtk.Widget? first = card.get_first_child();
-                    if (first != null && first is Gtk.Overlay) {
-                        var overlay = (Gtk.Overlay) first;
-                        bool already = false;
-                        Gtk.Widget? c = overlay.get_first_child();
-                        while (c != null) {
-                            try {
-                                if (c.get_style_context().has_class("viewed-badge")) {
-                                    already = true;
-                                }
-                            } catch (GLib.Error e) { }
-                            if (already) break;
-                            c = c.get_next_sibling();
+            Gtk.Widget? card = url_to_card.get(n);
+            if (card != null) {
+                Gtk.Widget? first = card.get_first_child();
+                if (first != null && first is Gtk.Overlay) {
+                    var overlay = (Gtk.Overlay) first;
+                    bool already = false;
+                    Gtk.Widget? c = overlay.get_first_child();
+                    while (c != null) {
+                        if (c.get_style_context().has_class("viewed-badge")) {
+                            already = true;
                         }
-                        if (!already) {
-                            var badge = CardBuilder.build_viewed_badge();
-                            overlay.add_overlay(badge);
-                            badge.set_visible(true);
-                            overlay.queue_draw();
-                        }
+                        if (already) break;
+                        c = c.get_next_sibling();
+                    }
+                    if (!already) {
+                        var badge = CardBuilder.build_viewed_badge();
+                        overlay.add_overlay(badge);
+                        badge.set_visible(true);
+                        overlay.queue_draw();
                     }
                 }
-            } catch (GLib.Error e) { }
+            }
             return false;
         });
 
@@ -109,87 +102,68 @@ public class ViewStateManager : GLib.Object {
     }
 
     public void preview_opened(string url) {
-        try { last_previewed_url = url; } catch (GLib.Error e) { last_previewed_url = null; }
+        last_previewed_url = url;
         if (window.dim_overlay != null) window.dim_overlay.set_visible(true);
-        try {
-            if (window.main_scrolled != null) {
-                try {
-                    var adj = window.main_scrolled.get_vadjustment();
-                    if (adj != null) last_scroll_value = adj.get_value();
-                } catch (GLib.Error e) { last_scroll_value = -1.0; }
-            }
-        } catch (GLib.Error e) { last_scroll_value = -1.0; }
+        if (window.main_scrolled != null) {
+            var adj = window.main_scrolled.get_vadjustment();
+            if (adj != null) last_scroll_value = adj.get_value(); else last_scroll_value = -1.0;
+        } else {
+            last_scroll_value = -1.0;
+        }
     }
 
     public void preview_closed(string url) {
         string? url_copy = null;
-        try {
-            if (url != null && url.length > 0) {
-                url_copy = url.dup();
-            }
-        } catch (GLib.Error e) { }
+        if (url != null && url.length > 0) url_copy = url.dup();
 
-        try { last_previewed_url = null; } catch (GLib.Error e) { }
+        last_previewed_url = null;
         if (window.dim_overlay != null) window.dim_overlay.set_visible(false);
 
         double saved_scroll = last_scroll_value;
         if (saved_scroll < 0.0) {
-            try {
-                if (window.main_scrolled != null) {
-                    var adj = window.main_scrolled.get_vadjustment();
-                    if (adj != null) saved_scroll = adj.get_value();
-                }
-            } catch (GLib.Error e) { }
+            if (window.main_scrolled != null) {
+                var adj = window.main_scrolled.get_vadjustment();
+                if (adj != null) saved_scroll = adj.get_value();
+            }
         }
 
-        try {
-            if (url_copy != null) {
-                // If the preview requested suppression (user marked unread from the
-                // preview), honor that and do not mark viewed again.
-                string n = normalize_article_url(url_copy);
-                bool suppressed = false;
-                try { suppressed = (suppress_preview_mark != null && suppress_preview_mark.contains(n)); } catch (GLib.Error e) { suppressed = false; }
-                if (suppressed) {
-                    try { suppress_preview_mark.remove(n); } catch (GLib.Error e) { }
-                } else {
-                    try { mark_article_viewed(url_copy); } catch (GLib.Error e) { }
+        if (url_copy != null) {
+            // If the preview requested suppression (user marked unread from the
+            // preview), honor that and do not mark viewed again.
+            string n = normalize_article_url(url_copy);
+            bool suppressed = (suppress_preview_mark != null && suppress_preview_mark.contains(n));
+            if (suppressed) {
+                if (suppress_preview_mark != null) suppress_preview_mark.remove(n);
+            } else {
+                mark_article_viewed(url_copy);
+            }
+        }
+
+        if (window.main_scrolled != null && saved_scroll >= 0.0) {
+            Idle.add(() => {
+                var adj = window.main_scrolled.get_vadjustment();
+                if (adj != null) {
+                    adj.set_value(saved_scroll);
                 }
-            }
-        } catch (GLib.Error e) { }
+                return false;
+            }, Priority.HIGH);
 
-        try {
-            if (window.main_scrolled != null && saved_scroll >= 0.0) {
-                Idle.add(() => {
-                    try {
-                        var adj = window.main_scrolled.get_vadjustment();
-                        if (adj != null) {
-                            adj.set_value(saved_scroll);
-                        }
-                    } catch (GLib.Error e) { }
-                    return false;
-                }, Priority.HIGH);
+            Timeout.add(100, () => {
+                var adj = window.main_scrolled.get_vadjustment();
+                if (adj != null) {
+                    adj.set_value(saved_scroll);
+                }
+                return false;
+            });
 
-                Timeout.add(100, () => {
-                    try {
-                        var adj = window.main_scrolled.get_vadjustment();
-                        if (adj != null) {
-                            adj.set_value(saved_scroll);
-                        }
-                    } catch (GLib.Error e) { }
-                    return false;
-                });
-
-                Timeout.add(200, () => {
-                    try {
-                        var adj = window.main_scrolled.get_vadjustment();
-                        if (adj != null) {
-                            adj.set_value(saved_scroll);
-                        }
-                    } catch (GLib.Error e) { }
-                    return false;
-                });
-            }
-        } catch (GLib.Error e) { }
+            Timeout.add(200, () => {
+                var adj = window.main_scrolled.get_vadjustment();
+                if (adj != null) {
+                    adj.set_value(saved_scroll);
+                }
+                return false;
+            });
+        }
 
         last_scroll_value = -1.0;
     }
@@ -209,7 +183,7 @@ public class ViewStateManager : GLib.Object {
             if (normalized == null || normalized.length == 0) continue;
             
             Gtk.Widget? card = null;
-            try { card = url_to_card.get(normalized); } catch (GLib.Error e) { }
+            card = url_to_card.get(normalized);
             if (card == null) continue;
             
             bool is_viewed = window.article_state_store.is_viewed(normalized);
@@ -222,11 +196,9 @@ public class ViewStateManager : GLib.Object {
                 Gtk.Widget? child = overlay.get_first_child();
                 while (child != null) {
                     Gtk.Widget? next = child.get_next_sibling();
-                    try {
-                        if (child.get_style_context().has_class("viewed-badge")) {
-                            overlay.remove_overlay(child);
-                        }
-                    } catch (GLib.Error e) { }
+                    if (child.get_style_context().has_class("viewed-badge")) {
+                        overlay.remove_overlay(child);
+                    }
                     child = next;
                 }
                 
@@ -251,8 +223,8 @@ public class ViewStateManager : GLib.Object {
         if (url == null) return;
         string n = normalize_article_url(url);
         if (n == null || n.length == 0) return;
-        try { if (suppress_preview_mark == null) suppress_preview_mark = new Gee.HashSet<string>(); } catch (GLib.Error e) { }
-        try { suppress_preview_mark.add(n); } catch (GLib.Error e) { }
+        if (suppress_preview_mark == null) suppress_preview_mark = new Gee.HashSet<string>();
+        suppress_preview_mark.add(n);
     }
 
     /**
@@ -265,11 +237,11 @@ public class ViewStateManager : GLib.Object {
         if (window == null || window.article_state_store == null) return;
 
         Gtk.Widget? card = null;
-        try { card = url_to_card.get(n); } catch (GLib.Error e) { card = null; }
+        card = url_to_card.get(n); // return null if n is not in map
         if (card == null) return;
 
         bool is_viewed = false;
-        try { is_viewed = window.article_state_store.is_viewed(n); } catch (GLib.Error e) { is_viewed = false; }
+        is_viewed = window.article_state_store.is_viewed(n);
 
         Gtk.Widget? first = card.get_first_child();
         if (first != null && first is Gtk.Overlay) {
@@ -278,11 +250,9 @@ public class ViewStateManager : GLib.Object {
             Gtk.Widget? child = overlay.get_first_child();
             while (child != null) {
                 Gtk.Widget? next = child.get_next_sibling();
-                try {
-                    if (child.get_style_context().has_class("viewed-badge")) {
-                        overlay.remove_overlay(child);
-                    }
-                } catch (GLib.Error e) { }
+                if (child.get_style_context().has_class("viewed-badge")) {
+                    overlay.remove_overlay(child);
+                }
                 child = next;
             }
 
@@ -292,7 +262,7 @@ public class ViewStateManager : GLib.Object {
                 badge.set_visible(true);
                 overlay.queue_draw();
             } else {
-                try { overlay.queue_draw(); } catch (GLib.Error e) { }
+                overlay.queue_draw();
             }
         }
     }

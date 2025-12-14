@@ -94,12 +94,8 @@ public class LayoutManager : GLib.Object {
 
             // Get the actual deduplicated article count from ArticleStateStore
             int actual_count = 0;
-            try {
-                if (window != null && window.article_state_store != null && window.prefs != null) {
-                    actual_count = window.article_state_store.get_total_count_for_category(window.prefs.category);
-                }
-            } catch (GLib.Error e) {
-                stderr.printf("ERROR: failed to get article count: %s\n", e.message);
+            if (window != null && window.article_state_store != null && window.prefs != null) {
+                actual_count = window.article_state_store.get_total_count_for_category(window.prefs.category);
             }
 
             // Check if we need to adapt the layout
@@ -107,26 +103,18 @@ public class LayoutManager : GLib.Object {
                 // Rebuild as 2-column hero layout
                 Idle.add(() => {
                     if (current_fetch_seq != FetchContext.current) return false;
-                    try {
-                        rebuild_as_category_heroes();
-                        // rebuild_as_category_heroes() handles clearing awaiting_adaptive_layout
-                    } catch (GLib.Error e) {
-                        stderr.printf("ERROR: rebuild_as_category_heroes failed: %s\n", e.message);
-                    }
+                    rebuild_as_category_heroes();
                     return false;
                 });
             } else {
                 stderr.printf("DEBUG: NOT triggering adaptive layout (count=%d >= 15 or count=0)\n", actual_count);
                 // No adaptive layout needed, allow normal spinner hiding
-                try {
-                    if (window != null && window.loading_state != null) {
-                        window.loading_state.awaiting_adaptive_layout = false;
-                        // Trigger reveal if items are already populated
-                        if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
-                            window.loading_state.reveal_initial_content();
-                        }
+                if (window != null && window.loading_state != null) {
+                    window.loading_state.awaiting_adaptive_layout = false;
+                    if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
+                        window.loading_state.reveal_initial_content();
                     }
-                } catch (GLib.Error e) { }
+                }
             }
 
             adaptive_layout_timeout_id = 0;
@@ -143,26 +131,24 @@ public class LayoutManager : GLib.Object {
     public void track_rss_article(uint current_fetch_seq) {
         article_count_for_adaptive++;
 
-        // Once we have >= 15 articles, immediately clear the awaiting flag and reveal content
-        // No need to wait for timeout or apply adaptive layout
-        if (article_count_for_adaptive >= 15) {
-            // Cancel any pending timeout
-            if (adaptive_layout_timeout_id > 0) {
-                Source.remove(adaptive_layout_timeout_id);
-                adaptive_layout_timeout_id = 0;
-            }
+            // Once we have >= 15 articles, immediately clear the awaiting flag and reveal content
+            // No need to wait for timeout or apply adaptive layout
+            if (article_count_for_adaptive >= 15) {
+                // Cancel any pending timeout
+                if (adaptive_layout_timeout_id > 0) {
+                    Source.remove(adaptive_layout_timeout_id);
+                    adaptive_layout_timeout_id = 0;
+                }
 
-            // Clear awaiting flag and reveal content immediately
-            try {
+                // Clear awaiting flag and reveal content immediately
                 if (window != null && window.loading_state != null) {
                     window.loading_state.awaiting_adaptive_layout = false;
                     if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
                         window.loading_state.reveal_initial_content();
                     }
                 }
-            } catch (GLib.Error e) { }
-            return;
-        }
+                return;
+            }
 
         // Cancel any existing timeout and schedule a new one
         if (adaptive_layout_timeout_id > 0) {
@@ -181,34 +167,26 @@ public class LayoutManager : GLib.Object {
                 // Rebuild as 2-column hero layout
                 Idle.add(() => {
                     if (current_fetch_seq != FetchContext.current) return false;
-                    try {
                         rebuild_as_rss_heroes();
-
                         // After rebuild completes, hide the loading spinner and reveal content
                         Timeout.add(100, () => {
                             if (current_fetch_seq != FetchContext.current) return false;
-                            try {
-                                if (window != null && window.loading_state != null) {
-                                    window.loading_state.awaiting_adaptive_layout = false;
-                                    if (window.loading_state.initial_items_populated) {
-                                        window.loading_state.reveal_initial_content();
-                                    }
+                            if (window != null && window.loading_state != null) {
+                                window.loading_state.awaiting_adaptive_layout = false;
+                                if (window.loading_state.initial_items_populated) {
+                                    window.loading_state.reveal_initial_content();
                                 }
-                            } catch (GLib.Error e) { }
+                            }
                             return false;
                         });
-                    } catch (GLib.Error e) { }
                     return false;
                 });
             } else {
                 // No adaptive layout needed, allow normal spinner hiding
-                try {
-                    if (window != null && window.loading_state != null) {
-                        window.loading_state.awaiting_adaptive_layout = false;
-                    }
-                } catch (GLib.Error e) { }
+                if (window != null && window.loading_state != null) {
+                    window.loading_state.awaiting_adaptive_layout = false;
+                }
             }
-
             adaptive_layout_timeout_id = 0;
             return false;
         });
@@ -217,7 +195,7 @@ public class LayoutManager : GLib.Object {
     // Ensure hero container is visible when needed
     public void ensure_hero_container_visible() {
         if (hero_container != null) {
-            try { hero_container.set_visible(true); } catch (GLib.Error e) { }
+            hero_container.set_visible(true);
         }
     }
 
@@ -231,11 +209,11 @@ public class LayoutManager : GLib.Object {
     // Estimate the available content width for both hero and columns
     public int estimate_content_width() {
         int w = 0;
-        try { w = content_area != null ? content_area.get_width() : window.get_width(); } catch (GLib.Error e) { w = window.get_width(); }
+        w = content_area != null ? content_area.get_width() : window.get_width();
         if (w <= 0) w = 1280;
 
         int current_margin = 0;
-        try { current_margin = main_content_container != null ? main_content_container.get_margin_start() : H_MARGIN; } catch (GLib.Error e) { current_margin = H_MARGIN; }
+        current_margin = main_content_container != null ? main_content_container.get_margin_start() : H_MARGIN;
 
         return clampi(w - (current_margin * 2), 600, 1400);
     }
@@ -244,31 +222,27 @@ public class LayoutManager : GLib.Object {
     public void update_main_content_size(bool sidebar_visible) {
         if (main_content_container == null) return;
         int margin = sidebar_visible ? H_MARGIN : 6;
-        try { main_content_container.set_margin_start(margin); } catch (GLib.Error e) { }
-        try { main_content_container.set_margin_end(margin); } catch (GLib.Error e) { }
+        main_content_container.set_margin_start(margin);
+        main_content_container.set_margin_end(margin);
         update_existing_hero_card_size();
     }
 
     // Update existing hero card to new size if it exists
     public void update_existing_hero_card_size() {
-        try {
-            if (window == null) return;
-            if (!window.article_manager.featured_used) return;
-            if (featured_box == null) return;
-            var hero_card = featured_box.get_first_child();
-            if (hero_card != null) {
-                try { hero_card.set_hexpand(true); } catch (GLib.Error e) { }
-                try { hero_card.set_halign(Gtk.Align.FILL); } catch (GLib.Error e) { }
-            }
-            // Also check any registered hero images to see if we should re-request larger variants
-            try {
-                foreach (var kv in window.image_manager.hero_requests.entries) {
-                    Gtk.Picture pic = kv.key;
-                    HeroRequest info = kv.value;
-                    maybe_refetch_hero_for(pic, info);
-                }
-            } catch (GLib.Error e) { }
-        } catch (GLib.Error e) { }
+        if (window == null) return;
+        if (!window.article_manager.featured_used) return;
+        if (featured_box == null) return;
+        var hero_card = featured_box.get_first_child();
+        if (hero_card != null) {
+            hero_card.set_hexpand(true);
+            hero_card.set_halign(Gtk.Align.FILL);
+        }
+        // Also check any registered hero images to see if we should re-request larger variants
+        foreach (var kv in window.image_manager.hero_requests.entries) {
+            Gtk.Picture pic = kv.key;
+            HeroRequest info = kv.value;
+            maybe_refetch_hero_for(pic, info);
+        }
     }
 
     // If container/reported content width has grown since we last requested an image, re-request
@@ -277,16 +251,16 @@ public class LayoutManager : GLib.Object {
         int base_desired = estimate_content_width();
         if (base_desired <= 0) return;
         int last_base = (int)(info.last_requested_w / (double)info.multiplier);
-        if (base_desired > last_base * 1.25 && info.retries < 3) {
-            info.retries += 1;
-            int new_w = base_desired * info.multiplier;
-            int new_h = (int)(info.last_requested_h * ((double)base_desired / last_base));
-            info.last_requested_w = new_w;
-            info.last_requested_h = new_h;
-            try { window.append_debug_log("Refetching hero image at larger size: " + new_w.to_string() + "x" + new_h.to_string()); } catch (GLib.Error e) { }
-            try { window.image_manager.load_image_async(picture, info.url, new_w, new_h); } catch (GLib.Error e) { }
-            Timeout.add(500, () => { maybe_refetch_hero_for(picture, info); return false; });
-        }
+            if (base_desired > last_base * 1.25 && info.retries < 3) {
+                info.retries += 1;
+                int new_w = base_desired * info.multiplier;
+                int new_h = (int)(info.last_requested_h * ((double)base_desired / last_base));
+                info.last_requested_w = new_w;
+                info.last_requested_h = new_h;
+                window.append_debug_log("Refetching hero image at larger size: " + new_w.to_string() + "x" + new_h.to_string());
+                window.image_manager.load_image_async(picture, info.url, new_w, new_h);
+                Timeout.add(500, () => { maybe_refetch_hero_for(picture, info); return false; });
+            }
     }
 
     // Estimate a single column width given the number of columns
@@ -312,13 +286,13 @@ public class LayoutManager : GLib.Object {
             if (column_child is Gtk.Box) {
                 Gtk.Box col_box = (Gtk.Box) column_child;
                 Gtk.Widget? article_widget = col_box.get_first_child();
-                while (article_widget != null) {
-                    Gtk.Widget? next_article = article_widget.get_next_sibling();
-                    // Unparent the article from the old column but keep it alive
-                    try { col_box.remove(article_widget); } catch (GLib.Error e) { }
-                    existing_articles.add(article_widget);
-                    article_widget = next_article;
-                }
+                    while (article_widget != null) {
+                        Gtk.Widget? next_article = article_widget.get_next_sibling();
+                        // Unparent the article from the old column but keep it alive
+                        col_box.remove(article_widget);
+                        existing_articles.add(article_widget);
+                        article_widget = next_article;
+                    }
             }
             column_child = column_child.get_next_sibling();
         }
@@ -327,8 +301,8 @@ public class LayoutManager : GLib.Object {
         Gtk.Widget? child = columns_row.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
-            try { columns_row.remove(child); } catch (GLib.Error e) { }
-            try { child.unparent(); } catch (GLib.Error e) { }
+            columns_row.remove(child);
+            child.unparent();
             child = next;
         }
 
@@ -338,34 +312,30 @@ public class LayoutManager : GLib.Object {
         column_heights = new int[count];
         for (int i = 0; i < count; i++) {
             var col = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
-            try { col.set_valign(Gtk.Align.START); } catch (GLib.Error e) { }
-            try { col.set_halign(Gtk.Align.FILL); } catch (GLib.Error e) { }
-            try { col.set_hexpand(true); } catch (GLib.Error e) { }
-            try { col.set_vexpand(true); } catch (GLib.Error e) { }
+            col.set_valign(Gtk.Align.START);
+            col.set_halign(Gtk.Align.FILL);
+            col.set_hexpand(true);
+            col.set_vexpand(true);
             // Ensure each column is visible
-            try { col.set_visible(true); } catch (GLib.Error e) { }
+            col.set_visible(true);
             columns[i] = col;
             column_heights[i] = 0;
-            try { columns_row.append(col); } catch (GLib.Error e) { }
+            columns_row.append(col);
         }
 
         // Redistribute existing articles into new columns using round-robin
         int current_col = 0;
         foreach (var article in existing_articles) {
-            try {
-                columns[current_col].append(article);
-                current_col = (current_col + 1) % count;
-            } catch (GLib.Error e) { }
+            columns[current_col].append(article);
+            current_col = (current_col + 1) % count;
         }
 
-        try {
-            // Log column array and heights after rebuild
-            string heights = "";
-            for (int i = 0; i < column_heights.length; i++) heights += column_heights[i].to_string() + ",";
-        } catch (GLib.Error e) { }
+        // Log column array and heights after rebuild
+        string heights = "";
+        for (int i = 0; i < column_heights.length; i++) heights += column_heights[i].to_string() + ",";
         // Ensure the columns row container is visible after rebuilding, if it exists
         if (columns_row != null) {
-            try { columns_row.set_visible(true); } catch (GLib.Error e) { }
+            columns_row.set_visible(true);
         }
     }
 
@@ -381,38 +351,30 @@ public class LayoutManager : GLib.Object {
             Gtk.Widget? fchild = featured_box.get_first_child();
             while (fchild != null) {
                 Gtk.Widget? next = fchild.get_next_sibling();
-                try { featured_box.remove(fchild); } catch (GLib.Error e) { }
-                try { fchild.unparent(); } catch (GLib.Error e) { }
+                featured_box.remove(fchild);
+                fchild.unparent();
                 fchild = next;
             }
         }
 
         // Restore hero/featured container visibility (may have been hidden by RSS adaptive layout)
-        try {
-            if (hero_container != null) {
-                hero_container.set_visible(true);
-            }
-        } catch (GLib.Error e) { }
-        try {
-            if (featured_box != null) {
-                featured_box.set_visible(true);
-            }
-        } catch (GLib.Error e) { }
+        if (hero_container != null) hero_container.set_visible(true);
+        if (featured_box != null) featured_box.set_visible(true);
 
         // Clear hero_container
         if (hero_container != null) {
             Gtk.Widget? hchild = hero_container.get_first_child();
             while (hchild != null) {
                 Gtk.Widget? next = hchild.get_next_sibling();
-                try { hero_container.remove(hchild); } catch (GLib.Error e) { }
-                try { hchild.unparent(); } catch (GLib.Error e) { }
+                hero_container.remove(hchild);
+                hchild.unparent();
                 hchild = next;
             }
         }
 
         // For non-topten views, add featured_box back for carousel
         if (!is_topten && hero_container != null && featured_box != null) {
-            try { hero_container.append(featured_box); } catch (GLib.Error e) { }
+            hero_container.append(featured_box);
         }
 
         // Rebuild columns: Top Ten uses 4-column grid, others use 3-column masonry
@@ -426,17 +388,8 @@ public class LayoutManager : GLib.Object {
      */
     public void rebuild_as_adapative_heroes() {  
             // Hide the hero/featured area since we want all articles in columns
-            try {
-                if (hero_container != null) {
-                    hero_container.set_visible(false);
-                }
-            } catch (GLib.Error e) { }
-
-            try {
-                if (featured_box != null) {
-                    featured_box.set_visible(false);
-                }
-            } catch (GLib.Error e) { }
+            if (hero_container != null) hero_container.set_visible(false);
+            if (featured_box != null) featured_box.set_visible(false);
 
             // Rebuild with 2 columns - existing cards will redistribute
             rebuild_columns(2);
@@ -445,39 +398,37 @@ public class LayoutManager : GLib.Object {
             for (int i = 0; i < columns.length; i++) {
                 Gtk.Widget? child = columns[i].get_first_child();
                 while (child != null) {
-                    try {
-                        // Force uniform tall hero card dimensions
-                        child.set_size_request(-1, RSS_HERO_CARD_HEIGHT);
-                        child.add_css_class("rss-hero-card");
+                    // Force uniform tall hero card dimensions
+                    child.set_size_request(-1, RSS_HERO_CARD_HEIGHT);
+                    child.add_css_class("rss-hero-card");
 
-                        // Dive into the card structure to set uniform heights on image and text sections
-                        if (child is Gtk.Box) {
-                            Gtk.Box card_root = (Gtk.Box) child;
-                            Gtk.Widget? card_child = card_root.get_first_child();
-                            int child_index = 0;
+                    // Dive into the card structure to set uniform heights on image and text sections
+                    if (child is Gtk.Box) {
+                        Gtk.Box card_root = (Gtk.Box) child;
+                        Gtk.Widget? card_child = card_root.get_first_child();
+                        int child_index = 0;
 
-                            while (card_child != null) {
-                                if (child_index == 0) {
-                                    // First child is the overlay with image
-                                    if (card_child is Gtk.Overlay) {
-                                        Gtk.Overlay overlay = (Gtk.Overlay) card_child;
-                                        Gtk.Widget? image = overlay.get_child();
-                                        if (image != null) {
-                                            image.set_size_request(-1, RSS_HERO_IMAGE_HEIGHT);
-                                        }
-                                    }
-                                } else if (child_index == 1) {
-                                    // Second child is the title_box (white part)
-                                    if (card_child is Gtk.Box) {
-                                        card_child.set_size_request(-1, RSS_HERO_TEXT_HEIGHT);
-                                        card_child.set_vexpand(false);
+                        while (card_child != null) {
+                            if (child_index == 0) {
+                                // First child is the overlay with image
+                                if (card_child is Gtk.Overlay) {
+                                    Gtk.Overlay overlay = (Gtk.Overlay) card_child;
+                                    Gtk.Widget? image = overlay.get_child();
+                                    if (image != null) {
+                                        image.set_size_request(-1, RSS_HERO_IMAGE_HEIGHT);
                                     }
                                 }
-                                child_index++;
-                                card_child = card_child.get_next_sibling();
+                            } else if (child_index == 1) {
+                                // Second child is the title_box (white part)
+                                if (card_child is Gtk.Box) {
+                                    card_child.set_size_request(-1, RSS_HERO_TEXT_HEIGHT);
+                                    card_child.set_vexpand(false);
+                                }
                             }
+                            child_index++;
+                            card_child = card_child.get_next_sibling();
                         }
-                    } catch (GLib.Error e) { }
+                    }
                     child = child.get_next_sibling();
                 }
             }
@@ -489,7 +440,6 @@ public class LayoutManager : GLib.Object {
      * Similar to RSS hero layout but for standard news categories.
      */
     public void rebuild_as_category_heroes() {
-        try {
             // First, re-add carousel items to columns before hiding the carousel
             // This ensures articles that were in the carousel don't get lost
             if (window != null && window.article_manager != null) {
@@ -498,18 +448,16 @@ public class LayoutManager : GLib.Object {
                     foreach (var item in carousel_items) {
                         // Re-add each carousel item as a regular card to columns
                         // Use bypass_limit=true since these articles were already counted
-                        try {
-                            window.article_manager.add_item_immediate_to_column(
-                                item.title,
-                                item.url,
-                                item.thumbnail_url,
-                                item.category_id,
-                                -1,  // auto column selection
-                                null, // no original_category
-                                item.source_name,
-                                true  // bypass_limit
-                            );
-                        } catch (GLib.Error e) { }
+                        window.article_manager.add_item_immediate_to_column(
+                            item.title,
+                            item.url,
+                            item.thumbnail_url,
+                            item.category_id,
+                            -1,  // auto column selection
+                            null, // no original_category
+                            item.source_name,
+                            true  // bypass_limit
+                        );
                     }
                 }
             }
@@ -518,19 +466,14 @@ public class LayoutManager : GLib.Object {
             // After rebuild completes, hide the loading spinner and reveal content
             // (same pattern as RSS feeds)
             Timeout.add(100, () => {
-                try {
-                    if (window != null && window.loading_state != null) {
-                        window.loading_state.awaiting_adaptive_layout = false;
-                        if (window.loading_state.initial_items_populated) {
-                            window.loading_state.reveal_initial_content();
-                        }
+                if (window != null && window.loading_state != null) {
+                    window.loading_state.awaiting_adaptive_layout = false;
+                    if (window.loading_state.initial_items_populated) {
+                        window.loading_state.reveal_initial_content();
                     }
-                } catch (GLib.Error e) { }
+                }
                 return false;
             });
-        } catch (GLib.Error e) {
-            warning("Failed to rebuild category as heroes: %s", e.message);
-        }
     }
 
     /**
@@ -538,11 +481,7 @@ public class LayoutManager : GLib.Object {
      * Hides the hero/featured area and applies uniform sizing to all cards.
      */
     public void rebuild_as_rss_heroes() {
-        try {
-            rebuild_as_adapative_heroes(); // Request for our common helper to rebuild heroes
-        } catch (GLib.Error e) { 
-            warning("Failed to rebuild category as heroes: %s", e.message); 
-        }
+        rebuild_as_adapative_heroes(); // Request for our common helper to rebuild heroes
     }
 
     /**
@@ -550,19 +489,15 @@ public class LayoutManager : GLib.Object {
      */
     public void clear_columns() {
         if (columns == null) return;
-        
+
         for (int i = 0; i < columns.length; i++) {
             if (columns[i] == null) continue;
-            
+
             Gtk.Widget? child = columns[i].get_first_child();
             while (child != null) {
                 Gtk.Widget? next = child.get_next_sibling();
-                try {
-                    // Try to properly unparent to avoid lingering refs
-                    // Just removing from box should be enough in simplified GTK4, 
-                    // but unparent is explicit.
-                    columns[i].remove(child);
-                } catch (GLib.Error e) { }
+                // Properly unparent to avoid lingering refs
+                columns[i].remove(child);
                 child = next;
             }
             // Reset height tracking
@@ -575,11 +510,11 @@ public class LayoutManager : GLib.Object {
      */
     public void clear_featured_box() {
         if (featured_box == null) return;
-        
+
         Gtk.Widget? child = featured_box.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
-            try { featured_box.remove(child); } catch (GLib.Error e) { }
+            featured_box.remove(child);
             child = next;
         }
     }
@@ -593,7 +528,7 @@ public class LayoutManager : GLib.Object {
         Gtk.Widget? child = hero_container.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
-            try { hero_container.remove(child); } catch (GLib.Error e) { }
+            hero_container.remove(child);
             child = next;
         }
     }
@@ -603,7 +538,7 @@ public class LayoutManager : GLib.Object {
      */
     public void remove_end_feed_message() {
         if (window == null || window.content_box == null) return;
-        
+
         var children = window.content_box.observe_children();
         for (uint i = 0; i < children.get_n_items(); i++) {
             var child = children.get_item(i) as Gtk.Widget;
@@ -611,7 +546,7 @@ public class LayoutManager : GLib.Object {
                 var label = child as Gtk.Label;
                 var _txt = label.get_label();
                 if (_txt == "<b>No more articles</b>" || _txt == "No more articles") {
-                    try { window.content_box.remove(label); } catch (GLib.Error e) { }
+                    window.content_box.remove(label);
                     break;
                 }
             }
@@ -623,12 +558,10 @@ public class LayoutManager : GLib.Object {
      */
     public void refresh_columns() {
         if (columns == null) return;
-        
-        try {
-            for (int i = 0; i < columns.length; i++) {
-                if (columns[i] != null) columns[i].queue_draw();
-            }
-        } catch (GLib.Error e) { }
+
+        for (int i = 0; i < columns.length; i++) {
+            if (columns[i] != null) columns[i].queue_draw();
+        }
     }
 
 }
