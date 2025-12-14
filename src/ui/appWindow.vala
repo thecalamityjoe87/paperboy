@@ -31,6 +31,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Managers.ArticleManager article_manager;
         // Hero container reference for responsive sizing
     private Gtk.Box hero_container;
+        // Settings for persistent window geometry
+        private GLib.Settings settings;
         public const int SIDEBAR_ICON_SIZE = 24;
         public const int MAX_CONCURRENT_DOWNLOADS = 10;
         public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 10;  // Match MAX to avoid retry delays on startup
@@ -142,8 +144,26 @@ public class NewsWindow : Adw.ApplicationWindow {
         title = "Paperboy";
         // Set the window icon
         set_icon_name("paperboy");
-        // Reasonable default window size that fits well on most screens
-        set_default_size(1400, 925);
+        // Initialize GSettings for persistent geometry
+        try {
+            settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
+        } catch (GLib.Error e) {
+            warning("Failed to initialize GSettings: %s", e.message);
+            settings = null;
+        }
+
+        // Restore saved window size (use defaults from schema when missing)
+        int saved_w = 1400;
+        int saved_h = 925;
+        bool saved_max = false;
+        if (settings != null) {
+            saved_w = settings.get_int("window-width");
+            saved_h = settings.get_int("window-height");
+            saved_max = settings.get_boolean("window-maximized");
+        }
+
+        // Apply the saved size (use get_default_size()/set_default_size for Wayland correctness)
+        set_default_size(saved_w, saved_h);
         // Initialize RNG for per-card randomization
         rng = new GLib.Rand();
         // Initialize preferences early (needed for building sidebar selection state)
@@ -827,10 +847,38 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Ensure the personalized message visibility is correct at startup
     update_personalization_ui();
 
+        // If the saved state requested maximized, maximize now (do not treat maximized geometry as normal size)
+            if (settings != null) {
+                bool want_max = false;
+                want_max = settings.get_boolean("window-maximized");
+                if (want_max) {
+                    maximize();
+                }
+            }
+
         // Clear only cached in-memory images on window close to free textures
         // while preserving per-article metadata (e.g., viewed flags) on disk.
+        // Also persist window geometry into GSettings. We save on close (not on resize)
+        // so transient states (like maximized) don't become stored as normal sizes.
         this.close_request.connect(() => {
             try {
+                // Persist maximized state and size (only when not maximized)
+                    if (settings != null) {
+                        bool is_max = false;
+                        is_max = this.is_maximized();
+                        settings.set_boolean("window-maximized", is_max);
+
+                        if (!is_max) {
+                            int cw = 1400;
+                            int ch = 925;
+                            this.get_default_size(out cw, out ch);
+                            if (cw > 0 && ch > 0) {
+                                settings.set_int("window-width", cw);
+                                settings.set_int("window-height", ch);
+                            }
+                        }
+                    }
+
                 // Clear any paintables held by window-level widgets to release textures
                 try { if (source_logo != null) source_logo.set_from_paintable(null); } catch (GLib.Error e) { }
             } catch (GLib.Error e) { }
