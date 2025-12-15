@@ -685,7 +685,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         };
 
         // Initialize article window with image handler for loading preview images
-        article_pane = new ArticlePane(nav_view, session, this, image_manager);
+        article_pane = new ArticlePane(nav_view, this, image_manager);
         article_pane.set_preview_overlay(article_preview_split, article_preview_content);
 
         // Add keyboard event controller for closing article preview with Escape

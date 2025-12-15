@@ -52,11 +52,11 @@ public class ShareDialog : GLib.Object {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.EMAIL, url, title);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opened email client");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening email client");
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open email client: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Could not open email client");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to open email client");
                 }
             }
         );
@@ -78,11 +78,11 @@ public class ShareDialog : GLib.Object {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.REDDIT, url, null);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opened Reddit");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to Reddit");
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open Reddit: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Could not open Reddit");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on Reddit");
                 }
             }
         );
@@ -97,11 +97,11 @@ public class ShareDialog : GLib.Object {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.TWITTER, url, title);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opened X");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to X");
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open X: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Could not open X");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on X");
                 }
             }
         );
@@ -116,11 +116,11 @@ public class ShareDialog : GLib.Object {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.FACEBOOK, url, null);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opened Facebook");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to Facebook");
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open Facebook: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Could not open Facebook");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on Facebook");
                 }
             }
         );
