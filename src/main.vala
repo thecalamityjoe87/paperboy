@@ -24,7 +24,7 @@ public class PaperboyApp : Adw.Application {
     protected override void activate() {
         // Ensure global HttpClient is constructed on the main thread
         // before any other subsystem can spawn worker threads.
-        try { Paperboy.HttpClientUtils.ensure_initialized(); } catch (GLib.Error e) { }
+        Paperboy.HttpClientUtils.ensure_initialized();
         
         var win = new NewsWindow(this);
         win.present();
@@ -32,15 +32,13 @@ public class PaperboyApp : Adw.Application {
         // the background during app startup. This helps ensure the ZIP
         // database is ready by the time the user opens the Set Location
         // dialog.
-        try { ZipLookup.get_instance(); } catch (GLib.Error e) { }
+        ZipLookup.get_instance();
         // If this is the user's first time running the app, show the
         // preferences dialog so they can adjust sources immediately.
-        try {
-            var prefs = NewsPreferences.get_instance();
-            // On first run, show the preferences dialog so users can immediately
-            // enable/disable individual providers and configure the app.
-            if (prefs.first_run) PrefsDialog.show_preferences_dialog(win);
-        } catch (GLib.Error e) { }
+        var prefs = NewsPreferences.get_instance();
+        // On first run, show the preferences dialog so users can immediately
+        // enable/disable individual providers and configure the app.
+        if (prefs.first_run) PrefsDialog.show_preferences_dialog(win);
         
         var change_source_action = new SimpleAction("change-source", null);
         change_source_action.activate.connect(() => {

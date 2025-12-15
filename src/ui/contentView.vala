@@ -225,10 +225,10 @@ public class ContentView : GLib.Object {
         personalized_message_label.add_css_class("title-4");
         personalized_message_label.set_halign(Gtk.Align.CENTER);
         personalized_message_label.set_valign(Gtk.Align.CENTER);
-        try { personalized_message_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
-        try { personalized_message_label.set_xalign(0.5f); } catch (GLib.Error e) { }
-        try { personalized_message_label.set_wrap(true); } catch (GLib.Error e) { }
-        try { personalized_message_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR); } catch (GLib.Error e) { }
+        personalized_message_label.set_justify(Gtk.Justification.CENTER);
+        personalized_message_label.set_xalign(0.5f);
+        personalized_message_label.set_wrap(true);
+        personalized_message_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
         inner_center.append(personalized_message_label);
 
         personalized_message_sub_label = new Gtk.Label("");
@@ -236,9 +236,9 @@ public class ContentView : GLib.Object {
         personalized_message_sub_label.add_css_class("caption");
         personalized_message_sub_label.set_halign(Gtk.Align.CENTER);
         personalized_message_sub_label.set_valign(Gtk.Align.CENTER);
-        try { personalized_message_sub_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
-        try { personalized_message_sub_label.set_wrap(true); } catch (GLib.Error e) { }
-        try { personalized_message_sub_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR); } catch (GLib.Error e) { }
+        personalized_message_sub_label.set_justify(Gtk.Justification.CENTER);
+        personalized_message_sub_label.set_wrap(true);
+        personalized_message_sub_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
         personalized_message_sub_label.set_margin_top(6);
         personalized_message_sub_label.set_visible(false);
         inner_center.append(personalized_message_sub_label);
@@ -270,15 +270,15 @@ public class ContentView : GLib.Object {
         local_news_title.add_css_class("dim-label");
         local_news_title.set_halign(Gtk.Align.CENTER);
         local_news_title.set_valign(Gtk.Align.CENTER);
-        try { local_news_title.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
-        try { local_news_title.set_wrap(true); } catch (GLib.Error e) { }
+        local_news_title.set_justify(Gtk.Justification.CENTER);
+        local_news_title.set_wrap(true);
         ln_inner.append(local_news_title);
 
         local_news_hint = new Gtk.Label("Open the main menu (☰) → choose 'Set User Location' to configure your city or ZIP code.");
         local_news_hint.add_css_class("dim-label");
         local_news_hint.set_halign(Gtk.Align.CENTER);
         local_news_hint.set_valign(Gtk.Align.CENTER);
-        try { local_news_hint.set_wrap(true); } catch (GLib.Error e) { }
+        local_news_hint.set_wrap(true);
         local_news_hint.set_margin_top(6);
         ln_inner.append(local_news_hint);
 
@@ -313,8 +313,8 @@ public class ContentView : GLib.Object {
         error_message_label.add_css_class("title-4");
         error_message_label.set_halign(Gtk.Align.CENTER);
         error_message_label.set_valign(Gtk.Align.CENTER);
-        try { error_message_label.set_justify(Gtk.Justification.CENTER); } catch (GLib.Error e) { }
-        try { error_message_label.set_wrap(true); } catch (GLib.Error e) { }
+        error_message_label.set_justify(Gtk.Justification.CENTER);
+        error_message_label.set_wrap(true);
         error_inner.append(error_message_label);
 
         error_retry_button = new Gtk.Button.with_label("Refresh");

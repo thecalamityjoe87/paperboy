@@ -137,7 +137,7 @@ public class SidebarMenu : GLib.Object {
         // Show confirmation dialog
         var dialog = new Adw.MessageDialog(
             (Gtk.Window)window,
-            "Remove RSS Source?",
+            "Remove this source?",
             "Are you sure you want to remove \"%s\"?".printf(current_source_name)
         );
         dialog.set_body("This action cannot be undone.");
@@ -152,7 +152,7 @@ public class SidebarMenu : GLib.Object {
                 }
                 
                 if (window.toast_manager != null) {
-                    window.toast_manager.show_toast("RSS source removed");
+                    window.toast_manager.show_toast("Followed source removed");
                 }
             }
             dialog.close();

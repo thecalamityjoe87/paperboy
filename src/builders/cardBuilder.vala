@@ -85,7 +85,6 @@ public class CardBuilder : GLib.Object {
         if (filename != null) {
             string? path = DataPathsUtils.find_data_file("icons/" + filename);
             if (path != null) {
-                try {
                     // Use ImageCache for all generated pixbufs so we never keep long-lived
                     // pixbufs/textures outside the central cache. Ask ImageCache to
                     // provide a scaled pixbuf for the requested size.
@@ -94,9 +93,8 @@ public class CardBuilder : GLib.Object {
                     // First, probe original image size using a best-effort full-size load.
                     Gdk.Pixbuf? probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(path, 0, 0), path, 0, 0);
                     if (probe != null) {
-                        int orig_w = 0; int orig_h = 0;
-                        try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                        try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
+                        int orig_w = probe.get_width();
+                        int orig_h = probe.get_height();
                         double scale = 1.0;
                         if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
                         int sw = (int)(orig_w * scale);
@@ -113,7 +111,8 @@ public class CardBuilder : GLib.Object {
                             var cr = new Cairo.Context(surface);
                             int x = (20 - sw) / 2;
                             int y = (20 - sh) / 2;
-                            try { Gdk.cairo_set_source_pixbuf(cr, used_pb, x, y); cr.paint(); } catch (GLib.Error e) { }
+                            Gdk.cairo_set_source_pixbuf(cr, used_pb, x, y);
+                            cr.paint();
                             string surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(path, 20, 20);
                             var pb_surface = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
                             var cached_surface = pb_surface;
@@ -121,7 +120,7 @@ public class CardBuilder : GLib.Object {
                             var pic = new Gtk.Picture();
                             Gdk.Pixbuf? final_pb = cached_surface != null ? cached_surface : pb_surface;
                             if (final_pb != null) {
-                                try { pic.set_paintable(Gdk.Texture.for_pixbuf(final_pb)); } catch (GLib.Error e) { }
+                                pic.set_paintable(Gdk.Texture.for_pixbuf(final_pb));
                             }
                             pic.set_size_request(20, 20);
 
@@ -134,9 +133,8 @@ public class CardBuilder : GLib.Object {
                             box.append(logo_wrapper);
                         }
                     }
-                } catch (GLib.Error e) { }
+                }
             }
-        }
 
         var lbl = new Gtk.Label(source_display_name(source));
         lbl.add_css_class("source-badge-label");
@@ -215,12 +213,9 @@ public class CardBuilder : GLib.Object {
                     var data_dir = GLib.Environment.get_user_data_dir();
                     var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", meta_filename);
                     if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                        try {
                             var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
                             if (probe != null) {
-                                int orig_w = 0; int orig_h = 0;
-                                try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                                try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
+                                int orig_w = probe.get_width(); int orig_h = probe.get_height();
                                 double scale = 1.0;
                                 if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
                                 int sw = (int)(orig_w * scale);
@@ -233,13 +228,14 @@ public class CardBuilder : GLib.Object {
                                 var cr = new Cairo.Context(surface);
                                 int x = (20 - sw) / 2;
                                 int y = (20 - sh) / 2;
-                                try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
+                                Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
+                                cr.paint();
                                 var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, 20, 20);
                                 var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
 
                                 var pic = new Gtk.Picture();
                                 if (pb_surf != null) {
-                                    try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf)); } catch (GLib.Error e) { }
+                                    pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
                                 }
                                 pic.set_size_request(20, 20);
 
@@ -252,7 +248,6 @@ public class CardBuilder : GLib.Object {
                                 box.append(logo_wrapper);
                                 icon_loaded = true;
                             }
-                        } catch (GLib.Error e) { }
                     }
                 }
 
@@ -269,7 +264,7 @@ public class CardBuilder : GLib.Object {
                     pic.set_size_request(20, 20);
                     pic.set_valign(Gtk.Align.CENTER);
                     pic.set_halign(Gtk.Align.CENTER);
-                    try { if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
+                    if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20);
 
                     logo_wrapper.append(pic);
                     box.append(logo_wrapper);
@@ -320,8 +315,7 @@ public class CardBuilder : GLib.Object {
 
                     // Apply article pane source name logic for better display names
                     string final_display_name = src.name;
-                    try {
-                        var prefs = NewsPreferences.get_instance();
+                    var prefs = NewsPreferences.get_instance();
                         // Parse encoded source name (format: "SourceName||logo_url##category::cat")
                         string? explicit_source_name = src.name;
                         if (explicit_source_name != null && explicit_source_name.length > 0) {
@@ -335,7 +329,7 @@ public class CardBuilder : GLib.Object {
                             }
                             final_display_name = explicit_source_name;
                         }
-                    } catch (GLib.Error e) { }
+                    
 
                     // Priority 1: Check source_info meta files first (from frontpage/topten)
                     bool icon_loaded = false;
@@ -347,44 +341,41 @@ public class CardBuilder : GLib.Object {
                         var data_dir = GLib.Environment.get_user_data_dir();
                         var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", meta_filename);
                         if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                            try {
-                                var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
-                                if (probe != null) {
-                                    int orig_w = 0; int orig_h = 0;
-                                    try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                                    try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
-                                    double scale = 1.0;
-                                    if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
-                                    int sw = (int)(orig_w * scale);
-                                    int sh = (int)(orig_h * scale);
-                                    if (sw < 1) sw = 1; if (sh < 1) sh = 1;
+                            var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
+                            if (probe != null) {
+                                int orig_w = probe.get_width(); int orig_h = probe.get_height();
+                                double scale = 1.0;
+                                if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
+                                int sw = (int)(orig_w * scale);
+                                int sh = (int)(orig_h * scale);
+                                if (sw < 1) sw = 1; if (sh < 1) sh = 1;
 
-                                    var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
+                                var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
 
-                                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                                    var cr = new Cairo.Context(surface);
-                                    int x = (20 - sw) / 2;
-                                    int y = (20 - sh) / 2;
-                                    try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
-                                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, 20, 20);
-                                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
+                                var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
+                                var cr = new Cairo.Context(surface);
+                                int x = (20 - sw) / 2;
+                                int y = (20 - sh) / 2;
+                                Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
+                                cr.paint();
+                                var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, 20, 20);
+                                var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
 
-                                    var pic = new Gtk.Picture();
-                                    if (pb_surf != null) {
-                                        try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf)); } catch (GLib.Error e) { }
-                                    }
-                                    pic.set_size_request(20, 20);
-
-                                    var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                                    logo_wrapper.add_css_class("circular-logo");
-                                    logo_wrapper.set_size_request(20, 20);
-                                    logo_wrapper.set_valign(Gtk.Align.CENTER);
-                                    logo_wrapper.set_halign(Gtk.Align.CENTER);
-                                    logo_wrapper.append(pic);
-                                    box.append(logo_wrapper);
-                                    icon_loaded = true;
+                                var pic = new Gtk.Picture();
+                                if (pb_surf != null) {
+                                    pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
                                 }
-                            } catch (GLib.Error e) { }
+                                pic.set_size_request(20, 20);
+
+                                var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
+                                logo_wrapper.add_css_class("circular-logo");
+                                logo_wrapper.set_size_request(20, 20);
+                                logo_wrapper.set_valign(Gtk.Align.CENTER);
+                                logo_wrapper.set_halign(Gtk.Align.CENTER);
+                                logo_wrapper.append(pic);
+                                box.append(logo_wrapper);
+                                icon_loaded = true;
+                            }
                         }
                     }
 
@@ -401,7 +392,7 @@ public class CardBuilder : GLib.Object {
                         pic.set_size_request(20, 20);
                         pic.set_valign(Gtk.Align.CENTER);
                         pic.set_halign(Gtk.Align.CENTER);
-                        try { if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
+                        if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20);
 
                         logo_wrapper.append(pic);
                         box.append(logo_wrapper);
@@ -423,7 +414,7 @@ public class CardBuilder : GLib.Object {
                             pic.set_size_request(20, 20);
                             pic.set_valign(Gtk.Align.CENTER);
                             pic.set_halign(Gtk.Align.CENTER);
-                            try { if (win.image_manager != null) win.image_manager.load_image_async(pic, google_favicon_url, 20, 20); } catch (GLib.Error e) { }
+                            if (win.image_manager != null) win.image_manager.load_image_async(pic, google_favicon_url, 20, 20);
 
                             logo_wrapper.append(pic);
                             box.append(logo_wrapper);
@@ -444,7 +435,7 @@ public class CardBuilder : GLib.Object {
                         pic.set_size_request(20, 20);
                         pic.set_valign(Gtk.Align.CENTER);
                         pic.set_halign(Gtk.Align.CENTER);
-                        try { if (win.image_manager != null) win.image_manager.load_image_async(pic, src.favicon_url, 20, 20); } catch (GLib.Error e) { }
+                        if (win.image_manager != null) win.image_manager.load_image_async(pic, src.favicon_url, 20, 20);
 
                         logo_wrapper.append(pic);
                         box.append(logo_wrapper);
@@ -512,13 +503,10 @@ public class CardBuilder : GLib.Object {
                 if (meta_filename != null) {
                     var data_dir = GLib.Environment.get_user_data_dir();
                     var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", meta_filename);
-                    if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                        try {
+                            if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
                             var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
                             if (probe != null) {
-                                int orig_w = 0; int orig_h = 0;
-                                try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                                try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
+                                int orig_w = probe.get_width(); int orig_h = probe.get_height();
                                 double scale = 1.0;
                                 if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
                                 int sw = (int)(orig_w * scale);
@@ -531,13 +519,14 @@ public class CardBuilder : GLib.Object {
                                 var cr = new Cairo.Context(surface);
                                 int x = (20 - sw) / 2;
                                 int y = (20 - sh) / 2;
-                                try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
+                                Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
+                                cr.paint();
                                 var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, 20, 20);
                                 var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
 
                                 var pic = new Gtk.Picture();
                                 if (pb_surf != null) {
-                                    try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf)); } catch (GLib.Error e) { }
+                                    pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
                                 }
                                 pic.set_size_request(20, 20);
 
@@ -550,7 +539,6 @@ public class CardBuilder : GLib.Object {
                                 box.append(logo_wrapper);
                                 icon_loaded = true;
                             }
-                        } catch (GLib.Error e) { }
                     }
                 }
 
@@ -567,8 +555,7 @@ public class CardBuilder : GLib.Object {
                     pic.set_size_request(20, 20);
                     pic.set_valign(Gtk.Align.CENTER);
                     pic.set_halign(Gtk.Align.CENTER);
-                    try { if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20); } catch (GLib.Error e) { }
-
+                    if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20);
                     logo_wrapper.append(pic);
                     box.append(logo_wrapper);
                     icon_loaded = true;
@@ -629,7 +616,7 @@ public class CardBuilder : GLib.Object {
             pic.set_size_request(20, 20);
             pic.set_valign(Gtk.Align.CENTER);
             pic.set_halign(Gtk.Align.CENTER);
-            try { if (win.image_manager != null) win.image_manager.load_image_async(pic, provided_logo_url, 20, 20); } catch (GLib.Error e) { }
+            if (win.image_manager != null) win.image_manager.load_image_async(pic, provided_logo_url, 20, 20);
 
             logo_wrapper.append(pic);
             box.append(logo_wrapper);
@@ -676,13 +663,10 @@ public class CardBuilder : GLib.Object {
                         box.set_margin_end(8);
                         box.set_valign(Gtk.Align.END);
                         box.set_halign(Gtk.Align.END);
-                        try {
                                 // Centralize file loading and scaling in ImageCache
                                 var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(full, 0, 0), full, 0, 0);
                                 if (probe != null) {
-                                    int orig_w = 0; int orig_h = 0;
-                                    try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                                    try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
+                                    int orig_w = probe.get_width(); int orig_h = probe.get_height();
                                     double scale = 1.0;
                                     if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
                                     int sw = (int)(orig_w * scale);
@@ -695,7 +679,8 @@ public class CardBuilder : GLib.Object {
                                     var cr = new Cairo.Context(surface);
                                     int x = (20 - sw) / 2;
                                     int y = (20 - sh) / 2;
-                                    try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
+                                    Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
+                                    cr.paint();
                                     var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(full, 20, 20);
                                     var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
 
@@ -703,7 +688,7 @@ public class CardBuilder : GLib.Object {
 
                                     var pic = new Gtk.Picture();
                                     if (final_pb != null) {
-                                        try { pic.set_paintable(Gdk.Texture.for_pixbuf(final_pb)); } catch (GLib.Error e) { }
+                                        pic.set_paintable(Gdk.Texture.for_pixbuf(final_pb));
                                     }
                                     pic.set_size_request(20, 20);
 
@@ -715,7 +700,6 @@ public class CardBuilder : GLib.Object {
                                 logo_wrapper.append(pic);
                                 box.append(logo_wrapper);
                             }
-                        } catch (GLib.Error e) { }
 
                         var lbl = new Gtk.Label(display_name != null && display_name.length > 0 ? display_name : source_name);
                         lbl.add_css_class("source-badge-label");
@@ -754,16 +738,15 @@ public class CardBuilder : GLib.Object {
         box.set_margin_top(8);
         box.set_margin_end(8);
 
-        try {
-            var icon = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-            try { icon.set_pixel_size(12); } catch (GLib.Error e) { }
-            try { icon.get_style_context().add_class("viewed-badge-icon"); } catch (GLib.Error e) { }
-            try { icon.set_valign(Gtk.Align.CENTER); icon.set_halign(Gtk.Align.CENTER); } catch (GLib.Error e) { }
-            box.append(icon);
-        } catch (GLib.Error e) { }
+
+        var icon = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
+        icon.set_pixel_size(12);
+        icon.get_style_context().add_class("viewed-badge-icon");
+        icon.set_valign(Gtk.Align.CENTER); icon.set_halign(Gtk.Align.CENTER);
+        box.append(icon);
 
         var lbl = new Gtk.Label("Viewed");
-        try { lbl.get_style_context().remove_class("dim-label"); } catch (GLib.Error e) { }
+        lbl.get_style_context().remove_class("dim-label");
         lbl.add_css_class("viewed-badge-label");
         lbl.add_css_class("caption");
         box.append(lbl);
