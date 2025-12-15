@@ -43,7 +43,7 @@ public class RssFinderService : GLib.Object {
                 // Use a helper to locate the `rssFinder` helper. This keeps the
                 // path-selection logic centralized and easier to test; it also
                 // avoids repeated code in the function body.
-                string? found = locate_rssfinder();
+                string? found = find_rssFinder_binary();
                 string prog;
                 SpawnFlags flags;
                 // Guard against null return from locate_rssfinder();
@@ -201,75 +201,60 @@ public class RssFinderService : GLib.Object {
         });
     }
 
-    // Locate the rssFinder binary with FHS-compliant search.
-    // Priority: development build locations, then libexecdir (FHS 4.7).
-    private static string? locate_rssfinder() {
-        try {
-            // Local repo and build locations (developer-friendly)
-            string[] dev_candidates = {
-                "./tools/rssFinder",
-                "tools/rssFinder",
-                "../tools/rssFinder",
-                "build/tools/rssFinder",
-                "./build/tools/rssFinder",
-                "build/rssFinder",
-                "./build/rssFinder"
-            };
+    /**
+    * Find the rssFinder binary in various possible locations
+    * @return Path to rssFinder binary or null if not found
+    */
+    private static string? find_rssFinder_binary() {
+        // Fallback candidates: system/AppImage locations and developer build locations
+        var candidates = new Gee.ArrayList<string>();
 
-            foreach (var c in dev_candidates) {
-                try {
-                    if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS | GLib.FileTest.IS_REGULAR)) {
-                        AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder candidate found: " + c);
-                        return c;
-                    }
-                } catch (GLib.Error e) { }
-            }
+        // Environment variable override (AppRun / AppImage)
+        string? env_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
+        if (env_libexec != null && env_libexec.length > 0) {
+            candidates.add(GLib.Path.build_filename(env_libexec, "paperboy", "rssFinder"));
+            candidates.add(GLib.Path.build_filename(env_libexec, "rssFinder"));
+        }
 
-            // FHS-compliant: check libexecdir for internal binaries (respects install prefix)
-            // First, honor an env var set by the AppImage/AppRun so the
-            // runtime can point us to the AppDir's libexec location.
+        // Build-time libexecdir (system install)
+        string libexec = BuildConstants.LIBEXECDIR;
+        if (libexec != null && libexec.length > 0) {
+            candidates.add(GLib.Path.build_filename(libexec, "paperboy", "rssFinder"));
+        }
+
+        // FHS-compliant: check libexecdir for internal binaries
+        // Standard system locations (prefix-aware)
+        candidates.add("/usr/libexec/paperboy/rssFinder");
+        candidates.add("/usr/local/libexec/paperboy/rssFinder");
+
+        // Flatpak/AppImage locations
+        candidates.add("/app/libexec/paperboy/rssFinder");
+
+        // Development build locations (for running from source tree)
+        candidates.add("build/rssFinder");
+        candidates.add("./build/rssFinder");
+        candidates.add("../build/rssFinder");
+        candidates.add("./rssFinder");
+
+        string? cwd = GLib.Environment.get_current_dir();
+        if (cwd != null) {
+            candidates.add(GLib.Path.build_filename(cwd, "rssfinder", "rssFinder"));
+        }
+
+        // Check each candidate and return the first executable match
+        foreach (string c in candidates) {
             try {
-                string? env_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
-                if (env_libexec != null && env_libexec.length > 0) {
-                    string candidate = GLib.Path.build_filename(env_libexec, "paperboy", "rssFinder");
-                    try {
-                        if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS | GLib.FileTest.IS_REGULAR)) {
-                            AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder found via PAPERBOY_LIBEXECDIR: " + candidate);
-                            return candidate;
-                        }
-                    } catch (GLib.Error _) { }
+                if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) &&
+                    GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
+                    GLib.message("Using rssFinder at: %s", c);
+                    return c;
                 }
-            } catch (GLib.Error e) { }
-
-            // FHS-compliant: check libexecdir for internal binaries (respects install prefix)
-            try {
-                string libexec = BuildConstants.LIBEXECDIR;
-                if (libexec != null && libexec.length > 0) {
-                    string installed = GLib.Path.build_filename(libexec, "paperboy", "rssFinder");
-                    if (GLib.FileUtils.test(installed, GLib.FileTest.EXISTS | GLib.FileTest.IS_REGULAR)) {
-                        AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder installed in libexecdir: " + installed);
-                        return installed;
-                    }
-                }
-            } catch (GLib.Error e) { }
-
-            // System fallbacks (FHS-compliant locations)
-            string[] sys_fallbacks = {
-                "/usr/libexec/paperboy/rssFinder",
-                "/usr/local/libexec/paperboy/rssFinder",
-                "/app/libexec/paperboy/rssFinder"
-            };
-            foreach (var s in sys_fallbacks) {
-                try {
-                    if (GLib.FileUtils.test(s, GLib.FileTest.EXISTS | GLib.FileTest.IS_REGULAR)) {
-                        AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder system fallback: " + s);
-                        return s;
-                    }
-                } catch (GLib.Error e) { }
+            } catch (GLib.Error e) {
+                // Not found
+                AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder not found in candidates");
             }
-        } catch (GLib.Error e) { }
-        // Not found
-        AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "rssFinder not found in candidates");
+        }
         return null;
     }
+
 }

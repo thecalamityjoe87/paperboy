@@ -409,9 +409,14 @@ public class FeedUpdateManager : GLib.Object {
 
         // Check each candidate and return the first executable match
         foreach (string c in candidates) {
-            if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
+            try {
+                if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
                 GLib.message("Using html2rss at: %s", c);
                 return c;
+                }
+            } catch (GLib.Error e) {
+                // Not found
+                AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "html2rss not found in candidates");
             }
         }
 

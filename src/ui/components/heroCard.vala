@@ -125,10 +125,10 @@ public class HeroCard : GLib.Object {
         bool is_viewed = false;
         // Normalize URL before checking view/save state
         string norm_url = url;
-        try { if (parent_window != null) norm_url = parent_window.normalize_article_url(url); } catch (GLib.Error e) { norm_url = url; }
+        if (parent_window != null) norm_url = parent_window.normalize_article_url(url);
         if (article_state_store != null) {
-            try { is_saved = article_state_store.is_saved(norm_url); } catch (GLib.Error e) { }
-            try { is_viewed = article_state_store.is_viewed(norm_url); } catch (GLib.Error e) { }
+            is_saved = article_state_store.is_saved(norm_url);
+            is_viewed = article_state_store.is_viewed(norm_url);
         }
 
         // Create ArticleMenu instance and keep reference to prevent garbage collection
