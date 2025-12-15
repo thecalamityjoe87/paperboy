@@ -768,6 +768,79 @@ public class ImageManager : GLib.Object {
         //try { GLib.message("ImageManager: queue download for %s target=%dx%d download=%dx%d", url, target_w, target_h, download_w, download_h); } catch (GLib.Error e) { }
         ensure_start_download(url, download_w, download_h);
     }
+
+    // Generate a cache key for preview textures (url + requested size)
+    public static string make_preview_cache_key(string u, int w, int h) {
+        return u + "@" + w.to_string() + "x" + h.to_string();
+    }
+
+    // Public helper to set a preview placeholder when no ImageManager instance
+    // is available (used by legacy code paths that don't hold an ImageManager).
+    public static void set_preview_placeholder(Gtk.Picture pic, int w, int h, NewsSource source, string? category_id = null, bool source_mapped = true, NewsWindow? window = null) {
+        if (category_id != null && category_id == "local_news") {
+            try {
+                if (window != null) {
+                    window.set_local_placeholder_image(pic, w, h);
+                } else {
+                    PlaceholderBuilder.create_gradient_placeholder(pic, w, h);
+                }
+            } catch (GLib.Error e) {
+                try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error _) { }
+            }
+        } else if (!source_mapped) {
+            try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error e) { }
+        } else {
+            try {
+                if (window != null) window.set_placeholder_image_for_source(pic, w, h, source);
+                else PlaceholderBuilder.set_placeholder_image_for_source(pic, w, h, source);
+            } catch (GLib.Error e) {
+                try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error _) { }
+            }
+        }
+    }
+
+    // High-level helper to load article preview images. Centralizes
+    // placeholder selection, preview cache lookup, and async loading
+    // so UI code remains layout-only.
+    public void load_preview_image(Gtk.Picture pic, string? thumbnail_url, int img_w, int img_h, NewsSource source, string? category_id = null, bool source_mapped = true) {
+        bool will_load_image = thumbnail_url != null &&
+                           thumbnail_url.length > 0 &&
+                           (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+
+        // Handle cases where no thumbnail is provided
+        if (!will_load_image) {
+            if (category_id != null && category_id == "local_news") {
+                window.set_local_placeholder_image(pic, img_w, img_h);
+            } else if (!source_mapped) {
+                PlaceholderBuilder.create_gradient_placeholder(pic, img_w, img_h);
+            } else {
+                PlaceholderBuilder.set_placeholder_image_for_source(pic, img_w, img_h, source);
+            }
+            return;
+        }
+
+        int multiplier = (source == NewsSource.REDDIT) ? 2 : 3;
+        int target_w = img_w * multiplier;
+        int target_h = img_h * multiplier;
+
+        // Try to serve a cached preview texture synchronously for snappy opens
+        bool loaded_from_cache = false;
+        string key = ImageManager.make_preview_cache_key(thumbnail_url, target_w, target_h);
+        var texture = PreviewCacheManager.get_cache().get_texture(key);
+        if (texture != null) {
+            pic.set_paintable(texture);
+            loaded_from_cache = true;
+        }
+
+        // If not in cache, fallback to async loading
+        if (!loaded_from_cache) {
+            if (category_id != null && category_id == "local_news") {
+                pending_local_placeholder.set(pic, true);
+            }
+            load_image_async(pic, thumbnail_url, target_w, target_h, true);
+        }
+    }
+
     
     // Helper to form memory cache keys that include requested size
     public string make_cache_key(string url, int w, int h) {

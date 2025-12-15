@@ -63,12 +63,12 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/toastManager.vala',
     'src/managers/feedUpdateManager.vala',
 
-    # Services / models
+    # Services / models / resolvers
     'src/services/unreadFetchService.vala',
     'src/services/fetchContext.vala',
     'src/services/metaCache.vala',
     'src/services/articleStateStore.vala',
-    'src/services/articlePreviewService.vala',
+    'src/services/articleSnippetService.vala',
     'src/services/imageCache.vala',
     'src/services/newsService.vala',
     'src/services/prefs.vala',
@@ -78,6 +78,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/rssFinderService.vala',
     'src/services/articleShareService.vala',
     'src/services/rssSourceStore.vala',
+    'src/services/resolvers/articleSourceResolver.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
     'src/models/articleItem.vala',
