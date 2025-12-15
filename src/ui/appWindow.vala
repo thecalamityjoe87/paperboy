@@ -29,7 +29,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Managers.LayoutManager layout_manager;
     // Article management is handled by ArticleManager
     public Managers.ArticleManager article_manager;
-        // Hero container reference for responsive sizing
+    // Hero container reference for responsive sizing
     private Gtk.Box hero_container;
         // Settings for persistent window geometry
         private GLib.Settings settings;
@@ -102,7 +102,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     
         // Update the source/logo label via HeaderManager
         private void update_source_info() {
-            try { if (header_manager != null) header_manager.update_source_info(); } catch (GLib.Error e) { }
+            if (header_manager != null) header_manager.update_source_info();
         }
     
 
@@ -126,14 +126,12 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Append a line to the debug log path (safe wrapper)
     public void append_debug_log(string line) {
-        try {
-            AppDebugger.append_debug_log(debug_log_path, line);
-        } catch (GLib.Error e) { }
+        AppDebugger.append_debug_log(debug_log_path, line);
     }
 
     // Delegate URL normalization to the ViewStateManager (which uses UrlUtils)
     public string normalize_article_url(string url) {
-        try { if (view_state != null) return view_state.normalize_article_url(url); } catch (GLib.Error e) { }
+        if (view_state != null) return view_state.normalize_article_url(url);
         return UrlUtils.normalize_article_url(url);
     }
 
@@ -319,27 +317,23 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // When saved articles finish loading, refresh badge counts so the
         // "Saved" badge appears promptly on startup.
-        try {
-            if (article_state_store != null) {
-                article_state_store.saved_articles_loaded.connect(() => {
-                    try { if (sidebar_manager != null) sidebar_manager.refresh_all_badge_counts(); } catch (GLib.Error e) { }
+        if (article_state_store != null) {
+            article_state_store.saved_articles_loaded.connect(() => {
+                if (sidebar_manager != null) sidebar_manager.refresh_all_badge_counts();
 
-                    // If the user was viewing Saved when the app started, the
-                    // saved articles may have been loaded after `fetch_news()`
-                    // ran. In that case, re-run `fetch_news()` so the Saved
-                    // view is populated now that saved articles are available.
-                    try {
-                        var p = NewsPreferences.get_instance();
-                        if (p != null && p.category == "saved") {
-                            Idle.add(() => {
-                                try { fetch_news(); } catch (GLib.Error _) { }
-                                return false;
-                            });
-                        }
-                    } catch (GLib.Error e) { }
-                });
-            }
-        } catch (GLib.Error e) { }
+                // If the user was viewing Saved when the app started, the
+                // saved articles may have been loaded after `fetch_news()`
+                // ran. In that case, re-run `fetch_news()` so the Saved
+                // view is populated now that saved articles are available.
+                var p = NewsPreferences.get_instance();
+                if (p != null && p.category == "saved") {
+                    Idle.add(() => {
+                        fetch_news();
+                        return false;
+                    });
+                }
+            });
+        }
 
         // Create SidebarView (UI only)
         sidebar_view = new SidebarView(this, sidebar_manager);
@@ -347,12 +341,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Listen for category selections and trigger fetch/update from the window
         sidebar_manager.category_selected.connect((category) => {
             if (category == "frontpage") {
-                try { fetch_news(); } catch (GLib.Error e) { }
+                fetch_news();
                 return;
             }
             Idle.add(() => {
-                try { fetch_news(); } catch (GLib.Error e) { }
-                try { update_personalization_ui(); } catch (GLib.Error e) { }
+                fetch_news();
+                update_personalization_ui();
                 return false;
             });
         });
@@ -367,24 +361,17 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Delay badge refresh until after initial content loads to avoid competing with image downloads
         // Badge refresh can be CPU/disk intensive and may block image loading threads
         GLib.Timeout.add_seconds(2, () => {
-            try {
-                if (sidebar_manager != null) {
-                    sidebar_manager.refresh_all_badge_counts();
-                }
-            } catch (GLib.Error e) { }
+            if (sidebar_manager != null) sidebar_manager.refresh_all_badge_counts();
             return false;
         });
 
         // Fetch article metadata for all categories in background to populate unread counts
         // Delay longer if user is viewing an RSS feed to avoid SQLite lock contention
-        bool is_rss_view = false;
-        try {
-            is_rss_view = prefs != null && prefs.category != null && prefs.category.has_prefix("rssfeed:");
-        } catch (GLib.Error e) { }
+        bool is_rss_view = prefs != null && prefs.category != null && prefs.category.has_prefix("rssfeed:");
 
         uint delay_ms = is_rss_view ? 5000 : 1000;  // 5 seconds for RSS, 1 second otherwise
         Timeout.add(delay_ms, () => {
-            try { fetch_all_category_metadata_for_counts(); } catch (GLib.Error e) { }
+            fetch_all_category_metadata_for_counts();
             return false;
         });
 
@@ -413,7 +400,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Also keep the legacy `main_content_container` field set so other
     // managers (like LoadingStateManager) that still reference
     // `window.main_content_container` continue to work during refactor.
-    try { this.main_content_container = content_view.main_content_container; } catch (GLib.Error e) { }
+    this.main_content_container = content_view.main_content_container;
     layout_manager.hero_container = content_view.hero_container;
     layout_manager.featured_box = content_view.featured_box;
     layout_manager.columns_row = content_view.columns_row;
@@ -443,14 +430,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     loading_state.error_retry_button = content_view.error_retry_button;
 
     // Ensure all overlay widgets are initially hidden
-    try { if (loading_state.loading_container != null) loading_state.loading_container.set_visible(false); } catch (GLib.Error e) { }
-    try { if (loading_state.personalized_message_box != null) loading_state.personalized_message_box.set_visible(false); } catch (GLib.Error e) { }
-    try { if (loading_state.local_news_message_box != null) loading_state.local_news_message_box.set_visible(false); } catch (GLib.Error e) { }
-    try { if (loading_state.error_message_box != null) loading_state.error_message_box.set_visible(false); } catch (GLib.Error e) { }
+    if (loading_state.loading_container != null) loading_state.loading_container.set_visible(false);
+    if (loading_state.personalized_message_box != null) loading_state.personalized_message_box.set_visible(false);
+    if (loading_state.local_news_message_box != null) loading_state.local_news_message_box.set_visible(false);
+    if (loading_state.error_message_box != null) loading_state.error_message_box.set_visible(false);
 
     // Ensure local-news UI is updated once widgets are wired. This makes
     // our debug logging in LoadingStateManager visible during startup.
-    try { if (loading_state != null) loading_state.update_local_news_ui(); } catch (GLib.Error e) { }
+    if (loading_state != null) loading_state.update_local_news_ui();
 
     // Initialize HeaderManager and wire its widget references
     header_manager = new HeaderManager(this);
@@ -496,19 +483,13 @@ public class NewsWindow : Adw.ApplicationWindow {
     // dim overlay is also cleared and preview_closed is invoked so the
     // main view is restored consistently.
     article_preview_split.notify["show-sidebar"].connect(() => {
-        try {
-            if (!article_preview_split.get_show_sidebar()) {
-                try {
-                    if (view_state != null && view_state.last_previewed_url != null && view_state.last_previewed_url.length > 0) {
-                        preview_closed(view_state.last_previewed_url);
-                    } else {
-                        if (dim_overlay != null) dim_overlay.set_visible(false);
-                    }
-                } catch (GLib.Error e) {
-                    try { if (dim_overlay != null) dim_overlay.set_visible(false); } catch (GLib.Error _e) { }
-                }
+        if (!article_preview_split.get_show_sidebar()) {
+            if (view_state != null && view_state.last_previewed_url != null && view_state.last_previewed_url.length > 0) {
+                preview_closed(view_state.last_previewed_url);
+            } else {
+                if (dim_overlay != null) dim_overlay.set_visible(false);
             }
-        } catch (GLib.Error e) { }
+        }
     });
     
     // Create article preview content container
@@ -542,15 +523,12 @@ public class NewsWindow : Adw.ApplicationWindow {
     // user clicks inside the sidebar (the preview panel), ignore the
     // click so the preview's internal controls can handle it.
     dim_click.pressed.connect((n_press, x, y) => {
-        try {
             // If the sidebar is visible, compute its approximate left edge
             // and ignore clicks that fall inside it. Use the window width
             // and the preview wrapper width to compute the sidebar region.
             if (article_preview_split.get_show_sidebar()) {
-                int win_w = 0;
-                int sidebar_w = 0;
-                try { win_w = this.get_width(); } catch (GLib.Error e) { win_w = 0; }
-                try { sidebar_w = preview_wrapper.get_width(); } catch (GLib.Error e) { sidebar_w = 0; }
+                int win_w = this.get_width();
+                int sidebar_w = preview_wrapper.get_width();
                 if (win_w > 0 && sidebar_w > 0) {
                     double sidebar_left = (double)(win_w - sidebar_w);
                     if (x >= sidebar_left) {
@@ -562,78 +540,55 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             article_preview_split.set_show_sidebar(false);
             // Call preview_closed with the last URL to properly mark viewed and restore scroll
-            try {
-                if (view_state != null && view_state.last_previewed_url != null && view_state.last_previewed_url.length > 0) {
-                    preview_closed(view_state.last_previewed_url);
-                } else {
-                    dim_overlay.set_visible(false);
-                }
-            } catch (GLib.Error e) {
-                dim_overlay.set_visible(false);
+            if (view_state != null && view_state.last_previewed_url != null && view_state.last_previewed_url.length > 0) {
+                preview_closed(view_state.last_previewed_url);
+            } else {
+                if (dim_overlay != null) dim_overlay.set_visible(false);
             }
-        } catch (GLib.Error e) {
-            // Best-effort: if anything goes wrong, hide the dim overlay
-            try { dim_overlay.set_visible(false); } catch (GLib.Error _e) { }
-        }
     });
     dim_overlay.add_controller(dim_click);
     
     root_overlay.add_overlay(dim_overlay);
     
     // Add the personalized message overlay on top of the root overlay
-    try { if (loading_state.personalized_message_box != null) root_overlay.add_overlay(loading_state.personalized_message_box); } catch (GLib.Error e) { }
+    if (loading_state.personalized_message_box != null) root_overlay.add_overlay(loading_state.personalized_message_box);
 
     // Reparent the initial loading spinner overlay from the inner
     // `main_overlay` to `root_overlay` so it truly centers within the
-    // visible viewport (not just the scrolled content area). Use a
-    // best-effort approach and ignore errors during early initialization.
-    try {
-        if (loading_state.loading_container != null) {
-            try { content_view.main_overlay.remove_overlay(loading_state.loading_container); } catch (GLib.Error e) { }
-            try { root_overlay.add_overlay(loading_state.loading_container); } catch (GLib.Error e) { }
-        }
-    } catch (GLib.Error e) { }
+    // visible viewport (not just the scrolled content area).
+    if (loading_state.loading_container != null) {
+        content_view.main_overlay.remove_overlay(loading_state.loading_container);
+        root_overlay.add_overlay(loading_state.loading_container);
+    }
 
-    // Local News overlay: use the `ContentView`-provided `local_news_message_box`
-    // and wire its button to open the Set Location prefs dialog. Add it as
-    // an overlay so it appears on top of the content when needed.
-    try {
-        if (loading_state.local_news_button != null) {
-            loading_state.local_news_button.clicked.connect(() => {
-                try { location_dialog.show(this); } catch (GLib.Error e) { }
-            });
-        }
-    } catch (GLib.Error e) { }
+    // Local News overlay: wire its button to open the Set Location prefs dialog.
+    if (loading_state.local_news_button != null) {
+        loading_state.local_news_button.clicked.connect(() => {
+            location_dialog.show(this);
+        });
+    }
 
-    // My Feed overlay: wire the "Select news sources" button to open the sources dialog
-    try {
-        if (loading_state.personalized_message_action != null) {
-            loading_state.personalized_message_action.clicked.connect(() => {
-                try { PrefsDialog.show_preferences_dialog(this); } catch (GLib.Error e) { }
-            });
-        }
-    } catch (GLib.Error e) { }
+    // My Feed overlay: wire the "Select news sources" button to open preferences
+    if (loading_state.personalized_message_action != null) {
+        loading_state.personalized_message_action.clicked.connect(() => {
+            PrefsDialog.show_preferences_dialog(this);
+        });
+    }
 
-    try { if (loading_state.local_news_message_box != null) root_overlay.add_overlay(loading_state.local_news_message_box); } catch (GLib.Error e) { }
+    if (loading_state.local_news_message_box != null) root_overlay.add_overlay(loading_state.local_news_message_box);
 
     // Add error message overlay and wire up retry button
-    try {
-        if (loading_state.error_retry_button != null) {
-            loading_state.error_retry_button.clicked.connect(() => {
-                try {
-                    if (loading_state.error_message_box != null) loading_state.error_message_box.set_visible(false);
-                    fetch_news();
-                } catch (GLib.Error e) { }
-            });
-        }
-    } catch (GLib.Error e) { }
-    try { if (loading_state.error_message_box != null) root_overlay.add_overlay(loading_state.error_message_box); } catch (GLib.Error e) { }
+    if (loading_state.error_retry_button != null) {
+        loading_state.error_retry_button.clicked.connect(() => {
+            if (loading_state.error_message_box != null) loading_state.error_message_box.set_visible(false);
+            fetch_news();
+        });
+    }
+    if (loading_state.error_message_box != null) root_overlay.add_overlay(loading_state.error_message_box);
 
     // Create the in-app article sheet overlay (WebKit-based) and add it
-    try {
-        this.article_sheet = new ArticleSheet(this);
-        try { root_overlay.add_overlay(this.article_sheet.get_widget()); } catch (GLib.Error e) { }
-    } catch (GLib.Error e) { }
+    this.article_sheet = new ArticleSheet(this);
+    root_overlay.add_overlay(this.article_sheet.get_widget());
 
     // Wrap root_overlay with article preview split
     article_preview_split.set_content(root_overlay);
@@ -740,19 +695,14 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (keyval == Gdk.Key.Escape && article_preview_split.get_show_sidebar()) {
                 // Close the preview pane visually first
                 article_preview_split.set_show_sidebar(false);
-                try {
-                    if (view_state != null && view_state.last_previewed_url != null && view_state.last_previewed_url.length > 0) {
-                        preview_closed(view_state.last_previewed_url);
-                    } else {
-                        dim_overlay.set_visible(false);
-                    }
-                } catch (GLib.Error e) {
-                    // Ensure overlay is hidden even if preview_closed raised an error
-                    try { dim_overlay.set_visible(false); } catch (GLib.Error _e) { }
+                if (view_state != null && view_state.last_previewed_url != null && view_state.last_previewed_url.length > 0) {
+                    preview_closed(view_state.last_previewed_url);
+                } else {
+                    if (dim_overlay != null) dim_overlay.set_visible(false);
                 }
 
                 // Defensive: always ensure the dim overlay is hidden after handling Escape.
-                try { if (dim_overlay != null) dim_overlay.set_visible(false); } catch (GLib.Error e) { }
+                if (dim_overlay != null) dim_overlay.set_visible(false);
 
                 return true;
             }
@@ -768,34 +718,24 @@ public class NewsWindow : Adw.ApplicationWindow {
         main_click_controller.pressed.connect((n_press, x, y) => {
             // Only close if article preview is open
             if (!article_preview_split.get_show_sidebar()) return;
-            try {
-                if (article_preview_split.get_show_sidebar()) {
-                    int win_w = 0;
-                    int sidebar_w = 0;
-                    try { win_w = this.get_width(); } catch (GLib.Error e) { win_w = 0; }
-                    try { sidebar_w = preview_wrapper.get_width(); } catch (GLib.Error e) { sidebar_w = 0; }
-                    if (win_w > 0 && sidebar_w > 0) {
-                        double sidebar_left = (double)(win_w - sidebar_w);
-                        if (x >= sidebar_left) {
-                            // Click is inside the preview panel — ignore it
-                            return;
-                        }
+            if (article_preview_split.get_show_sidebar()) {
+                int win_w = this.get_width();
+                int sidebar_w = preview_wrapper.get_width();
+                if (win_w > 0 && sidebar_w > 0) {
+                    double sidebar_left = (double)(win_w - sidebar_w);
+                    if (x >= sidebar_left) {
+                        // Click is inside the preview panel — ignore it
+                        return;
                     }
                 }
+            }
 
-                article_preview_split.set_show_sidebar(false);
-                // Call preview_closed to properly mark viewed and restore scroll
-                try {
-                    if (view_state != null && view_state.last_previewed_url != null && view_state.last_previewed_url.length > 0) {
-                        preview_closed(view_state.last_previewed_url);
-                    } else {
-                        dim_overlay.set_visible(false);
-                    }
-                } catch (GLib.Error e) { 
-                    dim_overlay.set_visible(false);
-                }
-            } catch (GLib.Error e) { 
-                try { dim_overlay.set_visible(false); } catch (GLib.Error _e) { }
+            article_preview_split.set_show_sidebar(false);
+            // Call preview_closed to properly mark viewed and restore scroll
+            if (view_state != null && view_state.last_previewed_url != null && view_state.last_previewed_url.length > 0) {
+                preview_closed(view_state.last_previewed_url);
+            } else {
+                if (dim_overlay != null) dim_overlay.set_visible(false);
             }
         });
         split_view.add_controller(main_click_controller);
@@ -808,16 +748,14 @@ public class NewsWindow : Adw.ApplicationWindow {
             // (including the multi-source icon) can be swapped for their
             // white variants or back to the original variant as appropriate.
             sm.notify["dark"].connect(() => {
-                try {
-                    if (sidebar_view != null) sidebar_view.update_icons_for_theme();
-                    // Update the top-right source logo to pick the correct
-                    // white or normal variant based on the new theme.
-                    try { update_source_info(); } catch (GLib.Error e) { }
-                    // Update the category icon in the header so bundled
-                    // mono icons can swap to their white variants in dark
-                    // mode as well.
-                    try { update_category_icon(); } catch (GLib.Error e) { }
-                } catch (GLib.Error e) { }
+                if (sidebar_view != null) sidebar_view.update_icons_for_theme();
+                // Update the top-right source logo to pick the correct
+                // white or normal variant based on the new theme.
+                update_source_info();
+                // Update the category icon in the header so bundled
+                // mono icons can swap to their white variants in dark
+                // mode as well.
+                update_category_icon();
             });
         }
 
@@ -826,12 +764,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // If this is the user's first run, the preferences dialog will be
         // presented from main.activate(). Defer the initial network fetch
         // so the dialog can appear and the user can adjust sources first.
-        try {
-            var prefs_local = NewsPreferences.get_instance();
-            if (prefs_local == null || !prefs_local.first_run) {
-                fetch_news();
-            }
-        } catch (GLib.Error e) { fetch_news(); }
+        var prefs_local = NewsPreferences.get_instance();
+        if (prefs_local == null || !prefs_local.first_run) {
+            fetch_news();
+        }
 
         // Delay automatic feed updates to avoid startup contention
         // Wait 45 seconds after launch so initial content loads smoothly
@@ -861,30 +797,27 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Also persist window geometry into GSettings. We save on close (not on resize)
         // so transient states (like maximized) don't become stored as normal sizes.
         this.close_request.connect(() => {
-            try {
-                // Persist maximized state and size (only when not maximized)
-                    if (settings != null) {
-                        bool is_max = false;
-                        is_max = this.is_maximized();
-                        settings.set_boolean("window-maximized", is_max);
+            // Persist maximized state and size (only when not maximized)
+            if (settings != null) {
+                bool is_max = this.is_maximized();
+                settings.set_boolean("window-maximized", is_max);
 
-                        if (!is_max) {
-                            int cw = 1400;
-                            int ch = 925;
-                            this.get_default_size(out cw, out ch);
-                            if (cw > 0 && ch > 0) {
-                                settings.set_int("window-width", cw);
-                                settings.set_int("window-height", ch);
-                            }
-                        }
+                if (!is_max) {
+                    int cw = 1400;
+                    int ch = 925;
+                    this.get_default_size(out cw, out ch);
+                    if (cw > 0 && ch > 0) {
+                        settings.set_int("window-width", cw);
+                        settings.set_int("window-height", ch);
                     }
-
-                // Clear any paintables held by window-level widgets to release textures
-                try { if (source_logo != null) source_logo.set_from_paintable(null); } catch (GLib.Error e) { }
-            } catch (GLib.Error e) { }
-            if (image_cache != null) {
-                try { image_cache.clear(); } catch (GLib.Error e) { }
+                }
             }
+
+            // Clear any paintables held by window-level widgets to release textures
+            if (source_logo != null) source_logo.set_from_paintable(null);
+
+            if (image_cache != null) image_cache.clear();
+
             return false; // allow default handler to run
         });
     }
@@ -897,31 +830,31 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     public void update_category_icon() {
-        try { if (header_manager != null) header_manager.update_category_icon(); } catch (GLib.Error e) { }
+        if (header_manager != null) header_manager.update_category_icon();
     }
 
     public void update_content_header() {
-        try { if (header_manager != null) header_manager.update_content_header(); } catch (GLib.Error e) { }
+        if (header_manager != null) header_manager.update_content_header();
     }
 
     public void update_content_header_now() {
-        try { if (header_manager != null) header_manager.update_content_header_now(); } catch (GLib.Error e) { }
+        if (header_manager != null) header_manager.update_content_header_now();
     }
 
     // Delegate personalization UI updates to the LoadingStateManager
     public void update_personalization_ui() {
-        try { if (loading_state != null) loading_state.update_personalization_ui(); } catch (GLib.Error e) { }
+        if (loading_state != null) loading_state.update_personalization_ui();
     }
 
     // Show or hide the Local News guidance overlay depending on whether
     // the user has configured a location and whether Local News is active.
     // Delegate local-news UI updates to the LoadingStateManager
     public void update_local_news_ui() {
-        try { if (loading_state != null) loading_state.update_local_news_ui(); } catch (GLib.Error e) { }
+        if (loading_state != null) loading_state.update_local_news_ui();
     }
 
     public void update_sidebar_for_source() {
-        try { if (sidebar_manager != null) sidebar_manager.update_for_source_change(); } catch (GLib.Error e) { }
+        if (sidebar_manager != null) sidebar_manager.update_for_source_change();
     }
 
     public string category_display_name_for(string cat) {
@@ -959,17 +892,17 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Delegate marking an article viewed to the ViewStateManager
     public void mark_article_viewed(string url) {
-        try { if (view_state != null) view_state.mark_article_viewed(url); } catch (GLib.Error e) { }
+        if (view_state != null) view_state.mark_article_viewed(url);
     }
 
     // Delegate preview-opened handling to the ViewStateManager
     public void preview_opened(string url) {
-        try { if (view_state != null) view_state.preview_opened(url); } catch (GLib.Error e) { }
+        if (view_state != null) view_state.preview_opened(url);
     }
 
     // Delegate preview-closed handling to the ViewStateManager
     public void preview_closed(string url) {
-        try { if (view_state != null) view_state.preview_closed(url); } catch (GLib.Error e) { }
+        if (view_state != null) view_state.preview_closed(url);
     }
 
     public void show_toast(string message) {
@@ -1000,72 +933,56 @@ public class NewsWindow : Adw.ApplicationWindow {
     // per-article branded placeholder even when the application's global
     // prefs.news_source differs (useful when multiple sources are enabled).
     public void set_placeholder_image_for_source(Gtk.Picture image, int width, int height, NewsSource source) {
-        try {
-            PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, source);
-        } catch (GLib.Error e) {
-            try { PlaceholderBuilder.create_gradient_placeholder(image, width, height); } catch (GLib.Error ee) { }
-        }
+        PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, source);
     }
 
     // Local-news specific placeholder: delegate to PlaceholderBuilder which
     // implements the shared drawing logic so both NewsWindow and ArticlePane
     // can reuse the same visuals.
     public void set_local_placeholder_image(Gtk.Picture image, int width, int height) {
-        try {
-            PlaceholderBuilder.set_local_placeholder_image(image, width, height);
-            return;
-        } catch (GLib.Error e) {
-            // Fallback conservatively to the generic placeholder if the helper fails
-            try { PlaceholderBuilder.create_gradient_placeholder(image, width, height); } catch (GLib.Error ee) { }
-        }
+        PlaceholderBuilder.set_local_placeholder_image(image, width, height);
     }
 
     // RSS feed specific placeholder: use the RSS feed's source logo from source_logos directory
     public void set_rss_placeholder_image(Gtk.Picture image, int width, int height, string source_name) {
-        try {
-            PlaceholderBuilder.set_rss_placeholder_image(image, width, height, source_name);
-            return;
-        } catch (GLib.Error e) {
-            // Fallback to text-based placeholder with source name
-            try { PlaceholderBuilder.create_source_text_placeholder(image, source_name, NewsSource.GUARDIAN, width, height); } catch (GLib.Error ee) { }
-        }
+        PlaceholderBuilder.set_rss_placeholder_image(image, width, height, source_name);
     }
 
     // Layout-related logic has been moved to LayoutManager; delegate to it.
     public int estimate_content_width() {
-        try { if (layout_manager != null) return layout_manager.estimate_content_width(); } catch (GLib.Error e) { }
+        if (layout_manager != null) return layout_manager.estimate_content_width();
         return 1280;
     }
 
     private void update_main_content_size(bool sidebar_visible) {
-        try { if (layout_manager != null) layout_manager.update_main_content_size(sidebar_visible); } catch (GLib.Error e) { }
+        if (layout_manager != null) layout_manager.update_main_content_size(sidebar_visible);
     }
 
     public void maybe_refetch_hero_for(Gtk.Picture pic, HeroRequest info) {
-        try { if (layout_manager != null) layout_manager.maybe_refetch_hero_for(pic, info); } catch (GLib.Error e) { }
+        if (layout_manager != null) layout_manager.maybe_refetch_hero_for(pic, info);
     }
 
     public void show_loading_spinner() {
-        try { if (loading_state != null) loading_state.show_loading_spinner(); } catch (GLib.Error e) { }
+        if (loading_state != null) loading_state.show_loading_spinner();
     }
     
     public void hide_loading_spinner() {
-        try { if (loading_state != null) loading_state.hide_loading_spinner(); } catch (GLib.Error e) { }
+        if (loading_state != null) loading_state.hide_loading_spinner();
     }
 
     // Show the global error overlay. If `msg` is provided it will be shown
     // in the overlay label; otherwise we use a generic "no articles" text.
     public void show_error_message(string? msg = null) {
-        try { if (loading_state != null) loading_state.show_error_message(msg); } catch (GLib.Error e) { }
-        
+        if (loading_state != null) loading_state.show_error_message(msg);
+
         // Also show a user-visible toast for immediate feedback
         string toast_msg = msg != null && msg.length > 0 ? msg : "Failed to load articles. Please try again.";
-        try { show_toast(toast_msg); } catch (GLib.Error e) { }
+        show_toast(toast_msg);
     }
 
     // Reveal main content (stop showing the loading spinner)
     public void reveal_initial_content() {
-        try { if (loading_state != null) loading_state.reveal_initial_content(); } catch (GLib.Error e) { }
+        if (loading_state != null) loading_state.reveal_initial_content();
     }
 
     // Helper to form memory cache keys that include requested size
@@ -1077,7 +994,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Helper to mark that initial items have been added to the UI. If there are
     // no pending image loads, reveal the UI immediately.
     public void mark_initial_items_populated() {
-        try { if (loading_state != null) loading_state.mark_initial_items_populated(); } catch (GLib.Error e) { }
+        if (loading_state != null) loading_state.mark_initial_items_populated();
     }
 
     // Clean up memory by releasing old textures and widget references
@@ -1088,9 +1005,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
         
         // Clear URL-to-widget mappings (these should auto-cleanup via destroy signals, but ensure)
-        try { if (view_state != null) view_state.url_to_picture.clear(); } catch (GLib.Error e) { }
-        try { if (view_state != null) view_state.url_to_card.clear(); } catch (GLib.Error e) { }
-        try { if (view_state != null) view_state.normalized_to_url.clear(); } catch (GLib.Error e) { }
+        if (view_state != null) view_state.url_to_picture.clear();
+        if (view_state != null) view_state.url_to_card.clear();
+        if (view_state != null) view_state.normalized_to_url.clear();
         
         // Clear pending downloads
         pending_downloads.clear();
@@ -1114,9 +1031,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // while the heavy implementation lives in `fetch_news_impl` for easier
     // staged extraction.
     public void fetch_news() {
-        try {
-            FetchNewsController.fetch_news(this);
-        } catch (GLib.Error e) { }
+        FetchNewsController.fetch_news(this);
     }
 
     // Fetch article metadata for all *regular* categories and RSS sources in background

@@ -33,15 +33,6 @@ public class ArticlePane : GLib.Object {
     private string? current_article_title = null;
     // Store current article menu to prevent garbage collection
     private ArticleMenu? current_article_menu = null;
-    // In-memory cache for article preview textures (url@WxH -> Gdk.Texture).
-    // Use an LRU cache with a small capacity so previews don't accumulate
-    // indefinitely and cause unbounded memory growth.
-    // Use a shared preview cache managed by PreviewCacheManager so the
-    // main window can clear preview textures on category switches.
-
-    // Centralized debug log path for this module. Use this variable so the
-    // path can be adjusted in one place if we change where debug output
-    // should be written (for example under a per-user data dir).
     private static string debug_log_path = "/tmp/paperboy-debug.log";
 
     // Callback type for snippet results
@@ -53,7 +44,7 @@ public class ArticlePane : GLib.Object {
         parent_window = window;
         image_manager = img_handler;
         // Initialize shared preview cache (centralized)
-        try { PreviewCacheManager.get_cache(); } catch (GLib.Error e) { }
+        PreviewCacheManager.get_cache();
     }
     
     // Set the preview overlay components (called after ArticleWindow construction)
@@ -62,52 +53,12 @@ public class ArticlePane : GLib.Object {
         preview_content_box = content_box;
     }
 
-    // Robustly open a URL in the user's configured browser. Try the
-    // platform Gio.AppInfo API first; on failure fall back to executing
-    // `xdg-open` as a last resort. We log failures to the debug log when
-    // PAPERBOY_DEBUG is enabled so failures can be diagnosed remotely.
     public void open_article_in_browser(string uri) {
-        // Log the click and the raw URI so debugging is reliable even when
-        // AppInfo doesn't report an error (AppInfo may succeed silently
-        // or the desktop may be misconfigured).
-    try { AppDebugger.append_debug_log(debug_log_path, "open_article_in_browser: invoked with raw uri='" + (uri != null ? uri : "(null)") + "'"); } catch (GLib.Error e) { }
-
-        // Basic sanity: reject empty URIs early and log them.
-        if (uri == null || uri.strip().length == 0) {
-            try { AppDebugger.append_debug_log(debug_log_path, "open_article_in_browser: empty uri, aborting"); } catch (GLib.Error e) { }
-            return;
-        }
-
-        // Normalize a missing scheme: many scrapers or feeds sometimes
-        // omit 'https://' and only provide 'example.com/path'. Assume
-        // https when a scheme is missing to give the user a sensible
-        // result rather than a no-op.
-        string normalized = uri.strip();
-            if (!(normalized.has_prefix("http://") || normalized.has_prefix("https://") || normalized.has_prefix("mailto:") || normalized.has_prefix("file:") || normalized.has_prefix("ftp:"))) {
-            normalized = "https://" + normalized;
-            try { AppDebugger.append_debug_log(debug_log_path, "open_article_in_browser: normalized uri to '" + normalized + "'"); } catch (GLib.Error e) { }
-        }
-
-        try {
-            try {
-                AppInfo.launch_default_for_uri(normalized, null);
-                try { AppDebugger.append_debug_log(debug_log_path, "open_article_in_browser: AppInfo.launch_default_for_uri invoked for '" + normalized + "'"); } catch (GLib.Error _e) { }
-                return;
-            } catch (GLib.Error e) {
-                try { AppDebugger.append_debug_log(debug_log_path, "open_article_in_browser: AppInfo.launch_default_for_uri failed: " + e.message); } catch (GLib.Error _e) { }
-            }
-
-            // AppInfo failed — log the failure and return. We purposely avoid
-            // introducing platform-specific subprocess fallbacks here (they
-            // caused compile-time binding issues earlier). If we need a
-            // fallback later, add a well-tested `Gio.Subprocess`/portal-based
-            // implementation behind a runtime check and feature-guard.
-            try { AppDebugger.append_debug_log(debug_log_path, "open_article_in_browser: AppInfo.launch_default_for_uri failed for '" + normalized + "'"); } catch (GLib.Error _e) { }
-        } catch (GLib.Error e) {
-            try { AppDebugger.append_debug_log(debug_log_path, "open_article_in_browser: unexpected error: " + e.message); } catch (GLib.Error _e) { }
+        bool success = BrowserUtils.open_url_in_browser(uri);
+        if (!success) {
+            parent_window.show_toast("Failed to open link in browser");
         }
     }
-
 
     // Show a modal preview with image and a small snippet
     // `category_id` is optional; when it's "local_news" we prefer the
@@ -119,7 +70,7 @@ public class ArticlePane : GLib.Object {
 
         // Notify parent window that a preview is opening so it can track
         // the active preview (used to mark viewed on return).
-        try { parent_window.preview_opened(url); } catch (GLib.Error e) { }
+        parent_window.preview_opened(url);
         
         // Clear previous preview content
         if (preview_content_box != null) {
@@ -346,7 +297,7 @@ public class ArticlePane : GLib.Object {
             if (preview_split != null) preview_split.set_show_sidebar(false);
             // Notify parent that the preview closed so it can mark the
             // article as viewed now that the user returned to the main view.
-            try { parent_window.preview_closed(url); } catch (GLib.Error e) { }
+            parent_window.preview_closed(url);
         });
 
         // Create a single menu button for "Open" which exposes both
@@ -358,10 +309,10 @@ public class ArticlePane : GLib.Object {
         bool is_viewed = false;
         // Normalize url to match stored keys
         string norm_url = url;
-        try { if (parent_window != null) norm_url = parent_window.normalize_article_url(url); } catch (GLib.Error e) { norm_url = url; }
+        if (parent_window != null) norm_url = parent_window.normalize_article_url(url);
         if (parent_window.article_state_store != null) {
-            try { is_saved = parent_window.article_state_store.is_saved(norm_url); } catch (GLib.Error e) { }
-            try { is_viewed = parent_window.article_state_store.is_viewed(norm_url); } catch (GLib.Error e) { }
+            is_saved = parent_window.article_state_store.is_saved(norm_url); 
+            is_viewed = parent_window.article_state_store.is_viewed(norm_url);
         }
 
         // Create article menu using ArticleMenu class
@@ -369,22 +320,18 @@ public class ArticlePane : GLib.Object {
         
         // Connect to menu signals
         current_article_menu.open_in_app_requested.connect((article_url) => {
-            try {
-                string normalized = parent_window.normalize_article_url(article_url);
-                if (parent_window.article_sheet != null) parent_window.article_sheet.open(normalized);
-                if (preview_split != null) preview_split.set_show_sidebar(false);
-            } catch (GLib.Error e) { }
+            string normalized = parent_window.normalize_article_url(article_url);
+            if (parent_window.article_sheet != null) parent_window.article_sheet.open(normalized);
+            if (preview_split != null) preview_split.set_show_sidebar(false);
         });
         
         current_article_menu.open_in_browser_requested.connect((article_url) => {
-            try { open_article_in_browser(article_url); } catch (GLib.Error e) { }
+            open_article_in_browser(article_url);
         });
         
         current_article_menu.follow_source_requested.connect((article_url, source_name) => {
-            try {
-                parent_window.show_persistent_toast("Searching for feed...");
-                parent_window.source_manager.follow_rss_source(article_url, source_name);
-            } catch (GLib.Error e) { }
+            parent_window.show_persistent_toast("Searching for feed...");
+            parent_window.source_manager.follow_rss_source(article_url, source_name);
         });
         
         current_article_menu.save_for_later_requested.connect((article_url) => {
@@ -394,10 +341,8 @@ public class ArticlePane : GLib.Object {
                     parent_window.article_state_store.unsave_article(article_url);
                     parent_window.show_toast("Removed article from saved");
                     if (parent_window.prefs.category == "saved") {
-                        try {
-                            parent_window.fetch_news();
-                            if (preview_split != null) preview_split.set_show_sidebar(false);
-                        } catch (GLib.Error e) { }
+                        parent_window.fetch_news();
+                        if (preview_split != null) preview_split.set_show_sidebar(false);
                     }
                 } else {
                     parent_window.article_state_store.save_article(article_url, title, thumbnail_url, article_source_name);
@@ -412,21 +357,17 @@ public class ArticlePane : GLib.Object {
 
         current_article_menu.mark_unread_requested.connect((article_url) => {
             string nurl = article_url;
-            try { if (parent_window != null) nurl = parent_window.normalize_article_url(article_url); } catch (GLib.Error e) { nurl = article_url; }
-
-            try { if (parent_window.article_state_store != null) parent_window.article_state_store.mark_unviewed(nurl); } catch (GLib.Error e) { }
-
+            if (parent_window != null) nurl = parent_window.normalize_article_url(article_url);
+            if (parent_window.article_state_store != null) parent_window.article_state_store.mark_unviewed(nurl);
             // Prevent preview_closed from re-marking this article as viewed
-            try { if (parent_window != null && parent_window.view_state != null) parent_window.view_state.suppress_mark_on_preview_close(nurl); } catch (GLib.Error e) { }
-
+            if (parent_window != null && parent_window.view_state != null) parent_window.view_state.suppress_mark_on_preview_close(nurl);
             // Remove from in-memory viewed set so UI updates immediately
-            try { if (parent_window != null && parent_window.view_state != null) parent_window.view_state.viewed_articles.remove(nurl); } catch (GLib.Error e) { }
-
+            if (parent_window != null && parent_window.view_state != null) parent_window.view_state.viewed_articles.remove(nurl);
             // Badge update is handled via ArticleStateStore.viewed_status_changed signal
-            try {
-                if (parent_window.view_state != null && article_source_name != null) parent_window.view_state.refresh_viewed_badges_for_source(article_source_name);
-            } catch (GLib.Error e) { }
-                try { parent_window.view_state.refresh_viewed_badge_for_url(nurl); } catch (GLib.Error e) { }
+            if (parent_window != null && parent_window.view_state != null && article_source_name != null)
+                parent_window.view_state.refresh_viewed_badges_for_source(article_source_name);
+            if (parent_window != null && parent_window.view_state != null)
+                parent_window.view_state.refresh_viewed_badge_for_url(nurl);
         });
         
         // Create the popover and menu box
@@ -459,11 +400,11 @@ public class ArticlePane : GLib.Object {
         
         // Clear any auto-selection on the title label after it's shown
         Idle.add(() => {
-            try { ttl.select_region(0, 0); } catch (GLib.Error e) { }
+            ttl.select_region(0, 0);
             return false;
         });
         
-        try { parent_window.preview_opened(url); } catch (GLib.Error e) { }
+        parent_window.preview_opened(url);
         // Try to set metadata from any cached article entry (source + published time)
         var prefs = NewsPreferences.get_instance();
         string? homepage_published_any = article_published;
@@ -565,29 +506,14 @@ public class ArticlePane : GLib.Object {
                 if (display_source == null) display_source = SourceUtils.get_source_name(article_src);
             }
         }
-
-                // Debug trace the decision so we can inspect runtime behavior when
-                // PAPERBOY_DEBUG is enabled. This helps explain cases where the
-                // preview label is repainted unexpectedly.
-                try {
-            string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-            if (_dbg != null && _dbg.length > 0) {
-                try { AppDebugger.append_debug_log(debug_log_path, "show_article_preview: explicit_source=" + (explicit_source_name != null ? explicit_source_name : "(null)") +
-                                 " inferred=" + SourceUtils.get_source_name(article_src) +
-                                 " prefs_news_source=" + SourceUtils.get_source_name(prefs.news_source) +
-                                 " category=" + (category_id != null ? category_id : "(null)") +
-                                 " host=" + UrlUtils.extract_host_from_url(url) +
-                                 " display_source=" + display_source); } catch (GLib.Error ee) { }
+            if (homepage_published_any != null && homepage_published_any.length > 0) {
+                meta_label.set_text(display_source + " • " + DateUtils.format_published(homepage_published_any));
+            } else {
+                meta_label.set_text(display_source);
             }
-        } catch (GLib.Error e) { }
-
-                if (homepage_published_any != null && homepage_published_any.length > 0)
-                    meta_label.set_text(display_source + " • " + DateUtils.format_published(homepage_published_any));
-                else
-                    meta_label.set_text(display_source);
 
         // Use homepage snippet for Fox News if available
-    if (article_src == NewsSource.FOX) {
+        if (article_src == NewsSource.FOX) {
             // Try to get snippet from parent_window/article_buffer
             string? homepage_snippet = null;
             string? homepage_published = null;
@@ -615,10 +541,14 @@ public class ArticlePane : GLib.Object {
         // Pass the already-chosen friendly display_source into the snippet
         // fetcher so it doesn't overwrite our localized/host-derived label
         // with the (potentially incorrect) global provider name.
-        fetch_snippet_async(url, (text) => {
-            string to_show = text.length > 0 ? text : "No preview available. Open the article to read more.";
+        ArticlePreviewService.fetch_snippet_async(url, (preview) => {
+            string to_show = preview.snippet.length > 0 ? preview.snippet : "No preview available. Open the article to read more.";
             snippet_label.set_text(to_show);
-        }, meta_label, article_src, display_source);
+            if (meta_label != null && preview.published != null && preview.published.length > 0) {
+                string label_to_use = (display_source != null && display_source.length > 0) ? display_source : SourceUtils.get_source_name(article_src);
+                meta_label.set_text(label_to_use + " • " + DateUtils.format_published(preview.published));
+            }
+        }, article_src, display_source);
         
     }
 
@@ -638,95 +568,6 @@ public class ArticlePane : GLib.Object {
                 PlaceholderBuilder.set_placeholder_image_for_source(image, target_w, target_h, source);
             }
         }
-    }
-
-
-
-    // Fetch a short snippet from an article URL using common meta tags or first paragraph
-    private void fetch_snippet_async(string url, SnippetCallback on_done, Gtk.Label? meta_label, NewsSource source, string? display_source) {
-        new Thread<void*>("snippet-fetch", () => {
-            string result = "";
-            string published = "";
-            try {
-                var client = Paperboy.HttpClientUtils.get_default();
-                var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
-                var http_response = client.fetch_sync(url, options);
-
-                if (http_response.is_success() && http_response.body != null && http_response.body.get_size() > 0) {
-                    // Get response data from GLib.Bytes
-                    unowned uint8[] body_data = http_response.body.get_data();
-
-                    // Copy to a null-terminated buffer
-                    uint8[] buf = new uint8[body_data.length + 1];
-                    Memory.copy(buf, body_data, body_data.length);
-                    buf[body_data.length] = 0;
-                    string html = (string) buf;
-
-                    // Use centralized stripHtmlUtils for snippet extraction
-                    result = stripHtmlUtils.extract_snippet_from_html(html);
-
-                    // Try to extract published date/time from common meta tags or <time>
-                    try {
-                        string lower = html.down();
-                        int pos = 0;
-                        while ((pos = lower.index_of("<meta", pos)) >= 0) {
-                            int end = lower.index_of(">", pos);
-                            if (end < 0 || end <= pos) break;
-                            if (html.length < end + 1 || lower.length < end + 1) break;
-                            string tag = html.substring(pos, end - pos + 1);
-                            string tl = lower.substring(pos, end - pos + 1);
-                            if (tl.index_of("datepublished") >= 0 || tl.index_of("article:published_time") >= 0 || tl.index_of("property=\"article:published_time\"") >= 0 || tl.index_of("name=\"pubdate\"") >= 0 || tl.index_of("itemprop=\"datePublished\"") >= 0) {
-                                string content = stripHtmlUtils.extract_attr(tag, "content");
-                                if (content != null && content.strip().length > 0) { published = content.strip(); break; }
-                            }
-                            pos = end + 1;
-                        }
-                        if (published.length == 0) {
-                            // search for <time datetime="...">
-                            int tpos = lower.index_of("<time");
-                            if (tpos >= 0) {
-                                int tend = lower.index_of(">", tpos);
-                                if (tend > tpos && html.length >= tend + 1) {
-                                    string ttag = html.substring(tpos, tend - tpos + 1);
-                                    string dt = stripHtmlUtils.extract_attr(ttag, "datetime");
-                                    if (dt != null && dt.strip().length > 0) published = dt.strip();
-                                    else {
-                                        // fallback inner text
-                                        int close = lower.index_of("</time>", tend);
-                                        if (close > tend && html.length >= close && close > tend + 1) {
-                                            string inner = html.substring(tend + 1, close - (tend + 1));
-                                            inner = stripHtmlUtils.strip_html(inner).strip();
-                                            if (inner.length > 0) published = inner;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } catch (GLib.Error e) { /* ignore */ }
-                }
-            } catch (GLib.Error e) {
-                // ignore, use empty result
-            }
-            string final = result;
-            Idle.add(() => {
-                // If we discovered a published time, set the meta label too.
-                // Use the display_source chosen by the preview logic when
-                // available so that the snippet fetcher doesn't overwrite a
-                // more specific/local label (for example the user's city for
-                // Local News) with the application's global source name.
-                if (meta_label != null && published.length > 0) {
-                    string label_to_use = (display_source != null && display_source.length > 0) ? display_source : SourceUtils.get_source_name(source);
-                    try {
-                        string? _dbg = GLib.Environment.get_variable("PAPERBOY_DEBUG");
-                        if (_dbg != null && _dbg.length > 0) AppDebugger.append_debug_log(debug_log_path, "fetch_snippet_async: url=" + url + " published=" + published + " label=" + label_to_use);
-                    } catch (GLib.Error e) { }
-                    meta_label.set_text(label_to_use + " • " + DateUtils.format_published(published));
-                }
-                on_done(final);
-                return false;
-            });
-            return null;
-        });
     }
 
     // Helper: clamp integer between bounds

@@ -940,6 +940,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                         string? script_path = null;
                         var binary_candidates = new ArrayList<string>();
 
+                        // If the AppRun or launcher set a libexec dir, prefer that first
+                        string? paperboy_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
+                        if (paperboy_libexec != null && paperboy_libexec.length > 0) {
+                            binary_candidates.add(GLib.Path.build_filename(paperboy_libexec, "paperboy", "html2rss"));
+                            binary_candidates.add(GLib.Path.build_filename(paperboy_libexec, "html2rss"));
+                        }
+
                         // FHS-compliant: check libexecdir for internal binaries (per FHS 4.7)
                         binary_candidates.add("/usr/libexec/paperboy/html2rss");
                         binary_candidates.add("/usr/local/libexec/paperboy/html2rss");

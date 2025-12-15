@@ -48,8 +48,16 @@ public class ShareDialog : GLib.Object {
             "mail-send-symbolic",
             "Send link",
             () => {
-                ArticleShare.share_via_email(url, title, parent_window);
-                dialog.close();
+                try {
+                    string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.EMAIL, url, title);
+                    var launcher = new Gtk.UriLauncher(uri);
+                    launcher.launch.begin(parent_window, null);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opened email client");
+                    dialog.close();
+                } catch (GLib.Error e) {
+                    warning("shareDialog: failed to open email client: %s", e.message);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Could not open email client");
+                }
             }
         );
         content_box.append(email_btn);
@@ -66,8 +74,16 @@ public class ShareDialog : GLib.Object {
             "reddit-mono",
             "Reddit",
             () => {
-                ArticleShare.share_to_reddit(url, parent_window);
-                dialog.close();
+                try {
+                    string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.REDDIT, url, null);
+                    var launcher = new Gtk.UriLauncher(uri);
+                    launcher.launch.begin(parent_window, null);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opened Reddit");
+                    dialog.close();
+                } catch (GLib.Error e) {
+                    warning("shareDialog: failed to open Reddit: %s", e.message);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Could not open Reddit");
+                }
             }
         );
         content_box.append(reddit_btn);
@@ -77,8 +93,16 @@ public class ShareDialog : GLib.Object {
             "x-mono",
             "X (Twitter)",
             () => {
-                ArticleShare.share_to_twitter(url, title, parent_window);
-                dialog.close();
+                try {
+                    string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.TWITTER, url, title);
+                    var launcher = new Gtk.UriLauncher(uri);
+                    launcher.launch.begin(parent_window, null);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opened X");
+                    dialog.close();
+                } catch (GLib.Error e) {
+                    warning("shareDialog: failed to open X: %s", e.message);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Could not open X");
+                }
             }
         );
         content_box.append(twitter_btn);
@@ -88,8 +112,16 @@ public class ShareDialog : GLib.Object {
             "facebook-mono",
             "Facebook",
             () => {
-                ArticleShare.share_to_facebook(url, parent_window);
-                dialog.close();
+                try {
+                    string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.FACEBOOK, url, null);
+                    var launcher = new Gtk.UriLauncher(uri);
+                    launcher.launch.begin(parent_window, null);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opened Facebook");
+                    dialog.close();
+                } catch (GLib.Error e) {
+                    warning("shareDialog: failed to open Facebook: %s", e.message);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Could not open Facebook");
+                }
             }
         );
         content_box.append(facebook_btn);
@@ -106,8 +138,15 @@ public class ShareDialog : GLib.Object {
             "edit-copy-symbolic",
             "Copy link to clipboard",
             () => {
-                ArticleShare.copy_to_clipboard(url, parent_window);
-                dialog.close();
+                try {
+                    string text = ArticleShareService.build_clipboard_text(url);
+                    var clipboard = parent_window.get_clipboard();
+                    clipboard.set_text(text);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Link copied to clipboard");
+                    dialog.close();
+                } catch (GLib.Error e) {
+                    warning("shareDialog: failed to build clipboard text: %s", e.message);
+                }
             }
         );
         content_box.append(copy_btn);

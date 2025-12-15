@@ -501,15 +501,15 @@ public class SidebarView : GLib.Object {
     
     private void add_rss_feed(string name, string url) {
         // Use the centralized ToastManager instead of creating Adw.Toast directly
-        try { if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Discovering feed..."); } catch (GLib.Error _) { }
+        if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Discovering feed...");
 
         manager.add_rss_feed(name, url, (success, discovered_name) => {
-            try { if (window.toast_manager != null) window.toast_manager.clear_persistent_toast(); } catch (GLib.Error _) { }
+            if (window.toast_manager != null) window.toast_manager.clear_persistent_toast();
 
             if (success) {
-                try { if (window.toast_manager != null) window.toast_manager.show_toast("RSS feed added: " + discovered_name); } catch (GLib.Error _) { }
+                if (window.toast_manager != null) window.toast_manager.show_toast("RSS feed added: " + discovered_name);
             } else {
-                try { if (window.toast_manager != null) window.toast_manager.show_toast("Failed to add RSS feed"); } catch (GLib.Error _) { }
+                if (window.toast_manager != null) window.toast_manager.show_toast("Failed to add RSS feed");
             }
         });
     }
