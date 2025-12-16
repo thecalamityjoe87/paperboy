@@ -71,7 +71,7 @@ public class HeroCard : GLib.Object {
         overlay = new Gtk.Overlay();
         overlay.set_child(image);
         if (chip != null) {
-            try { overlay.add_overlay(chip); } catch (GLib.Error e) { }
+            overlay.add_overlay(chip);
         }
 
         root.append(overlay);
@@ -96,9 +96,9 @@ public class HeroCard : GLib.Object {
 
         // Click gesture -> emit activated
         var gesture = new Gtk.GestureClick();
-        try { gesture.set_button(1); } catch (GLib.Error e) { }
+        gesture.set_button(1);
         gesture.released.connect(() => {
-            try { activated(this.url); } catch (GLib.Error e) { }
+            activated(this.url);
         });
         root.add_controller(gesture);
 
@@ -111,9 +111,9 @@ public class HeroCard : GLib.Object {
         // Right-click context menu (only if enabled)
         if (enable_context_menu) {
             var right_click = new Gtk.GestureClick();
-            try { right_click.set_button(3); } catch (GLib.Error e) { }
+            right_click.set_button(3);
             right_click.pressed.connect((n_press, x, y) => {
-                try { show_context_menu(x, y); } catch (GLib.Error e) { }
+                show_context_menu(x, y);
             });
             root.add_controller(right_click);
         }
@@ -153,40 +153,34 @@ public class HeroCard : GLib.Object {
 
         current_menu.mark_unread_requested.connect((article_url) => {
             string nurl = article_url;
-            try { if (parent_window != null) nurl = parent_window.normalize_article_url(article_url); } catch (GLib.Error e) { nurl = article_url; }
+            if (parent_window != null) nurl = parent_window.normalize_article_url(article_url);
 
             if (article_state_store != null) {
-                try { article_state_store.mark_unviewed(nurl); } catch (GLib.Error e) { }
+                article_state_store.mark_unviewed(nurl);
             }
 
             // Remove from in-memory viewed set so UI updates immediately
-            try { if (parent_window != null && parent_window.view_state != null) parent_window.view_state.viewed_articles.remove(nurl); } catch (GLib.Error e) { }
+            if (parent_window != null && parent_window.view_state != null) parent_window.view_state.viewed_articles.remove(nurl);
 
-            // Also defensively remove any viewed-badge overlay directly from this hero
-            try {
-                if (overlay != null) {
-                    Gtk.Widget? child = overlay.get_first_child();
-                    while (child != null) {
-                        Gtk.Widget? next = child.get_next_sibling();
-                        try {
-                            if (child.get_style_context().has_class("viewed-badge")) {
-                                overlay.remove_overlay(child);
-                            }
-                        } catch (GLib.Error e) { }
-                        child = next;
+            // Also remove any viewed-badge overlay directly from this hero
+            if (overlay != null) {
+                Gtk.Widget? child = overlay.get_first_child();
+                while (child != null) {
+                    Gtk.Widget? next = child.get_next_sibling();
+                    if (child.get_style_context().has_class("viewed-badge")) {
+                        overlay.remove_overlay(child);
                     }
-                    try { overlay.queue_draw(); } catch (GLib.Error e) { }
+                    child = next;
                 }
-            } catch (GLib.Error e) { }
+                overlay.queue_draw();
+            }
 
             // Badge update is handled via ArticleStateStore.viewed_status_changed signal
-            try {
-                if (parent_window != null && parent_window.view_state != null && source_name != null) {
-                    parent_window.view_state.refresh_viewed_badges_for_source(source_name);
-                    // Also refresh the single URL so carousel-registered hero widgets update immediately
-                    try { parent_window.view_state.refresh_viewed_badge_for_url(nurl); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
+            if (parent_window != null && parent_window.view_state != null && source_name != null) {
+                parent_window.view_state.refresh_viewed_badges_for_source(source_name);
+                // Also refresh the single URL so carousel-registered hero widgets update immediately
+                parent_window.view_state.refresh_viewed_badge_for_url(nurl);
+            }
         });
 
         // Create and show popover, keep reference to prevent garbage collection

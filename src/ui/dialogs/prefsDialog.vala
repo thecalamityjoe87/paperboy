@@ -100,29 +100,27 @@ public class PrefsDialog : GLib.Object {
                 }
 
                 if (icon_path != null) {
-                    try {
-                        bool dark = false;
-                        var sm = Adw.StyleManager.get_default();
-                        if (sm != null) dark = sm.dark;
-                        string use_path = icon_path;
-                        if (dark) {
-                            string alt_name;
-                            if (filename.has_suffix(".svg")) {
-                                if (filename.length > 4)
-                                    alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
-                                else
-                                    alt_name = filename + "-white.svg";
-                            } else
+                    bool dark = false;
+                    var sm = Adw.StyleManager.get_default();
+                    if (sm != null) dark = sm.dark;
+                    string use_path = icon_path;
+                    if (dark) {
+                        string alt_name;
+                        if (filename.has_suffix(".svg")) {
+                            if (filename.length > 4)
+                                alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                            else
                                 alt_name = filename + "-white.svg";
+                        } else
+                            alt_name = filename + "-white.svg";
 
-                            string? white_candidate = find_data_file_local(GLib.Path.build_filename("icons", "symbolic", alt_name));
-                            if (white_candidate == null) white_candidate = find_data_file_local(GLib.Path.build_filename("icons", alt_name));
-                            if (white_candidate != null) use_path = white_candidate;
-                        }
-                        var img = new Gtk.Image.from_file(use_path);
-                        img.set_pixel_size(24);
-                        return img;
-                    } catch (GLib.Error e) { }
+                        string? white_candidate = find_data_file_local(GLib.Path.build_filename("icons", "symbolic", alt_name));
+                        if (white_candidate == null) white_candidate = find_data_file_local(GLib.Path.build_filename("icons", alt_name));
+                        if (white_candidate != null) use_path = white_candidate;
+                    }
+                    var img = new Gtk.Image.from_file(use_path);
+                    img.set_pixel_size(24);
+                    return img;
                 }
             }
             var img2 = new Gtk.Image.from_icon_name("tag-symbolic");
@@ -255,48 +253,44 @@ public class PrefsDialog : GLib.Object {
         // Helper to load favicon into provided Gtk.Picture with circular clipping
         void load_favicon_circular(Gtk.Picture picture, string url) {
             new Thread<void*>("load-favicon", () => {
-                try {
-                    var client = Paperboy.HttpClientUtils.get_default();
-                    var http_response = client.fetch_sync(url, null);
+                var client = Paperboy.HttpClientUtils.get_default();
+                var http_response = client.fetch_sync(url, null);
 
-                    if (http_response.is_success() && http_response.body != null && http_response.body.get_size() > 0) {
-                        unowned uint8[] body_data = http_response.body.get_data();
-                        uint8[] data = new uint8[body_data.length];
-                        Memory.copy(data, body_data, body_data.length);
+                if (http_response != null && http_response.is_success() && http_response.body != null && http_response.body.get_size() > 0) {
+                    unowned uint8[] body_data = http_response.body.get_data();
+                    uint8[] data = new uint8[body_data.length];
+                    Memory.copy(data, body_data, body_data.length);
 
-                        Idle.add(() => {
-                            try {
-                                var loader = new Gdk.PixbufLoader();
-                                loader.write(data);
-                                loader.close();
-                                var pixbuf = loader.get_pixbuf();
-                                if (pixbuf != null) {
-                                    int img_size = 24;
-                                    string k = "pixbuf::url:%s::%dx%d".printf(url, img_size, img_size);
-                                    var scaled = ImageCache.get_global().get_or_scale_pixbuf(k, pixbuf, img_size, img_size);
-                                    if (scaled != null) {
-                                        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 24, 24);
-                                        var cr = new Cairo.Context(surface);
-                                        cr.arc(12, 12, 12, 0, 2 * Math.PI);
-                                        cr.clip();
-                                        int ox = (24 - img_size) / 2;
-                                        int oy = (24 - img_size) / 2;
-                                        Gdk.cairo_set_source_pixbuf(cr, scaled, ox, oy);
-                                        cr.paint();
-                                        string surf_key = "pixbuf::circular:prefs:%s:24x24".printf(url);
-                                        var circular_pb = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 24, 24);
-                                        if (circular_pb != null) {
-                                            var texture = Gdk.Texture.for_pixbuf(circular_pb);
-                                            picture.set_paintable(texture);
-                                            picture.set_size_request(26, 26);
-                                        }
-                                    }
+                    Idle.add(() => {
+                        var loader = new Gdk.PixbufLoader();
+                        loader.write(data);
+                        loader.close();
+                        var pixbuf = loader.get_pixbuf();
+                        if (pixbuf != null) {
+                            int img_size = 24;
+                            string k = "pixbuf::url:%s::%dx%d".printf(url, img_size, img_size);
+                            var scaled = ImageCache.get_global().get_or_scale_pixbuf(k, pixbuf, img_size, img_size);
+                            if (scaled != null) {
+                                var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 24, 24);
+                                var cr = new Cairo.Context(surface);
+                                cr.arc(12, 12, 12, 0, 2 * Math.PI);
+                                cr.clip();
+                                int ox = (24 - img_size) / 2;
+                                int oy = (24 - img_size) / 2;
+                                Gdk.cairo_set_source_pixbuf(cr, scaled, ox, oy);
+                                cr.paint();
+                                string surf_key = "pixbuf::circular:prefs:%s:24x24".printf(url);
+                                var circular_pb = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 24, 24);
+                                if (circular_pb != null) {
+                                    var texture = Gdk.Texture.for_pixbuf(circular_pb);
+                                    picture.set_paintable(texture);
+                                    picture.set_size_request(26, 26);
                                 }
-                            } catch (GLib.Error e) { }
-                            return false;
-                        });
-                    }
-                } catch (GLib.Error e) { }
+                            }
+                        }
+                        return false;
+                    });
+                }
                 return null;
             });
         }
@@ -386,37 +380,34 @@ public class PrefsDialog : GLib.Object {
         // Helper to load icon from file with circular clipping
         void try_load_icon_circular(string path, Gtk.Picture picture) {
             if (GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
-                try {
-                    int img_size = 24;
-                    var pixbuf = new Gdk.Pixbuf.from_file_at_scale(path, img_size, img_size, true);
-                    if (pixbuf != null) {
-                        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 24, 24);
-                        var cr = new Cairo.Context(surface);
-                        cr.arc(12, 12, 12, 0, 2 * Math.PI);
-                        cr.clip();
-                        int ox = (24 - img_size) / 2;
-                        int oy = (24 - img_size) / 2;
-                        Gdk.cairo_set_source_pixbuf(cr, pixbuf, ox, oy);
-                        cr.paint();
-                        string surf_key = "pixbuf::circular:prefs:%s:24x24".printf(path);
-                        var circular_pb = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 24, 24);
-                        if (circular_pb != null) {
-                            var texture = Gdk.Texture.for_pixbuf(circular_pb);
-                            picture.set_paintable(texture);
-                            picture.set_size_request(24, 24);
-                            picture.set_can_shrink(false);
-                        }
+                int img_size = 24;
+                var pixbuf = new Gdk.Pixbuf.from_file_at_scale(path, img_size, img_size, true);
+                if (pixbuf != null) {
+                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 24, 24);
+                    var cr = new Cairo.Context(surface);
+                    cr.arc(12, 12, 12, 0, 2 * Math.PI);
+                    cr.clip();
+                    int ox = (24 - img_size) / 2;
+                    int oy = (24 - img_size) / 2;
+                    Gdk.cairo_set_source_pixbuf(cr, pixbuf, ox, oy);
+                    cr.paint();
+                    string surf_key = "pixbuf::circular:prefs:%s:24x24".printf(path);
+                    var circular_pb = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 24, 24);
+                    if (circular_pb != null) {
+                        var texture = Gdk.Texture.for_pixbuf(circular_pb);
+                        picture.set_paintable(texture);
+                        picture.set_size_request(24, 24);
+                        picture.set_can_shrink(false);
                     }
-                } catch (GLib.Error e) { }
+                }
             }
         }
 
         // Get and display all RSS sources
-        try {
-            var rss_store = Paperboy.RssSourceStore.get_instance();
-            var all_sources = rss_store.get_all_sources();
+        var rss_store = Paperboy.RssSourceStore.get_instance();
+        var all_sources = rss_store.get_all_sources();
 
-            foreach (var rss_source in all_sources) {
+        foreach (var rss_source in all_sources) {
                 var rss_row = new Adw.ActionRow();
 
                 // Try to get display name from SourceMetadata
@@ -495,44 +486,59 @@ public class PrefsDialog : GLib.Object {
                 delete_btn.set_icon_name("user-trash-symbolic");
                 delete_btn.set_valign(Gtk.Align.CENTER);
                 delete_btn.set_has_frame(false);
-                delete_btn.set_tooltip_text("Unfollow this source");
+                delete_btn.set_tooltip_text("Remove this source");
                 delete_btn.add_css_class("destructive-action");
                 delete_btn.clicked.connect(() => {
-                    try {
-                        // Check if we're currently viewing this RSS source
-                        bool is_currently_viewing = false;
-                        if (win.prefs.category != null && win.prefs.category.has_prefix("rssfeed:")) {
-                            if (win.prefs.category.length > 8) {
-                                string current_url = win.prefs.category.substring(8);
-                                if (current_url == rss_source.url) {
-                                    is_currently_viewing = true;
+                    // Confirm before removing the followed source
+                    var confirm = new Adw.AlertDialog(
+                        "Remove this source?",
+                        "Are you sure you want to remove '" + (rss_source.name != null ? rss_source.name : rss_source.url) + "' and all of its articles?"
+                    );
+                    confirm.add_response("cancel", "Cancel");
+                    confirm.add_response("remove", "Remove");
+                    confirm.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE);
+                    confirm.set_default_response("cancel");
+                    confirm.set_close_response("cancel");
+
+                    confirm.response.connect((response_id) => {
+                        if (response_id == "remove") {
+                            // Perform removal
+                            bool is_currently_viewing = false;
+                            if (win != null && win.prefs.category != null && win.prefs.category.has_prefix("rssfeed:")) {
+                                if (win.prefs.category.length > 8) {
+                                    string current_url = win.prefs.category.substring(8);
+                                    if (current_url == rss_source.url) {
+                                        is_currently_viewing = true;
+                                    }
                                 }
                             }
+
+                            rss_store.remove_source(rss_source.url);
+
+                            // Remove from preferences if enabled
+                            if (prefs.preferred_source_enabled("custom:" + rss_source.url)) {
+                                prefs.set_preferred_source_enabled("custom:" + rss_source.url, false);
+                                prefs.save_config();
+                            }
+
+                            rss_sources_group.remove(rss_row);
+                            sources_changed = true;
+
+                            // If we were viewing this source, navigate to Front Page
+                            if (is_currently_viewing && win != null) {
+                                GLib.Idle.add(() => {
+                                    if (win != null) {
+                                        win.prefs.category = "frontpage";
+                                        win.prefs.save_config();
+                                        win.fetch_news();
+                                    }
+                                    return false;
+                                });
+                            }
                         }
+                    });
 
-                        rss_store.remove_source(rss_source.url);
-
-                        // Remove from preferences if enabled
-                        if (prefs.preferred_source_enabled("custom:" + rss_source.url)) {
-                            prefs.set_preferred_source_enabled("custom:" + rss_source.url, false);
-                            prefs.save_config();
-                        }
-
-                        rss_sources_group.remove(rss_row);
-                        sources_changed = true;
-
-                        // If we were viewing this source, navigate to Front Page
-                        if (is_currently_viewing) {
-                            GLib.Idle.add(() => {
-                                try {
-                                    win.prefs.category = "frontpage";
-                                    win.prefs.save_config();
-                                    win.fetch_news();
-                                } catch (GLib.Error e) { }
-                                return false;
-                            });
-                        }
-                    } catch (GLib.Error e) { }
+                    confirm.present(dialog);
                 });
 
                 // Add switch to enable/disable this custom source
@@ -554,7 +560,6 @@ public class PrefsDialog : GLib.Object {
 
                 rss_sources_group.add(rss_row);
             }
-        } catch (GLib.Error e) { }
 
         sources_page.add(rss_sources_group);
 
