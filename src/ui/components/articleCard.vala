@@ -99,14 +99,12 @@ public class ArticleCard : GLib.Object {
         // Click gesture emits activated signal with the URL
         var gesture = new Gtk.GestureClick();
         // Accept primary button clicks (1) and handle release with full signature
-        try { gesture.set_button(1); } catch (GLib.Error e) { }
+        gesture.set_button(1);
         // Use a simple no-argument handler (original pattern) to avoid
         // signature mismatches; emit the declared signal so connected
         // handlers receive the article URL.
         gesture.released.connect(() => {
-            try {
-                activated(url);
-            } catch (GLib.Error e) { }
+            activated(url);
         });
         root.add_controller(gesture);
 
@@ -118,9 +116,9 @@ public class ArticleCard : GLib.Object {
 
         // Right-click context menu
         var right_click = new Gtk.GestureClick();
-        try { right_click.set_button(3); } catch (GLib.Error e) { }
+        right_click.set_button(3);
         right_click.pressed.connect((n_press, x, y) => {
-            try { show_context_menu(x, y); } catch (GLib.Error e) { }
+            show_context_menu(x, y);
         });
         root.add_controller(right_click);
     }
@@ -131,10 +129,10 @@ public class ArticleCard : GLib.Object {
         bool is_viewed = false;
         // Normalize URL before checking view/save state so we match the stored keys
         string norm_url = url;
-        try { if (parent_window != null) norm_url = parent_window.normalize_article_url(url); } catch (GLib.Error e) { norm_url = url; }
+        if (parent_window != null) norm_url = parent_window.normalize_article_url(url);
         if (article_state_store != null) {
-            try { is_saved = article_state_store.is_saved(norm_url); } catch (GLib.Error e) { }
-            try { is_viewed = article_state_store.is_viewed(norm_url); } catch (GLib.Error e) { }
+            is_saved = article_state_store.is_saved(norm_url);
+            is_viewed = article_state_store.is_viewed(norm_url);
         }
 
         // Create ArticleMenu instance and keep reference to prevent garbage collection
@@ -161,27 +159,21 @@ public class ArticleCard : GLib.Object {
         current_menu.mark_unread_requested.connect((article_url) => {
             // Normalize and operate on canonical URL so disk/meta keys match
             string nurl = article_url;
-            try { if (parent_window != null) nurl = parent_window.normalize_article_url(article_url); } catch (GLib.Error e) { nurl = article_url; }
+            if (parent_window != null) nurl = parent_window.normalize_article_url(article_url);
 
             if (article_state_store != null) {
-                try { article_state_store.mark_unviewed(nurl); } catch (GLib.Error e) { }
+                article_state_store.mark_unviewed(nurl);
             }
 
             // Remove from in-memory viewed set so UI updates immediately
-            try {
-                if (parent_window != null && parent_window.view_state != null) {
-                    try { parent_window.view_state.viewed_articles.remove(nurl); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
+            if (parent_window != null && parent_window.view_state != null) parent_window.view_state.viewed_articles.remove(nurl);
 
             // Update badges and viewed badges for the source if possible
             // Badge update is handled via ArticleStateStore.viewed_status_changed signal
-            try {
-                if (parent_window != null && parent_window.view_state != null && source_name != null) {
-                    parent_window.view_state.refresh_viewed_badges_for_source(source_name);
-                    try { parent_window.view_state.refresh_viewed_badge_for_url(nurl); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
+            if (parent_window != null && parent_window.view_state != null && source_name != null) {
+                parent_window.view_state.refresh_viewed_badges_for_source(source_name);
+                parent_window.view_state.refresh_viewed_badge_for_url(nurl);
+            }
         });
 
         // Create and show popover, keep reference to prevent garbage collection

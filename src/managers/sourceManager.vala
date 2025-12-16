@@ -279,9 +279,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 var rss_store = Paperboy.RssSourceStore.get_instance();
                 var all_sources = rss_store.get_all_sources();
                 foreach (var src in all_sources) {
+                    if (src.name == null || result == null) continue;
                     string src_lower = src.name.down();
                     string result_lower = result.down();
-                    if (src_lower.contains(result_lower) || result_lower.contains(src_lower)) {
+                    if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
                         result = src.name;
                         break;
                     }
@@ -296,7 +297,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Check if a source name string matches a known NewsSource enum.
     // Used to determine if a provided name corresponds to a built-in source.
     public static bool source_name_matches(NewsSource source, string name) {
+        if (name == null || name.length == 0) return false;
         string n = name.down();
+        if (n == null) return false;
         switch (source) {
             case NewsSource.GUARDIAN: return n.contains("guardian");
             case NewsSource.BBC: return n.contains("bbc");
@@ -566,9 +569,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     // the discovered title when the existing name looks like a domain
                     // (contains a dot and no spaces) and the discovered title appears
                     // more human (contains a space or has uppercase letters).
-                    if (existing_display_name != null && existing_display_name.length > 0) {
+                    if (existing_display_name != null && existing_display_name.length > 0 && final_name != null && final_name.length > 0) {
                         bool existing_is_domain = existing_display_name.index_of(".") >= 0 && existing_display_name.index_of(" ") < 0;
-                        bool new_is_more_human = (final_name.index_of(" ") >= 0) || (final_name != final_name.down());
+                        string final_name_lower = final_name.down();
+                        bool new_is_more_human = (final_name.index_of(" ") >= 0) || (final_name_lower != null && final_name != final_name_lower);
                         if (existing_is_domain && new_is_more_human) {
                             // Keep our discovered final_name and request metadata overwrite
                             force_update_meta = true;

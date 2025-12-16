@@ -76,18 +76,13 @@ public class FetchNewsController {
                 var layout_mgr = w.layout_manager;
                 var article_mgr = w.article_manager;
 
-                // Track articles for adaptive layout
-                if (cat_mgr != null && layout_mgr != null) {
-                    if (cat_mgr.is_rssfeed_view()) {
-                        try { layout_mgr.track_rss_article(cur.seq); } catch (GLib.Error e) { }
-                    } else {
-                        // Also track regular category articles for adaptive layout
-                        bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
-                                             !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
-                                             w.prefs != null && w.prefs.category != "saved";
-                        if (is_regular_cat) {
-                            try { layout_mgr.track_category_article(cur.seq); } catch (GLib.Error e) { }
-                        }
+                // Track articles for adaptive layout (regular categories only, not RSS feeds)
+                if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
+                    bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
+                                         !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
+                                         w.prefs != null && w.prefs.category != "saved";
+                    if (is_regular_cat) {
+                        try { layout_mgr.track_category_article(cur.seq); } catch (GLib.Error e) { }
                     }
                 }
                 if (article_mgr != null) {
@@ -440,17 +435,7 @@ public class FetchNewsController {
                 }
             } catch (GLib.Error e) { /* best-effort */ }
             
-            // Track RSS feed articles for adaptive layout (only if still current)
-            if (FetchContext.is_current(my_seq)) {
-                var cur3 = FetchContext.current_context();
-                if (cur3 != null) {
-                    var w3 = cur3.window;
-                    if (w3 != null && w3.category_manager.is_rssfeed_view()) {
-                        w3.layout_manager.track_rss_article(my_seq);
-                    }
-                }
-            }
-            
+            // Add the article (handles deduplication)
             w.article_manager.add_item(title, url, thumbnail, category_id, source_name);
         };
 
@@ -1002,14 +987,6 @@ public class FetchNewsController {
             });
         };
 
-        // Reset RSS feed article counter for adaptive layout
-        try { win.layout_manager.reset_rss_tracking(); } catch (GLib.Error e) { }
-
-        // For RSS feeds, mark that we're awaiting adaptive layout so spinner stays visible
-        if (win.loading_state != null) {
-            win.loading_state.awaiting_adaptive_layout = true;
-        }
-
         // Set badge to placeholder before clearing article tracking
         try {
             if (win.sidebar_manager != null) {
@@ -1024,7 +1001,34 @@ public class FetchNewsController {
             }
         } catch (GLib.Error e) { }
 
-        // Fetch articles from the RSS feed
+        // Load articles from cache first for instant display
+        var cache = Paperboy.RssArticleCache.get_instance();
+        var cached_articles = cache.get_cached_articles(feed_url);
+
+        if (cached_articles.size > 0) {
+            // Display cached articles immediately
+            foreach (var article in cached_articles) {
+                try {
+                    FetchNewsController.global_add_item(
+                        article.title,
+                        article.url,
+                        article.thumbnail_url,
+                        "rssfeed:" + feed_url,
+                        feed_name
+                    );
+                } catch (GLib.Error e) {
+                    GLib.warning("Failed to add cached article: %s", e.message);
+                }
+            }
+
+            // Update label to show we're displaying cached content
+            try {
+                label_fn("%s — Loaded %d articles from cache".printf(feed_name, cached_articles.size));
+            } catch (GLib.Error e) { }
+        }
+
+        // Fetch fresh articles from the RSS feed in the background to update cache
+        // This happens async, so cached articles display instantly while fresh ones load
         RssFeedProcessor.fetch_rss_url(
             feed_url,
             feed_name,

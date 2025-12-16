@@ -26,51 +26,83 @@ using Gee;
 public class FeedUpdateManager : GLib.Object {
     private weak NewsWindow window;
     private HashMap<string, int64?> update_timestamps;
-    private const int64 UPDATE_INTERVAL = 3600; // 1 hour in seconds
     private bool is_updating = false;
     
     public FeedUpdateManager(NewsWindow window) {
         this.window = window;
         this.update_timestamps = new HashMap<string, int64?>();
     }
-    
+
+    /**
+     * Convert user's update_interval preference to seconds
+     * @return Number of seconds, or -1 if manual updates
+     */
+    private int64 get_update_interval_seconds() {
+        string interval = window.prefs.update_interval;
+
+        switch (interval) {
+            case "manual":
+                return -1; // No automatic updates
+            case "15min":
+                return 900;  // 15 * 60
+            case "30min":
+                return 1800; // 30 * 60
+            case "1hour":
+                return 3600; // 60 * 60
+            case "2hours":
+                return 7200; // 2 * 60 * 60
+            case "4hours":
+                return 14400; // 4 * 60 * 60
+            default:
+                return 3600; // Default to 1 hour
+        }
+    }
+
     /**
      * Update all RSS feeds asynchronously
-     * 
+     *
      * This method runs in a background thread and updates all feeds
-     * that haven't been updated within the UPDATE_INTERVAL
+     * that haven't been updated within the user's configured interval
      */
     public void update_all_feeds_async() {
         if (is_updating) {
             GLib.print("Feed update already in progress, skipping\n");
             return;
         }
-        
+
+        // Check if automatic updates are disabled
+        int64 update_interval = get_update_interval_seconds();
+        if (update_interval == -1) {
+            GLib.print("Automatic updates disabled (manual mode)\n");
+            return;
+        }
+
         is_updating = true;
-        
+
         new Thread<void*>("feed-updater", () => {
             var store = Paperboy.RssSourceStore.get_instance();
             var sources = store.get_all_sources();
-            
+
             if (sources.size == 0) {
                 GLib.print("No RSS feeds to update\n");
                 is_updating = false;
                 return null;
             }
-            
-            GLib.print("Checking %d RSS feeds for updates...\n", sources.size);
-            
+
+            GLib.print("Checking %d RSS feeds for updates (interval: %lld seconds)...\n",
+                      sources.size, update_interval);
+
             int updated_count = 0;
             int skipped_count = 0;
             int failed_count = 0;
-            
+
             foreach (var source in sources) {
                 // Check if feed needs update (based on last_fetched_at)
                 int64 now = GLib.get_real_time() / 1000000;
                 int64 time_since_fetch = now - source.last_fetched_at;
-                
-                if (time_since_fetch < UPDATE_INTERVAL) {
-                    GLib.print("  ⏭  Skipping %s (updated %lld seconds ago)\n", 
+
+                if (time_since_fetch < update_interval) {
+                    GLib.print("  ⏭  Skipping %s (updated %lld seconds ago)\n",
                         source.name, time_since_fetch);
                     skipped_count++;
                     continue;
