@@ -138,9 +138,10 @@ public class SidebarMenu : GLib.Object {
         var dialog = new Adw.MessageDialog(
             (Gtk.Window)window,
             "Remove this source?",
-            "Are you sure you want to remove \"%s\"?".printf(current_source_name)
+            "Are you sure you want to remove \"%s\"".printf(current_source_name) + " and all of its articles?"
+            //"Are you sure you want to remove \"%s\"?".printf(current_source_name)
         );
-        dialog.set_body("This action cannot be undone.");
+        //dialog.set_body("This will remove this source and all its content");
         dialog.add_response("cancel", "Cancel");
         dialog.add_response("remove", "Remove");
         dialog.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE);

@@ -128,63 +128,53 @@ public class ArticleMenu : GLib.Object {
         if (parent_window == null) return;
         if (parent_window.article_state_store == null) return;
 
-        try {
-            parent_window.article_state_store.saved_article_added.connect((url) => {
-                try {
-                    string n1 = UrlUtils.normalize_article_url(url);
-                    string n2 = UrlUtils.normalize_article_url(article_url);
-                    if (n1 == n2) {
-                        if (save_btn != null) {
-                            Gtk.Widget? child = save_btn.get_child();
-                            if (child != null && child is Gtk.Box) {
-                                var box = (Gtk.Box) child;
-                                Gtk.Widget? c = box.get_first_child();
-                                while (c != null) {
-                                    try {
-                                        if (c is Gtk.Image) {
-                                            var img = (Gtk.Image) c;
-                                            try { img.set_from_icon_name("user-trash-symbolic"); } catch (GLib.Error e) { }
-                                        } else if (c is Gtk.Label) {
-                                            var lbl = (Gtk.Label) c;
-                                            try { lbl.set_text("Remove from saved"); } catch (GLib.Error e) { }
-                                        }
-                                    } catch (GLib.Error e) { }
-                                    c = c.get_next_sibling();
-                                }
-                            }
-                        }
-                    }
-                } catch (GLib.Error e) { }
-            });
+        parent_window.article_state_store.saved_article_added.connect((url) => {
+            string n1 = UrlUtils.normalize_article_url(url);
+            string n2 = UrlUtils.normalize_article_url(article_url);
+            if (n1 != n2) return;
 
-            parent_window.article_state_store.saved_article_removed.connect((url) => {
-                try {
-                    string n1 = UrlUtils.normalize_article_url(url);
-                    string n2 = UrlUtils.normalize_article_url(article_url);
-                    if (n1 == n2) {
-                        if (save_btn != null) {
-                            Gtk.Widget? child = save_btn.get_child();
-                            if (child != null && child is Gtk.Box) {
-                                var box = (Gtk.Box) child;
-                                Gtk.Widget? c = box.get_first_child();
-                                while (c != null) {
-                                    try {
-                                        if (c is Gtk.Image) {
-                                            var img = (Gtk.Image) c;
-                                            try { img.set_from_icon_name("user-bookmarks-symbolic"); } catch (GLib.Error e) { }
-                                        } else if (c is Gtk.Label) {
-                                            var lbl = (Gtk.Label) c;
-                                            try { lbl.set_text("Add to saved"); } catch (GLib.Error e) { }
-                                        }
-                                    } catch (GLib.Error e) { }
-                                    c = c.get_next_sibling();
-                                }
-                            }
+            if (save_btn != null) {
+                Gtk.Widget? child = save_btn.get_child();
+                if (child != null && child is Gtk.Box) {
+                    var box = (Gtk.Box) child;
+                    Gtk.Widget? c = box.get_first_child();
+                    while (c != null) {
+                        if (c is Gtk.Image) {
+                            var img = (Gtk.Image) c;
+                            img.set_from_icon_name("user-trash-symbolic");
+                        } else if (c is Gtk.Label) {
+                            var lbl = (Gtk.Label) c;
+                            lbl.set_text("Remove from saved");
                         }
+                        c = c.get_next_sibling();
                     }
-                } catch (GLib.Error e) { }
-            });
-        } catch (GLib.Error e) { }
+                }
+            }
+        });
+
+        parent_window.article_state_store.saved_article_removed.connect((url) => {
+            string n1 = UrlUtils.normalize_article_url(url);
+            string n2 = UrlUtils.normalize_article_url(article_url);
+            if (n1 != n2) return;
+
+            if (save_btn != null) {
+                Gtk.Widget? child = save_btn.get_child();
+                if (child != null && child is Gtk.Box) {
+                    var box = (Gtk.Box) child;
+                    Gtk.Widget? c = box.get_first_child();
+                    while (c != null) {
+                        if (c is Gtk.Image) {
+                            var img = (Gtk.Image) c;
+                            img.set_from_icon_name("user-bookmarks-symbolic");
+                        } else if (c is Gtk.Label) {
+                            var lbl = (Gtk.Label) c;
+                            lbl.set_text("Add to saved");
+                        }
+                        c = c.get_next_sibling();
+                    }
+                }
+            }
+        });
     }
 
     public Gtk.Popover create_popover(Gtk.Widget parent, double x, double y) {
