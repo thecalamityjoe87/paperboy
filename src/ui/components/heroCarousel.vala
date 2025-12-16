@@ -102,7 +102,7 @@ public class HeroCarousel : GLib.Object {
         carousel_container.append(global_dots);
 
         container = carousel_container;
-        try { parent.append(carousel_container); } catch (GLib.Error e) { }
+        parent.append(carousel_container);
     }
 
     public void add_initial_slide(Gtk.Widget slide) {

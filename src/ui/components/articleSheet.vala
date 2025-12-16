@@ -108,29 +108,31 @@ public class ArticleSheet : GLib.Object {
         revealer.set_child(content_box);
         container.append(revealer);
 
+
         // Load adblock CSS
-        try {
-            string? css_path = DataPathsUtils.find_data_file("resources/adblock.css");
-            if (css_path != null) {
-                string contents = "";
-                try { GLib.FileUtils.get_contents(css_path, out contents); } catch (GLib.Error e) { contents = ""; }
-                adblock_css = contents;
+        adblock_css = "";
+        string? css_path = DataPathsUtils.find_data_file("resources/adblock.css");
+        if (css_path != null) {
+            try {
+                GLib.FileUtils.get_contents(css_path, out adblock_css);
+            } catch (GLib.Error e) {
+                adblock_css = "";
             }
-        } catch (GLib.Error e) { adblock_css = ""; }
+        } else {
+            adblock_css = "";
+        }
 
         // Clicking outside content dismisses the sheet
-        try {
-            var click = new Gtk.GestureClick();
-            click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
-            container.add_controller(click);
-            click.pressed.connect((g, n_press, x, y) => {
-                if (is_destroyed || !revealer.get_reveal_child()) return;
-                double cxd = 0, cyd = 0;
-                content_box.translate_coordinates(container, 0, 0, out cxd, out cyd);
-                int cx = (int)cxd, cy = (int)cyd, cw = content_box.get_allocated_width(), ch = content_box.get_allocated_height();
-                if (x < cx || x > (cx + cw) || y < cy || y > (cy + ch)) dismiss();
-            });
-        } catch (GLib.Error e) { }
+        var click = new Gtk.GestureClick();
+        click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+        container.add_controller(click);
+        click.pressed.connect((g, n_press, x, y) => {
+            if (is_destroyed || !revealer.get_reveal_child()) return;
+            double cxd = 0, cyd = 0;
+            content_box.translate_coordinates(container, 0, 0, out cxd, out cyd);
+            int cx = (int)cxd, cy = (int)cyd, cw = content_box.get_allocated_width(), ch = content_box.get_allocated_height();
+            if (x < cx || x > (cx + cw) || y < cy || y > (cy + ch)) dismiss();
+        });
 
         // Create initial WebView
         setup_webview();
@@ -138,11 +140,11 @@ public class ArticleSheet : GLib.Object {
         // Hide container when revealer fully hides
         revealer.notify["reveal-child"].connect(() => {
             if (!revealer.get_reveal_child()) {
-                try { container.set_visible(false); } catch (GLib.Error e) { }
+                container.set_visible(false);
                 if (webview != null) {
-                    try { webview.stop_loading(); webview.load_uri("about:blank"); } catch (GLib.Error e) { }
+                    webview.stop_loading(); webview.load_uri("about:blank");
                 }
-                try { closed(); } catch (GLib.Error e) { }
+                closed();
             }
         });
     }
@@ -154,11 +156,11 @@ public class ArticleSheet : GLib.Object {
 
     private void setup_webview() {
         if (webview != null) {
-            try { webview.stop_loading(); } catch (GLib.Error e) { }
+            webview.stop_loading();
             if (user_content_manager != null && adblock_sheet != null) {
-                try { user_content_manager.remove_style_sheet(adblock_sheet); } catch (GLib.Error e) { }
+                user_content_manager.remove_style_sheet(adblock_sheet);
             }
-            try { content_box.remove(webview); } catch (GLib.Error e) { }
+            content_box.remove(webview);
             webview = null;
             user_content_manager = null;
             adblock_sheet = null;
@@ -168,7 +170,7 @@ public class ArticleSheet : GLib.Object {
         if (adblock_css.length > 0) {
             user_content_manager = webview.get_user_content_manager();
             adblock_sheet = new WebKit.UserStyleSheet(adblock_css, WebKit.UserContentInjectedFrames.ALL_FRAMES, WebKit.UserStyleLevel.USER, null, null);
-            try { user_content_manager.add_style_sheet(adblock_sheet); } catch (GLib.Error e) { }
+            user_content_manager.add_style_sheet(adblock_sheet);
         }
         webview.set_hexpand(true);
         webview.set_vexpand(true);
@@ -177,9 +179,9 @@ public class ArticleSheet : GLib.Object {
         webview.create.connect((view, nav) => {
             if (is_destroyed) return null;
             var new_sheet = new ArticleSheet(parent_window);
-            try { parent_window.root_overlay.add_overlay(new_sheet.get_widget()); } catch (GLib.Error e) { }
+            parent_window.root_overlay.add_overlay(new_sheet.get_widget());
             new_sheet.closed.connect(() => {
-                try { parent_window.root_overlay.remove_overlay(new_sheet.get_widget()); new_sheet.destroy(); } catch (GLib.Error e) { }
+                parent_window.root_overlay.remove_overlay(new_sheet.get_widget()); new_sheet.destroy();
             });
             return new_sheet.webview;
         });
@@ -203,32 +205,30 @@ public class ArticleSheet : GLib.Object {
             if (nav_action == null || nav_action.get_navigation_type() != WebKit.NavigationType.LINK_CLICKED) return false;
 
             bool wants_new_sheet = false;
-            try {
-                uint btn = nav_action.get_mouse_button();
-                if (btn == 2) wants_new_sheet = true;
-                var mods = nav_action.get_modifiers();
-                if ((mods & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.META_MASK)) != 0) wants_new_sheet = true;
-            } catch (GLib.Error e) { }
+            uint btn = nav_action.get_mouse_button();
+            if (btn == 2) wants_new_sheet = true;
+            var mods = nav_action.get_modifiers();
+            if ((mods & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.META_MASK)) != 0) wants_new_sheet = true;
 
             if (!wants_new_sheet) return false;
 
             string? uri = null;
-            try { uri = nav_action.get_request()?.get_uri(); } catch (GLib.Error e) { uri = null; }
+            uri = nav_action.get_request()?.get_uri();
 
             if (uri != null) {
                 var new_sheet = new ArticleSheet(parent_window);
-                try { parent_window.root_overlay.add_overlay(new_sheet.get_widget()); new_sheet.open(uri); } catch (GLib.Error e) { }
+                parent_window.root_overlay.add_overlay(new_sheet.get_widget()); new_sheet.open(uri);
                 new_sheet.closed.connect(() => {
-                    try { parent_window.root_overlay.remove_overlay(new_sheet.get_widget()); new_sheet.destroy(); } catch (GLib.Error e) { }
+                    parent_window.root_overlay.remove_overlay(new_sheet.get_widget()); new_sheet.destroy();
                 });
-                try { nav_decision.ignore(); } catch (GLib.Error e) { }
+                nav_decision.ignore();
                 return true;
             }
 
             return false;
         });
 
-        try { content_box.append(webview); } catch (GLib.Error e) { }
+        content_box.append(webview);
     }
 
     public Gtk.Widget get_widget() {
@@ -260,13 +260,13 @@ public class ArticleSheet : GLib.Object {
         is_destroyed = true;
 
         if (webview != null) {
-            try { webview.stop_loading(); } catch (GLib.Error e) { }
+            webview.stop_loading();
             if (user_content_manager != null && adblock_sheet != null) {
-                try { user_content_manager.remove_style_sheet(adblock_sheet); } catch (GLib.Error e) { }
+                user_content_manager.remove_style_sheet(adblock_sheet);
             }
         }
 
-        try { container.destroy(); } catch (GLib.Error e) { }
+        container.destroy();
 
         webview = null;
         adblock_sheet = null;
