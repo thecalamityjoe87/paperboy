@@ -24,7 +24,6 @@ public class PlaceholderBuilder : GLib.Object {
 
     // Create a simple gradient-based "no image" placeholder with icon
     public static void create_gradient_placeholder(Gtk.Picture image, int width, int height) {
-        try {
             var surface = new ImageSurface(Format.RGB24, width, height);
             var cr = new Context(surface);
 
@@ -86,14 +85,10 @@ public class PlaceholderBuilder : GLib.Object {
             // Use get_texture() to reuse cached texture and avoid GPU memory leak
             var tex = ImageCache.get_global().get_texture(key);
             if (tex != null) image.set_paintable(tex);
-        } catch (GLib.Error e) {
-            // best-effort: leave image blank on error
-        }
     }
 
     // Draw a branded icon-centered placeholder for a specific source
     public static void create_icon_placeholder(Gtk.Picture image, string icon_path, NewsSource source, int width, int height) {
-        try {
             var surface = new ImageSurface(Format.ARGB32, width, height);
             var cr = new Context(surface);
 
@@ -167,8 +162,8 @@ public class PlaceholderBuilder : GLib.Object {
 
             if (probe != null) {
                 int orig_w = 0; int orig_h = 0;
-                try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
+                orig_w = probe.get_width();
+                orig_h = probe.get_height();
 
                 // For raster icons, scale down if needed (never upscale)
                 int scaled_w = orig_w;
@@ -204,18 +199,17 @@ public class PlaceholderBuilder : GLib.Object {
             if (cached == null) cached = ImageCache.get_global().get_or_from_surface(key, surface, 0, 0, width, height);
             // Use get_texture() to reuse cached texture and avoid GPU memory leak
             var tex = ImageCache.get_global().get_texture(key);
-            if (tex != null) image.set_paintable(tex);
-        } catch (GLib.Error e) {
+            if (tex != null) {
+                image.set_paintable(tex);
+                return;
+            }
+
             // Fallback to text-based placeholder
-            string src = "News Source";
-            try { src = PlaceholderBuilder.get_source_name(source); } catch (GLib.Error ee) { }
-            PlaceholderBuilder.create_source_text_placeholder(image, src, source, width, height);
-        }
+            PlaceholderBuilder.create_source_text_placeholder(image, PlaceholderBuilder.get_source_name(source), source, width, height);
     }
 
     // Create a text-based placeholder using a brand gradient and name
     public static void create_source_text_placeholder(Gtk.Picture image, string source_name, NewsSource source, int width, int height) {
-        try {
             var surface = new ImageSurface(Format.ARGB32, width, height);
             var cr = new Context(surface);
             var gradient = new Pattern.linear(0, 0, 0, height);
@@ -285,10 +279,7 @@ public class PlaceholderBuilder : GLib.Object {
             // Use get_texture() to reuse cached texture and avoid GPU memory leak
             var tex = ImageCache.get_global().get_texture(key);
             if (tex != null) image.set_paintable(tex);
-        } catch (GLib.Error e) {
-            // As last resort fall back to a simple gradient
-            PlaceholderBuilder.create_gradient_placeholder(image, width, height);
-        }
+            else PlaceholderBuilder.create_gradient_placeholder(image, width, height);
     }
 
     // Public wrapper to pick icon vs text based on available icon path
@@ -304,7 +295,6 @@ public class PlaceholderBuilder : GLib.Object {
 
     // Local-news specific placeholder
     public static void set_local_placeholder_image(Gtk.Picture image, int width, int height) {
-        try {
             string? local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
             if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
             string? use_path = local_icon;
@@ -381,14 +371,12 @@ public class PlaceholderBuilder : GLib.Object {
                     return;
                 }
             }
-        } catch (GLib.Error e) { }
         // Fallback
         PlaceholderBuilder.create_gradient_placeholder(image, width, height);
     }
 
     // Compose a subtle logo-on-gradient placeholder from an already-loaded Pixbuf
     public static void create_logo_placeholder(Gtk.Picture image, Gdk.Pixbuf logo, int width, int height) {
-        try {
             var surface = new ImageSurface(Format.ARGB32, width, height);
             var cr = new Context(surface);
 
@@ -439,9 +427,7 @@ public class PlaceholderBuilder : GLib.Object {
             // Use get_texture() to reuse cached texture and avoid GPU memory leak
             var tex = ImageCache.get_global().get_texture(key);
             if (tex != null) image.set_paintable(tex);
-        } catch (GLib.Error e) {
-            PlaceholderBuilder.create_gradient_placeholder(image, width, height);
-        }
+            else PlaceholderBuilder.create_gradient_placeholder(image, width, height);
     }
 
     // Minimal source name/icon mapping duplicated here so placeholder helper
@@ -482,7 +468,6 @@ public class PlaceholderBuilder : GLib.Object {
 
     // Create a placeholder for RSS feed sources using their logo from source_logos directory
     public static void set_rss_placeholder_image(Gtk.Picture image, int width, int height, string source_name) {
-        try {
             // Try to get a validated saved filename from SourceMetadata. This
             // avoids using corrupted/zero-byte files that can create blank icons.
             string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source_name, width, height);
@@ -494,14 +479,12 @@ public class PlaceholderBuilder : GLib.Object {
                 if (data_dir != null) {
                     var logo_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", cand);
                     if (GLib.FileUtils.test(logo_path, GLib.FileTest.EXISTS)) {
-                        try {
-                            var logo_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, width, height), logo_path, width, height);
-                            if (logo_pixbuf != null && logo_pixbuf.get_width() > 1 && logo_pixbuf.get_height() > 1) {
-                                icon_filename = cand;
-                            } else {
-                                try { GLib.FileUtils.remove(logo_path); } catch (GLib.Error _) { }
-                            }
-                        } catch (GLib.Error _) { }
+                        var logo_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, width, height), logo_path, width, height);
+                        if (logo_pixbuf != null && logo_pixbuf.get_width() > 1 && logo_pixbuf.get_height() > 1) {
+                            icon_filename = cand;
+                        } else {
+                            try { GLib.FileUtils.remove(logo_path); } catch (GLib.Error _) { }
+                        }
                     }
                 }
             }
@@ -509,24 +492,16 @@ public class PlaceholderBuilder : GLib.Object {
             if (icon_filename != null && icon_filename.length > 0) {
                 var data_dir = GLib.Environment.get_user_data_dir();
                 var logo_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
-
                 if (GLib.FileUtils.test(logo_path, GLib.FileTest.EXISTS)) {
                     // Load the logo and create a placeholder with it
-                    try {
-                        var logo_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, 0, 0), logo_path, 0, 0);
-                        if (logo_pixbuf != null) {
-                            PlaceholderBuilder.create_logo_placeholder(image, logo_pixbuf, width, height);
-                            return;
-                        }
-                    } catch (GLib.Error e) {
-                        GLib.warning("Failed to load RSS feed logo from %s: %s", logo_path, e.message);
+                    var logo_pixbuf = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, 0, 0), logo_path, 0, 0);
+                    if (logo_pixbuf != null) {
+                        PlaceholderBuilder.create_logo_placeholder(image, logo_pixbuf, width, height);
+                        return;
                     }
                 }
             }
-        } catch (GLib.Error e) {
-            GLib.warning("Error creating RSS placeholder: %s", e.message);
-        }
-        
+
         // Fallback to generic gradient placeholder (no source branding)
         PlaceholderBuilder.create_gradient_placeholder(image, width, height);
     }
