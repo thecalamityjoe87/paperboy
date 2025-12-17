@@ -341,45 +341,51 @@ namespace Paperboy {
             return 0;
         }
 
-        /**
-         * Get the size of the cache database file in bytes
-         */
+        /*
+        * Get the size of the cache database file in bytes
+        * Returns -1 on failure
+        */
         public int64 get_cache_size() {
+            var file = GLib.File.new_for_path(db_path);
+
             try {
-                var file = GLib.File.new_for_path(db_path);
                 if (file.query_exists()) {
-                    var info = file.query_info("standard::size", GLib.FileQueryInfoFlags.NONE);
+                    var info = file.query_info(
+                        "standard::size",
+                        GLib.FileQueryInfoFlags.NONE
+                    );
                     return info.get_size();
                 }
             } catch (GLib.Error e) {
                 GLib.warning("Failed to get cache size: %s", e.message);
             }
-            return 0;
+
+            return -1;
         }
 
-        /**
-         * Get formatted cache information (size and article count)
-         * Returns a user-friendly string like "2.5 MB (1,234 articles)" or "Unknown"
-         */
+        /*
+        * Get formatted cache information (size and article count)
+        * Returns a user-friendly string like "2.5 MB (1,234 articles)" or "Unknown"
+        */
         public string get_cache_info_formatted() {
-            try {
-                int article_count = get_total_article_count();
-                int64 cache_size = get_cache_size();
+            int article_count = get_total_article_count();
+            int64 cache_size = get_cache_size();
 
-                string size_text;
-                if (cache_size < 1024) {
-                    size_text = "%lld bytes".printf(cache_size);
-                } else if (cache_size < 1024 * 1024) {
-                    size_text = "%.1f KB".printf(cache_size / 1024.0);
-                } else {
-                    size_text = "%.1f MB".printf(cache_size / (1024.0 * 1024.0));
-                }
-
-                return "%s (%d articles)".printf(size_text, article_count);
-            } catch (GLib.Error e) {
-                GLib.warning("RssArticleCache: Failed to get formatted cache info: %s", e.message);
+            // If either piece of data failed, return Unknown
+            if (article_count < 0 || cache_size < 0) {
                 return "Unknown";
             }
+
+            string size_text;
+            if (cache_size < 1024) {
+                size_text = "%lld bytes".printf(cache_size);
+            } else if (cache_size < 1024 * 1024) {
+                size_text = "%.1f KB".printf(cache_size / 1024.0);
+            } else {
+                size_text = "%.1f MB".printf(cache_size / (1024.0 * 1024.0));
+            }
+
+            return "%s (%d articles)".printf(size_text, article_count);
         }
 
         /**

@@ -206,6 +206,14 @@ public class PrefsDialog : GLib.Object {
                 prefs.set_personalized_category_enabled(_cid, cswitch.get_active());
                 prefs.save_config();
                 holder.changed = true;
+
+                // Refresh My Feed metadata to reflect new personalized categories
+                try {
+                    var win = parent as NewsWindow;
+                    if (win != null) {
+                        UnreadFetchService.refresh_myfeed_metadata(win);
+                    }
+                } catch (GLib.Error e) { }
             });
 
             crow.add_suffix(cswitch);
@@ -352,6 +360,11 @@ public class PrefsDialog : GLib.Object {
                 prefs.set_preferred_source_enabled(source_id, sw.get_active());
                 prefs.save_config();
                 sources_changed = true;
+
+                // Update My Feed unread badge immediately when source is toggled
+                if (win != null && win.sidebar_manager != null) {
+                    win.sidebar_manager.update_badge_for_category("myfeed");
+                }
             });
             row.add_suffix(sw);
             row.set_activatable(true);
@@ -549,6 +562,11 @@ public class PrefsDialog : GLib.Object {
                     prefs.set_preferred_source_enabled("custom:" + rss_source.url, custom_switch.get_active());
                     prefs.save_config();
                     sources_changed = true;
+
+                    // Update My Feed unread badge immediately when source is toggled
+                    if (win != null && win.sidebar_manager != null) {
+                        win.sidebar_manager.update_badge_for_category("myfeed");
+                    }
                 });
 
                 rss_row.add_suffix(delete_btn);
@@ -813,55 +831,11 @@ public class PrefsDialog : GLib.Object {
         var cache_row = new Adw.ActionRow();
         cache_row.set_title("Article content cache");
 
-        // Calculate metacache size
-        string cache_size_text = "Calculating...";
-        try {
-            var cache_base = Environment.get_user_cache_dir();
-            if (cache_base != null) {
-                string cache_path = Path.build_filename(cache_base, "paperboy", "metadata");
-                int64 total_size = 0;
+        // Get formatted cache information from the metacache service
+        var meta_cache = MetaCache.get_instance();
 
-                // Count metadata files (.meta files)
-                var cache_dir = File.new_for_path(cache_path);
-                if (cache_dir.query_exists()) {
-                    FileEnumerator? enumerator = cache_dir.enumerate_children("standard::size,standard::type", FileQueryInfoFlags.NONE);
-                    FileInfo? info;
-                    while ((info = enumerator.next_file()) != null) {
-                        if (info.get_file_type() == FileType.REGULAR) {
-                            total_size += info.get_size();
-                        }
-                    }
-                    enumerator.close();
-                }
-
-                // Count image files in images subdirectory
-                string images_path = Path.build_filename(cache_path, "images");
-                var images_dir = File.new_for_path(images_path);
-                if (images_dir.query_exists()) {
-                    FileEnumerator? img_enum = images_dir.enumerate_children("standard::size,standard::type", FileQueryInfoFlags.NONE);
-                    FileInfo? img_info;
-                    while ((img_info = img_enum.next_file()) != null) {
-                        if (img_info.get_file_type() == FileType.REGULAR) {
-                            total_size += img_info.get_size();
-                        }
-                    }
-                    img_enum.close();
-                }
-
-                // Format size
-                if (total_size < 1024) {
-                    cache_size_text = "%lld bytes".printf(total_size);
-                } else if (total_size < 1024 * 1024) {
-                    cache_size_text = "%.1f KB".printf(total_size / 1024.0);
-                } else {
-                    cache_size_text = "%.1f MB".printf(total_size / (1024.0 * 1024.0));
-                }
-            }
-        } catch (GLib.Error e) {
-            cache_size_text = "Unknown";
-        }
-
-        cache_row.set_subtitle(cache_size_text);
+        // Get metacache size
+        cache_row.set_subtitle(meta_cache.get_metacache_info());
 
         var clear_cache_btn = new Gtk.Button.with_label("Clear");
         clear_cache_btn.set_valign(Gtk.Align.CENTER);
