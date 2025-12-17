@@ -78,6 +78,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/rssFinderService.vala',
     'src/services/articleShareService.vala',
     'src/services/rssSourceStore.vala',
+    'src/services/rssArticleCache.vala',
     'src/services/resolvers/articleSourceResolver.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',

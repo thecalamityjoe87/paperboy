@@ -258,13 +258,16 @@ public class ArticlePane : GLib.Object {
         
         // Connect to menu signals
         current_article_menu.open_in_app_requested.connect((article_url) => {
-            string normalized = parent_window.normalize_article_url(article_url);
-            if (parent_window.article_sheet != null) parent_window.article_sheet.open(normalized);
+            if (parent_window.article_manager != null) {
+                parent_window.article_manager.open_article_in_app_if_online(article_url);
+            }
             if (preview_split != null) preview_split.set_show_sidebar(false);
         });
-        
+
         current_article_menu.open_in_browser_requested.connect((article_url) => {
-            open_article_in_browser(article_url);
+            if (parent_window.article_manager != null) {
+                parent_window.article_manager.open_article_in_browser_if_online(article_url);
+            }
         });
         
         current_article_menu.follow_source_requested.connect((article_url, source_name) => {

@@ -76,18 +76,13 @@ public class FetchNewsController {
                 var layout_mgr = w.layout_manager;
                 var article_mgr = w.article_manager;
 
-                // Track articles for adaptive layout
-                if (cat_mgr != null && layout_mgr != null) {
-                    if (cat_mgr.is_rssfeed_view()) {
-                        try { layout_mgr.track_rss_article(cur.seq); } catch (GLib.Error e) { }
-                    } else {
-                        // Also track regular category articles for adaptive layout
-                        bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
-                                             !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
-                                             w.prefs != null && w.prefs.category != "saved";
-                        if (is_regular_cat) {
-                            try { layout_mgr.track_category_article(cur.seq); } catch (GLib.Error e) { }
-                        }
+                // Track articles for adaptive layout (regular categories only, not RSS feeds)
+                if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
+                    bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
+                                         !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
+                                         w.prefs != null && w.prefs.category != "saved";
+                    if (is_regular_cat) {
+                        try { layout_mgr.track_category_article(cur.seq); } catch (GLib.Error e) { }
                     }
                 }
                 if (article_mgr != null) {
@@ -202,7 +197,8 @@ public class FetchNewsController {
 
                 if (!ls.initial_items_populated) {
                     try {
-                        if (ls.network_failure_detected) {
+                        var network_monitor = GLib.NetworkMonitor.get_default();
+                        if (!network_monitor.get_network_available()) {
                             w.show_error_message("No network connection detected. Check your connection and try again.");
                         } else {
                             w.show_error_message();
@@ -219,6 +215,12 @@ public class FetchNewsController {
                         w.hide_loading_spinner();
                         if (w.main_content_container != null) {
                             w.main_content_container.set_visible(true);
+                        }
+
+                        // If offline but we have cached content, show offline toast instead of error
+                        var network_monitor = GLib.NetworkMonitor.get_default();
+                        if (!network_monitor.get_network_available()) {
+                            w.show_toast("Offline - showing cached articles");
                         }
                     } catch (GLib.Error e) { }
                 }
@@ -440,17 +442,7 @@ public class FetchNewsController {
                 }
             } catch (GLib.Error e) { /* best-effort */ }
             
-            // Track RSS feed articles for adaptive layout (only if still current)
-            if (FetchContext.is_current(my_seq)) {
-                var cur3 = FetchContext.current_context();
-                if (cur3 != null) {
-                    var w3 = cur3.window;
-                    if (w3 != null && w3.category_manager.is_rssfeed_view()) {
-                        w3.layout_manager.track_rss_article(my_seq);
-                    }
-                }
-            }
-            
+            // Add the article (handles deduplication)
             w.article_manager.add_item(title, url, thumbnail, category_id, source_name);
         };
 
@@ -730,16 +722,19 @@ public class FetchNewsController {
                 if (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0) {
                     // Don't set featured_used - allow first article to become hero/carousel
                     foreach (var rss_src in custom_rss_sources) {
+                        // For generated feeds (file:// URLs), use original_url as cache key for persistence across regenerations
+                        string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
                         RssFeedProcessor.fetch_rss_url(
                             rss_src.url,
-                            rss_src.name,
+                            rss_src.url,  // Pass URL instead of name for proper source filtering
                             "My Feed",
                             "myfeed",
                             current_search_query,
                             win.session,
                             FetchNewsController.global_forward_label,
                             no_op_clear,
-                            FetchNewsController.global_add_item
+                            FetchNewsController.global_add_item,
+                            cache_key
                         );
                     }
                 }
@@ -804,9 +799,11 @@ public class FetchNewsController {
                 if (custom_rss_sources != null && custom_rss_sources.size > 0) {
                     win.article_manager.featured_used = true;
                     foreach (var rss_src in custom_rss_sources) {
+                        // For generated feeds (file:// URLs), use original_url as cache key for persistence across regenerations
+                        string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
                         RssFeedProcessor.fetch_rss_url(
                             rss_src.url,
-                            rss_src.name,
+                            rss_src.url,  // Pass URL instead of name for proper source filtering
                             "My Feed",
                             "myfeed",
                             current_search_query,
@@ -823,7 +820,8 @@ public class FetchNewsController {
                                 });
                             },
                             no_op_clear,
-                            wrapped_add
+                            wrapped_add,
+                            cache_key
                         );
                     }
                 }
@@ -1002,14 +1000,6 @@ public class FetchNewsController {
             });
         };
 
-        // Reset RSS feed article counter for adaptive layout
-        try { win.layout_manager.reset_rss_tracking(); } catch (GLib.Error e) { }
-
-        // For RSS feeds, mark that we're awaiting adaptive layout so spinner stays visible
-        if (win.loading_state != null) {
-            win.loading_state.awaiting_adaptive_layout = true;
-        }
-
         // Set badge to placeholder before clearing article tracking
         try {
             if (win.sidebar_manager != null) {
@@ -1024,7 +1014,59 @@ public class FetchNewsController {
             }
         } catch (GLib.Error e) { }
 
-        // Fetch articles from the RSS feed
+        // Load articles from cache first for instant display
+        var cache = Paperboy.RssArticleCache.get_instance();
+        // For generated feeds (file:// URLs), use original_url as cache key for lookup
+        string cache_lookup_key = feed_url;
+        if (rss_source != null && feed_url.has_prefix("file://") && rss_source.original_url != null) {
+            cache_lookup_key = rss_source.original_url;
+        }
+        var cached_articles = cache.get_cached_articles(cache_lookup_key);
+
+        if (cached_articles.size > 0) {
+            // Display cached articles immediately
+            foreach (var article in cached_articles) {
+                try {
+                    FetchNewsController.global_add_item(
+                        article.title,
+                        article.url,
+                        article.thumbnail_url,
+                        "rssfeed:" + feed_url,
+                        feed_name
+                    );
+                } catch (GLib.Error e) {
+                    GLib.warning("Failed to add cached article: %s", e.message);
+                }
+            }
+
+            // Update label to show we're displaying cached content
+            try {
+                var network_monitor = GLib.NetworkMonitor.get_default();
+                if (!network_monitor.get_network_available()) {
+                    label_fn("%s — Offline, showing %d cached articles".printf(feed_name, cached_articles.size));
+                    win.show_toast("Offline - showing cached articles");
+                } else {
+                    label_fn("%s — Loaded %d articles from cache".printf(feed_name, cached_articles.size));
+                }
+            } catch (GLib.Error e) { }
+        }
+
+        // Fetch fresh articles from the RSS feed in the background to update cache
+        // This happens async, so cached articles display instantly while fresh ones load
+        // For generated feeds (file:// URLs), use original_url as cache key for persistence across regenerations
+        string? cache_key = null;
+        if (rss_source != null && feed_url.has_prefix("file://") && rss_source.original_url != null) {
+            cache_key = rss_source.original_url;
+        }
+
+        // If we have cached articles, use a no-op label function to prevent network errors from overwriting the cache message
+        SetLabelFunc fetch_label_fn;
+        if (cached_articles.size > 0) {
+            fetch_label_fn = (s) => {}; // No-op to prevent error messages when cached content is shown
+        } else {
+            fetch_label_fn = FetchNewsController.global_forward_label;
+        }
+
         RssFeedProcessor.fetch_rss_url(
             feed_url,
             feed_name,
@@ -1032,9 +1074,10 @@ public class FetchNewsController {
             "rssfeed:" + feed_url,
             current_search_query,
             session,
-            FetchNewsController.global_forward_label,
+            fetch_label_fn,
             no_op_clear,
-            FetchNewsController.global_add_item
+            FetchNewsController.global_add_item,
+            cache_key
         );
 
         // Update badge after articles finish loading

@@ -122,76 +122,6 @@ public class LayoutManager : GLib.Object {
         });
     }
 
-    /**
-     * Track an RSS article arrival and schedule adaptive layout check.
-     * When article count < 15 and no new articles for 500ms, rebuilds as hero layout.
-     *
-     * @param current_fetch_seq The fetch sequence to validate against
-     */
-    public void track_rss_article(uint current_fetch_seq) {
-        article_count_for_adaptive++;
-
-            // Once we have >= 15 articles, immediately clear the awaiting flag and reveal content
-            // No need to wait for timeout or apply adaptive layout
-            if (article_count_for_adaptive >= 15) {
-                // Cancel any pending timeout
-                if (adaptive_layout_timeout_id > 0) {
-                    Source.remove(adaptive_layout_timeout_id);
-                    adaptive_layout_timeout_id = 0;
-                }
-
-                // Clear awaiting flag and reveal content immediately
-                if (window != null && window.loading_state != null) {
-                    window.loading_state.awaiting_adaptive_layout = false;
-                    if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
-                        window.loading_state.reveal_initial_content();
-                    }
-                }
-                return;
-            }
-
-        // Cancel any existing timeout and schedule a new one
-        if (adaptive_layout_timeout_id > 0) {
-            Source.remove(adaptive_layout_timeout_id);
-            adaptive_layout_timeout_id = 0;
-        }
-
-        // Schedule layout check after 500ms of no new articles
-        adaptive_layout_timeout_id = Timeout.add(500, () => {
-            if (current_fetch_seq != FetchContext.current) {
-                return false;
-            }
-
-            // Check if we need to adapt the layout
-            if (article_count_for_adaptive < 15) {
-                // Rebuild as 2-column hero layout
-                Idle.add(() => {
-                    if (current_fetch_seq != FetchContext.current) return false;
-                        rebuild_as_rss_heroes();
-                        // After rebuild completes, hide the loading spinner and reveal content
-                        Timeout.add(100, () => {
-                            if (current_fetch_seq != FetchContext.current) return false;
-                            if (window != null && window.loading_state != null) {
-                                window.loading_state.awaiting_adaptive_layout = false;
-                                if (window.loading_state.initial_items_populated) {
-                                    window.loading_state.reveal_initial_content();
-                                }
-                            }
-                            return false;
-                        });
-                    return false;
-                });
-            } else {
-                // No adaptive layout needed, allow normal spinner hiding
-                if (window != null && window.loading_state != null) {
-                    window.loading_state.awaiting_adaptive_layout = false;
-                }
-            }
-            adaptive_layout_timeout_id = 0;
-            return false;
-        });
-    }
-
     // Ensure hero container is visible when needed
     public void ensure_hero_container_visible() {
         if (hero_container != null) {
@@ -476,13 +406,6 @@ public class LayoutManager : GLib.Object {
             });
     }
 
-    /**
-     * Rebuild RSS feed layout as 2-column uniform hero cards (for feeds with < 15 articles).
-     * Hides the hero/featured area and applies uniform sizing to all cards.
-     */
-    public void rebuild_as_rss_heroes() {
-        rebuild_as_adapative_heroes(); // Request for our common helper to rebuild heroes
-    }
 
     /**
      * Clear all article columns without destroying the column widgets themselves.
@@ -561,6 +484,96 @@ public class LayoutManager : GLib.Object {
 
         for (int i = 0; i < columns.length; i++) {
             if (columns[i] != null) columns[i].queue_draw();
+        }
+    }
+
+    /**
+     * Create and place a hero card in the hero container.
+     * Returns the HeroCard object for further configuration.
+     */
+    public HeroCard create_and_place_hero_card(
+        string title,
+        string url,
+        int max_hero_height,
+        int default_hero_h,
+        Gtk.Widget hero_chip,
+        bool enable_context_menu,
+        bool is_topten
+    ) {
+        var hero_card = new HeroCard(
+            title,
+            url,
+            max_hero_height,
+            default_hero_h,
+            hero_chip,
+            enable_context_menu,
+            window.article_state_store,
+            window
+        );
+
+        if (is_topten) {
+            if (hero_container != null) {
+                if (hero_card.root != null) {
+                    hero_card.root.set_size_request(-1, max_hero_height);
+                }
+                hero_container.append(hero_card.root);
+            }
+        }
+
+        return hero_card;
+    }
+
+    /**
+     * Create and place an article card in the specified column.
+     * Returns the ArticleCard object for further configuration.
+     */
+    public ArticleCard create_and_place_article_card(
+        string title,
+        string url,
+        int col_w,
+        int img_h,
+        Gtk.Widget chip,
+        int variant,
+        int target_col,
+        bool is_topten,
+        int uniform_card_h
+    ) {
+        var article_card = new ArticleCard(
+            title,
+            url,
+            col_w,
+            img_h,
+            chip,
+            variant,
+            window.article_state_store,
+            window
+        );
+
+        // Enforce uniform card size for Top Ten view
+        if (is_topten && article_card.root != null) {
+            article_card.root.set_size_request(-1, uniform_card_h);
+        }
+
+        // Place the card in the target column
+        if (columns != null && target_col >= 0 && target_col < columns.length) {
+            columns[target_col].append(article_card.root);
+
+            // Update column height tracking
+            int estimated_card_h = (int)((img_h + 120) * 0.95);
+            if (column_heights != null && target_col < column_heights.length) {
+                column_heights[target_col] += estimated_card_h + 12;
+            }
+        }
+
+        return article_card;
+    }
+
+    /**
+     * Add an overlay (badge) to an article card.
+     */
+    public void add_card_overlay(ArticleCard card, Gtk.Widget badge) {
+        if (card.overlay != null) {
+            card.overlay.add_overlay(badge);
         }
     }
 

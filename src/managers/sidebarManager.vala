@@ -385,11 +385,12 @@ public class SidebarManager : GLib.Object {
         // This includes articles from personalized categories and custom
         // RSS sources that the user has configured for My Feed.
         // IMPORTANT: Only show badge if personalized_feed_enabled is true
+        // Also filter by currently enabled sources only
         if (id == "myfeed") {
             if (!window.prefs.personalized_feed_enabled) {
                 return 0;
             }
-            return window.article_state_store.get_unread_count_for_category(id);
+            return window.article_state_store.get_unread_count_for_myfeed(window.prefs);
         }
 
         // Local News: use category-based unread count (articles registered
@@ -609,17 +610,22 @@ public class SidebarManager : GLib.Object {
     public void update_badge_for_category(string category_id) {
         int unread_count = 0;
         if (window.article_state_store != null) {
-            unread_count = window.article_state_store.get_unread_count_for_category(category_id);
+            // For myfeed, use filtered count that only includes enabled sources
+            if (category_id == "myfeed") {
+                unread_count = window.article_state_store.get_unread_count_for_myfeed(window.prefs);
+            } else {
+                unread_count = window.article_state_store.get_unread_count_for_category(category_id);
+            }
         }
         category_unread_counts.set(category_id, unread_count);
-        
+
         // For popular categories, only update badge if user has visited it
         // Otherwise keep showing "--" placeholder
         if (is_popular_category(category_id) && !is_category_visited(category_id)) {
             // Don't update - keep placeholder
             return;
         }
-        
+
         badge_updated_force(category_id, unread_count, false);
     }
 

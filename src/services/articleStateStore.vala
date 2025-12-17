@@ -295,6 +295,7 @@ public class ArticleStateStore : GLib.Object {
                     source_articles.set(source_name, new Gee.HashSet<string>());
                 }
                 source_articles.get(source_name).add(norm_url);
+
                 try {
                     long now_ms = (long)(GLib.get_real_time() / 1000);
                     source_last_registration_time.set(source_name, now_ms);
@@ -352,6 +353,99 @@ public class ArticleStateStore : GLib.Object {
             meta_lock.lock();
             try {
                 foreach (string url in articles) {
+                    string meta_path = meta_path_for(url);
+                    if (viewed_meta_paths.contains(meta_path)) {
+                        viewed++;
+                    }
+                }
+            } finally {
+                meta_lock.unlock();
+            }
+        } finally {
+            article_tracking_lock.unlock();
+        }
+
+        return total - viewed;
+    }
+
+    // Get unread count for "myfeed" category, filtering by enabled sources only
+    public int get_unread_count_for_myfeed(NewsPreferences prefs) {
+        int total = 0;
+        int viewed = 0;
+        int enabled_count = 0;
+        int disabled_count = 0;
+
+        article_tracking_lock.lock();
+        try {
+            if (!category_articles.has_key("myfeed")) {
+                return 0;
+            }
+
+            var articles = category_articles.get("myfeed");
+
+            // Get personalized categories for built-in source filtering
+            var personalized_cats = prefs.personalized_categories;
+
+            // PERFORMANCE: Only check viewed status from in-memory cache
+            meta_lock.lock();
+            try {
+                foreach (string url in articles) {
+                    // Check if this article belongs to any enabled source
+                    // This includes both custom RSS feeds and built-in sources
+                    bool has_enabled_source = false;
+
+                    foreach (var entry in category_articles.entries) {
+                        string category_id = entry.key;
+
+                        // Check if this is an RSS feed category
+                        if (category_id.has_prefix("rssfeed:")) {
+                            var category_urls = entry.value;
+
+                            // Check if this article is in this RSS feed category
+                            if (category_urls.contains(url)) {
+                                // Extract the RSS URL from the category ID
+                                string rss_url = category_id.substring("rssfeed:".length);
+                                string check_key = "custom:" + rss_url;
+
+                                // Check if this RSS feed is enabled in preferences
+                                if (prefs.preferred_source_enabled(check_key)) {
+                                    has_enabled_source = true;
+                                    break;  // Found at least one enabled source, no need to check more
+                                }
+                            }
+                        }
+                    }
+
+                    // If not found in RSS feed categories, check built-in sources
+                    // But only if "custom only" mode is disabled
+                    if (!has_enabled_source && !prefs.myfeed_custom_only) {
+                        // Check which built-in source(s) this article belongs to
+                        foreach (var source_entry in source_articles.entries) {
+                            string source_name = source_entry.key;
+                            var source_urls = source_entry.value;
+
+                            // Skip rssfeed sources (already checked above)
+                            if (source_name.has_prefix("rssfeed:")) continue;
+
+                            // Check if this article belongs to this built-in source
+                            if (source_urls.contains(url)) {
+                                // Check if this built-in source is enabled
+                                if (prefs.preferred_source_enabled(source_name)) {
+                                    has_enabled_source = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Only count articles that have at least one enabled source
+                    if (!has_enabled_source) {
+                        disabled_count++;
+                        continue;
+                    }
+
+                    enabled_count++;
+                    total++;
                     string meta_path = meta_path_for(url);
                     if (viewed_meta_paths.contains(meta_path)) {
                         viewed++;

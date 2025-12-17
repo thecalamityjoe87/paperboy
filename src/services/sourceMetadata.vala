@@ -178,8 +178,12 @@ public class SourceMetadata : GLib.Object {
         if (new_name.index_of(".") >= 0) new_score -= 2;
         
         // Prefer names with mixed case (proper capitalization)
-        bool existing_has_mixed = existing != existing.up() && existing != existing.down();
-        bool new_has_mixed = new_name != new_name.up() && new_name != new_name.down();
+        string? existing_up = existing.up();
+        string? existing_down = existing.down();
+        string? new_up = new_name.up();
+        string? new_down = new_name.down();
+        bool existing_has_mixed = existing_up != null && existing_down != null && existing != existing_up && existing != existing_down;
+        bool new_has_mixed = new_up != null && new_down != null && new_name != new_up && new_name != new_down;
         if (existing_has_mixed) existing_score += 2;
         if (new_has_mixed) new_score += 2;
         
@@ -234,10 +238,14 @@ public class SourceMetadata : GLib.Object {
             string rest = "";
             int idx = 0;
             p.get_next_char(ref idx, out first_char); // Skip first char
-            if (idx < p.length) {
+            if (idx > 0 && idx < p.length) {
                 rest = p.substring(idx);
             }
-            out += first + rest;
+            if (rest != null) {
+                out += first + rest;
+            } else {
+                out += first;
+            }
         }
         
         // Fallback if sanitization resulted in empty string
@@ -384,13 +392,15 @@ public class SourceMetadata : GLib.Object {
                     
                     // Validate Content-Type if available
                     string? content_type = http_response.get_header("content-type");
-                    if (content_type != null) {
-                        string ct_lower = content_type.down();
-                        bool is_image = ct_lower.has_prefix("image/");
-                        if (!is_image) {
-                            warning("SourceMetadata: invalid Content-Type for %s: %s (expected image/*)", 
-                                    logo_url, content_type);
-                            return null;
+                    if (content_type != null && content_type.length > 0) {
+                        string? ct_lower = content_type.down();
+                        if (ct_lower != null) {
+                            bool is_image = ct_lower.has_prefix("image/");
+                            if (!is_image) {
+                                warning("SourceMetadata: invalid Content-Type for %s: %s (expected image/*)",
+                                        logo_url, content_type);
+                                return null;
+                            }
                         }
                     }
 
@@ -529,9 +539,22 @@ public class SourceMetadata : GLib.Object {
         
         // SVG (XML-based, check for <?xml or <svg)
         if (data.length >= 5) {
-            string start = ((string)data).substring(0, int.min(100, (int)data.length)).down();
-            if (start.has_prefix("<?xml") || start.has_prefix("<svg")) {
-                return true;
+            try {
+                // Safely extract first bytes as string
+                int check_length = int.min(100, (int)data.length);
+                uint8[] check_data = new uint8[check_length + 1];  // +1 for null terminator
+                Memory.copy(check_data, data, check_length);
+                check_data[check_length] = 0;  // Null terminate
+
+                string? start = (string?)check_data;
+                if (start != null && start.length > 0) {
+                    string? start_lower = start.down();
+                    if (start_lower != null && (start_lower.has_prefix("<?xml") || start_lower.has_prefix("<svg"))) {
+                        return true;
+                    }
+                }
+            } catch (GLib.Error e) {
+                // If string conversion fails, not an SVG
             }
         }
         

@@ -406,6 +406,14 @@ namespace Paperboy {
             // Clean up associated files and metadata
             cleanup_source_files(source);
 
+            // Clear cached articles for this feed
+            try {
+                var article_cache = Paperboy.RssArticleCache.get_instance();
+                article_cache.clear_feed_cache(url);
+            } catch (GLib.Error e) {
+                GLib.warning("Failed to clear article cache for removed source: %s", e.message);
+            }
+
             // Emit removal signal so UI can update
             try { source_removed(source); } catch (GLib.Error e) { }
 

@@ -206,6 +206,14 @@ public class PrefsDialog : GLib.Object {
                 prefs.set_personalized_category_enabled(_cid, cswitch.get_active());
                 prefs.save_config();
                 holder.changed = true;
+
+                // Refresh My Feed metadata to reflect new personalized categories
+                try {
+                    var win = parent as NewsWindow;
+                    if (win != null) {
+                        UnreadFetchService.refresh_myfeed_metadata(win);
+                    }
+                } catch (GLib.Error e) { }
             });
 
             crow.add_suffix(cswitch);
@@ -352,6 +360,11 @@ public class PrefsDialog : GLib.Object {
                 prefs.set_preferred_source_enabled(source_id, sw.get_active());
                 prefs.save_config();
                 sources_changed = true;
+
+                // Update My Feed unread badge immediately when source is toggled
+                if (win != null && win.sidebar_manager != null) {
+                    win.sidebar_manager.update_badge_for_category("myfeed");
+                }
             });
             row.add_suffix(sw);
             row.set_activatable(true);
@@ -549,6 +562,11 @@ public class PrefsDialog : GLib.Object {
                     prefs.set_preferred_source_enabled("custom:" + rss_source.url, custom_switch.get_active());
                     prefs.save_config();
                     sources_changed = true;
+
+                    // Update My Feed unread badge immediately when source is toggled
+                    if (win != null && win.sidebar_manager != null) {
+                        win.sidebar_manager.update_badge_for_category("myfeed");
+                    }
                 });
 
                 rss_row.add_suffix(delete_btn);
@@ -809,59 +827,15 @@ public class PrefsDialog : GLib.Object {
         var data_group = new Adw.PreferencesGroup();
         data_group.set_title("Data");
 
-        // Cache row
+        // Article Content Cache row (MetaCache)
         var cache_row = new Adw.ActionRow();
-        cache_row.set_title("Cache");
+        cache_row.set_title("Article content cache");
 
-        // Calculate cache size
-        string cache_size_text = "Calculating...";
-        try {
-            var cache_base = Environment.get_user_cache_dir();
-            if (cache_base != null) {
-                string cache_path = Path.build_filename(cache_base, "paperboy", "metadata");
-                int64 total_size = 0;
+        // Get formatted cache information from the metacache service
+        var meta_cache = MetaCache.get_instance();
 
-                // Count metadata files (.meta files)
-                var cache_dir = File.new_for_path(cache_path);
-                if (cache_dir.query_exists()) {
-                    FileEnumerator? enumerator = cache_dir.enumerate_children("standard::size,standard::type", FileQueryInfoFlags.NONE);
-                    FileInfo? info;
-                    while ((info = enumerator.next_file()) != null) {
-                        if (info.get_file_type() == FileType.REGULAR) {
-                            total_size += info.get_size();
-                        }
-                    }
-                    enumerator.close();
-                }
-
-                // Count image files in images subdirectory
-                string images_path = Path.build_filename(cache_path, "images");
-                var images_dir = File.new_for_path(images_path);
-                if (images_dir.query_exists()) {
-                    FileEnumerator? img_enum = images_dir.enumerate_children("standard::size,standard::type", FileQueryInfoFlags.NONE);
-                    FileInfo? img_info;
-                    while ((img_info = img_enum.next_file()) != null) {
-                        if (img_info.get_file_type() == FileType.REGULAR) {
-                            total_size += img_info.get_size();
-                        }
-                    }
-                    img_enum.close();
-                }
-
-                // Format size
-                if (total_size < 1024) {
-                    cache_size_text = "%lld bytes".printf(total_size);
-                } else if (total_size < 1024 * 1024) {
-                    cache_size_text = "%.1f KB".printf(total_size / 1024.0);
-                } else {
-                    cache_size_text = "%.1f MB".printf(total_size / (1024.0 * 1024.0));
-                }
-            }
-        } catch (GLib.Error e) {
-            cache_size_text = "Unknown";
-        }
-
-        cache_row.set_subtitle(cache_size_text);
+        // Get metacache size
+        cache_row.set_subtitle(meta_cache.get_metacache_info());
 
         var clear_cache_btn = new Gtk.Button.with_label("Clear");
         clear_cache_btn.set_valign(Gtk.Align.CENTER);
@@ -870,8 +844,8 @@ public class PrefsDialog : GLib.Object {
             try {
                 // Show confirmation dialog
                 var confirm_dialog = new Adw.AlertDialog(
-                    "Clear Cache?",
-                    "This will delete all cached images and metadata. Articles will need to be re-downloaded."
+                    "Clear article content cache?",
+                    "This will delete cached article content and images. Previously read articles will need to be re-downloaded."
                 );
                 confirm_dialog.add_response("cancel", "Cancel");
                 confirm_dialog.add_response("clear", "Clear Cache");
@@ -908,73 +882,133 @@ public class PrefsDialog : GLib.Object {
         cache_row.add_suffix(clear_cache_btn);
         data_group.add(cache_row);
 
+        // RSS Feed Cache row
+        var rss_cache_row = new Adw.ActionRow();
+        rss_cache_row.set_title("RSS feed cache");
+
+        // Get formatted cache information from the cache service
+        var rss_cache = Paperboy.RssArticleCache.get_instance();
+
+        // Set initial cache size
+        rss_cache_row.set_subtitle(rss_cache.get_cache_info_formatted());
+
+        // Update cache size when sources are removed
+        var rss_source_store = Paperboy.RssSourceStore.get_instance();
+        ulong source_removed_handler = rss_source_store.source_removed.connect((source) => {
+            // Refresh the cache size display when a source is removed
+            rss_cache_row.set_subtitle(rss_cache.get_cache_info_formatted());
+        });
+
+        // Disconnect signal when dialog is closed
+        dialog.closed.connect(() => {
+            rss_source_store.disconnect(source_removed_handler);
+        });
+
+        var clear_rss_cache_btn = new Gtk.Button.with_label("Clear");
+        clear_rss_cache_btn.set_valign(Gtk.Align.CENTER);
+        clear_rss_cache_btn.add_css_class("destructive-action");
+        clear_rss_cache_btn.clicked.connect(() => {
+            try {
+                // Show confirmation dialog
+                var rss_confirm_dialog = new Adw.AlertDialog(
+                    "Clear RSS Feed Cache?",
+                    "This will delete all cached RSS feed listings. Feeds will load from the network next time."
+                );
+                rss_confirm_dialog.add_response("cancel", "Cancel");
+                rss_confirm_dialog.add_response("clear", "Clear Cache");
+                rss_confirm_dialog.set_response_appearance("clear", Adw.ResponseAppearance.DESTRUCTIVE);
+                rss_confirm_dialog.set_default_response("cancel");
+                rss_confirm_dialog.set_close_response("cancel");
+
+                rss_confirm_dialog.response.connect((response_id) => {
+                    if (response_id == "clear") {
+                        try {
+                            rss_cache.clear_all();
+                            rss_cache_row.set_subtitle("0 bytes (0 articles)");
+
+                            // Show toast notification
+                            var parent_win = parent as NewsWindow;
+                            if (parent_win != null && parent_win.toast_manager != null) {
+                                parent_win.toast_manager.show_toast("RSS feed cache cleared");
+                            }
+                        } catch (GLib.Error e) {
+                            warning("Failed to clear RSS cache: %s", e.message);
+                        }
+                    }
+                });
+
+                rss_confirm_dialog.present(dialog);
+            } catch (GLib.Error e) {
+                warning("Failed to show RSS cache confirmation dialog: %s", e.message);
+            }
+        });
+
+        rss_cache_row.add_suffix(clear_rss_cache_btn);
+        data_group.add(rss_cache_row);
+
         app_page.add(data_group);
         dialog.add(app_page);
 
         // Handle dialog close to refresh if sources or categories changed
         dialog.closed.connect(() => {
-            try {
-                var parent_win = parent as NewsWindow;
-                if (parent_win != null && (sources_changed || categories_holder.changed)) {
-                    // Validate that current category is still supported
-                    string current_category = prefs.category;
-                    bool category_supported = false;
+            var parent_win = parent as NewsWindow;
+            if (parent_win != null && (sources_changed || categories_holder.changed)) {
+                // Validate that current category is still supported
+                string current_category = prefs.category;
+                bool category_supported = false;
 
-                    // Get list of enabled sources
-                    if (prefs.preferred_sources != null && prefs.preferred_sources.size > 0) {
-                        foreach (string source_id in prefs.preferred_sources) {
-                            NewsSource source;
-                            switch (source_id) {
-                                case "guardian": source = NewsSource.GUARDIAN; break;
-                                case "reddit": source = NewsSource.REDDIT; break;
-                                case "bbc": source = NewsSource.BBC; break;
-                                case "nytimes": source = NewsSource.NEW_YORK_TIMES; break;
-                                case "wsj": source = NewsSource.WALL_STREET_JOURNAL; break;
-                                case "bloomberg": source = NewsSource.BLOOMBERG; break;
-                                case "reuters": source = NewsSource.REUTERS; break;
-                                case "npr": source = NewsSource.NPR; break;
-                                case "fox": source = NewsSource.FOX; break;
-                                default: continue;
-                            }
-
-                            // Check if this source supports the current category
-                            if (NewsService.supports_category(source, current_category)) {
-                                category_supported = true;
-                                break;
-                            }
+                // Get list of enabled sources
+                if (prefs.preferred_sources != null && prefs.preferred_sources.size > 0) {
+                    foreach (string source_id in prefs.preferred_sources) {
+                        NewsSource source;
+                        switch (source_id) {
+                            case "guardian": source = NewsSource.GUARDIAN; break;
+                            case "reddit": source = NewsSource.REDDIT; break;
+                            case "bbc": source = NewsSource.BBC; break;
+                            case "nytimes": source = NewsSource.NEW_YORK_TIMES; break;
+                            case "wsj": source = NewsSource.WALL_STREET_JOURNAL; break;
+                            case "bloomberg": source = NewsSource.BLOOMBERG; break;
+                            case "reuters": source = NewsSource.REUTERS; break;
+                            case "npr": source = NewsSource.NPR; break;
+                            case "fox": source = NewsSource.FOX; break;
+                            default: continue;
                         }
-                    } else {
-                        // No sources enabled, fallback to default source
-                        category_supported = NewsService.supports_category(prefs.news_source, current_category);
+
+                        // Check if this source supports the current category
+                        if (NewsService.supports_category(source, current_category)) {
+                            category_supported = true;
+                            break;
+                        }
                     }
-
-                    // If category no longer supported, redirect to frontpage
-                    if (!category_supported) {
-                        prefs.category = "frontpage";
-                        prefs.save_config();
-                    }
-
-                    // Show confirmation dialog asking if user wants to refresh
-                    var confirm_dialog = new Adw.AlertDialog(
-                        "Refresh Content?",
-                        "Changes have been made to your news sources. Would you like to refresh the content now?"
-                    );
-                    confirm_dialog.add_response("cancel", "Not Now");
-                    confirm_dialog.add_response("refresh", "Refresh");
-                    confirm_dialog.set_default_response("refresh");
-                    confirm_dialog.set_close_response("cancel");
-                    confirm_dialog.set_response_appearance("refresh", Adw.ResponseAppearance.SUGGESTED);
-
-                    confirm_dialog.choose.begin(parent_win, null, (obj, res) => {
-                        try {
-                            string response = confirm_dialog.choose.end(res);
-                            if (response == "refresh") {
-                                parent_win.fetch_news();
-                            }
-                        } catch (GLib.Error e) { }
-                    });
+                } else {
+                    // No sources enabled, fallback to default source
+                    category_supported = NewsService.supports_category(prefs.news_source, current_category);
                 }
-            } catch (GLib.Error e) { }
+
+                // If category no longer supported, redirect to frontpage
+                if (!category_supported) {
+                    prefs.category = "frontpage";
+                    prefs.save_config();
+                }
+
+                // Show confirmation dialog asking if user wants to refresh
+                var confirm_dialog = new Adw.AlertDialog(
+                    "Refresh Content?",
+                    "Changes have been made to your news sources. Would you like to refresh the content now?"
+                );
+                confirm_dialog.add_response("cancel", "Not Now");
+                confirm_dialog.add_response("refresh", "Refresh");
+                confirm_dialog.set_default_response("refresh");
+                confirm_dialog.set_close_response("cancel");
+                confirm_dialog.set_response_appearance("refresh", Adw.ResponseAppearance.SUGGESTED);
+
+                confirm_dialog.choose.begin(parent_win, null, (obj, res) => {
+                    string response = confirm_dialog.choose.end(res);
+                    if (response == "refresh") {
+                        parent_win.fetch_news();
+                    }
+                });
+            }
         });
 
         // Present the dialog

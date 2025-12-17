@@ -380,37 +380,35 @@ public class SidebarView : GLib.Object {
         // Priority 1: Check for saved icon file from struct data
         if (source_data.icon_path != null && source_data.icon_path.length > 0) {
             if (GLib.FileUtils.test(source_data.icon_path, GLib.FileTest.EXISTS)) {
-                try {
-                    var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, 0, 0), source_data.icon_path, 0, 0);
-                    if (probe != null) {
-                        int orig_w = 0; int orig_h = 0;
-                        try { orig_w = probe.get_width(); } catch (GLib.Error e) { orig_w = 0; }
-                        try { orig_h = probe.get_height(); } catch (GLib.Error e) { orig_h = 0; }
-                        double scale = 1.0;
-                        if (orig_w > 0 && orig_h > 0) scale = double.max((double)size / orig_w, (double)size / orig_h);
-                        int sw = (int)(orig_w * scale);
-                        int sh = (int)(orig_h * scale);
-                        if (sw < 1) sw = 1;
-                        if (sh < 1) sh = 1;
+                var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, 0, 0), source_data.icon_path, 0, 0);
+                if (probe != null) {
+                    int orig_w = probe.get_width();
+                    int orig_h = probe.get_height();
+                    double scale = 1.0;
+                    if (orig_w > 0 && orig_h > 0) scale = double.max((double)size / orig_w, (double)size / orig_h);
+                    int sw = (int)(orig_w * scale);
+                    int sh = (int)(orig_h * scale);
+                    if (sw < 1) sw = 1;
+                    if (sh < 1) sh = 1;
 
-                        var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, sw, sh), source_data.icon_path, sw, sh);
+                    var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, sw, sh), source_data.icon_path, sw, sh);
 
-                        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, size, size);
-                        var cr = new Cairo.Context(surface);
-                        int x = (size - sw) / 2;
-                        int y = (size - sh) / 2;
-                        try { Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y); cr.paint(); } catch (GLib.Error e) { }
-                        var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(source_data.icon_path, size, size);
-                        var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, size, size);
+                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, size, size);
+                    var cr = new Cairo.Context(surface);
+                    int x = (size - sw) / 2;
+                    int y = (size - sh) / 2;
+                    Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
+                    cr.paint();
+                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(source_data.icon_path, size, size);
+                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, size, size);
 
-                        if (pb_surf != null) {
-                            var pic = new Gtk.Picture();
-                            try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf)); } catch (GLib.Error e) { }
-                            pic.set_size_request(size, size);
-                            return pic;
-                        }
+                    if (pb_surf != null) {
+                        var pic = new Gtk.Picture();
+                        pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
+                        pic.set_size_request(size, size);
+                        return pic;
                     }
-                } catch (GLib.Error e) { }
+                }
             }
         }
         
@@ -418,20 +416,13 @@ public class SidebarView : GLib.Object {
         if (source_data.icon_url != null && source_data.icon_url.length > 0) {
             var pic = new Gtk.Picture();
             pic.set_size_request(size, size);
-            try { if (window.image_manager != null) window.image_manager.load_image_async(pic, source_data.icon_url, size, size); } catch (GLib.Error e) { }
+            if (window.image_manager != null) window.image_manager.load_image_async(pic, source_data.icon_url, size, size);
             return pic;
         }
-
         // Fallback: Generic RSS icon
-        try {
-            var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
-            fallback.set_pixel_size(size);
-            return fallback;
-        } catch (GLib.Error e) {
-            var pic = new Gtk.Picture();
-            pic.set_size_request(size, size);
-            return pic;
-        }
+        var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
+        fallback.set_pixel_size(size);
+        return fallback;
     }
     
     private Gtk.Button create_add_rss_button() {

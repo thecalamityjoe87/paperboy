@@ -26,51 +26,130 @@ using Gee;
 public class FeedUpdateManager : GLib.Object {
     private weak NewsWindow window;
     private HashMap<string, int64?> update_timestamps;
-    private const int64 UPDATE_INTERVAL = 3600; // 1 hour in seconds
     private bool is_updating = false;
-    
+    private uint recurring_timer_id = 0;
+
+    // Signals for UI operations
+    public signal void request_show_toast(string message);
+
     public FeedUpdateManager(NewsWindow window) {
         this.window = window;
         this.update_timestamps = new HashMap<string, int64?>();
     }
-    
+
+    ~FeedUpdateManager() {
+        stop_recurring_updates();
+    }
+
+    /**
+     * Convert user's update_interval preference to seconds
+     * @return Number of seconds, or -1 if manual updates
+     */
+    private int64 get_update_interval_seconds() {
+        string interval = window.prefs.update_interval;
+
+        switch (interval) {
+            case "manual":
+                return -1; // No automatic updates
+            case "15min":
+                return 900;  // 15 * 60
+            case "30min":
+                return 1800; // 30 * 60
+            case "1hour":
+                return 3600; // 60 * 60
+            case "2hours":
+                return 7200; // 2 * 60 * 60
+            case "4hours":
+                return 14400; // 4 * 60 * 60
+            default:
+                return 3600; // Default to 1 hour
+        }
+    }
+
+    /**
+     * Start recurring feed updates based on user's interval preference
+     * Always performs an immediate update on app launch (after delay)
+     */
+    public void start_recurring_updates() {
+        // Check if automatic updates are disabled
+        int64 update_interval = get_update_interval_seconds();
+        if (update_interval == -1) {
+            GLib.print("Automatic updates disabled (manual mode)\n");
+            return;
+        }
+
+        // Always update on app launch (users expect fresh content)
+        GLib.print("App launched - updating all feeds (interval: %lld seconds)\n", update_interval);
+        update_all_feeds_async();
+
+        // Start recurring timer to update while app is running
+        stop_recurring_updates(); // Clear any existing timer
+
+        recurring_timer_id = GLib.Timeout.add_seconds((uint)update_interval, () => {
+            GLib.print("Recurring update timer fired (interval: %lld seconds)\n", update_interval);
+            update_all_feeds_async();
+            return GLib.Source.CONTINUE; // Keep running
+        });
+
+        GLib.print("Started recurring update timer (interval: %lld seconds)\n", update_interval);
+    }
+
+    /**
+     * Stop the recurring update timer
+     */
+    public void stop_recurring_updates() {
+        if (recurring_timer_id > 0) {
+            GLib.Source.remove(recurring_timer_id);
+            recurring_timer_id = 0;
+            GLib.print("Stopped recurring update timer\n");
+        }
+    }
+
     /**
      * Update all RSS feeds asynchronously
-     * 
+     *
      * This method runs in a background thread and updates all feeds
-     * that haven't been updated within the UPDATE_INTERVAL
+     * that haven't been updated within the user's configured interval
      */
     public void update_all_feeds_async() {
         if (is_updating) {
             GLib.print("Feed update already in progress, skipping\n");
             return;
         }
-        
+
+        // Check if automatic updates are disabled
+        int64 update_interval = get_update_interval_seconds();
+        if (update_interval == -1) {
+            GLib.print("Automatic updates disabled (manual mode)\n");
+            return;
+        }
+
         is_updating = true;
-        
+
         new Thread<void*>("feed-updater", () => {
             var store = Paperboy.RssSourceStore.get_instance();
             var sources = store.get_all_sources();
-            
+
             if (sources.size == 0) {
                 GLib.print("No RSS feeds to update\n");
                 is_updating = false;
                 return null;
             }
-            
-            GLib.print("Checking %d RSS feeds for updates...\n", sources.size);
-            
+
+            GLib.print("Checking %d RSS feeds for updates (interval: %lld seconds)...\n",
+                      sources.size, update_interval);
+
             int updated_count = 0;
             int skipped_count = 0;
             int failed_count = 0;
-            
+
             foreach (var source in sources) {
                 // Check if feed needs update (based on last_fetched_at)
                 int64 now = GLib.get_real_time() / 1000000;
                 int64 time_since_fetch = now - source.last_fetched_at;
-                
-                if (time_since_fetch < UPDATE_INTERVAL) {
-                    GLib.print("  ⏭  Skipping %s (updated %lld seconds ago)\n", 
+
+                if (time_since_fetch < update_interval) {
+                    GLib.print("  ⏭  Skipping %s (updated %lld seconds ago)\n",
                         source.name, time_since_fetch);
                     skipped_count++;
                     continue;
@@ -96,7 +175,7 @@ public class FeedUpdateManager : GLib.Object {
                     if (failed_count > 0) {
                         message += ", %d failed".printf(failed_count);
                     }
-                    window.show_toast(message);
+                    request_show_toast(message);
                 }
                 return false;
             });
@@ -202,29 +281,50 @@ public class FeedUpdateManager : GLib.Object {
                         
                         // Only update if content actually changed
                         if (content_changed) {
-                            // Delete old XML file
+                            // Merge old articles into new feed before saving
                             if (old_file_path.length > 0) {
                                 try {
                                     var old_file = GLib.File.new_for_path(old_file_path);
-                                if (old_file.query_exists()) {
-                                    old_file.delete();
-                                    GLib.print("  ✓ Deleted old feed file: %s\n", GLib.Path.get_basename(old_file_path));
+                                    if (old_file.query_exists()) {
+                                        // Read old feed content
+                                        uint8[] old_contents;
+                                        old_file.load_contents(null, out old_contents, null);
+                                        string old_feed = (string) old_contents;
+
+                                        if (RssValidatorUtils.is_valid_rss(old_feed, out error)) {
+                                            // Merge old articles into new feed
+                                            gen_feed = merge_rss_feeds(old_feed, gen_feed);
+                                            item_count = RssValidatorUtils.get_item_count(gen_feed);
+                                            GLib.print("  ↻ Merged with old feed (now %d total items)\n", item_count);
+                                        }
+                                    }
+                                } catch (Error e) {
+                                    GLib.warning("  ⚠ Failed to merge old feed: %s", e.message);
                                 }
-                            } catch (Error e) {
-                                GLib.warning("  ⚠ Failed to delete old feed file: %s", e.message);
-                            }
                             }
 
-                            // Save new XML file
+                            // Delete old XML file (will be replaced by merged version)
+                            if (old_file_path.length > 0) {
+                                try {
+                                    var old_file = GLib.File.new_for_path(old_file_path);
+                                    if (old_file.query_exists()) {
+                                        old_file.delete();
+                                        GLib.print("  ✓ Deleted old feed file: %s\n", GLib.Path.get_basename(old_file_path));
+                                    }
+                                } catch (Error e) {
+                                    GLib.warning("  ⚠ Failed to delete old feed file: %s", e.message);
+                                }
+                            }
+
+                            // Save new XML file (now contains merged articles)
+                            // Use same filename (without timestamp) so we replace the old file
                             string data_dir = GLib.Environment.get_user_data_dir();
                             string paperboy_dir = GLib.Path.build_filename(data_dir, "paperboy");
                             string gen_dir = GLib.Path.build_filename(paperboy_dir, "generated_feeds");
                             GLib.DirUtils.create_with_parents(gen_dir, 0755);
 
                             string safe_host = host.replace("/", "_").replace(":", "_");
-                            long ts_val = (long) (GLib.get_real_time() / 1000000);
-                            string ts = ts_val.to_string();
-                            string filename = safe_host + "-" + ts + ".xml";
+                            string filename = safe_host + ".xml";
                             string new_file_path = GLib.Path.build_filename(gen_dir, filename);
 
                             var f = GLib.File.new_for_path(new_file_path);
@@ -368,6 +468,121 @@ public class FeedUpdateManager : GLib.Object {
         }
     }
     
+    /**
+     * Merge two RSS feeds, combining items from both while avoiding duplicates
+     * @param old_feed The old RSS feed XML
+     * @param new_feed The new RSS feed XML
+     * @return Merged RSS feed XML with items from both feeds
+     */
+    private string merge_rss_feeds(string old_feed, string new_feed) {
+        try {
+            // Parse both feeds
+            Xml.Doc* old_doc = Xml.Parser.parse_doc(old_feed);
+            Xml.Doc* new_doc = Xml.Parser.parse_doc(new_feed);
+
+            if (old_doc == null || new_doc == null) {
+                GLib.warning("Failed to parse feeds for merging");
+                if (old_doc != null) delete old_doc;
+                if (new_doc != null) delete new_doc;
+                return new_feed; // Return new feed as fallback
+            }
+
+            Xml.Node* old_root = old_doc->get_root_element();
+            Xml.Node* new_root = new_doc->get_root_element();
+
+            if (old_root == null || new_root == null) {
+                delete old_doc;
+                delete new_doc;
+                return new_feed;
+            }
+
+            // Find the channel node in new feed (RSS) or use root for Atom
+            Xml.Node* new_channel = null;
+            for (Xml.Node* node = new_root->children; node != null; node = node->next) {
+                if (node->type == Xml.ElementType.ELEMENT_NODE && node->name == "channel") {
+                    new_channel = node;
+                    break;
+                }
+            }
+
+            // If no channel found, assume Atom feed or malformed RSS
+            if (new_channel == null) {
+                new_channel = new_root;
+            }
+
+            // Collect new item GUIDs/links to avoid duplicates
+            var new_item_ids = new Gee.HashSet<string>();
+            for (Xml.Node* item = new_channel->children; item != null; item = item->next) {
+                if (item->type == Xml.ElementType.ELEMENT_NODE && item->name == "item") {
+                    string? id = extract_item_id(item);
+                    if (id != null) {
+                        new_item_ids.add(id);
+                    }
+                }
+            }
+
+            // Find old channel
+            Xml.Node* old_channel = null;
+            for (Xml.Node* node = old_root->children; node != null; node = node->next) {
+                if (node->type == Xml.ElementType.ELEMENT_NODE && node->name == "channel") {
+                    old_channel = node;
+                    break;
+                }
+            }
+
+            if (old_channel == null) {
+                old_channel = old_root;
+            }
+
+            // Copy old items that aren't in new feed
+            int merged_count = 0;
+            for (Xml.Node* item = old_channel->children; item != null; item = item->next) {
+                if (item->type == Xml.ElementType.ELEMENT_NODE && item->name == "item") {
+                    string? id = extract_item_id(item);
+                    if (id != null && !new_item_ids.contains(id)) {
+                        // Copy this item to new feed
+                        Xml.Node* copied_item = item->copy(1); // Deep copy
+                        new_channel->add_child(copied_item);
+                        merged_count++;
+                    }
+                }
+            }
+
+            // Convert back to string
+            string result = "";
+            new_doc->dump_memory_enc(out result);
+
+            delete old_doc;
+            delete new_doc;
+
+            GLib.print("  ✓ Merged %d unique old articles into new feed\n", merged_count);
+            return result;
+
+        } catch (Error e) {
+            GLib.warning("Error merging feeds: %s", e.message);
+            return new_feed; // Return new feed as fallback
+        }
+    }
+
+    /**
+     * Extract a unique identifier from an RSS item (GUID or link)
+     * @param item The RSS item node
+     * @return The item's unique identifier or null
+     */
+    private string? extract_item_id(Xml.Node* item) {
+        for (Xml.Node* child = item->children; child != null; child = child->next) {
+            if (child->type != Xml.ElementType.ELEMENT_NODE) continue;
+
+            if (child->name == "guid" || child->name == "link") {
+                string? content = child->get_content();
+                if (content != null && content.length > 0) {
+                    return content.strip();
+                }
+            }
+        }
+        return null;
+    }
+
     /**
      * Find the html2rss binary in various possible locations
      * @return Path to html2rss binary or null if not found

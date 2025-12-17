@@ -44,6 +44,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     private weak NewsPreferences prefs;
     private weak NewsWindow window;
 
+    // Signals for UI operations
+    public signal void request_show_toast(string message);
+
     public SourceManager(NewsPreferences prefs) {
         this.prefs = prefs;
     }
@@ -175,6 +178,44 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         return prefs.news_source;
     }
 
+    // Normalize source display name to canonical ID
+    // Handles names like "The Guardian||logo_url", "Bloomberg", etc.
+    // Returns null if not a recognized built-in source
+    public static string? normalize_source_display_name_to_id(string? display_name) {
+        if (display_name == null || display_name.length == 0) {
+            return null;
+        }
+
+        // Strip everything after "||" (logo URL separator)
+        string clean_name = display_name;
+        int separator_pos = display_name.index_of("||");
+        if (separator_pos >= 0) {
+            clean_name = display_name.substring(0, separator_pos);
+        }
+
+        // Also strip "##category::" suffix if present
+        int category_pos = clean_name.index_of("##category::");
+        if (category_pos >= 0) {
+            clean_name = clean_name.substring(0, category_pos);
+        }
+
+        string low = clean_name.strip().down();
+
+        // Map display names to source IDs
+        if (low.index_of("guardian") >= 0) return "guardian";
+        if (low == "bbc" || low == "bbc news" || low.index_of("bbc") >= 0) return "bbc";
+        if (low == "reddit") return "reddit";
+        if (low.index_of("new york times") >= 0 || low.index_of("ny times") >= 0 || low.index_of("nytimes") >= 0) return "nytimes";
+        if (low.index_of("wall street") >= 0 || low == "wsj") return "wsj";
+        if (low.index_of("bloomberg") >= 0) return "bloomberg";
+        if (low.index_of("reuters") >= 0) return "reuters";
+        if (low == "npr") return "npr";
+        if (low.index_of("fox") >= 0) return "fox";
+        if (low.index_of("hacker news") >= 0 || low == "hackernews") return "hackernews";
+
+        return null; // Not a recognized built-in source
+    }
+
     // Infer source from URL by checking known domain substrings.
     // Returns UNKNOWN for unrecognized URLs to avoid incorrect branding.
     public static NewsSource infer_source_from_url(string? url) {
@@ -279,9 +320,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 var rss_store = Paperboy.RssSourceStore.get_instance();
                 var all_sources = rss_store.get_all_sources();
                 foreach (var src in all_sources) {
+                    if (src.name == null || result == null) continue;
                     string src_lower = src.name.down();
                     string result_lower = result.down();
-                    if (src_lower.contains(result_lower) || result_lower.contains(src_lower)) {
+                    if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
                         result = src.name;
                         break;
                     }
@@ -296,7 +338,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Check if a source name string matches a known NewsSource enum.
     // Used to determine if a provided name corresponds to a built-in source.
     public static bool source_name_matches(NewsSource source, string name) {
+        if (name == null || name.length == 0) return false;
         string n = name.down();
+        if (n == null) return false;
         switch (source) {
             case NewsSource.GUARDIAN: return n.contains("guardian");
             case NewsSource.BBC: return n.contains("bbc");
@@ -566,9 +610,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     // the discovered title when the existing name looks like a domain
                     // (contains a dot and no spaces) and the discovered title appears
                     // more human (contains a space or has uppercase letters).
-                    if (existing_display_name != null && existing_display_name.length > 0) {
+                    if (existing_display_name != null && existing_display_name.length > 0 && final_name != null && final_name.length > 0) {
                         bool existing_is_domain = existing_display_name.index_of(".") >= 0 && existing_display_name.index_of(" ") < 0;
-                        bool new_is_more_human = (final_name.index_of(" ") >= 0) || (final_name != final_name.down());
+                        string final_name_lower = final_name.down();
+                        bool new_is_more_human = (final_name.index_of(" ") >= 0) || (final_name_lower != null && final_name != final_name_lower);
                         if (existing_is_domain && new_is_more_human) {
                             // Keep our discovered final_name and request metadata overwrite
                             force_update_meta = true;
@@ -712,8 +757,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         // as custom RSS entries.
         if (is_article_from_builtin(article_url)) {
             GLib.Idle.add(() => {
-                try { if (window != null) window.clear_persistent_toast(); } catch (GLib.Error e) { }
-                try { if (window != null) window.show_toast("Source is built-in"); } catch (GLib.Error e) { }
+                if (window != null) window.clear_persistent_toast();
+                request_show_toast("Source is built-in");
                 return false;
             });
             return;
@@ -894,12 +939,12 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                                             if (success) {
                                                 GLib.Idle.add(() => {
-                                                    window.show_toast("Following " + final_title);
+                                                    request_show_toast("Following " + final_title);
                                                     return false;
                                                 });
                                             } else {
                                                 GLib.Idle.add(() => {
-                                                    window.show_toast("Source already followed");
+                                                    request_show_toast("Source already followed");
                                                     return false;
                                                 });
                                             }
@@ -931,7 +976,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     if (host == null || host.length == 0) {
                         GLib.warning("Cannot attempt html2rss fallback: host is null or empty");
                         GLib.Idle.add(() => {
-                            window.show_toast("Failed to discover RSS feed");
+                            request_show_toast("Failed to discover RSS feed");
                             return false;
                         });
                     } else {
@@ -1057,19 +1102,19 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                     
                                     if (!is_valid) {
                                         GLib.warning("Generated RSS is invalid: %s", validation_error);
-                                        
+
                                         GLib.Idle.add(() => {
-                                            window.show_toast("Failed to generate valid RSS feed");
+                                            request_show_toast("Failed to generate valid RSS feed");
                                             return false;
                                         });
                                         return null;
                                     }
-                                    
+
                                     int item_count = RssValidatorUtils.get_item_count(gen_feed);
                                     if (item_count == 0) {
                                         GLib.warning("Generated RSS has no items");
                                         GLib.Idle.add(() => {
-                                            window.show_toast("Generated feed has no articles");
+                                            request_show_toast("Generated feed has no articles");
                                             return false;
                                         });
                                         return null;
@@ -1083,12 +1128,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                             string data_dir = GLib.Environment.get_user_data_dir();
                                             string paperboy_dir = GLib.Path.build_filename(data_dir, "paperboy");
                                             string gen_dir = GLib.Path.build_filename(paperboy_dir, "generated_feeds");
-                                            try { GLib.DirUtils.create_with_parents(gen_dir, 0755); } catch (GLib.Error e) { }
-
+                                            try {
+                                                GLib.DirUtils.create_with_parents(gen_dir, 0755);
+                                            } catch (GLib.Error e) {
+                                                GLib.warning("Failed to create directory '%s': %s", gen_dir, e.message);
+                                            }
                                             string safe_host = host.replace("/", "_").replace(":", "_");
-                                            long ts_val = (long) (GLib.get_real_time() / 1000000);
-                                            string ts = ts_val.to_string();
-                                            string filename = safe_host + "-" + ts + ".xml";
+                                            string filename = safe_host + ".xml";
                                             string file_path = GLib.Path.build_filename(gen_dir, filename);
 
                                             var f = GLib.File.new_for_path(file_path);
@@ -1162,33 +1208,33 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                     if (success) {
                                         GLib.Idle.add(() => {
                                             // Show followed message with article count
-                                            window.show_toast("Following %s (%d articles)".printf(feed_name, item_count));
+                                            request_show_toast("Following %s (%d articles)".printf(feed_name, item_count));
                                             return false;
                                         });
                                     } else {
                                         GLib.Idle.add(() => {
-                                            window.show_toast("Source already followed");
+                                            request_show_toast("Source already followed");
                                             return false;
                                         });
                                     }
                                 } else {
                                     GLib.warning("html2rss fallback did not produce a feed (exit=%d); stderr=%s", exit_status, out_stderr != null ? out_stderr : "");
                                     GLib.Idle.add(() => {
-                                        window.show_toast("No RSS feeds found");
+                                        request_show_toast("No RSS feeds found");
                                         return false;
                                     });
                                 }
                             } catch (GLib.Error e) {
                                 GLib.warning("Error running html2rss fallback: %s", e.message);
                                 GLib.Idle.add(() => {
-                                    window.show_toast("No RSS feeds found");
+                                    request_show_toast("No RSS feeds found");
                                     return false;
                                 });
                             }
                         } else {
                             GLib.warning("No html2rss binary found in expected locations");
                             GLib.Idle.add(() => {
-                                window.show_toast("No RSS feeds found");
+                                request_show_toast("No RSS feeds found");
                                 return false;
                             });
                         }
@@ -1197,7 +1243,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             } catch (GLib.Error e) {
                 GLib.warning("Error discovering RSS feed: %s", e.message);
                 GLib.Idle.add(() => {
-                    window.show_toast("Error discovering RSS feed");
+                    request_show_toast("Error discovering RSS feed");
                     return false;
                 });
             }

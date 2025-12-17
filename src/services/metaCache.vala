@@ -19,6 +19,7 @@ using GLib;
 using Gee;
 
 public class MetaCache : GLib.Object {
+    private static MetaCache? instance = null;
     private string cache_dir_path;
     private string cache_dir;
     private string images_dir_path;
@@ -75,10 +76,19 @@ public class MetaCache : GLib.Object {
             warning("Failed to create images cache dir %s: %s", images_dir_path, e.message);
         }
 
+
     cache_dir = cache_dir_path;
     // Note: in-memory article-state responsibilities (viewed/favorite) were
     // moved to `ArticleStateStore`. This class retains disk-based cache
     // helpers (read_meta/write_meta) for backwards-compatible metadata on disk.
+    }
+
+
+    public static MetaCache get_instance() {
+        if (instance == null) {
+            instance = new MetaCache();
+        }
+        return instance;
     }
 
     // Simple sanitization to produce reasonably short filenames from URL.
@@ -313,6 +323,134 @@ public class MetaCache : GLib.Object {
         try { last_modified = kf.get_string("cache", "last_modified"); } catch (GLib.Error e) { last_modified = null; }
     }
 
+    /*
+    public string get_metacache_info() {
+        string cache_size_text = "Calculating...";
+        try {
+            var cache_base = Environment.get_user_cache_dir();
+            if (cache_base != null) {
+                string cache_path = Path.build_filename(cache_base, "paperboy", "metadata");
+                int64 total_size = 0;
+
+                // Count metadata files (.meta files)
+                var cache_dir = File.new_for_path(cache_path);
+                if (cache_dir.query_exists()) {
+                    FileEnumerator? enumerator = cache_dir.enumerate_children("standard::size,standard::type", FileQueryInfoFlags.NONE);
+                    FileInfo? info;
+                    while ((info = enumerator.next_file()) != null) {
+                        if (info.get_file_type() == FileType.REGULAR) {
+                            total_size += info.get_size();
+                        }
+                    }
+                    enumerator.close();
+                }
+
+                // Count image files in images subdirectory
+                string images_path = Path.build_filename(cache_path, "images");
+                var images_dir = File.new_for_path(images_path);
+                if (images_dir.query_exists()) {
+                    FileEnumerator? img_enum = images_dir.enumerate_children("standard::size,standard::type", FileQueryInfoFlags.NONE);
+                    FileInfo? img_info;
+                    while ((img_info = img_enum.next_file()) != null) {
+                        if (img_info.get_file_type() == FileType.REGULAR) {
+                            total_size += img_info.get_size();
+                        }
+                    }
+                    img_enum.close();
+                }
+
+                // Format size
+                if (total_size < 1024) {
+                    cache_size_text = "%lld bytes".printf(total_size);
+                } else if (total_size < 1024 * 1024) {
+                    cache_size_text = "%.1f KB".printf(total_size / 1024.0);
+                } else {
+                    cache_size_text = "%.1f MB".printf(total_size / (1024.0 * 1024.0));
+                }
+                return "%s".printf(cache_size_text);
+            }
+        } catch (GLib.Error e) {
+            GLib.warning("MetaCache: Failed to get formatted cache info: %s", e.message);
+        }
+        // Fallback if we fail to get size
+        return "Unknown";
+    } */
+
+    public string get_metacache_info() {
+        string cache_size_text = "Calculating...";
+
+        var cache_base = Environment.get_user_cache_dir();
+        if (cache_base == null) {
+            return "Unknown";
+        }
+
+        try {
+            string cache_path = Path.build_filename(
+                cache_base,
+                "paperboy",
+                "metadata"
+            );
+
+            int64 total_size = 0;
+
+            // Count metadata files
+            var cache_dir = File.new_for_path(cache_path);
+            if (cache_dir.query_exists()) {
+                FileEnumerator enumerator =
+                    cache_dir.enumerate_children(
+                        "standard::size,standard::type",
+                        FileQueryInfoFlags.NONE
+                    );
+
+                FileInfo? info;
+                while ((info = enumerator.next_file()) != null) {
+                    if (info.get_file_type() == FileType.REGULAR) {
+                        total_size += info.get_size();
+                    }
+                }
+
+                enumerator.close();
+            }
+
+            // Count image files
+            string images_path = Path.build_filename(cache_path, "images");
+            var images_dir = File.new_for_path(images_path);
+            if (images_dir.query_exists()) {
+                FileEnumerator img_enum =
+                    images_dir.enumerate_children(
+                        "standard::size,standard::type",
+                        FileQueryInfoFlags.NONE
+                    );
+
+                FileInfo? img_info;
+                while ((img_info = img_enum.next_file()) != null) {
+                    if (img_info.get_file_type() == FileType.REGULAR) {
+                        total_size += img_info.get_size();
+                    }
+                }
+
+                img_enum.close();
+            }
+
+            // Format size
+            if (total_size < 1024) {
+                cache_size_text = "%lld bytes".printf(total_size);
+            } else if (total_size < 1024 * 1024) {
+                cache_size_text = "%.1f KB".printf(total_size / 1024.0);
+            } else {
+                cache_size_text = "%.1f MB".printf(total_size / (1024.0 * 1024.0));
+            }
+
+            return cache_size_text;
+
+        } catch (GLib.Error e) {
+            GLib.warning(
+                "MetaCache: Failed to get formatted cache info: %s",
+                e.message
+            );
+            return "Unknown";
+        }
+    }
 
 
     // Remove all cached images and metadata. Best-effort; used on application exit
