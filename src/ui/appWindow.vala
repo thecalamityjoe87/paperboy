@@ -169,6 +169,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Initialize source and category managers early (needed for all source/category logic)
         source_manager = new SourceManager(prefs);
         source_manager.set_window(this);
+
+        source_manager.request_show_toast.connect((message) => {
+            show_toast(message);
+        });
+
         category_manager = new CategoryManager(prefs, source_manager);
         // Initialize ArticleManager early (before any article-related code)
         article_manager = new Managers.ArticleManager(this);
@@ -191,7 +196,15 @@ public class NewsWindow : Adw.ApplicationWindow {
                 content_view.remove_end_of_feed_message();
             }
         });
-        
+
+        article_manager.request_show_toast.connect((message) => {
+            show_toast(message);
+        });
+
+        article_manager.request_show_persistent_toast.connect((message) => {
+            show_persistent_toast(message);
+        });
+
         // Instantiate view-state manager which owns URL/card mappings and viewed state
         view_state = new Managers.ViewStateManager(this);
 
@@ -679,6 +692,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Initialize feed update manager for automatic RSS feed updates
         feed_updater = new FeedUpdateManager(this);
 
+        feed_updater.request_show_toast.connect((message) => {
+            show_toast(message);
+        });
+
         // Create session with timeout (max_conns properties are read-only in libsoup3)
         session = new Soup.Session() {
             timeout = 10 // Default timeout in seconds (reduced for faster failure recovery)
@@ -769,13 +786,13 @@ public class NewsWindow : Adw.ApplicationWindow {
             fetch_news();
         }
 
-        // Delay automatic feed updates to avoid startup contention
+        // Start recurring feed updates with initial delay
         // Wait 45 seconds after launch so initial content loads smoothly
         // This allows time for user to view initial content and for background
         // metadata fetch to complete before heavy feed regeneration starts
         if (feed_updater != null) {
             GLib.Timeout.add_seconds(45, () => {
-                feed_updater.update_all_feeds_async();
+                feed_updater.start_recurring_updates();
                 return false; // One-shot
             });
         }

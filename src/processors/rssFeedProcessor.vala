@@ -68,7 +68,8 @@ public class RssFeedProcessor {
         ClearItemsFunc clear_items,
         AddItemFunc add_item,
         Soup.Session session,
-        string? feed_url = null
+        string? feed_url = null,
+        string? cache_key_override = null
     ) {
         // SECURITY FIX: Do NOT use NOENT (it substitutes entities and can enable XXE/Billion-laughs).
         // Use NONET to forbid network access and disable entity substitution/DTD processing by
@@ -396,9 +397,11 @@ public class RssFeedProcessor {
                     }
 
                     // Cache article for offline access and faster feed switching
+                    // Use cache_key_override (original_url) for generated feeds to ensure cache persistence across regenerations
                     if (feed_url != null && feed_url.length > 0) {
                         var cache = Paperboy.RssArticleCache.get_instance();
-                        cache.cache_article(url, title, row[2], null, feed_url);
+                        string cache_key = (cache_key_override != null && cache_key_override.length > 0) ? cache_key_override : feed_url;
+                        cache.cache_article(url, title, row[2], null, cache_key);
                     }
 
                     add_item(title, url, row[2], category_id, source_name);
@@ -502,7 +505,8 @@ public class RssFeedProcessor {
         Soup.Session session,
         SetLabelFunc set_label,
         ClearItemsFunc clear_items,
-        AddItemFunc add_item
+        AddItemFunc add_item,
+        string? cache_key_override = null
     ) {
         new Thread<void*>("fetch-rss", () => {
             // Keep references to the provided callbacks for the lifetime
@@ -553,7 +557,7 @@ public class RssFeedProcessor {
                             try { set_label("Failed to read local RSS file"); } catch (GLib.Error e) { }
                             return null;
                         }
-                        parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session, url);
+                        parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session, url, cache_key_override);
                         return null;
                     } catch (GLib.Error e) {
                         warning("Error reading local RSS file: %s", e.message);
@@ -599,7 +603,7 @@ public class RssFeedProcessor {
                 }
 
                 string body = http_response.get_body_string();
-                parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session, url);
+                parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session, url, cache_key_override);
             } catch (GLib.Error e) {
                 warning("RSS fetch error: %s", e.message);
                 try { set_label("Error loading feed"); } catch (GLib.Error _) { }

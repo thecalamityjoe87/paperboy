@@ -70,6 +70,8 @@ namespace Managers {
         public signal void request_show_load_more_button();
         public signal void request_hide_load_more_button();
         public signal void request_remove_end_feed_message();
+        public signal void request_show_toast(string message);
+        public signal void request_show_persistent_toast(string message);
         
         public ArticleManager(NewsWindow w) {
             window = w;
@@ -82,7 +84,39 @@ namespace Managers {
             seen_urls = new Gee.HashSet<string>();
             next_column_index = 0;
         }
-        
+
+        /**
+         * Open article in app with offline check
+         * Centralized method to handle opening articles in the article sheet
+         */
+        public void open_article_in_app_if_online(string article_url) {
+            var network_monitor = GLib.NetworkMonitor.get_default();
+            if (!network_monitor.get_network_available()) {
+                request_show_toast("You're offline. Enable internet connection to view articles");
+                return;
+            }
+
+            string normalized = window.normalize_article_url(article_url);
+            window.mark_article_viewed(normalized);
+            if (window.article_sheet != null) window.article_sheet.open(normalized);
+        }
+
+        /**
+         * Open article in browser with offline check
+         * Centralized method to handle opening articles in external browser
+         */
+        public void open_article_in_browser_if_online(string article_url) {
+            var network_monitor = GLib.NetworkMonitor.get_default();
+            if (!network_monitor.get_network_available()) {
+                request_show_toast("You're offline. Enable internet connection to view articles");
+                return;
+            }
+
+            string normalized = window.normalize_article_url(article_url);
+            window.mark_article_viewed(normalized);
+            if (window.article_pane != null) window.article_pane.open_article_in_browser(normalized);
+        }
+
         /**
          * Check if a category has article limits applied (most categories do)
          */
@@ -389,19 +423,15 @@ namespace Managers {
 
                 // Connect context menu signals
                 hero_card.open_in_app_requested.connect((article_url) => {
-                    string normalized = window.normalize_article_url(article_url);
-                    window.mark_article_viewed(normalized);
-                    if (window.article_sheet != null) window.article_sheet.open(normalized);
+                    open_article_in_app_if_online(article_url);
                 });
 
                 hero_card.open_in_browser_requested.connect((article_url) => {
-                    string normalized = window.normalize_article_url(article_url);
-                    window.mark_article_viewed(normalized);
-                    if (window.article_pane != null) window.article_pane.open_article_in_browser(article_url);
+                    open_article_in_browser_if_online(article_url);
                 });
 
                 hero_card.follow_source_requested.connect((article_url, src_name) => {
-                    window.show_persistent_toast("Searching for feed...");
+                    request_show_persistent_toast("Searching for feed...");
                     window.source_manager.follow_rss_source(article_url, src_name);
                 });
 
@@ -410,12 +440,12 @@ namespace Managers {
                         bool is_saved = window.article_state_store.is_saved(article_url);
                         if (is_saved) {
                             window.article_state_store.unsave_article(article_url);
-                            window.show_toast("Removed article from saved");
+                            request_show_toast("Removed article from saved");
                             if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
                             if (window.prefs.category == "saved") window.fetch_news();
                         } else {
                             window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name);
-                            window.show_toast("Added article to saved");
+                            request_show_toast("Added article to saved");
                             if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
                         }
                     }
@@ -698,19 +728,15 @@ namespace Managers {
 
         // Connect context menu signals
         article_card.open_in_app_requested.connect((article_url) => {
-            string normalized = window.normalize_article_url(article_url);
-            window.mark_article_viewed(normalized);
-            if (window.article_sheet != null) window.article_sheet.open(normalized);
+            open_article_in_app_if_online(article_url);
         });
 
         article_card.open_in_browser_requested.connect((article_url) => {
-            string normalized = window.normalize_article_url(article_url);
-            window.mark_article_viewed(normalized);
-            if (window.article_pane != null) window.article_pane.open_article_in_browser(article_url);
+            open_article_in_browser_if_online(article_url);
         });
 
         article_card.follow_source_requested.connect((article_url, src_name) => {
-            window.show_persistent_toast("Searching for feed...");
+            request_show_persistent_toast("Searching for feed...");
             window.source_manager.follow_rss_source(article_url, src_name);
         });
 
@@ -719,11 +745,11 @@ namespace Managers {
                 bool is_saved = window.article_state_store.is_saved(article_url);
                 if (is_saved) {
                     window.article_state_store.unsave_article(article_url);
-                    window.show_toast("Removed article from saved");
+                    request_show_toast("Removed article from saved");
                     if (window.prefs.category == "saved") window.fetch_news();
                 } else {
                     window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name);
-                    window.show_toast("Added article to saved");
+                    request_show_toast("Added article to saved");
                 }
             }
         });
