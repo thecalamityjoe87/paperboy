@@ -192,7 +192,10 @@ public class PaperboyFetcher : BaseFetcher {
                         }
 
                         if (current_search_query.length > 0) {
-                            if (!title.contains(current_search_query) && !article_url.contains(current_search_query)) continue;
+                            string query_lower = current_search_query.down();
+                            string title_lower = title.down();
+                            string url_lower = article_url.down();
+                            if (!title_lower.contains(query_lower) && !url_lower.contains(query_lower)) continue;
                         }
 
                         if (display_source == null) display_source = "";

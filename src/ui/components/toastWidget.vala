@@ -26,6 +26,7 @@ public class ToastWidget : GLib.Object {
         toast_box.set_halign(Gtk.Align.CENTER);
         toast_box.set_valign(Gtk.Align.END);  // Bottom of content area
         toast_box.set_margin_bottom(24);  // Space from bottom edge
+        toast_box.set_can_focus(false);  // Prevent toast from stealing focus
         
         // Message label
         var label = new Gtk.Label(message);
@@ -41,6 +42,7 @@ public class ToastWidget : GLib.Object {
             close_button.add_css_class("flat");
             close_button.add_css_class("circular");
             close_button.add_css_class("custom-toast-close");
+            close_button.set_can_focus(false);  // Prevent focus stealing
             close_button.clicked.connect(() => {
                 dismiss_callback();
             });

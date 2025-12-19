@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.7.3a',
+  version : '0.7.4a',
   meson_version : '>=0.59.0'
 )
 
@@ -40,6 +40,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/heroCarousel.vala',
     'src/ui/components/toastWidget.vala',
     'src/ui/controllers/fetchNewsController.vala',
+    'src/ui/controllers/searchController.vala',
     'src/ui/dialogs/prefsDialog.vala',
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',
@@ -62,6 +63,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/imageManager.vala',
     'src/managers/toastManager.vala',
     'src/managers/feedUpdateManager.vala',
+    'src/managers/searchManager.vala',
 
     # Services / models / resolvers
     'src/services/unreadFetchService.vala',

@@ -141,6 +141,7 @@ public class ContentView : GLib.Object {
         category_subtitle.add_css_class("caption");
         var subtitle_attrs = new Pango.AttrList();
         subtitle_attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD));
+        subtitle_attrs.insert(Pango.attr_scale_new(1.2)); // Make subtitle font 20% larger
         category_subtitle.set_attributes(subtitle_attrs);
         category_subtitle.set_visible(false);
         header_box.append(category_subtitle);
@@ -408,6 +409,101 @@ public class ContentView : GLib.Object {
                 }
             }
         }
+    }
+
+    /**
+     * Filter article cards based on a search query
+     * Delegates ALL layout logic to LayoutManager, handles only UI presentation
+     * @param query The search query (case-insensitive). Empty string shows all cards.
+     */
+    public void filter_by_query(string query) {
+        if (window == null || window.layout_manager == null) return;
+
+        string query_lower = query.strip().down();
+
+        // RESTORE MODE: Query is empty - restore original layout
+        if (query_lower.length == 0) {
+            // Delegate layout restoration to LayoutManager
+            window.layout_manager.restore_original_layout();
+
+            // UI presentation updates only
+            hero_container.set_visible(true);
+
+            // Restore category subtitle based on category type
+            if (window.prefs != null && window.prefs.category == "topten") {
+                category_subtitle.set_markup("<span size='11000'>TOP STORIES RIGHT NOW</span>");
+                category_subtitle.set_visible(true);
+            } else {
+                category_subtitle.set_visible(false);
+            }
+            return;
+        }
+
+        // SEARCH MODE: Prepare for filtering
+        // Delegate to LayoutManager to store original positions
+        window.layout_manager.prepare_for_search_filter();
+
+        // UI presentation: hide hero
+        hero_container.set_visible(false);
+
+        // Delegate card dimension calculation to LayoutManager
+        int col_w, img_h;
+        window.layout_manager.get_card_dimensions(out col_w, out img_h);
+
+        // Get column data from LayoutManager (abstracts internal structure)
+        var columns_children = window.layout_manager.get_cards_for_iteration();
+        if (columns_children == null) return;
+
+        // Use SearchController to filter cards and create ArticleCards from matching heroes
+        var matching_cards = SearchController.filter_cards_from_columns(
+            columns_children,
+            hero_container,
+            query,
+            col_w,
+            img_h,
+            window.article_state_store,
+            window
+        );
+
+        // Delegate layout manipulation to LayoutManager
+        window.layout_manager.apply_search_filter(matching_cards);
+
+        // UI presentation: update label
+        update_search_label(matching_cards.size, query);
+    }
+
+    /**
+     * Update search result label (UI presentation only)
+    private void update_search_label(int match_count, string query) {
+        // Special case for when only 1 article match is found
+        if (match_count > 0 && match_count < 2) {
+            category_subtitle.set_label("Search results: found %d article matching \"%s\"".printf(match_count, query));
+            category_subtitle.set_visible(true);
+        } else if (match_count > 0) {
+            category_subtitle.set_label("Search results: found %d articles matching \"%s\"".printf(match_count, query));
+            category_subtitle.set_visible(true);
+        } else {
+            category_subtitle.set_label("No articles found matching \"%s\"".printf(query));
+            category_subtitle.set_visible(true);
+        }
+    }*/
+
+    /**
+    * Update search result label (UI presentation only)
+    */
+    private void update_search_label(int match_count, string query) {
+        string label_text;
+
+        if (match_count == 0) {
+            label_text = "No articles found matching \"%s\"".printf(query);
+        } else {
+            // Special switch when only one matching article is found
+            string article_word = (match_count == 1) ? "article" : "articles";
+            label_text = "Search results: found %d %s matching \"%s\"".printf(match_count, article_word, query);
+        }
+
+        category_subtitle.set_label(label_text);
+        category_subtitle.set_visible(true);
     }
 }
 

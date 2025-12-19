@@ -39,7 +39,6 @@ public class SidebarView : GLib.Object {
     private Gee.HashMap<string, Gtk.Box> icon_holders;
     private Gee.HashMap<string, Gtk.Widget> badge_widgets;
     private Gee.HashMap<string, Gtk.Widget> section_containers;
-    private Gee.HashMap<string, Gtk.Image> section_arrows;
     private Gtk.Widget? currently_selected_widget = null;
     private Gtk.Button? add_rss_button = null;
     
@@ -52,7 +51,6 @@ public class SidebarView : GLib.Object {
         this.icon_holders = new Gee.HashMap<string, Gtk.Box>();
         this.badge_widgets = new Gee.HashMap<string, Gtk.Widget>();
         this.section_containers = new Gee.HashMap<string, Gtk.Widget>();
-        this.section_arrows = new Gee.HashMap<string, Gtk.Image>();
         this.sidebar_menu = new SidebarMenu(window);
         
         build_ui();
@@ -121,79 +119,73 @@ public class SidebarView : GLib.Object {
     
     private void build_section(SidebarSectionData section) {
         if (section.is_expandable) {
-            // Build expandable section header
-            build_expandable_header(section);
-            
-            // Build container for items
-            var container = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-            container.set_visible(section.is_expanded);
-            section_containers.set(section.section_id, container);
-            
+            // Create the ExpanderRow with flat styling
+            var expander = new Adw.ExpanderRow();
+            expander.set_title(section.title);
+            expander.set_expanded(section.is_expanded);
+            expander.add_css_class("sidebar-expander");
+            expander.add_css_class("flat");
+            expander.set_enable_expansion(true);
+            expander.set_show_enable_switch(false);
+
+            // Store the last known expanded state to detect actual user changes
+            expander.set_data("last_expanded_state", section.is_expanded);
+
+            // Add items directly to the expander for smooth native animations
             foreach (var item in section.items) {
+                Gtk.Widget item_widget;
                 if (item.item_type == SidebarItemType.RSS_SOURCE) {
-                    container.append(build_rss_item_widget(item));
+                    item_widget = build_rss_item_widget(item);
                 } else {
-                    container.append(build_category_button(item));
+                    item_widget = build_category_button(item);
                 }
+
+                // Wrap in a ListBoxRow for proper expander integration
+                var row = new Gtk.ListBoxRow();
+                row.set_child(item_widget);
+                row.set_activatable(false);
+                row.set_selectable(false);
+                row.add_css_class("sidebar-expander-item");
+                expander.add_row(row);
             }
-            
-            // Add "Add RSS Feed" button for followed sources section
+
+            // Optional "Add RSS Feed" button
             if (section.section_id == "followed_sources") {
                 var add_button = create_add_rss_button();
-                container.append(add_button);
+                var add_row = new Gtk.ListBoxRow();
+                add_row.set_child(add_button);
+                add_row.set_activatable(false);
+                add_row.set_selectable(false);
+                add_row.add_css_class("sidebar-expander-item");
+                expander.add_row(add_row);
                 add_rss_button = add_button;
             }
-            
-            var container_row = new Gtk.ListBoxRow();
-            container_row.set_child(container);
-            container_row.set_activatable(false);
-            container_row.set_selectable(false);
-            sidebar_list.append(container_row);
+
+            // Track expansion state changes and notify manager
+            // Use activate signal instead of notify to only catch actual user clicks
+            expander.activate.connect(() => {
+                manager.toggle_section_expanded(section.section_id);
+            });
+
+            // Store expander for later updates
+            section_containers.set(section.section_id, expander);
+
+            // Add ExpanderRow to the ListBox
+            sidebar_list.append(expander);
+
         } else {
-            // Non-expandable section - add items directly as rows
+            // Non-expandable section: just append items directly
             foreach (var item in section.items) {
                 sidebar_list.append(build_item_row(item));
             }
         }
     }
-    
+
     private void build_expandable_header(SidebarSectionData section) {
-        var header_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        header_box.set_margin_top(12);
-        header_box.set_margin_bottom(6);
-        header_box.set_margin_start(4);
-        header_box.set_margin_end(12);
-        
-        var label = new Gtk.Label(section.title);
-        label.add_css_class("caption-heading");
-        label.set_xalign(0);
-        label.set_hexpand(true);
-        header_box.append(label);
-        
-        var arrow = new Gtk.Image.from_icon_name(
-            section.is_expanded ? "go-down-symbolic" : "go-next-symbolic"
-        );
-        arrow.set_pixel_size(12);
-        arrow.add_css_class("sidebar-arrow");
-        arrow.set_opacity(0.85);
-        header_box.append(arrow);
-        section_arrows.set(section.section_id, arrow);
-        
-        var button = new Gtk.Button();
-        button.set_child(header_box);
-        button.add_css_class("flat");
-        button.set_hexpand(true);
-        button.set_can_focus(false);
-        
-        button.clicked.connect(() => {
-            manager.toggle_section_expanded(section.section_id);
-        });
-        
-        var row = new Gtk.ListBoxRow();
-        row.set_child(button);
-        row.set_activatable(false);
-        row.set_selectable(false);
-        sidebar_list.append(row);
+        // DEPRECATED: This legacy function is no longer used.
+        // All expandable sections now use Adw.ExpanderRow via build_section()
+        // which provides smooth libadwaita animations while maintaining the flat look.
+        // This function is kept only for compatibility in case external code references it.
     }
     
     private Gtk.ListBoxRow build_item_row(SidebarItemData item) {
@@ -662,16 +654,16 @@ public class SidebarView : GLib.Object {
     }
     
     private void on_expanded_state_changed(string section_id, bool expanded) {
-        // Update arrow icon
-        if (section_arrows.has_key(section_id)) {
-            var arrow = section_arrows.get(section_id);
-            arrow.set_from_icon_name(expanded ? "go-down-symbolic" : "go-next-symbolic");
-        }
-        
-        // Update container visibility
+        // Update the expander's state with smooth libadwaita animation
         if (section_containers.has_key(section_id)) {
-            var container = section_containers.get(section_id);
-            container.set_visible(expanded);
+            var widget = section_containers.get(section_id);
+            if (widget is Adw.ExpanderRow) {
+                var exp = (Adw.ExpanderRow) widget;
+                exp.set_expanded(expanded);
+            } else {
+                // Fallback for legacy containers
+                widget.set_visible(expanded);
+            }
         }
     }
     
@@ -803,7 +795,6 @@ public class SidebarView : GLib.Object {
         icon_holders.clear();
         badge_widgets.clear();
         section_containers.clear();
-        section_arrows.clear();
         currently_selected_widget = null;
         add_rss_button = null;
     }

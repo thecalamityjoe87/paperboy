@@ -178,6 +178,17 @@ public class HeroCarousel : GLib.Object {
         });
         slide.add_controller(slide_click);
 
+        // Attach a lightweight HeroCard metadata object to the slide so
+        // SearchController can discover carousel slides the same way it
+        // discovers `HeroCard` instances attached to other widgets.
+        // We reuse `HeroCard` as a metadata holder but do not add its
+        // `root` to the UI — we point its `title_label`/`image` at the
+        // slide's widgets so image/title are available for matching.
+        var meta_hero = new HeroCard(title, url, SLIDE_MAX_HEIGHT, SLIDE_IMAGE_HEIGHT, null, false, null, null);
+        meta_hero.title_label = slide_label;
+        meta_hero.image = slide_image;
+        slide.set_data("hero-card", meta_hero);
+
         // Add to carousel
         if (widgets.size == 0) {
             add_initial_slide(slide);

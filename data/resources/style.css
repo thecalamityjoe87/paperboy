@@ -120,18 +120,11 @@
     border-radius: 50%;
 }
 
-.source-badge .circular-logo {
-    padding: 0;
-}
-
-.source-badge .circular-logo picture,
-.source-badge .circular-logo image {
-}
-
 /* Small visual treatment to help circular logos stand out on light/dark
    backgrounds: subtle border and shadow. Kept low-contrast to avoid
    fighting brand logos. */
 .source-badge .circular-logo {
+    padding: 0;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.06);
     background-clip: padding-box;
@@ -166,10 +159,6 @@
     min-width: 24px;
     min-height: 24px;
     border-radius: 50%;
-}
-
-.navigation-sidebar .circular-logo picture,
-.navigation-sidebar .circular-logo image {
 }
 
 /* Circular logo styling for preferences dialog source icons */
@@ -239,6 +228,7 @@
 /* Featured hero card styles */
 .card-featured {
     padding-bottom: 14px;
+    margin-top: 8px;
 }
 
 .card-featured label {
@@ -249,26 +239,11 @@
 
 /* Title shown above the featured (hero) card */
 .top-stories-title {
-    /* Slightly larger to stand out but still match other headings */
     font-size: 1.15em;
     font-weight: 800;
     margin: 0 0 6px 0;
-    /* Use the inherited label color so it matches other text in the UI */
     color: inherit;
     letter-spacing: 0.02em;
-}
-
-/* Fallback: if markup isn't available, render a "Top Stories" label above
-   the featured card by using a pseudo-element. This keeps the title
-   left-justified and visually separated from the card. If you prefer an
-   explicit element, add `<div class="top-stories-title">Top Stories</div>`
-   immediately before the featured card in the DOM and the `.top-stories-title`
-   rule above will style it.
-*/
-.card-featured {
-    /* ensure normal flow spacing when an explicit title widget is used */
-    /* reduce the top gap now that an explicit title widget is inserted */
-    margin-top: 8px;
 }
 
 /* Carousel dots shown under the featured hero title */
@@ -323,11 +298,6 @@
 }
 
 
-/* Sidebar styling for seamless integration with NavigationSplitView */
-.navigation-sidebar {
-    background-color: @sidebar_bg_color;
-}
-
 .navigation-sidebar .sidebar-item-row {
     background-color: transparent;
     font-weight: 600;
@@ -341,61 +311,82 @@
 /* Selected state using CSS class (for manual selection management) */
 .navigation-sidebar row.sidebar-item-row.selected,
 .navigation-sidebar button.sidebar-item-row.selected {
-    background-color: alpha(@window_fg_color, 0.1);
+    background-color: alpha(@window_fg_color, 0.18);
 }
 
 .navigation-sidebar row.sidebar-item-row.selected:hover,
 .navigation-sidebar button.sidebar-item-row.selected:hover {
-    background-color: alpha(@window_fg_color, 0.12);
+    background-color: alpha(@window_fg_color, 0.20);
 }
 
 .navigation-sidebar .sidebar-item-row:hover:not(:selected):not(.selected) {
-    background-color: alpha(@window_fg_color, 0.05);
+    background-color: alpha(@window_fg_color, 0.12);
 }
 
-/* Make content-area toast overlays ignore pointer events so they don't
-   block scrolling or other input when visible. The overlay itself
-   passes through all pointer events to the content below, but the
-   actual toast widgets inside can still receive clicks for dismissal. */
-.content-toast-pass {
-}
-
-/* Allow toast widgets inside the pass-through overlay to receive
-   pointer events so users can interact with them (e.g., dismiss) */
-.content-toast-pass toast,
-.content-toast-pass .toast {
-}
-
-
-/* Style for collapsible section headers */
-.navigation-sidebar .caption-heading {
-    font-weight: 750;
+/* Flat expander row styling for sidebar - maintains flat appearance with smooth animations */
+.navigation-sidebar .sidebar-expander {
+    background-color: transparent;
+    font-weight: 700;
     font-size: 0.92em;
-    opacity: 1;
-}
-
-.navigation-sidebar .caption-heading image {
-    opacity: 0.8;
-    min-width: 12px;
-    min-height: 12px;
-    -gtk-icon-size: 12px;
-}
-
-/* Sidebar arrow indicators */
-.navigation-sidebar .sidebar-arrow {
-    min-width: 12px;
-    min-height: 12px;
+    border-radius: 6px;
     margin-left: 6px;
-    -gtk-icon-size: 12px;
+    margin-right: 6px;
+}
+
+/* Style all internal boxes within the expander */
+.navigation-sidebar .sidebar-expander box {
+    background-color: transparent;
+}
+
+/* Target the expander row header area - no background on hover */
+.navigation-sidebar .sidebar-expander row.header {
+    background-color: transparent;
+}
+
+/* Hover effect - highlight the text only, no background shape */
+.navigation-sidebar .sidebar-expander:hover row.header label,
+.navigation-sidebar .sidebar-expander row.header:hover label {
+    opacity: 0.7;
+}
+
+/* Style the expander row title to match caption headings */
+.navigation-sidebar .sidebar-expander row.header box {
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+/* Fix arrow direction - rotate to point right when collapsed, down when expanded */
+.navigation-sidebar .sidebar-expander image.expander-row-arrow {
+    -gtk-icon-transform: rotate(180deg);
+}
+
+.navigation-sidebar .sidebar-expander:checked image.expander-row-arrow {
+    -gtk-icon-transform: rotate(0deg);
+    opacity: 1.0;
+    color: @window_fg_color;
+}
+
+/* Match the expander's internal listbox background to sidebar color */
+.navigation-sidebar .sidebar-expander list,
+.navigation-sidebar .sidebar-expander listbox {
+    background-color: @sidebar_bg_color;
+}
+
+/* Keep items inside expander flat and seamless */
+.navigation-sidebar .sidebar-expander-item {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+}
+
+.navigation-sidebar .sidebar-expander-item:hover {
+    background-color: transparent;
 }
 
 /* NavigationSplitView sidebar pane styling */
 navigation-split-view>widget.sidebar-pane {
     background-color: @sidebar_bg_color;
 }
-
-/* NavigationSplitView content pane */
-navigation-split-view>widget.content-pane {}
 
 /* Load More button animations */
 .fade-in {
