@@ -94,6 +94,9 @@ public class HeroCard : GLib.Object {
         title_box.append(title_label);
         root.append(title_box);
 
+        // Attach HeroCard object to root for search functionality
+        root.set_data("hero-card", this);
+
         // Click gesture -> emit activated
         var gesture = new Gtk.GestureClick();
         gesture.set_button(1);

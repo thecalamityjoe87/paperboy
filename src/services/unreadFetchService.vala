@@ -31,6 +31,10 @@ public class UnreadFetchService {
     private static int _active_fetches = 0;
     private const int MAX_CONCURRENT_FETCHES = 3;  // Limit concurrent fetches to prevent resource contention
 
+    // Track which categories have been cleared in the current background fetch run
+    // This prevents duplicate clearing when multiple sources fetch the same category
+    private static Gee.HashSet<string>? _cleared_categories = null;
+
     // Task types for the fetch queue
     private enum TaskType {
         CATEGORY,
@@ -162,6 +166,24 @@ public class UnreadFetchService {
 
             switch (task.type) {
                 case TaskType.CATEGORY:
+                    // Clear this specific category before fetching to prevent accumulation
+                    // But only clear ONCE per background fetch run (multiple sources may fetch same category)
+                    // And skip if this is the category the user is currently viewing (main fetch already cleared it)
+                    if (win != null && win.article_state_store != null && task.category != null) {
+                        // Initialize tracking set if needed
+                        if (_cleared_categories == null) {
+                            _cleared_categories = new Gee.HashSet<string>();
+                        }
+
+                        bool should_clear = (win.prefs == null || win.prefs.category != task.category)
+                                          && !_cleared_categories.contains(task.category);
+
+                        if (should_clear) {
+                            win.article_state_store.clear_category_articles(task.category);
+                            _cleared_categories.add(task.category);
+                        }
+                    }
+
                     NewsService.fetch(
                         task.source,
                         task.category,
@@ -242,6 +264,18 @@ public class UnreadFetchService {
         // Clear any existing queue
         get_fetch_queue().clear();
         _active_fetches = 0;
+
+        // Reset the cleared categories tracking for this fetch run
+        _cleared_categories = null;
+
+        // DO NOT clear article tracking here - this is a background metadata fetch
+        // that should supplement the counts, not replace them. Clearing happens
+        // in the main fetch (fetchNewsController) when the user navigates to a category.
+        // Clearing here causes race conditions where:
+        // 1. User views frontpage (main fetch adds 40 articles)
+        // 2. Background fetch clears all tracking (including frontpage)
+        // 3. Background fetch re-adds frontpage articles
+        // 4. Result: duplicate counting or lost articles
 
         // Get all enabled built-in sources for My Feed
         // This ensures we fetch metadata from ALL enabled sources, not just the effective_news_source

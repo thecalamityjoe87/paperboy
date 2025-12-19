@@ -58,6 +58,9 @@ public class ArticleCard : GLib.Object {
         root.set_halign(Gtk.Align.FILL);
         root.set_size_request(col_w, -1);
 
+        // Attach this ArticleCard object to the root widget so search can access it
+        root.set_data("article-card", this);
+
         image = new Gtk.Picture();
         image.set_halign(Gtk.Align.FILL);
         image.set_hexpand(true);

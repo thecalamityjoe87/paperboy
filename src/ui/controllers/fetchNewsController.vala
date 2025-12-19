@@ -70,6 +70,16 @@ public class FetchNewsController {
             var w = cur.window;
             if (w == null) return false;
 
+            // CRITICAL: Validate that we're still viewing the same category
+            // This prevents articles from a previous fetch appearing in a new category
+            // when the user switches categories before the fetch completes
+            if (w.prefs != null && cur.expected_category != null) {
+                if (w.prefs.category != cur.expected_category) {
+                    // User switched categories - discard this article
+                    return false;
+                }
+            }
+
             try {
                 // Safely access managers through local variables
                 var cat_mgr = w.category_manager;
@@ -371,6 +381,15 @@ public class FetchNewsController {
             var w = cur_start.window;
             if (w == null) return;
 
+            // CRITICAL: Validate that we're still viewing the same category
+            // This prevents articles from a previous fetch appearing in a new category
+            if (w.prefs != null && cur_start.expected_category != null) {
+                if (w.prefs.category != cur_start.expected_category) {
+                    // User switched categories - discard this article
+                    return;
+                }
+            }
+
             // Check article limit ONLY for limited categories, NOT frontpage/topten/all
             bool viewing_limited_category = (
                 w.prefs.category == "general" ||
@@ -416,7 +435,16 @@ public class FetchNewsController {
                                     var cur2 = FetchContext.current_context();
                                     if (cur2 != null) {
                                         var w2 = cur2.window;
-                                        if (w2 != null) w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name);
+                                        // CRITICAL: Also validate category hasn't changed
+                                        if (w2 != null && w2.prefs != null && cur2.expected_category != null) {
+                                            if (w2.prefs.category == cur2.expected_category) {
+                                                w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name);
+                                            }
+                                            // else: user switched categories, drop this article
+                                        } else if (w2 != null) {
+                                            // Fallback if expected_category is not set
+                                            w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name);
+                                        }
                                     }
                                 }
                                 processed++;

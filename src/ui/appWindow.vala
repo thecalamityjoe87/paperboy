@@ -63,7 +63,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         public Soup.Session session;
         public SidebarManager sidebar_manager;
         public SidebarView sidebar_view;
-        public Adw.NavigationSplitView split_view;
+        public Adw.OverlaySplitView split_view;
         public Adw.NavigationView nav_view;
         public Adw.OverlaySplitView article_preview_split;
         public Gtk.Box article_preview_content;
@@ -92,9 +92,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         public Managers.LoadingStateManager? loading_state;
         // Manager instance for RSS feed updates
         private FeedUpdateManager? feed_updater;
+        // Manager instance for search with debouncing
+        public Managers.SearchManager? search_manager;
 
-        // Search query state and debug log path
-        private string current_search_query = "";
+        // Debug log path
         private string debug_log_path = "/tmp/paperboy-debug.log";
 
         // Deferred download check timeout
@@ -121,7 +122,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Expose current search query for header manager access
     public string get_current_search_query() {
-        return current_search_query;
+        return search_manager != null ? search_manager.get_query() : "";
     }
 
     // Append a line to the debug log path (safe wrapper)
@@ -177,7 +178,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         category_manager = new CategoryManager(prefs, source_manager);
         // Initialize ArticleManager early (before any article-related code)
         article_manager = new Managers.ArticleManager(this);
-        
+        // Initialize SearchManager for client-side article filtering
+        search_manager = new Managers.SearchManager(this);
+
         // Connect ArticleManager signals for UI operations
         article_manager.request_show_load_more_button.connect(() => {
             if (content_view != null) {
@@ -299,10 +302,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         content_header.set_title_widget(search_container);
         
-        // Connect search entry to trigger search
+        // Connect search entry to search manager (with debouncing)
         search_entry.search_changed.connect(() => {
-            current_search_query = search_entry.get_text().strip();
-            fetch_news();
+            if (search_manager != null) {
+                search_manager.update_query(search_entry.get_text());
+            }
         });
 
         var refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
@@ -462,10 +466,12 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // LoadingStateManager already initialized and wired above
 
-    // Split view: sidebar + content with adaptive collapsible sidebar
-    split_view = new Adw.NavigationSplitView();
-    split_view.set_min_sidebar_width(266);
-    split_view.set_max_sidebar_width(266);
+    // Split view: sidebar + content
+    split_view = new Adw.OverlaySplitView();
+    split_view.set_min_sidebar_width(265);
+    split_view.set_max_sidebar_width(265);
+    split_view.set_sidebar_position(Gtk.PackType.START);
+    split_view.show_sidebar = true; // Start with sidebar shown
     // Wrap content in a NavigationView so we can slide in a preview page
     nav_view = new Adw.NavigationView();
     var main_page = new Adw.NavigationPage(main_scrolled, "Main");
@@ -614,51 +620,31 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Create NavigationPage for main content
     var content_page = new Adw.NavigationPage(content_toolbar, "Content");
 
-    // Set sidebar and content for NavigationSplitView
+    // Set sidebar and content pages for NavigationSplitView
     split_view.set_sidebar(sidebar_page);
     split_view.set_content(content_page);
-    // Keep split view always uncollapsed - we control visibility via Revealer
-    split_view.set_collapsed(false);
-    split_view.set_show_content(true);
-    
-    // Enable smooth transitions for sidebar collapse/expand
-    // The NavigationSplitView uses spring animations by default in libadwaita
-    
-    // Wire up sidebar toggle button to control sidebar visibility
+
+    // Wire up sidebar toggle button to control sidebar visibility with smooth animation
     sidebar_toggle.toggled.connect(() => {
         bool active = sidebar_toggle.get_active();
-        split_view.set_collapsed(!active);
-        if (sidebar_view != null) sidebar_view.set_revealed(active);
+        split_view.show_sidebar = active;
     });
-    
-    content_page.set_can_pop(false); // Prevent accidental navigation away
 
-    // NavigationSplitView handles sidebar toggle automatically with built-in button
-        // Listen to show-content and collapsed changes to adjust content size
-        // show-content=true means content is visible (sidebar hidden when collapsed)
-        // show-content=false means sidebar is visible (when collapsed)
-        split_view.notify["collapsed"].connect(() => {
-            // When collapsed state changes, adjust main content container
-            bool collapsed = split_view.get_collapsed();
-            bool showing_content = split_view.get_show_content();
-            // Sidebar is effectively visible when not collapsed OR when collapsed but showing sidebar
-            bool sidebar_visible = !collapsed || !showing_content;
-            update_main_content_size(sidebar_visible);
-        });
-        
-        split_view.notify["show-content"].connect(() => {
-            // When show-content changes (user navigates between sidebar/content in collapsed mode)
-            bool collapsed = split_view.get_collapsed();
-            bool showing_content = split_view.get_show_content();
-            bool sidebar_visible = !collapsed || !showing_content;
-            update_main_content_size(sidebar_visible);
-        });
-        
-        // Initialize main content container size for initial state
-        update_main_content_size(true);
+    // Sync toggle button state when sidebar visibility changes
+    split_view.notify["show-sidebar"].connect(() => {
+        bool sidebar_visible = split_view.show_sidebar;
+        // Update toggle button to match current state
+        if (sidebar_toggle.get_active() != sidebar_visible) {
+            sidebar_toggle.set_active(sidebar_visible);
+        }
+        update_main_content_size(sidebar_visible);
+    });
 
-        // Set the constructed split view as the window content
-        set_content(split_view);
+    // Initialize main content container size for initial state
+    update_main_content_size(true);
+
+    // Set the constructed split view as the window content
+    set_content(split_view);
 
         // Initialize toast manager with root_overlay so custom toasts
         // can be positioned in the content area without blocking scrolling
@@ -684,8 +670,21 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         toast_manager.request_dismiss_toast.connect(() => {
             if (current_toast_widget != null) {
+                // Save scroll position before removing overlay to prevent jump
+                double saved_scroll_pos = 0.0;
+                if (content_view != null && content_view.main_scrolled != null) {
+                    var vadj = content_view.main_scrolled.get_vadjustment();
+                    saved_scroll_pos = vadj.get_value();
+                }
+
                 root_overlay.remove_overlay(current_toast_widget);
                 current_toast_widget = null;
+
+                // Restore scroll position after overlay removal
+                if (content_view != null && content_view.main_scrolled != null) {
+                    var vadj = content_view.main_scrolled.get_vadjustment();
+                    vadj.set_value(saved_scroll_pos);
+                }
             }
         });
 

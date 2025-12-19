@@ -976,5 +976,123 @@ namespace Managers {
         hero_carousel = null;
         featured_carousel_category = null;
     }
+
+    /**
+     * Create an ArticleCard from a HeroCard and wire up all handlers
+     * Used by search to convert hero cards to article cards for display
+     */
+    public ArticleCard create_article_card_from_hero(
+        HeroCard hero,
+        int col_w,
+        int img_h,
+        ArticleStateStore? state_store
+    ) {
+        var chip = new Gtk.Label("");
+        chip.set_visible(false);
+
+        var article_card = new ArticleCard(
+            hero.title_label.get_label(),
+            hero.url,
+            col_w,
+            img_h,
+            chip,
+            0,
+            state_store,
+            window
+        );
+
+        // Copy image
+        if (hero.image.get_paintable() != null) {
+            article_card.image.set_paintable(hero.image.get_paintable());
+        }
+
+        // Preserve metadata
+        article_card.source_name = hero.source_name;
+        article_card.category_id = hero.category_id;
+        article_card.thumbnail_url = hero.thumbnail_url;
+
+        // Wire up application-level handlers
+        wire_article_card_handlers(article_card, hero.title_label.get_label(), hero.url, hero.thumbnail_url, hero.category_id, hero.source_name);
+
+        return article_card;
+    }
+
+    /**
+     * Wire up all handlers and registration for an article card
+     * Centralizes the signal connections and state registration logic
+     */
+    public void wire_article_card_handlers(
+        ArticleCard article_card,
+        string title,
+        string url,
+        string? thumbnail_url,
+        string? category_id,
+        string? source_name
+    ) {
+        string norm = window.normalize_article_url(url);
+
+        // Register with ViewStateManager
+        if (window.view_state != null) {
+            window.view_state.register_picture_for_url(norm, article_card.image);
+            window.view_state.normalized_to_url.set(norm, url);
+            window.view_state.register_card_for_url(norm, article_card.root);
+        }
+
+        // Register with ArticleStateStore
+        if (window.article_state_store != null) {
+            window.article_state_store.register_article(norm, category_id != null ? category_id : "", source_name);
+        }
+
+        // Connect activation to show preview
+        article_card.activated.connect((s) => {
+            if (window.article_pane != null) {
+                window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
+            }
+        });
+
+        // Context menu actions
+        article_card.open_in_app_requested.connect((article_url) => {
+            open_article_in_app_if_online(article_url);
+        });
+
+        article_card.open_in_browser_requested.connect((article_url) => {
+            open_article_in_browser_if_online(article_url);
+        });
+
+        article_card.follow_source_requested.connect((article_url, src_name) => {
+            request_show_persistent_toast("Searching for feed...");
+            if (window.source_manager != null) {
+                window.source_manager.follow_rss_source(article_url, src_name);
+            }
+        });
+
+        article_card.save_for_later_requested.connect((article_url) => {
+            if (window.article_state_store != null) {
+                bool is_saved = window.article_state_store.is_saved(article_url);
+                if (is_saved) {
+                    window.article_state_store.unsave_article(article_url);
+                    if (window.sidebar_manager != null) {
+                        window.sidebar_manager.update_badge_for_category("saved");
+                    }
+                    if (window.prefs.category == "saved") {
+                        window.fetch_news();
+                    }
+                    request_show_toast("Removed article from saved");
+                } else {
+                    window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                    if (window.sidebar_manager != null) {
+                        window.sidebar_manager.update_badge_for_category("saved");
+                    }
+                    request_show_toast("Added article to saved");
+                }
+            }
+        });
+
+        article_card.share_requested.connect((article_url) => {
+            if (window != null) {
+                window.show_share_dialog(article_url);
+            }
+        });
+    }
 }
 }

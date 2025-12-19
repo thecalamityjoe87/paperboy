@@ -249,10 +249,13 @@ namespace Paperboy {
             // For each feed, keep only the most recent MAX_ARTICLES_PER_FEED articles
             string delete_excess = """
                 DELETE FROM rss_articles
-                WHERE id NOT IN (
-                    SELECT id FROM rss_articles
-                    ORDER BY feed_url, cached_at DESC
-                    LIMIT -1 OFFSET ?
+                WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id,
+                               ROW_NUMBER() OVER (PARTITION BY feed_url ORDER BY cached_at DESC) AS rn
+                        FROM rss_articles
+                    )
+                    WHERE rn > ?
                 );
             """;
 

@@ -79,7 +79,7 @@ public class ArticleMenu : GLib.Object {
         // For built-in sources: make it non-clickable
         if (is_builtin) {
             follow_btn.set_sensitive(false);
-            follow_btn.set_tooltip_text("This is a built-in source. You can be enable or disable it in preferences.");
+            follow_btn.set_tooltip_text("This is a built-in source. You can enable or disable it in preferences.");
         } else {
             follow_btn.clicked.connect(() => {
             follow_source_requested(article_url, article_source_name);

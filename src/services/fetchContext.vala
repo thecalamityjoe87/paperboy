@@ -44,13 +44,20 @@ public class FetchContext : GLib.Object {
 
     /** Weak reference to the window - may become null if window is destroyed */
     public weak NewsWindow? window { get; private set; default = null; }
-    
+
+    /** The category this fetch was initiated for - prevents articles from appearing in wrong category */
+    public string? expected_category { get; private set; default = null; }
+
     /**
      * Private constructor - use begin_new() to create contexts.
      */
     private FetchContext(uint sequence, NewsWindow? w) {
         this.seq = sequence;
         this.window = w;
+        // Capture the category at fetch time to prevent race conditions
+        if (w != null && w.prefs != null) {
+            this.expected_category = w.prefs.category;
+        }
     }
     
     /**

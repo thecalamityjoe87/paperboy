@@ -412,11 +412,11 @@ public class HeaderManager : GLib.Object {
     }
 
     public void update_content_header() {
-        string disp = category_display_name_for(window.prefs.category);
-        string q = window.get_current_search_query();
-        string label_text = (q != null && q.length > 0) ? ("Search Results: \"" + q + "\" in " + disp) : disp;
+        string disp_cat = category_display_name_for(window.prefs.category);
+        //string q = window.get_current_search_query();
+        //string label_text = (q != null && q.length > 0) ? ("Search Results: \"" + q + "\" in " + disp) : disp;
         Idle.add(() => {
-            if (category_label != null) category_label.set_text(label_text);
+            if (category_label != null) category_label.set_text(disp_cat);
             update_category_icon();
             update_source_info();
             return false;
@@ -424,11 +424,11 @@ public class HeaderManager : GLib.Object {
     }
 
     public void update_content_header_now() {
-        string disp = category_display_name_for(window.prefs.category);
-        string q = window.get_current_search_query();
-        string label_text = (q != null && q.length > 0) ? ("Search Results: \"" + q + "\" in " + disp) : disp;
+        string disp_cat = category_display_name_for(window.prefs.category);
+        //string q = window.get_current_search_query();
+        //string label_text = (q != null && q.length > 0) ? ("Search Results: \"" + q + "\" in " + disp) : disp;
 
-        if (category_label != null) category_label.set_text(label_text);
+        if (category_label != null) category_label.set_text(disp_cat);
 
         if (window.prefs.category == "topten") {
             if (category_subtitle != null) {
