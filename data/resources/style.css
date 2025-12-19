@@ -357,11 +357,11 @@
 
 /* Fix arrow direction - rotate to point right when collapsed, down when expanded */
 .navigation-sidebar .sidebar-expander image.expander-row-arrow {
-    -gtk-icon-transform: rotate(180deg);
+    -gtk-icon-transform: rotate(90deg);
 }
 
 .navigation-sidebar .sidebar-expander:checked image.expander-row-arrow {
-    -gtk-icon-transform: rotate(0deg);
+    -gtk-icon-transform: rotate(180deg);
     opacity: 1.0;
     color: @window_fg_color;
 }
