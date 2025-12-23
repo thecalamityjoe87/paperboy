@@ -132,82 +132,133 @@ public class HeaderManager : GLib.Object {
 
     public void update_category_icon() {
         if (category_icon_holder == null) return;
+
+        // Clear existing icon
+        clear_category_icon_holder();
+
+        // Handle RSS feed icons
+        if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
+            set_rss_feed_icon();
+            return;
+        }
+
+        // Handle regular category icons
+        var icon = CategoryIconsUtils.create_category_header_icon(window.prefs.category, 36);
+        if (icon != null) category_icon_holder.append(icon);
+    }
+
+    private void clear_category_icon_holder() {
         Gtk.Widget? child = category_icon_holder.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
             category_icon_holder.remove(child);
             child = next;
         }
+    }
 
-            // For RSS feeds, show the source logo on the LEFT (category icon position)
-            if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
-                string feed_url;
-                if (window.prefs.category.length > 8) {
-                    feed_url = window.prefs.category.substring(8);
-                } else {
-                    warning("Malformed rssfeed category: too short");
-                    return;
-                }
-                var rss_store = Paperboy.RssSourceStore.get_instance();
-                var rss_source = rss_store.get_source_by_url(feed_url);
+    private void set_rss_feed_icon() {
+        // Extract feed URL from category
+        if (window.prefs.category.length <= 8) {
+            warning("Malformed rssfeed category: too short");
+            set_fallback_rss_icon();
+            return;
+        }
 
-                debug("HeaderManager: RSS feed selected: %s", feed_url);
-                if (rss_source != null) {
-                    debug("HeaderManager: Found RSS source: %s", rss_source.name);
-                    // Use icon_filename from database (saved when logo was downloaded)
-                    string? icon_filename = rss_source.icon_filename;
-                    debug("HeaderManager: icon_filename = %s", icon_filename ?? "NULL");
+        string feed_url = window.prefs.category.substring(8);
+        var rss_store = Paperboy.RssSourceStore.get_instance();
+        var rss_source = rss_store.get_source_by_url(feed_url);
 
-                    if (icon_filename != null && icon_filename.length > 0) {
-                        var data_dir = GLib.Environment.get_user_data_dir();
-                        if (data_dir != null) {
-                            var logo_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
-                            debug("HeaderManager: Checking logo path: %s", logo_path);
+        if (rss_source == null) {
+            set_fallback_rss_icon();
+            return;
+        }
 
-                            if (GLib.FileUtils.test(logo_path, GLib.FileTest.EXISTS)) {
-                                debug("HeaderManager: Logo file exists, loading...");
-                                try {
-                                    string key = "pixbuf::file:%s::%dx%d".printf(logo_path, 36, 36);
-                                    var cached = ImageCache.get_global().get_or_load_file(key, logo_path, 36, 36);
-                                    debug("HeaderManager: Loaded pixbuf: %dx%d", cached != null ? cached.get_width() : 0, cached != null ? cached.get_height() : 0);
-                                    if (cached != null && cached.get_width() > 1 && cached.get_height() > 1) {
-                                        // Create circular clipped version
-                                        var circular = create_circular_pixbuf(cached, 36);
-                                        debug("HeaderManager: Created circular pixbuf: %s", circular != null ? "YES" : "NULL");
-                                        if (circular != null) {
-                                            var texture = Gdk.Texture.for_pixbuf(circular);
-                                            var img = new Gtk.Image.from_paintable(texture);
-                                            img.set_pixel_size(36);
-                                            category_icon_holder.append(img);
-                                            debug("HeaderManager: Appended circular logo to header");
-                                            return;
-                                        }
-                                    }
-                                } catch (GLib.Error e) {
-                                    warning("HeaderManager: Error loading logo: %s", e.message);
-                                }
-                            } else {
-                                debug("HeaderManager: Logo file does NOT exist at path");
-                            }
-                        }
-                    } else {
-                        debug("HeaderManager: icon_filename is null or empty");
-                    }
-                } else {
-                    debug("HeaderManager: RSS source not found in database");
-                }
+        // Try to load custom logo
+        if (try_set_rss_logo(rss_source.icon_filename)) {
+            return;
+        }
 
-                // Fallback to RSS icon if logo not found
-                var img = new Gtk.Image();
-                img.set_from_icon_name("application-rss+xml-symbolic");
-                img.set_pixel_size(36);
-                category_icon_holder.append(img);
-                return;
+        // Fallback to generic RSS icon
+        set_fallback_rss_icon();
+    }
+
+    private bool try_set_rss_logo(string? icon_filename) {
+        if (icon_filename == null || icon_filename.length == 0) {
+            debug("HeaderManager: icon_filename is null or empty");
+            return false;
+        }
+
+        var data_dir = GLib.Environment.get_user_data_dir();
+        if (data_dir == null) return false;
+
+        string logo_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
+        if (!GLib.FileUtils.test(logo_path, GLib.FileTest.EXISTS)) {
+            debug("HeaderManager: Logo file does NOT exist at path");
+            return false;
+        }
+
+        try {
+            string key = "pixbuf::file:%s::%dx%d".printf(logo_path, 36, 36);
+            var pixbuf = ImageCache.get_global().get_or_load_file(key, logo_path, 36, 36);
+
+            if (pixbuf == null || pixbuf.get_width() <= 1 || pixbuf.get_height() <= 1) {
+                return false;
             }
 
-            // Regular category icons
-            var hdr = CategoryIconsUtils.create_category_header_icon(window.prefs.category, 36);
-            if (hdr != null) category_icon_holder.append(hdr);
+            var circular = create_circular_pixbuf(pixbuf, 36);
+            if (circular == null) return false;
+
+            var texture = Gdk.Texture.for_pixbuf(circular);
+            var img = new Gtk.Image.from_paintable(texture);
+            img.set_pixel_size(36);
+            category_icon_holder.append(img);
+            return true;
+        } catch (GLib.Error e) {
+            warning("HeaderManager: Error loading logo: %s", e.message);
+            return false;
+        }
+    }
+
+    private void set_fallback_rss_icon() {
+        var img = new Gtk.Image();
+        img.set_from_icon_name("application-rss+xml-symbolic");
+        img.set_pixel_size(36);
+        category_icon_holder.append(img);
+    }
+
+    private void load_custom_icon(string icon_base_name, int size) {
+        // Try to find the icon file (symbolic first, then regular)
+        string? icon_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", icon_base_name + ".svg"));
+        if (icon_path == null) {
+            icon_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", icon_base_name + ".svg"));
+        }
+
+        if (icon_path == null) {
+            source_logo.set_from_icon_name("application-rss+xml-symbolic");
+            return;
+        }
+
+        // Adjust for dark mode if needed
+        string use_path = icon_path;
+        if (window.is_dark_mode()) {
+            string? white_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", icon_base_name + "-white.svg"));
+            if (white_path == null) {
+                white_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", icon_base_name + "-white.svg"));
+            }
+            if (white_path != null) use_path = white_path;
+        }
+
+        // Load and cache the icon
+        string key = "pixbuf::file:%s::%dx%d".printf(use_path, size, size);
+        var pixbuf = ImageCache.get_global().get_or_load_file(key, use_path, size, size);
+
+        if (pixbuf != null) {
+            var texture = ImageCache.get_global().get_texture(key);
+            if (texture == null) texture = Gdk.Texture.for_pixbuf(pixbuf);
+            source_logo.set_from_paintable(texture);
+        } else {
+            source_logo.set_from_icon_name("application-rss+xml-symbolic");
+        }
     }
 
     public void update_source_info() {
@@ -223,105 +274,23 @@ public class HeaderManager : GLib.Object {
             return;
         }
 
+        // Handle local news with custom icon
         if (window.prefs != null && window.prefs.category == "local_news") {
             source_label.set_text("Local News");
-            string? local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-            if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
-            if (local_icon != null) {
-                string use_path = local_icon;
-                if (window.is_dark_mode()) {
-                    string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                    if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
-                    if (white_cand != null) use_path = white_cand;
-                }
-                string key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                var cached = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
-                if (cached != null) {
-                    var tex = ImageCache.get_global().get_texture(key); if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
-                    source_logo.set_from_paintable(tex);
-                } else {
-                    source_logo.set_from_icon_name("application-rss+xml-symbolic");
-                }
-            } else {
-                source_logo.set_from_icon_name("application-rss+xml-symbolic");
-            }
+            load_custom_icon("local-mono", 32);
             return;
         }
 
-        if (window.prefs.category == "frontpage") {
-            source_label.set_text("Multiple Sources");
-            string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-            if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-            if (multi_icon != null) {
-                string use_path = multi_icon;
-                if (window.is_dark_mode()) {
-                    string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                    if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                    if (white_cand != null) use_path = white_cand;
-                }
-                string key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                var cached = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
-                if (cached != null) {
-                    var tex = ImageCache.get_global().get_texture(key); if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
-                    source_logo.set_from_paintable(tex);
-                } else {
-                    source_logo.set_from_icon_name("application-rss+xml-symbolic");
-                }
-            } else {
-                source_logo.set_from_icon_name("application-rss+xml-symbolic");
-            }
-            return;
-        }
+        // Handle multiple source categories (frontpage, topten, multiple preferred sources)
+        bool is_multi_source = (
+            window.prefs.category == "frontpage" ||
+            window.prefs.category == "topten" ||
+            (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1)
+        );
 
-        if (window.prefs.category == "topten") {
+        if (is_multi_source) {
             source_label.set_text("Multiple Sources");
-            string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-            if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-            if (multi_icon != null) {
-                string use_path = multi_icon;
-                if (window.is_dark_mode()) {
-                    string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                    if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                    if (white_cand != null) use_path = white_cand;
-                }
-                string key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-                var cached = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
-                if (cached != null) {
-                    var tex = ImageCache.get_global().get_texture(key); if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
-                    source_logo.set_from_paintable(tex);
-                } else {
-                    source_logo.set_from_icon_name("application-rss+xml-symbolic");
-                }
-            } else {
-                source_logo.set_from_icon_name("application-rss+xml-symbolic");
-            }
-            return;
-        }
-
-        if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
-            source_label.set_text("Multiple Sources");
-            string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-            if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-            if (multi_icon != null) {
-                string use_path = multi_icon;
-                if (window.is_dark_mode()) {
-                    string? white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                    if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                    if (white_candidate != null) use_path = white_candidate;
-                }
-                string key = "pixbuf::file:" + use_path + "::32x32";
-                var cached = ImageCache.get_global().get(key);
-                if (cached == null) {
-                    var pb = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
-                    if (pb != null) cached = pb;
-                }
-                if (cached != null) {
-                    var tex = ImageCache.get_global().get_texture(key); if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
-                    source_logo.set_from_paintable(tex);
-                    return;
-                }
-            }
-            source_logo.set_from_icon_name("application-rss+xml-symbolic");
+            load_custom_icon("multiple-mono", 32);
             return;
         }
 
@@ -467,7 +436,7 @@ public class HeaderManager : GLib.Object {
         switch (cat) {
             case "frontpage": return "Front Page";
             case "topten": return "Top Ten";
-            case "saved": return "Saved Articles";
+            case "saved": return "Saved";
             case "general": return "World News";
             case "us": return "US News";
             case "technology": return "Technology";
@@ -529,30 +498,7 @@ public class HeaderManager : GLib.Object {
      */
     public void setup_multi_source_logo() {
         source_label.set_text("Multiple Sources");
-
-        string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-        if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-
-        if (multi_icon != null) {
-            string use_path = multi_icon;
-            if (window.is_dark_mode()) {
-                string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                if (white_cand != null) use_path = white_cand;
-            }
-
-            string key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-            var cached = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
-            if (cached != null) {
-                var tex = ImageCache.get_global().get_texture(key);
-                if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
-                source_logo.set_from_paintable(tex);
-                return;
-            }
-        }
-
-        // Fallback to symbolic icon
-        source_logo.set_from_icon_name("application-rss+xml-symbolic");
+        load_custom_icon("multiple-mono", 32);
     }
 
     /**
@@ -561,30 +507,7 @@ public class HeaderManager : GLib.Object {
      */
     public void setup_local_news_logo() {
         source_label.set_text("Local News");
-
-        string? local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
-        if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
-
-        if (local_icon != null) {
-            string use_path = local_icon;
-            if (window.is_dark_mode()) {
-                string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono-white.svg"));
-                if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono-white.svg"));
-                if (white_cand != null) use_path = white_cand;
-            }
-
-            string key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-            var cached = ImageCache.get_global().get_or_load_file(key, use_path, 32, 32);
-            if (cached != null) {
-                var tex = ImageCache.get_global().get_texture(key);
-                if (tex == null) tex = Gdk.Texture.for_pixbuf(cached);
-                source_logo.set_from_paintable(tex);
-                return;
-            }
-        }
-
-        // Fallback to symbolic icon
-        source_logo.set_from_icon_name("application-rss+xml-symbolic");
+        load_custom_icon("local-mono", 32);
     }
     /**
      * Set up the header for Saved Articles mode.

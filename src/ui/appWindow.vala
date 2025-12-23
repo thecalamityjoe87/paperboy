@@ -340,6 +340,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             var p = NewsPreferences.get_instance();
             if (p != null && p.category == "saved") {
                 Idle.add(() => {
+                    update_content_header();
                     fetch_news();
                     return false;
                 });
@@ -761,11 +762,20 @@ public class NewsWindow : Adw.ApplicationWindow {
         // so the dialog can appear and the user can adjust sources first.
         var prefs_local = NewsPreferences.get_instance();
         if (prefs_local == null || !prefs_local.first_run) {
-            // If viewing "saved" category, defer fetch until saved articles load from DB
-            // This prevents a double-load: empty fetch → saved articles load → re-fetch
+            // If viewing "saved" category, check if saved articles are already loaded
+            // (they load synchronously in ArticleStateStore constructor, so signal may have
+            // already fired before we connected the handler at line 333)
             if (prefs_local != null && prefs_local.category == "saved") {
-                // Don't call fetch_news() yet - let saved_articles_loaded handler do it
-                // This ensures we only fetch once, after saved articles are available
+                // Check if saved articles are already loaded (get_saved_count() always works)
+                if (article_state_store != null && article_state_store.get_saved_count() >= 0) {
+                    // Articles already loaded, fetch immediately
+                    Idle.add(() => {
+                        update_content_header();
+                        fetch_news();
+                        return false;
+                    });
+                }
+                // Otherwise, the saved_articles_loaded handler will trigger fetch when ready
             } else {
                 fetch_news();
             }
