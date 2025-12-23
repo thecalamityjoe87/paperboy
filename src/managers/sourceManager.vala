@@ -45,7 +45,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     private weak NewsWindow window;
 
     // Signals for UI operations
-    public signal void request_show_toast(string message);
+    public signal void request_show_toast(string message, bool persistent = false);
 
     public SourceManager(NewsPreferences prefs) {
         this.prefs = prefs;
@@ -981,6 +981,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                         });
                     } else {
                         GLib.message("Attempting local html2rss fallback for host: %s", host);
+
+                        // Update toast to inform user that feed generation is starting
+                        GLib.Idle.add(() => {
+                            if (window != null) window.clear_persistent_toast();
+                            request_show_toast("Generating feed for this source...", true);
+                            return false;
+                        });
 
                         string? script_path = null;
                         var binary_candidates = new ArrayList<string>();

@@ -467,6 +467,7 @@ public class HeaderManager : GLib.Object {
         switch (cat) {
             case "frontpage": return "Front Page";
             case "topten": return "Top Ten";
+            case "saved": return "Saved Articles";
             case "general": return "World News";
             case "us": return "US News";
             case "technology": return "Technology";

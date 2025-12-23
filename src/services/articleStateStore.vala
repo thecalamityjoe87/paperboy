@@ -17,6 +17,7 @@
 
 using GLib;
 using Gee;
+using Sqlite;
 
 /*
  * ArticleStateStore: manages only simple per-article metadata (viewed/favorite/timestamps)
@@ -34,21 +35,29 @@ public class ArticleStateStore : GLib.Object {
     private string cache_dir_path;
     private string cache_dir;
     private Gee.HashSet<string> viewed_meta_paths;
-    private Mutex meta_lock = new Mutex();
+    private GLib.Mutex meta_lock = new GLib.Mutex();
+
+    // SQLite database for saved articles
+    private Sqlite.Database? saved_db = null;
+    private GLib.Mutex saved_db_lock = new GLib.Mutex();
 
     // Track articles by category and source for unread count
     private Gee.HashMap<string, Gee.HashSet<string>> category_articles;  // category_id -> set of URLs
     private Gee.HashMap<string, Gee.HashSet<string>> source_articles;    // source_name -> set of URLs
     // Track last registration time (ms since epoch) per source to help debounce badge updates
     private Gee.HashMap<string, long?> source_last_registration_time;
-    private Mutex article_tracking_lock = new Mutex();
-    
+    // Track which categories have been visited by the user (for popular category badge persistence)
+    private Gee.HashSet<string> visited_categories;
+    // Track which sources have been visited by the user (for source badge persistence)
+    private Gee.HashSet<string> visited_sources;
+    private GLib.Mutex article_tracking_lock = new GLib.Mutex();
+
     // Track whether initial background metadata fetch has completed
     private bool initial_metadata_fetch_complete = false;
 
-    // Track saved articles with metadata
+    // Track saved articles with metadata (cached in memory from database)
     private Gee.HashMap<string, SavedArticle> saved_articles;  // URL -> SavedArticle
-    private Mutex saved_lock = new Mutex();
+    private GLib.Mutex saved_lock = new GLib.Mutex();
 
     public class SavedArticle {
         public string url;
@@ -77,18 +86,23 @@ public class ArticleStateStore : GLib.Object {
         category_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
         source_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
         source_last_registration_time = new Gee.HashMap<string, long?>();
+        visited_categories = new Gee.HashSet<string>();
+        visited_sources = new Gee.HashSet<string>();
         saved_articles = new Gee.HashMap<string, SavedArticle>();
 
-        // Don't load persisted article tracking on startup
-        // The background metadata fetch will populate fresh counts
-        // We only use persistence to save counts when app closes
-        // load_article_tracking();
+        // Initialize SQLite database for saved articles
+        init_saved_articles_db();
 
-        // Load saved articles asynchronously to avoid blocking startup
-        Timeout.add(100, () => {
-            load_saved_articles();
-            return false;
-        });
+        // Migrate saved articles from JSON to database if needed
+        migrate_saved_articles_from_json();
+
+        // Load persisted article tracking on startup to show cached badge counts immediately
+        // The deferred background metadata fetch (at 10s) will update with fresh counts
+        // This provides instant visual feedback while fresh data loads in background
+        load_article_tracking();
+
+        // Load saved articles from database
+        load_saved_articles_from_db();
 
         // Ensure saved articles also participate in category-based tracking so
         // the "saved" category has a stable backing set for unread counts and
@@ -237,28 +251,6 @@ public class ArticleStateStore : GLib.Object {
         return false;
     }
 
-    public bool is_favorite(string url) {
-        var kf = read_meta_from_path(meta_path_for(url));
-        if (kf == null) return false;
-        try { string v = kf.get_string("meta", "favorite"); return (v == "1" || v.down() == "true"); } catch (GLib.Error e) { return false; }
-    }
-
-    public void set_favorite(string url, bool fav) {
-        try {
-            var kf = read_meta_from_path(meta_path_for(url));
-            if (kf == null) kf = new KeyFile();
-            kf.set_string("meta", "favorite", fav ? "1" : "0");
-            write_meta_for_url(url, kf);
-        } catch (GLib.Error e) { }
-    }
-
-    public void load_state() {
-        // noop: constructor already preloaded viewed flags; expose for future use
-    }
-
-    public void save_state() {
-        // noop: writes are atomic per-item via mark_viewed/set_favorite
-    }
 
     // Clear all articles for a specific category (used before re-fetching to avoid accumulation)
     public void clear_category_articles(string category_id) {
@@ -309,6 +301,74 @@ public class ArticleStateStore : GLib.Object {
     // Explicitly save article tracking to disk
     public void save_article_tracking_to_disk() {
         save_article_tracking();
+    }
+
+    // Mark a category as visited by the user
+    public void mark_category_visited(string category_id) {
+        article_tracking_lock.lock();
+        try {
+            visited_categories.add(category_id);
+        } finally {
+            article_tracking_lock.unlock();
+        }
+        // Defer persist to disk to avoid blocking UI on every click
+        // Save will happen on next article registration or app shutdown
+    }
+
+    // Check if a category has been visited
+    public bool is_category_visited(string category_id) {
+        article_tracking_lock.lock();
+        try {
+            return visited_categories.contains(category_id);
+        } finally {
+            article_tracking_lock.unlock();
+        }
+    }
+
+    // Get all visited categories (for SidebarManager to populate its cache)
+    public Gee.HashSet<string> get_visited_categories() {
+        article_tracking_lock.lock();
+        try {
+            var result = new Gee.HashSet<string>();
+            result.add_all(visited_categories);
+            return result;
+        } finally {
+            article_tracking_lock.unlock();
+        }
+    }
+
+    // Mark a source as visited by the user
+    public void mark_source_visited(string source_name) {
+        article_tracking_lock.lock();
+        try {
+            visited_sources.add(source_name);
+        } finally {
+            article_tracking_lock.unlock();
+        }
+        // Defer persist to disk to avoid blocking UI on every click
+        // Save will happen on next article registration or app shutdown
+    }
+
+    // Check if a source has been visited
+    public bool is_source_visited(string source_name) {
+        article_tracking_lock.lock();
+        try {
+            return visited_sources.contains(source_name);
+        } finally {
+            article_tracking_lock.unlock();
+        }
+    }
+
+    // Get all visited sources (for SidebarManager to populate its cache)
+    public Gee.HashSet<string> get_visited_sources() {
+        article_tracking_lock.lock();
+        try {
+            var result = new Gee.HashSet<string>();
+            result.add_all(visited_sources);
+            return result;
+        } finally {
+            article_tracking_lock.unlock();
+        }
     }
 
     // Mark that initial metadata fetch is complete
@@ -669,6 +729,22 @@ public class ArticleStateStore : GLib.Object {
             }
             builder.end_object();
 
+            // Save visited categories (for popular category badge persistence)
+            builder.set_member_name("visited_categories");
+            builder.begin_array();
+            foreach (string category_id in visited_categories) {
+                builder.add_string_value(category_id);
+            }
+            builder.end_array();
+
+            // Save visited sources (for source badge persistence)
+            builder.set_member_name("visited_sources");
+            builder.begin_array();
+            foreach (string source_name in visited_sources) {
+                builder.add_string_value(source_name);
+            }
+            builder.end_array();
+
             builder.end_object();
 
             var generator = new Json.Generator();
@@ -737,6 +813,28 @@ public class ArticleStateStore : GLib.Object {
                     source_articles.set(source_name, url_set);
                 }
             }
+
+            // Load visited categories (for popular category badge persistence)
+            if (obj.has_member("visited_categories")) {
+                var visited_array = obj.get_array_member("visited_categories");
+                visited_array.foreach_element((arr, index, node) => {
+                    try {
+                        string category_id = node.get_string();
+                        visited_categories.add(category_id);
+                    } catch (GLib.Error e) { }
+                });
+            }
+
+            // Load visited sources (for source badge persistence)
+            if (obj.has_member("visited_sources")) {
+                var visited_array = obj.get_array_member("visited_sources");
+                visited_array.foreach_element((arr, index, node) => {
+                    try {
+                        string source_name = node.get_string();
+                        visited_sources.add(source_name);
+                    } catch (GLib.Error e) { }
+                });
+            }
         } catch (GLib.Error e) {
             stderr.printf("Failed to load article tracking: %s\n", e.message);
         }
@@ -744,16 +842,18 @@ public class ArticleStateStore : GLib.Object {
 
     // Saved articles management
     public void save_article(string url, string title, string? thumbnail = null, string? source = null) {
-        // Persist saved metadata and ensure the article is registered under the
+        // Persist saved metadata to database and ensure the article is registered under the
         // "saved" category for unread-count tracking.
         saved_lock.lock();
         try {
             var article = new SavedArticle(url, title, thumbnail, source);
             saved_articles.set(url, article);
-            persist_saved_articles();
         } finally {
             saved_lock.unlock();
         }
+
+        // Persist to database
+        save_article_to_db(url, title, thumbnail, source, GLib.get_real_time() / 1000000);
 
         // Register the saved article for category-based unread tracking. Do
         // this outside of the saved_lock to avoid lock ordering issues.
@@ -793,10 +893,12 @@ public class ArticleStateStore : GLib.Object {
                     try { saved_articles.unset(k); } catch (GLib.Error e) { }
                 }
             }
-            persist_saved_articles();
         } finally {
             saved_lock.unlock();
         }
+
+        // Remove from database
+        remove_article_from_db(url);
 
         // Also remove from category tracking
         try {
@@ -904,75 +1006,131 @@ public class ArticleStateStore : GLib.Object {
         return cnt;
     }
 
-    private void persist_saved_articles() {
-        string saved_file = Path.build_filename(cache_dir_path, "saved_articles.json");
+    // Initialize SQLite database for saved articles
+    private void init_saved_articles_db() {
+        var cache_base = Environment.get_user_cache_dir();
+        if (cache_base == null) cache_base = "/tmp";
+        string db_path = Path.build_filename(cache_base, "paperboy", "saved_articles.db");
+
+        saved_db_lock.lock();
         try {
-            var builder = new Json.Builder();
-            builder.begin_object();
-            builder.set_member_name("saved");
-            builder.begin_array();
-            foreach (var article in saved_articles.values) {
-                builder.begin_object();
-                builder.set_member_name("url");
-                builder.add_string_value(article.url);
-                builder.set_member_name("title");
-                builder.add_string_value(article.title);
-                if (article.thumbnail != null) {
-                    builder.set_member_name("thumbnail");
-                    builder.add_string_value(article.thumbnail);
-                }
-                if (article.source != null) {
-                    builder.set_member_name("source");
-                    builder.add_string_value(article.source);
-                }
-                builder.set_member_name("saved_timestamp");
-                builder.add_int_value(article.saved_timestamp);
-                builder.end_object();
-            }
-            builder.end_array();
-            builder.end_object();
-
-            var generator = new Json.Generator();
-            generator.set_root(builder.get_root());
-            generator.set_pretty(true);
-            generator.to_file(saved_file);
-        } catch (GLib.Error e) {
-            stderr.printf("Failed to save saved articles: %s\n", e.message);
-        }
-    }
-
-    private void load_saved_articles() {
-        string saved_file = Path.build_filename(cache_dir_path, "saved_articles.json");
-        if (!FileUtils.test(saved_file, FileTest.EXISTS)) {
-            return;
-        }
-
-        try {
-            var parser = new Json.Parser();
-            parser.load_from_file(saved_file);
-            var root = parser.get_root();
-            if (root == null || root.get_node_type() != Json.NodeType.OBJECT) {
+            int rc = Sqlite.Database.open(db_path, out saved_db);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to open saved articles database: %d\n", rc);
+                saved_db = null;
                 return;
             }
 
-            var obj = root.get_object();
-            if (obj.has_member("saved")) {
-                var saved_array = obj.get_array_member("saved");
-                saved_array.foreach_element((arr, index, node) => {
-                if (node.get_node_type() == Json.NodeType.OBJECT) {
-                    var article_obj = node.get_object();
-                    string url = article_obj.get_string_member("url");
-                    string title = article_obj.get_string_member("title");
-                    string? thumbnail = article_obj.has_member("thumbnail") ? article_obj.get_string_member("thumbnail") : null;
-                    string? source = article_obj.has_member("source") ? article_obj.get_string_member("source") : null;
+            // Create table if it doesn't exist
+            string create_table = """
+                CREATE TABLE IF NOT EXISTS saved_articles (
+                    url TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    thumbnail TEXT,
+                    source TEXT,
+                    saved_timestamp INTEGER NOT NULL
+                );
+            """;
+
+            rc = saved_db.exec(create_table, null, null);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to create saved articles table: %s\n", saved_db.errmsg());
+            }
+        } finally {
+            saved_db_lock.unlock();
+        }
+    }
+
+    // Save article to database
+    private void save_article_to_db(string url, string title, string? thumbnail, string? source, int64 timestamp) {
+        saved_db_lock.lock();
+        try {
+            if (saved_db == null) return;
+
+            string sql = """
+                INSERT OR REPLACE INTO saved_articles (url, title, thumbnail, source, saved_timestamp)
+                VALUES (?, ?, ?, ?, ?);
+            """;
+
+            Sqlite.Statement stmt;
+            int rc = saved_db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to prepare save article statement: %s\n", saved_db.errmsg());
+                return;
+            }
+
+            stmt.bind_text(1, url);
+            stmt.bind_text(2, title);
+            stmt.bind_text(3, thumbnail);
+            stmt.bind_text(4, source);
+            stmt.bind_int64(5, timestamp);
+
+            rc = stmt.step();
+            if (rc != Sqlite.DONE) {
+                stderr.printf("Failed to save article to database: %s\n", saved_db.errmsg());
+            }
+        } finally {
+            saved_db_lock.unlock();
+        }
+    }
+
+    // Remove article from database
+    private void remove_article_from_db(string url) {
+        saved_db_lock.lock();
+        try {
+            if (saved_db == null) return;
+
+            string sql = "DELETE FROM saved_articles WHERE url = ?;";
+
+            Sqlite.Statement stmt;
+            int rc = saved_db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to prepare delete article statement: %s\n", saved_db.errmsg());
+                return;
+            }
+
+            stmt.bind_text(1, url);
+
+            rc = stmt.step();
+            if (rc != Sqlite.DONE) {
+                stderr.printf("Failed to delete article from database: %s\n", saved_db.errmsg());
+            }
+        } finally {
+            saved_db_lock.unlock();
+        }
+    }
+
+    // Load saved articles from database
+    private void load_saved_articles_from_db() {
+        saved_db_lock.lock();
+        try {
+            if (saved_db == null) return;
+
+            string sql = "SELECT url, title, thumbnail, source, saved_timestamp FROM saved_articles ORDER BY saved_timestamp DESC;";
+
+            Sqlite.Statement stmt;
+            int rc = saved_db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to prepare load articles statement: %s\n", saved_db.errmsg());
+                return;
+            }
+
+            saved_lock.lock();
+            try {
+                while (stmt.step() == Sqlite.ROW) {
+                    string url = stmt.column_text(0);
+                    string title = stmt.column_text(1);
+                    string? thumbnail = stmt.column_text(2);
+                    string? source = stmt.column_text(3);
+                    int64 timestamp = stmt.column_int64(4);
 
                     var article = new SavedArticle(url, title, thumbnail, source);
-                    if (article_obj.has_member("saved_timestamp")) {
-                        article.saved_timestamp = article_obj.get_int_member("saved_timestamp");
-                    }
+                    article.saved_timestamp = timestamp;
                     saved_articles.set(url, article);
                 }
-            });
+            } finally {
+                saved_lock.unlock();
+            }
 
             // Register loaded saved articles into category tracking so the
             // sidebar can immediately show the correct "Saved" badge count.
@@ -988,9 +1146,83 @@ public class ArticleStateStore : GLib.Object {
 
             // Notify listeners (UI) that saved articles are now available
             try { saved_articles_loaded(); } catch (GLib.Error e) { }
+        } finally {
+            saved_db_lock.unlock();
+        }
+    }
+
+    // Migrate saved articles from JSON file to database (one-time migration)
+    private void migrate_saved_articles_from_json() {
+        string saved_file = Path.build_filename(cache_dir_path, "saved_articles.json");
+        if (!FileUtils.test(saved_file, FileTest.EXISTS)) {
+            return; // No JSON file to migrate
+        }
+
+        // Check if database already has articles (already migrated)
+        saved_db_lock.lock();
+        try {
+            if (saved_db == null) return;
+
+            string count_sql = "SELECT COUNT(*) FROM saved_articles;";
+            Sqlite.Statement stmt;
+            int rc = saved_db.prepare_v2(count_sql, -1, out stmt);
+            if (rc == Sqlite.OK && stmt.step() == Sqlite.ROW) {
+                int count = stmt.column_int(0);
+                if (count > 0) {
+                    // Database already has articles, skip migration
+                    return;
+                }
+            }
+        } finally {
+            saved_db_lock.unlock();
+        }
+
+        // Parse JSON file and migrate to database
+        try {
+            var parser = new Json.Parser();
+            parser.load_from_file(saved_file);
+            var root = parser.get_root();
+            if (root == null || root.get_node_type() != Json.NodeType.OBJECT) {
+                stderr.printf("Warning: saved_articles.json exists but has invalid format, skipping migration\n");
+                return;
+            }
+
+            var obj = root.get_object();
+            if (obj.has_member("saved")) {
+                var saved_array = obj.get_array_member("saved");
+                int migrated_count = 0;
+
+                saved_array.foreach_element((arr, index, node) => {
+                    if (node.get_node_type() == Json.NodeType.OBJECT) {
+                        var article_obj = node.get_object();
+                        string url = article_obj.get_string_member("url");
+                        string title = article_obj.get_string_member("title");
+                        string? thumbnail = article_obj.has_member("thumbnail") ? article_obj.get_string_member("thumbnail") : null;
+                        string? source = article_obj.has_member("source") ? article_obj.get_string_member("source") : null;
+                        int64 timestamp = GLib.get_real_time() / 1000000;
+                        if (article_obj.has_member("saved_timestamp")) {
+                            timestamp = article_obj.get_int_member("saved_timestamp");
+                        }
+
+                        // Save to database
+                        save_article_to_db(url, title, thumbnail, source, timestamp);
+                        migrated_count++;
+                    }
+                });
+
+                stderr.printf("Migrated %d saved articles from JSON to SQLite database\n", migrated_count);
+
+                // Rename JSON file to .bak to avoid re-migration
+                string backup_file = saved_file + ".bak";
+                try {
+                    FileUtils.rename(saved_file, backup_file);
+                    stderr.printf("Renamed %s to %s\n", saved_file, backup_file);
+                } catch (GLib.Error e) {
+                    stderr.printf("Warning: Failed to rename JSON file: %s\n", e.message);
+                }
             }
         } catch (GLib.Error e) {
-            stderr.printf("Failed to load saved articles: %s\n", e.message);
+            stderr.printf("Failed to migrate saved articles from JSON: %s\n", e.message);
         }
     }
 }

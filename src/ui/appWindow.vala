@@ -31,80 +31,82 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Managers.ArticleManager article_manager;
     // Hero container reference for responsive sizing
     private Gtk.Box hero_container;
-        // Settings for persistent window geometry
-        private GLib.Settings settings;
-        public const int SIDEBAR_ICON_SIZE = 24;
-        public const int MAX_CONCURRENT_DOWNLOADS = 10;
-        public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 10;  // Match MAX to avoid retry delays on startup
-        public const int INITIAL_MAX_WAIT_MS = 30000;  // Increased from 15s to 30s to allow more time for image downloads on startup
+    // Settings for persistent window geometry
+    private GLib.Settings settings;
+    public const int SIDEBAR_ICON_SIZE = 24;
+    public const int MAX_CONCURRENT_DOWNLOADS = 10;
+    public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 10;  // Match MAX to avoid retry delays on startup
+    public const int INITIAL_MAX_WAIT_MS = 30000;  // Increased from 15s to 30s to allow more time for image downloads on startup
 
-        // Track active downloads globally (used by ImageHandler)
-        public static int active_downloads = 0;
-        // Restored fields required by window logic (many are accessed from other modules)
-        public NewsPreferences prefs;
-        public LocationDialog location_dialog;
-        public GLib.Rand rng;
-        public Managers.ViewStateManager? view_state;
-        // Image caching moved to ImageCache (pixbuf-backed). Do not store
-        // Gdk.Texture or Gdk.Pixbuf in window fields; use `image_cache`.
-        public Gee.HashMap<string, string> requested_image_sizes;
-        public Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
-        public Gee.HashMap<Gtk.Picture, DeferredRequest> deferred_downloads;
-        // THREAD SAFETY: Mutex to protect pending_downloads and requested_image_sizes
-        // from concurrent access by background download threads
-        public GLib.Mutex download_mutex;
-        // Per-picture flag indicating we should show the local placeholder
-        // (used for Local News cards so fallbacks keep the local look).
-        public Gee.HashMap<Gtk.Picture, bool> pending_local_placeholder;
-        public MetaCache? meta_cache;
-        public ArticleStateStore? article_state_store;
-        public ImageCache? image_cache;
-        public ImageManager image_manager;
-        public Soup.Session session;
-        public SidebarManager sidebar_manager;
-        public SidebarView sidebar_view;
-        public Adw.OverlaySplitView split_view;
-        public Adw.NavigationView nav_view;
-        public Adw.OverlaySplitView article_preview_split;
-        public Gtk.Box article_preview_content;
-        public ArticlePane article_pane;
-        public ArticleSheet article_sheet;
-        public Gtk.Overlay root_overlay;
-        public ToastManager? toast_manager;
-        private Gtk.Widget? current_toast_widget;
-        public Gtk.Widget dim_overlay;
-        public Gtk.Box main_content_container;
-        public Gtk.ScrolledWindow main_scrolled;
-        public Gtk.Widget content_area;
-        public Gtk.Box content_box;
-        // ContentView-provided widgets (wired in constructor)
-        public ContentView? content_view;
-        public Gtk.Label category_label;
-        public Gtk.Label category_subtitle;
-        public Gtk.Box? category_icon_holder;
-        public Gtk.Image source_logo;
-        public Gtk.Label source_label;
-        public Gtk.Box featured_box_dummy;
+    // Track active downloads globally (used by ImageHandler)
+    public static int active_downloads = 0;
+    // Restored fields required by window logic (many are accessed from other modules)
+    public NewsPreferences prefs;
+    public LocationDialog location_dialog;
+    public GLib.Rand rng;
+    public Managers.ViewStateManager? view_state;
+    // Image caching moved to ImageCache (pixbuf-backed). Do not store
+    // Gdk.Texture or Gdk.Pixbuf in window fields; use `image_cache`.
+    public Gee.HashMap<string, string> requested_image_sizes;
+    public Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
+    public Gee.HashMap<Gtk.Picture, DeferredRequest> deferred_downloads;
+    // THREAD SAFETY: Mutex to protect pending_downloads and requested_image_sizes
+    // from concurrent access by background download threads
+    public GLib.Mutex download_mutex;
+    // Per-picture flag indicating we should show the local placeholder
+    // (used for Local News cards so fallbacks keep the local look).
+    public Gee.HashMap<Gtk.Picture, bool> pending_local_placeholder;
+    public MetaCache? meta_cache;
+    public ArticleStateStore? article_state_store;
+    public ImageCache? image_cache;
+    public ImageManager image_manager;
+    public Soup.Session session;
+    public SidebarManager sidebar_manager;
+    public SidebarView sidebar_view;
+    public Adw.OverlaySplitView split_view;
+    public Adw.NavigationView nav_view;
+    public Adw.OverlaySplitView article_preview_split;
+    public Gtk.Box article_preview_content;
+    public ArticlePane article_pane;
+    public ArticleSheet article_sheet;
+    public Gtk.Overlay root_overlay;
+    public ToastManager? toast_manager;
+    private Gtk.Widget? current_toast_widget;
+    public Gtk.Widget dim_overlay;
+    public Gtk.Box main_content_container;
+    public Gtk.ScrolledWindow main_scrolled;
+    public Gtk.Widget content_area;
+    public Gtk.Box content_box;
+    // ContentView-provided widgets (wired in constructor)
+    public ContentView? content_view;
+    public Gtk.Label category_label;
+    public Gtk.Label category_subtitle;
+    public Gtk.Box? category_icon_holder;
+    public Gtk.Image source_logo;
+    public Gtk.Label source_label;
+    public Gtk.Box featured_box_dummy;
 
-        // Manager instance for header-related UI
-        public HeaderManager header_manager;
-        // Manager instance for loading/overlay UI
-        public Managers.LoadingStateManager? loading_state;
-        // Manager instance for RSS feed updates
-        private FeedUpdateManager? feed_updater;
-        // Manager instance for search with debouncing
-        public Managers.SearchManager? search_manager;
+    // Manager instance for header-related UI
+    public HeaderManager header_manager;
+    // Manager instance for loading/overlay UI
+    public Managers.LoadingStateManager? loading_state;
+    // Manager instance for entrance/animation handling
+    public Managers.AnimationManager? animation_manager;
+    // Manager instance for RSS feed updates
+    private FeedUpdateManager? feed_updater;
+    // Manager instance for search with debouncing
+    public Managers.SearchManager? search_manager;
 
-        // Debug log path
-        private string debug_log_path = "/tmp/paperboy-debug.log";
+    // Debug log path
+    private string debug_log_path = "/tmp/paperboy-debug.log";
 
-        // Deferred download check timeout
-        public uint deferred_check_timeout_id = 0;
-    
-        // Update the source/logo label via HeaderManager
-        private void update_source_info() {
-            if (header_manager != null) header_manager.update_source_info();
-        }
+    // Deferred download check timeout
+    public uint deferred_check_timeout_id = 0;
+
+    // Update the source/logo label via HeaderManager
+    private void update_source_info() {
+        if (header_manager != null) header_manager.update_source_info();
+    }
     
 
     // Return the NewsSource the UI should treat as "active". If the
@@ -171,8 +173,12 @@ public class NewsWindow : Adw.ApplicationWindow {
         source_manager = new SourceManager(prefs);
         source_manager.set_window(this);
 
-        source_manager.request_show_toast.connect((message) => {
-            show_toast(message);
+        source_manager.request_show_toast.connect((message, persistent) => {
+            if (persistent) {
+                show_persistent_toast(message);
+            } else {
+                show_toast(message);
+            }
         });
 
         category_manager = new CategoryManager(prefs, source_manager);
@@ -200,16 +206,19 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         });
 
-        article_manager.request_show_toast.connect((message) => {
-            show_toast(message);
-        });
-
-        article_manager.request_show_persistent_toast.connect((message) => {
-            show_persistent_toast(message);
+        article_manager.request_show_toast.connect((message, persistent) => {
+            if (persistent) {
+                show_persistent_toast(message);
+            } else {
+                show_toast(message);
+            }
         });
 
         // Instantiate view-state manager which owns URL/card mappings and viewed state
         view_state = new Managers.ViewStateManager(this);
+
+        // Animation manager handles entrance/stagger animations for cards
+        animation_manager = new Managers.AnimationManager(this);
 
         // Connect signal to update unread count badges when articles are viewed
         view_state.article_viewed.connect((url) => {
@@ -231,170 +240,140 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Initialize download mutex for thread-safe access
         download_mutex = new GLib.Mutex();
         // Initialize on-disk cache helper
-        try {
-            meta_cache = new MetaCache();
-        } catch (GLib.Error e) {
-            meta_cache = null;
-        }
-        try {
-            article_state_store = new ArticleStateStore();
-            // Clear stale article tracking from previous session on startup.
-            // Fresh articles will be registered as they're fetched, preventing
-            // inflated unread counts from persisted data.
-            if (article_state_store != null) {
-                article_state_store.clear_article_tracking();
-            }
-        } catch (GLib.Error e) { article_state_store = null; }
-        try {
+        meta_cache = new MetaCache();
+        article_state_store = new ArticleStateStore();
         image_cache = new ImageCache(256);
-    } catch (GLib.Error e) { image_cache = null; }
     // Initialize external image handler that owns download/cache logic
     image_manager = new ImageManager(this);        
 
-        // Load CSS
-        var css_provider = new Gtk.CssProvider();
-        try {
-            string? css_path = DataPathsUtils.find_data_file("style.css");
-            if (css_path != null) {
-                css_provider.load_from_path(css_path);
-            }
-            Gtk.StyleContext.add_provider_for_display(
-                Gdk.Display.get_default(),
-                css_provider,
-                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-            );
-        } catch (GLib.Error e) {
-            warning("Failed to load CSS: %s", e.message);
+    // Load CSS
+    var css_provider = new Gtk.CssProvider();
+    try {
+        string? css_path = DataPathsUtils.find_data_file("style.css");
+        if (css_path != null) {
+            css_provider.load_from_path(css_path);
         }
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        );
+    } catch (GLib.Error e) {
+        warning("Failed to load CSS: %s", e.message);
+    }
 
-        // Build header bars for sidebar and content (will be added to NavigationPages)
-        // Sidebar headerbar with app icon and title
-        var sidebar_header = new Adw.HeaderBar();
-        sidebar_header.add_css_class("flat");
-        
-        // App icon for sidebar (left corner)
-        var sidebar_icon = new Gtk.Image.from_icon_name("paperboy");
-        sidebar_icon.set_pixel_size(SIDEBAR_ICON_SIZE);
-        sidebar_header.pack_start(sidebar_icon);
-        
-        // App title for sidebar (centered)
-        var sidebar_title = new Gtk.Label("Paperboy");
-        sidebar_title.add_css_class("title");
-        sidebar_header.set_title_widget(sidebar_title);
-        
-        // Content headerbar with app branding and controls
-        var content_header = new Adw.HeaderBar();
-        
-        // Sidebar toggle button for NavigationSplitView
-        var sidebar_toggle = new Gtk.ToggleButton();
-        sidebar_toggle.set_icon_name("sidebar-show-symbolic");
-        sidebar_toggle.set_active(true); // Start with sidebar shown
-        sidebar_toggle.set_tooltip_text("Toggle Sidebar");
-        content_header.pack_start(sidebar_toggle);
+    // Build header bars for sidebar and content (will be added to NavigationPages)
+    // Sidebar headerbar with app icon and title
+    var sidebar_header = new Adw.HeaderBar();
+    sidebar_header.add_css_class("flat");
+    
+    // App icon for sidebar (left corner)
+    var sidebar_icon = new Gtk.Image.from_icon_name("paperboy");
+    sidebar_icon.set_pixel_size(SIDEBAR_ICON_SIZE);
+    sidebar_header.pack_start(sidebar_icon);
+    
+    // App title for sidebar (centered)
+    var sidebar_title = new Gtk.Label("Paperboy");
+    sidebar_title.add_css_class("title");
+    sidebar_header.set_title_widget(sidebar_title);
+    
+    // Content headerbar with app branding and controls
+    var content_header = new Adw.HeaderBar();
+    
+    // Sidebar toggle button for NavigationSplitView
+    var sidebar_toggle = new Gtk.ToggleButton();
+    sidebar_toggle.set_icon_name("sidebar-show-symbolic");
+    sidebar_toggle.set_active(true); // Start with sidebar shown
+    sidebar_toggle.set_tooltip_text("Toggle Sidebar");
+    content_header.pack_start(sidebar_toggle);
 
-        // Search bar in the center
-        var search_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        
-        var search_entry = new Gtk.SearchEntry();
-        search_entry.set_placeholder_text("Search News for Keywords...");
-        search_entry.set_max_width_chars(60);
-        search_container.append(search_entry);
-        
-        content_header.set_title_widget(search_container);
-        
-        // Connect search entry to search manager (with debouncing)
-        search_entry.search_changed.connect(() => {
-            if (search_manager != null) {
-                search_manager.update_query(search_entry.get_text());
-            }
-        });
-
-        var refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
-        refresh_btn.set_tooltip_text("Refresh news");
-        refresh_btn.clicked.connect (() => {
-            refresh_btn.set_sensitive(false);
-            fetch_news();
-            refresh_btn.set_sensitive(true);
-        });
-        content_header.pack_end(refresh_btn);
-        
-        // Add hamburger menu
-        var menu = new Menu();
-        menu.append("Preferences", "app.change-source");
-        menu.append("Set User Location", "app.set-location");
-        menu.append("About Paperboy", "app.about");
-        
-        var menu_button = new Gtk.MenuButton();
-        menu_button.set_icon_name("open-menu-symbolic");
-        menu_button.set_menu_model(menu);
-        menu_button.set_tooltip_text("Main Menu");
-        content_header.pack_end(menu_button);
-        // Create SidebarManager (logic only)
-        sidebar_manager = new SidebarManager(this);
-
-        // When saved articles finish loading, refresh badge counts so the
-        // "Saved" badge appears promptly on startup.
-        if (article_state_store != null) {
-            article_state_store.saved_articles_loaded.connect(() => {
-                if (sidebar_manager != null) sidebar_manager.refresh_all_badge_counts();
-
-                // If the user was viewing Saved when the app started, the
-                // saved articles may have been loaded after `fetch_news()`
-                // ran. In that case, re-run `fetch_news()` so the Saved
-                // view is populated now that saved articles are available.
-                var p = NewsPreferences.get_instance();
-                if (p != null && p.category == "saved") {
-                    Idle.add(() => {
-                        fetch_news();
-                        return false;
-                    });
-                }
-            });
+    // Search bar in the center
+    var search_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+    
+    var search_entry = new Gtk.SearchEntry();
+    search_entry.set_placeholder_text("Search News for Keywords...");
+    search_entry.set_max_width_chars(60);
+    search_container.append(search_entry);
+    
+    content_header.set_title_widget(search_container);
+    
+    // Connect search entry to search manager (with debouncing)
+    search_entry.search_changed.connect(() => {
+        if (search_manager != null) {
+            search_manager.update_query(search_entry.get_text());
         }
+    });
 
-        // Create SidebarView (UI only)
-        sidebar_view = new SidebarView(this, sidebar_manager);
+    var refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
+    refresh_btn.set_tooltip_text("Refresh news");
+    refresh_btn.clicked.connect (() => {
+        refresh_btn.set_sensitive(false);
+        fetch_news();
+        refresh_btn.set_sensitive(true);
+    });
+    content_header.pack_end(refresh_btn);
+    
+    // Add hamburger menu
+    var menu = new Menu();
+    menu.append("Preferences", "app.change-source");
+    menu.append("Set User Location", "app.set-location");
+    menu.append("About Paperboy", "app.about");
+    
+    var menu_button = new Gtk.MenuButton();
+    menu_button.set_icon_name("open-menu-symbolic");
+    menu_button.set_menu_model(menu);
+    menu_button.set_tooltip_text("Main Menu");
+    content_header.pack_end(menu_button);
+    // Create SidebarManager (logic only)
+    sidebar_manager = new SidebarManager(this);
 
-        // Listen for category selections and trigger fetch/update from the window
-        sidebar_manager.category_selected.connect((category) => {
-            if (category == "frontpage") {
-                fetch_news();
-                return;
-            }
-            Idle.add(() => {
-                fetch_news();
-                update_personalization_ui();
-                return false;
-            });
-        });
-
-        // Delay sidebar rebuild slightly to ensure window is fully realized before starting initial fetch
-        // This prevents race conditions where images are requested before GTK widgets are ready
-        GLib.Idle.add(() => {
-            sidebar_manager.rebuild_sidebar();
-            return false;
-        });
-
-        // Delay badge refresh until after initial content loads to avoid competing with image downloads
-        // Badge refresh can be CPU/disk intensive and may block image loading threads
-        GLib.Timeout.add_seconds(2, () => {
+    // When saved articles finish loading, refresh badge counts so the
+    // "Saved" badge appears promptly on startup.
+    if (article_state_store != null) {
+        article_state_store.saved_articles_loaded.connect(() => {
             if (sidebar_manager != null) sidebar_manager.refresh_all_badge_counts();
+
+            // If the user was viewing Saved when the app started, the
+            // saved articles may have been loaded after `fetch_news()`
+            // ran. In that case, re-run `fetch_news()` so the Saved
+            // view is populated now that saved articles are available.
+            var p = NewsPreferences.get_instance();
+            if (p != null && p.category == "saved") {
+                Idle.add(() => {
+                    fetch_news();
+                    return false;
+                });
+            }
+        });
+    }
+
+    // Create SidebarView (UI only)
+    sidebar_view = new SidebarView(this, sidebar_manager);
+
+    // Listen for category selections and trigger fetch/update from the window
+    sidebar_manager.category_selected.connect((category) => {
+        if (category == "frontpage") {
+            fetch_news();
+            return;
+        }
+        Idle.add(() => {
+            fetch_news();
+            update_personalization_ui();
             return false;
         });
+    });
 
-        // Fetch article metadata for all categories in background to populate unread counts
-        // Delay longer if user is viewing an RSS feed to avoid SQLite lock contention
-        bool is_rss_view = prefs != null && prefs.category != null && prefs.category.has_prefix("rssfeed:");
+    // Build sidebar immediately (not in Idle) to ensure widgets exist before fetch_news()
+    sidebar_manager.rebuild_sidebar();
 
-        uint delay_ms = is_rss_view ? 5000 : 1000;  // 5 seconds for RSS, 1 second otherwise
-        Timeout.add(delay_ms, () => {
-            fetch_all_category_metadata_for_counts();
-            return false;
-        });
+    // Manually trigger badge refresh BEFORE fetch_news() sets initial_phase = true
+    // rebuild_sidebar() calls refresh_all_badge_counts() which defers to Idle and checks initial_phase
+    // So we need to call all_badges_refresh_requested() directly here to show cached counts immediately
+    sidebar_manager.all_badges_refresh_requested();
 
-        // Request the completed navigation page from the view (use the
-        // `sidebar_header` built earlier above)
-        Adw.NavigationPage sidebar_page = sidebar_view.build_navigation_page(sidebar_header);
+    // Request the completed navigation page from the view (use the
+    // `sidebar_header` built earlier above)
+    Adw.NavigationPage sidebar_page = sidebar_view.build_navigation_page(sidebar_header);
 
     // Wrap content in a NavigationPage for NavigationSplitView
     // We need to create the content page after setting up root_overlay
@@ -782,7 +761,14 @@ public class NewsWindow : Adw.ApplicationWindow {
         // so the dialog can appear and the user can adjust sources first.
         var prefs_local = NewsPreferences.get_instance();
         if (prefs_local == null || !prefs_local.first_run) {
-            fetch_news();
+            // If viewing "saved" category, defer fetch until saved articles load from DB
+            // This prevents a double-load: empty fetch → saved articles load → re-fetch
+            if (prefs_local != null && prefs_local.category == "saved") {
+                // Don't call fetch_news() yet - let saved_articles_loaded handler do it
+                // This ensures we only fetch once, after saved articles are available
+            } else {
+                fetch_news();
+            }
         }
 
         // Start recurring feed updates with initial delay
@@ -813,6 +799,14 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Also persist window geometry into GSettings. We save on close (not on resize)
         // so transient states (like maximized) don't become stored as normal sizes.
         this.close_request.connect(() => {
+            // Clean up old cached articles (frontpage and RSS feeds)
+            try {
+                var cache = Paperboy.RssArticleCache.get_instance();
+                cache.cleanup();
+            } catch (GLib.Error e) {
+                warning("Failed to cleanup article cache: %s", e.message);
+            }
+
             // Persist maximized state and size (only when not maximized)
             if (settings != null) {
                 bool is_max = this.is_maximized();

@@ -88,6 +88,36 @@ public class SidebarView : GLib.Object {
         manager.expanded_state_changed.connect(on_expanded_state_changed);
         manager.selection_changed.connect(on_selection_changed);
     }
+
+    // Expose badge widget lookup for animation helpers (e.g., vacuum save effect)
+    public Gtk.Widget? get_badge_widget(string item_id) {
+        if (badge_widgets == null) return null;
+        return badge_widgets.get(item_id);
+    }
+
+    // Find the sidebar row/button widget corresponding to `item_id` (e.g. "saved").
+    // This searches the built sidebar hierarchy for a widget that has the
+    // `item_id` value stored via `set_data("item_id", ...)` when rows are
+    // constructed. Returns the matching widget or null if not found.
+    public Gtk.Widget? get_item_widget(string item_id) {
+        // Prefer locating the item's badge widget and walking up the parent
+        // chain to find the row/button that stores `item_id` via set_data.
+        if (badge_widgets != null) {
+            var b = badge_widgets.get(item_id);
+            if (b != null) {
+                var w = b.get_parent();
+                while (w != null) {
+                    string? d = w.get_data<string>("item_id");
+                    if (d != null) {
+                        if (d == item_id) return w;
+                    }
+                    w = w.get_parent();
+                }
+            }
+        }
+
+        return null;
+    }
     
     private void on_sidebar_rebuild_requested(Gee.ArrayList<SidebarSectionData?> sections) {
         // Save scroll position

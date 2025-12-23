@@ -86,7 +86,8 @@ public class LoadingStateManager : GLib.Object {
 
         // Set an absolute maximum timeout - but only reveal if content has actually arrived
         // This prevents showing a blank white area when content takes longer than expected
-        absolute_reveal_timeout_id = GLib.Timeout.add(8000, () => {
+        // Reduced from 8s to 4s for faster perceived performance
+        absolute_reveal_timeout_id = GLib.Timeout.add(4000, () => {
             // Only reveal if we have content; otherwise keep spinner visible
             if (initial_items_populated) {
                 reveal_initial_content();
@@ -313,23 +314,111 @@ public class LoadingStateManager : GLib.Object {
         bool pvis = personalized_message_box != null ? personalized_message_box.get_visible() : false;
         bool lvis = local_news_message_box != null ? local_news_message_box.get_visible() : false;
         if (!pvis && !lvis) {
-            if (window.main_content_container != null) window.main_content_container.set_visible(true);
+            // Prepare and trigger animated reveal so we don't flash already-visible content.
+            trigger_initial_reveals();
         }
 
-        Timeout.add(500, () => {
+        // Small delay to run non-visual housekeeping after initial reveal
+        Timeout.add(180, () => {
             if (window.image_manager != null) window.image_manager.upgrade_images_after_initial();
-            // Save article tracking (disabled - no longer persisting)
-            // Badge refreshes are now handled per-category/source in fetch_news()
-            // to avoid race conditions and ensure accurate counts
-                if (window.article_state_store != null) {
-                    window.article_state_store.save_article_tracking_to_disk();
+            if (window.article_state_store != null) {
+                window.article_state_store.save_article_tracking_to_disk();
+            }
+            if (window.sidebar_manager != null) {
+                window.sidebar_manager.refresh_all_badge_counts();
+            }
+            return false;
+        });
+    }
+
+    /**
+     * Prepare initial visual state for the first visible cards and play
+     * libadwaita-powered entrance animations. This applies an invisible/offset
+     * starting state before making the main content visible so there is no
+     * flash, and then runs the staggered animations.
+     */
+    private void trigger_initial_reveals() {
+        if (window == null || window.layout_manager == null || window.animation_manager == null) return;
+
+        var cards = new Gee.ArrayList<Gtk.Widget>();
+        if (window.layout_manager.featured_box != null) {
+            var fchild = window.layout_manager.featured_box.get_first_child();
+            while (fchild != null) {
+                cards.add(fchild);
+                fchild = fchild.get_next_sibling();
+            }
+        }
+        if (window.layout_manager.columns != null) {
+            foreach (var col in window.layout_manager.columns) {
+                if (col == null) continue;
+                var child = col.get_first_child();
+                while (child != null) {
+                    cards.add(child);
+                    child = child.get_next_sibling();
                 }
-                // CRITICAL: Now that initial_phase is complete, refresh badges
-                // We deferred this during initial_phase to prevent widget tree
-                // modifications from invalidating Picture widget paintables
-                if (window.sidebar_manager != null) {
-                    window.sidebar_manager.refresh_all_badge_counts();
+            }
+        }
+
+        // Apply the invisible/offset starting state so when the container
+        // becomes visible there is no intermediate flash.
+        int initial_margin = 18;
+        for (uint i = 0; i < cards.size; i++) {
+            var w = cards.get((int)i) as Gtk.Widget;
+            if (w == null) continue;
+            w.set_visible(true); // keep present so images load
+            w.set_opacity(0.0);
+            w.set_margin_top(initial_margin);
+        }
+
+        if (window.main_content_container != null) window.main_content_container.set_visible(true);
+
+        // Use Idle so GTK has applied the initial state before animations start
+        GLib.Idle.add(() => {
+            int limit = Managers.ArticleManager.INITIAL_ARTICLE_LIMIT;
+            uint per_item_ms = 32;
+            uint animate_index = 0;
+
+            // First animate featured area (keep as primary top items)
+            if (window.layout_manager != null && window.layout_manager.featured_box != null) {
+                var f = window.layout_manager.featured_box;
+                var fc = f.get_first_child();
+                while (fc != null && (int) animate_index < limit) {
+                    window.animation_manager.animate_card_entrance_stagger(fc, animate_index, per_item_ms);
+                    animate_index++;
+                    fc = fc.get_next_sibling();
                 }
+            }
+
+            // Then animate grid in row-major order (left-to-right, top-to-bottom)
+            if (window.layout_manager != null && window.layout_manager.columns != null) {
+                var cols = window.layout_manager.columns;
+                int ncols = cols.length;
+                // compute max rows
+                int max_rows = 0;
+                for (int ci = 0; ci < ncols; ci++) {
+                    var col = cols[ci];
+                    if (col == null) continue;
+                    int cnt = 0;
+                    var ch = col.get_first_child();
+                    while (ch != null) { cnt++; ch = ch.get_next_sibling(); }
+                    if (cnt > max_rows) max_rows = cnt;
+                }
+
+                for (int r = 0; r < max_rows && (int) animate_index < limit; r++) {
+                    for (int c = 0; c < ncols && (int) animate_index < limit; c++) {
+                        var col = cols[c];
+                        if (col == null) continue;
+                        var child = col.get_first_child();
+                        int idx = 0;
+                        while (child != null && idx < r) { child = child.get_next_sibling(); idx++; }
+                        if (child != null) {
+                            window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                            animate_index++;
+                        }
+                    }
+                }
+            }
+
             return false;
         });
     }
@@ -345,9 +434,15 @@ public class LoadingStateManager : GLib.Object {
                 Source.remove(initial_reveal_timeout_id);
             }
             // Short delay after last article to allow any remaining articles in the batch
-            initial_reveal_timeout_id = GLib.Timeout.add(500, () => {
+            // Reduced from 500ms to 300ms for faster reveal
+            initial_reveal_timeout_id = GLib.Timeout.add(300, () => {
                 // Clear the timeout ID since we're now executing
                 initial_reveal_timeout_id = 0;
+
+                // Don't reveal if we're waiting for adaptive layout check to complete
+                if (awaiting_adaptive_layout) {
+                    return false;
+                }
 
                 // Only reveal if we have a reasonable number of articles
                 // This prevents revealing with just 1-2 articles when more are expected
@@ -387,20 +482,22 @@ public class LoadingStateManager : GLib.Object {
                             absolute_reveal_timeout_id = 0;
                         }
                         hide_loading_spinner();
-                        if (window.main_content_container != null) {
-                            window.main_content_container.set_visible(true);
-                        }
+                        // Use the reveal helper so animations start without flashing
+                        trigger_initial_reveals();
                 } else {
                     // Not enough articles yet - set a longer timeout
-                    initial_reveal_timeout_id = GLib.Timeout.add(2000, () => {
+                    // Reduced from 2000ms to 1200ms for faster reveal with few articles
+                    initial_reveal_timeout_id = GLib.Timeout.add(1200, () => {
                         initial_reveal_timeout_id = 0;
+                        // Don't reveal if waiting for adaptive layout
+                        if (awaiting_adaptive_layout) {
+                            return false;
+                        }
                         // CRITICAL: Same fix here
                             initial_phase = false;
                             hero_image_loaded = false;
                             hide_loading_spinner();
-                            if (window.main_content_container != null) {
-                                window.main_content_container.set_visible(true);
-                            }
+                            trigger_initial_reveals();
                         return false;
                     });
                 }

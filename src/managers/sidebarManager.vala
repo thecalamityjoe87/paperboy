@@ -77,6 +77,9 @@ public class SidebarManager : GLib.Object {
     // Track which categories have been visited by the user
     // Popular categories show "--" until visited, then show actual count
     private Gee.HashSet<string> visited_categories;
+    // Track which sources have been visited by the user
+    // Sources show "--" until visited, then show actual count
+    private Gee.HashSet<string> visited_sources;
 
     // Signals to notify SidebarView of changes
     public signal void sidebar_rebuild_requested(Gee.ArrayList<SidebarSectionData?> sections);
@@ -98,9 +101,19 @@ public class SidebarManager : GLib.Object {
         this.category_unread_counts = new Gee.HashMap<string, int>();
         this.source_unread_counts = new Gee.HashMap<string, int>();
         this.visited_categories = new Gee.HashSet<string>();
+        this.visited_sources = new Gee.HashSet<string>();
 
         // Load saved expanded states from preferences
         load_expanded_states();
+
+        // Load visited categories and sources from ArticleStateStore cache
+        // This allows popular category and source badges to show immediately on startup
+        if (window.article_state_store != null) {
+            var cached_visited_cats = window.article_state_store.get_visited_categories();
+            visited_categories.add_all(cached_visited_cats);
+            var cached_visited_srcs = window.article_state_store.get_visited_sources();
+            visited_sources.add_all(cached_visited_srcs);
+        }
 
         // Listen for changes to custom RSS sources
         var store = Paperboy.RssSourceStore.get_instance();
@@ -124,30 +137,30 @@ public class SidebarManager : GLib.Object {
         });
 
         // Listen for article viewed/unviewed changes so badges update immediately
-            if (window.article_state_store != null) {
-                window.article_state_store.viewed_status_changed.connect((url, viewed) => {
-                    // Run in Idle to avoid contention with the emitter
-                    Idle.add(() => {
-                            // Update categories containing this URL
-                            var cats = window.article_state_store.get_categories_for_url(url);
-                            foreach (var c in cats) {
-                                update_badge_for_category(c);
-                            }
+        if (window.article_state_store != null) {
+            window.article_state_store.viewed_status_changed.connect((url, viewed) => {
+                // Run in Idle to avoid contention with the emitter
+                Idle.add(() => {
+                        // Update categories containing this URL
+                        var cats = window.article_state_store.get_categories_for_url(url);
+                        foreach (var c in cats) {
+                            update_badge_for_category(c);
+                        }
 
-                            // Update sources containing this URL
-                            var srcs = window.article_state_store.get_sources_for_url(url);
-                            foreach (var s in srcs) {
-                                update_badge_for_source(s);
-                            }
+                        // Update sources containing this URL
+                        var srcs = window.article_state_store.get_sources_for_url(url);
+                        foreach (var s in srcs) {
+                            update_badge_for_source(s);
+                        }
 
-                            // If the article is saved, update the Saved badge as well
-                                if (window.article_state_store.is_saved(url)) {
-                                    update_badge_for_category("saved");
-                                }
-                        return false;
-                    });
+                        // If the article is saved, update the Saved badge as well
+                            if (window.article_state_store.is_saved(url)) {
+                                update_badge_for_category("saved");
+                            }
+                    return false;
                 });
-            }
+            });
+        }
     }
 
     private void load_expanded_states() {
@@ -362,9 +375,6 @@ public class SidebarManager : GLib.Object {
             return 0;
         }
 
-        // Special category logic (applies to both SPECIAL and CATEGORY types)
-        // These checks are type-independent and based on ID
-
         // Saved: badge shows total number of saved articles (bookmarks)
         // This is more useful than "unread saved" since saved articles are
         // meant to be a user's reading list, not an unread queue.
@@ -414,6 +424,10 @@ public class SidebarManager : GLib.Object {
             if (window.article_state_store == null) {
                 return 0;
             }
+            // Show placeholder "--" until user visits this source for the first time
+            if (!is_source_visited(source_name)) {
+                return -1;
+            }
             return window.article_state_store.get_unread_count_for_source(source_name);
     }
 
@@ -453,6 +467,16 @@ public class SidebarManager : GLib.Object {
 
         // Mark category as visited so badge can update from placeholder
         mark_category_visited(validated);
+
+        // If this is an RSS source, also mark the source as visited
+        if (validated.has_prefix("rssfeed:")) {
+            string url = validated.substring(8);
+            var store = Paperboy.RssSourceStore.get_instance();
+            var source = store.get_source_by_url(url);
+            if (source != null) {
+                mark_source_visited(source.name);
+            }
+        }
 
         // Update selection state
         currently_selected_id = validated;
@@ -595,6 +619,10 @@ public class SidebarManager : GLib.Object {
      */
     public void mark_category_visited(string category_id) {
         visited_categories.add(category_id);
+        // Persist to ArticleStateStore so it's cached and available on next startup
+        if (window != null && window.article_state_store != null) {
+            window.article_state_store.mark_category_visited(category_id);
+        }
     }
 
     /**
@@ -602,6 +630,25 @@ public class SidebarManager : GLib.Object {
      */
     public bool is_category_visited(string category_id) {
         return visited_categories.contains(category_id);
+    }
+
+    /**
+     * Mark a source as visited by the user
+     * This enables badge updates for sources
+     */
+    public void mark_source_visited(string source_name) {
+        visited_sources.add(source_name);
+        // Persist to ArticleStateStore so it's cached and available on next startup
+        if (window != null && window.article_state_store != null) {
+            window.article_state_store.mark_source_visited(source_name);
+        }
+    }
+
+    /**
+     * Check if a source has been visited
+     */
+    public bool is_source_visited(string source_name) {
+        return visited_sources.contains(source_name);
     }
 
     /**

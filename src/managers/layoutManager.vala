@@ -99,10 +99,10 @@ namespace Managers {
                 adaptive_layout_timeout_id = 0;
             }
 
-            // Schedule layout check after 500ms of no new articles
-            adaptive_layout_timeout_id = Timeout.add(500, () => {
+            // Schedule layout check after 400ms of no new articles
+            // Reduced from 500ms to 400ms for faster adaptive layout decision
+            adaptive_layout_timeout_id = Timeout.add(400, () => {
                 if (current_fetch_seq != FetchContext.current) {
-                    stderr.printf("DEBUG: adaptive layout timeout - fetch sequence stale\n");
                     return false;
                 }
 
@@ -121,7 +121,6 @@ namespace Managers {
                         return false;
                     });
                 } else {
-                    stderr.printf("DEBUG: NOT triggering adaptive layout (count=%d >= 15 or count=0)\n", actual_count);
                     // No adaptive layout needed, allow normal spinner hiding
                     if (window != null && window.loading_state != null) {
                         window.loading_state.awaiting_adaptive_layout = false;
@@ -331,51 +330,51 @@ namespace Managers {
         * 15 to adaptively build hero cards
         */
         public void rebuild_as_adapative_heroes() {  
-                // Hide the hero/featured area since we want all articles in columns
-                if (hero_container != null) hero_container.set_visible(false);
-                if (featured_box != null) featured_box.set_visible(false);
+            // Hide the hero/featured area since we want all articles in columns
+            if (hero_container != null) hero_container.set_visible(false);
+            if (featured_box != null) featured_box.set_visible(false);
 
-                // Rebuild with 2 columns - existing cards will redistribute
-                rebuild_columns(2);
+            // Rebuild with 2 columns - existing cards will redistribute
+            rebuild_columns(2);
 
-                // Apply uniform sizing to all article cards in columns
-                for (int i = 0; i < columns.length; i++) {
-                    Gtk.Widget? child = columns[i].get_first_child();
-                    while (child != null) {
-                        // Force uniform tall hero card dimensions
-                        child.set_size_request(-1, RSS_HERO_CARD_HEIGHT);
-                        child.add_css_class("rss-hero-card");
+            // Apply uniform sizing to all article cards in columns
+            for (int i = 0; i < columns.length; i++) {
+                Gtk.Widget? child = columns[i].get_first_child();
+                while (child != null) {
+                    // Force uniform tall hero card dimensions
+                    child.set_size_request(-1, RSS_HERO_CARD_HEIGHT);
+                    child.add_css_class("rss-hero-card");
 
-                        // Dive into the card structure to set uniform heights on image and text sections
-                        if (child is Gtk.Box) {
-                            Gtk.Box card_root = (Gtk.Box) child;
-                            Gtk.Widget? card_child = card_root.get_first_child();
-                            int child_index = 0;
+                    // Dive into the card structure to set uniform heights on image and text sections
+                    if (child is Gtk.Box) {
+                        Gtk.Box card_root = (Gtk.Box) child;
+                        Gtk.Widget? card_child = card_root.get_first_child();
+                        int child_index = 0;
 
-                            while (card_child != null) {
-                                if (child_index == 0) {
-                                    // First child is the overlay with image
-                                    if (card_child is Gtk.Overlay) {
-                                        Gtk.Overlay overlay = (Gtk.Overlay) card_child;
-                                        Gtk.Widget? image = overlay.get_child();
-                                        if (image != null) {
-                                            image.set_size_request(-1, RSS_HERO_IMAGE_HEIGHT);
-                                        }
-                                    }
-                                } else if (child_index == 1) {
-                                    // Second child is the title_box (white part)
-                                    if (card_child is Gtk.Box) {
-                                        card_child.set_size_request(-1, RSS_HERO_TEXT_HEIGHT);
-                                        card_child.set_vexpand(false);
+                        while (card_child != null) {
+                            if (child_index == 0) {
+                                // First child is the overlay with image
+                                if (card_child is Gtk.Overlay) {
+                                    Gtk.Overlay overlay = (Gtk.Overlay) card_child;
+                                    Gtk.Widget? image = overlay.get_child();
+                                    if (image != null) {
+                                        image.set_size_request(-1, RSS_HERO_IMAGE_HEIGHT);
                                     }
                                 }
-                                child_index++;
-                                card_child = card_child.get_next_sibling();
+                            } else if (child_index == 1) {
+                                // Second child is the title_box (white part)
+                                if (card_child is Gtk.Box) {
+                                    card_child.set_size_request(-1, RSS_HERO_TEXT_HEIGHT);
+                                    card_child.set_vexpand(false);
+                                }
                             }
+                            child_index++;
+                            card_child = card_child.get_next_sibling();
                         }
-                        child = child.get_next_sibling();
                     }
+                    child = child.get_next_sibling();
                 }
+            }
         }
 
 
@@ -384,42 +383,47 @@ namespace Managers {
         * Similar to RSS hero layout but for standard news categories.
         */
         public void rebuild_as_category_heroes() {
-                // First, re-add carousel items to columns before hiding the carousel
-                // This ensures articles that were in the carousel don't get lost
-                if (window != null && window.article_manager != null) {
-                    var carousel_items = window.article_manager.featured_carousel_items;
-                    if (carousel_items != null && carousel_items.size > 0) {
-                        foreach (var item in carousel_items) {
-                            // Re-add each carousel item as a regular card to columns
-                            // Use bypass_limit=true since these articles were already counted
-                            window.article_manager.add_item_immediate_to_column(
-                                item.title,
-                                item.url,
-                                item.thumbnail_url,
-                                item.category_id,
-                                -1,  // auto column selection
-                                null, // no original_category
-                                item.source_name,
-                                true  // bypass_limit
-                            );
-                        }
+            // First, re-add carousel items to columns before hiding the carousel
+            // This ensures articles that were in the carousel don't get lost
+            if (window != null && window.article_manager != null) {
+                var carousel_items = window.article_manager.featured_carousel_items;
+                if (carousel_items != null && carousel_items.size > 0) {
+                    foreach (var item in carousel_items) {
+                        // Re-add each carousel item as a regular card to columns
+                        // Use bypass_limit=true since these articles were already counted
+                        window.article_manager.add_item_immediate_to_column(
+                            item.title,
+                            item.url,
+                            item.thumbnail_url,
+                            item.category_id,
+                            -1,  // auto column selection
+                            null, // no original_category
+                            item.source_name,
+                            true  // bypass_limit
+                        );
                     }
                 }
-                rebuild_as_adapative_heroes(); // Request for our common helper to rebuild heroes
+            }
 
-                // After rebuild completes, hide the loading spinner and reveal content
-                // (same pattern as RSS feeds)
-                Timeout.add(100, () => {
-                    if (window != null && window.loading_state != null) {
-                        window.loading_state.awaiting_adaptive_layout = false;
-                        if (window.loading_state.initial_items_populated) {
-                            window.loading_state.reveal_initial_content();
-                        }
+            // Mark that we're no longer waiting for adaptive layout BEFORE rebuilding
+            // This allows the reveal to proceed when we call it
+            if (window != null && window.loading_state != null) {
+                window.loading_state.awaiting_adaptive_layout = false;
+            }
+
+            rebuild_as_adapative_heroes(); // Request for our common helper to rebuild heroes
+
+            // After rebuild completes, reveal content with animations
+            // Minimal delay to ensure layout has settled (reduced from 50ms to 30ms)
+            Timeout.add(30, () => {
+                if (window != null && window.loading_state != null) {
+                    if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
+                        window.loading_state.reveal_initial_content();
                     }
-                    return false;
-                });
+                }
+                return false;
+            });
         }
-
 
         /**
         * Clear all article columns without destroying the column widgets themselves.

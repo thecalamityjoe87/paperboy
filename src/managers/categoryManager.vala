@@ -262,6 +262,7 @@ using Gee;
             category == "green" ||
             category == "local_news" ||
             category == "myfeed" ||
+            category == "frontpage" ||
             category.has_prefix("rssfeed:")
         );
     }

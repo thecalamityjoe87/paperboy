@@ -144,70 +144,104 @@ public class RssFeedProcessor {
                                     }
                                     if (link == null) link = c->get_content();
                                 } else if (c->name == "enclosure") {
-                                    Xml.Attr* a = c->properties;
-                                    while (a != null) {
-                                        if (a->name == "url") {
-                                            thumb = a->children != null ? (string) a->children->content : null;
-                                            if (thumb != null) {
-                                                if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                thumb = thumb.replace("&amp;", "&");
+                                    // Skip enclosure if we already have media:content (higher quality)
+                                    if (thumb == null) {
+                                        Xml.Attr* a = c->properties;
+                                        while (a != null) {
+                                            if (a->name == "url") {
+                                                thumb = a->children != null ? (string) a->children->content : null;
+                                                if (thumb != null) {
+                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                    thumb = thumb.replace("&amp;", "&");
+                                                }
+                                                break;
                                             }
-                                            break;
+                                            a = a->next;
                                         }
-                                        a = a->next;
                                     }
                                 } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                    Xml.Attr* a2 = c->properties;
-                                    while (a2 != null) {
-                                        if (a2->name == "url") {
-                                            thumb = a2->children != null ? (string) a2->children->content : null;
-                                            if (thumb != null) {
-                                                if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                    // Skip media:thumbnail if we already have media:content (higher quality)
+                                    if (thumb == null) {
+                                        Xml.Attr* a2 = c->properties;
+                                        while (a2 != null) {
+                                            if (a2->name == "url") {
+                                                thumb = a2->children != null ? (string) a2->children->content : null;
+                                                if (thumb != null) {
+                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                }
+                                                break;
                                             }
-                                            break;
+                                            a2 = a2->next;
                                         }
-                                        a2 = a2->next;
                                     }
                                 } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
-                                    Xml.Attr* a3 = c->properties;
-                                    string? media_url = null;
-                                    string? media_type = null;
-                                    string? media_medium = null;
-                                    while (a3 != null) {
-                                        if (a3->name == "url") media_url = a3->children != null ? (string) a3->children->content : null;
-                                        else if (a3->name == "type") media_type = a3->children != null ? (string) a3->children->content : null;
-                                        else if (a3->name == "medium") media_medium = a3->children != null ? (string) a3->children->content : null;
-                                        a3 = a3->next;
-                                    }
-                                    if (media_url != null && thumb == null) {
-                                        bool is_image = false;
-                                        if (media_type != null && media_type.has_prefix("image")) is_image = true;
-                                        if (media_medium != null && media_medium == "image") is_image = true;
-                                        string mu_lower = media_url.down();
-                                        if (mu_lower.has_suffix(".jpg") || mu_lower.has_suffix(".jpeg") || mu_lower.has_suffix(".png") || mu_lower.has_suffix(".webp") || mu_lower.has_suffix(".gif")) is_image = true;
-                                        if (!is_image && media_url.contains("images.wsj.net/im-")) is_image = true;
-                                        if (is_image) thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
+                                    // Only use media:content if we don't already have a thumbnail
+                                    // (description/content:encoded with srcset can have better resolution)
+                                    if (thumb == null) {
+                                        Xml.Attr* a3 = c->properties;
+                                        string? media_url = null;
+                                        string? media_type = null;
+                                        string? media_medium = null;
+                                        while (a3 != null) {
+                                            if (a3->name == "url") media_url = a3->children != null ? (string) a3->children->content : null;
+                                            else if (a3->name == "type") media_type = a3->children != null ? (string) a3->children->content : null;
+                                            else if (a3->name == "medium") media_medium = a3->children != null ? (string) a3->children->content : null;
+                                            a3 = a3->next;
+                                        }
+                                        if (media_url != null) {
+                                            bool is_image = false;
+                                            if (media_type != null && media_type.has_prefix("image")) is_image = true;
+                                            if (media_medium != null && media_medium == "image") is_image = true;
+                                            string mu_lower = media_url.down();
+                                            if (mu_lower.has_suffix(".jpg") || mu_lower.has_suffix(".jpeg") || mu_lower.has_suffix(".png") || mu_lower.has_suffix(".webp") || mu_lower.has_suffix(".gif")) is_image = true;
+                                            if (!is_image && media_url.contains("images.wsj.net/im-")) is_image = true;
+                                            if (is_image) thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
+                                        }
                                     }
                                 } else if (c->name == "description" && thumb == null) {
                                     string? desc = c->get_content();
-                                    if (desc != null) thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
+                                    if (desc != null) {
+                                        thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
+                                        if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
+                                            GLib.warning("rssFeedProcessor: extracted from description: %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
+                                        }
+                                        if (thumb != null) thumb = Tools.ImageProcessor.strip_resize_params(thumb);
+                                        if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
+                                            GLib.warning("rssFeedProcessor: after strip_resize_params: %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
+                                        }
+                                    }
                                 } else if (c->name == "content" && thumb == null) {
                                     // Atom <content type="html"> often contains HTML with <img>
                                     string? content_html = c->get_content();
                                     if (content_html != null) {
                                         thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content_html);
-                                        if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                        if (thumb != null) {
+                                            if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                            thumb = Tools.ImageProcessor.strip_resize_params(thumb);
+                                        }
                                     }
                                 } else if (c->name == "summary" && thumb == null) {
                                     // Atom <summary> can also include an image snippet
                                     string? summary_html = c->get_content();
                                     if (summary_html != null) {
                                         thumb = Tools.ImageProcessor.extract_image_from_html_snippet(summary_html);
-                                        if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                        if (thumb != null) {
+                                            if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                            thumb = Tools.ImageProcessor.strip_resize_params(thumb);
+                                        }
                                     }
                                 } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
                                     string? content = c->get_content();
-                                    if (content != null) thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content);
+                                    if (content != null) {
+                                        thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content);
+                                        if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
+                                            GLib.warning("rssFeedProcessor: extracted from content:encoded: %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
+                                        }
+                                        if (thumb != null) thumb = Tools.ImageProcessor.strip_resize_params(thumb);
+                                        if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
+                                            GLib.warning("rssFeedProcessor: after strip_resize_params (content:encoded): %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
+                                        }
+                                    }
                                 }
                             }
 
@@ -235,7 +269,7 @@ public class RssFeedProcessor {
                         }
                     }
                 }
-            } else {
+            } else if (root != null) {
                 // RSS-style parsing: look for <channel> or nested <feed> containers
                 for (Xml.Node* ch = root->children; ch != null; ch = ch->next) {
                     if (ch->type == Xml.ElementType.ELEMENT_NODE && (ch->name == "channel" || ch->name == "feed")) {
@@ -280,68 +314,96 @@ public class RssFeedProcessor {
                                         }
                                         if (link == null) link = c->get_content();
                                     } else if (c->name == "enclosure") {
-                                        Xml.Attr* a = c->properties;
-                                        while (a != null) {
-                                            if (a->name == "url") {
-                                                thumb = a->children != null ? (string) a->children->content : null;
-                                                if (thumb != null) {
-                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                    thumb = thumb.replace("&amp;", "&");
+                                        // Skip enclosure if we already have media:content (higher quality)
+                                        if (thumb == null) {
+                                            Xml.Attr* a = c->properties;
+                                            while (a != null) {
+                                                if (a->name == "url") {
+                                                    thumb = a->children != null ? (string) a->children->content : null;
+                                                    if (thumb != null) {
+                                                        if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                        thumb = thumb.replace("&amp;", "&");
+                                                    }
+                                                    break;
                                                 }
-                                                break;
+                                                a = a->next;
                                             }
-                                            a = a->next;
                                         }
                                     } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                        Xml.Attr* a2 = c->properties;
-                                        while (a2 != null) {
-                                            if (a2->name == "url") {
-                                                thumb = a2->children != null ? (string) a2->children->content : null;
-                                                if (thumb != null) {
-                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                        // Skip media:thumbnail if we already have media:content (higher quality)
+                                        if (thumb == null) {
+                                            Xml.Attr* a2 = c->properties;
+                                            while (a2 != null) {
+                                                if (a2->name == "url") {
+                                                    thumb = a2->children != null ? (string) a2->children->content : null;
+                                                    if (thumb != null) {
+                                                        if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                    }
+                                                    break;
                                                 }
-                                                break;
+                                                a2 = a2->next;
                                             }
-                                            a2 = a2->next;
                                         }
                                     } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
-                                        Xml.Attr* a3 = c->properties;
-                                        string? media_url = null;
-                                        string? media_type = null;
-                                        string? media_medium = null;
-                                        while (a3 != null) {
-                                            if (a3->name == "url") media_url = a3->children != null ? (string) a3->children->content : null;
-                                            else if (a3->name == "type") media_type = a3->children != null ? (string) a3->children->content : null;
-                                            else if (a3->name == "medium") media_medium = a3->children != null ? (string) a3->children->content : null;
-                                            a3 = a3->next;
-                                        }
-                                        if (media_url != null && thumb == null) {
-                                            bool is_image = false;
-                                            if (media_type != null && media_type.has_prefix("image")) is_image = true;
-                                            if (media_medium != null && media_medium == "image") is_image = true;
-                                            string mu_lower = media_url.down();
-                                            if (mu_lower.has_suffix(".jpg") || mu_lower.has_suffix(".jpeg") || mu_lower.has_suffix(".png") || mu_lower.has_suffix(".webp") || mu_lower.has_suffix(".gif")) is_image = true;
-                                            if (!is_image && media_url.contains("images.wsj.net/im-")) is_image = true;
-                                            if (is_image) thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
+                                        // Only use media:content if we don't already have a thumbnail
+                                        // (description/content:encoded with srcset can have better resolution)
+                                        if (thumb == null) {
+                                            Xml.Attr* a3 = c->properties;
+                                            string? media_url = null;
+                                            string? media_type = null;
+                                            string? media_medium = null;
+                                            while (a3 != null) {
+                                                if (a3->name == "url") media_url = a3->children != null ? (string) a3->children->content : null;
+                                                else if (a3->name == "type") media_type = a3->children != null ? (string) a3->children->content : null;
+                                                else if (a3->name == "medium") media_medium = a3->children != null ? (string) a3->children->content : null;
+                                                a3 = a3->next;
+                                            }
+                                            if (media_url != null) {
+                                                bool is_image = false;
+                                                if (media_type != null && media_type.has_prefix("image")) is_image = true;
+                                                if (media_medium != null && media_medium == "image") is_image = true;
+                                                string mu_lower = media_url.down();
+                                                if (mu_lower.has_suffix(".jpg") || mu_lower.has_suffix(".jpeg") || mu_lower.has_suffix(".png") || mu_lower.has_suffix(".webp") || mu_lower.has_suffix(".gif")) is_image = true;
+                                                if (!is_image && media_url.contains("images.wsj.net/im-")) is_image = true;
+                                                if (is_image) thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
+                                            }
                                         }
                                     } else if (c->name == "description" && thumb == null) {
                                         string? desc = c->get_content();
-                                        if (desc != null) thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
+                                        if (desc != null) {
+                                            thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
+                                            if (thumb != null) thumb = Tools.ImageProcessor.strip_resize_params(thumb);
+                                        }
                                     } else if (c->name == "content" && thumb == null) {
                                         string? content_html = c->get_content();
                                         if (content_html != null) {
                                             thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content_html);
-                                            if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                            if (thumb != null) {
+                                                if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                thumb = Tools.ImageProcessor.strip_resize_params(thumb);
+                                            }
                                         }
                                     } else if (c->name == "summary" && thumb == null) {
                                         string? summary_html = c->get_content();
                                         if (summary_html != null) {
                                             thumb = Tools.ImageProcessor.extract_image_from_html_snippet(summary_html);
-                                            if (thumb != null && thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                            if (thumb != null) {
+                                                if (thumb.has_prefix("//")) thumb = "https:" + thumb;
+                                                thumb = Tools.ImageProcessor.strip_resize_params(thumb);
+                                            }
                                         }
                                     } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
                                         string? content = c->get_content();
-                                        if (content != null) thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content);
+                                        if (content != null) {
+                                            thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content);
+                                            if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
+                                                GLib.warning("rssFeedProcessor: extracted from content:encoded: %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
+                                            }
+                                            if (thumb != null) thumb = Tools.ImageProcessor.strip_resize_params(thumb);
+                                            if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
+                                                GLib.warning("rssFeedProcessor: after strip_resize_params (content:encoded): %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
+                                            }
+                                        }
                                     }
                                 }
 
@@ -401,7 +463,35 @@ public class RssFeedProcessor {
                     if (feed_url != null && feed_url.length > 0) {
                         var cache = Paperboy.RssArticleCache.get_instance();
                         string cache_key = (cache_key_override != null && cache_key_override.length > 0) ? cache_key_override : feed_url;
-                        cache.cache_article(url, title, row[2], null, cache_key);
+
+                        // Extract source metadata from source_name (format: "Name||logo_url##category::cat")
+                        string? extracted_source_name = null;
+                        string? extracted_logo_url = null;
+                        string? extracted_category_id = null;
+
+                        if (source_name != null && source_name.length > 0) {
+                            extracted_source_name = source_name;
+
+                            // Remove category suffix first
+                            int cat_idx = source_name.index_of("##category::");
+                            if (cat_idx >= 0) {
+                                extracted_source_name = source_name.substring(0, cat_idx);
+                                if (source_name.length > cat_idx + 12) {
+                                    extracted_category_id = source_name.substring(cat_idx + 12);
+                                }
+                            }
+
+                            // Extract logo URL
+                            int pipe_idx = extracted_source_name.index_of("||");
+                            if (pipe_idx >= 0) {
+                                if (extracted_source_name.length > pipe_idx + 2) {
+                                    extracted_logo_url = extracted_source_name.substring(pipe_idx + 2);
+                                }
+                                extracted_source_name = extracted_source_name.substring(0, pipe_idx);
+                            }
+                        }
+
+                        cache.cache_article(url, title, row[2], null, cache_key, extracted_source_name, extracted_logo_url, extracted_category_id);
                     }
 
                     add_item(title, url, row[2], category_id, source_name);
@@ -616,6 +706,4 @@ public class RssFeedProcessor {
             return null;
         });
     }
-
-
 }

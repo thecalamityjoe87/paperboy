@@ -38,13 +38,64 @@ public class PaperboyFetcher : BaseFetcher {
     }
 
     private void fetch_paperboy_frontpage(string current_search_query, Soup.Session session) {
+        // First, load cached articles to show immediately (up to 120 articles from last 48 hours)
+        var frontpage_cache = Paperboy.RssArticleCache.get_instance();
+        var cached_articles = frontpage_cache.get_cached_articles("paperboy:frontpage", Paperboy.RssArticleCache.MAX_FRONTPAGE_ARTICLES);
+
+        // Track which URLs we've already shown from cache to avoid duplicates
+        var shown_urls = new Gee.HashSet<string>();
+
+        Idle.add(() => {
+            if (current_search_query.length > 0) {
+                set_label(@"Search Results: \"$(current_search_query)\" in The Frontpage — Paperboy");
+            } else {
+                set_label("The Frontpage — Paperboy");
+            }
+            clear_items();
+
+            // Add cached articles first for instant display
+            foreach (var article in cached_articles) {
+                if (article.url == null || article.title == null) continue;
+
+                // Apply search filter if needed
+                if (current_search_query.length > 0) {
+                    string query_lower = current_search_query.down();
+                    string title_lower = article.title.down();
+                    string url_lower = article.url.down();
+                    if (!title_lower.contains(query_lower) && !url_lower.contains(query_lower)) continue;
+                }
+
+                shown_urls.add(article.url);
+                // Build display_source from cached metadata
+                string cached_display_source = "";
+                if (article.source_name != null && article.source_name.length > 0) {
+                    cached_display_source = article.source_name;
+                    if (article.logo_url != null && article.logo_url.length > 0) {
+                        cached_display_source = article.source_name + "||" + article.logo_url;
+                    }
+                }
+                string cached_category = article.category_id ?? "news";
+                if (cached_display_source.length > 0) {
+                    cached_display_source = cached_display_source + "##category::" + cached_category;
+                } else {
+                    cached_display_source = "Paperboy##category::" + cached_category;
+                }
+                add_item(article.title, article.url, article.thumbnail_url, "frontpage", cached_display_source);
+            }
+            return false;
+        });
+
+        // Then fetch fresh articles from API to update cache
         var client = Paperboy.HttpClientUtils.get_default();
         string url = BASE_URL + "/news/frontpage";
 
         client.fetch_json(url, (response, parser, root) => {
             if (!response.is_success() || root == null) {
                 warning("Paperboy API HTTP error: %u", response.status_code);
-                set_label("Paperboy: Error loading frontpage");
+                // Don't show error if we have cached articles
+                if (cached_articles.size == 0) {
+                    set_label("Paperboy: Error loading frontpage");
+                }
                 return;
             }
 
@@ -68,17 +119,17 @@ public class PaperboyFetcher : BaseFetcher {
                 }
 
                 Idle.add(() => {
-                    if (current_search_query.length > 0) {
-                        set_label(@"Search Results: \"$(current_search_query)\" in The Frontpage — Paperboy");
-                    } else {
-                        set_label("The Frontpage — Paperboy");
-                    }
-                    clear_items();
+                    // Don't clear items or update label - we already showed cached articles
+                    // Just add fresh articles that aren't in cache
                     uint len = articles.get_length();
                     for (uint i = 0; i < len; i++) {
                         var art = articles.get_element(i).get_object();
                         string title = json_get_string_safe(art, "title") != null ? json_get_string_safe(art, "title") : (json_get_string_safe(art, "headline") != null ? json_get_string_safe(art, "headline") : "No title");
                         string article_url = json_get_string_safe(art, "url") != null ? json_get_string_safe(art, "url") : (json_get_string_safe(art, "link") != null ? json_get_string_safe(art, "link") : "");
+
+                        // Skip if we already showed this from cache
+                        if (shown_urls.contains(article_url)) continue;
+
                         string? thumbnail = null;
                         if (json_get_string_safe(art, "thumbnail") != null) thumbnail = json_get_string_safe(art, "thumbnail");
                         else if (json_get_string_safe(art, "image") != null) thumbnail = json_get_string_safe(art, "image");
@@ -200,6 +251,10 @@ public class PaperboyFetcher : BaseFetcher {
 
                         if (display_source == null) display_source = "";
                         display_source = display_source + "##category::" + category_id;
+
+                        // Cache frontpage article for offline access and better performance
+                        // Store source_name (without logo), logo_url separately, and category_id
+                        frontpage_cache.cache_article(article_url, title, thumbnail, null, "paperboy:frontpage", source_name, logo_url, category_id);
 
                         add_item(title, article_url, thumbnail, "frontpage", display_source);
                     }

@@ -31,10 +31,6 @@ public class UnreadFetchService {
     private static int _active_fetches = 0;
     private const int MAX_CONCURRENT_FETCHES = 3;  // Limit concurrent fetches to prevent resource contention
 
-    // Track which categories have been cleared in the current background fetch run
-    // This prevents duplicate clearing when multiple sources fetch the same category
-    private static Gee.HashSet<string>? _cleared_categories = null;
-
     // Task types for the fetch queue
     private enum TaskType {
         CATEGORY,
@@ -88,50 +84,46 @@ public class UnreadFetchService {
     }
 
     private static void global_metadata_add(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
-        try {
-            var win = _unread_window;
-            if (win == null) return;
+        var win = _unread_window;
+        if (win == null) return;
 
-            // Safely access article_state_store through local variable
-            var store = win.article_state_store;
-            if (store == null) return;
+        // Safely access article_state_store through local variable
+        var store = win.article_state_store;
+        if (store == null) return;
 
-            string normalized = win.normalize_article_url(url);
-            store.register_article(normalized, category_id, source_name);
+        string normalized = win.normalize_article_url(url);
+        store.register_article(normalized, category_id, source_name);
 
-            // Also register under myfeed if this article should appear there
-            var prefs = win.prefs;
-            if (prefs == null) return;
+        // Also register under myfeed if this article should appear there
+        var prefs = win.prefs;
+        if (prefs == null) return;
 
-            // RSS sources: check if the custom RSS source is enabled
-            if (category_id != null && category_id.has_prefix("rssfeed:")) {
-                string rss_url = category_id.substring("rssfeed:".length);
-                try {
-                    if (prefs.preferred_source_enabled("custom:" + rss_url)) {
-                        store.register_article(normalized, "myfeed", "rssfeed:" + rss_url);
-                    }
-                } catch (GLib.Error e) { }
+        // RSS sources: check if the custom RSS source is enabled
+        if (category_id != null && category_id.has_prefix("rssfeed:")) {
+            string rss_url = category_id.substring("rssfeed:".length);
+            if (prefs.preferred_source_enabled("custom:" + rss_url)) {
+                store.register_article(normalized, "myfeed", "rssfeed:" + rss_url);
             }
-            // Built-in sources: check if source is enabled AND category is in personalized categories
-            // AND that "custom only" mode is disabled
-            else if (source_name != null && category_id != null && prefs.personalized_feed_enabled && !prefs.myfeed_custom_only) {
-                // Check if this is a personalized category for myfeed
-                var personalized_cats = prefs.personalized_categories;
-                if (personalized_cats != null && personalized_cats.contains(category_id)) {
-                    // Normalize the source display name to canonical ID
-                    string? source_id = SourceManager.normalize_source_display_name_to_id(source_name);
+        }
+        // Built-in sources: check if source is enabled AND category is in personalized categories
+        // AND that "custom only" mode is disabled
+        else if (source_name != null && category_id != null && prefs.personalized_feed_enabled && !prefs.myfeed_custom_only) {
+            // Check if this is a personalized category for myfeed
+            var personalized_cats = prefs.personalized_categories;
+            if (personalized_cats != null && personalized_cats.contains(category_id)) {
+                // Normalize the source display name to canonical ID
+                string? source_id = SourceManager.normalize_source_display_name_to_id(source_name);
 
-                    if (source_id != null) {
-                        // Check if the source is enabled
-                        bool is_enabled = prefs.preferred_source_enabled(source_id);
-                        if (is_enabled) {
-                            // Register with normalized source ID for consistent filtering
-                            store.register_article(normalized, "myfeed", source_id);
-                        }
+                if (source_id != null) {
+                    // Check if the source is enabled
+                    bool is_enabled = prefs.preferred_source_enabled(source_id);
+                    if (is_enabled) {
+                        // Register with normalized source ID for consistent filtering
+                        store.register_article(normalized, "myfeed", source_id);
                     }
                 }
             }
-        } catch (GLib.Error e) { }
+        }
     }
 
     private static void enqueue_fetch(FetchTask task) {
@@ -147,16 +139,6 @@ public class UnreadFetchService {
 
             _active_fetches++;
 
-            // Debug logging
-            try {
-                if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) {
-                    warning("Fetch queue: %d pending, %d active (starting %s)", 
-                            get_fetch_queue().size, _active_fetches,
-                            task.type == TaskType.CATEGORY ? task.category : 
-                            task.type == TaskType.RSS_FEED ? task.rss_name : "local feed");
-                }
-            } catch (GLib.Error e) { }
-
             // Execute the fetch based on task type
             var win = _unread_window;
             if (win == null) {
@@ -166,21 +148,15 @@ public class UnreadFetchService {
 
             switch (task.type) {
                 case TaskType.CATEGORY:
-                    // Clear this specific category before fetching to prevent accumulation
-                    // But only clear ONCE per background fetch run (multiple sources may fetch same category)
-                    // And skip if this is the category the user is currently viewing (main fetch already cleared it)
+                    // Always clear category before background fetch to prevent accumulation
+                    // Skip only if this is the category the user is currently viewing (main fetch handles it)
+                    // NOTE: We clear on EVERY fetch, not just once per run, because the backend
+                    // may return different articles each time and we need fresh counts
                     if (win != null && win.article_state_store != null && task.category != null) {
-                        // Initialize tracking set if needed
-                        if (_cleared_categories == null) {
-                            _cleared_categories = new Gee.HashSet<string>();
-                        }
-
-                        bool should_clear = (win.prefs == null || win.prefs.category != task.category)
-                                          && !_cleared_categories.contains(task.category);
+                        bool should_clear = (win.prefs == null || win.prefs.category != task.category);
 
                         if (should_clear) {
                             win.article_state_store.clear_category_articles(task.category);
-                            _cleared_categories.add(task.category);
                         }
                     }
 
@@ -265,9 +241,6 @@ public class UnreadFetchService {
         get_fetch_queue().clear();
         _active_fetches = 0;
 
-        // Reset the cleared categories tracking for this fetch run
-        _cleared_categories = null;
-
         // DO NOT clear article tracking here - this is a background metadata fetch
         // that should supplement the counts, not replace them. Clearing happens
         // in the main fetch (fetchNewsController) when the user navigates to a category.
@@ -306,7 +279,7 @@ public class UnreadFetchService {
             }
         }
 
-        // Fetch local_news articles from user's configured local feeds file
+        /*// Fetch local_news articles from user's configured local feeds file
         try {
             string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
             string file_path = config_dir + "/local_feeds";
@@ -322,47 +295,65 @@ public class UnreadFetchService {
                     }
                 }
             }
-        } catch (GLib.Error e) { }
+        } catch (GLib.Error e) { }*/
+
+        // Fetch local_news articles from user's configured local feeds file
+        string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
+        string file_path = config_dir + "/local_feeds";
+
+        if (GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
+            string contents = "";
+            try {
+                GLib.FileUtils.get_contents(file_path, out contents);
+            } catch (GLib.Error e) {
+                contents = "";
+            }
+
+            if (contents != null && contents.strip().length > 0) {
+                string[] lines = contents.split("\n");
+                foreach (string line in lines) {
+                    string u = line.strip();
+                    if (u.length == 0) continue;
+                    enqueue_fetch(new FetchTask.for_local(u));
+                }
+            }
+        }
 
         // Fetch metadata for ALL custom RSS sources
         // This ensures the "RSS Feeds" expander badges are populated
-        try {
-            var rss_store = Paperboy.RssSourceStore.get_instance();
-            var all_sources = rss_store.get_all_sources();
+        var rss_store = Paperboy.RssSourceStore.get_instance();
+        var all_sources = rss_store.get_all_sources();
 
-            if (all_sources.size > 0) {
-                foreach (var rss_src in all_sources) {
-                    string rss_category_id = "rssfeed:" + rss_src.url;
-                    // For generated feeds (file:// URLs), use original_url as cache key
-                    string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
-                    enqueue_fetch(new FetchTask.for_rss(rss_src.url, rss_src.name, rss_category_id, cache_key));
-                }
+        if (all_sources.size > 0) {
+            foreach (var rss_src in all_sources) {
+                string rss_category_id = "rssfeed:" + rss_src.url;
+                // For generated feeds (file:// URLs), use original_url as cache key
+                string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
+                enqueue_fetch(new FetchTask.for_rss(rss_src.url, rss_src.name, rss_category_id, cache_key));
             }
-        } catch (GLib.Error e) { }
+        }
 
         // Save after fetching all metadata and refresh badges
-        // Increased timeout to 10 seconds to allow more time for throttled fetches
-        Timeout.add(10000, () => {
-            try {
-                var w = _unread_window;
-                if (w == null) return false;
+        // Increased timeout to 7 seconds to allow more time for throttled fetches
+        Timeout.add(7000, () => {
+            var w = _unread_window;
+            if (w == null) return false;
 
-                // Safely access managers through local variables
-                var store = w.article_state_store;
-                if (store != null) {
-                    store.mark_initial_fetch_complete();
-                    store.save_article_tracking_to_disk();
-                }
+            // Safely access managers through local variables
+            var store = w.article_state_store;
+            if (store != null) {
+                store.mark_initial_fetch_complete();
+                store.save_article_tracking_to_disk();
+            }
 
-                var sidebar_mgr = w.sidebar_manager;
-                if (sidebar_mgr != null) {
-                    // Refresh all badges so regular categories and frontpage/topten
-                    // reflect their initial metadata, and Saved reflects the
-                    // registered saved-article set from ArticleStateStore.
-                    sidebar_mgr.refresh_all_badge_counts();
-                }
-            } catch (GLib.Error e) { }
-            return false;
+            var sidebar_mgr = w.sidebar_manager;
+            if (sidebar_mgr != null) {
+                // Refresh all badges so regular categories and frontpage/topten
+                // reflect their initial metadata, and Saved reflects the
+                // registered saved-article set from ArticleStateStore.
+                sidebar_mgr.refresh_all_badge_counts();
+            }
+        return false;
         });
     }
 
@@ -398,16 +389,14 @@ public class UnreadFetchService {
 
         // Schedule badge refresh after fetches complete
         Timeout.add(3000, () => {
-            try {
-                var w = _unread_window;
-                if (w == null) return false;
+            var w = _unread_window;
+            if (w == null) return false;
 
-                var sidebar_mgr = w.sidebar_manager;
-                if (sidebar_mgr != null) {
-                    sidebar_mgr.update_badge_for_category("myfeed");
-                }
-            } catch (GLib.Error e) { }
-            return false;
+            var sidebar_mgr = w.sidebar_manager;
+            if (sidebar_mgr != null) {
+                sidebar_mgr.update_badge_for_category("myfeed");
+            }
+        return false;
         });
     }
 }

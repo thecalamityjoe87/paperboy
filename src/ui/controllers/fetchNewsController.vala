@@ -30,31 +30,29 @@ public class FetchNewsController {
             if (win == null) return false;
 
             // Detect errors in the label text and immediately show error message
-            try {
-                if (text != null) {
-                    string lower = text.down();
-                    if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
-                        if (win.loading_state != null) win.loading_state.network_failure_detected = true;
-                        // Immediately show error message and hide spinner to prevent UI dead-end
-                        win.hide_loading_spinner();
-                        win.show_error_message(text);
-                        // Cancel the timeout since we're showing error now (defensive check)
-                        if (win.loading_state != null) {
-                            var timeout_id = win.loading_state.initial_reveal_timeout_id;
-                            if (timeout_id > 0) {
-                                try {
-                                    Source.remove(timeout_id);
-                                    win.loading_state.initial_reveal_timeout_id = 0;
-                                } catch (GLib.Error e) {
-                                    warning("Failed to remove timeout: %s", e.message);
-                                }
+            if (text != null) {
+                string lower = text.down();
+                if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
+                    if (win.loading_state != null) win.loading_state.network_failure_detected = true;
+                    // Immediately show error message and hide spinner to prevent UI dead-end
+                    win.hide_loading_spinner();
+                    win.show_error_message(text);
+                    // Cancel the timeout since we're showing error now (defensive check)
+                    if (win.loading_state != null) {
+                        var timeout_id = win.loading_state.initial_reveal_timeout_id;
+                        if (timeout_id > 0) {
+                            try {
+                                Source.remove(timeout_id);
+                                win.loading_state.initial_reveal_timeout_id = 0;
+                            } catch (GLib.Error e) {
+                                warning("Failed to remove timeout: %s", e.message);
                             }
                         }
-                        return false;
                     }
+                    return false;
                 }
-            } catch (GLib.Error e) { }
-            try { win.update_content_header(); } catch (GLib.Error e) { }
+            }
+            win.update_content_header();
             return false;
         });
     }
@@ -80,25 +78,23 @@ public class FetchNewsController {
                 }
             }
 
-            try {
-                // Safely access managers through local variables
-                var cat_mgr = w.category_manager;
-                var layout_mgr = w.layout_manager;
-                var article_mgr = w.article_manager;
+            // Safely access managers through local variables
+            var cat_mgr = w.category_manager;
+            var layout_mgr = w.layout_manager;
+            var article_mgr = w.article_manager;
 
-                // Track articles for adaptive layout (regular categories only, not RSS feeds)
-                if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
-                    bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
-                                         !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
-                                         w.prefs != null && w.prefs.category != "saved";
-                    if (is_regular_cat) {
-                        try { layout_mgr.track_category_article(cur.seq); } catch (GLib.Error e) { }
-                    }
+            // Track articles for adaptive layout (regular categories only, not RSS feeds)
+            if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
+                bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
+                                     !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
+                                     w.prefs != null && w.prefs.category != "saved";
+                if (is_regular_cat) {
+                    layout_mgr.track_category_article(cur.seq);
                 }
-                if (article_mgr != null) {
-                    try { article_mgr.add_item(title, url, thumbnail, category_id, source_name); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
+            }
+            if (article_mgr != null) {
+                article_mgr.add_item(title, url, thumbnail, category_id, source_name);
+            }
             return false;
         });
     }
@@ -115,10 +111,10 @@ public class FetchNewsController {
         if (win == null) return;
 
         // === PHASE 1: Cleanup and preparation ===
-        try { if (win.image_manager != null) win.image_manager.cleanup_stale_downloads(); } catch (GLib.Error e) { }
+        if (win.image_manager != null) win.image_manager.cleanup_stale_downloads();
 
         // Reset article manager state (clears articles, stops carousel, cancels pending timeouts)
-        try { if (win.article_manager != null) win.article_manager.reset_for_new_fetch(); } catch (GLib.Error e) { }
+        if (win.article_manager != null) win.article_manager.reset_for_new_fetch();
 
         // Clear old article tracking before fetching to prevent count accumulation
         // Skip clearing during initial_phase (startup) so unreadFetchService counts are preserved
@@ -133,12 +129,14 @@ public class FetchNewsController {
         }
 
         // Prepare layout (clears hero/featured containers, rebuilds columns)
-        win.update_sidebar_for_source();
+        // NOTE: Sidebar rebuild removed - it's wasteful to rebuild on every fetch
+        // The sidebar only needs to rebuild when news sources change (in prefs), not on every category switch
+        // win.update_sidebar_for_source();
         bool is_topten = win.category_manager.is_topten_view();
-        try { win.layout_manager.prepare_for_new_fetch(is_topten); } catch (GLib.Error e) { }
+        win.layout_manager.prepare_for_new_fetch(is_topten);
 
         // Reset adaptive layout tracking for new fetch
-        try { win.layout_manager.reset_adaptive_tracking(); } catch (GLib.Error e) { }
+        win.layout_manager.reset_adaptive_tracking();
 
         // For regular categories that may use adaptive layout, mark that we're awaiting
         // the adaptive layout check so the spinner stays visible until layout is finalized
@@ -151,38 +149,34 @@ public class FetchNewsController {
         if (is_regular_category && win.loading_state != null) {
             win.loading_state.awaiting_adaptive_layout = true;
         }
-
+        
         // Clean up memory
         win.cleanup_old_content();
         win.article_manager.article_buffer.clear();
         win.article_manager.articles_shown = 0;
 
         // Adjust preview cache size for Local News
-        try {
-            int cache_size = win.category_manager.is_local_news_view() ? 6 : 12;
-            PreviewCacheManager.get_cache().set_capacity(cache_size);
-        } catch (GLib.Error e) { }
+        int cache_size = win.category_manager.is_local_news_view() ? 6 : 12;
+        PreviewCacheManager.get_cache().set_capacity(cache_size);
 
         // === PHASE 2: Early exit checks ===
         bool is_myfeed_category = win.category_manager.is_myfeed_category();
         if (is_myfeed_category && !win.prefs.personalized_feed_enabled) {
-            try { win.update_content_header(); } catch (GLib.Error e) { }
-            try { win.update_personalization_ui(); } catch (GLib.Error e) { }
+            win.update_content_header();
+            win.update_personalization_ui();
             win.hide_loading_spinner();
             return;
         }
 
         // === PHASE 3: Begin loading state ===
-        try {
-            var loading_state = win.loading_state;
-            if (loading_state != null) {
-                loading_state.begin_fetch();
-                // Explicitly hide any previous error messages to ensure clean state
-                // This is critical when switching categories after a timeout error
-                loading_state.hide_error_message();
-            }
-        } catch (GLib.Error e) { }
-        try { win.update_content_header_now(); } catch (GLib.Error e) { }
+        var loading_state = win.loading_state;
+        if (loading_state != null) {
+            loading_state.begin_fetch();
+            // Explicitly hide any previous error messages to ensure clean state
+            // This is critical when switching categories after a timeout error
+            loading_state.hide_error_message();
+        }
+        win.update_content_header_now();
 
         // Create a new FetchContext early so early timeouts can use it.
         // This invalidates any previous context and holds a weak reference
@@ -192,7 +186,6 @@ public class FetchNewsController {
         uint my_seq = ctx.seq;
 
         // Safety timeout: reveal after a reasonable maximum to avoid blocking forever
-        var loading_state = win.loading_state;
         if (loading_state != null) {
             loading_state.initial_reveal_timeout_id = Timeout.add(NewsWindow.INITIAL_MAX_WAIT_MS, () => {
                 if (!FetchContext.is_current(my_seq)) return false;
@@ -206,47 +199,35 @@ public class FetchNewsController {
                 if (ls == null) return false;
 
                 if (!ls.initial_items_populated) {
-                    try {
-                        var network_monitor = GLib.NetworkMonitor.get_default();
-                        if (!network_monitor.get_network_available()) {
-                            w.show_error_message("No network connection detected. Check your connection and try again.");
-                        } else {
-                            w.show_error_message();
-                        }
-                    } catch (GLib.Error e) { }
+                    var network_monitor = GLib.NetworkMonitor.get_default();
+                    if (!network_monitor.get_network_available()) {
+                        w.show_error_message("No network connection detected. Check your connection and try again.");
+                    } else {
+                        w.show_error_message();
+                    }
                 } else {
                     // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
                     // After RSS timeout, initial_phase is already false, so directly show the container
-                    try {
-                        if (w.loading_state != null) {
-                            w.loading_state.initial_phase = false;
-                            w.loading_state.hero_image_loaded = false;
-                        }
-                        w.hide_loading_spinner();
-                        if (w.main_content_container != null) {
-                            w.main_content_container.set_visible(true);
-                        }
+                    if (w.loading_state != null) {
+                        w.loading_state.initial_phase = false;
+                        w.loading_state.hero_image_loaded = false;
+                    }
+                    w.hide_loading_spinner();
+                    if (w.main_content_container != null) {
+                        w.main_content_container.set_visible(true);
+                    }
 
-                        // If offline but we have cached content, show offline toast instead of error
-                        var network_monitor = GLib.NetworkMonitor.get_default();
-                        if (!network_monitor.get_network_available()) {
-                            w.show_toast("Offline - showing cached articles");
-                        }
-                    } catch (GLib.Error e) { }
+                    // If offline but we have cached content, show offline toast instead of error
+                    var network_monitor = GLib.NetworkMonitor.get_default();
+                    if (!network_monitor.get_network_available()) {
+                        w.show_toast("Offline - showing cached articles");
+                    }
                 }
                 ls.initial_reveal_timeout_id = 0;
                 return false;
             });
         }
         
-        // NOTE: previously we took and later unreffed extra strong refs
-        // to `self_ref` and `ctx` via timeouts. That pattern caused
-        // use-after-free races when Vala-generated closure data was
-        // freed while other callbacks still attempted to reference it.
-        // We now rely on `FetchContext.is_current()` and
-        // `FetchContext.current_context()` to validate access instead
-        // of manipulating refcounts here.
-
         // Wrapped set_label: only update if this fetch is still current
         SetLabelFunc wrapped_set_label = (text) => {
             // Schedule UI updates on the main loop to avoid touching
@@ -262,21 +243,19 @@ public class FetchNewsController {
                 // network failure flag so the timeout can present a more
                 // specific offline message. Many fetchers call set_label
                 // with "... Error loading ..." when network issues occur.
-                try {
-                    if (text != null) {
-                        string lower = text.down();
-                        if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
-                            var ls = w.loading_state;
-                            if (ls != null) {
-                                ls.network_failure_detected = true;
-                            }
+                if (text != null) {
+                    string lower = text.down();
+                    if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
+                        var ls = w.loading_state;
+                        if (ls != null) {
+                            ls.network_failure_detected = true;
                         }
                     }
-                } catch (GLib.Error e) { }
+                }
 
                 // Use the centralized header updater which enforces the exact
                 // UI contract (icon + category, or Search Results when active).
-                try { w.update_content_header(); } catch (GLib.Error e) { }
+                w.update_content_header();
                 return false;
             });
         };
@@ -338,16 +317,12 @@ public class FetchNewsController {
                 }
 
                 // 6. Clear image bookkeeping
-                try {
-                    if (view_state_mgr != null && view_state_mgr.url_to_picture != null) {
-                        view_state_mgr.url_to_picture.clear();
-                    }
-                } catch (GLib.Error e) { }
-                try {
-                    if (image_mgr != null && image_mgr.hero_requests != null) {
-                        image_mgr.hero_requests.clear();
-                    }
-                } catch (GLib.Error e) { }
+                if (view_state_mgr != null && view_state_mgr.url_to_picture != null) {
+                    view_state_mgr.url_to_picture.clear();
+                }
+                if (image_mgr != null && image_mgr.hero_requests != null) {
+                    image_mgr.hero_requests.clear();
+                }
 
                 // 7. Reset remaining articles state
                 if (article_mgr != null) {
@@ -414,9 +389,8 @@ public class FetchNewsController {
             // Don't check limit here - let add_item_immediate_to_column() handle it after filtering
             
             // If we're in Local News mode, enqueue and process in small batches to avoid UI lockups
-            try {
-                var prefs_local = NewsPreferences.get_instance();
-                if (prefs_local != null && prefs_local.category == "local_news") {
+            var prefs_local = NewsPreferences.get_instance();
+            if (prefs_local != null && prefs_local.category == "local_news") {
                     local_news_queue.add(new ArticleItem(title, url, thumbnail, category_id, source_name));
                     local_news_items_enqueued++;
                     if (!local_news_flush_scheduled) {
@@ -456,11 +430,9 @@ public class FetchNewsController {
                                 local_news_flush_scheduled = false;
 
                                 // Local News queue fully drained: refresh its badge now
-                                try {
-                                    if (w.sidebar_manager != null) {
-                                        w.sidebar_manager.update_badge_for_category("local_news");
-                                    }
-                                } catch (GLib.Error e) { }
+                                if (w.sidebar_manager != null) {
+                                    w.sidebar_manager.update_badge_for_category("local_news");
+                                }
 
                                 return false;
                             }
@@ -468,7 +440,6 @@ public class FetchNewsController {
                     }
                     return;
                 }
-            } catch (GLib.Error e) { /* best-effort */ }
             
             // Add the article (handles deduplication)
             w.article_manager.add_item(title, url, thumbnail, category_id, source_name);
@@ -517,8 +488,8 @@ public class FetchNewsController {
 
             if (!has_personalized_cats && !has_custom_rss) {
                 // No personalized categories AND no custom RSS sources - nothing to show
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                try { wrapped_set_label("My Feed — No personalized categories or custom RSS feeds configured"); } catch (GLib.Error e) { }
+                wrapped_clear();
+                wrapped_set_label("My Feed — No personalized categories or custom RSS feeds configured");
                 win.hide_loading_spinner();
                 return;
             }
@@ -545,17 +516,13 @@ public class FetchNewsController {
         // user has zero or one preferred source selected.
         if (win.category_manager.is_frontpage_view()) {
             // Present the multi-source label/logo in the header
-            try {
-                var header_mgr = win.header_manager;
-                if (header_mgr != null) {
-                    header_mgr.setup_multi_source_header();
-                }
-            } catch (GLib.Error e) { }
+            var header_mgr = win.header_manager;
+            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
-            try { wrapped_clear(); } catch (GLib.Error e) { }
-            // Debug marker: set a distinct label so we can confirm this branch runs
-            try { wrapped_set_label("Frontpage — Loading from backend (branch 1)"); } catch (GLib.Error e) { }
+                wrapped_clear();
+                // Debug marker: set a distinct label so we can confirm this branch runs
+                wrapped_set_label("Frontpage — Loading from backend (branch 1)");
             NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
 
             // Schedule badge refresh for frontpage
@@ -570,16 +537,12 @@ public class FetchNewsController {
         // regardless of preferred_sources. Same early-return logic as frontpage.
         if (win.category_manager.is_topten_view()) {
             // Present the multi-source label/logo in the header
-            try {
-                var header_mgr = win.header_manager;
-                if (header_mgr != null) {
-                    header_mgr.setup_multi_source_header();
-                }
-            } catch (GLib.Error e) { }
+            var header_mgr = win.header_manager;
+            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
-            try { wrapped_clear(); } catch (GLib.Error e) { }
-            try { wrapped_set_label("Top Ten — Loading from backend"); } catch (GLib.Error e) { }
+                wrapped_clear();
+                wrapped_set_label("Top Ten — Loading from backend");
             NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
 
             // Schedule badge refresh for topten
@@ -605,16 +568,14 @@ public class FetchNewsController {
             // category, simply request the backend frontpage once and present
             // the combined/multi-source UI.
             if (win.category_manager.is_frontpage_view()) {
-                try {
                 var header_mgr = win.header_manager;
                 if (header_mgr != null) header_mgr.setup_multi_source_header();
-            } catch (GLib.Error e) { }
                 used_multi = true;
 
                 // Clear UI and ask the backend frontpage fetcher once. NewsService
                 // will route a request with current_category == "frontpage" to
                 // the Paperboy backend fetcher regardless of the NewsSource value.
-                try { wrapped_clear(); } catch (GLib.Error e) { }
+                wrapped_clear();
                 NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
                 
                 // Schedule badge refresh for frontpage
@@ -627,13 +588,11 @@ public class FetchNewsController {
 
             // Same logic for Top Ten: request backend headlines endpoint
             if (win.category_manager.is_topten_view()) {
-                try {
                 var header_mgr = win.header_manager;
                 if (header_mgr != null) header_mgr.setup_multi_source_header();
-            } catch (GLib.Error e) { }
                 used_multi = true;
 
-                try { wrapped_clear(); } catch (GLib.Error e) { }
+                wrapped_clear();
                 NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
                 
                 // Schedule badge refresh for topten
@@ -645,10 +604,8 @@ public class FetchNewsController {
             }
 
             // Display a combined label and bundled monochrome logo for multi-source mode
-            try {
-                var header_mgr = win.header_manager;
-                if (header_mgr != null) header_mgr.setup_multi_source_header();
-            } catch (GLib.Error e) { }
+            var header_mgr = win.header_manager;
+            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
             //Use SourceManager to get enabled sources as enums
@@ -704,7 +661,7 @@ public class FetchNewsController {
                 // Clear the UI once up-front so we don't race with asynchronous
                 // fetch completions (a later-completing fetch shouldn't be able
                 // to wipe results added by an earlier one).
-                try { wrapped_clear(); } catch (GLib.Error e) { }
+                wrapped_clear();
 
                 // Use a no-op clear for all individual fetches since we've
                 // already cleared above. Keep a combined label while in multi
@@ -718,7 +675,7 @@ public class FetchNewsController {
                             if (cur == null) return false;
                             var w = cur.window;
                             if (w == null) return false;
-                            try { w.update_content_header(); } catch (GLib.Error e) { }
+                            w.update_content_header();
                             return false;
                         });
                 };
@@ -774,8 +731,8 @@ public class FetchNewsController {
             // Special-case: when viewing The Frontpage in single-source
             // mode, make sure we still request the backend frontpage API.
             if (win.category_manager.is_frontpage_view()) {
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                try { wrapped_set_label("Frontpage — Loading from backend (single-source)"); } catch (GLib.Error e) { }
+                wrapped_clear();
+                wrapped_set_label("Frontpage — Loading from backend (single-source)");
                 NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
                 
                 // Schedule badge refresh for frontpage
@@ -788,8 +745,8 @@ public class FetchNewsController {
 
             // Same for Top Ten in single-source mode
             if (win.category_manager.is_topten_view()) {
-                try { wrapped_clear(); } catch (GLib.Error e) { }
-                try { wrapped_set_label("Top Ten — Loading from backend (single-source)"); } catch (GLib.Error e) { }
+                wrapped_clear();
+                wrapped_set_label("Top Ten — Loading from backend (single-source)");
                 NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
                 
                 // Schedule badge refresh for topten
@@ -802,7 +759,7 @@ public class FetchNewsController {
 
             if (is_myfeed_mode) {
                 // Fetch each personalized category for the single effective source
-                try { wrapped_clear(); } catch (GLib.Error e) { }
+                wrapped_clear();
                 ClearItemsFunc no_op_clear = () => { };
                 SetLabelFunc label_fn = (text) => {
                     Idle.add(() => {
@@ -811,7 +768,7 @@ public class FetchNewsController {
                         if (cur == null) return false;
                         var w = cur.window;
                         if (w == null) return false;
-                        try { w.update_content_header(); } catch (GLib.Error e) { }
+                        w.update_content_header();
                         return false;
                     });
                 };
@@ -843,7 +800,7 @@ public class FetchNewsController {
                                     if (cur == null) return false;
                                     var w = cur.window;
                                     if (w == null) return false;
-                                    try { w.update_content_header(); } catch (GLib.Error e) { }
+                                    w.update_content_header();
                                     return false;
                                 });
                             },
@@ -861,7 +818,7 @@ public class FetchNewsController {
                     sidebar_mgr.schedule_badge_refresh("myfeed", my_seq);
                 }
             } else {
-                try { wrapped_clear(); } catch (GLib.Error e) { }
+                wrapped_clear();
                 NewsService.fetch(
                     win.effective_news_source(),
                     win.prefs.category,
@@ -908,61 +865,53 @@ public class FetchNewsController {
         var w = cur.window;
         if (w == null) return;
 
-        try {
-            var cat_mgr = w.category_manager;
-            var store = w.article_state_store;
-            var layout_mgr = w.layout_manager;
+        var cat_mgr = w.category_manager;
+        var store = w.article_state_store;
+        var layout_mgr = w.layout_manager;
 
-            // Only check for regular categories, not special ones
-            if (cat_mgr != null && store != null && layout_mgr != null) {
-                if (!cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
-                    !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
-                    !cat_mgr.is_rssfeed_view() && w.prefs != null && w.prefs.category != "saved") {
+        // Only check for regular categories, not special ones
+        if (cat_mgr != null && store != null && layout_mgr != null) {
+            if (!cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
+                !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
+                !cat_mgr.is_rssfeed_view() && w.prefs != null && w.prefs.category != "saved") {
 
-                    // Get actual deduplicated count from ArticleStateStore
-                    int actual_count = store.get_total_count_for_category(w.prefs.category);
-                    stderr.printf("DEBUG: adaptive layout check - category=%s, actual_count=%d\n",
-                                 w.prefs.category, actual_count);
+                // Get actual deduplicated count from ArticleStateStore
+                int actual_count = store.get_total_count_for_category(w.prefs.category);
+                stderr.printf("DEBUG: adaptive layout check - category=%s, actual_count=%d\n",
+                             w.prefs.category, actual_count);
 
-                    if (actual_count < 15 && actual_count > 0) {
-                        stderr.printf("DEBUG: triggering adaptive 2-hero layout (count=%d < 15)\n", actual_count);
-                        Idle.add(() => {
-                            if (!FetchContext.is_current(my_seq)) return false;
-                            try {
-                                var c = FetchContext.current_context();
-                                if (c != null && c.window != null && c.window.layout_manager != null) {
-                                    // rebuild_as_category_heroes() will handle revealing content
-                                    c.window.layout_manager.rebuild_as_category_heroes();
-                                }
-                            } catch (GLib.Error e) { }
-                            return false;
-                        });
-                    } else if (actual_count >= 15) {
-                        // No adaptive layout needed (>= 15 articles), allow normal spinner hiding
-                        try {
+                if (actual_count < 15 && actual_count > 0) {
+                    stderr.printf("DEBUG: triggering adaptive 2-hero layout (count=%d < 15)\n", actual_count);
+                    Idle.add(() => {
+                        if (!FetchContext.is_current(my_seq)) return false;
+                        var c = FetchContext.current_context();
+                        if (c != null && c.window != null && c.window.layout_manager != null) {
+                            // rebuild_as_category_heroes() will handle revealing content
+                            c.window.layout_manager.rebuild_as_category_heroes();
+                        }
+                        return false;
+                    });
+                } else if (actual_count >= 15) {
+                    // No adaptive layout needed (>= 15 articles), allow normal spinner hiding
+                    if (w.loading_state != null) {
+                        w.loading_state.awaiting_adaptive_layout = false;
+                        // Trigger reveal if items are already populated
+                        if (w.loading_state.initial_items_populated) {
+                            // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
                             if (w.loading_state != null) {
-                                w.loading_state.awaiting_adaptive_layout = false;
-                                // Trigger reveal if items are already populated
-                                if (w.loading_state.initial_items_populated) {
-                                    // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
-                                    try {
-                                        if (w.loading_state != null) {
-                                            w.loading_state.initial_phase = false;
-                                            w.loading_state.hero_image_loaded = false;
-                                        }
-                                        w.hide_loading_spinner();
-                                        if (w.main_content_container != null) {
-                                            w.main_content_container.set_visible(true);
-                                        }
-                                    } catch (GLib.Error e) { }
-                                }
+                                w.loading_state.initial_phase = false;
+                                w.loading_state.hero_image_loaded = false;
                             }
-                        } catch (GLib.Error e) { }
+                            w.hide_loading_spinner();
+                            if (w.main_content_container != null) {
+                                w.main_content_container.set_visible(true);
+                            }
+                        }
                     }
-                    // If actual_count == 0, keep waiting (don't clear flag yet)
                 }
+                // If actual_count == 0, keep waiting (don't clear flag yet)
             }
-        } catch (GLib.Error e) { }
+        }
     }
 
     // Extracted helper: handle the RSS-feed branch of fetch_news.
@@ -980,18 +929,25 @@ public class FetchNewsController {
 
         string? feed_url = win.category_manager.get_rssfeed_url();
         if (feed_url == null || feed_url.length == 0) {
-            try { wrapped_set_label("RSS Feed — Invalid feed URL"); } catch (GLib.Error e) { }
-            try { win.hide_loading_spinner(); } catch (GLib.Error e) { }
+            wrapped_set_label("RSS Feed — Invalid feed URL");
+            win.hide_loading_spinner();
             return true;
         }
 
         // Get the RSS source details from the database
         var rss_store = Paperboy.RssSourceStore.get_instance();
         var rss_source = rss_store.get_source_by_url(feed_url);
-        string feed_name = rss_source != null ? rss_source.name : "RSS Feed";
+        string feed_name_plain = rss_source != null ? rss_source.name : "RSS Feed";
+
+        // Build display name with logo URL for article cards (format: "Name||logo_url")
+        string feed_name = feed_name_plain;
+        string? logo_url = SourceMetadata.get_logo_url_for_source(feed_name_plain);
+        if (logo_url != null && logo_url.length > 0) {
+            feed_name = feed_name_plain + "||" + logo_url;
+        }
 
         // Clear UI and schedule feed fetch
-        try { wrapped_clear(); } catch (GLib.Error e) { }
+        wrapped_clear();
         ClearItemsFunc no_op_clear = () => { };
         // Forward labels from the fetcher into the centralized header updater
         // Use an Idle-based handler that performs the fetch-validity check
@@ -1004,7 +960,6 @@ public class FetchNewsController {
                 if (cur == null) return false;
                 var w = cur.window;
                 if (w == null) return false;
-                try {
                     if (text != null) {
                         string lower = text.down();
                         if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
@@ -1021,26 +976,21 @@ public class FetchNewsController {
                             return false;
                         }
                     }
-                } catch (GLib.Error e) { }
 
-                try { w.update_content_header(); } catch (GLib.Error e) { }
+                w.update_content_header();
                 return false;
             });
         };
 
         // Set badge to placeholder before clearing article tracking
-        try {
-            if (win.sidebar_manager != null) {
-                win.sidebar_manager.set_badge_placeholder_for_source(feed_name);
-            }
-        } catch (GLib.Error e) { }
+        if (win.sidebar_manager != null) {
+            win.sidebar_manager.set_badge_placeholder_for_source(feed_name_plain);
+        }
 
         // Clear old article tracking for this source so unread counts reflect current feed content
-        try {
-            if (win.article_state_store != null) {
-                win.article_state_store.clear_article_tracking_for_source(feed_name);
-            }
-        } catch (GLib.Error e) { }
+        if (win.article_state_store != null) {
+            win.article_state_store.clear_article_tracking_for_source(feed_name_plain);
+        }
 
         // Load articles from cache first for instant display
         var cache = Paperboy.RssArticleCache.get_instance();
@@ -1068,15 +1018,13 @@ public class FetchNewsController {
             }
 
             // Update label to show we're displaying cached content
-            try {
-                var network_monitor = GLib.NetworkMonitor.get_default();
-                if (!network_monitor.get_network_available()) {
-                    label_fn("%s — Offline, showing %d cached articles".printf(feed_name, cached_articles.size));
-                    win.show_toast("Offline - showing cached articles");
-                } else {
-                    label_fn("%s — Loaded %d articles from cache".printf(feed_name, cached_articles.size));
-                }
-            } catch (GLib.Error e) { }
+            var network_monitor = GLib.NetworkMonitor.get_default();
+            if (!network_monitor.get_network_available()) {
+                label_fn("%s — Offline, showing %d cached articles".printf(feed_name_plain, cached_articles.size));
+                win.show_toast("Offline - showing cached articles");
+            } else {
+                label_fn("%s — Loaded %d articles from cache".printf(feed_name_plain, cached_articles.size));
+            }
         }
 
         // Fetch fresh articles from the RSS feed in the background to update cache
@@ -1109,11 +1057,9 @@ public class FetchNewsController {
         );
 
         // Update badge after articles finish loading
-        try {
-            if (win.sidebar_manager != null) {
-                win.sidebar_manager.schedule_source_badge_refresh(feed_name, my_seq);
-            }
-        } catch (GLib.Error e) { }
+        if (win.sidebar_manager != null) {
+            win.sidebar_manager.schedule_source_badge_refresh(feed_name, my_seq);
+        }
 
         return true;
     }
@@ -1129,15 +1075,15 @@ public class FetchNewsController {
         AddItemFunc wrapped_add
     ) {
         if (win == null) return false;
-        try { if (win.prefs == null) return false; } catch (GLib.Error e) { }
+        if (win.prefs == null) return false;
 
         if (win.prefs.category != "saved") return false;
 
-        try { win.header_manager.update_for_saved_articles(); } catch (GLib.Error e) { }
+        win.header_manager.update_for_saved_articles();
 
         if (win.article_state_store == null) {
-            try { wrapped_set_label("Saved Articles — Unable to load saved articles"); } catch (GLib.Error e) { }
-            try { win.hide_loading_spinner(); } catch (GLib.Error e) { }
+            wrapped_set_label("Saved Articles — Unable to load saved articles");
+            win.hide_loading_spinner();
             return true;
         }
 
@@ -1161,11 +1107,11 @@ public class FetchNewsController {
 
         if (saved_articles.size == 0) {
             if (current_search_query.length > 0) {
-                try { wrapped_set_label("Saved Articles — No results for " + current_search_query); } catch (GLib.Error e) { }
+                wrapped_set_label("Saved Articles — No results for " + current_search_query);
             } else {
-                try { wrapped_set_label("Saved Articles — No saved articles yet"); } catch (GLib.Error e) { }
+                wrapped_set_label("Saved Articles — No saved articles yet");
             }
-            try { win.hide_loading_spinner(); } catch (GLib.Error e) { }
+            win.hide_loading_spinner();
             return true;
         }
 
@@ -1180,9 +1126,9 @@ public class FetchNewsController {
 
             // Set label based on search query
             if (current_search_query.length > 0) {
-                try { wrapped_set_label("Search Results: " + current_search_query + " in Saved Articles"); } catch (GLib.Error e) { }
+                wrapped_set_label("Search Results: " + current_search_query + " in Saved Articles");
             } else {
-                try { wrapped_set_label("Saved Articles"); } catch (GLib.Error e) { }
+                wrapped_set_label("Saved Articles");
             }
 
             // Clear columns
@@ -1198,9 +1144,7 @@ public class FetchNewsController {
                     if (cur4 != null) {
                         var w4 = cur4.window;
                         if (w4 != null) {
-                            try {
-                                wrapped_add(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved");
-                            } catch (GLib.Error e) { }
+                            wrapped_add(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved");
                         }
                     }
                 }
@@ -1212,21 +1156,17 @@ public class FetchNewsController {
             }
 
             // Update sidebar badge for Saved now that articles are registered
-            try {
-                if (w.sidebar_manager != null) {
-                    w.sidebar_manager.update_badge_for_category("saved");
-                }
-            } catch (GLib.Error e) { }
+            if (w.sidebar_manager != null) {
+                w.sidebar_manager.update_badge_for_category("saved");
+            }
 
             // Reveal content immediately - saved articles are local, no network wait needed
             // CRITICAL: Don't use reveal_initial_content() here because it exits early if initial_phase is false
             // After an RSS timeout error, initial_phase is already false, so we must directly show the container
-            try { w.hide_loading_spinner(); } catch (GLib.Error e) { }
-            try {
-                if (w.main_content_container != null) {
-                    w.main_content_container.set_visible(true);
-                }
-            } catch (GLib.Error e) { }
+            w.hide_loading_spinner();
+            if (w.main_content_container != null) {
+                w.main_content_container.set_visible(true);
+            }
             return false;
         });
 
@@ -1251,21 +1191,21 @@ public class FetchNewsController {
         string file_path = config_dir + "/local_feeds";
 
         if (!GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
-            try { wrapped_set_label("Local News — No local feeds configured"); } catch (GLib.Error e) { }
-            try { win.hide_loading_spinner(); } catch (GLib.Error e) { }
+            wrapped_set_label("Local News — No local feeds configured");
+            win.hide_loading_spinner();
             return true;
         }
 
         string contents = "";
         try { GLib.FileUtils.get_contents(file_path, out contents); } catch (GLib.Error e) { contents = ""; }
         if (contents == null || contents.strip() == "") {
-            try { wrapped_set_label("Local News — No local feeds configured"); } catch (GLib.Error e) { }
-            try { win.hide_loading_spinner(); } catch (GLib.Error e) { }
+            wrapped_set_label("Local News — No local feeds configured");
+            win.hide_loading_spinner();
             return true;
         }
 
         // Clear UI and schedule per-feed fetches
-        try { wrapped_clear(); } catch (GLib.Error e) { }
+        wrapped_clear();
         ClearItemsFunc no_op_clear = () => { };
         uint my_seq = ctx.seq;
         SetLabelFunc label_fn = (text) => {
@@ -1275,13 +1215,13 @@ public class FetchNewsController {
                 if (cur == null) return false;
                 var w = cur.window;
                 if (w == null) return false;
-                try { w.update_content_header_now(); } catch (GLib.Error e) { }
+                w.update_content_header_now();
                 return false;
             });
         };
 
         // Ensure the top-right source badge / header reflects Local News
-        try { win.update_content_header_now(); } catch (GLib.Error e) { }
+        win.update_content_header_now();
 
         string[] lines = contents.split("\n");
         bool found_feed = false;
@@ -1289,12 +1229,8 @@ public class FetchNewsController {
             string u = lines[i].strip();
             if (u.length == 0) continue;
             found_feed = true;
-            try {
-                var article_mgr = win.article_manager;
-                if (article_mgr != null) {
-                    article_mgr.featured_used = true;
-                }
-            } catch (GLib.Error e) { }
+            var article_mgr = win.article_manager;
+            if (article_mgr != null) article_mgr.featured_used = true;
             RssFeedProcessor.fetch_rss_url(
                 u,
                 "Local Feed",
@@ -1308,7 +1244,7 @@ public class FetchNewsController {
             );
         }
         if (!found_feed) {
-            try { wrapped_set_label("Local News — No local feeds configured"); } catch (GLib.Error e) { }
+            wrapped_set_label("Local News — No local feeds configured");
         }
 
         return true;
