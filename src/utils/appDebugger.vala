@@ -15,13 +15,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using GLib;
 
 /* 
  * Small centralized app debugger helper so logging can be reused across
  * modules without duplicating file IO logic.
  */
-
-using GLib;
 
 public class AppDebugger : GLib.Object {
     private const int64 MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB max

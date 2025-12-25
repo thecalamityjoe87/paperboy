@@ -33,7 +33,9 @@ namespace Paperboy {
 
         // Cache configuration
         public const int MAX_ARTICLES_PER_FEED = 200;
+        public const int MAX_FRONTPAGE_ARTICLES = 120;  // Keep more frontpage articles for variety
         private const int64 CACHE_RETENTION_DAYS = 30;
+        private const int64 FRONTPAGE_RETENTION_HOURS = 48;  // Keep frontpage fresh (2 days)
 
         public struct CachedArticle {
             public string url;
@@ -42,6 +44,9 @@ namespace Paperboy {
             public string? published_date;
             public string feed_url;
             public int64 cached_at;
+            public string? source_name;
+            public string? logo_url;
+            public string? category_id;
         }
 
         private RssArticleCache() {
@@ -87,6 +92,9 @@ namespace Paperboy {
                     published_date TEXT,
                     feed_url TEXT NOT NULL,
                     cached_at INTEGER NOT NULL,
+                    source_name TEXT,
+                    logo_url TEXT,
+                    category_id TEXT,
                     UNIQUE(url, feed_url)
                 );
             """;
@@ -117,12 +125,37 @@ namespace Paperboy {
             if (rc != Sqlite.OK) {
                 GLib.warning("RssArticleCache: Failed to create time index: %s", errmsg);
             }
+
+            // Migrate existing database to add new columns if they don't exist
+            migrate_schema();
+        }
+
+        private void migrate_schema() {
+            if (db == null) return;
+
+            // Add source_name column if it doesn't exist
+            string add_source_name = """
+                ALTER TABLE rss_articles ADD COLUMN source_name TEXT;
+            """;
+            db.exec(add_source_name, null, null);  // Ignore errors if column exists
+
+            // Add logo_url column if it doesn't exist
+            string add_logo_url = """
+                ALTER TABLE rss_articles ADD COLUMN logo_url TEXT;
+            """;
+            db.exec(add_logo_url, null, null);  // Ignore errors if column exists
+
+            // Add category_id column if it doesn't exist
+            string add_category_id = """
+                ALTER TABLE rss_articles ADD COLUMN category_id TEXT;
+            """;
+            db.exec(add_category_id, null, null);  // Ignore errors if column exists
         }
 
         /**
          * Cache an article from an RSS feed
          */
-        public bool cache_article(string url, string title, string? thumbnail_url, string? published_date, string feed_url) {
+        public bool cache_article(string url, string title, string? thumbnail_url, string? published_date, string feed_url, string? source_name = null, string? logo_url = null, string? category_id = null) {
             if (db == null) {
                 GLib.warning("RssArticleCache: Database not initialized");
                 return false;
@@ -136,8 +169,8 @@ namespace Paperboy {
 
             // Use INSERT OR REPLACE to update cached_at if article already exists
             string sql = """
-                INSERT OR REPLACE INTO rss_articles (url, title, thumbnail_url, published_date, feed_url, cached_at)
-                VALUES (?, ?, ?, ?, ?, ?);
+                INSERT OR REPLACE INTO rss_articles (url, title, thumbnail_url, published_date, feed_url, cached_at, source_name, logo_url, category_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
             """;
 
             Sqlite.Statement stmt;
@@ -153,6 +186,9 @@ namespace Paperboy {
             stmt.bind_text(4, published_date ?? "");
             stmt.bind_text(5, feed_url);
             stmt.bind_int64(6, now);
+            stmt.bind_text(7, source_name ?? "");
+            stmt.bind_text(8, logo_url ?? "");
+            stmt.bind_text(9, category_id ?? "");
 
             rc = stmt.step();
             if (rc != Sqlite.DONE) {
@@ -180,7 +216,7 @@ namespace Paperboy {
 
             // Get articles ordered by cached_at (most recent first)
             string sql = """
-                SELECT url, title, thumbnail_url, published_date, feed_url, cached_at
+                SELECT url, title, thumbnail_url, published_date, feed_url, cached_at, source_name, logo_url, category_id
                 FROM rss_articles
                 WHERE feed_url = ?
                 ORDER BY cached_at DESC
@@ -207,6 +243,12 @@ namespace Paperboy {
                 article.published_date = (pub != null && pub.length > 0) ? pub : null;
                 article.feed_url = stmt.column_text(4);
                 article.cached_at = stmt.column_int64(5);
+                string? src_name = stmt.column_text(6);
+                article.source_name = (src_name != null && src_name.length > 0) ? src_name : null;
+                string? logo = stmt.column_text(7);
+                article.logo_url = (logo != null && logo.length > 0) ? logo : null;
+                string? cat_id = stmt.column_text(8);
+                article.category_id = (cat_id != null && cat_id.length > 0) ? cat_id : null;
 
                 articles.add(article);
             }
@@ -227,44 +269,82 @@ namespace Paperboy {
             }
 
             int64 now = GLib.get_real_time() / 1000000;
-            int64 cutoff_time = now - (CACHE_RETENTION_DAYS * 24 * 60 * 60);
 
-            // Delete articles older than retention period
-            string delete_old = """
+            // Different retention for frontpage vs RSS feeds
+            int64 frontpage_cutoff = now - (FRONTPAGE_RETENTION_HOURS * 60 * 60);
+            int64 rss_cutoff = now - (CACHE_RETENTION_DAYS * 24 * 60 * 60);
+
+            // Delete old frontpage articles (older than 48 hours)
+            string delete_old_frontpage = """
                 DELETE FROM rss_articles
-                WHERE cached_at < ?;
+                WHERE feed_url = 'paperboy:frontpage' AND cached_at < ?;
             """;
 
             Sqlite.Statement stmt;
-            int rc = db.prepare_v2(delete_old, -1, out stmt);
+            int rc = db.prepare_v2(delete_old_frontpage, -1, out stmt);
             if (rc == Sqlite.OK) {
-                stmt.bind_int64(1, cutoff_time);
+                stmt.bind_int64(1, frontpage_cutoff);
                 rc = stmt.step();
                 if (rc != Sqlite.DONE) {
-                    GLib.warning("RssArticleCache: Failed to delete old articles: %s", db.errmsg());
+                    GLib.warning("RssArticleCache: Failed to delete old frontpage articles: %s", db.errmsg());
                 }
             }
 
-            // Enforce per-feed article limit
-            // For each feed, keep only the most recent MAX_ARTICLES_PER_FEED articles
-            string delete_excess = """
+            // Delete old RSS articles (older than 30 days)
+            string delete_old_rss = """
                 DELETE FROM rss_articles
-                WHERE id IN (
+                WHERE feed_url != 'paperboy:frontpage' AND cached_at < ?;
+            """;
+
+            rc = db.prepare_v2(delete_old_rss, -1, out stmt);
+            if (rc == Sqlite.OK) {
+                stmt.bind_int64(1, rss_cutoff);
+                rc = stmt.step();
+                if (rc != Sqlite.DONE) {
+                    GLib.warning("RssArticleCache: Failed to delete old RSS articles: %s", db.errmsg());
+                }
+            }
+
+            // Enforce frontpage article limit (120 articles)
+            string delete_excess_frontpage = """
+                DELETE FROM rss_articles
+                WHERE feed_url = 'paperboy:frontpage' AND id NOT IN (
+                    SELECT id FROM rss_articles
+                    WHERE feed_url = 'paperboy:frontpage'
+                    ORDER BY cached_at DESC
+                    LIMIT ?
+                );
+            """;
+
+            rc = db.prepare_v2(delete_excess_frontpage, -1, out stmt);
+            if (rc == Sqlite.OK) {
+                stmt.bind_int(1, MAX_FRONTPAGE_ARTICLES);
+                rc = stmt.step();
+                if (rc != Sqlite.DONE) {
+                    GLib.warning("RssArticleCache: Failed to delete excess frontpage articles: %s", db.errmsg());
+                }
+            }
+
+            // Enforce per-feed article limit for RSS feeds (200 articles each)
+            string delete_excess_rss = """
+                DELETE FROM rss_articles
+                WHERE feed_url != 'paperboy:frontpage' AND id IN (
                     SELECT id FROM (
                         SELECT id,
                                ROW_NUMBER() OVER (PARTITION BY feed_url ORDER BY cached_at DESC) AS rn
                         FROM rss_articles
+                        WHERE feed_url != 'paperboy:frontpage'
                     )
                     WHERE rn > ?
                 );
             """;
 
-            rc = db.prepare_v2(delete_excess, -1, out stmt);
+            rc = db.prepare_v2(delete_excess_rss, -1, out stmt);
             if (rc == Sqlite.OK) {
                 stmt.bind_int(1, MAX_ARTICLES_PER_FEED);
                 rc = stmt.step();
                 if (rc != Sqlite.DONE) {
-                    GLib.warning("RssArticleCache: Failed to delete excess articles: %s", db.errmsg());
+                    GLib.warning("RssArticleCache: Failed to delete excess RSS articles: %s", db.errmsg());
                 }
             }
 

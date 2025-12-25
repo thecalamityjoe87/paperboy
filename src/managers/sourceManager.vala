@@ -45,7 +45,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     private weak NewsWindow window;
 
     // Signals for UI operations
-    public signal void request_show_toast(string message);
+    public signal void request_show_toast(string message, bool persistent = false);
 
     public SourceManager(NewsPreferences prefs) {
         this.prefs = prefs;
@@ -178,6 +178,86 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         return prefs.news_source;
     }
 
+    // Helper: Strip metadata separators from display name (||logo_url and ##category::cat)
+    private static string strip_metadata_separators(string? name) {
+        if (name == null || name.length == 0) return "";
+
+        string result = name;
+
+        // Strip logo URL separator
+        int pipe_idx = result.index_of("||");
+        if (pipe_idx >= 0) {
+            result = result.substring(0, pipe_idx);
+        }
+
+        // Strip category suffix
+        int cat_idx = result.index_of("##category::");
+        if (cat_idx >= 0) {
+            result = result.substring(0, cat_idx);
+        }
+
+        return result.strip();
+    }
+
+    // Helper: Construct Google favicon URL for a given host
+    private static string get_favicon_url(string host) {
+        return "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+    }
+
+    // Helper: Parse source metadata string and extract display name and logo URL
+    // Format: "Display Name||logo_url##category::cat"
+    private static void parse_source_metadata(string? metadata, out string? display_name, out string? logo_url) {
+        display_name = null;
+        logo_url = null;
+
+        if (metadata == null || metadata.length == 0) return;
+
+        display_name = metadata;
+        int pipe_idx = metadata.index_of("||");
+        if (pipe_idx >= 0 && metadata.length > pipe_idx + 2) {
+            display_name = metadata.substring(0, pipe_idx).strip();
+            logo_url = metadata.substring(pipe_idx + 2).strip();
+            // Remove category suffix from logo URL
+            logo_url = strip_metadata_separators(logo_url);
+        }
+
+        // Remove category suffix from display name
+        display_name = strip_metadata_separators(display_name);
+    }
+
+    // Helper: Resolve metadata with priority fallback
+    // Priority: primary > secondary > existing > fallback
+    private static string? resolve_metadata_value(string? primary, string? secondary, string? existing, string? fallback) {
+        if (primary != null && primary.length > 0) return primary;
+        if (secondary != null && secondary.length > 0) return secondary;
+        if (existing != null && existing.length > 0) return existing;
+        return fallback;
+    }
+
+    // Helper: Fetch and resolve complete metadata for a source
+    // Checks SourceMetadata, falls back to provided values and favicon service
+    private void resolve_complete_metadata(
+        string host,
+        string article_url,
+        string? api_display_name,
+        string? api_logo_url,
+        string? article_display_name,
+        string? article_logo_url,
+        string fallback_display_name,
+        out string resolved_display_name,
+        out string resolved_logo_url
+    ) {
+        // Check if we already have SourceMetadata for this source
+        string? existing_display_name = null;
+        string? existing_logo_url = null;
+        string? existing_filename = null;
+        SourceMetadata.get_source_info_by_url(article_url, out existing_display_name, out existing_logo_url, out existing_filename);
+
+        // Resolve with priority: API > article > existing > fallback
+        resolved_display_name = resolve_metadata_value(api_display_name, article_display_name, existing_display_name, fallback_display_name);
+        resolved_logo_url = resolve_metadata_value(api_logo_url, article_logo_url, existing_logo_url, get_favicon_url(host));
+    }
+
     // Normalize source display name to canonical ID
     // Handles names like "The Guardian||logo_url", "Bloomberg", etc.
     // Returns null if not a recognized built-in source
@@ -186,20 +266,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return null;
         }
 
-        // Strip everything after "||" (logo URL separator)
-        string clean_name = display_name;
-        int separator_pos = display_name.index_of("||");
-        if (separator_pos >= 0) {
-            clean_name = display_name.substring(0, separator_pos);
-        }
-
-        // Also strip "##category::" suffix if present
-        int category_pos = clean_name.index_of("##category::");
-        if (category_pos >= 0) {
-            clean_name = clean_name.substring(0, category_pos);
-        }
-
-        string low = clean_name.strip().down();
+        string clean_name = strip_metadata_separators(display_name);
+        string low = clean_name.down();
 
         // Map display names to source IDs
         if (low.index_of("guardian") >= 0) return "guardian";
@@ -266,20 +334,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Resolve a NewsSource from a provided display/source name if possible;
     // fall back to URL inference when the name is missing or unrecognized.
     public static NewsSource resolve_source(string? source_name, string url) {
-        // Parse encoded source name format: "SourceName||logo_url##category::cat"
-        string? clean_name = source_name;
-        if (source_name != null && source_name.length > 0) {
-            // Strip logo URL if present
-            int pipe_idx = source_name.index_of("||");
-            if (pipe_idx >= 0 && source_name.length > pipe_idx) {
-                clean_name = source_name.substring(0, pipe_idx).strip();
-            }
-            // Strip category suffix if present
-            int cat_idx = clean_name.index_of("##category::");
-            if (cat_idx >= 0 && clean_name.length > cat_idx) {
-                clean_name = clean_name.substring(0, cat_idx).strip();
-            }
-        }
+        // Strip metadata separators
+        string? clean_name = strip_metadata_separators(source_name);
 
         // Start with URL-inferred source as a sensible default
         NewsSource resolved = infer_source_from_url(url);
@@ -658,7 +714,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                 // Priority 3: Try Google Favicon Service (robust fallback)
                 if (logo_url == null && host != null) {
-                    logo_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+                    logo_url = get_favicon_url(host);
                 }
 
                 // Step 3: Add to database
@@ -668,11 +724,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 // Step 4: Save metadata and fetch logo
                 // Always fetch logo for newly added sources to ensure we have the best quality image
                 if (success && logo_url != null && host != null) {
-                    try {
-                        SourceMetadata.update_index_and_fetch(host, final_name, logo_url, "https://" + host, window.session, feed_url);
-                    } catch (GLib.Error e) {
-                        GLib.warning("Failed to save source metadata: %s", e.message);
-                    }
+                    SourceMetadata.update_index_and_fetch(host, final_name, logo_url, "https://" + host, window.session, feed_url);
                 }
 
                 // Step 5: Callback with result
@@ -774,28 +826,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     return null;
                 }
 
-                // Parse source metadata from article if provided (format: "Display Name||logo_url##category::cat")
-                // We do this early so it's available for both API results and local fallback
+                // Parse source metadata from article if provided
                 string? article_display_name = null;
                 string? article_logo_url = null;
-                if (source_metadata != null && source_metadata.length > 0) {
-                    article_display_name = source_metadata;
-                    int pipe_idx = source_metadata.index_of("||");
-                    if (pipe_idx >= 0 && source_metadata.length > pipe_idx + 2) {
-                        article_display_name = source_metadata.substring(0, pipe_idx).strip();
-                        article_logo_url = source_metadata.substring(pipe_idx + 2).strip();
-                        // Remove category suffix if present
-                        int cat_idx = article_logo_url.index_of("##category::");
-                            if (cat_idx >= 0 && article_logo_url.length > cat_idx) {
-                                article_logo_url = article_logo_url.substring(0, cat_idx).strip();
-                        }
-                    }
-                    // Remove category suffix from display name if present
-                    int cat_idx = article_display_name.index_of("##category::");
-                        if (cat_idx >= 0 && article_display_name.length > cat_idx) {
-                            article_display_name = article_display_name.substring(0, cat_idx).strip();
-                    }
-                }
+                parse_source_metadata(source_metadata, out article_display_name, out article_logo_url);
 
                 // Call the backend /rss/discover endpoint
                 bool rss_discovery_succeeded = false;
@@ -883,58 +917,19 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                             var store = Paperboy.RssSourceStore.get_instance();
                                             bool success = store.add_source(final_title, feed_url, null);
 
-                                            // Save source metadata if this is a new source and we have logo information
-                                            // Priority: article metadata > API metadata
-                                            // This ensures logos are saved even for manually-added sources (not just from articles)
+                                            // Save source metadata for the new source
                                             if (success) {
-                                                string? save_display_name = metadata_display_name;
-                                                string? save_logo_url = metadata_logo_url;
+                                                string save_display_name;
+                                                string save_logo_url;
+                                                resolve_complete_metadata(
+                                                    host, article_url,
+                                                    api_source_name, api_logo_url,
+                                                    article_display_name, article_logo_url,
+                                                    final_title,
+                                                    out save_display_name, out save_logo_url
+                                                );
 
-
-                                                // Priority 2: Check if we already have SourceMetadata for this source
-                                                // (from previous Front Page/Top Ten views - this is the key!)
-                                                // Use URL-based lookup since we have the article URL, not the exact display name
-                                                if (save_display_name == null || save_display_name.length == 0 || save_logo_url == null || save_logo_url.length == 0) {
-                                                    string? existing_display_name = null;
-                                                    string? existing_logo_url = null;
-                                                    string? existing_filename = null;
-                                                    SourceMetadata.get_source_info_by_url(article_url, out existing_display_name, out existing_logo_url, out existing_filename);
-
-                                                    if (existing_display_name != null && existing_display_name.length > 0) {
-                                                        if (save_display_name == null || save_display_name.length == 0) {
-                                                            save_display_name = existing_display_name;
-                                                        }
-                                                    }
-                                                    if (existing_logo_url != null && existing_logo_url.length > 0) {
-                                                        if (save_logo_url == null || save_logo_url.length == 0) {
-                                                            save_logo_url = existing_logo_url;
-                                                        }
-                                                    }
-                                                }
-
-                                                // Priority 3: Fall back to API-provided metadata
-                                                if (save_display_name == null || save_display_name.length == 0) {
-                                                    save_display_name = api_source_name;
-                                                }
-                                                if (save_logo_url == null || save_logo_url.length == 0) {
-                                                    save_logo_url = api_logo_url;
-                                                }
-
-                                                // Priority 4: Final fallback - use Google favicon service (better quality)
-                                                // This ensures we ALWAYS create metadata, even for brand new sources
-                                                if (save_logo_url == null || save_logo_url.length == 0) {
-                                                    save_logo_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
-                                                    GLib.warning("RSS Discovery: Using Google favicon service for %s", host);
-                                                }
-
-                                                // Create metadata - we always have a logo URL now (at minimum, favicon)
-                                                try {
-                                                    // Use final_title as fallback if we still don't have a display name
-                                                    string metadata_name = (save_display_name != null && save_display_name.length > 0) ? save_display_name : final_title;
-                                                    SourceMetadata.update_index_and_fetch(host, metadata_name, save_logo_url, "https://" + host, window.session, feed_url);
-                                                } catch (GLib.Error e) {
-                                                    GLib.warning("Failed to save source metadata: %s", e.message);
-                                                }
+                                                SourceMetadata.update_index_and_fetch(host, save_display_name, save_logo_url, "https://" + host, window.session, feed_url);
                                             }
 
                                             if (success) {
@@ -981,6 +976,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                         });
                     } else {
                         GLib.message("Attempting local html2rss fallback for host: %s", host);
+
+                        // Update toast to inform user that feed generation is starting
+                        GLib.Idle.add(() => {
+                            if (window != null) window.clear_persistent_toast();
+                            request_show_toast("Generating feed for this source...", true);
+                            return false;
+                        });
 
                         string? script_path = null;
                         var binary_candidates = new ArrayList<string>();
@@ -1187,22 +1189,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                     if (success) {
                                         string? logo_url_to_save = existing_logo_url;
                                         
-                                        // If we don't have a logo URL yet, try to construct one from the host
+                                        // If we don't have a logo URL yet, use article logo or favicon fallback
                                         if (logo_url_to_save == null || logo_url_to_save.length == 0) {
-                                            if (article_logo_url != null && article_logo_url.length > 0) {
-                                                logo_url_to_save = article_logo_url;
-                                            } else {
-                                                // Use Google favicon service (better quality than direct favicon.ico)
-                                                logo_url_to_save = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
-                                            }
+                                            logo_url_to_save = (article_logo_url != null && article_logo_url.length > 0) ? article_logo_url : get_favicon_url(host);
                                         }
-                                        
-                                        try {
-                                            SourceMetadata.update_index_and_fetch(host, feed_name, logo_url_to_save, "https://" + host, window.session, gen_feed);
-                                            GLib.print("✓ Saved metadata for %s\n", feed_name);
-                                        } catch (GLib.Error e) {
-                                            GLib.warning("Failed to save source metadata: %s", e.message);
-                                        }
+
+                                        SourceMetadata.update_index_and_fetch(host, feed_name, logo_url_to_save, "https://" + host, window.session, gen_feed);
+                                        GLib.print("✓ Saved metadata for %s\n", feed_name);
                                     }
                                     
                                     if (success) {

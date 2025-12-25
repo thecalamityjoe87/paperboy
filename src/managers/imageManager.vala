@@ -394,16 +394,16 @@ public class ImageManager : GLib.Object {
                             }
                         }
                     } else {
-                                    Idle.add(() => {
-                                        if (FetchContext.current != gen_seq) {
-                                            try { pending_downloads.remove(url); } catch (GLib.Error e) { }
-                                            try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
-                                            try {
-                                                string nkey = UrlUtils.normalize_article_url(url);
-                                                if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                            } catch (GLib.Error e) { }
-                                            return false;
-                                        }
+                            Idle.add(() => {
+                                if (FetchContext.current != gen_seq) {
+                                    try { pending_downloads.remove(url); } catch (GLib.Error e) { }
+                                    try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
+                                    try {
+                                        string nkey = UrlUtils.normalize_article_url(url);
+                                        if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
+                                    } catch (GLib.Error e) { }
+                                    return false;
+                                }
                             var list2 = pending_downloads.get(url);
                             if (list2 != null) {
                                 foreach (var pic in list2) { set_fallback_placeholder_for(pic, target_w, target_h, url); if (window.loading_state != null) window.loading_state.on_image_loaded(pic); }

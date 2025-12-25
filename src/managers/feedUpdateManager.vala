@@ -20,9 +20,9 @@ using Gee;
 
 /**
  * FeedUpdateManager - Manages automatic updates of RSS feeds
- * 
  * Updates all followed RSS feeds on app startup and tracks update timestamps
  */
+
 public class FeedUpdateManager : GLib.Object {
     private weak NewsWindow window;
     private HashMap<string, int64?> update_timestamps;

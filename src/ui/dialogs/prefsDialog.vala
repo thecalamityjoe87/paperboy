@@ -43,7 +43,10 @@ public class PrefsDialog : GLib.Object {
             "Personalized Feed Categories",
             "Select which categories to include in your personalized feed"
         );
-        categories_dialog.set_prefer_wide_layout(true);
+        // For now, we'll remove this property call
+        // This causes issue with distros that are running
+        // older versions of libadwaita.
+        //categories_dialog.set_prefer_wide_layout(true);
 
         // Helper to find data file for bundled icons
         string? find_data_file_local(string relative) {
@@ -1004,6 +1007,11 @@ public class PrefsDialog : GLib.Object {
 
                 confirm_dialog.choose.begin(parent_win, null, (obj, res) => {
                     string response = confirm_dialog.choose.end(res);
+                    // Always rebuild sidebar when sources change, regardless of refresh choice
+                    // This ensures Bloomberg-specific categories are removed when Bloomberg is disabled
+                    if (parent_win.sidebar_manager != null) {
+                        parent_win.sidebar_manager.rebuild_sidebar();
+                    }
                     if (response == "refresh") {
                         parent_win.fetch_news();
                     }
@@ -1020,7 +1028,7 @@ public class PrefsDialog : GLib.Object {
     var about = new Adw.AboutDialog();
     about.set_application_name("Paperboy");
     about.set_application_icon("paperboy"); // Use the correct icon name
-    about.set_version("0.7.4a");
+    about.set_version("0.7.5a");
     about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
     about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
     about.set_website("https://github.com/thecalamityjoe87/paperboy");

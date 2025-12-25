@@ -59,6 +59,12 @@ namespace Managers {
             url_to_card.set(normalized, card);
         }
 
+        public void unregister_card_for_url(string normalized) {
+            if (normalized == null) return;
+            if (url_to_card == null) return;
+            url_to_card.remove(normalized);
+        }
+
         public void mark_article_viewed(string url) {
             if (url == null) return;
             string n = normalize_article_url(url);
