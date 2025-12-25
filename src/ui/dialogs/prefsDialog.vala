@@ -43,7 +43,10 @@ public class PrefsDialog : GLib.Object {
             "Personalized Feed Categories",
             "Select which categories to include in your personalized feed"
         );
-        categories_dialog.set_prefer_wide_layout(true);
+        // For now, we'll remove this property call
+        // This causes issue with distros that are running
+        // older versions of libadwaita.
+        //categories_dialog.set_prefer_wide_layout(true);
 
         // Helper to find data file for bundled icons
         string? find_data_file_local(string relative) {
