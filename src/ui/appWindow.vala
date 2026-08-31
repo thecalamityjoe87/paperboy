@@ -43,7 +43,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Restored fields required by window logic (many are accessed from other modules)
     public NewsPreferences prefs;
     public LocationDialog location_dialog;
-    public GLib.Rand rng;
     public Managers.ViewStateManager? view_state;
     // Image caching moved to ImageCache (pixbuf-backed). Do not store
     // Gdk.Texture or Gdk.Pixbuf in window fields; use `image_cache`.
@@ -165,8 +164,6 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Apply the saved size (use get_default_size()/set_default_size for Wayland correctness)
         set_default_size(saved_w, saved_h);
-        // Initialize RNG for per-card randomization
-        rng = new GLib.Rand();
         // Initialize preferences early (needed for building sidebar selection state)
         prefs = NewsPreferences.get_instance();
         // Initialize source and category managers early (needed for all source/category logic)

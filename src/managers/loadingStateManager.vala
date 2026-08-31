@@ -348,14 +348,11 @@ public class LoadingStateManager : GLib.Object {
                 fchild = fchild.get_next_sibling();
             }
         }
-        if (window.layout_manager.columns != null) {
-            foreach (var col in window.layout_manager.columns) {
-                if (col == null) continue;
-                var child = col.get_first_child();
-                while (child != null) {
-                    cards.add(child);
-                    child = child.get_next_sibling();
-                }
+        if (window.layout_manager.columns_row != null) {
+            var child = window.layout_manager.columns_row.get_first_child();
+            while (child != null) {
+                cards.add(child);
+                child = child.get_next_sibling();
             }
         }
 
@@ -389,33 +386,14 @@ public class LoadingStateManager : GLib.Object {
                 }
             }
 
-            // Then animate grid in row-major order (left-to-right, top-to-bottom)
-            if (window.layout_manager != null && window.layout_manager.columns != null) {
-                var cols = window.layout_manager.columns;
-                int ncols = cols.length;
-                // compute max rows
-                int max_rows = 0;
-                for (int ci = 0; ci < ncols; ci++) {
-                    var col = cols[ci];
-                    if (col == null) continue;
-                    int cnt = 0;
-                    var ch = col.get_first_child();
-                    while (ch != null) { cnt++; ch = ch.get_next_sibling(); }
-                    if (cnt > max_rows) max_rows = cnt;
-                }
-
-                for (int r = 0; r < max_rows && (int) animate_index < limit; r++) {
-                    for (int c = 0; c < ncols && (int) animate_index < limit; c++) {
-                        var col = cols[c];
-                        if (col == null) continue;
-                        var child = col.get_first_child();
-                        int idx = 0;
-                        while (child != null && idx < r) { child = child.get_next_sibling(); idx++; }
-                        if (child != null) {
-                            window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                            animate_index++;
-                        }
-                    }
+            // Then animate the grid in row-major order (left-to-right, top-to-bottom).
+            // The grid is a real Gtk.FlowBox, so insertion order already is row-major order.
+            if (window.layout_manager != null && window.layout_manager.columns_row != null) {
+                var child = window.layout_manager.columns_row.get_first_child();
+                while (child != null && (int) animate_index < limit) {
+                    window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                    animate_index++;
+                    child = child.get_next_sibling();
                 }
             }
 
@@ -447,15 +425,11 @@ public class LoadingStateManager : GLib.Object {
                 // Only reveal if we have a reasonable number of articles
                 // This prevents revealing with just 1-2 articles when more are expected
                 int article_count = 0;
-                    if (window.layout_manager != null && window.layout_manager.columns != null) {
-                        foreach (var col in window.layout_manager.columns) {
-                            if (col != null) {
-                                var child = col.get_first_child();
-                                while (child != null) {
-                                    article_count++;
-                                    child = child.get_next_sibling();
-                                }
-                            }
+                    if (window.layout_manager != null && window.layout_manager.columns_row != null) {
+                        var child = window.layout_manager.columns_row.get_first_child();
+                        while (child != null) {
+                            article_count++;
+                            child = child.get_next_sibling();
                         }
                     }
                     // Also count hero items

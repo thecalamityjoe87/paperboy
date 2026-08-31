@@ -25,11 +25,11 @@ using Gee;
  public class SearchController : GLib.Object {
 
     /**
-     * Filter article cards from columns and hero container based on a search query
+     * Filter article cards from the grid and hero container based on a search query
      * Creates ArticleCards from matching HeroCards and includes them in results
      */
     public static Gee.ArrayList<ArticleCard> filter_cards_from_columns(
-        GLib.ListModel columns_children,
+        GLib.ListModel grid_children,
         Gtk.Box hero_container,
         string query,
         int col_w,
@@ -39,50 +39,35 @@ using Gee;
     ) {
         var matching_cards = new Gee.ArrayList<ArticleCard>();
         var seen_urls = new Gee.HashSet<string>();
+        bool searching = query.strip().length > 0;
 
-        // If query is empty, return all existing article cards
-        if (query.strip().length == 0) {
-            for (uint col_idx = 0; col_idx < columns_children.get_n_items(); col_idx++) {
-                var column = columns_children.get_item(col_idx) as Gtk.Box;
-                if (column == null) continue;
+        // grid_children holds Gtk.FlowBoxChild wrappers - one per article card
+        for (uint idx = 0; idx < grid_children.get_n_items(); idx++) {
+            var flow_child = grid_children.get_item(idx) as Gtk.Widget;
+            if (flow_child == null) continue;
 
-                var card_roots = column.observe_children();
-                for (uint card_idx = 0; card_idx < card_roots.get_n_items(); card_idx++) {
-                    var card_root = card_roots.get_item(card_idx) as Gtk.Box;
-                    if (card_root == null) continue;
-
-                    ArticleCard? card = card_root.get_data("article-card");
-                    if (card != null) {
-                        matching_cards.add(card);
-                    }
-                }
+            Gtk.Widget? card_root = flow_child;
+            if (flow_child is Gtk.FlowBoxChild) {
+                card_root = ((Gtk.FlowBoxChild) flow_child).get_child();
             }
-            return matching_cards;
-        }
+            if (card_root == null) continue;
 
-        // SEARCHING: Check all regular article cards
-        for (uint col_idx = 0; col_idx < columns_children.get_n_items(); col_idx++) {
-            var column = columns_children.get_item(col_idx) as Gtk.Box;
-            if (column == null) continue;
+            ArticleCard? card = card_root.get_data("article-card");
+            if (card == null) continue;
 
-            var card_roots = column.observe_children();
-            for (uint card_idx = 0; card_idx < card_roots.get_n_items(); card_idx++) {
-                var card_root = card_roots.get_item(card_idx) as Gtk.Box;
-                if (card_root == null) continue;
-
-                ArticleCard? card = card_root.get_data("article-card");
-                if (card != null && !seen_urls.contains(card.url)) {
-                    // Use SearchManager for matching logic
-                    if (Managers.SearchManager.article_matches_query(card.title_text, card.url, query)) {
-                        matching_cards.add(card);
-                        seen_urls.add(card.url);
-                    }
-                }
+            if (!searching) {
+                matching_cards.add(card);
+            } else if (!seen_urls.contains(card.url) &&
+                       Managers.SearchManager.article_matches_query(card.title_text, card.url, query)) {
+                matching_cards.add(card);
+                seen_urls.add(card.url);
             }
         }
 
         // SEARCHING: Check all hero cards and build ArticleCards from matches
-        find_and_build_hero_matches(hero_container, query, seen_urls, matching_cards, col_w, img_h, state_store, window);
+        if (searching) {
+            find_and_build_hero_matches(hero_container, query, seen_urls, matching_cards, col_w, img_h, state_store, window);
+        }
 
         return matching_cards;
     }

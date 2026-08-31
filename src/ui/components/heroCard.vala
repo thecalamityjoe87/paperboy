@@ -54,9 +54,12 @@ public class HeroCard : GLib.Object {
         root.add_css_class("card");
         root.set_size_request(-1, max_total_height);
         root.set_hexpand(true);
-        root.set_vexpand(false);
+        root.set_vexpand(true);
         root.set_halign(Gtk.Align.FILL);
-        root.set_valign(Gtk.Align.START);
+        // FILL (not START) so side-by-side heroes in hero_container stretch to
+        // match whichever one is naturally taller, instead of each keeping its
+        // own smaller natural size and ending up visibly different heights.
+        root.set_valign(Gtk.Align.FILL);
         root.set_margin_start(0);
         root.set_margin_end(0);
 
@@ -81,11 +84,16 @@ public class HeroCard : GLib.Object {
         title_box.set_margin_top(16);
         title_box.set_margin_bottom(16);
         title_box.set_size_request(-1, 80);
-        title_box.set_vexpand(false);
+        // vexpand so, once root fills the row, any extra height (from a
+        // shorter sibling hero needing to match a taller one) is absorbed here
+        // rather than growing past a fixed size and breaking parity between them.
+        title_box.set_vexpand(true);
+        title_box.set_valign(Gtk.Align.FILL);
 
         title_label = new Gtk.Label(title);
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         title_label.set_xalign(0);
+        title_label.set_valign(Gtk.Align.START);
         title_label.set_wrap(true);
         title_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
         title_label.set_lines(3);

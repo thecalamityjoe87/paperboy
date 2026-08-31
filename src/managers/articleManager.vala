@@ -34,9 +34,7 @@ namespace Managers {
         public const int HERO_DEFAULT_HEIGHT = 250;
         public const int TOPTEN_HERO_MAX_HEIGHT = 364;  // 280 * 1.30
         public const int TOPTEN_HERO_DEFAULT_HEIGHT = 273;  // 210 * 1.30
-        public const int CARD_IMAGE_HEIGHT = 200;  // Fixed image height for uniform layout (Top Ten)
-        public const int CARD_TEXT_HEIGHT = 120;   // Minimum card text area height
-        public const int MIN_CARD_IMAGE_HEIGHT = 80;  // Absolute minimum image height
+        public const int CARD_IMAGE_HEIGHT = 220;  // Fixed, never derived from column width
         public const int CARD_HEIGHT_ESTIMATE_OFFSET = 120;
         public const int IMAGE_QUALITY_MULTIPLIER_HIGH = 6;
         public const int IMAGE_QUALITY_MULTIPLIER_MEDIUM = 3;
@@ -53,7 +51,6 @@ namespace Managers {
         // Category distribution
         public Gee.HashMap<string, int> category_column_counts;
         public Gee.ArrayList<string> recent_categories;
-        public int next_column_index;
         public Gee.HashMap<string, int> category_last_column;
         public Gee.ArrayList<string> recent_category_queue;
         
@@ -81,7 +78,6 @@ namespace Managers {
             category_last_column = new Gee.HashMap<string, int>();
             recent_category_queue = new Gee.ArrayList<string>();
             seen_urls = new Gee.HashSet<string>();
-            next_column_index = 0;
         }
 
         /**
@@ -242,7 +238,9 @@ namespace Managers {
                         if (info != null) {
                             target_w = info.last_requested_w;
                         } else if (window.layout_manager != null) {
-                            target_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+                            target_w = window.layout_manager.cached_col_w > 0
+                                ? window.layout_manager.cached_col_w
+                                : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
                         }
                         int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
                         if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(existing, category_id == "local_news");
@@ -275,10 +273,10 @@ namespace Managers {
             }
 
             // Add articles immediately
-            add_item_immediate_to_column(title, url, thumbnail_url, category_id, -1, null, final_source_name);
+            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name);
         }
         
-        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
+        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
 
             // Decode HTML entities in title (e.g., &mdash; → —, &amp; → &)
             string decoded_title = stripHtmlUtils.strip_html(title);
@@ -304,16 +302,6 @@ namespace Managers {
                     }
                     
                     articles_shown++;
-                }
-            }
-            
-            int target_col = -1;
-            if (forced_column != -1) {
-                target_col = forced_column;
-            } else {
-                target_col = next_column_index;
-                if (window.layout_manager != null && window.layout_manager.columns != null) {
-                    next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
                 }
             }
             
@@ -592,36 +580,23 @@ namespace Managers {
             return;
         }
 
-        int variant = window.rng.int_range(0, 3);
+        // All cards use uniform sizing so columns stay evenly spaced.
+        // Use the column width cached for this layout pass (set once in
+        // LayoutManager.rebuild_columns) rather than recomputing it per-card,
+        // so every card gets identical dimensions even if the reported content
+        // width drifts slightly while articles are still streaming in.
         int col_w = 400;
         if (window.layout_manager != null) {
-            col_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+            col_w = window.layout_manager.cached_col_w > 0
+                ? window.layout_manager.cached_col_w
+                : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
         }
         int img_w = col_w;
-        int img_h = 0;
-
-        // Top Ten uses uniform card heights (non-masonry layout)
-        if (category_id == "topten") {
-            img_h = CARD_IMAGE_HEIGHT;  // Fixed image height for uniform layout
-            variant = 0;  // Use consistent variant
-        } else {
-            switch (variant) {
-                case 0:
-                    img_h = (int)(col_w * 0.42);
-                    if (img_h < MIN_CARD_IMAGE_HEIGHT) img_h = MIN_CARD_IMAGE_HEIGHT;
-                    break;
-                case 1:
-                    img_h = (int)(col_w * 0.5);
-                    if (img_h < 100) img_h = 100;
-                    break;
-                default:
-                    img_h = (int)(col_w * 0.58);
-                    if (img_h < CARD_TEXT_HEIGHT) img_h = CARD_TEXT_HEIGHT;
-                    break;
-            }
-
-            img_h = (int)(img_h * 1.2);
-        }
+        // Fixed pixel height, not derived from col_w: any computed value is a
+        // vector for cards to end up with different picture heights if col_w
+        // is read at slightly different times as articles stream in. A hard
+        // constant makes the picture area identical on every card, always.
+        int img_h = CARD_IMAGE_HEIGHT;
 
         string card_display_cat = category_id;
         if (card_display_cat == "frontpage" && source_name != null) {
@@ -631,53 +606,17 @@ namespace Managers {
 
         var chip = window.build_category_chip(card_display_cat);
 
-        // Determine target column for the card
-        if (target_col == -1) {
-            if (window.layout_manager == null || window.layout_manager.columns == null || window.layout_manager.column_heights == null) {
-                warning("ArticleManager: layout_manager or columns not initialized, cannot place card");
-                return;
-            }
-
-            if (window.prefs.category == "topten") {
-                target_col = next_column_index;
-                if (window.layout_manager.columns.length > 0) {
-                    next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
-                }
-            } else {
-                target_col = 0;
-                if (window.layout_manager.column_heights.length > 0 && window.layout_manager.columns.length > 0) {
-                    int random_noise = window.rng.int_range(0, 11);
-                    int best_score = window.layout_manager.column_heights[0] + random_noise;
-                    for (int i = 1; i < window.layout_manager.columns.length && i < window.layout_manager.column_heights.length; i++) {
-                        random_noise = window.rng.int_range(0, 11);
-                        int score = window.layout_manager.column_heights[i] + random_noise;
-                        if (score < best_score) { best_score = score; target_col = i; }
-                    }
-                }
-            }
-        }
-
-        // Bounds check before accessing columns
-        if (window.layout_manager == null || window.layout_manager.columns == null ||
-            target_col < 0 || target_col >= window.layout_manager.columns.length) {
-            warning("ArticleManager: invalid target_col=%d, columns.length=%d", target_col,
-                    window.layout_manager != null && window.layout_manager.columns != null ? window.layout_manager.columns.length : -1);
+        if (window.layout_manager == null) {
+            warning("ArticleManager: layout_manager not initialized, cannot place card");
             return;
         }
-
-        // Make cards ~10% shorter for a tighter layout in Top Ten view
-        int uniform_card_h = (int)((img_h + 100));
 
         var article_card = window.layout_manager.create_and_place_article_card(
             decoded_title,
             url,
             col_w,
             img_h,
-            chip,
-            variant,
-            target_col,
-            window.prefs.category == "topten",
-            uniform_card_h
+            chip
         );
 
         if (category_id != "local_news") {
@@ -815,20 +754,14 @@ namespace Managers {
             
             int articles_to_load = int.min(10, remaining_articles.size - remaining_articles_index);
             
-            // Snapshot current child counts so we can detect newly appended cards
-            int[] col_child_counts = null;
+            // Snapshot current card count so we can detect newly appended cards
+            int prev_card_count = 0;
             int featured_count = 0;
             if (window != null && window.layout_manager != null) {
                 var lm = window.layout_manager;
-                if (lm.columns != null) {
-                    col_child_counts = new int[lm.columns.length];
-                    for (int ci = 0; ci < lm.columns.length; ci++) {
-                        var col = lm.columns[ci];
-                        int cnt = 0;
-                        var child = col.get_first_child();
-                        while (child != null) { cnt++; child = child.get_next_sibling(); }
-                        col_child_counts[ci] = cnt;
-                    }
+                if (lm.columns_row != null) {
+                    var child = lm.columns_row.get_first_child();
+                    while (child != null) { prev_card_count++; child = child.get_next_sibling(); }
                 }
                 if (lm.featured_box != null) {
                     var f = lm.featured_box;
@@ -842,7 +775,7 @@ namespace Managers {
                 // No need to check seen_urls here - articles were already deduplicated
                 // when they were added to remaining_articles queue
                 article_buffer.add(article);
-                add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, -1, null, article.source_name, true);
+                add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, null, article.source_name, true);
             }
 
             // Animate any newly appended cards after they have been inserted
@@ -867,37 +800,18 @@ namespace Managers {
                         }
                     }
 
-                    // Columns new children — animate in row-major order (left-to-right, top-to-bottom)
-                    if (lm2.columns != null) {
-                        int ncols = lm2.columns.length;
-                        // compute current counts per column and max rows
-                        int[] cur_counts = new int[ncols];
-                        int max_rows = 0;
-                        for (int ci = 0; ci < ncols; ci++) {
-                            var col = lm2.columns[ci];
-                            if (col == null) { cur_counts[ci] = 0; continue; }
-                            int cnt = 0;
-                            var ch = col.get_first_child();
-                            while (ch != null) { cnt++; ch = ch.get_next_sibling(); }
-                            cur_counts[ci] = cnt;
-                            if (cnt > max_rows) max_rows = cnt;
-                        }
-
-                        for (int r = 0; r < max_rows; r++) {
-                            for (int c = 0; c < ncols; c++) {
-                                if ((int) animate_index >= 1000000) break; // safety
-                                var col = lm2.columns[c];
-                                if (col == null) continue;
-                                int prev = (col_child_counts != null && c < col_child_counts.length) ? col_child_counts[c] : 0;
-                                // locate child at row r
-                                var child = col.get_first_child();
-                                int idx = 0;
-                                while (child != null && idx < r) { child = child.get_next_sibling(); idx++; }
-                                if (child != null && idx >= prev) {
-                                    window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                                    animate_index++;
-                                }
+                    // New cards in the grid — animate in row-major order (left-to-right,
+                    // top-to-bottom), which is simply insertion order for a Gtk.FlowBox.
+                    if (lm2.columns_row != null) {
+                        var child = lm2.columns_row.get_first_child();
+                        int idx = 0;
+                        while (child != null) {
+                            if (idx >= prev_card_count) {
+                                window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                                animate_index++;
                             }
+                            idx++;
+                            child = child.get_next_sibling();
                         }
                     }
 
@@ -996,7 +910,6 @@ namespace Managers {
             }
 
             // Reset counters
-            next_column_index = 0;
             topten_hero_count = 0;
 
             // Clear featured carousel state
@@ -1109,7 +1022,6 @@ namespace Managers {
             col_w,
             img_h,
             chip,
-            0,
             state_store,
             window
         );

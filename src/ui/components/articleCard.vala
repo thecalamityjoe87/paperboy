@@ -20,6 +20,11 @@ using Gtk;
 using GLib;
 
 public class ArticleCard : GLib.Object {
+    // Fixed height reserved for the title area (margins + up to 3 wrapped
+    // lines), so total card height is a hard constant that never depends on
+    // how much text a given title has.
+    public const int TITLE_AREA_HEIGHT = 60;
+
     public Gtk.Box root;
     public Gtk.Overlay overlay;
     public Gtk.Picture image;
@@ -45,7 +50,7 @@ public class ArticleCard : GLib.Object {
     public signal void save_for_later_requested(string url);
     public signal void share_requested(string url);
 
-    public ArticleCard(string title, string url, int col_w, int img_h, Gtk.Widget chip, int variant, ArticleStateStore? state_store = null, NewsWindow? window = null) {
+    public ArticleCard(string title, string url, int col_w, int img_h, Gtk.Widget chip, ArticleStateStore? state_store = null, NewsWindow? window = null) {
         GLib.Object();
         this.url = url;
         this.title_text = title;
@@ -63,13 +68,21 @@ public class ArticleCard : GLib.Object {
 
         image = new Gtk.Picture();
         image.set_halign(Gtk.Align.FILL);
+        image.set_valign(Gtk.Align.START);
         image.set_hexpand(true);
+        image.set_vexpand(false);
         image.set_size_request(col_w, img_h);
         image.set_content_fit(Gtk.ContentFit.COVER);
         image.set_can_shrink(true);
 
         overlay = new Gtk.Overlay();
         overlay.set_child(image);
+        // Pin the picture to its exact height: if this were allowed to stretch,
+        // a taller row (from a longer title elsewhere) would hand the overlay
+        // extra space, and ContentFit.COVER would render a visibly different
+        // crop/zoom of the photo per card instead of every image matching.
+        overlay.set_valign(Gtk.Align.START);
+        overlay.set_vexpand(false);
 
         // Add the provided category chip overlay (owner computes chip)
         if (chip != null) overlay.add_overlay(chip);
@@ -82,20 +95,24 @@ public class ArticleCard : GLib.Object {
         title_box.set_margin_end(12);
         title_box.set_margin_top(12);
         title_box.set_margin_bottom(12);
-        title_box.set_vexpand(true);
+        // Fixed height reserved for the maximum text this area can ever show
+        // (the label below is capped at 3 lines and ellipsizes past that), so
+        // total card height never varies with how much text a title has. A
+        // short title just leaves blank space in its own reserved area below
+        // it instead of shrinking the whole card.
+        title_box.set_vexpand(false);
+        title_box.set_valign(Gtk.Align.START);
+        title_box.set_size_request(-1, TITLE_AREA_HEIGHT);
 
         title_label = new Gtk.Label(title);
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         title_label.set_xalign(0);
+        title_label.set_valign(Gtk.Align.START);
         title_label.set_wrap(true);
         title_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
         // Size request tuned by caller
         title_label.set_size_request(col_w - 24, -1);
-        switch (variant) {
-            case 0: title_label.set_lines(3); break;
-            case 1: title_label.set_lines(4); break;
-            default: title_label.set_lines(6); break;
-        }
+        title_label.set_lines(3);
         title_box.append(title_label);
         root.append(title_box);
 

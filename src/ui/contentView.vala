@@ -28,7 +28,7 @@ public class ContentView : GLib.Object {
     public Gtk.Box main_content_container;
     public Gtk.Box hero_container;
     public Gtk.Box featured_box;
-    public Gtk.Box columns_row;
+    public Gtk.FlowBox columns_row;
     public Gtk.Box category_icon_holder;
     public Gtk.Label category_label;
     public Gtk.Label category_subtitle;
@@ -171,13 +171,23 @@ public class ContentView : GLib.Object {
         hero_container.append(featured_box);
         main_content_container.append(hero_container);
 
-        // Masonry columns container - also within main container
-        columns_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
+        // Article grid - a real grid (FlowBox) so cards line up into even rows
+        // and columns with consistent gutters, instead of independently
+        // stacking columns that can drift out of alignment.
+        columns_row = new Gtk.FlowBox();
         columns_row.set_halign(Gtk.Align.FILL);
         columns_row.set_valign(Gtk.Align.START);
         columns_row.set_hexpand(true);
         columns_row.set_vexpand(true);
+        // Homogeneous: every card now has a fixed, hard-coded total height
+        // (fixed picture height + fixed title-area height, see ArticleCard),
+        // so this just reinforces that every card and row is forced identical.
         columns_row.set_homogeneous(true);
+        columns_row.set_row_spacing(12);
+        columns_row.set_column_spacing(12);
+        columns_row.set_selection_mode(Gtk.SelectionMode.NONE);
+        columns_row.set_min_children_per_line(3);
+        columns_row.set_max_children_per_line(3);
 
         // Do not call rebuild_columns here; caller will arrange columns
         main_content_container.append(columns_row);
@@ -471,22 +481,6 @@ public class ContentView : GLib.Object {
         // UI presentation: update label
         update_search_label(matching_cards.size, query);
     }
-
-    /**
-     * Update search result label (UI presentation only)
-    private void update_search_label(int match_count, string query) {
-        // Special case for when only 1 article match is found
-        if (match_count > 0 && match_count < 2) {
-            category_subtitle.set_label("Search results: found %d article matching \"%s\"".printf(match_count, query));
-            category_subtitle.set_visible(true);
-        } else if (match_count > 0) {
-            category_subtitle.set_label("Search results: found %d articles matching \"%s\"".printf(match_count, query));
-            category_subtitle.set_visible(true);
-        } else {
-            category_subtitle.set_label("No articles found matching \"%s\"".printf(query));
-            category_subtitle.set_visible(true);
-        }
-    }*/
 
     /**
     * Update search result label (UI presentation only)

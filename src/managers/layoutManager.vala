@@ -27,19 +27,24 @@ namespace Managers {
         // Layout constants
         public const int H_MARGIN = 12;
         public const int COL_SPACING = 12;
-        
+
         // RSS hero card dimensions (for uniform layout in small feeds)
         public const int RSS_HERO_CARD_HEIGHT = 380;
         public const int RSS_HERO_IMAGE_HEIGHT = 300;
         public const int RSS_HERO_TEXT_HEIGHT = 80;
 
-        // Column tracking
-        public Gtk.Box[] columns;
-        public int[] column_heights;
+        // Number of columns in the article grid (3 normally, 4 for Top Ten, 2 for adaptive hero layout)
         public int columns_count = 3;
 
+        // Column width for the current layout pass, fixed once by rebuild_columns()
+        // so every card created afterward gets identical dimensions.
+        public int cached_col_w = 0;
+
         // Container references (set by NewsWindow after construction)
-        public Gtk.Box? columns_row;
+        // columns_row is a real grid (Gtk.FlowBox): every card is a direct child,
+        // laid out into fixed-width rows/columns with uniform gutters, so row and
+        // column alignment is enforced structurally instead of by manual bookkeeping.
+        public Gtk.FlowBox? columns_row;
         public Gtk.Box? hero_container;
         public Gtk.Box? featured_box;
         public Gtk.Box? main_content_container;
@@ -49,19 +54,9 @@ namespace Managers {
         public uint adaptive_layout_timeout_id = 0;
         public int article_count_for_adaptive = 0;
 
-        // Search/filter state - store original card positions during search
-        private Gee.ArrayList<RemovedCard>? all_original_cards = null;
-
-        // Helper class to track cards and their original positions
-        public class RemovedCard {
-            public Gtk.Box card_root;
-            public uint column_index;
-
-            public RemovedCard(Gtk.Box root, uint col_idx) {
-                this.card_root = root;
-                this.column_index = col_idx;
-            }
-        }
+        // Search/filter state - store the original card widgets (in order) so they
+        // can be restored when the search query is cleared.
+        private Gee.ArrayList<Gtk.Widget>? all_original_cards = null;
 
         public LayoutManager(NewsWindow w) {
             window = w;
@@ -217,75 +212,40 @@ namespace Managers {
             return clampi(col_w, 160, 280);
         }
 
-        // Recreate the columns for masonry layout with a new count
+        /**
+        * Unwrap a Gtk.FlowBox's direct child (a Gtk.FlowBoxChild) down to the
+        * actual card widget it wraps.
+        */
+        private Gtk.Widget? unwrap_flow_child(Gtk.Widget? flow_child) {
+            if (flow_child == null) return null;
+            if (flow_child is Gtk.FlowBoxChild) {
+                return ((Gtk.FlowBoxChild) flow_child).get_child();
+            }
+            return flow_child;
+        }
+
+        // Set the number of columns in the article grid. Existing cards reflow
+        // automatically since they're direct children of the FlowBox.
         public void rebuild_columns(int count) {
             if (columns_row == null) return;
 
-            // Collect all existing article widgets from current columns before destroying them
-            var existing_articles = new Gee.ArrayList<Gtk.Widget>();
-            Gtk.Widget? column_child = columns_row.get_first_child();
-            while (column_child != null) {
-                // Each column_child is a Gtk.Box (vertical column)
-                if (column_child is Gtk.Box) {
-                    Gtk.Box col_box = (Gtk.Box) column_child;
-                    Gtk.Widget? article_widget = col_box.get_first_child();
-                        while (article_widget != null) {
-                            Gtk.Widget? next_article = article_widget.get_next_sibling();
-                            // Unparent the article from the old column but keep it alive
-                            col_box.remove(article_widget);
-                            existing_articles.add(article_widget);
-                            article_widget = next_article;
-                        }
-                }
-                column_child = column_child.get_next_sibling();
-            }
-
-            // Now destroy the old columns
-            Gtk.Widget? child = columns_row.get_first_child();
-            while (child != null) {
-                Gtk.Widget? next = child.get_next_sibling();
-                columns_row.remove(child);
-                child.unparent();
-                child = next;
-            }
-
-            // Create new columns
             columns_count = count;
-            columns = new Gtk.Box[count];
-            column_heights = new int[count];
-            for (int i = 0; i < count; i++) {
-                var col = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
-                col.set_valign(Gtk.Align.START);
-                col.set_halign(Gtk.Align.FILL);
-                col.set_hexpand(true);
-                col.set_vexpand(true);
-                // Ensure each column is visible
-                col.set_visible(true);
-                columns[i] = col;
-                column_heights[i] = 0;
-                columns_row.append(col);
-            }
+            columns_row.set_min_children_per_line(count);
+            columns_row.set_max_children_per_line(count);
+            columns_row.set_visible(true);
 
-            // Redistribute existing articles into new columns using round-robin
-            int current_col = 0;
-            foreach (var article in existing_articles) {
-                columns[current_col].append(article);
-                current_col = (current_col + 1) % count;
-            }
-
-            // Log column array and heights after rebuild
-            string heights = "";
-            for (int i = 0; i < column_heights.length; i++) heights += column_heights[i].to_string() + ",";
-            // Ensure the columns row container is visible after rebuilding, if it exists
-            if (columns_row != null) {
-                columns_row.set_visible(true);
-            }
+            // Fix the column width for this layout pass so every card created
+            // afterward gets identical dimensions. Computing this per-card instead
+            // (as before) let it drift as the content area's reported width
+            // shifted slightly while articles were still streaming in, so
+            // different cards baked in different image heights.
+            cached_col_w = estimate_column_width(count);
         }
 
         /**
         * Prepare layout for a new fetch - clears hero/featured containers and rebuilds columns.
         * Call this at the start of fetch_news() to reset layout state.
-        * 
+        *
         * @param is_topten Whether the current view is Top Ten (uses 4 columns, different hero handling)
         */
         public void prepare_for_new_fetch(bool is_topten) {
@@ -320,27 +280,32 @@ namespace Managers {
                 hero_container.append(featured_box);
             }
 
-            // Rebuild columns: Top Ten uses 4-column grid, others use 3-column masonry
+            // Rebuild columns: Top Ten uses a 4-column grid, others use 3
             rebuild_columns(is_topten ? 4 : 3);
         }
 
 
         /**
-        * Common helper for when categories show less than 
+        * Common helper for when categories show less than
         * 15 to adaptively build hero cards
         */
-        public void rebuild_as_adapative_heroes() {  
+        public void rebuild_as_adapative_heroes() {
             // Hide the hero/featured area since we want all articles in columns
             if (hero_container != null) hero_container.set_visible(false);
             if (featured_box != null) featured_box.set_visible(false);
 
-            // Rebuild with 2 columns - existing cards will redistribute
+            // Switch the grid to 2 columns - existing cards reflow in place
             rebuild_columns(2);
 
-            // Apply uniform sizing to all article cards in columns
-            for (int i = 0; i < columns.length; i++) {
-                Gtk.Widget? child = columns[i].get_first_child();
-                while (child != null) {
+            if (columns_row == null) return;
+
+            // Apply uniform sizing to all article cards in the grid
+            Gtk.Widget? flow_child = columns_row.get_first_child();
+            while (flow_child != null) {
+                Gtk.Widget? next = flow_child.get_next_sibling();
+                Gtk.Widget? child = unwrap_flow_child(flow_child);
+
+                if (child != null) {
                     // Force uniform tall hero card dimensions
                     child.set_size_request(-1, RSS_HERO_CARD_HEIGHT);
                     child.add_css_class("rss-hero-card");
@@ -372,8 +337,8 @@ namespace Managers {
                             card_child = card_child.get_next_sibling();
                         }
                     }
-                    child = child.get_next_sibling();
                 }
+                flow_child = next;
             }
         }
 
@@ -389,14 +354,13 @@ namespace Managers {
                 var carousel_items = window.article_manager.featured_carousel_items;
                 if (carousel_items != null && carousel_items.size > 0) {
                     foreach (var item in carousel_items) {
-                        // Re-add each carousel item as a regular card to columns
+                        // Re-add each carousel item as a regular card to the grid
                         // Use bypass_limit=true since these articles were already counted
                         window.article_manager.add_item_immediate_to_column(
                             item.title,
                             item.url,
                             item.thumbnail_url,
                             item.category_id,
-                            -1,  // auto column selection
                             null, // no original_category
                             item.source_name,
                             true  // bypass_limit
@@ -426,23 +390,16 @@ namespace Managers {
         }
 
         /**
-        * Clear all article columns without destroying the column widgets themselves.
+        * Remove all article cards from the grid without destroying the grid widget itself.
         */
         public void clear_columns() {
-            if (columns == null) return;
+            if (columns_row == null) return;
 
-            for (int i = 0; i < columns.length; i++) {
-                if (columns[i] == null) continue;
-
-                Gtk.Widget? child = columns[i].get_first_child();
-                while (child != null) {
-                    Gtk.Widget? next = child.get_next_sibling();
-                    // Properly unparent to avoid lingering refs
-                    columns[i].remove(child);
-                    child = next;
-                }
-                // Reset height tracking
-                column_heights[i] = 0;
+            Gtk.Widget? child = columns_row.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                columns_row.remove(child);
+                child = next;
             }
         }
 
@@ -495,14 +452,10 @@ namespace Managers {
         }
 
         /**
-        * Force a redraw of all article columns.
+        * Force a redraw of the article grid.
         */
         public void refresh_columns() {
-            if (columns == null) return;
-
-            for (int i = 0; i < columns.length; i++) {
-                if (columns[i] != null) columns[i].queue_draw();
-            }
+            if (columns_row != null) columns_row.queue_draw();
         }
 
         /**
@@ -542,7 +495,7 @@ namespace Managers {
         }
 
         /**
-        * Create and place an article card in the specified column.
+        * Create and place an article card into the grid.
         * Returns the ArticleCard object for further configuration.
         */
         public ArticleCard create_and_place_article_card(
@@ -550,11 +503,7 @@ namespace Managers {
             string url,
             int col_w,
             int img_h,
-            Gtk.Widget chip,
-            int variant,
-            int target_col,
-            bool is_topten,
-            int uniform_card_h
+            Gtk.Widget chip
         ) {
             var article_card = new ArticleCard(
                 title,
@@ -562,25 +511,16 @@ namespace Managers {
                 col_w,
                 img_h,
                 chip,
-                variant,
                 window.article_state_store,
                 window
             );
 
-            // Enforce uniform card size for Top Ten view
-            if (is_topten && article_card.root != null) {
-                article_card.root.set_size_request(-1, uniform_card_h);
-            }
+            // ArticleCard fixes its own picture and title-area heights, so every
+            // card has the same total height without needing anything set here.
 
-            // Place the card in the target column
-            if (columns != null && target_col >= 0 && target_col < columns.length) {
-                columns[target_col].append(article_card.root);
-
-                // Update column height tracking
-                int estimated_card_h = (int)((img_h + 120) * 0.95);
-                if (column_heights != null && target_col < column_heights.length) {
-                    column_heights[target_col] += estimated_card_h + 12;
-                }
+            // Append to the grid - Gtk.FlowBox handles row/column placement automatically
+            if (columns_row != null) {
+                columns_row.append(article_card.root);
             }
 
             return article_card;
@@ -596,70 +536,43 @@ namespace Managers {
         }
 
         /**
-        * Store original positions of all cards before filtering
-        * Returns a list of cards with their column indices
+        * Store the original card widgets (in order) before filtering, so they
+        * can be restored exactly when the search query is cleared.
         */
-        public Gee.ArrayList<RemovedCard> store_original_card_positions() {
-            var original_cards = new Gee.ArrayList<RemovedCard>();
+        public Gee.ArrayList<Gtk.Widget> store_original_card_positions() {
+            var original_cards = new Gee.ArrayList<Gtk.Widget>();
 
             if (columns_row == null) return original_cards;
-            var columns_children = columns_row.observe_children();
 
-            for (uint col_idx = 0; col_idx < columns_children.get_n_items(); col_idx++) {
-                var column = columns_children.get_item(col_idx) as Gtk.Box;
-                if (column == null) continue;
-
-                var card_roots = column.observe_children();
-                for (uint card_idx = 0; card_idx < card_roots.get_n_items(); card_idx++) {
-                    var card_root = card_roots.get_item(card_idx) as Gtk.Box;
-                    if (card_root != null) {
-                        original_cards.add(new RemovedCard(card_root, col_idx));
-                    }
+            Gtk.Widget? flow_child = columns_row.get_first_child();
+            while (flow_child != null) {
+                Gtk.Widget? card_root = unwrap_flow_child(flow_child);
+                if (card_root != null) {
+                    original_cards.add(card_root);
                 }
+                flow_child = flow_child.get_next_sibling();
             }
 
             return original_cards;
         }
 
         /**
-        * Remove all cards from all columns
-        * Used during search filtering to clear the layout
+        * Remove all cards from the grid.
+        * Used during search filtering to clear the layout.
         */
         public void clear_all_columns_for_filter() {
-            if (columns_row == null) return;
-            var columns_children = columns_row.observe_children();
-
-            for (uint col_idx = 0; col_idx < columns_children.get_n_items(); col_idx++) {
-                var column = columns_children.get_item(col_idx) as Gtk.Box;
-                if (column == null) continue;
-
-                var card_roots = column.observe_children();
-                for (int card_idx = (int)card_roots.get_n_items() - 1; card_idx >= 0; card_idx--) {
-                    var card_root = card_roots.get_item(card_idx) as Gtk.Box;
-                    if (card_root != null) {
-                        column.remove(card_root);
-                    }
-                }
-            }
+            clear_columns();
         }
 
         /**
-        * Redistribute cards evenly across columns
-        * Used after search filtering to display matching cards
+        * Add matching cards back into the grid after search filtering.
+        * Gtk.FlowBox handles row/column placement automatically.
         */
         public void redistribute_cards_across_columns(Gee.ArrayList<ArticleCard> cards) {
             if (columns_row == null) return;
-            var columns_children = columns_row.observe_children();
 
-            uint num_columns = columns_children.get_n_items();
-            if (num_columns == 0) return;
-
-            for (int i = 0; i < cards.size; i++) {
-                uint target_col = i % num_columns;
-                var column = columns_children.get_item(target_col) as Gtk.Box;
-                if (column != null) {
-                    column.append(cards[i].root);
-                }
+            foreach (var card in cards) {
+                columns_row.append(card.root);
             }
         }
 
@@ -670,20 +583,13 @@ namespace Managers {
             if (all_original_cards == null || all_original_cards.size == 0) return;
             if (columns_row == null) return;
 
-            var columns_children = columns_row.observe_children();
-
             // Clear current layout first
             clear_all_columns_for_filter();
 
-            // Restore each card to its original position
-            foreach (var original in all_original_cards) {
-                if (original.column_index < columns_children.get_n_items()) {
-                    var column = columns_children.get_item(original.column_index) as Gtk.Box;
-                    if (column != null) {
-                        column.append(original.card_root);
-                        original.card_root.set_visible(true);
-                    }
-                }
+            // Restore each card in its original order
+            foreach (var card_root in all_original_cards) {
+                columns_row.append(card_root);
+                card_root.set_visible(true);
             }
 
             // Clear the stored positions
@@ -719,10 +625,7 @@ namespace Managers {
         * Used by UI components that need to know column count without inspecting widgets
         */
         public int get_column_count() {
-            if (columns_row == null) return columns_count; // Fallback to configured count
-
-            var columns_children = columns_row.observe_children();
-            return (int)columns_children.get_n_items();
+            return columns_count;
         }
 
         /**
@@ -739,12 +642,13 @@ namespace Managers {
         }
 
         /**
-        * Get the columns container's children for iteration
-        * Abstracts away the internal layout structure from UI components
+        * Get the grid's card children for iteration (each item is a Gtk.FlowBoxChild
+        * wrapping one article card's root widget).
+        * Abstracts away the internal layout structure from UI components.
         * Returns null if columns_row is not initialized
         *
         * This is used by SearchController to iterate through existing cards
-        * without exposing the internal column structure to ContentView
+        * without exposing the internal grid structure to ContentView
         */
         public GLib.ListModel? get_cards_for_iteration() {
             if (columns_row == null) return null;
