@@ -36,10 +36,20 @@ public delegate void ArticleSnippetCallback(ArticleSnippet article_snippet);
 
 public class ArticleSnippetService : GLib.Object {
     // Fetch a short snippet from an article URL using common meta tags or first paragraph
-    // This service is UI-agnostic and does not touch GTK widgets. It returns
+    // This service is UI-agnostic and does not touch GTK widgets - it returns
     // an ArticlePreview object via the callback containing snippet and
-    // optional published date string.
-    public static void fetch_snippet_async(string url, ArticleSnippetCallback on_done, NewsSource source, string? display_source, Gee.ArrayList<ArticleItem>? article_buffer = null) {
+    // optional published date string. The one exception is attach_hero_snippet
+    // below, a convenience wrapper that does touch a widget (HeroCard) since
+    // its whole purpose is to centralize that glue instead of duplicating it
+    // in every caller.
+    // `owned` on the callback is required: this method hands it to a
+    // background thread and invokes it later via Idle.add, well after this
+    // method itself returns. Without `owned`, Vala treats the callback as
+    // borrowed for the duration of the call and frees its captured closure
+    // data immediately on return, so a caller's callback can be invoked
+    // against already-freed memory (a real crash, not just theoretical -
+    // hit this wiring hero cards up to their snippet through this service).
+    public static void fetch_snippet_async(string url, owned ArticleSnippetCallback on_done, NewsSource source, string? display_source, Gee.ArrayList<ArticleItem>? article_buffer = null) {
         // If caller provided an article buffer, check for a pre-cached snippet
         // for FOX entries (feed-provided NewsArticle objects). If found, return
         // it immediately without performing a network fetch to keep the UI snappy.
@@ -133,6 +143,23 @@ public class ArticleSnippetService : GLib.Object {
             });
             return null;
         });
+    }
+
+    // Convenience wrapper for HeroCard callers: resolves the article's
+    // source and fetches its snippet the same way fetch_snippet_async does
+    // above, then pushes the result into the card itself. This is the one
+    // place in the service allowed to touch a widget - it exists so callers
+    // (ArticleManager, HeroCarousel) don't each need to re-implement the
+    // resolve-then-fetch-then-set-snippet glue inline.
+    public static void attach_hero_snippet(HeroCard card, string url, string? source_name, Gee.ArrayList<ArticleItem>? article_buffer) {
+        NewsSource article_src;
+        bool source_mapped;
+        string? published;
+        ArticleSourceResolver.resolve(source_name, url, article_buffer ?? new Gee.ArrayList<ArticleItem>(), out article_src, out source_mapped, out published);
+        fetch_snippet_async(url, (preview) => {
+            if (card == null) return;
+            card.set_snippet(preview.snippet);
+        }, article_src, source_name, article_buffer);
     }
 
 

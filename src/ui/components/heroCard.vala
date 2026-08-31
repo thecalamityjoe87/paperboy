@@ -23,6 +23,8 @@ public class HeroCard : GLib.Object {
     public Gtk.Overlay overlay;
     public Gtk.Picture image;
     public Gtk.Label title_label;
+    public Gtk.Label? snippet_label;
+    public Gtk.Box title_box;
     public string url;
     public string? source_name;
     public string? category_id;
@@ -50,8 +52,9 @@ public class HeroCard : GLib.Object {
         this.article_state_store = state_store;
         this.parent_window = window;
 
-        root = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        root = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         root.add_css_class("card");
+        root.add_css_class("hero-card");
         root.set_size_request(-1, max_total_height);
         root.set_hexpand(true);
         root.set_vexpand(true);
@@ -63,43 +66,59 @@ public class HeroCard : GLib.Object {
         root.set_margin_start(0);
         root.set_margin_end(0);
 
+        // A Grid with homogeneous columns gives a proportional (not just
+        // even) split that stays 40/60 as the card is resized, which a plain
+        // Box's hexpand can't do on its own.
+        var split = new Gtk.Grid();
+        split.set_column_homogeneous(true);
+        split.set_hexpand(true);
+        split.set_vexpand(true);
+
         image = new Gtk.Picture();
         image.set_halign(Gtk.Align.FILL);
         image.set_hexpand(true);
+        image.set_vexpand(true);
         image.set_size_request(-1, image_h);
         image.set_content_fit(Gtk.ContentFit.COVER);
         image.set_can_shrink(true);
 
         overlay = new Gtk.Overlay();
         overlay.set_child(image);
+        overlay.set_hexpand(true);
+        overlay.set_vexpand(true);
         if (chip != null) {
             overlay.add_overlay(chip);
         }
 
-        root.append(overlay);
-
-        var title_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
-        title_box.set_margin_start(16);
+        title_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 10);
+        title_box.set_margin_start(20);
         title_box.set_margin_end(16);
-        title_box.set_margin_top(16);
+        title_box.set_margin_top(20);
         title_box.set_margin_bottom(16);
-        title_box.set_size_request(-1, 80);
-        // vexpand so, once root fills the row, any extra height (from a
-        // shorter sibling hero needing to match a taller one) is absorbed here
-        // rather than growing past a fixed size and breaking parity between them.
+        title_box.set_hexpand(true);
         title_box.set_vexpand(true);
+        // FILL (not START/CENTER) so the box occupies the pane's full height.
+        // Title/snippet still sit at the top since neither is vexpand, but
+        // this lets a vexpand footer widget (e.g. carousel dots, appended by
+        // HeroCarousel) claim the leftover space and sit flush at the bottom
+        // instead of right under the snippet.
         title_box.set_valign(Gtk.Align.FILL);
 
         title_label = new Gtk.Label(title);
+        title_label.add_css_class("hero-title");
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         title_label.set_xalign(0);
         title_label.set_valign(Gtk.Align.START);
+        title_label.set_hexpand(true);
         title_label.set_wrap(true);
         title_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
-        title_label.set_lines(3);
-        title_label.set_max_width_chars(88);
+        title_label.set_lines(4);
         title_box.append(title_label);
-        root.append(title_box);
+
+        // Text pane takes 2 of 5 columns (40%), picture takes 3 of 5 (60%).
+        split.attach(title_box, 0, 0, 2, 1);
+        split.attach(overlay, 2, 0, 3, 1);
+        root.append(split);
 
         // Attach HeroCard object to root for search functionality
         root.set_data("hero-card", this);
@@ -126,6 +145,47 @@ public class HeroCard : GLib.Object {
                 show_context_menu(x, y);
             });
             root.add_controller(right_click);
+        }
+    }
+
+    // Show (or update, or clear) the snippet line under the title. Called
+    // once ArticleSnippetService resolves, since fetching it is an async
+    // network request rather than something available at construction time.
+    public void set_snippet(string? text) {
+        // The snippet resolves asynchronously (a network fetch), so by the
+        // time it arrives this card may already have been torn down (e.g.
+        // a category switch cleared hero_container). Guard the same way
+        // articlePane.vala does for its own async snippet callback: bail if
+        // the widget tree we'd be touching is no longer live.
+        if (title_box.get_root() == null) return;
+
+        string? cleaned = text != null ? text.strip() : null;
+        if (cleaned == null || cleaned.length == 0) {
+            if (snippet_label != null) {
+                title_box.remove(snippet_label);
+                snippet_label = null;
+            }
+            return;
+        }
+
+        if (snippet_label == null) {
+            snippet_label = new Gtk.Label(cleaned);
+            snippet_label.add_css_class("hero-snippet");
+            snippet_label.set_ellipsize(Pango.EllipsizeMode.END);
+            snippet_label.set_xalign(0);
+            snippet_label.set_valign(Gtk.Align.START);
+            snippet_label.set_hexpand(true);
+            snippet_label.set_wrap(true);
+            snippet_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
+            snippet_label.set_lines(4);
+            // Insert right after the title rather than append, since by the
+            // time this resolves (an async fetch) a footer widget - the
+            // carousel dots - may already have been added after the title,
+            // which would otherwise push the snippet below the dots instead
+            // of keeping it directly under the title where it belongs.
+            title_box.insert_child_after(snippet_label, title_label);
+        } else {
+            snippet_label.set_text(cleaned);
         }
     }
 

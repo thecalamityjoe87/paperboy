@@ -51,8 +51,14 @@ public class DataPathsUtils : GLib.Object {
     // per-user data dir under 'paperboy/', or in the system data dirs.
     // Returns null when not found.
     public static string? find_data_file(string relative) {
-        // Development-time paths (running from project or build dir)
-        string[] dev_prefixes = { "data", "../data" };
+        // Development-time paths (running from project or build dir).
+        // "data/resources" and "../data/resources" are checked too because
+        // files like style.css live under data/resources/ in the repo but
+        // get installed flattened directly into the system paperboy/ data
+        // dir (see meson.build) - without this, a dev build silently falls
+        // through to a stale system-installed copy instead of the one being
+        // edited.
+        string[] dev_prefixes = { "data", "../data", "data/resources", "../data/resources" };
         foreach (var prefix in dev_prefixes) {
             var path = GLib.Path.build_filename(prefix, relative);
             try { if (GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) return path; } catch (GLib.Error e) { }

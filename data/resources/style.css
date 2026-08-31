@@ -1,7 +1,7 @@
 .card {
     background-color: @card_bg_color;
     border-radius: 12px;
-    border: 1px solid alpha(@borders, 0.1);
+    border: 1px solid alpha(@borders, 0.3);
     transition: all 200ms ease;
     min-width: 0;
 }
@@ -15,6 +15,26 @@
 .card picture {
     background-color: @shade_color;
     border-radius: 12px 12px 0 0;
+}
+
+/* Hero cards lay text and picture out side by side (40/60 split) instead
+   of stacking, so the picture only needs rounding on its right edge. */
+.hero-card picture {
+    border-radius: 0 12px 12px 0;
+}
+
+
+.hero-card .hero-title {
+    font-size: 2.1em;
+    line-height: 1.1;
+    font-weight: 800;
+}
+
+.hero-card .hero-snippet {
+    font-size: 1em;
+    line-height: 1.45;
+    font-weight: 400;
+    color: alpha(currentColor, 0.65);
 }
 
 /* Small pill category chip overlaid on images */
@@ -228,7 +248,6 @@
 
 /* Featured hero card styles */
 .card-featured {
-    padding-bottom: 14px;
     margin-top: 8px;
 }
 
@@ -275,14 +294,15 @@
 
 /* Navigation arrow buttons that appear on hover */
 .carousel-nav {
-    /* Larger, higher-contrast nav buttons */
+    /* Larger, higher-contrast nav buttons (sized down ~5% from the original
+       52px/20px/8px) */
     background-color: alpha(black, 0.6);
     color: white;
     border-radius: 9999px;
-    padding: 8px;
-    min-width: 52px;
-    min-height: 52px;
-    font-size: 20px;
+    padding: 7px;
+    min-width: 49px;
+    min-height: 49px;
+    font-size: 19px;
     /* helps symbolic icons scale */
     opacity: 0;
     transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
@@ -292,8 +312,10 @@
     transform: scale(1.08);
 }
 
-/* Show nav buttons when hovering the featured card */
-.card-featured:hover .carousel-nav {
+/* heroCarousel.vala tracks pointer position and toggles this class on
+   whichever nav button is on the hovered side, so only that arrow shows
+   instead of both appearing together for any hover on the card. */
+.carousel-nav.carousel-nav-active {
     opacity: 1;
     background-color: alpha(black, 0.72);
 }
@@ -585,7 +607,7 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     color: @window_bg_color;
 }
 
-.card-featured:hover .carousel-nav {
+.carousel-nav.carousel-nav-active {
     background-color: alpha(@window_fg_color, 0.85);
 }
 

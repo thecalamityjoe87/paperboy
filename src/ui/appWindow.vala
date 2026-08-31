@@ -33,7 +33,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Box hero_container;
     // Settings for persistent window geometry
     private GLib.Settings settings;
-    public const int SIDEBAR_ICON_SIZE = 24;
     public const int MAX_CONCURRENT_DOWNLOADS = 10;
     public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 10;  // Match MAX to avoid retry delays on startup
     public const int INITIAL_MAX_WAIT_MS = 30000;  // Increased from 15s to 30s to allow more time for image downloads on startup
@@ -260,23 +259,41 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     // Build header bars for sidebar and content (will be added to NavigationPages)
-    // Sidebar headerbar with app icon and title
+    // Sidebar headerbar: refresh action leading, title centered, main menu
+    // trailing - per GNOME HIG, a sidebar's own header carries the app-level
+    // actions rather than the app icon.
     var sidebar_header = new Adw.HeaderBar();
     sidebar_header.add_css_class("flat");
-    
-    // App icon for sidebar (left corner)
-    var sidebar_icon = new Gtk.Image.from_icon_name("paperboy");
-    sidebar_icon.set_pixel_size(SIDEBAR_ICON_SIZE);
-    sidebar_header.pack_start(sidebar_icon);
-    
+
+    var refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
+    refresh_btn.set_tooltip_text("Refresh news");
+    refresh_btn.clicked.connect (() => {
+        refresh_btn.set_sensitive(false);
+        fetch_news();
+        refresh_btn.set_sensitive(true);
+    });
+    sidebar_header.pack_start(refresh_btn);
+
     // App title for sidebar (centered)
     var sidebar_title = new Gtk.Label("Paperboy");
     sidebar_title.add_css_class("title");
     sidebar_header.set_title_widget(sidebar_title);
-    
-    // Content headerbar with app branding and controls
+
+    // Main menu, on the sidebar's trailing (right) side
+    var menu = new Menu();
+    menu.append("Preferences", "app.change-source");
+    menu.append("Set User Location", "app.set-location");
+    menu.append("About Paperboy", "app.about");
+
+    var menu_button = new Gtk.MenuButton();
+    menu_button.set_icon_name("open-menu-symbolic");
+    menu_button.set_menu_model(menu);
+    menu_button.set_tooltip_text("Main Menu");
+    sidebar_header.pack_end(menu_button);
+
+    // Content headerbar with search and window controls
     var content_header = new Adw.HeaderBar();
-    
+
     // Sidebar toggle button for NavigationSplitView
     var sidebar_toggle = new Gtk.ToggleButton();
     sidebar_toggle.set_icon_name("sidebar-show-symbolic");
@@ -286,14 +303,14 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Search bar in the center
     var search_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-    
+
     var search_entry = new Gtk.SearchEntry();
     search_entry.set_placeholder_text("Search News for Keywords...");
     search_entry.set_max_width_chars(60);
     search_container.append(search_entry);
-    
+
     content_header.set_title_widget(search_container);
-    
+
     // Connect search entry to search manager (with debouncing)
     search_entry.search_changed.connect(() => {
         if (search_manager != null) {
@@ -301,26 +318,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     });
 
-    var refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
-    refresh_btn.set_tooltip_text("Refresh news");
-    refresh_btn.clicked.connect (() => {
-        refresh_btn.set_sensitive(false);
-        fetch_news();
-        refresh_btn.set_sensitive(true);
-    });
-    content_header.pack_end(refresh_btn);
-    
-    // Add hamburger menu
-    var menu = new Menu();
-    menu.append("Preferences", "app.change-source");
-    menu.append("Set User Location", "app.set-location");
-    menu.append("About Paperboy", "app.about");
-    
-    var menu_button = new Gtk.MenuButton();
-    menu_button.set_icon_name("open-menu-symbolic");
-    menu_button.set_menu_model(menu);
-    menu_button.set_tooltip_text("Main Menu");
-    content_header.pack_end(menu_button);
     // Create SidebarManager (logic only)
     sidebar_manager = new SidebarManager(this);
 

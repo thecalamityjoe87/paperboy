@@ -65,6 +65,22 @@ namespace Managers {
             url_to_card.remove(normalized);
         }
 
+        // ArticleCard's overlay is its root's direct first child, but
+        // HeroCard's overlay is nested inside a Grid (the text/picture
+        // split), so the same "first child is an Overlay" check that works
+        // for article cards silently finds nothing on a hero card. Check
+        // for a HeroCard via its attached data first, matching how
+        // heroCard.vala itself looks up "hero-card", and fall back to the
+        // article-card shape otherwise.
+        private Gtk.Overlay? resolve_overlay_for_card(Gtk.Widget card) {
+            var hero = card.get_data<HeroCard>("hero-card");
+            if (hero != null) return hero.overlay;
+
+            Gtk.Widget? first = card.get_first_child();
+            if (first != null && first is Gtk.Overlay) return (Gtk.Overlay) first;
+            return null;
+        }
+
         public void mark_article_viewed(string url) {
             if (url == null) return;
             string n = normalize_article_url(url);
@@ -80,9 +96,8 @@ namespace Managers {
             Timeout.add(50, () => {
                 Gtk.Widget? card = url_to_card.get(n);
                 if (card != null) {
-                    Gtk.Widget? first = card.get_first_child();
-                    if (first != null && first is Gtk.Overlay) {
-                        var overlay = (Gtk.Overlay) first;
+                    var overlay = resolve_overlay_for_card(card);
+                    if (overlay != null) {
                         bool already = false;
                         Gtk.Widget? c = overlay.get_first_child();
                         while (c != null) {
@@ -193,11 +208,9 @@ namespace Managers {
                 if (card == null) continue;
                 
                 bool is_viewed = window.article_state_store.is_viewed(normalized);
-                
-                Gtk.Widget? first = card.get_first_child();
-                if (first != null && first is Gtk.Overlay) {
-                    var overlay = (Gtk.Overlay) first;
-                    
+
+                var overlay = resolve_overlay_for_card(card);
+                if (overlay != null) {
                     // Find and remove existing viewed badge if present
                     Gtk.Widget? child = overlay.get_first_child();
                     while (child != null) {
@@ -249,9 +262,8 @@ namespace Managers {
             bool is_viewed = false;
             is_viewed = window.article_state_store.is_viewed(n);
 
-            Gtk.Widget? first = card.get_first_child();
-            if (first != null && first is Gtk.Overlay) {
-                var overlay = (Gtk.Overlay) first;
+            var overlay = resolve_overlay_for_card(card);
+            if (overlay != null) {
                 // Remove any existing viewed badges
                 Gtk.Widget? child = overlay.get_first_child();
                 while (child != null) {

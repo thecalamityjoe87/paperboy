@@ -25,7 +25,7 @@ namespace Managers {
         private weak NewsWindow window;
 
         // Layout constants
-        public const int H_MARGIN = 12;
+        public const int H_MARGIN = 26;
         public const int COL_SPACING = 12;
 
         // RSS hero card dimensions (for uniform layout in small feeds)
@@ -159,7 +159,7 @@ namespace Managers {
         // Update main content container size based on sidebar visibility
         public void update_main_content_size(bool sidebar_visible) {
             if (main_content_container == null) return;
-            int margin = sidebar_visible ? H_MARGIN : 6;
+            int margin = sidebar_visible ? H_MARGIN : 20;
             main_content_container.set_margin_start(margin);
             main_content_container.set_margin_end(margin);
             update_existing_hero_card_size();

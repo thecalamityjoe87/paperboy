@@ -30,10 +30,14 @@ namespace Managers {
         public const int MAX_CAROUSEL_SLIDES = 5;
         
         // Layout dimensions
-        public const int HERO_MAX_HEIGHT = 350;
-        public const int HERO_DEFAULT_HEIGHT = 250;
-        public const int TOPTEN_HERO_MAX_HEIGHT = 364;  // 280 * 1.30
-        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 273;  // 210 * 1.30
+        // Hero cards now lay text/picture side by side instead of stacked, so
+        // the picture spans the card's full height - default/max are kept
+        // equal to size fetched images and placeholders at the actual
+        // rendered height instead of the old (shorter) stacked-image height.
+        public const int HERO_MAX_HEIGHT = 500;
+        public const int HERO_DEFAULT_HEIGHT = 500;
+        public const int TOPTEN_HERO_MAX_HEIGHT = 520;
+        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 520;
         public const int CARD_IMAGE_HEIGHT = 220;  // Fixed, never derived from column width
         public const int CARD_HEIGHT_ESTIMATE_OFFSET = 120;
         public const int IMAGE_QUALITY_MULTIPLIER_HIGH = 6;
@@ -275,7 +279,7 @@ namespace Managers {
             // Add articles immediately
             add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name);
         }
-        
+
         public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
 
             // Decode HTML entities in title (e.g., &mdash; → —, &amp; → &)
@@ -360,6 +364,17 @@ namespace Managers {
                     enable_hero_context_menu,
                     window.prefs.category == "topten"
                 );
+
+                // Populate the hero's snippet line via the existing on-demand
+                // preview service (same one articlePane uses), rather than
+                // parsing feed/API responses again ourselves.
+                ArticleSnippetService.attach_hero_snippet(hero_card, url, source_name, article_buffer);
+
+                // Source badge (logo + name), same as regular article cards.
+                if (category_id != "local_news") {
+                    var hero_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
+                    hero_card.overlay.add_overlay(hero_source_badge);
+                }
 
                 string _norm = window.normalize_article_url(url);
 
@@ -474,7 +489,7 @@ namespace Managers {
                     featured_carousel_category = category_id;
 
                     hero_carousel.add_initial_slide(hero_card.root);
-                    hero_carousel.start_timer(5);
+                    hero_carousel.start_timer(25);
 
                     featured_used = true;
                     if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
@@ -532,6 +547,17 @@ namespace Managers {
             // Build category chip and create slide via HeroCarousel
             var slide_chip = window.build_category_chip(slide_display_cat);
             var components = hero_carousel.create_article_slide(decoded_title, url, thumbnail_url, category_id, source_name, slide_chip);
+
+            // Populate this slide's snippet and source badge the same way as
+            // the primary hero.
+            var slide_hero = components.slide.get_data<HeroCard>("hero-card");
+            if (slide_hero != null) {
+                ArticleSnippetService.attach_hero_snippet(slide_hero, url, source_name, article_buffer);
+                if (category_id != "local_news") {
+                    var slide_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
+                    slide_hero.overlay.add_overlay(slide_source_badge);
+                }
+            }
             var slide = components.slide;
             var slide_image = components.image;
 

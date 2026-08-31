@@ -152,8 +152,8 @@ public class ContentView : GLib.Object {
         main_content_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         main_content_container.set_halign(Gtk.Align.FILL);
         main_content_container.set_hexpand(true);
-        main_content_container.set_margin_start(12);
-        main_content_container.set_margin_end(12);
+        main_content_container.set_margin_start(26);
+        main_content_container.set_margin_end(26);
         main_content_container.set_margin_top(6);
         main_content_container.set_margin_bottom(12);
 
