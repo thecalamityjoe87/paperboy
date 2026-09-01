@@ -401,8 +401,14 @@ public class HeaderManager : GLib.Object {
 
         if (window.prefs.category == "topten") {
             if (category_subtitle != null) {
-                category_subtitle.set_markup("<span size='11000'>TOP STORIES RIGHT NOW</span>");
+                category_subtitle.set_markup("<span size='22000'><b>TOP STORIES RIGHT NOW</b></span>");
                 category_subtitle.set_visible(true);
+                // Unlike HeroCarousel's title (created fresh, already
+                // visible, every time), this label starts hidden at
+                // construction and only toggles visible here - force a
+                // resize so its CSS margin actually gets recomputed
+                // instead of whatever was cached from while it was hidden.
+                category_subtitle.queue_resize();
             }
         } else {
             if (category_subtitle != null) category_subtitle.set_visible(false);

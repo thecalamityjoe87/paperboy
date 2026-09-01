@@ -2,14 +2,25 @@
     background-color: @card_bg_color;
     border-radius: 12px;
     border: 1px solid alpha(@borders, 0.3);
-    transition: all 200ms ease;
+    /* Scoped to just what .card:hover actually animates, rather than
+       "all", so background-color/border/border-radius are never
+       implicitly animated. */
+    transition: box-shadow 200ms ease;
     min-width: 0;
+}
+
+.card:backdrop {
+    background-color: @card_bg_color;
+    border: 1px solid alpha(@borders, 0.3);
+    opacity: 1;
 }
 
 .card:hover,
 .card.card-hover {
+    /* Shadow only, no transform: the previous translateY(-2px) is what
+       actually moved the card on hover. A shadow alone reads as lifted
+       without any real motion. */
     box-shadow: 0 4px 8px alpha(@shade_color, 0.15);
-    transform: translateY(-2px);
 }
 
 .card picture {
@@ -23,11 +34,24 @@
     border-radius: 0 12px 12px 0;
 }
 
+/* Top Ten's stacked variant (picture over text, 70/30) needs the top edge
+   rounded instead, since the image sits on top rather than the right. */
+.hero-card.hero-card-stacked picture {
+    border-radius: 12px 12px 0 0;
+}
+
 
 .hero-card .hero-title {
     font-size: 2.1em;
     line-height: 1.1;
     font-weight: 800;
+}
+
+/* Slightly larger title for cards in the "TOP STORIES" hero carousel only
+   (see HeroCarousel.mark_slide_title) - every other hero card keeps the
+   2.1em size above. */
+.hero-card .hero-title.carousel-hero-title {
+    font-size: 2.3em;
 }
 
 .hero-card .hero-snippet {
@@ -261,9 +285,18 @@
 .top-stories-title {
     font-size: 1.15em;
     font-weight: 800;
-    margin: 0 0 6px 0;
+    margin: 10px 0 22px 0;
     color: inherit;
     letter-spacing: 0.02em;
+}
+
+/* Top Ten's "TOP STORIES RIGHT NOW" (same base class above) renders its
+   top margin a couple px smaller than the carousel's "TOP STORIES" despite
+   identical CSS - this label starts hidden and only toggles visible later,
+   rather than being created fresh and shown immediately. Compensating here
+   rather than chasing that structural difference further. */
+.top-stories-title-in-header {
+    margin-top: 15px;
 }
 
 /* Carousel dots shown under the featured hero title */
@@ -318,6 +351,72 @@
 .carousel-nav.carousel-nav-active {
     opacity: 1;
     background-color: alpha(black, 0.72);
+}
+
+/* Nav buttons for category-section scroll rows on the Front Page - same
+   look and hover-reveal behavior as .carousel-nav, sized down since these
+   rows are shorter than the hero carousel. */
+.section-nav {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 9999px;
+    padding: 5px;
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+.section-nav:hover {
+    transform: scale(1.08);
+}
+
+.section-nav.section-nav-active {
+    opacity: 1;
+    background-color: alpha(black, 0.72);
+}
+
+/* A disabled nav button (already at that end of the row) never appears,
+   even while hovered - there's nothing left to scroll to. */
+.section-nav:disabled {
+    opacity: 0;
+}
+
+/* Static "more to scroll" cue at a category section's right edge: fades to
+   the page background rather than an actual blur of the cards underneath -
+   a real blur would need a custom widget with a GSK blur node for an effect
+   nobody would tell apart from this at a glance. */
+.section-scroll-fade {
+    min-width: 26px;
+    background-image: linear-gradient(to right, alpha(@window_bg_color, 0), @window_bg_color);
+}
+
+/* Left edge fades the opposite direction - hidden by default in Vala until
+   the row has actually been scrolled in from the start (see
+   update_section_scroll_fades). */
+.section-scroll-fade-left {
+    background-image: linear-gradient(to left, alpha(@window_bg_color, 0), @window_bg_color);
+}
+
+/* Same cue, vertical: shown at the top/bottom of the whole page (every
+   view, via ContentView.main_scroll_overlay) rather than a category row. */
+.vertical-scroll-fade {
+    min-height: 18px;
+    background-image: linear-gradient(to bottom, alpha(@window_bg_color, 0), @window_bg_color);
+}
+
+.vertical-scroll-fade-top {
+    background-image: linear-gradient(to top, alpha(@window_bg_color, 0), @window_bg_color);
+}
+
+/* Category-section scroll rows: keep the ScrolledWindow's horizontal
+   policy at AUTOMATIC (required so it actually clips/scrolls its content -
+   GTK4's NEVER policy stops clipping entirely) but hide the scrollbar
+   widget itself, since the hover nav buttons are the intended affordance. */
+.section-scroller scrollbar.horizontal {
+    opacity: 0;
+    min-height: 0;
 }
 
 
@@ -378,13 +477,26 @@
     margin-bottom: 6px;
 }
 
-/* Fix arrow direction - rotate to point right when collapsed, down when expanded */
+/* Fix arrow direction - point right when collapsed, down when expanded.
+   Worked out from two rounds of live testing rather than assumption: this
+   isn't one icon rotating around a shared baseline - collapsed and
+   expanded use different native icons (pointing up and down
+   respectively), AND -gtk-icon-transform's rotate() here turned out to
+   apply COUNTERCLOCKWISE for positive degrees, opposite of standard CSS
+   transform. Measured behavior:
+     collapsed: applied 0deg -> showed up; applied 90deg -> showed left
+     expanded:  applied 90deg -> showed right; applied 180deg -> showed up
+   Both fit observed = (native - applied) mod 360, with native=up(0) for
+   collapsed and native=down(180) for expanded. Solving for the desired
+   observed angles (right=90 for collapsed, down=180 for expanded) gives
+   the values below. If this ever needs revisiting, re-derive from fresh
+   measurements rather than assuming standard CSS rotation direction. */
 .navigation-sidebar .sidebar-expander image.expander-row-arrow {
-    -gtk-icon-transform: rotate(90deg);
+    -gtk-icon-transform: rotate(270deg);
 }
 
 .navigation-sidebar .sidebar-expander:checked image.expander-row-arrow {
-    -gtk-icon-transform: rotate(180deg);
+    -gtk-icon-transform: rotate(0deg);
     opacity: 1.0;
     color: @window_fg_color;
 }

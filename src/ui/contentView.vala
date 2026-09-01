@@ -23,12 +23,20 @@ public class ContentView : GLib.Object {
     private weak NewsWindow? window;
     
     public Gtk.ScrolledWindow main_scrolled;
+    // Wraps main_scrolled so the vertical scroll edge-fades (see
+    // update_vertical_scroll_fades) stay pinned to the viewport's actual
+    // top/bottom regardless of scroll position - fade widgets placed inside
+    // main_scrolled itself would scroll away with the content instead of
+    // staying fixed. This, not main_scrolled directly, is what gets placed
+    // into the window (see appWindow.vala's Adw.NavigationPage).
+    public Gtk.Overlay main_scroll_overlay;
     public Gtk.Box content_area;
     public Gtk.Box content_box;
     public Gtk.Box main_content_container;
     public Gtk.Box hero_container;
     public Gtk.Box featured_box;
     public Gtk.FlowBox columns_row;
+    public Gtk.Box category_sections_container;
     public Gtk.Box category_icon_holder;
     public Gtk.Label category_label;
     public Gtk.Label category_subtitle;
@@ -71,8 +79,13 @@ public class ContentView : GLib.Object {
 
         // Create a container for category header (title + date)
         var header_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
-        header_box.set_margin_start(12);
-        header_box.set_margin_end(12);
+        // Matches main_content_container's own margin_start/end (see
+        // Managers.LayoutManager.H_MARGIN) below, so the category
+        // icon/label, "Multiple Sources"-style source info, and
+        // date/subtitle all line up with the hero cards and grid content
+        // instead of sitting inside their edges.
+        header_box.set_margin_start(Managers.LayoutManager.H_MARGIN);
+        header_box.set_margin_end(Managers.LayoutManager.H_MARGIN);
         header_box.set_margin_top(12);
         header_box.set_margin_bottom(6);
 
@@ -135,14 +148,19 @@ public class ContentView : GLib.Object {
         date_label.add_css_class("body");
         header_box.append(date_label);
 
-        // Add subtitle label (for Top Ten category) - below date, bolded
+        // Add subtitle label (for Top Ten category) - below date, bolded.
+        // Same "top-stories-title" class as HeroCarousel's "TOP STORIES"
+        // label so the two match (size, weight, margin above/below).
         category_subtitle = new Gtk.Label("");
         category_subtitle.set_xalign(0);
         category_subtitle.add_css_class("caption");
-        var subtitle_attrs = new Pango.AttrList();
-        subtitle_attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD));
-        subtitle_attrs.insert(Pango.attr_scale_new(1.2)); // Make subtitle font 20% larger
-        category_subtitle.set_attributes(subtitle_attrs);
+        category_subtitle.add_css_class("top-stories-title");
+        // A couple px shy of HeroCarousel's version even with identical
+        // margin - some small structural difference (this label starts
+        // hidden and toggles visible vs. being created fresh and shown
+        // immediately) still nets a slightly smaller top gap. Nudge it to
+        // match rather than chase the root cause further.
+        category_subtitle.add_css_class("top-stories-title-in-header");
         category_subtitle.set_visible(false);
         header_box.append(category_subtitle);
 
@@ -152,8 +170,8 @@ public class ContentView : GLib.Object {
         main_content_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         main_content_container.set_halign(Gtk.Align.FILL);
         main_content_container.set_hexpand(true);
-        main_content_container.set_margin_start(26);
-        main_content_container.set_margin_end(26);
+        main_content_container.set_margin_start(Managers.LayoutManager.H_MARGIN);
+        main_content_container.set_margin_end(Managers.LayoutManager.H_MARGIN);
         main_content_container.set_margin_top(6);
         main_content_container.set_margin_bottom(12);
 
@@ -191,6 +209,20 @@ public class ContentView : GLib.Object {
 
         // Do not call rebuild_columns here; caller will arrange columns
         main_content_container.append(columns_row);
+
+        // Category-grouped sections (Front Page only): one labeled,
+        // horizontally-scrollable row of cards per category, built and
+        // shown/hidden by LayoutManager instead of the flat columns_row.
+        category_sections_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
+        category_sections_container.set_halign(Gtk.Align.FILL);
+        category_sections_container.set_hexpand(true);
+        // Own top margin (independent of main_content_container's generic
+        // child spacing, which also applies to the flat columns_row used by
+        // every other view) so the hero-to-first-section gap can be tuned
+        // without affecting non-Front-Page layouts.
+        category_sections_container.set_margin_top(28);
+        category_sections_container.set_visible(false);
+        main_content_container.append(category_sections_container);
 
         // Create an overlay container for main content and loading spinner
         main_overlay = new Gtk.Overlay();
@@ -340,6 +372,45 @@ public class ContentView : GLib.Object {
         content_box.append(main_overlay);
         content_area.append(content_box);
         main_scrolled.set_child(content_area);
+
+        // Vertical "more to scroll" cue for the whole page (every view, not
+        // just Front Page) - same cheap edge-fade-to-background approach as
+        // the category sections' horizontal fades, not an actual blur.
+        main_scroll_overlay = new Gtk.Overlay();
+        main_scroll_overlay.set_child(main_scrolled);
+
+        var top_fade = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        top_fade.add_css_class("vertical-scroll-fade");
+        top_fade.add_css_class("vertical-scroll-fade-top");
+        top_fade.set_valign(Gtk.Align.START);
+        top_fade.set_halign(Gtk.Align.FILL);
+        top_fade.set_hexpand(true);
+        top_fade.set_can_target(false);
+        main_scroll_overlay.add_overlay(top_fade);
+
+        var bottom_fade = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        bottom_fade.add_css_class("vertical-scroll-fade");
+        bottom_fade.set_valign(Gtk.Align.END);
+        bottom_fade.set_halign(Gtk.Align.FILL);
+        bottom_fade.set_hexpand(true);
+        bottom_fade.set_can_target(false);
+        main_scroll_overlay.add_overlay(bottom_fade);
+
+        Gtk.Adjustment vadj = main_scrolled.get_vadjustment();
+        vadj.value_changed.connect(() => update_vertical_scroll_fades(vadj, top_fade, bottom_fade));
+        vadj.changed.connect(() => update_vertical_scroll_fades(vadj, top_fade, bottom_fade));
+        update_vertical_scroll_fades(vadj, top_fade, bottom_fade);
+    }
+
+    /**
+    * Same idea as CategorySection's horizontal fades: each one only shows
+    * when there's actually more content in that direction, so the top fade
+    * stays hidden until the page has been scrolled down from the very top,
+    * and the bottom fade hides once the true end of the page is reached.
+    */
+    private void update_vertical_scroll_fades(Gtk.Adjustment adj, Gtk.Widget top_fade, Gtk.Widget bottom_fade) {
+        top_fade.set_visible(adj.get_value() > adj.get_lower() + 1.0);
+        bottom_fade.set_visible(adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0);
     }
     
     public void set_window(NewsWindow win) {
@@ -441,8 +512,9 @@ public class ContentView : GLib.Object {
 
             // Restore category subtitle based on category type
             if (window.prefs != null && window.prefs.category == "topten") {
-                category_subtitle.set_markup("<span size='11000'>TOP STORIES RIGHT NOW</span>");
+                category_subtitle.set_markup("<span size='22000'><b>TOP STORIES RIGHT NOW</b></span>");
                 category_subtitle.set_visible(true);
+                category_subtitle.queue_resize();
             } else {
                 category_subtitle.set_visible(false);
             }
@@ -498,6 +570,7 @@ public class ContentView : GLib.Object {
 
         category_subtitle.set_label(label_text);
         category_subtitle.set_visible(true);
+        category_subtitle.queue_resize();
     }
 }
 

@@ -18,22 +18,32 @@
 using Gtk;
 using Gee;
 using GLib;
+using Adw;
 
 public class HeroCarousel : GLib.Object {
-    public Gtk.Stack? stack;
+    // Manual crossfade instead of Gtk.Stack: Gtk.Stack broke :hover on
+    // every slide but the first (see show_slide). A custom slide
+    // transition via Gtk.Overlay.get_child_position was tried too and hit
+    // the same hover bug, so crossfade is what stays.
+    public Gtk.Overlay? slide_holder;
+    private Gtk.Widget? current_slide;
+    // Keeps crossfade animations alive until they finish; see
+    // AnimationManager.active_entrance_animations for why locals aren't enough.
+    private Gee.ArrayList<GLib.Object> active_slide_animations = new Gee.ArrayList<GLib.Object>();
+
     public Box? container;
-    // Each slide gets its own copy of the dot indicators, injected into that
-    // slide's text pane (see build_dots_row), since the picture now runs the
-    // full height of the card and there's no shared strip below it anymore
-    // to hold a single external row. One list of labels per slide.
+    // One dot row per slide, injected into that slide's own text pane
+    // (see add_dots_row_for) rather than a shared strip below the picture.
     public ArrayList<ArrayList<Label>>? dot_rows;
     public ArrayList<Widget>? widgets;
     public int index = 0;
     public uint timeout_id = 0;
+
+    // Trackpad/wheel scroll state - see on_carousel_scroll().
+    private double scroll_accum_x = 0;
+    private bool scroll_cooldown = false;
     
-    // Layout constants
-    // Kept equal since HeroCard's picture now spans the full card height
-    // (side-by-side layout) rather than just a stacked-on-top portion.
+    // Layout constants - kept equal since the picture spans the card's full height.
     public const int SLIDE_MAX_HEIGHT = 500;
     public const int SLIDE_IMAGE_HEIGHT = 500;
     
@@ -46,77 +56,50 @@ public class HeroCarousel : GLib.Object {
         var top_stories_title = new Gtk.Label("");
         top_stories_title.set_xalign(0);
         top_stories_title.add_css_class("caption");
+        // Margins live in CSS (.top-stories-title), not set_margin_top/
+        // bottom here: the top margin was silently not taking effect via
+        // the widget API (bottom did), so app-level CSS - which always
+        // wins over the GTK theme's own defaults - is the reliable place
+        // to control this regardless of what was overriding it.
+        top_stories_title.add_css_class("top-stories-title");
         // Use Pango markup to match the subtitle sizing used elsewhere.
-        top_stories_title.set_markup("<span size='11000'><b>TOP STORIES</b></span>");
-        top_stories_title.set_margin_bottom(6);
+        top_stories_title.set_markup("<span size='26000'><b>TOP STORIES</b></span>");
         parent.append(top_stories_title);
         widgets = new ArrayList<Widget>();
         dot_rows = new ArrayList<ArrayList<Label>>();
 
-        stack = new Gtk.Stack();
-        stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT);
-        stack.set_halign(Gtk.Align.FILL);
-        stack.set_hexpand(true);
+        slide_holder = new Gtk.Overlay();
+        slide_holder.set_halign(Gtk.Align.FILL);
+        slide_holder.set_hexpand(true);
+        // Unlike Gtk.Stack, Overlay doesn't size itself to the tallest
+        // child by default, so pin the height explicitly.
+        slide_holder.set_size_request(-1, SLIDE_MAX_HEIGHT);
 
-        // No "card" class here: the visible card look (background, border,
-        // rounded corners) now comes entirely from the HeroCard slide inside
-        // the stack. Adding it here too used to nest a second card behind
-        // it, showing as a double-layered edge and keeping the slide's own
-        // content from reaching the true outer edge.
+        // No "card" class here - the card look (background, border, rounded
+        // corners) comes from the HeroCard slide itself, so this only needs
+        // its own layout classes.
         var carousel_container = new Gtk.Box(Orientation.VERTICAL, 0);
         carousel_container.add_css_class("card-featured");
         carousel_container.set_halign(Gtk.Align.FILL);
         carousel_container.set_hexpand(true);
+        // Room for the card's own shadow so it doesn't get clipped at the bottom.
+        carousel_container.set_margin_bottom(8);
 
         var carousel_overlay = new Gtk.Overlay();
-        carousel_overlay.set_child(stack);
+        carousel_overlay.set_child(slide_holder);
 
-        var left_btn = new Gtk.Button.from_icon_name("go-previous-symbolic");
-        left_btn.add_css_class("carousel-nav");
-        left_btn.add_css_class("carousel-nav-left");
-        left_btn.set_halign(Gtk.Align.START);
-        left_btn.set_valign(Gtk.Align.CENTER);
-        left_btn.set_margin_start(8);
-        left_btn.set_margin_end(8);
-        carousel_overlay.add_overlay(left_btn);
-        left_btn.clicked.connect(() => { prev(); });
+        // Hover-reveal prev/next buttons (see ScrollNavButtons). The
+        // carousel loops, so there's no bounded end to disable.
+        var nav_buttons = new ScrollNavButtons(carousel_overlay, "carousel-nav");
+        nav_buttons.prev_requested.connect(() => { prev(); });
+        nav_buttons.next_requested.connect(() => { next(); });
 
-        var right_btn = new Gtk.Button.from_icon_name("go-next-symbolic");
-        right_btn.add_css_class("carousel-nav");
-        right_btn.add_css_class("carousel-nav-right");
-        right_btn.set_halign(Gtk.Align.END);
-        right_btn.set_valign(Gtk.Align.CENTER);
-        right_btn.set_margin_start(8);
-        right_btn.set_margin_end(8);
-        carousel_overlay.add_overlay(right_btn);
-        right_btn.clicked.connect(() => { next(); });
-
-        // Show only whichever nav button is on the side the pointer is
-        // currently over, rather than both together for any hover on the
-        // card. A CSS hover-zone split (half-width boxes relying on
-        // hexpand to stretch across the overlay) turned out unreliable -
-        // Gtk.Overlay didn't stretch them to the full card width, leaving
-        // the buttons sitting near the middle instead of the true edges.
-        // Tracking pointer position directly against the overlay's actual
-        // allocated width sidesteps that entirely.
-        var nav_motion = new Gtk.EventControllerMotion();
-        nav_motion.motion.connect((x, y) => {
-            int w = carousel_overlay.get_width();
-            if (w <= 0) return;
-            bool left_side = x < (w / 2.0);
-            if (left_side) {
-                left_btn.add_css_class("carousel-nav-active");
-                right_btn.remove_css_class("carousel-nav-active");
-            } else {
-                right_btn.add_css_class("carousel-nav-active");
-                left_btn.remove_css_class("carousel-nav-active");
-            }
-        });
-        nav_motion.leave.connect(() => {
-            left_btn.remove_css_class("carousel-nav-active");
-            right_btn.remove_css_class("carousel-nav-active");
-        });
-        carousel_overlay.add_controller(nav_motion);
+        // Trackpad/wheel horizontal scroll: accumulate delta and advance
+        // one slide per swipe, then cool down briefly so a single gesture
+        // doesn't skip several slides.
+        var scroll_controller = new Gtk.EventControllerScroll(Gtk.EventControllerScrollFlags.BOTH_AXES);
+        scroll_controller.scroll.connect((dx, dy) => on_carousel_scroll(dx, dy));
+        carousel_overlay.add_controller(scroll_controller);
 
         carousel_container.append(carousel_overlay);
 
@@ -125,29 +108,89 @@ public class HeroCarousel : GLib.Object {
     }
 
     public void add_initial_slide(Gtk.Widget slide) {
-        if (stack == null) return;
-        stack.add_named(slide, "0");
+        if (slide_holder == null) return;
+        mark_slide_title(slide);
+        slide_holder.add_overlay(slide);
         widgets.add(slide);
         add_dots_row_for(slide);
         index = 0;
+        show_slide(slide, false);
         update_dots();
     }
 
     public void add_slide(Gtk.Widget slide) {
-        if (stack == null || widgets == null) return;
-        int new_index = widgets.size;
-        stack.add_named(slide, "%d".printf(new_index));
+        if (slide_holder == null || widgets == null) return;
+        mark_slide_title(slide);
+        // Parented but hidden, not left unparented: a slide needs to stay
+        // rooted in the window at all times, since its snippet text can
+        // arrive (an async fetch) before it's ever shown, and
+        // HeroCard.set_snippet() drops the text if the widget has no root.
+        slide.set_visible(false);
+        slide_holder.add_overlay(slide);
         widgets.add(slide);
         add_dots_row_for(slide);
         update_dots();
     }
 
-    // Build a dot-indicator row and place it in the slide's own text pane
-    // (bottom-aligned, via HeroCard's vexpand text_box) instead of in a
-    // shared strip below the picture, so the picture can run the card's
-    // full height. Every slide gets its own row since only one HeroCard is
-    // visible at a time (they're Stack children); update_dots keeps all of
-    // them in sync so whichever one is showing is always current.
+    /**
+    * Show one slide, hide the rest - never reparents, only toggles
+    * visibility/opacity. animate=false is an instant cut (used for the
+    * first slide); otherwise the incoming slide fades in while the
+    * outgoing one fades out.
+    */
+    private void show_slide(Gtk.Widget new_slide, bool animate) {
+        if (slide_holder == null || current_slide == new_slide) return;
+        Gtk.Widget? old_slide = current_slide;
+        current_slide = new_slide;
+
+        if (old_slide == null || !animate) {
+            if (old_slide != null) old_slide.set_visible(false);
+            new_slide.set_opacity(1.0);
+            new_slide.set_visible(true);
+            return;
+        }
+
+        new_slide.set_opacity(0.0);
+        new_slide.set_visible(true);
+
+        uint duration = 400u;
+        var target_in = new Adw.PropertyAnimationTarget((GLib.Object) new_slide, "opacity");
+        var anim_in = new Adw.TimedAnimation(new_slide, 0.0, 1.0, duration, target_in);
+        var target_out = new Adw.PropertyAnimationTarget((GLib.Object) old_slide, "opacity");
+        var anim_out = new Adw.TimedAnimation(old_slide, 1.0, 0.0, duration, target_out);
+
+        active_slide_animations.add(target_in);
+        active_slide_animations.add(anim_in);
+        active_slide_animations.add(target_out);
+        active_slide_animations.add(anim_out);
+
+        anim_in.done.connect(() => {
+            active_slide_animations.remove(anim_in);
+            active_slide_animations.remove(target_in);
+            new_slide.set_opacity(1.0);
+        });
+        anim_out.done.connect(() => {
+            active_slide_animations.remove(anim_out);
+            active_slide_animations.remove(target_out);
+            // Reset opacity for next time this slide comes back around.
+            old_slide.set_visible(false);
+            old_slide.set_opacity(1.0);
+        });
+
+        anim_in.play();
+        anim_out.play();
+    }
+
+    // Larger title for carousel slides only (see .carousel-hero-title).
+    private void mark_slide_title(Gtk.Widget slide) {
+        var hero = slide.get_data<HeroCard>("hero-card");
+        if (hero != null && hero.title_label != null) {
+            hero.title_label.add_css_class("carousel-hero-title");
+        }
+    }
+
+    // Build a dot-indicator row and place it in the slide's own text pane,
+    // bottom-aligned. update_dots keeps every row in sync.
     private void add_dots_row_for(Gtk.Widget slide) {
         var hero = slide.get_data<HeroCard>("hero-card");
         if (hero == null || hero.title_box == null) return;
@@ -174,16 +217,12 @@ public class HeroCarousel : GLib.Object {
     }
 
     /**
-     * Create and add an article slide to the carousel.
-     * This encapsulates all slide widget construction that was previously in ArticleManager.
-     * Returns the slide widget and its image for external image loading.
+     * Build a HeroCard slide, add it to the carousel, and return it (plus
+     * its image widget) for external image loading.
      */
     public SlideComponents create_article_slide(string title, string url, string? thumbnail_url,
                                                   string category_id, string? source_name,
                                                   Gtk.Widget? category_chip) {
-        // Build the slide from the same HeroCard used for topten/featured
-        // heroes, so every hero instance (carousel included) shares one
-        // layout and stays in sync automatically.
         var hero = new HeroCard(title, url, SLIDE_MAX_HEIGHT, SLIDE_IMAGE_HEIGHT, category_chip, false, null, null);
         hero.source_name = source_name;
         hero.category_id = category_id;
@@ -191,7 +230,6 @@ public class HeroCarousel : GLib.Object {
             slide_activated(title, activated_url, thumbnail_url, category_id, source_name);
         });
 
-        // Add to carousel
         if (widgets.size == 0) {
             add_initial_slide(hero.root);
         } else {
@@ -218,54 +256,62 @@ public class HeroCarousel : GLib.Object {
         }
     }
 
+    private bool on_carousel_scroll(double dx, double dy) {
+        // Only treat clearly horizontal gestures as navigation; let
+        // vertical scrolls bubble up to scroll the page instead.
+        if (dx.abs() <= dy.abs()) {
+            return false;
+        }
+
+        if (!scroll_cooldown) {
+            scroll_accum_x += dx;
+            double threshold = 40.0;
+            if (scroll_accum_x > threshold) {
+                next();
+                start_scroll_cooldown();
+            } else if (scroll_accum_x < -threshold) {
+                prev();
+                start_scroll_cooldown();
+            }
+        }
+        return true;
+    }
+
+    private void start_scroll_cooldown() {
+        scroll_accum_x = 0;
+        scroll_cooldown = true;
+        Timeout.add(450, () => {
+            scroll_cooldown = false;
+            return false;
+        });
+    }
+
     public void next() {
-        if (stack == null || widgets == null) return;
+        if (widgets == null) return;
         int total = widgets.size;
         if (total <= 1) return;
         index = (index + 1) % total;
-        for (int i = 0; i < total; i++) {
-            var child = widgets.get(index) as Gtk.Widget;
-            if (child != null && child.get_parent() == stack) {
-                stack.set_visible_child(child);
-                update_dots();
-                return;
-            }
-            index = (index + 1) % total;
-        }
+        show_slide(widgets.get(index), true);
+        update_dots();
     }
 
     public void prev() {
-        if (stack == null || widgets == null) return;
+        if (widgets == null) return;
         int total = widgets.size;
         if (total <= 1) return;
         index = (index - 1 + total) % total;
-        for (int i = 0; i < total; i++) {
-            var child = widgets.get(index) as Gtk.Widget;
-            if (child != null && child.get_parent() == stack) {
-                stack.set_visible_child(child);
-                update_dots();
-                return;
-            }
-            index = (index - 1 + total) % total;
-        }
+        show_slide(widgets.get(index), true);
+        update_dots();
     }
 
     public void start_timer(int seconds) {
         if (timeout_id != 0) { Source.remove(timeout_id); timeout_id = 0; }
         timeout_id = Timeout.add_seconds(seconds, () => {
-            if (stack == null) return true;
             int total = widgets != null ? widgets.size : 0;
             if (total <= 1) return true;
             index = (index + 1) % total;
-            for (int i = 0; i < total; i++) {
-                var child = widgets.get(index) as Gtk.Widget;
-                if (child != null && child.get_parent() == stack) {
-                    stack.set_visible_child(child);
-                    update_dots();
-                    return true;
-                }
-                index = (index + 1) % total;
-            }
+            show_slide(widgets.get(index), true);
+            update_dots();
             return true;
         });
     }

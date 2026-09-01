@@ -34,10 +34,10 @@ namespace Managers {
         // the picture spans the card's full height - default/max are kept
         // equal to size fetched images and placeholders at the actual
         // rendered height instead of the old (shorter) stacked-image height.
-        public const int HERO_MAX_HEIGHT = 500;
-        public const int HERO_DEFAULT_HEIGHT = 500;
-        public const int TOPTEN_HERO_MAX_HEIGHT = 520;
-        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 520;
+        public const int HERO_MAX_HEIGHT = 460;
+        public const int HERO_DEFAULT_HEIGHT = 460;
+        public const int TOPTEN_HERO_MAX_HEIGHT = 400;
+        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 400;
         public const int CARD_IMAGE_HEIGHT = 220;  // Fixed, never derived from column width
         public const int CARD_HEIGHT_ESTIMATE_OFFSET = 120;
         public const int IMAGE_QUALITY_MULTIPLIER_HIGH = 6;
@@ -46,7 +46,6 @@ namespace Managers {
         
         public Gee.ArrayList<ArticleItem> article_buffer;
         public Gee.ArrayList<ArticleItem> remaining_articles;
-        public int remaining_articles_index = 0;
         public int articles_shown = 0;
         
         // Track URLs seen in current view to prevent duplicate cards (race condition fix)
@@ -166,9 +165,106 @@ namespace Managers {
                 window.article_state_store.register_article(norm, category_id, normalized_source);
             }
 
+            // A category that got zero cards into the initial 25-article
+            // cap would otherwise stay permanently hidden with no way to
+            // reach its queued overflow - see
+            // LayoutManager.reveal_sections_with_pending_overflow().
+            if (window.layout_manager != null) {
+                window.layout_manager.reveal_sections_with_pending_overflow();
+            }
+
             return true;
         }
-        
+
+        /**
+         * The real category for a queued overflow article. On Front Page,
+         * category_id is always the literal string "frontpage" - the actual
+         * category travels in source_name as a "##category::<cat>" suffix
+         * (same convention used when building each card's category chip).
+         */
+        private string extract_display_category(ArticleItem item) {
+            string cat = item.category_id;
+            if (cat == "frontpage" && item.source_name != null) {
+                int idx = item.source_name.index_of("##category::");
+                if (idx >= 0 && item.source_name.length > idx + 12) {
+                    cat = item.source_name.substring(idx + 12).strip();
+                }
+            }
+            return cat;
+        }
+
+        /**
+         * How many overflow articles for one category are still queued -
+         * used by the category-section nav button to decide whether to show
+         * a "load more" affordance once that row is scrolled to its end.
+         */
+        public int remaining_count_for_category(string cat) {
+            if (remaining_articles == null) return 0;
+            int count = 0;
+            foreach (var item in remaining_articles) {
+                if (extract_display_category(item) == cat) count++;
+            }
+            return count;
+        }
+
+        /**
+         * Load the next batch of queued overflow articles for one category
+         * only, appending them to that category's section (existing card
+         * placement already routes by category via the same
+         * "##category::" parsing, so no extra wiring is needed there).
+         * Removes matched items from the shared remaining_articles pool -
+         * see load_more_articles() for why removal (not an index cursor) is
+         * required now that two flows draw from the same queue.
+         */
+        public void load_more_for_category(string cat, int max_to_load = LOAD_MORE_BATCH_SIZE) {
+            if (remaining_articles == null) return;
+
+            // Snapshot the section's current card count so newly appended
+            // cards can be told apart afterward and given the same
+            // fade/slide entrance as the global "Load more articles" flow.
+            Gtk.Widget? row = (window != null && window.layout_manager != null)
+                ? window.layout_manager.get_category_section_row(cat)
+                : null;
+            int prev_count = 0;
+            if (row != null) {
+                var c = row.get_first_child();
+                while (c != null) { prev_count++; c = c.get_next_sibling(); }
+            }
+            int loaded = 0;
+            int i = 0;
+            while (i < remaining_articles.size && loaded < max_to_load) {
+                var item = remaining_articles.get(i);
+                if (extract_display_category(item) == cat) {
+                    remaining_articles.remove_at(i);
+                    article_buffer.add(item);
+                    add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, true);
+                    loaded++;
+                } else {
+                    i++;
+                }
+            }
+
+            if (row != null && window != null && window.animation_manager != null) {
+                var anim_mgr = window.animation_manager;
+                // Delay until idle so widgets are realized/parented.
+                GLib.Idle.add(() => {
+                    uint animate_index = 0;
+                    uint per_item_ms = 28;
+                    int idx = 0;
+                    var child = row.get_first_child();
+                    while (child != null) {
+                        if (idx >= prev_count) {
+                            anim_mgr.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                            animate_index++;
+                        }
+                        idx++;
+                        child = child.get_next_sibling();
+                    }
+                    return false;
+                });
+            }
+        }
+
         /**
          * Check if debug mode is enabled
          */
@@ -367,8 +463,12 @@ namespace Managers {
 
                 // Populate the hero's snippet line via the existing on-demand
                 // preview service (same one articlePane uses), rather than
-                // parsing feed/API responses again ourselves.
-                ArticleSnippetService.attach_hero_snippet(hero_card, url, source_name, article_buffer);
+                // parsing feed/API responses again ourselves. Skipped for Top
+                // Ten: its stacked picture-over-text layout only has room
+                // for the title.
+                if (window.prefs.category != "topten") {
+                    ArticleSnippetService.attach_hero_snippet(hero_card, url, source_name, article_buffer);
+                }
 
                 // Source badge (logo + name), same as regular article cards.
                 if (category_id != "local_news") {
@@ -642,7 +742,8 @@ namespace Managers {
             url,
             col_w,
             img_h,
-            chip
+            chip,
+            card_display_cat
         );
 
         if (category_id != "local_news") {
@@ -763,7 +864,7 @@ namespace Managers {
     }
         
         public void load_more_articles() {
-            if (remaining_articles == null || remaining_articles_index >= remaining_articles.size) {
+            if (remaining_articles == null || remaining_articles.size == 0) {
                 if (load_more_button_visible) {
                     request_hide_load_more_button();
                     load_more_button_visible = false;
@@ -778,7 +879,7 @@ namespace Managers {
                 return;
             }
             
-            int articles_to_load = int.min(10, remaining_articles.size - remaining_articles_index);
+            int articles_to_load = int.min(10, remaining_articles.size);
             
             // Snapshot current card count so we can detect newly appended cards
             int prev_card_count = 0;
@@ -797,7 +898,12 @@ namespace Managers {
             }
 
             for (int i = 0; i < articles_to_load; i++) {
-                var article = remaining_articles.get(remaining_articles_index + i);
+                // Remove from the front rather than indexing in place: this
+                // queue is now a shared pool that per-category "load more"
+                // (load_more_for_category) can also pull from out of order,
+                // so consumption has to be removal-based everywhere to keep
+                // both flows from stepping on each other.
+                var article = remaining_articles.remove_at(0);
                 // No need to check seen_urls here - articles were already deduplicated
                 // when they were added to remaining_articles queue
                 article_buffer.add(article);
@@ -845,14 +951,12 @@ namespace Managers {
                 });
             }
             
-            remaining_articles_index += articles_to_load;
-            
             if (load_more_button_visible) {
                 request_hide_load_more_button();
                 load_more_button_visible = false;
-                
+
                 Timeout.add(300, () => {
-                    if (remaining_articles_index < remaining_articles.size) {
+                    if (remaining_articles.size > 0) {
                         Timeout.add(500, () => {
                             show_load_more_button();
                             return false;
@@ -872,7 +976,15 @@ namespace Managers {
 
         public void show_load_more_button() {
             if (load_more_button_visible) return;
-            
+
+            // Front Page has its own per-category "load more" on each
+            // section's nav button (see LayoutManager.add_section_nav_buttons)
+            // now that its sections give overflow articles somewhere to land
+            // that a single page-bottom button doesn't - so skip the global
+            // button there. Every other limited category still uses the old
+            // flat grid and keeps this as its only "load more" affordance.
+            if (window.prefs.category == "frontpage") return;
+
             if (window.loading_state.loading_container != null && window.loading_state.loading_container.get_visible()) {
                 return;
             }
@@ -913,7 +1025,6 @@ namespace Managers {
             if (remaining_articles != null) {
                 remaining_articles.clear();
             }
-            remaining_articles_index = 0;
             articles_shown = 0;
 
             // Clear seen_urls to allow fresh deduplication for new fetch

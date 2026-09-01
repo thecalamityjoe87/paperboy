@@ -123,6 +123,18 @@ namespace Managers {
     public class AnimationManager : GLib.Object {
         private weak NewsWindow window;
 
+        // Keeps entrance animations (and their MarginAdapter targets) alive
+        // for their full run: they're otherwise only referenced by local
+        // variables in animate_card_entrance, which Vala unrefs as soon as
+        // that function returns. Adw.TimedAnimation ties itself to the
+        // widget's frame clock while playing so it likely survives that on
+        // its own, but a card whose animation somehow got cut short would
+        // freeze mid-transition with a lingering, non-zero margin-top -
+        // exactly the kind of "some cards end up a different height" bug
+        // this is defending against. Entries remove themselves via the
+        // animation's "done" signal.
+        private Gee.ArrayList<GLib.Object> active_entrance_animations = new Gee.ArrayList<GLib.Object>();
+
         public AnimationManager(NewsWindow win) {
             GLib.Object();
             this.window = win;
@@ -191,6 +203,28 @@ namespace Managers {
             anim_opacity.set_easing(easing);
             var anim_margin = new Adw.TimedAnimation(widget, initial_margin, 0.0, duration, margin_target);
             anim_margin.set_easing(easing);
+
+            // Retain everything this pair of animations needs for its full
+            // duration - see active_entrance_animations above. margin_adapter
+            // in particular has nothing else keeping it alive.
+            active_entrance_animations.add(margin_adapter);
+            active_entrance_animations.add(opacity_target);
+            active_entrance_animations.add(margin_target);
+            active_entrance_animations.add(anim_opacity);
+            active_entrance_animations.add(anim_margin);
+            anim_opacity.done.connect(() => {
+                active_entrance_animations.remove(anim_opacity);
+                active_entrance_animations.remove(opacity_target);
+            });
+            anim_margin.done.connect(() => {
+                active_entrance_animations.remove(anim_margin);
+                active_entrance_animations.remove(margin_target);
+                active_entrance_animations.remove(margin_adapter);
+                // Belt-and-suspenders: force the margin to its final value
+                // in case the animation was ever interrupted (widget torn
+                // down mid-flight, etc.) before reaching it on its own.
+                if (widget != null) widget.set_margin_top(0);
+            });
 
             if (delay_ms == 0) {
                 anim_opacity.play();

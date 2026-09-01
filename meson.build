@@ -38,6 +38,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/articleSheet.vala',
     'src/ui/components/heroCard.vala',
     'src/ui/components/heroCarousel.vala',
+    'src/ui/components/scrollNavButtons.vala',
+    'src/ui/components/categorySection.vala',
     'src/ui/components/toastWidget.vala',
     'src/ui/controllers/fetchNewsController.vala',
     'src/ui/controllers/searchController.vala',

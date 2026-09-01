@@ -83,6 +83,17 @@ public class ArticleCard : GLib.Object {
         // crop/zoom of the photo per card instead of every image matching.
         overlay.set_valign(Gtk.Align.START);
         overlay.set_vexpand(false);
+        // Clamp the container itself, not just the image: Gtk.Picture
+        // defaults to keep-aspect-ratio=true, and its aspect-driven minimum
+        // size is computed from whichever texture is loaded, which happens
+        // asynchronously and can land at a different moment for each card
+        // in a row (a section's cards load their images independently).
+        // Without this, a card whose image finishes loading later than its
+        // neighbors could get a different natural height right as its real
+        // texture swaps in, producing rows of visibly mismatched card
+        // heights. Explicitly sizing the overlay caps it regardless of
+        // what the image ends up wanting.
+        overlay.set_size_request(-1, img_h);
 
         // Add the provided category chip overlay (owner computes chip)
         if (chip != null) overlay.add_overlay(chip);

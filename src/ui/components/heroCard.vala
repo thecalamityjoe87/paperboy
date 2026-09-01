@@ -47,6 +47,59 @@ public class HeroCard : GLib.Object {
 
     public HeroCard(string title, string url, int max_total_height, int image_h, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null) {
         GLib.Object();
+        init_base(url, enable_context_menu, state_store, window, max_total_height);
+        build_image_overlay_and_title(title, chip);
+
+        // A Grid with homogeneous columns gives a proportional (not just
+        // even) split that holds its ratio as the card is resized, which a
+        // plain Box's hexpand can't do on its own. Text pane takes 2 of 5
+        // columns (40%), picture takes 3 of 5 (60%).
+        var split = new Gtk.Grid();
+        split.set_column_homogeneous(true);
+        split.set_hexpand(true);
+        split.set_vexpand(true);
+        image.set_size_request(-1, image_h);
+        split.attach(title_box, 0, 0, 2, 1);
+        split.attach(overlay, 2, 0, 3, 1);
+        root.append(split);
+
+        finish_interactive_setup();
+    }
+
+    /**
+    * Top Ten's dedicated layout: picture over text instead of side by
+    * side, sized to an exact 70/30 pixel split of max_total_height rather
+    * than a proportional grid share.
+    */
+    public HeroCard.for_topten(string title, string url, int max_total_height, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null) {
+        GLib.Object();
+        init_base(url, enable_context_menu, state_store, window, max_total_height);
+        build_image_overlay_and_title(title, chip);
+        // .hero-card picture normally rounds only the right edge (image
+        // sits on the right in the side-by-side layout) - this variant
+        // needs the top edge rounded instead, since the image is now on
+        // top. See .hero-card.hero-card-stacked in style.css.
+        root.add_css_class("hero-card-stacked");
+
+        int image_height = (int) Math.round(max_total_height * 0.7);
+        int text_height = max_total_height - image_height;
+        image.set_size_request(-1, image_height);
+        title_box.set_size_request(-1, text_height);
+
+        var split = new Gtk.Grid();
+        split.set_hexpand(true);
+        split.set_vexpand(true);
+        split.attach(overlay, 0, 0, 1, 1);
+        split.attach(title_box, 0, 1, 1, 1);
+        root.append(split);
+
+        finish_interactive_setup();
+    }
+
+    /**
+    * Field/root setup shared by every HeroCard layout.
+    */
+    private void init_base(string url, bool enable_context_menu, ArticleStateStore? state_store, NewsWindow? window, int max_total_height) {
         this.url = url;
         this.enable_context_menu = enable_context_menu;
         this.article_state_store = state_store;
@@ -65,22 +118,28 @@ public class HeroCard : GLib.Object {
         root.set_valign(Gtk.Align.FILL);
         root.set_margin_start(0);
         root.set_margin_end(0);
+    }
 
-        // A Grid with homogeneous columns gives a proportional (not just
-        // even) split that stays 40/60 as the card is resized, which a plain
-        // Box's hexpand can't do on its own.
-        var split = new Gtk.Grid();
-        split.set_column_homogeneous(true);
-        split.set_hexpand(true);
-        split.set_vexpand(true);
-
+    /**
+    * Builds image/overlay/title_box/title_label the same way regardless of
+    * layout - only the grid/split arrangement and explicit sizing differ
+    * between the constructors, so that part is factored out here.
+    */
+    private void build_image_overlay_and_title(string title, Gtk.Widget? chip) {
         image = new Gtk.Picture();
         image.set_halign(Gtk.Align.FILL);
         image.set_hexpand(true);
         image.set_vexpand(true);
-        image.set_size_request(-1, image_h);
         image.set_content_fit(Gtk.ContentFit.COVER);
         image.set_can_shrink(true);
+        // Tried disabling keep-aspect-ratio here at one point to force a
+        // smaller size in the Top Ten layout, but that broke content-fit
+        // COVER's aspect-preserving crop for every hero card, stretching
+        // (squishing) the image instead of cropping it. Left at its GTK
+        // default (true); HeroCard.for_topten pins its image to an exact
+        // pixel height via set_size_request instead, which constrains the
+        // size correctly without touching this property.
+
 
         overlay = new Gtk.Overlay();
         overlay.set_child(image);
@@ -114,12 +173,12 @@ public class HeroCard : GLib.Object {
         title_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
         title_label.set_lines(4);
         title_box.append(title_label);
+    }
 
-        // Text pane takes 2 of 5 columns (40%), picture takes 3 of 5 (60%).
-        split.attach(title_box, 0, 0, 2, 1);
-        split.attach(overlay, 2, 0, 3, 1);
-        root.append(split);
-
+    /**
+    * Click/hover/context-menu wiring shared by every HeroCard layout.
+    */
+    private void finish_interactive_setup() {
         // Attach HeroCard object to root for search functionality
         root.set_data("hero-card", this);
 

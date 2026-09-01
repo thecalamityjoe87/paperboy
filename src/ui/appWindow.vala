@@ -395,6 +395,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     layout_manager.hero_container = content_view.hero_container;
     layout_manager.featured_box = content_view.featured_box;
     layout_manager.columns_row = content_view.columns_row;
+    layout_manager.category_sections_container = content_view.category_sections_container;
     layout_manager.content_area = content_view.content_area;
     // Ensure UI containers are visible after wiring
     layout_manager.hero_container?.set_visible(true);
@@ -448,7 +449,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     split_view.show_sidebar = true; // Start with sidebar shown
     // Wrap content in a NavigationView so we can slide in a preview page
     nav_view = new Adw.NavigationView();
-    var main_page = new Adw.NavigationPage(main_scrolled, "Main");
+    var main_page = new Adw.NavigationPage(content_view.main_scroll_overlay, "Main");
     nav_view.push(main_page);
 
     // Create a root overlay that wraps the NavigationView so we can
