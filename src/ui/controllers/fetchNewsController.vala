@@ -1186,66 +1186,64 @@ public class FetchNewsController {
         if (win == null) return false;
         try { if (!win.category_manager.is_local_news_view()) return false; } catch (GLib.Error e) { return false; }
 
-        string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
-        string file_path = config_dir + "/local_feeds";
+        var prefs = NewsPreferences.get_instance();
+        string display_city = (prefs.user_location_city != null && prefs.user_location_city.length > 0)
+            ? prefs.user_location_city
+            : prefs.user_location;
 
-        if (!GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
-            wrapped_set_label("Local News — No local feeds configured");
+        if (display_city == null || display_city.strip().length == 0) {
+            wrapped_set_label("Local News — No location configured");
             win.hide_loading_spinner();
             return true;
         }
 
-        string contents = "";
-        try { GLib.FileUtils.get_contents(file_path, out contents); } catch (GLib.Error e) { contents = ""; }
-        if (contents == null || contents.strip() == "") {
-            wrapped_set_label("Local News — No local feeds configured");
-            win.hide_loading_spinner();
-            return true;
-        }
+        // Prefer the nearest-major-city search term (falls back to the
+        // exact resolved city for locations already near/in a major city,
+        // or for locations saved without running the geocode lookup).
+        string news_query_city = (prefs.user_location_news_query != null && prefs.user_location_news_query.length > 0)
+            ? prefs.user_location_news_query
+            : display_city;
 
-        // Clear UI and schedule per-feed fetches
+        // Clear UI and fetch via Google News' RSS search endpoint, scoped to
+        // the user's resolved location. This replaced a feedspot.com HTML
+        // scrape (see rssFinder tool, now removed) that broke whenever
+        // feedspot changed its page markup; Google News' RSS output is a
+        // stable, first-party feed so it can go straight through the same
+        // generic RSS pipeline every other source uses.
         wrapped_clear();
-        ClearItemsFunc no_op_clear = () => { };
-        uint my_seq = ctx.seq;
-        SetLabelFunc label_fn = (text) => {
-            Idle.add(() => {
-                if (!FetchContext.is_current(my_seq)) return false;
-                var cur = FetchContext.current_context();
-                if (cur == null) return false;
-                var w = cur.window;
-                if (w == null) return false;
-                w.update_content_header_now();
-                return false;
-            });
-        };
+        var article_mgr = win.article_manager;
+        if (article_mgr != null) article_mgr.featured_used = true;
 
         // Ensure the top-right source badge / header reflects Local News
         win.update_content_header_now();
 
-        string[] lines = contents.split("\n");
-        bool found_feed = false;
-        for (int i = 0; i < lines.length; i++) {
-            string u = lines[i].strip();
-            if (u.length == 0) continue;
-            found_feed = true;
-            var article_mgr = win.article_manager;
-            if (article_mgr != null) article_mgr.featured_used = true;
-            RssFeedProcessor.fetch_rss_url(
-                u,
-                "Local Feed",
-                "Local News",
-                "local_news",
-                current_search_query,
-                session,
-                FetchNewsController.global_forward_label,
-                no_op_clear,
-                FetchNewsController.global_add_item
-            );
-        }
-        if (!found_feed) {
-            wrapped_set_label("Local News — No local feeds configured");
+        // Fetch both the exact resolved town and the nearest major metro
+        // (when they differ) so users near a small town get that town's
+        // own coverage plus the metro's, rather than just one or the
+        // other. ArticleManager already dedupes by normalized URL, so any
+        // story both searches turn up is only shown once.
+        fetch_local_news_query(display_city, "local_news", current_search_query, session);
+        if (news_query_city != display_city) {
+            fetch_local_news_query(news_query_city, "local_news", current_search_query, session);
         }
 
         return true;
+    }
+
+    private static void fetch_local_news_query(string city, string category_id, string current_search_query, Soup.Session session) {
+        string query = GLib.Uri.escape_string(city.strip(), null, false);
+        string url = "https://news.google.com/rss/search?q=" + query + "&hl=en-US&gl=US&ceid=US:en";
+
+        RssFeedProcessor.fetch_rss_url(
+            url,
+            city,
+            "Local News",
+            category_id,
+            current_search_query,
+            session,
+            FetchNewsController.global_forward_label,
+            FetchNewsController.global_no_op_clear,
+            FetchNewsController.global_add_item
+        );
     }
 }

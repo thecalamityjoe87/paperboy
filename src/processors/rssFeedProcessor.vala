@@ -30,7 +30,7 @@ public class RssFeedProcessor {
     // Maximum items to parse from local news RSS feeds (prevents memory bloat from large feeds)
     // TODO: Make this configurable via preferences to allow power users to increase the limit
     // Currently hardcoded to prevent UI slowdowns, but users may want more items for archival feeds
-    private const int LOCAL_FEED_MAX_ITEMS = 12;
+    private const int LOCAL_FEED_MAX_ITEMS = 30;
 
     // Sanitize XML by removing invalid control characters and fixing encoding issues
     private static string sanitize_xml(string input) {
@@ -558,34 +558,6 @@ public class RssFeedProcessor {
         }
     }
 
-    // Remove a dead URL from the user's `local_feeds` list. This is best-effort
-    // and will log warnings on failure. Kept as a static method so it can be
-    // called from worker threads safely (it performs file I/O synchronously).
-    private static void prune_local_feed(string bad_url) {
-        try {
-            string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
-            string file_path = config_dir + "/local_feeds";
-            string contents = "";
-            bool ok = false;
-            try { ok = GLib.FileUtils.get_contents(file_path, out contents); } catch (GLib.Error ee) { contents = ""; ok = false; }
-            if (!ok || contents == null) return;
-            string[] lines = contents.split("\n");
-            var kept = new Gee.ArrayList<string>();
-            foreach (var l in lines) {
-                string t = l.strip();
-                if (t.length == 0) continue;
-                if (t == bad_url) continue;
-                kept.add(t);
-            }
-            string new_contents = "";
-            foreach (var e in kept) new_contents += e + "\n";
-            try { GLib.FileUtils.set_contents(file_path, new_contents); } catch (GLib.Error eee) { warning("Failed to update local_feeds: %s", eee.message); }
-            warning("Pruned dead local feed: %s", bad_url);
-        } catch (GLib.Error e) {
-            warning("Error pruning local feed: %s", e.message);
-        }
-    }
-
     public static void fetch_rss_url(
         string url,
         string source_name,
@@ -674,21 +646,18 @@ public class RssFeedProcessor {
                         warning("Network error fetching RSS for '%s' (%s): unknown error", source_name, url);
                     }
                     try { set_label("Error loading feed — network/DNS error"); } catch (GLib.Error e) { }
-                    if (category_id == "local_news") prune_local_feed(url);
                     return null;
                 }
 
                 if (!http_response.is_success()) {
                     warning("HTTP %u fetching RSS for '%s' (%s)", http_response.status_code, source_name, url);
                     try { set_label(("Error loading feed — HTTP %u").printf(http_response.status_code)); } catch (GLib.Error e) { }
-                    if (category_id == "local_news") prune_local_feed(url);
                     return null;
                 }
 
                 if (http_response.body == null) {
                     warning("Empty response for RSS from '%s' (%s)", source_name, url);
                     try { set_label("Error loading feed — empty response"); } catch (GLib.Error e) { }
-                    if (category_id == "local_news") prune_local_feed(url);
                     return null;
                 }
 
@@ -697,7 +666,6 @@ public class RssFeedProcessor {
             } catch (GLib.Error e) {
                 warning("RSS fetch error: %s", e.message);
                 try { set_label("Error loading feed"); } catch (GLib.Error _) { }
-                if (category_id == "local_news") prune_local_feed(url);
             }
             // Drop our explicit references so they can be freed.
             _set_label_ref = null;

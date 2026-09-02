@@ -71,6 +71,12 @@
       <description>Resolved canonical city name for the provided location (e.g., "San Francisco, California")</description>
     </key>
 
+    <key name="user-location-news-query" type="s">
+      <default>''</default>
+      <summary>Local News search term</summary>
+      <description>City name used to query local news; the nearest major city when the resolved location is a small town, otherwise the same as user-location-city</description>
+    </key>
+
     <!-- Unread Badge Preferences -->
     <key name="unread-badges-enabled" type="b">
       <default>true</default>

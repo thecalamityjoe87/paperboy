@@ -213,10 +213,10 @@ public class OnboardingDialog : GLib.Object {
 
     private static Gtk.Widget build_sources_page(NewsPreferences prefs) {
         var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
-        box.set_margin_start(32);
-        box.set_margin_end(32);
-        box.set_margin_top(32);
-        box.set_margin_bottom(16);
+        box.set_margin_start(36);
+        box.set_margin_end(36);
+        box.set_margin_top(36);
+        box.set_margin_bottom(18);
 
         var title = new Gtk.Label("Choose Your Sources");
         title.add_css_class("title-2");
@@ -236,11 +236,19 @@ public class OnboardingDialog : GLib.Object {
         scroller.set_margin_top(12);
 
         var grid = new Gtk.FlowBox();
+        grid.add_css_class("onboarding-sources-grid");
         grid.set_selection_mode(Gtk.SelectionMode.NONE);
         grid.set_homogeneous(true);
         grid.set_row_spacing(16);
         grid.set_column_spacing(16);
         grid.set_valign(Gtk.Align.START);
+        // The badge on the top row's tiles pokes a few px above the tile
+        // itself (see make_tile below). scroller's own margin_top sits
+        // outside its clipped viewport, so it gives no room *inside* the
+        // scrollable area - without this, only the top row's badge (the
+        // only one not already buffered by row_spacing) gets clipped by
+        // the viewport's top edge.
+        grid.set_margin_top(12);
         grid.set_max_children_per_line(3);
         grid.set_min_children_per_line(3);
 
@@ -274,24 +282,23 @@ public class OnboardingDialog : GLib.Object {
             badge.set_margin_top(-4);
             badge.set_visible(prefs.preferred_source_enabled(source_id));
 
-            var overlay = new Gtk.Overlay();
-            overlay.set_child(tile_frame);
-            overlay.add_overlay(badge);
+            // Clip only the tile artwork (the logo image) to the tile's
+            // rounded corners. This lives on tile_frame itself rather than
+            // on the button, because an element's own overflow clip does
+            // not cut off its own box-shadow (only its children's content
+            // that spills past its edge) - so the hover shadow below,
+            // which is declared on this same element, still renders in
+            // full even though the image inside it is clipped.
+            tile_frame.set_overflow(Gtk.Overflow.HIDDEN);
 
             var btn = new Gtk.Button();
             btn.add_css_class("onboarding-source-tile-btn");
-            btn.set_child(overlay);
+            btn.set_child(tile_frame);
             btn.set_tooltip_text(title_text);
             btn.set_halign(Gtk.Align.CENTER);
             btn.set_valign(Gtk.Align.CENTER);
             btn.set_hexpand(false);
             btn.set_vexpand(false);
-            // GTK CSS has no "overflow" property, so the theme's hover/
-            // active background (which is drawn at the button's own
-            // border-box) would otherwise render as a plain rectangle
-            // wider than the rounded tile beneath it. Clipping via the
-            // widget API keeps it confined to the tile's rounded shape.
-            btn.set_overflow(Gtk.Overflow.HIDDEN);
             btn.clicked.connect(() => {
                 bool now_enabled = !prefs.preferred_source_enabled(source_id);
                 prefs.set_preferred_source_enabled(source_id, now_enabled);
@@ -299,7 +306,23 @@ public class OnboardingDialog : GLib.Object {
                 badge.set_visible(now_enabled);
             });
 
-            return btn;
+            // The badge lives in its own overlay wrapped *around* the
+            // button rather than inside it, so its corner-hugging negative
+            // margin isn't clipped by tile_frame's rounded-corner overflow.
+            // This outer overlay must shrink-wrap and center like btn used
+            // to (a FlowBoxChild otherwise stretches its child to fill the
+            // whole homogeneous cell) - without that, the badge positions
+            // itself relative to the overlay's own (much larger) box
+            // instead of the tile's actual corner.
+            var overlay = new Gtk.Overlay();
+            overlay.set_child(btn);
+            overlay.add_overlay(badge);
+            overlay.set_halign(Gtk.Align.CENTER);
+            overlay.set_valign(Gtk.Align.CENTER);
+            overlay.set_hexpand(false);
+            overlay.set_vexpand(false);
+
+            return overlay;
         }
 
         grid.append(make_tile("The Guardian", "guardian", "guardian-logo.png"));

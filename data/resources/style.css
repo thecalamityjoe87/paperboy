@@ -756,7 +756,26 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 }
 
 /* Onboarding source picker - square logo tiles with a checkmark badge
-   toggled on/off, instead of the switch-list rows used in Preferences. */
+   toggled on/off, instead of the switch-list rows used in Preferences.
+   The FlowBox cells are homogeneous and much wider than the 96px tile
+   they contain, so GTK's default flowboxchild:hover background (which
+   paints the full cell) reads as an oversized highlight around a small
+   tile - suppress it here so only the tile button's own :hover styling
+   (scoped to the tile's actual bounds) shows. */
+.onboarding-sources-grid flowboxchild {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+}
+
+.onboarding-sources-grid flowboxchild:hover,
+.onboarding-sources-grid flowboxchild:focus,
+.onboarding-sources-grid flowboxchild:selected {
+    background: none;
+    box-shadow: none;
+    outline: none;
+}
+
 .onboarding-source-tile {
     background-color: white;
     border-radius: 14px;

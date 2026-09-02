@@ -19,9 +19,8 @@ using Gtk;
 using Adw;
 
 /*
- * Simple dialog to set a user inputted location string. This is a UI
- * shell that sends information to a local binary helper 'rssFinder'
- * to help discover local feeds
+ * Simple dialog to set a user inputted location string, used to scope
+ * the Local News view's Google News RSS query.
  */
 
 public class LocationDialog : GLib.Object {
@@ -140,6 +139,7 @@ public class LocationDialog : GLib.Object {
         // Track the last resolved location so the Save button can use it.
         string last_detected_query = "";
         string last_detected_city = "";
+        string last_detected_news_query = "";
 
         // Helper function to enable/disable Save button based on validation
         void update_save_button_state() {
@@ -172,35 +172,40 @@ public class LocationDialog : GLib.Object {
                 // city name.
                 string location_to_save;
                 string city_to_save;
-                string query_for_rssfinder;
+                string news_query_to_save;
 
                 if (last_detected_city.length > 0) {
                     // User performed a lookup - use the resolved city
                     location_to_save = last_detected_query;
                     city_to_save = last_detected_city;
-                    query_for_rssfinder = last_detected_city;
+                    news_query_to_save = last_detected_news_query;
                 } else {
                     // User entered a city name directly
                     location_to_save = val;
                     city_to_save = "";
-                    query_for_rssfinder = val;
+                    news_query_to_save = "";
                 }
 
                 prefs.user_location = location_to_save;
                 prefs.user_location_city = city_to_save;
+                prefs.user_location_news_query = news_query_to_save;
                 prefs.save_config();
 
                 // Close the dialog immediately
                 dialog.close();
 
-                // After dialog closes, update UI and run rssFinder
+                // After dialog closes, update UI and refresh Local News so
+                // it picks up the new location immediately (Google News'
+                // RSS search endpoint is queried directly per-fetch, so
+                // there's no separate discovery step to run first).
                 Idle.add(() => {
                     var parent_win2 = parent as NewsWindow;
                     if (parent_win2 != null) {
                         parent_win2.update_personalization_ui();
                         parent_win2.update_local_news_ui();
-                        // Run rssFinder with the appropriate query
-                        RssFinderService.spawn_async(parent, query_for_rssfinder, true);
+                        if (parent_win2.category_manager.is_local_news_view()) {
+                            parent_win2.fetch_news();
+                        }
                     }
                     return false;
                 });
@@ -215,7 +220,7 @@ public class LocationDialog : GLib.Object {
         // Shared completion handler: applies a lookup's result (from
         // either the text search or "use my location") to the hint/Save
         // button state.
-        void on_lookup_resolved(string resolved) {
+        void on_lookup_resolved(string resolved, string news_query_city) {
             if (!dialog_alive) return;
 
             if (spinner != null) spinner.stop();
@@ -223,13 +228,19 @@ public class LocationDialog : GLib.Object {
 
             if (resolved.length > 0) {
                 last_detected_city = resolved;
+                last_detected_news_query = news_query_city;
                 entry.set_text(resolved);
                 hint.set_use_markup(true);
-                hint.set_markup("Detected: <b>" + GLib.Markup.escape_text(resolved) + "</b> — click Save to use this location");
+                string hint_markup = "Detected: <b>" + GLib.Markup.escape_text(resolved) + "</b> — click Save to use this location";
+                if (news_query_city.length > 0 && news_query_city != resolved) {
+                    hint_markup += "\n(Local News will search near <b>" + GLib.Markup.escape_text(news_query_city) + "</b>)";
+                }
+                hint.set_markup(hint_markup);
             } else {
                 hint.set_use_markup(false);
                 hint.set_text("Couldn't resolve a location for that. Try a different city name or ZIP code.");
                 last_detected_city = "";
+                last_detected_news_query = "";
             }
             update_save_button_state();
         }
@@ -240,6 +251,7 @@ public class LocationDialog : GLib.Object {
             hint.set_text("");
             last_detected_query = query;
             last_detected_city = "";
+            last_detected_news_query = "";
             if (spinner != null) spinner.start();
             if (spinner_box != null) spinner_box.show();
             dialog_alive = true;

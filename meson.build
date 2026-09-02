@@ -83,7 +83,6 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/lruCache.vala',
     'src/services/sourceMetadata.vala',
     'src/services/previewCache.vala',
-    'src/services/rssFinderService.vala',
     'src/services/articleShareService.vala',
     'src/services/rssSourceStore.vala',
     'src/services/rssArticleCache.vala',
@@ -121,6 +120,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/httpClientUtils.vala',
     'src/utils/rssValidatorUtils.vala',
     'src/utils/stripHtmlUtils.vala',
+    'src/utils/majorCitiesUtils.vala',
 
     # Processors (RSS/HTML/image processing)
     'src/processors/rssFeedProcessor.vala',
@@ -131,14 +131,6 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
   install : true,
   link_args : ['-lm']
 )
-
-  # Install the rssFinder helper as an internal binary per FHS 4.7.
-  # This is only called by the Paperboy application, not by users directly.
-  executable('rssFinder', 'tools/rssFinder.vala',
-    dependencies : [gio],
-    install : true,
-    install_dir : join_paths(get_option('libexecdir'), 'paperboy')
-  )
 
 install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
 

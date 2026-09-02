@@ -140,6 +140,14 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_string("user-location-city", value); }
     }
 
+    // City name used to query Local News: the nearest major city when the
+    // resolved location is a small town (so Google News has enough to
+    // return), otherwise the same as user_location_city.
+    public string user_location_news_query {
+        owned get { return settings.get_string("user-location-news-query"); }
+        set { settings.set_string("user-location-news-query", value); }
+    }
+
     public bool unread_badges_enabled {
         get { return settings.get_boolean("unread-badges-enabled"); }
         set { settings.set_boolean("unread-badges-enabled", value); }

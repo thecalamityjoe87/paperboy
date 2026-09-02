@@ -46,6 +46,7 @@ public class UnreadFetchService {
         public string? rss_name;
         public string? category_id;
         public string? cache_key;
+        public string? news_query;
 
         public FetchTask.for_category(string cat, NewsSource src) {
             this.type = TaskType.CATEGORY;
@@ -61,9 +62,14 @@ public class UnreadFetchService {
             this.cache_key = cache_key_override;
         }
 
-        public FetchTask.for_local(string url) {
+        // `display_city` is the user's resolved location (e.g. "San
+        // Francisco, CA"), used as the article source label; `query_city`
+        // is the (possibly different) nearest-major-city term used to
+        // build the Google News RSS search query at dispatch time.
+        public FetchTask.for_local(string display_city, string query_city) {
             this.type = TaskType.LOCAL_FEED;
-            this.rss_url = url;
+            this.rss_name = display_city;
+            this.news_query = query_city;
         }
     }
 
@@ -203,9 +209,10 @@ public class UnreadFetchService {
                     break;
 
                 case TaskType.LOCAL_FEED:
+                    string local_query = GLib.Uri.escape_string(task.news_query ?? task.rss_name, null, false);
                     RssFeedProcessor.fetch_rss_url(
-                        task.rss_url,
-                        "Local Feed",
+                        "https://news.google.com/rss/search?q=" + local_query + "&hl=en-US&gl=US&ceid=US:en",
+                        task.rss_name,
                         "Local News",
                         "local_news",
                         "",  // no search query
@@ -279,43 +286,23 @@ public class UnreadFetchService {
             }
         }
 
-        /*// Fetch local_news articles from user's configured local feeds file
-        try {
-            string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
-            string file_path = config_dir + "/local_feeds";
-            if (GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
-                string contents = "";
-                try { GLib.FileUtils.get_contents(file_path, out contents); } catch (GLib.Error e) { contents = ""; }
-                if (contents != null && contents.strip().length > 0) {
-                    string[] lines = contents.split("\n");
-                    foreach (string line in lines) {
-                        string u = line.strip();
-                        if (u.length == 0) continue;
-                        enqueue_fetch(new FetchTask.for_local(u));
-                    }
-                }
-            }
-        } catch (GLib.Error e) { }*/
-
-        // Fetch local_news articles from user's configured local feeds file
-        string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
-        string file_path = config_dir + "/local_feeds";
-
-        if (GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
-            string contents = "";
-            try {
-                GLib.FileUtils.get_contents(file_path, out contents);
-            } catch (GLib.Error e) {
-                contents = "";
-            }
-
-            if (contents != null && contents.strip().length > 0) {
-                string[] lines = contents.split("\n");
-                foreach (string line in lines) {
-                    string u = line.strip();
-                    if (u.length == 0) continue;
-                    enqueue_fetch(new FetchTask.for_local(u));
-                }
+        // Fetch local_news article metadata via Google News' RSS search
+        // endpoint, scoped to the user's resolved location.
+        var prefs = win.prefs;
+        string local_city = (prefs != null && prefs.user_location_city != null && prefs.user_location_city.length > 0)
+            ? prefs.user_location_city
+            : (prefs != null ? prefs.user_location : null);
+        if (local_city != null && local_city.strip().length > 0) {
+            string trimmed_local_city = local_city.strip();
+            string local_news_query = (prefs.user_location_news_query != null && prefs.user_location_news_query.length > 0)
+                ? prefs.user_location_news_query
+                : trimmed_local_city;
+            // Same pair of searches as the main Local News fetch (see
+            // fetchNewsController.handle_local_news): the exact resolved
+            // town plus the nearest major metro when they differ.
+            enqueue_fetch(new FetchTask.for_local(trimmed_local_city, trimmed_local_city));
+            if (local_news_query != trimmed_local_city) {
+                enqueue_fetch(new FetchTask.for_local(trimmed_local_city, local_news_query));
             }
         }
 
