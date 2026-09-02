@@ -13,6 +13,8 @@ gee = dependency('gee-0.8')
 gio = dependency('gio-2.0')
 sqlite = dependency('sqlite3')
 webkit = dependency('webkitgtk-6.0')
+geoclue = dependency('libgeoclue-2.0')
+geocode = dependency('geocode-glib-2.0')
 
 # Generate build-time constants so the application knows where meson
 # installed internal binaries. This avoids hardcoding candidate paths
@@ -84,6 +86,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/articleShareService.vala',
     'src/services/rssSourceStore.vala',
     'src/services/rssArticleCache.vala',
+    'src/services/locationLookupService.vala',
     'src/services/resolvers/articleSourceResolver.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
@@ -122,9 +125,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/processors/rssFeedProcessor.vala',
     'src/processors/imageProcessor.vala',
     'tools/articleScraper.vala',
-    'tools/zipLookup.vala',
   ],
-  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit],
+  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, geocode],
   install : true,
   link_args : ['-lm']
 )
@@ -158,7 +160,6 @@ install_data('data/icons/scalable/paperboy.svg', install_dir: join_paths(get_opt
 # Install app data (styles, icons) to a namespaced datadir for runtime lookup
 install_data('data/resources/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'paperboy'))
-install_data('data/usZips.csv', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 
 # Ensure adblock stylesheet is installed under the namespaced datadir so
 # runtime lookups like DataPaths.find_data_file("resources/adblock.css")

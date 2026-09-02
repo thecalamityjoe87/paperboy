@@ -432,8 +432,6 @@ public class ArticleStateStore : GLib.Object {
     public int get_unread_count_for_myfeed(NewsPreferences prefs) {
         int total = 0;
         int viewed = 0;
-        int enabled_count = 0;
-        int disabled_count = 0;
 
         article_tracking_lock.lock();
         try {
@@ -443,68 +441,44 @@ public class ArticleStateStore : GLib.Object {
 
             var articles = category_articles.get("myfeed");
 
-            // Get personalized categories for built-in source filtering
-            var personalized_cats = prefs.personalized_categories;
+            // PERFORMANCE: Build the set of URLs that belong to an enabled
+            // source in one pass over category_articles/source_articles,
+            // instead of rescanning both maps for every myfeed article
+            // (which was O(articles * (categories + sources))).
+            var enabled_urls = new Gee.HashSet<string>();
+
+            foreach (var entry in category_articles.entries) {
+                string category_id = entry.key;
+                if (!category_id.has_prefix("rssfeed:")) continue;
+
+                string rss_url = category_id.substring("rssfeed:".length);
+                string check_key = "custom:" + rss_url;
+                if (!prefs.preferred_source_enabled(check_key)) continue;
+
+                foreach (string url in entry.value) {
+                    enabled_urls.add(url);
+                }
+            }
+
+            // Built-in sources only count if "custom only" mode is disabled
+            if (!prefs.myfeed_custom_only) {
+                foreach (var source_entry in source_articles.entries) {
+                    string source_name = source_entry.key;
+                    if (source_name.has_prefix("rssfeed:")) continue;
+                    if (!prefs.preferred_source_enabled(source_name)) continue;
+
+                    foreach (string url in source_entry.value) {
+                        enabled_urls.add(url);
+                    }
+                }
+            }
 
             // PERFORMANCE: Only check viewed status from in-memory cache
             meta_lock.lock();
             try {
                 foreach (string url in articles) {
-                    // Check if this article belongs to any enabled source
-                    // This includes both custom RSS feeds and built-in sources
-                    bool has_enabled_source = false;
+                    if (!enabled_urls.contains(url)) continue;
 
-                    foreach (var entry in category_articles.entries) {
-                        string category_id = entry.key;
-
-                        // Check if this is an RSS feed category
-                        if (category_id.has_prefix("rssfeed:")) {
-                            var category_urls = entry.value;
-
-                            // Check if this article is in this RSS feed category
-                            if (category_urls.contains(url)) {
-                                // Extract the RSS URL from the category ID
-                                string rss_url = category_id.substring("rssfeed:".length);
-                                string check_key = "custom:" + rss_url;
-
-                                // Check if this RSS feed is enabled in preferences
-                                if (prefs.preferred_source_enabled(check_key)) {
-                                    has_enabled_source = true;
-                                    break;  // Found at least one enabled source, no need to check more
-                                }
-                            }
-                        }
-                    }
-
-                    // If not found in RSS feed categories, check built-in sources
-                    // But only if "custom only" mode is disabled
-                    if (!has_enabled_source && !prefs.myfeed_custom_only) {
-                        // Check which built-in source(s) this article belongs to
-                        foreach (var source_entry in source_articles.entries) {
-                            string source_name = source_entry.key;
-                            var source_urls = source_entry.value;
-
-                            // Skip rssfeed sources (already checked above)
-                            if (source_name.has_prefix("rssfeed:")) continue;
-
-                            // Check if this article belongs to this built-in source
-                            if (source_urls.contains(url)) {
-                                // Check if this built-in source is enabled
-                                if (prefs.preferred_source_enabled(source_name)) {
-                                    has_enabled_source = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Only count articles that have at least one enabled source
-                    if (!has_enabled_source) {
-                        disabled_count++;
-                        continue;
-                    }
-
-                    enabled_count++;
                     total++;
                     string meta_path = meta_path_for(url);
                     if (viewed_meta_paths.contains(meta_path)) {

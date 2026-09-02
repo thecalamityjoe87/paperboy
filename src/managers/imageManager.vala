@@ -103,8 +103,9 @@ public class ImageManager : GLib.Object {
     var session = window.session;
     var meta_cache = window.meta_cache;
 
-        // Use a thread pool with max 8 threads instead of creating unlimited new threads
-        // This dramatically improves performance by avoiding thread creation overhead
+        // Concurrency is already bounded by the caller (ensure_start_download
+        // admits at most MAX_CONCURRENT_DOWNLOADS at a time), so a plain
+        // per-call thread is fine here.
         uint gen_seq = FetchContext.current;
 
         new Thread<void*>("image-download", () => {
@@ -687,86 +688,119 @@ public class ImageManager : GLib.Object {
             }
         }
 
+        // Shared fallback: register `image` as waiting for `url` and start
+        // (or join) a network download for it. Used both when there's no
+        // disk-cached copy at all, and when decoding a disk-cached copy
+        // fails (mirrors the original inline fallthrough behavior).
+        void network_fallback() {
+            // THREAD SAFETY: Lock mutex while checking and modifying pending_downloads
+            // to prevent race with background threads accessing the HashMap
+            download_mutex.lock();
+            try {
+                var existing = pending_downloads.get(url);
+                if (existing != null) {
+                    existing.add(image);
+                    return;
+                }
+
+                var list = new Gee.ArrayList<Gtk.Picture>();
+                list.add(image);
+                pending_downloads.set(url, list);
+                requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
+                try {
+                    string nkey = UrlUtils.normalize_article_url(url);
+                    if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
+                } catch (GLib.Error e) { }
+            } finally {
+                download_mutex.unlock();
+            }
+
+            // Download at the requested size - multipliers are already applied by callers
+            // (articleManager applies 6x for heroes, 3x for articles, etc.)
+            // Note: Guardian URLs are upgraded to 1000px during download (their CDN allows
+            // 1000px but returns 403 for larger sizes like 2000px/2400px)
+            int download_w = clampi(target_w, target_w, 2400);
+            int download_h = clampi(target_h, target_h, 2400);
+            ensure_start_download(url, download_w, download_h);
+        }
+
         try {
             if (window.meta_cache != null) {
                 var disk_path = window.meta_cache.get_cached_path(url);
                 if (disk_path != null) {
+                    // PERFORMANCE: decoding + scale/crop of an on-disk cached
+                    // thumbnail is real CPU work (JPEG/PNG decode, bilinear
+                    // scale). This used to run inline on the caller's thread,
+                    // which is the main thread for every card built during
+                    // article insertion - on views with many already-cached
+                    // thumbnails (Front Page especially, which can have far
+                    // more cards than any single-source view) that added up
+                    // to several seconds of main-thread work and visible
+                    // churn. Do the decode/scale off the main thread instead,
+                    // mirroring the pattern already used for network
+                    // downloads below: only the final texture/cache write
+                    // touches GTK state, via Idle.add.
+                    int device_scale = 1;
+                    try { device_scale = image.get_scale_factor(); if (device_scale < 1) device_scale = 1; } catch (GLib.Error e) { device_scale = 1; }
+                    var img_cache = window.image_cache;
+
+                    new Thread<void*>("cached-image-load", () => {
                         try {
                             string file_key = "pixbuf::file:%s::%dx%d".printf(disk_path, 0, 0);
-                            var pix = window.image_cache != null ? window.image_cache.get_or_load_file(file_key, disk_path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, disk_path, 0, 0);
+                            var pix = img_cache != null ? img_cache.get_or_load_file(file_key, disk_path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, disk_path, 0, 0);
                             if (pix != null) {
-                                int device_scale = 1;
-                                try { device_scale = image.get_scale_factor(); if (device_scale < 1) device_scale = 1; } catch (GLib.Error e) { device_scale = 1; }
-
                                 int eff_target_w = target_w * device_scale;
                                 int eff_target_h = target_h * device_scale;
-
-                                int width = pix.get_width();
-                                int height = pix.get_height();
 
                                 // Use COVER strategy: scale so image fully covers the (device-scaled) target, then crop
                                 string size_key = make_cache_key(url, target_w, target_h);
                                 try {
-                                    var final_pb = window.image_cache != null ? window.image_cache.get_or_scale_and_crop_pixbuf(size_key, pix, eff_target_w, eff_target_h) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(size_key, pix, eff_target_w, eff_target_h);
+                                    var final_pb = img_cache != null ? img_cache.get_or_scale_and_crop_pixbuf(size_key, pix, eff_target_w, eff_target_h) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(size_key, pix, eff_target_w, eff_target_h);
                                     if (final_pb != null) pix = final_pb;
-                                    try { if (window.image_cache != null) window.image_cache.set(size_key, pix); else ImageCache.get_global().set(size_key, pix); } catch (GLib.Error e) { }
                                 } catch (GLib.Error e) { }
-                                if (target_w <= 64 && target_h <= 64) {
-                                    try {
-                                        string any_key2 = make_cache_key(url, 0, 0);
-                                        if (window.image_cache != null) window.image_cache.set(any_key2, pix);
-                                        else ImageCache.get_global().set(any_key2, pix);
-                                    } catch (GLib.Error e) { }
-                                }
-                                try {
-                                    var tex = window.image_cache != null ? window.image_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
-                                    if (tex != null) {
-                                        image.set_paintable(tex);
-                                    } else {
-                                        try { image.set_paintable(Gdk.Texture.for_pixbuf(pix)); } catch (GLib.Error e) { }
+
+                                Gdk.Pixbuf pix_for_idle = pix;
+                                Idle.add(() => {
+                                    try { if (img_cache != null) img_cache.set(size_key, pix_for_idle); else ImageCache.get_global().set(size_key, pix_for_idle); } catch (GLib.Error e) { }
+                                    if (target_w <= 64 && target_h <= 64) {
+                                        try {
+                                            string any_key2 = make_cache_key(url, 0, 0);
+                                            if (img_cache != null) img_cache.set(any_key2, pix_for_idle);
+                                            else ImageCache.get_global().set(any_key2, pix_for_idle);
+                                        } catch (GLib.Error e) { }
                                     }
-                                } catch (GLib.Error e) { }
-                                if (window.loading_state != null) window.loading_state.on_image_loaded(image);
-                                return;
+                                    try {
+                                        var tex = img_cache != null ? img_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
+                                        if (tex != null) {
+                                            image.set_paintable(tex);
+                                        } else {
+                                            try { image.set_paintable(Gdk.Texture.for_pixbuf(pix_for_idle)); } catch (GLib.Error e) { }
+                                        }
+                                    } catch (GLib.Error e) { }
+                                    if (window.loading_state != null) window.loading_state.on_image_loaded(image);
+                                    return false;
+                                });
+                                return null;
                             }
                         } catch (GLib.Error e) {
-                            // Fall through to network fetch
+                            // fall through to the Idle.add below
                         }
+                        // Disk cache read/decode failed - fall back to a
+                        // network download, same as the original inline
+                        // behavior. network_fallback() touches GTK/instance
+                        // state, so it must run on the main thread.
+                        Idle.add(() => {
+                            network_fallback();
+                            return false;
+                        });
+                        return null;
+                    });
+                    return;
                 }
             }
         } catch (GLib.Error e) { }
 
-        // THREAD SAFETY: Lock mutex while checking and modifying pending_downloads
-        // to prevent race with background threads accessing the HashMap
-        download_mutex.lock();
-        try {
-            var existing = pending_downloads.get(url);
-            if (existing != null) {
-                existing.add(image);
-                // Don't unlock here - finally block will handle it
-                return;
-            }
-
-            var list = new Gee.ArrayList<Gtk.Picture>();
-            list.add(image);
-            pending_downloads.set(url, list);
-            requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
-            try {
-                string nkey = UrlUtils.normalize_article_url(url);
-                if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
-            } catch (GLib.Error e) { }
-        } finally {
-            download_mutex.unlock();
-        }
-
-        // Download at the requested size - multipliers are already applied by callers
-        // (articleManager applies 6x for heroes, 3x for articles, etc.)
-        // Note: Guardian URLs are upgraded to 1000px during download (their CDN allows
-        // 1000px but returns 403 for larger sizes like 2000px/2400px)
-        int download_w = clampi(target_w, target_w, 2400);
-        int download_h = clampi(target_h, target_h, 2400);
-        //try { GLib.message("ImageManager: queue download for %s target=%dx%d download=%dx%d", url, target_w, target_h, download_w, download_h); } catch (GLib.Error e) { }
-        ensure_start_download(url, download_w, download_h);
+        network_fallback();
     }
 
     // Generate a cache key for preview textures (url + requested size)

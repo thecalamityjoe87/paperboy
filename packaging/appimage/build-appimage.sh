@@ -250,12 +250,6 @@ else
   echo "Warning: style.css not found in $ROOT_DIR/data or $ROOT_DIR/data/resources"
 fi
 
-if [ -f "$ROOT_DIR/data/usZips.csv" ]; then
-  cp "$ROOT_DIR/data/usZips.csv" "$APPDIR/usr/share/paperboy/usZips.csv"
-else
-  echo "Warning: usZips.csv not found in $ROOT_DIR/data"
-fi
-
 # Write AppRun
 cat > "$APPDIR/AppRun" <<'APP_RUN'
 #!/usr/bin/env bash

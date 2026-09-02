@@ -46,6 +46,15 @@ namespace Managers {
         
         public Gee.ArrayList<ArticleItem> article_buffer;
         public Gee.ArrayList<ArticleItem> remaining_articles;
+        // PERFORMANCE: per-category count of remaining_articles, kept in
+        // sync on every add/remove so remaining_count_for_category() is O(1)
+        // instead of rescanning the whole (potentially large) overflow queue.
+        private Gee.HashMap<string, int> remaining_category_counts;
+        // Debounce latch for reveal_sections_with_pending_overflow(): a whole
+        // batch of queued overflow articles (e.g. ~95 frontpage cards in one
+        // Idle.add callback) should only trigger one reveal pass, not one per
+        // article.
+        private bool reveal_pending = false;
         public int articles_shown = 0;
         
         // Track URLs seen in current view to prevent duplicate cards (race condition fix)
@@ -76,6 +85,7 @@ namespace Managers {
             window = w;
             article_buffer = new Gee.ArrayList<ArticleItem>();
             remaining_articles = new Gee.ArrayList<ArticleItem>();
+            remaining_category_counts = new Gee.HashMap<string, int>();
             category_column_counts = new Gee.HashMap<string, int>();
             recent_categories = new Gee.ArrayList<string>();
             category_last_column = new Gee.HashMap<string, int>();
@@ -157,7 +167,10 @@ namespace Managers {
             string? normalized_source = normalize_source_name(source_name, category_id, url);
 
             // Add to overflow queue
-            remaining_articles.add(new ArticleItem(title, url, thumbnail_url, category_id, normalized_source));
+            var queued_item = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source);
+            remaining_articles.add(queued_item);
+            string display_cat = extract_display_category(queued_item);
+            remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) + 1);
 
             // Register for unread tracking
             string norm = url.strip();
@@ -169,8 +182,20 @@ namespace Managers {
             // cap would otherwise stay permanently hidden with no way to
             // reach its queued overflow - see
             // LayoutManager.reveal_sections_with_pending_overflow().
-            if (window.layout_manager != null) {
-                window.layout_manager.reveal_sections_with_pending_overflow();
+            //
+            // PERFORMANCE: debounced via a single Idle.add latch so a whole
+            // batch of queued articles (all added synchronously from one
+            // fetcher callback) triggers exactly one reveal pass instead of
+            // one per article.
+            if (window.layout_manager != null && !reveal_pending) {
+                reveal_pending = true;
+                GLib.Idle.add(() => {
+                    reveal_pending = false;
+                    if (window.layout_manager != null) {
+                        window.layout_manager.reveal_sections_with_pending_overflow();
+                    }
+                    return false;
+                });
             }
 
             return true;
@@ -199,12 +224,8 @@ namespace Managers {
          * a "load more" affordance once that row is scrolled to its end.
          */
         public int remaining_count_for_category(string cat) {
-            if (remaining_articles == null) return 0;
-            int count = 0;
-            foreach (var item in remaining_articles) {
-                if (extract_display_category(item) == cat) count++;
-            }
-            return count;
+            if (remaining_category_counts == null) return 0;
+            return remaining_category_counts.get(cat);
         }
 
         /**
@@ -236,6 +257,7 @@ namespace Managers {
                 var item = remaining_articles.get(i);
                 if (extract_display_category(item) == cat) {
                     remaining_articles.remove_at(i);
+                    remaining_category_counts.set(cat, remaining_category_counts.get(cat) - 1);
                     article_buffer.add(item);
                     add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, true);
                     loaded++;
@@ -904,6 +926,8 @@ namespace Managers {
                 // so consumption has to be removal-based everywhere to keep
                 // both flows from stepping on each other.
                 var article = remaining_articles.remove_at(0);
+                string display_cat = extract_display_category(article);
+                remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) - 1);
                 // No need to check seen_urls here - articles were already deduplicated
                 // when they were added to remaining_articles queue
                 article_buffer.add(article);
@@ -1024,6 +1048,9 @@ namespace Managers {
             // Clear remaining articles list
             if (remaining_articles != null) {
                 remaining_articles.clear();
+            }
+            if (remaining_category_counts != null) {
+                remaining_category_counts.clear();
             }
             articles_shown = 0;
 

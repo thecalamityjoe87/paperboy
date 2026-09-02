@@ -28,11 +28,6 @@ public class PaperboyApp : Adw.Application {
         
         var win = new NewsWindow(this);
         win.present();
-        // Eagerly instantiate ZipLookup so it starts loading the CSV in
-        // the background during app startup. This helps ensure the ZIP
-        // database is ready by the time the user opens the Set Location
-        // dialog.
-        ZipLookup.get_instance();
         // If this is the user's first time running the app, show the
         // preferences dialog so they can adjust sources immediately.
         var prefs = NewsPreferences.get_instance();
