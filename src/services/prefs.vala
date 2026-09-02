@@ -26,6 +26,12 @@ public class NewsPreferences : GLib.Object {
     // True while we're loading/migrating the KeyFile to avoid triggering
     // saves from setters during initialization.
     private bool loading = false;
+    // One-time migration guard: adding a custom RSS source never enabled it
+    // in preferred_sources (a bug - it required manually flipping the
+    // source's switch in Settings afterward), so existing installs can have
+    // sources that look "disabled" despite having been added intentionally.
+    // Runs once per install; see load_config()/save_config().
+    private bool custom_sources_enable_migration_done = false;
 
     // GSettings-backed properties (automatically persisted)
     public NewsSource news_source {
@@ -322,6 +328,10 @@ public class NewsPreferences : GLib.Object {
             var clean_config = new GLib.KeyFile();
 
             // Persist preferred sources (user-followed sources including custom RSS feeds)
+            if (custom_sources_enable_migration_done) {
+                clean_config.set_boolean("preferences", "custom_sources_enable_migration_v1", true);
+            }
+
             if (_preferred_sources != null && _preferred_sources.size > 0) {
                 string[] parr = new string[_preferred_sources.size];
                 for (int i = 0; i < _preferred_sources.size; i++) parr[i] = _preferred_sources.get(i);
@@ -542,8 +552,31 @@ public class NewsPreferences : GLib.Object {
                 warning("NewsPreferences.load_config: no preferred_sources found in config, initialized empty list");
             }
 
+            try {
+                custom_sources_enable_migration_done = config.has_key("preferences", "custom_sources_enable_migration_v1")
+                    && config.get_boolean("preferences", "custom_sources_enable_migration_v1");
+            } catch (GLib.Error e) { custom_sources_enable_migration_done = false; }
+
             // Unset loading marker so setters/save operations can run normally
             loading = false;
+
+            // One-time migration: enable every existing custom RSS source
+            // that isn't already tracked (see the field comment above).
+            if (!custom_sources_enable_migration_done) {
+                try {
+                    var store = Paperboy.RssSourceStore.get_instance();
+                    foreach (var src in store.get_all_sources()) {
+                        string id = "custom:" + src.url;
+                        if (!preferred_source_enabled(id)) {
+                            _preferred_sources.add(id);
+                        }
+                    }
+                } catch (GLib.Error e) {
+                    warning("NewsPreferences.load_config: custom sources migration failed: %s", e.message);
+                }
+                custom_sources_enable_migration_done = true;
+                save_config();
+            }
 
         } catch (GLib.Error e) {
             // Ensure loading flag is cleared on error

@@ -729,6 +729,12 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                 // Step 5: Callback with result
                 GLib.Idle.add(() => {
+                    // A newly added source should show up as active without
+                    // requiring the user to also flip its switch in Settings.
+                    if (success && window != null && window.prefs != null) {
+                        window.prefs.set_preferred_source_enabled("custom:" + feed_url, true);
+                        window.prefs.save_config();
+                    }
                     callback(success, final_name);
                     return false;
                 });
@@ -934,6 +940,12 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                                             if (success) {
                                                 GLib.Idle.add(() => {
+                                                    // A newly added source should show up as active without
+                                                    // requiring the user to also flip its switch in Settings.
+                                                    if (window != null && window.prefs != null) {
+                                                        window.prefs.set_preferred_source_enabled("custom:" + feed_url, true);
+                                                        window.prefs.save_config();
+                                                    }
                                                     request_show_toast("Following " + final_title);
                                                     return false;
                                                 });
@@ -1200,6 +1212,12 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                     
                                     if (success) {
                                         GLib.Idle.add(() => {
+                                            // A newly added source should show up as active without
+                                            // requiring the user to also flip its switch in Settings.
+                                            if (window != null && window.prefs != null) {
+                                                window.prefs.set_preferred_source_enabled("custom:" + gen_feed, true);
+                                                window.prefs.save_config();
+                                            }
                                             // Show followed message with article count
                                             request_show_toast("Following %s (%d articles)".printf(feed_name, item_count));
                                             return false;
