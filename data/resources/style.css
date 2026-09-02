@@ -755,6 +755,54 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     color: @accent_fg_color;
 }
 
+/* Onboarding source picker - square logo tiles with a checkmark badge
+   toggled on/off, instead of the switch-list rows used in Preferences. */
+.onboarding-source-tile {
+    background-color: white;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.onboarding-source-tile-btn {
+    padding: 0;
+    background: none;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    min-width: 0;
+    min-height: 0;
+    border-radius: 14px;
+}
+
+.onboarding-source-tile-btn:hover,
+.onboarding-source-tile-btn:active,
+.onboarding-source-tile-btn:checked,
+.onboarding-source-tile-btn:focus {
+    background: none;
+    background-color: transparent;
+    box-shadow: none;
+    outline: none;
+}
+
+.onboarding-source-tile-btn:hover .onboarding-source-tile {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.onboarding-source-badge {
+    -gtk-icon-transform: none;
+    background-color: rgb(26, 126, 64);
+    color: white;
+    /* symbolic icons inherit this as their fill color */
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+    padding: 2px;
+    border: 2px solid @window_bg_color;
+    line-height: 0;
+}
+
 /* Carousel navigation buttons - inverted colors */
 .carousel-nav {
     background-color: alpha(@window_fg_color, 0.85);

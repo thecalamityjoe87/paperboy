@@ -946,6 +946,15 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                                         window.prefs.set_preferred_source_enabled("custom:" + feed_url, true);
                                                         window.prefs.save_config();
                                                     }
+                                                    // The RssSourceStore's source_added signal (emitted
+                                                    // synchronously inside add_source() above) already
+                                                    // queued its own sidebar rebuild via an earlier Idle
+                                                    // callback, which can run before the enable step above
+                                                    // and filter this source right back out. Rebuild again
+                                                    // now that it's actually enabled.
+                                                    if (window != null && window.sidebar_manager != null) {
+                                                        window.sidebar_manager.rebuild_sidebar();
+                                                    }
                                                     request_show_toast("Following " + final_title);
                                                     return false;
                                                 });
@@ -1217,6 +1226,15 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                             if (window != null && window.prefs != null) {
                                                 window.prefs.set_preferred_source_enabled("custom:" + gen_feed, true);
                                                 window.prefs.save_config();
+                                            }
+                                            // The RssSourceStore's source_added signal (emitted
+                                            // synchronously inside add_source_with_original_url()
+                                            // above) already queued its own sidebar rebuild via an
+                                            // earlier Idle callback, which can run before the enable
+                                            // step above and filter this source right back out.
+                                            // Rebuild again now that it's actually enabled.
+                                            if (window != null && window.sidebar_manager != null) {
+                                                window.sidebar_manager.rebuild_sidebar();
                                             }
                                             // Show followed message with article count
                                             request_show_toast("Following %s (%d articles)".printf(feed_name, item_count));

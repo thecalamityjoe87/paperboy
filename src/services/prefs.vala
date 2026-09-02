@@ -17,6 +17,7 @@
 
 
 using GLib;
+using Adw;
 
 public class NewsPreferences : GLib.Object {
     private static NewsPreferences? instance = null;
@@ -78,6 +79,40 @@ public class NewsPreferences : GLib.Object {
     public bool personalized_feed_enabled {
         get { return settings.get_boolean("personalized-feed-enabled"); }
         set { settings.set_boolean("personalized-feed-enabled", value); }
+    }
+
+    // Whether the user has completed (or skipped) the first-run onboarding
+    // dialog. Distinct from `first_run` (which tracks whether the config
+    // file existed at startup and drives one-time migrations) so the
+    // onboarding dialog can be re-opened from the menu without re-running
+    // those migrations.
+    public bool onboarding_completed {
+        get { return settings.get_boolean("onboarding-completed"); }
+        set { settings.set_boolean("onboarding-completed", value); }
+    }
+
+    // Preferred app color scheme: "system", "light", or "dark". Setting
+    // this immediately applies it via Adw.StyleManager so callers don't
+    // need to separately push the change to the UI.
+    public string color_scheme {
+        owned get { return settings.get_string("color-scheme"); }
+        set {
+            settings.set_string("color-scheme", value);
+            apply_color_scheme();
+        }
+    }
+
+    // Push the stored color-scheme preference to Adw.StyleManager. Called
+    // once at startup (in case the app doesn't already default to "system"
+    // the way libadwaita does) and again whenever `color_scheme` is set.
+    public void apply_color_scheme() {
+        var sm = Adw.StyleManager.get_default();
+        if (sm == null) return;
+        switch (color_scheme) {
+            case "light": sm.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT); break;
+            case "dark": sm.set_color_scheme(Adw.ColorScheme.FORCE_DARK); break;
+            default: sm.set_color_scheme(Adw.ColorScheme.DEFAULT); break;
+        }
     }
 
     public bool myfeed_custom_only {

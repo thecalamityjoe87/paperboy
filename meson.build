@@ -48,6 +48,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/dialogs/prefsDialog.vala',
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',
+    'src/ui/dialogs/onboardingDialog.vala',
     'src/ui/menus/articleMenu.vala',
     'src/ui/menus/sidebarMenu.vala',
 
@@ -147,6 +148,7 @@ install_data('data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml',
 
 gnome = import('gnome')
 gnome.compile_schemas(depend_files: 'data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml')
+gnome.post_install(glib_compile_schemas: true)
 
 # Install app icons to system icon directories at different sizes
 install_data('data/icons/128x128/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '128x128', 'apps'))

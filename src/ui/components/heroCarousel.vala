@@ -63,7 +63,7 @@ public class HeroCarousel : GLib.Object {
         // to control this regardless of what was overriding it.
         top_stories_title.add_css_class("top-stories-title");
         // Use Pango markup to match the subtitle sizing used elsewhere.
-        top_stories_title.set_markup("<span size='26000'><b>TOP STORIES</b></span>");
+        top_stories_title.set_markup("<span size='26000'><b>FEATURED</b></span>");
         parent.append(top_stories_title);
         widgets = new ArrayList<Widget>();
         dot_rows = new ArrayList<ArrayList<Widget>>();

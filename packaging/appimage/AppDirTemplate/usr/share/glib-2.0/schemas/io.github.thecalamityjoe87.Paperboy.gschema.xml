@@ -110,5 +110,17 @@
       <description>How often to automatically refresh feeds ('manual', '15min', '30min', '1hour', '2hours', '4hours')</description>
     </key>
 
+    <key name="onboarding-completed" type="b">
+      <default>false</default>
+      <summary>Onboarding completed</summary>
+      <description>Whether the user has completed (or skipped) the first-run welcome dialog</description>
+    </key>
+
+    <key name="color-scheme" type="s">
+      <default>'system'</default>
+      <summary>Color scheme</summary>
+      <description>Preferred app color scheme ('system', 'light', or 'dark')</description>
+    </key>
+
   </schema>
 </schemalist>

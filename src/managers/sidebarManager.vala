@@ -229,6 +229,7 @@ public class SidebarManager : GLib.Object {
         var store = Paperboy.RssSourceStore.get_instance();
         var sources = store.get_all_sources();
         foreach (var source in sources) {
+            if (!window.prefs.preferred_source_enabled("custom:" + source.url)) continue;
             followed_section.items.add(create_rss_item_data(source));
         }
 

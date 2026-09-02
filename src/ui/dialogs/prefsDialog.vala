@@ -562,13 +562,29 @@ public class PrefsDialog : GLib.Object {
                 custom_switch.set_active(prefs.preferred_source_enabled("custom:" + rss_source.url));
                 custom_switch.set_valign(Gtk.Align.CENTER);
                 custom_switch.notify["active"].connect(() => {
-                    prefs.set_preferred_source_enabled("custom:" + rss_source.url, custom_switch.get_active());
+                    bool now_enabled = custom_switch.get_active();
+                    prefs.set_preferred_source_enabled("custom:" + rss_source.url, now_enabled);
                     prefs.save_config();
                     sources_changed = true;
 
-                    // Update My Feed unread badge immediately when source is toggled
+                    // Reflect the enable/disable immediately in the sidebar
+                    // rather than waiting on the "Refresh Content?" dialog
+                    // that only appears once Preferences is closed.
                     if (win != null && win.sidebar_manager != null) {
+                        win.sidebar_manager.rebuild_sidebar();
                         win.sidebar_manager.update_badge_for_category("myfeed");
+                    }
+
+                    // If the user just disabled the feed they're currently
+                    // viewing, its sidebar row is now gone - leaving its
+                    // content on screen would be stale and unreachable, so
+                    // redirect to Front Page like the "no sources support
+                    // this category" fallback below does on dialog close.
+                    if (!now_enabled && win != null && win.prefs.category == "rssfeed:" + rss_source.url) {
+                        win.prefs.category = "frontpage";
+                        win.prefs.save_config();
+                        win.update_content_header();
+                        win.fetch_news();
                     }
                 });
 
@@ -592,6 +608,37 @@ public class PrefsDialog : GLib.Object {
         var app_page = new Adw.PreferencesPage();
         app_page.set_title("App");
         app_page.set_icon_name("preferences-system-symbolic");
+
+        // ========== APPEARANCE GROUP ==========
+        var appearance_group = new Adw.PreferencesGroup();
+        appearance_group.set_title("Appearance");
+
+        var theme_row = new Adw.ActionRow();
+        theme_row.set_title("Theme");
+        theme_row.set_subtitle("Follow the system theme, or force light or dark mode");
+
+        var theme_dropdown = new Gtk.DropDown.from_strings(new string[] {
+            "Follow System", "Light", "Dark"
+        });
+        theme_dropdown.set_valign(Gtk.Align.CENTER);
+        switch (prefs.color_scheme) {
+            case "light": theme_dropdown.set_selected(1); break;
+            case "dark": theme_dropdown.set_selected(2); break;
+            default: theme_dropdown.set_selected(0); break;
+        }
+        theme_dropdown.notify["selected"].connect(() => {
+            switch (theme_dropdown.get_selected()) {
+                case 1: prefs.color_scheme = "light"; break;
+                case 2: prefs.color_scheme = "dark"; break;
+                default: prefs.color_scheme = "system"; break;
+            }
+            prefs.save_config();
+        });
+        theme_row.add_suffix(theme_dropdown);
+        theme_row.set_activatable_widget(theme_dropdown);
+        appearance_group.add(theme_row);
+
+        app_page.add(appearance_group);
 
         var app_group = new Adw.PreferencesGroup();
         app_group.set_title("Personalization");

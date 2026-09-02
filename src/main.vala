@@ -25,16 +25,19 @@ public class PaperboyApp : Adw.Application {
         // Ensure global HttpClient is constructed on the main thread
         // before any other subsystem can spawn worker threads.
         Paperboy.HttpClientUtils.ensure_initialized();
-        
+
+        // Apply the user's saved color scheme before the window is built
+        // so it opens with the right theme instead of flashing the
+        // libadwaita default and then switching.
+        var prefs = NewsPreferences.get_instance();
+        prefs.apply_color_scheme();
+
         var win = new NewsWindow(this);
         win.present();
-        // If this is the user's first time running the app, show the
-        // preferences dialog so they can adjust sources immediately.
-        var prefs = NewsPreferences.get_instance();
-        // On first run, show the preferences dialog so users can immediately
-        // enable/disable individual providers and configure the app.
-        if (prefs.first_run) PrefsDialog.show_preferences_dialog(win);
-        
+        // On first run, show the welcome/onboarding dialog so users can
+        // get an introduction and immediately pick a few sources.
+        if (!prefs.onboarding_completed) OnboardingDialog.show(win);
+
         var change_source_action = new SimpleAction("change-source", null);
         change_source_action.activate.connect(() => {
             PrefsDialog.show_source_dialog(win);
@@ -52,6 +55,12 @@ public class PaperboyApp : Adw.Application {
             LocationDialog.show(win);
         });
         this.add_action(set_location_action);
+
+        var onboarding_action = new SimpleAction("show-onboarding", null);
+        onboarding_action.activate.connect(() => {
+            OnboardingDialog.show(win);
+        });
+        this.add_action(onboarding_action);
     }
 
 }

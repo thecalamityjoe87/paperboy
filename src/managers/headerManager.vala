@@ -49,30 +49,12 @@ public class HeaderManager : GLib.Object {
 
     /**
      * Set up the header for multi-source mode (Frontpage, Top Ten, or multiple preferred sources).
-     * Sets source_label to "Multiple Sources" and loads the multi-source icon.
+     * The "Multiple Sources" icon/label was more clutter than signal, so this
+     * mode simply hides the source info instead of showing it.
      */
     public void setup_multi_source_header() {
-        source_label.set_text("Multiple Sources");
-        string? multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono.svg"));
-        if (multi_icon == null) multi_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono.svg"));
-        if (multi_icon != null) {
-            string use_path = multi_icon;
-            if (window.is_dark_mode()) {
-                string? white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "multiple-mono-white.svg"));
-                if (white_cand == null) white_cand = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "multiple-mono-white.svg"));
-                if (white_cand != null) use_path = white_cand;
-            }
-            string cache_key = "pixbuf::file:%s::%dx%d".printf(use_path, 32, 32);
-            var cached_pb = ImageCache.get_global().get_or_load_file(cache_key, use_path, 32, 32);
-            if (cached_pb != null) {
-                var tex = Gdk.Texture.for_pixbuf(cached_pb);
-                source_logo.set_from_paintable(tex);
-            } else {
-                source_logo.set_from_icon_name("application-rss+xml-symbolic");
-            }
-        } else {
-            source_logo.set_from_icon_name("application-rss+xml-symbolic");
-        }
+        source_logo.set_visible(false);
+        source_label.set_visible(false);
     }
 
     /**
@@ -80,6 +62,8 @@ public class HeaderManager : GLib.Object {
      * Sets source_label to "Local News" and loads the local news icon.
      */
     public void setup_local_news_header() {
+        source_logo.set_visible(true);
+        source_label.set_visible(true);
         source_label.set_text("Local News");
         string? local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "local-mono.svg"));
         if (local_icon == null) local_icon = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "local-mono.svg"));
@@ -269,6 +253,8 @@ public class HeaderManager : GLib.Object {
 
         // Handle RSS feeds - show RSS icon and "Feeds" on the right
         if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
+            source_logo.set_visible(true);
+            source_label.set_visible(true);
             source_label.set_text("Feeds");
             source_logo.set_from_icon_name("application-rss+xml-symbolic");
             return;
@@ -276,12 +262,16 @@ public class HeaderManager : GLib.Object {
 
         // Handle local news with custom icon
         if (window.prefs != null && window.prefs.category == "local_news") {
+            source_logo.set_visible(true);
+            source_label.set_visible(true);
             source_label.set_text("Local News");
             load_custom_icon("local-mono", 32);
             return;
         }
 
-        // Handle multiple source categories (frontpage, topten, multiple preferred sources)
+        // Handle multiple source categories (frontpage, topten, multiple preferred sources).
+        // The "Multiple Sources" icon/label was more clutter than signal, so
+        // this mode simply hides the source info instead of showing it.
         bool is_multi_source = (
             window.prefs.category == "frontpage" ||
             window.prefs.category == "topten" ||
@@ -289,11 +279,13 @@ public class HeaderManager : GLib.Object {
         );
 
         if (is_multi_source) {
-            source_label.set_text("Multiple Sources");
-            load_custom_icon("multiple-mono", 32);
+            source_logo.set_visible(false);
+            source_label.set_visible(false);
             return;
         }
 
+        source_logo.set_visible(true);
+        source_label.set_visible(true);
         NewsSource eff = window.effective_news_source();
 
         string source_name = "";
@@ -503,8 +495,8 @@ public class HeaderManager : GLib.Object {
      * Handles dark mode variant selection.
      */
     public void setup_multi_source_logo() {
-        source_label.set_text("Multiple Sources");
-        load_custom_icon("multiple-mono", 32);
+        source_logo.set_visible(false);
+        source_label.set_visible(false);
     }
 
     /**
@@ -512,6 +504,8 @@ public class HeaderManager : GLib.Object {
      * Handles dark mode variant selection.
      */
     public void setup_local_news_logo() {
+        source_logo.set_visible(true);
+        source_label.set_visible(true);
         source_label.set_text("Local News");
         load_custom_icon("local-mono", 32);
     }
@@ -519,6 +513,8 @@ public class HeaderManager : GLib.Object {
      * Set up the header for Saved Articles mode.
      */
     public void update_for_saved_articles() {
+        source_logo.set_visible(true);
+        source_label.set_visible(true);
         source_label.set_text("Saved Articles");
         source_logo.set_from_icon_name("user-bookmarks-symbolic");
     }

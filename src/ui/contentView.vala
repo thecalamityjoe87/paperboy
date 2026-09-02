@@ -81,9 +81,8 @@ public class ContentView : GLib.Object {
         var header_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
         // Matches main_content_container's own margin_start/end (see
         // Managers.LayoutManager.H_MARGIN) below, so the category
-        // icon/label, "Multiple Sources"-style source info, and
-        // date/subtitle all line up with the hero cards and grid content
-        // instead of sitting inside their edges.
+        // icon/label, source info, and date/subtitle all line up with the
+        // hero cards and grid content instead of sitting inside their edges.
         header_box.set_margin_start(Managers.LayoutManager.H_MARGIN);
         header_box.set_margin_end(Managers.LayoutManager.H_MARGIN);
         header_box.set_margin_top(12);

@@ -500,6 +500,11 @@ public class SidebarView : GLib.Object {
 
             if (success) {
                 if (window.toast_manager != null) window.toast_manager.show_toast("RSS feed added: " + discovered_name);
+                // The source's own source_added signal already queued a
+                // sidebar rebuild before this callback's enable step ran,
+                // so it can still be filtered out as "not enabled" at that
+                // point. Rebuild once more now that it's enabled.
+                manager.rebuild_sidebar();
             } else {
                 if (window.toast_manager != null) window.toast_manager.show_toast("Failed to add RSS feed");
             }

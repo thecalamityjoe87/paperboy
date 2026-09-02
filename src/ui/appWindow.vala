@@ -283,6 +283,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     var menu = new Menu();
     menu.append("Preferences", "app.change-source");
     menu.append("Set User Location", "app.set-location");
+    menu.append("Show Welcome Guide", "app.show-onboarding");
     menu.append("About Paperboy", "app.about");
 
     var menu_button = new Gtk.MenuButton();
@@ -735,9 +736,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         var sm = Adw.StyleManager.get_default();
         if (sm != null) {
             // When the theme's dark property changes, update sidebar icons
-            // and the source/logo in the header so bundled mono icons
-            // (including the multi-source icon) can be swapped for their
-            // white variants or back to the original variant as appropriate.
+            // and the source/logo in the header so bundled mono icons can
+            // be swapped for their white variants or back to the original
+            // variant as appropriate.
             sm.notify["dark"].connect(() => {
                 if (sidebar_view != null) sidebar_view.update_icons_for_theme();
                 // Update the top-right source logo to pick the correct
