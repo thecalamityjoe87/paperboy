@@ -27,7 +27,11 @@ using Adw;
  */
 
 public class CategoryIconsUtils : GLib.Object {
-    public const int SIDEBAR_ICON_SIZE = 28;
+    public const int SIDEBAR_ICON_SIZE = 22;
+    // Followed RSS source favicons in the sidebar - kept larger than the
+    // category glyphs since real-world favicons read as muddier/less
+    // legible at the smaller size.
+    public const int SIDEBAR_SOURCE_ICON_SIZE = 26;
 
     // Use centralized DataPaths helpers for file location logic
 

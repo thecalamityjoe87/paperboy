@@ -40,6 +40,7 @@ public class SidebarView : GLib.Object {
     private Gee.HashMap<string, Gtk.Widget> badge_widgets;
     private Gee.HashMap<string, Gtk.Widget> section_containers;
     private Gtk.Widget? currently_selected_widget = null;
+    private string? currently_selected_item_id = null;
     private Gtk.Button? add_rss_button = null;
     
     // Context menu
@@ -204,137 +205,135 @@ public class SidebarView : GLib.Object {
             sidebar_list.append(expander);
 
         } else {
-            // Non-expandable section: just append items directly
+            // Wrap each item the same way the expander rows above are
+            // wrapped, instead of appending the bare button to sidebar_list
+            // directly. A bare button gets auto-wrapped in GTK's own
+            // default row (its own padding, independently
+            // activatable/selectable), which throws it out of alignment
+            // with the other two row types.
             foreach (var item in section.items) {
-                sidebar_list.append(build_item_row(item));
+                var item_widget = build_item_row(item);
+                var row = new Gtk.ListBoxRow();
+                row.set_child(item_widget);
+                row.set_activatable(false);
+                row.set_selectable(false);
+                row.add_css_class("sidebar-expander-item");
+                sidebar_list.append(row);
             }
         }
     }
 
-    private void build_expandable_header(SidebarSectionData section) {
-        // DEPRECATED: This legacy function is no longer used.
-        // All expandable sections now use Adw.ExpanderRow via build_section()
-        // which provides smooth libadwaita animations while maintaining the flat look.
-        // This function is kept only for compatibility in case external code references it.
-    }
-    
-    private Gtk.ListBoxRow build_item_row(SidebarItemData item) {
-        var row = new Adw.ActionRow();
-        row.set_title(item.title);
-        row.activatable = true;
-        row.add_css_class("sidebar-item-row");
-        
-        // Create icon holder
+    // A fixed-size, centered icon slot so every row's icon lines up in the
+    // same column, whether it's a small category glyph or a source
+    // favicon. `circular` clips real-world favicons to a circle.
+    private Gtk.Box build_icon_slot(bool circular = false) {
         var icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         icon_holder.set_hexpand(false);
         icon_holder.set_vexpand(false);
-        
-        var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
-        if (icon != null) {
-            icon_holder.append(icon);
-        }
-        row.add_prefix(icon_holder);
-        icon_holders.set(item.id, icon_holder);
-        
-        // Create badge
-        var badge = build_badge_widget(item.unread_count,
-                           item.item_type == SidebarItemType.RSS_SOURCE,
-                           item.id);
-        row.add_suffix(badge);
-        badge_widgets.set(item.id, badge);
-        
-        // Store item ID for later reference
-        row.set_data("item_id", item.id);
-        
-        // Selection state
+        icon_holder.set_size_request(CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE, CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE);
+        icon_holder.set_halign(Gtk.Align.CENTER);
+        icon_holder.set_valign(Gtk.Align.CENTER);
+        if (circular) icon_holder.add_css_class("circular-logo");
+        return icon_holder;
+    }
+
+    // Wraps `content` in the flat, clickable button used by every
+    // selectable sidebar row - styling, selection state, and the
+    // click-to-activate handler are the same regardless of what's inside.
+    private Gtk.Button finalize_sidebar_button(Gtk.Widget content, SidebarItemData item) {
+        var btn = new Gtk.Button();
+        btn.set_child(content);
+        btn.add_css_class("flat");
+        btn.add_css_class("sidebar-item-row");
+        btn.set_can_focus(false);
+        btn.set_data("item_id", item.id);
+
         if (item.is_selected) {
-            row.add_css_class("selected");
-            currently_selected_widget = row;
+            btn.add_css_class("selected");
+            currently_selected_widget = btn;
+            currently_selected_item_id = item.id;
+            set_badge_selected(item.id, true);
         }
-        
-        // Click handler
-        row.activated.connect(() => {
+
+        btn.clicked.connect(() => {
             // Close article sheet if open
             if (window.article_sheet != null) {
                 window.article_sheet.dismiss();
             }
             manager.handle_item_activation(item.id, item.title);
         });
-        
-        row.set_can_focus(false);
-        
-        return row;
+
+        return btn;
     }
-    
-    private Gtk.Widget build_category_button(SidebarItemData item) {
+
+    // Special items (Top Ten, Front Page, etc). Same Box layout as
+    // build_category_button/build_rss_item_widget below so their icon,
+    // text, and count columns all line up with each other.
+    private Gtk.Widget build_item_row(SidebarItemData item) {
         var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        row_box.set_margin_start(12);
-        row_box.set_margin_end(12);
-        row_box.set_margin_top(4);
-        row_box.set_margin_bottom(4);
-        
-        // Create icon holder
-        var icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        icon_holder.set_hexpand(false);
-        icon_holder.set_vexpand(false);
-        
+        row_box.add_css_class("sidebar-row-vspace");
+        row_box.set_margin_start(8);
+        row_box.set_margin_end(8);
+
+        var icon_holder = build_icon_slot();
         var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
         if (icon != null) {
             icon_holder.append(icon);
         }
         row_box.append(icon_holder);
         icon_holders.set(item.id, icon_holder);
-        
+
         var label = new Gtk.Label(item.title);
         label.set_xalign(0);
         label.set_hexpand(true);
         row_box.append(label);
-        
-        // Create badge
+
+        var badge = build_badge_widget(item.unread_count,
+                           item.item_type == SidebarItemType.RSS_SOURCE,
+                           item.id);
+        row_box.append(badge);
+        badge_widgets.set(item.id, badge);
+
+        return finalize_sidebar_button(row_box, item);
+    }
+    
+    private Gtk.Widget build_category_button(SidebarItemData item) {
+        var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        row_box.add_css_class("sidebar-row-vspace");
+        row_box.set_margin_start(8);
+        row_box.set_margin_end(8);
+
+        var icon_holder = build_icon_slot();
+        var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
+        if (icon != null) {
+            icon_holder.append(icon);
+        }
+        row_box.append(icon_holder);
+        icon_holders.set(item.id, icon_holder);
+
+        var label = new Gtk.Label(item.title);
+        label.set_xalign(0);
+        label.set_hexpand(true);
+        row_box.append(label);
+
         var badge = build_badge_widget(item.unread_count, false, item.id);
         row_box.append(badge);
         badge_widgets.set(item.id, badge);
-        
-        var button = new Gtk.Button();
-        button.set_child(row_box);
-        button.add_css_class("flat");
-        button.add_css_class("sidebar-item-row");
-        button.set_can_focus(false);
-        button.set_data("item_id", item.id);
-        
-        // Selection state
-        if (item.is_selected) {
-            button.add_css_class("selected");
-            currently_selected_widget = button;
-        }
-        
-        button.clicked.connect(() => {
-            // Close article sheet if open
-            if (window.article_sheet != null) {
-                window.article_sheet.dismiss();
-            }
-            manager.handle_item_activation(item.id, item.title);
-        });
-        
-        return button;
+
+        return finalize_sidebar_button(row_box, item);
     }
     
     private Gtk.Widget build_rss_item_widget(SidebarItemData item) {
         var feed_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        feed_box.set_margin_start(12);
-        feed_box.set_margin_end(12);
-        feed_box.set_margin_top(4);
-        feed_box.set_margin_bottom(4);
+        feed_box.add_css_class("sidebar-row-vspace");
+        feed_box.set_margin_start(8);
+        feed_box.set_margin_end(8);
         
         // Create icon with proper RSS source handling
         var source_data = manager.get_rss_source_data(item.id.has_prefix("rssfeed:") ? item.id.substring(8) : "");
         Gtk.Widget icon_widget = create_rss_icon_widget(source_data);
-        
-        var icon_holder = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        icon_holder.add_css_class("circular-logo");
-        icon_holder.set_size_request(CategoryIconsUtils.SIDEBAR_ICON_SIZE, CategoryIconsUtils.SIDEBAR_ICON_SIZE);
-        icon_holder.set_valign(Gtk.Align.CENTER);
-        icon_holder.set_halign(Gtk.Align.CENTER);
+
+        var icon_holder = build_icon_slot(true);
         icon_holder.append(icon_widget);
         feed_box.append(icon_holder);
         icon_holders.set(item.icon_key, icon_holder);
@@ -347,42 +346,20 @@ public class SidebarView : GLib.Object {
         name_label.set_hexpand(true);
         name_label.set_ellipsize(Pango.EllipsizeMode.END);
         feed_box.append(name_label);
-        
+
         // Create badge
         var badge = build_badge_widget(item.unread_count, true, item.id);
         feed_box.append(badge);
         badge_widgets.set(item.id, badge);
         
-        var feed_button = new Gtk.Button();
-        feed_button.set_child(feed_box);
-        feed_button.set_can_focus(false);
-        feed_button.add_css_class("flat");
-        feed_button.add_css_class("sidebar-item-row");
-        feed_button.set_data("item_id", item.id);
+        var feed_button = finalize_sidebar_button(feed_box, item);
         feed_button.set_data("rss_url", item.id.has_prefix("rssfeed:") ? item.id.substring(8) : "");
-        
-        // Selection state
-        if (item.is_selected) {
-            feed_button.add_css_class("selected");
-            currently_selected_widget = feed_button;
-        }
-        
-        feed_button.clicked.connect(() => {
-            // Close article sheet if open
-            if (window.article_sheet != null) {
-                window.article_sheet.dismiss();
-            }
-            manager.handle_item_activation(item.id, item.title);
-        });
-        
+
         // Add right-click context menu for RSS sources
         var right_click = new Gtk.GestureClick();
         right_click.set_button(3);  // Right mouse button
         right_click.pressed.connect((n_press, x, y) => {
             string url = item.id.has_prefix("rssfeed:") ? item.id.substring(8) : "";
-            string name = source_data != null && source_data.display_name != null && source_data.display_name.length > 0 
-                          ? source_data.display_name 
-                          : item.title;
             sidebar_menu.show_for_source(feed_button, url, source_data != null ? source_data.name : item.title);
         });
         feed_button.add_controller(right_click);
@@ -391,7 +368,7 @@ public class SidebarView : GLib.Object {
     }
     
     private Gtk.Widget create_rss_icon_widget(RssSourceItemData? source_data) {
-        int size = CategoryIconsUtils.SIDEBAR_ICON_SIZE;
+        int size = CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE;
         
         if (source_data == null) {
             var fallback = new Gtk.Image.from_icon_name("application-rss+xml-symbolic");
@@ -449,14 +426,16 @@ public class SidebarView : GLib.Object {
     
     private Gtk.Button create_add_rss_button() {
         var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        button_box.set_margin_start(12);
-        button_box.set_margin_end(12);
-        button_box.set_margin_top(4);
-        button_box.set_margin_bottom(4);
+        button_box.add_css_class("sidebar-row-vspace");
+        button_box.set_margin_start(8);
+        button_box.set_margin_end(8);
         
+        // Same icon slot as the source rows above it, so it's in the same column.
+        var icon_holder = build_icon_slot();
         var icon = new Gtk.Image.from_icon_name("list-add-symbolic");
         icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
-        button_box.append(icon);
+        icon_holder.append(icon);
+        button_box.append(icon_holder);
         
         var label = new Gtk.Label("Add RSS Feed");
         label.set_xalign(0);
@@ -527,30 +506,47 @@ public class SidebarView : GLib.Object {
         });
     }
     
+    private void set_badge_selected(string item_id, bool selected) {
+        if (!badge_widgets.has_key(item_id)) return;
+        var badge = badge_widgets.get(item_id);
+        if (selected) {
+            badge.add_css_class("unread-count-badge-selected");
+        } else {
+            badge.remove_css_class("unread-count-badge-selected");
+        }
+    }
+
     private bool is_special_category_id(string id) {
         return id == "frontpage" || id == "topten" ||
                id == "myfeed" || id == "local_news" ||
                id == "saved";
     }
 
-    private Gtk.Widget build_badge_widget(int count, bool is_source, string item_id) {
-        var label = new Gtk.Label(count > 99 ? "99+" : count.to_string());
-        label.add_css_class("unread-count-badge");
-        label.set_valign(Gtk.Align.CENTER);
-        label.set_halign(Gtk.Align.END);
-        label.set_data("unread_count", count);
-        label.set_data("is_placeholder", false);
-        
+    // Whether badges are turned on for this row's type (source, special
+    // item, or regular category). Callers still check count > 0 themselves
+    // for a non-placeholder badge.
+    private bool badge_type_enabled(bool is_source, string item_id) {
         var prefs = NewsPreferences.get_instance();
-
         bool base_flag = is_source
             ? prefs.unread_badges_sources
             : (is_special_category_id(item_id) ? prefs.unread_badges_special_categories
                                                : prefs.unread_badges_categories);
+        return prefs.unread_badges_enabled && base_flag;
+    }
 
-        bool should_show = prefs.unread_badges_enabled && base_flag && count > 0;
-        label.set_visible(should_show);
-        
+    private Gtk.Widget build_badge_widget(int count, bool is_source, string item_id) {
+        var label = new Gtk.Label(count > 99 ? "99+" : count.to_string());
+        label.add_css_class("unread-count-badge");
+        // Wider gap before the count on Feeds/Popular Categories rows,
+        // not on the special items.
+        if (is_source || !is_special_category_id(item_id)) {
+            label.add_css_class("unread-count-badge-wide-gap");
+        }
+        label.set_valign(Gtk.Align.CENTER);
+        label.set_halign(Gtk.Align.END);
+        label.set_data("unread_count", count);
+        label.set_data("is_placeholder", false);
+        label.set_visible(badge_type_enabled(is_source, item_id) && count > 0);
         return label;
     }
     
@@ -564,20 +560,32 @@ public class SidebarView : GLib.Object {
         manager.rebuild_sidebar();
     }
     
+    // Removes every child of `container`. Has to go through the
+    // container's own remove() rather than child.unparent() - unparent()
+    // skips Box/ListBox's internal bookkeeping and corrupts later
+    // append() calls.
+    private void clear_children(Gtk.Widget container) {
+        Gtk.Widget? child = container.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            if (container is Gtk.Box) {
+                ((Gtk.Box) container).remove(child);
+            } else if (container is Gtk.ListBox) {
+                ((Gtk.ListBox) container).remove(child);
+            } else {
+                child.unparent();
+            }
+            child = next;
+        }
+    }
+
     private void on_rss_source_updated(RssSourceItemData source) {
         // Update icon for the RSS source
         string key = "rss:" + source.url;
         if (icon_holders.has_key(key)) {
             var holder = icon_holders.get(key);
-            
-            // Clear existing icon
-            Gtk.Widget? child = holder.get_first_child();
-            while (child != null) {
-                Gtk.Widget? next = child.get_next_sibling();
-                holder.remove(child);
-                child = next;
-            }
-            
+            clear_children(holder);
+
             // Create and add new icon
             var new_icon = create_rss_icon_widget(source);
             holder.append(new_icon);
@@ -595,30 +603,12 @@ public class SidebarView : GLib.Object {
                     label.set_label("--");
                     label.set_data("unread_count", 0);
                     label.set_data("is_placeholder", true);
-
-                    var prefs = NewsPreferences.get_instance();
-                    bool is_special = !is_source && is_special_category_id(item_id);
-                    bool base_flag = is_source
-                        ? prefs.unread_badges_sources
-                        : (is_special ? prefs.unread_badges_special_categories
-                                      : prefs.unread_badges_categories);
-
-                    bool should_show = prefs.unread_badges_enabled && base_flag;
-                    badge.set_visible(should_show);
+                    badge.set_visible(badge_type_enabled(is_source, item_id));
                 } else {
                     label.set_label(count > 99 ? "99+" : count.to_string());
                     label.set_data("unread_count", count);
                     label.set_data("is_placeholder", false);
-
-                    var prefs = NewsPreferences.get_instance();
-                    bool is_special = !is_source && is_special_category_id(item_id);
-                    bool base_flag = is_source
-                        ? prefs.unread_badges_sources
-                        : (is_special ? prefs.unread_badges_special_categories
-                                      : prefs.unread_badges_categories);
-
-                    bool should_show = prefs.unread_badges_enabled && base_flag && count > 0;
-                    badge.set_visible(should_show);
+                    badge.set_visible(badge_type_enabled(is_source, item_id) && count > 0);
                 }
             }
         }
@@ -633,20 +623,11 @@ public class SidebarView : GLib.Object {
                 label.set_label(count > 99 ? "99+" : count.to_string());
                 label.set_data("unread_count", count);
                 label.set_data("is_placeholder", false);
-
-                var prefs = NewsPreferences.get_instance();
-                bool is_special = !is_source && is_special_category_id(item_id);
-                bool base_flag = is_source
-                    ? prefs.unread_badges_sources
-                    : (is_special ? prefs.unread_badges_special_categories
-                                  : prefs.unread_badges_categories);
-
-                bool should_show = prefs.unread_badges_enabled && base_flag && count > 0;
-                badge.set_visible(should_show);
+                badge.set_visible(badge_type_enabled(is_source, item_id) && count > 0);
             }
         }
     }
-    
+
     private void on_badge_placeholder_set(string item_id, bool is_source) {
         if (badge_widgets.has_key(item_id)) {
             var badge = badge_widgets.get(item_id);
@@ -654,16 +635,7 @@ public class SidebarView : GLib.Object {
                 var label = (Gtk.Label) badge;
                 label.set_label("--");
                 label.set_data("is_placeholder", true);
-
-                var prefs = NewsPreferences.get_instance();
-                bool is_special = !is_source && is_special_category_id(item_id);
-                bool base_flag = is_source
-                    ? prefs.unread_badges_sources
-                    : (is_special ? prefs.unread_badges_special_categories
-                                  : prefs.unread_badges_categories);
-
-                bool should_show = prefs.unread_badges_enabled && base_flag;
-                badge.set_visible(should_show);
+                badge.set_visible(badge_type_enabled(is_source, item_id));
             }
         }
     }
@@ -703,40 +675,32 @@ public class SidebarView : GLib.Object {
             currently_selected_widget.remove_css_class("selected");
             currently_selected_widget = null;
         }
-        
+        if (currently_selected_item_id != null) {
+            set_badge_selected(currently_selected_item_id, false);
+            currently_selected_item_id = null;
+        }
+
         // Find and select new widget
         if (item_id != null) {
             // Search through all widgets to find the one with matching item_id
             find_and_select_widget(sidebar_list, item_id);
         }
     }
-    
+
     private void find_and_select_widget(Gtk.Widget parent, string item_id) {
-        if (parent is Gtk.ListBox) {
-            var listbox = (Gtk.ListBox) parent;
-            Gtk.Widget? child = listbox.get_first_child();
-            while (child != null) {
-                find_and_select_widget(child, item_id);
-                child = child.get_next_sibling();
-            }
-        } else if (parent is Gtk.ListBoxRow) {
+        // Check the node itself before descending. Walk with get_first_child/
+        // get_next_sibling so we reach into any container type, including
+        // Adw.ExpanderRow's internal structure that holds its added rows
+        // (which isn't reachable via Gtk.ListBoxRow.get_child()).
+        if (parent is Gtk.ListBoxRow) {
             var row = (Gtk.ListBoxRow) parent;
             string? stored_id = row.get_data<string>("item_id");
             if (stored_id != null && stored_id == item_id) {
                 row.add_css_class("selected");
                 currently_selected_widget = row;
+                currently_selected_item_id = item_id;
+                set_badge_selected(item_id, true);
                 return;
-            }
-            var child = row.get_child();
-            if (child != null) {
-                find_and_select_widget(child, item_id);
-            }
-        } else if (parent is Gtk.Box) {
-            var box = (Gtk.Box) parent;
-            Gtk.Widget? child = box.get_first_child();
-            while (child != null) {
-                find_and_select_widget(child, item_id);
-                child = child.get_next_sibling();
             }
         } else if (parent is Gtk.Button) {
             var button = (Gtk.Button) parent;
@@ -744,8 +708,16 @@ public class SidebarView : GLib.Object {
             if (stored_id != null && stored_id == item_id) {
                 button.add_css_class("selected");
                 currently_selected_widget = button;
+                currently_selected_item_id = item_id;
+                set_badge_selected(item_id, true);
                 return;
             }
+        }
+
+        Gtk.Widget? child = parent.get_first_child();
+        while (child != null) {
+            find_and_select_widget(child, item_id);
+            child = child.get_next_sibling();
         }
     }
     
@@ -789,14 +761,8 @@ public class SidebarView : GLib.Object {
             string key = entry.key;
             Gtk.Box holder = entry.value;
             
-            // Clear existing icon
-            Gtk.Widget? child = holder.get_first_child();
-            while (child != null) {
-                Gtk.Widget? next = child.get_next_sibling();
-                holder.remove(child);
-                child = next;
-            }
-            
+            clear_children(holder);
+
             // Recreate icon
             if (key.has_prefix("rss:")) {
                 // RSS source icon
@@ -815,13 +781,8 @@ public class SidebarView : GLib.Object {
     }
     
     private void clear_sidebar() {
-        Gtk.Widget? child = sidebar_list.get_first_child();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling();
-            sidebar_list.remove(child);
-            child = next;
-        }
-        
+        clear_children(sidebar_list);
+
         icon_holders.clear();
         badge_widgets.clear();
         section_containers.clear();

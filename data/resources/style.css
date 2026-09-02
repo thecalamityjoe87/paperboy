@@ -28,6 +28,12 @@
     border-radius: 12px 12px 0 0;
 }
 
+/* Article card title (grid/column cards, not the hero cards above) */
+.article-card-title {
+    font-weight: 700;
+    font-size: 1.08em;
+}
+
 /* Hero cards lay text and picture out side by side (40/60 split) instead
    of stacking, so the picture only needs rounding on its right edge. */
 .hero-card picture {
@@ -44,7 +50,7 @@
 .hero-card .hero-title {
     font-size: 2.1em;
     line-height: 1.1;
-    font-weight: 800;
+    font-weight: 900;
 }
 
 /* Slightly larger title for cards in the "TOP STORIES" hero carousel only
@@ -61,11 +67,22 @@
     color: alpha(currentColor, 0.65);
 }
 
+/* Slightly larger/heavier snippet for the "TOP STORIES" hero carousel only
+   (see HeroCarousel.mark_slide_title) - every other hero card keeps the
+   1em/400 above. */
+.hero-card.hero-card-carousel .hero-snippet {
+    font-size: 1.08em;
+    font-weight: 500;
+}
+
 /* Small pill category chip overlaid on images */
 .category-chip {
     background-color: alpha(black, 0.6);
     color: white;
-    border-radius: 9999px;
+    /* Shorter than source-badge/viewed-badge (less vertical padding), so
+       the same 8px radius those use would still read as fully pill-shaped
+       here - scaled down to match their less-rounded look at this height. */
+    border-radius: 5px;
     padding: 2px 8px;
     margin: 8px;
     font-size: 0.8em;
@@ -77,7 +94,7 @@
     background-color: rgba(0, 0, 0, 0.6);
     /* black at 60% */
     color: white;
-    border-radius: 9999px;
+    border-radius: 8px;
     padding: 4px 8px;
     margin-bottom: 8px;
     font-size: 0.82em;
@@ -91,7 +108,7 @@
 .viewed-badge {
     -gtk-icon-transform: none;
     padding: 4px 8px;
-    border-radius: 999px;
+    border-radius: 8px;
     background-color: rgba(0, 0, 0, 0.6);
     /* black @ 60% */
     color: white;
@@ -284,7 +301,7 @@
 /* Title shown above the featured (hero) card */
 .top-stories-title {
     font-size: 1.15em;
-    font-weight: 800;
+    font-weight: 900;
     margin: 10px 0 22px 0;
     color: inherit;
     letter-spacing: 0.02em;
@@ -301,28 +318,33 @@
 
 /* Carousel dots shown under the featured hero title */
 .carousel-dot {
-    /* Bigger, clearer dots; base (inactive) color is lighter */
-    font-size: 22px;
-    /* increased from 18px */
-    line-height: 1;
-    padding: 3px 6px;
-    color: alpha(@borders, 0.45);
-    /* light/dim by default */
-    transition: color 180ms ease, transform 160ms ease;
+    min-width: 6.3px;
+    min-height: 6.3px;
+    border-radius: 3.15px;
+    background-color: @borders;
+    transition: min-width 180ms ease, background-color 180ms ease;
 }
 
 .carousel-dot.inactive {
-    color: alpha(@borders, 0.3);
-    transform: scale(1);
+    background-color: @borders;
     opacity: 0.9;
 }
 
 .carousel-dot.active {
-    /* Active dot: darker and more prominent; no background */
-    color: alpha(black, 0.9);
-    font-weight: 800;
-    transform: scale(1.35);
+    /* Active dot: elongated pill in the accent color */
+    min-width: 18.9px;
+    background-color: @accent_color;
     opacity: 1;
+}
+
+/* ScrollNavButtons renders the arrows as plain Unicode glyphs (see
+   scrollNavButtons.vala) rather than an icon, so they read as literal
+   arrows on every distro without needing a bundled asset or icon-theme
+   lookup. Bold weight and a slightly larger size keep them from looking
+   thin against the button's dark circle. */
+.scroll-nav-arrow-label label {
+    font-weight: 800;
+    font-size: 1.15em;
 }
 
 /* Navigation arrow buttons that appear on hover */
@@ -383,6 +405,12 @@
     opacity: 0;
 }
 
+/* Load-more spinner swapped in for the arrow inside .section-nav - kept the
+   same white as the icon it replaces so the button doesn't change weight. */
+.section-nav-spinner {
+    color: white;
+}
+
 /* Static "more to scroll" cue at a category section's right edge: fades to
    the page background rather than an actual blur of the cards underneath -
    a real blur would need a custom widget with a GSK blur node for an effect
@@ -423,7 +451,14 @@
 .navigation-sidebar .sidebar-item-row {
     background-color: transparent;
     font-weight: 600;
-    font-size: 0.88em;
+    font-size: 0.924em;
+}
+
+/* Vertical spacing between sidebar rows (category buttons, followed
+   sources, add-feed row) - 4px reduced 5% per user request. */
+.sidebar-row-vspace {
+    margin-top: 3.8px;
+    margin-bottom: 3.8px;
 }
 
 .navigation-sidebar .sidebar-item-row:selected {
@@ -449,10 +484,14 @@
 .navigation-sidebar .sidebar-expander {
     background-color: transparent;
     font-weight: 700;
-    font-size: 0.92em;
+    font-size: 0.966em;
     border-radius: 6px;
-    margin-left: 6px;
-    margin-right: 6px;
+    /* Scaled down to match the row content's 8px side margin (see
+       row_box/feed_box/button_box in sidebarView.vala) - both were 12px/6px
+       before, kept proportional so rows sit the same distance from the
+       sidebar edge whether or not they're inside this expander. */
+    margin-left: 4px;
+    margin-right: 4px;
 }
 
 /* Style all internal boxes within the expander */
@@ -473,24 +512,10 @@
 
 /* Style the expander row title to match caption headings */
 .navigation-sidebar .sidebar-expander row.header box {
-    margin-top: 6px;
-    margin-bottom: 6px;
+    margin-top: 5.7px;
+    margin-bottom: 5.7px;
 }
 
-/* Fix arrow direction - point right when collapsed, down when expanded.
-   Worked out from two rounds of live testing rather than assumption: this
-   isn't one icon rotating around a shared baseline - collapsed and
-   expanded use different native icons (pointing up and down
-   respectively), AND -gtk-icon-transform's rotate() here turned out to
-   apply COUNTERCLOCKWISE for positive degrees, opposite of standard CSS
-   transform. Measured behavior:
-     collapsed: applied 0deg -> showed up; applied 90deg -> showed left
-     expanded:  applied 90deg -> showed right; applied 180deg -> showed up
-   Both fit observed = (native - applied) mod 360, with native=up(0) for
-   collapsed and native=down(180) for expanded. Solving for the desired
-   observed angles (right=90 for collapsed, down=180 for expanded) gives
-   the values below. If this ever needs revisiting, re-derive from fresh
-   measurements rather than assuming standard CSS rotation direction. */
 .navigation-sidebar .sidebar-expander image.expander-row-arrow {
     -gtk-icon-transform: rotate(270deg);
 }
@@ -659,12 +684,18 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 .unread-count-badge {
     background-color: rgba(0, 0, 0, 0.4);
     color: @accent_fg_color;
-    font-size: 11px;
+    font-size: 11.55px;
     font-weight: 600;
     padding: 2px 8px;
     border-radius: 12px;
     min-width: 20px;
     margin-left: 8px;
+}
+
+/* Feeds/Popular Categories rows only - 2px more gap before the count than
+   the special items (Top Ten, Front Page, etc.) get above. */
+.unread-count-badge.unread-count-badge-wide-gap {
+    margin-left: 20px;
 }
 
 /* Menu item styling for context menus */
@@ -707,10 +738,21 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     color: @window_bg_color;
 }
 
-/* Unread count badge - inverted colors */
+/* Unread count badge - plain text by default, no pill background */
 .unread-count-badge {
-    background-color: alpha(@window_fg_color, 0.7);
-    color: @window_bg_color;
+    background-color: transparent;
+    color: alpha(@window_fg_color, 0.6);
+}
+
+/* Selected row/button - restore the pill background on its count badge.
+   Applied both as a descendant selector and as a class toggled directly on
+   the badge widget (unread-count-badge-selected), since not every selected
+   container exposes its badge as a CSS descendant (e.g. rows nested inside
+   an Adw.ExpanderRow). */
+.selected .unread-count-badge,
+.unread-count-badge.unread-count-badge-selected {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
 }
 
 /* Carousel navigation buttons - inverted colors */
@@ -721,9 +763,4 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .carousel-nav.carousel-nav-active {
     background-color: alpha(@window_fg_color, 0.85);
-}
-
-/* Carousel dots - use theme foreground color */
-.carousel-dot.active {
-    color: alpha(@window_fg_color, 0.9);
 }

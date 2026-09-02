@@ -391,7 +391,7 @@ public class PrefsDialog : GLib.Object {
 
         // Followed RSS Sources Group
         var rss_sources_group = new Adw.PreferencesGroup();
-        rss_sources_group.set_title("Followed Sources");
+        rss_sources_group.set_title("Feeds");
         
         // Helper to load icon from file with circular clipping
         void try_load_icon_circular(string path, Gtk.Picture picture) {
@@ -692,7 +692,7 @@ public class PrefsDialog : GLib.Object {
                 }
             });
 
-            var sources_check = new Gtk.CheckButton.with_label("Show on followed sources");
+            var sources_check = new Gtk.CheckButton.with_label("Show on Feeds");
             sources_check.set_active(prefs.unread_badges_sources);
             sources_check.toggled.connect(() => {
                 prefs.unread_badges_sources = sources_check.get_active();

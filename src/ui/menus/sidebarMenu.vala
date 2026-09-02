@@ -153,7 +153,7 @@ public class SidebarMenu : GLib.Object {
                 }
                 
                 if (window.toast_manager != null) {
-                    window.toast_manager.show_toast("Followed source removed");
+                    window.toast_manager.show_toast("Feed removed");
                 }
             }
             dialog.close();

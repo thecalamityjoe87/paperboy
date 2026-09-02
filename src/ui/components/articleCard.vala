@@ -116,6 +116,7 @@ public class ArticleCard : GLib.Object {
         title_box.set_size_request(-1, TITLE_AREA_HEIGHT);
 
         title_label = new Gtk.Label(title);
+        title_label.add_css_class("article-card-title");
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         title_label.set_xalign(0);
         title_label.set_valign(Gtk.Align.START);

@@ -34,7 +34,7 @@ public class HeroCarousel : GLib.Object {
     public Box? container;
     // One dot row per slide, injected into that slide's own text pane
     // (see add_dots_row_for) rather than a shared strip below the picture.
-    public ArrayList<ArrayList<Label>>? dot_rows;
+    public ArrayList<ArrayList<Widget>>? dot_rows;
     public ArrayList<Widget>? widgets;
     public int index = 0;
     public uint timeout_id = 0;
@@ -66,7 +66,7 @@ public class HeroCarousel : GLib.Object {
         top_stories_title.set_markup("<span size='26000'><b>TOP STORIES</b></span>");
         parent.append(top_stories_title);
         widgets = new ArrayList<Widget>();
-        dot_rows = new ArrayList<ArrayList<Label>>();
+        dot_rows = new ArrayList<ArrayList<Widget>>();
 
         slide_holder = new Gtk.Overlay();
         slide_holder.set_halign(Gtk.Align.FILL);
@@ -182,7 +182,13 @@ public class HeroCarousel : GLib.Object {
     }
 
     // Larger title for carousel slides only (see .carousel-hero-title).
+    // Also marks the slide root itself so a snippet that arrives later
+    // (async fetch - see add_slide's comment) still picks up the carousel
+    // snippet sizing via the .hero-card-carousel .hero-snippet descendant
+    // selector in style.css, without needing a second direct-class call
+    // once that label actually exists.
     private void mark_slide_title(Gtk.Widget slide) {
+        slide.add_css_class("hero-card-carousel");
         var hero = slide.get_data<HeroCard>("hero-card");
         if (hero != null && hero.title_label != null) {
             hero.title_label.add_css_class("carousel-hero-title");
@@ -200,14 +206,11 @@ public class HeroCarousel : GLib.Object {
         row.set_valign(Gtk.Align.END);
         row.set_vexpand(true);
 
-        var labels = new ArrayList<Label>();
+        var labels = new ArrayList<Widget>();
         for (int d = 0; d < 5; d++) {
-            var dot = new Gtk.Label("•");
+            var dot = new Gtk.Box(Orientation.HORIZONTAL, 0);
             dot.add_css_class("carousel-dot");
             dot.set_valign(Gtk.Align.CENTER);
-            var dot_attrs = new Pango.AttrList();
-            dot_attrs.insert(Pango.attr_scale_new(1.35));
-            dot.set_attributes(dot_attrs);
             row.append(dot);
             labels.add(dot);
         }

@@ -39,7 +39,15 @@ public class ScrollNavButtons : GLib.Object {
     public signal void next_requested();
 
     public ScrollNavButtons(Gtk.Overlay overlay, string css_class, int edge_margin = 8) {
-        left_button = new Gtk.Button.from_icon_name("go-previous-symbolic");
+        // No standard GTK/Adwaita icon actually renders as a literal arrow
+        // (shaft + head) - go-previous/pan-start/media-playback-start all
+        // land back on a chevron or triangle. Using the plain Unicode arrow
+        // glyphs as bold button text instead: they're in the core Arrows
+        // block, present in every GNOME distro's default font stack
+        // (Cantarell, Noto, DejaVu), so this needs no icon theme lookup or
+        // bundled asset.
+        left_button = new Gtk.Button.with_label("←");
+        left_button.add_css_class("scroll-nav-arrow-label");
         left_button.add_css_class(css_class);
         left_button.add_css_class(css_class + "-left");
         left_button.set_halign(Gtk.Align.START);
@@ -49,7 +57,8 @@ public class ScrollNavButtons : GLib.Object {
         overlay.add_overlay(left_button);
         left_button.clicked.connect(() => prev_requested());
 
-        right_button = new Gtk.Button.from_icon_name("go-next-symbolic");
+        right_button = new Gtk.Button.with_label("→");
+        right_button.add_css_class("scroll-nav-arrow-label");
         right_button.add_css_class(css_class);
         right_button.add_css_class(css_class + "-right");
         right_button.set_halign(Gtk.Align.END);

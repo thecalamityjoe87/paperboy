@@ -37,6 +37,13 @@ public class CategorySection : GLib.Object {
     // update in add_nav_buttons never re-fires on its own.
     private Gtk.Adjustment? scroll_adjustment;
     private Gtk.Button? right_nav_button;
+    // True while the load-more spinner is showing. Appending the new cards
+    // inside load_more_for_category changes the row's content width, which
+    // fires the adjustment's own changed/value_changed signals almost
+    // immediately - those are wired to update_load_more_affordance too, and
+    // without this guard they'd stomp the spinner back to the arrow before
+    // it ever got a chance to render a frame.
+    private bool loading_more = false;
 
     public CategorySection(NewsWindow? window, string display_name, string query_category) {
         this.window = window;
@@ -100,18 +107,9 @@ public class CategorySection : GLib.Object {
     * instantly, and bind_adjustment disables/hides a button once that end
     * of the row has nothing left to scroll to.
     *
-    * On top of that default behavior, the right button doubles as a
-    * per-category "load more": once the row is scrolled to its end, if
-    * ArticleManager still has queued overflow articles for this category
-    * (from the Front Page's initial-load cap), the button switches to a
-    * reload icon that loads just that category's next batch instead of
-    * staying disabled.
-    *
     * Also adds edge-fade gradients as a cheap "more to scroll" cue (not an
-    * actual blur of the scrolling content - that would need a custom
-    * snapshot()/GSK blur node for a subtle effect nobody would tell apart
-    * from this). Their visibility is tied to the same adjustment as the
-    * nav buttons: each fade only shows when there's actually more content
+    * actual blur of the scrolling content. Their visibility is tied to the 
+    * same adjustment as the nav buttons: each fade only shows when there's actually more content
     * in that direction, so the last real card at the true end of a row is
     * never obscured and the left fade stays hidden until the row has been
     * scrolled in from the start.
@@ -140,6 +138,19 @@ public class CategorySection : GLib.Object {
         scroll_adjustment = adj;
         right_nav_button = nav_buttons.right_button;
 
+        // Center the nav buttons on the card picture, not the full row
+        // height (picture + title area below it) - ScrollNavButtons
+        // defaults to valign CENTER on the whole overlay, which sits too
+        // low here. Cards place their picture flush at the top of the row
+        // at a fixed height (see ArticleCard), so the picture's vertical
+        // center is just half of that fixed height down from the top.
+        int nav_btn_size = 36; // matches .section-nav min-height in style.css
+        int nav_margin_top = (Managers.ArticleManager.CARD_IMAGE_HEIGHT - nav_btn_size) / 2;
+        nav_buttons.left_button.set_valign(Gtk.Align.START);
+        nav_buttons.left_button.set_margin_top(nav_margin_top);
+        nav_buttons.right_button.set_valign(Gtk.Align.START);
+        nav_buttons.right_button.set_margin_top(nav_margin_top);
+
         nav_buttons.prev_requested.connect(() => {
             scroller.scroll_child(Gtk.ScrollType.PAGE_BACKWARD, true);
         });
@@ -148,7 +159,41 @@ public class CategorySection : GLib.Object {
             if (can_scroll_more) {
                 scroller.scroll_child(Gtk.ScrollType.PAGE_FORWARD, true);
             } else if (window != null && window.article_manager != null) {
+                loading_more = true;
+                show_load_more_spinner(nav_buttons.right_button);
                 window.article_manager.load_more_for_category(query_category);
+
+                // The new cards widen the row, but scroll position is
+                // unchanged, so without this the user would still be
+                // sitting at the old end and have to hit the arrow again
+                // themselves to actually see what just loaded. A full
+                // scroll_child(PAGE_FORWARD) jump was too dramatic here, so
+                // animate forward by half a viewport instead of a whole
+                // one - enough to bring the new cards into view without
+                // launching past the ones right at the old edge. Deferred
+                // to idle so the row's adjustment has picked up the new
+                // width first (append happened synchronously above, but
+                // layout allocation hasn't run yet).
+                GLib.Idle.add(() => {
+                    double target_value = adj.get_value() + (adj.get_page_size() * 0.5);
+                    double max_value = adj.get_upper() - adj.get_page_size();
+                    if (target_value > max_value) target_value = max_value;
+                    var scroll_target = new Adw.PropertyAnimationTarget((GLib.Object) adj, "value");
+                    var scroll_anim = new Adw.TimedAnimation(row, adj.get_value(), target_value, 300u, scroll_target);
+                    scroll_anim.play();
+                    return false;
+                });
+
+                // load_more_for_category resolves synchronously from the
+                // in-memory overflow queue, so without a floor here the
+                // spinner would flash by unnoticed even though new cards are
+                // genuinely being added - give it a moment to register
+                // before swapping the arrow back in.
+                GLib.Timeout.add(450, () => {
+                    loading_more = false;
+                    update_load_more_affordance(adj, nav_buttons.right_button);
+                    return false;
+                });
             }
         });
 
@@ -183,23 +228,37 @@ public class CategorySection : GLib.Object {
     }
 
     private void update_load_more_affordance(Gtk.Adjustment adj, Gtk.Button right_btn) {
+        // While the spinner is showing, leave the button alone - the
+        // adjustment's own changed/value_changed signals also call into
+        // here and would otherwise immediately replace the spinner with the
+        // arrow again as soon as the newly-loaded cards resize the row.
+        if (loading_more) return;
+
         bool can_scroll_more = adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0;
         if (can_scroll_more) {
-            right_btn.set_icon_name("go-next-symbolic");
+            right_btn.set_label("→");
+            right_btn.set_sensitive(true);
             return;
         }
 
         int remaining = (window != null && window.article_manager != null)
             ? window.article_manager.remaining_count_for_category(query_category)
             : 0;
-        if (remaining > 0) {
-            right_btn.set_icon_name("view-refresh-symbolic");
-            //right_btn.set_tooltip_text("Load more");
-            right_btn.set_sensitive(true);
-        } else {
-            right_btn.set_icon_name("go-next-symbolic");
-            //right_btn.set_tooltip_text("See more");
-            right_btn.set_sensitive(false);
-        }
+        right_btn.set_label("→");
+        right_btn.set_sensitive(remaining > 0);
+    }
+
+    // Swap the right nav button's arrow for a spinner while the next batch
+    // of queued articles for this category is being added to the row.
+    private void show_load_more_spinner(Gtk.Button btn) {
+        var spinner = new Gtk.Spinner();
+        // Match the arrow glyph's footprint instead of the spinner's own
+        // larger default, so swapping in the spinner doesn't visibly
+        // change the button's weight.
+        spinner.set_size_request(16, 16);
+        spinner.add_css_class("section-nav-spinner");
+        spinner.set_spinning(true);
+        btn.set_child(spinner);
+        btn.set_sensitive(false);
     }
 }

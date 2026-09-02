@@ -221,7 +221,7 @@ public class SidebarManager : GLib.Object {
         // Section 2: Followed Sources (RSS feeds)
         var followed_section = SidebarSectionData();
         followed_section.section_id = "followed_sources";
-        followed_section.title = "Followed Sources";
+        followed_section.title = "Feeds";
         followed_section.is_expandable = true;
         followed_section.is_expanded = followed_sources_expanded;
         followed_section.items = new Gee.ArrayList<SidebarItemData?>();
@@ -559,7 +559,7 @@ public class SidebarManager : GLib.Object {
 
     private string? get_icon_path_for_source(Paperboy.RssSource source) {
         // Use SourceMetadata.get_valid_saved_filename_for_source (validates file exists)
-        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, CategoryIconsUtils.SIDEBAR_ICON_SIZE, CategoryIconsUtils.SIDEBAR_ICON_SIZE);
+        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE, CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE);
         if (icon_filename != null && icon_filename.length > 0) {
             var data_dir = GLib.Environment.get_user_data_dir();
             var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);

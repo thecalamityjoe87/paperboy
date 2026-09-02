@@ -267,9 +267,9 @@ public class HeaderManager : GLib.Object {
             return;  // Header already set by update_for_saved_articles(), don't override
         }
 
-        // Handle RSS feeds - show RSS icon and "Followed Source" on the right
+        // Handle RSS feeds - show RSS icon and "Feeds" on the right
         if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
-            source_label.set_text("Followed Source");
+            source_label.set_text("Feeds");
             source_logo.set_from_icon_name("application-rss+xml-symbolic");
             return;
         }

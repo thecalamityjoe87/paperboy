@@ -22,18 +22,23 @@
 
 public class stripHtmlUtils {
 
-    public static string strip_html(string s) {
-        string out_str = s;
-
-        // Remove <script> and <style> blocks early.
-        // This avoids their contents leaking into text.
+    // Strips <script> and <style> blocks (including their contents) from
+    // `s`. Used before any text search over raw HTML - a bundled script can
+    // easily contain a stray "<p" or "</p>"-looking substring (template
+    // literals, minified JS) that would otherwise get mistaken for real
+    // markup.
+    private static string strip_script_and_style(string s) {
         try {
             var ss_regex = new Regex("<(script|style)[^>]*>.*?</\\1>",
                                      RegexCompileFlags.DOTALL | RegexCompileFlags.CASELESS);
-            out_str = ss_regex.replace(out_str, -1, 0, "");
+            return ss_regex.replace(s, -1, 0, "");
         } catch (Error e) {
-            // Ignore regex failures.
+            return s;
         }
+    }
+
+    public static string strip_html(string s) {
+        string out_str = strip_script_and_style(s);
 
         // Decode named HTML entities first
         out_str = out_str.replace("&amp;", "&");
@@ -211,7 +216,12 @@ public class stripHtmlUtils {
         return tag.substring(start, end - start);
     }
 
-    public static string extract_snippet_from_html(string html) {
+    public static string extract_snippet_from_html(string raw_html) {
+        // Strip scripts/styles from the whole document first - a bundled
+        // script containing a stray "<p"/"</p>"-looking substring would
+        // otherwise get picked up by the fallback search below and return
+        // garbled JS instead of an actual paragraph.
+        string html = strip_script_and_style(raw_html);
         string lower = html.down();
         int pos = 0;
 
