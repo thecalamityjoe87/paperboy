@@ -260,12 +260,13 @@ public class HeaderManager : GLib.Object {
             return;
         }
 
-        // Handle local news with custom icon
+        // Local News already says "Local News" in the category title on the
+        // left (see ContentView.category_label) - showing the same icon/text
+        // again here was pure redundancy, so just hide the source info like
+        // the multi-source categories below do.
         if (window.prefs != null && window.prefs.category == "local_news") {
-            source_logo.set_visible(true);
-            source_label.set_visible(true);
-            source_label.set_text("Local News");
-            load_custom_icon("local-mono", 32);
+            source_logo.set_visible(false);
+            source_label.set_visible(false);
             return;
         }
 

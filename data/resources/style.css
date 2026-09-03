@@ -28,6 +28,68 @@
     border-radius: 12px 12px 0 0;
 }
 
+/* Header date (see ContentView) - weekday + numeric month/day, larger than
+   the default "body" style class it replaced. */
+.header-date-label {
+    font-size: 1.35em;
+    font-weight: 700;
+}
+
+/* Faint divider between the hero and Sports score sections, and between
+   the score sections and the article grid below (see ContentView's
+   hero_scores_separator/scores_articles_separator). */
+.section-divider {
+    min-height: 1px;
+    background-color: alpha(@borders, 0.7);
+}
+
+/* Same faint divider, drawn as a top border instead of a separate widget -
+   used between Front Page's category sections (see LayoutManager's
+   prepare_category_sections), whose count and which ones actually populate
+   varies at runtime, unlike the fixed hero/scores/articles layout above. */
+.frontpage-section-divider {
+    border-top: 1px solid alpha(@borders, 0.7);
+    padding-top: 20px;
+}
+
+.frontpage-section-divider:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+/* Groups a league's score cards into one bordered panel (see
+   CategorySection's card_container option) - Sports sections only. */
+.section-card-container {
+    background-color: @card_bg_color;
+    border-radius: 12px;
+    border: 1px solid alpha(@borders, 0.3);
+    padding: 16px;
+}
+
+/* Sports score cards (see ScoreCard) - team rows + status pill, no picture */
+.score-card {
+    padding: 12px;
+}
+
+.score-card-status {
+    opacity: 0.7;
+}
+
+.score-card-status-live {
+    color: @error_color;
+    font-weight: 700;
+}
+
+.score-card-team {
+    font-weight: 500;
+}
+
+.score-card-score {
+    font-weight: 700;
+    font-size: 1.1em;
+    min-width: 24px;
+}
+
 /* Article card title (grid/column cards, not the hero cards above) */
 .article-card-title {
     font-weight: 700;
@@ -492,6 +554,13 @@
        sidebar edge whether or not they're inside this expander. */
     margin-left: 4px;
     margin-right: 4px;
+    /* AdwExpanderRow is a preferences-row widget at heart, so its own
+       template padding is sized for settings-style lists, not a compact
+       sidebar. Without zeroing it here, this shows up as a huge gap around
+       the header specifically while collapsed (expanded, the row list
+       below it hides how much taller the header itself actually is). */
+    padding: 0;
+    min-height: 0;
 }
 
 /* Style all internal boxes within the expander */
@@ -499,9 +568,27 @@
     background-color: transparent;
 }
 
-/* Target the expander row header area - no background on hover */
+/* Target the expander row header area - no background on hover, and the
+   same padding/min-height reset as above since the clickable header is its
+   own "row.header" node, separate from the outer .sidebar-expander row. */
 .navigation-sidebar .sidebar-expander row.header {
     background-color: transparent;
+    padding: 0;
+    min-height: 0;
+}
+
+/* Every box the header nests (content box, suffix box) has its own
+   Adwaita-imposed min-height (~50px, sized for touch/preferences rows) -
+   zeroing it here shrinks the header from ~60px down to ~40px, though the
+   chevron icon's own intrinsic size still floors it a bit above the 34px
+   plain sidebar rows use (see .expander-row-arrow below - not further
+   reducible via CSS, that part is fixed in libadwaita's row template). */
+.navigation-sidebar .sidebar-expander row.header box {
+    min-height: 0;
+}
+
+.navigation-sidebar .sidebar-expander switch {
+    min-height: 0;
 }
 
 /* Hover effect - highlight the text only, no background shape */
@@ -510,14 +597,22 @@
     opacity: 0.7;
 }
 
-/* Style the expander row title to match caption headings */
-.navigation-sidebar .sidebar-expander row.header box {
+/* Style the expander row title to match caption headings - this margin is
+   now the only source of vertical space around the header text, so it
+   alone controls the header's height. Must be the DIRECT child box
+   (row.header > box.header.horizontal), not a descendant selector: the
+   header row nests a second box around its title/subtitle
+   (box.header.horizontal > box.vertical.title), and a bare "row.header box"
+   matched both, stacking two 5.7px margins into one huge gap. */
+.navigation-sidebar .sidebar-expander row.header > box {
     margin-top: 5.7px;
     margin-bottom: 5.7px;
 }
 
 .navigation-sidebar .sidebar-expander image.expander-row-arrow {
     -gtk-icon-transform: rotate(270deg);
+    min-height: 0;
+    min-width: 0;
 }
 
 .navigation-sidebar .sidebar-expander:checked image.expander-row-arrow {
@@ -532,11 +627,21 @@
     background-color: @sidebar_bg_color;
 }
 
-/* Keep items inside expander flat and seamless */
-.navigation-sidebar .sidebar-expander-item {
+/* Keep items inside expander flat and seamless. Adwaita's own boxed-list/
+   expander-row stylesheet applies padding and a min-height directly to the
+   "row" node at higher specificity than a single class selector, so a plain
+   ".sidebar-expander-item { padding: 0 }" alone lost to it - these rows kept
+   extra top/bottom space the non-expander sidebar rows never had. Naming
+   both the element and the class together, on every node depth Adwaita
+   targets, is what actually wins that fight. */
+.navigation-sidebar .sidebar-expander-item,
+.navigation-sidebar row.sidebar-expander-item,
+.navigation-sidebar .sidebar-expander list row.sidebar-expander-item,
+.navigation-sidebar .sidebar-expander listbox row.sidebar-expander-item {
     background-color: transparent;
     border: none;
     padding: 0;
+    min-height: 0;
 }
 
 .navigation-sidebar .sidebar-expander-item:hover {

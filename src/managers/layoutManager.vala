@@ -56,6 +56,7 @@ namespace Managers {
         // card arrives, since articles stream in asynchronously and we don't
         // want section order to depend on fetch timing.
         public Gtk.Box? category_sections_container;
+        public Gtk.Separator? hero_frontpage_separator;
         private bool using_category_sections = false;
         private Gee.HashMap<string, CategorySection>? category_sections;
         // Card root -> its home section, so search filtering (which
@@ -544,12 +545,19 @@ namespace Managers {
                 string query_cat = (cat == MISC_SECTION_KEY) ? "frontpage" : cat;
 
                 var section = new CategorySection(window, display_name, query_cat);
+                // Faint divider between Front Page category sections,
+                // matching the hero/score/article dividers (see
+                // .section-divider in style.css). Skipped on the first
+                // section via CSS :first-child so it doesn't double up
+                // with the gap under the hero above it.
+                section.wrapper.add_css_class("frontpage-section-divider");
                 category_sections_container.append(section.wrapper);
                 category_sections.set(cat, section);
             }
 
             using_category_sections = true;
             category_sections_container.set_visible(true);
+            if (hero_frontpage_separator != null) hero_frontpage_separator.set_visible(true);
             if (columns_row != null) columns_row.set_visible(false);
         }
 
@@ -559,6 +567,7 @@ namespace Managers {
         public void teardown_category_sections() {
             using_category_sections = false;
             if (category_sections_container != null) category_sections_container.set_visible(false);
+            if (hero_frontpage_separator != null) hero_frontpage_separator.set_visible(false);
             if (columns_row != null) columns_row.set_visible(true);
             category_sections = null;
             card_home_section = null;

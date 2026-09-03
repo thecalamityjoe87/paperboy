@@ -45,7 +45,18 @@ public class CategorySection : GLib.Object {
     // it ever got a chance to render a frame.
     private bool loading_more = false;
 
-    public CategorySection(NewsWindow? window, string display_name, string query_category) {
+    // center_nav_on_full_row: article cards place a fixed-height picture
+    // flush at the top of the row (see ArticleCard), so by default the nav
+    // arrows center on just that picture height, not the full row (picture
+    // + title area below it) - see add_nav_buttons. Score cards (see
+    // ScoreCard) have no picture at all, just text top to bottom, so that
+    // picture-height math would center the arrows too high; pass true to
+    // center them on the row's actual full height instead.
+    // card_container: wraps the scroll row (not the title above it) in a
+    // bordered/rounded panel so the row's cards read as one grouped unit -
+    // used for the Sports score sections; article-row sections leave it off
+    // and keep their plain flush layout.
+    public CategorySection(NewsWindow? window, string display_name, string query_category, bool center_nav_on_full_row = false, bool card_container = false) {
         this.window = window;
         this.query_category = query_category;
 
@@ -84,9 +95,18 @@ public class CategorySection : GLib.Object {
         var overlay = new Gtk.Overlay();
         overlay.set_child(scroller);
         overlay.set_hexpand(true);
-        wrapper.append(overlay);
 
-        add_nav_buttons(overlay, scroller);
+        if (card_container) {
+            var container = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+            container.add_css_class("section-card-container");
+            container.set_hexpand(true);
+            container.append(overlay);
+            wrapper.append(container);
+        } else {
+            wrapper.append(overlay);
+        }
+
+        add_nav_buttons(overlay, scroller, center_nav_on_full_row);
     }
 
     /**
@@ -114,7 +134,7 @@ public class CategorySection : GLib.Object {
     * never obscured and the left fade stays hidden until the row has been
     * scrolled in from the start.
     */
-    private void add_nav_buttons(Gtk.Overlay overlay, Gtk.ScrolledWindow scroller) {
+    private void add_nav_buttons(Gtk.Overlay overlay, Gtk.ScrolledWindow scroller, bool center_nav_on_full_row = false) {
         Gtk.Adjustment adj = scroller.get_hadjustment();
 
         var left_fade = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
@@ -138,18 +158,23 @@ public class CategorySection : GLib.Object {
         scroll_adjustment = adj;
         right_nav_button = nav_buttons.right_button;
 
-        // Center the nav buttons on the card picture, not the full row
-        // height (picture + title area below it) - ScrollNavButtons
-        // defaults to valign CENTER on the whole overlay, which sits too
-        // low here. Cards place their picture flush at the top of the row
-        // at a fixed height (see ArticleCard), so the picture's vertical
-        // center is just half of that fixed height down from the top.
-        int nav_btn_size = 36; // matches .section-nav min-height in style.css
-        int nav_margin_top = (Managers.ArticleManager.CARD_IMAGE_HEIGHT - nav_btn_size) / 2;
-        nav_buttons.left_button.set_valign(Gtk.Align.START);
-        nav_buttons.left_button.set_margin_top(nav_margin_top);
-        nav_buttons.right_button.set_valign(Gtk.Align.START);
-        nav_buttons.right_button.set_margin_top(nav_margin_top);
+        if (!center_nav_on_full_row) {
+            // Center the nav buttons on the card picture, not the full row
+            // height (picture + title area below it) - ScrollNavButtons
+            // defaults to valign CENTER on the whole overlay, which sits too
+            // low here. Cards place their picture flush at the top of the row
+            // at a fixed height (see ArticleCard), so the picture's vertical
+            // center is just half of that fixed height down from the top.
+            int nav_btn_size = 36; // matches .section-nav min-height in style.css
+            int nav_margin_top = (Managers.ArticleManager.CARD_IMAGE_HEIGHT - nav_btn_size) / 2;
+            nav_buttons.left_button.set_valign(Gtk.Align.START);
+            nav_buttons.left_button.set_margin_top(nav_margin_top);
+            nav_buttons.right_button.set_valign(Gtk.Align.START);
+            nav_buttons.right_button.set_margin_top(nav_margin_top);
+        }
+        // else: leave ScrollNavButtons' default valign CENTER on the whole
+        // overlay, which centers on the row's actual full height - correct
+        // for picture-less cards like ScoreCard.
 
         nav_buttons.prev_requested.connect(() => {
             scroller.scroll_child(Gtk.ScrollType.PAGE_BACKWARD, true);

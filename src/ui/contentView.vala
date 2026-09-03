@@ -37,6 +37,10 @@ public class ContentView : GLib.Object {
     public Gtk.Box featured_box;
     public Gtk.FlowBox columns_row;
     public Gtk.Box category_sections_container;
+    public Gtk.Box sports_scores_container;
+    public Gtk.Separator hero_scores_separator;
+    public Gtk.Separator scores_articles_separator;
+    public Gtk.Separator hero_frontpage_separator;
     public Gtk.Box category_icon_holder;
     public Gtk.Label category_label;
     public Gtk.Label category_subtitle;
@@ -138,13 +142,13 @@ public class ContentView : GLib.Object {
         title_row.append(source_box);
         header_box.append(title_row);
 
-        // Add current date label (smaller text)
+        // Add current date label - weekday + full month name/day, no year.
         var date = new DateTime.now_local();
-        var date_str = date.format("%A, %B %d, %Y");
+        var date_str = date.format("%A, %B %d");
         var date_label = new Gtk.Label(date_str);
         date_label.set_xalign(0);
         date_label.add_css_class("dim-label");
-        date_label.add_css_class("body");
+        date_label.add_css_class("header-date-label");
         header_box.append(date_label);
 
         // Add subtitle label (for Top Ten category) - below date, bolded.
@@ -188,6 +192,42 @@ public class ContentView : GLib.Object {
         hero_container.append(featured_box);
         main_content_container.append(hero_container);
 
+        // Live sports scores (Sports category only): league-header sections
+        // of score cards, shown directly under the hero and above the
+        // article grid below (RSS hero + article grid otherwise left
+        // untouched). Owned entirely by SportsScoresController, independent
+        // of category_sections_container so Front Page's own show/hide
+        // logic for that container can't affect this one.
+        //
+        // The separators either side are only ever shown alongside this
+        // container (see SportsScoresController.render/hide) - every other
+        // category never has anything between the hero and the article
+        // grid, so they'd otherwise show a stray line with nothing to divide.
+        // Equal margin on both sides of each separator (rather than
+        // leaning on sports_scores_container's own margin, which only
+        // padded its top and left the hero-side gap uneven) so the hero,
+        // divider, score panel, divider, and article grid all land the
+        // same distance apart.
+        hero_scores_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        hero_scores_separator.add_css_class("section-divider");
+        hero_scores_separator.set_margin_top(14);
+        hero_scores_separator.set_margin_bottom(14);
+        hero_scores_separator.set_visible(false);
+        main_content_container.append(hero_scores_separator);
+
+        sports_scores_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
+        sports_scores_container.set_halign(Gtk.Align.FILL);
+        sports_scores_container.set_hexpand(true);
+        sports_scores_container.set_visible(false);
+        main_content_container.append(sports_scores_container);
+
+        scores_articles_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        scores_articles_separator.add_css_class("section-divider");
+        scores_articles_separator.set_margin_top(14);
+        scores_articles_separator.set_margin_bottom(14);
+        scores_articles_separator.set_visible(false);
+        main_content_container.append(scores_articles_separator);
+
         // Article grid - a real grid (FlowBox) so cards line up into even rows
         // and columns with consistent gutters, instead of independently
         // stacking columns that can drift out of alignment.
@@ -209,17 +249,23 @@ public class ContentView : GLib.Object {
         // Do not call rebuild_columns here; caller will arrange columns
         main_content_container.append(columns_row);
 
+        // Same faint divider as hero_scores_separator/scores_articles_separator,
+        // shown only alongside category_sections_container (see LayoutManager's
+        // prepare_category_sections/teardown_category_sections) so it never
+        // shows for the other views that use the flat columns_row instead.
+        hero_frontpage_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        hero_frontpage_separator.add_css_class("section-divider");
+        hero_frontpage_separator.set_margin_top(14);
+        hero_frontpage_separator.set_margin_bottom(14);
+        hero_frontpage_separator.set_visible(false);
+        main_content_container.append(hero_frontpage_separator);
+
         // Category-grouped sections (Front Page only): one labeled,
         // horizontally-scrollable row of cards per category, built and
         // shown/hidden by LayoutManager instead of the flat columns_row.
         category_sections_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
         category_sections_container.set_halign(Gtk.Align.FILL);
         category_sections_container.set_hexpand(true);
-        // Own top margin (independent of main_content_container's generic
-        // child spacing, which also applies to the flat columns_row used by
-        // every other view) so the hero-to-first-section gap can be tuned
-        // without affecting non-Front-Page layouts.
-        category_sections_container.set_margin_top(28);
         category_sections_container.set_visible(false);
         main_content_container.append(category_sections_container);
 

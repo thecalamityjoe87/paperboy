@@ -397,6 +397,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     layout_manager.featured_box = content_view.featured_box;
     layout_manager.columns_row = content_view.columns_row;
     layout_manager.category_sections_container = content_view.category_sections_container;
+    layout_manager.hero_frontpage_separator = content_view.hero_frontpage_separator;
     layout_manager.content_area = content_view.content_area;
     // Ensure UI containers are visible after wiring
     layout_manager.hero_container?.set_visible(true);
@@ -805,6 +806,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Also persist window geometry into GSettings. We save on close (not on resize)
         // so transient states (like maximized) don't become stored as normal sizes.
         this.close_request.connect(() => {
+            SportsScoresController.stop_polling();
+
             // Clean up old cached articles (frontpage and RSS feeds)
             try {
                 var cache = Paperboy.RssArticleCache.get_instance();
@@ -1048,6 +1051,16 @@ public class NewsWindow : Adw.ApplicationWindow {
     // staged extraction.
     public void fetch_news() {
         FetchNewsController.fetch_news(this);
+
+        // Additive only: live scores render underneath whatever the Sports
+        // category already shows above (RSS hero + article grid, untouched
+        // by this call). See SportsScoresController for details.
+        if (prefs.category == "sports") {
+            SportsScoresController.load(this);
+        } else {
+            SportsScoresController.stop_polling();
+            SportsScoresController.hide(this);
+        }
     }
 
     // Fetch article metadata for all *regular* categories and RSS sources in background

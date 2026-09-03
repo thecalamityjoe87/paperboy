@@ -218,7 +218,20 @@ public class SidebarManager : GLib.Object {
 
         sections.add(special_section);
 
-        // Section 2: Followed Sources (RSS feeds)
+        // Section 2: Popular Categories
+        var categories_section = SidebarSectionData();
+        categories_section.section_id = "popular_categories";
+        categories_section.title = "Popular Categories";
+        categories_section.is_expandable = true;
+        categories_section.is_expanded = popular_categories_expanded;
+        categories_section.items = new Gee.ArrayList<SidebarItemData?>();
+
+        // Add categories based on selected sources
+        add_categories_for_sources(categories_section.items);
+
+        sections.add(categories_section);
+
+        // Section 3: Followed Sources (RSS feeds)
         var followed_section = SidebarSectionData();
         followed_section.section_id = "followed_sources";
         followed_section.title = "Feeds";
@@ -234,19 +247,6 @@ public class SidebarManager : GLib.Object {
         }
 
         sections.add(followed_section);
-
-        // Section 3: Popular Categories
-        var categories_section = SidebarSectionData();
-        categories_section.section_id = "popular_categories";
-        categories_section.title = "Popular Categories";
-        categories_section.is_expandable = true;
-        categories_section.is_expanded = popular_categories_expanded;
-        categories_section.items = new Gee.ArrayList<SidebarItemData?>();
-
-        // Add categories based on selected sources
-        add_categories_for_sources(categories_section.items);
-
-        sections.add(categories_section);
 
         return sections;
     }
