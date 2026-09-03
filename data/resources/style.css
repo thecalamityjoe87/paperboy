@@ -96,6 +96,13 @@
     font-size: 1.08em;
 }
 
+/* Relative-time caption ("7h ago") under an article card's title. */
+.article-card-time {
+    font-size: 0.85em;
+    font-weight: 400;
+    color: alpha(currentColor, 0.6);
+}
+
 /* Hero cards lay text and picture out side by side (40/60 split) instead
    of stacking, so the picture only needs rounding on its right edge. */
 .hero-card picture {
@@ -135,6 +142,13 @@
 .hero-card.hero-card-carousel .hero-snippet {
     font-size: 1.08em;
     font-weight: 500;
+}
+
+/* Relative-time caption ("7h ago") bottom-left of a hero card/slide. */
+.hero-card .hero-card-time {
+    font-size: 0.95em;
+    font-weight: 400;
+    color: alpha(currentColor, 0.6);
 }
 
 /* Small pill category chip overlaid on images */

@@ -25,6 +25,12 @@ public class HeroCard : GLib.Object {
     public Gtk.Label title_label;
     public Gtk.Label? snippet_label;
     public Gtk.Box title_box;
+    // Bottom-pinned footer within title_box - holds the relative-time
+    // caption and, for carousel slides, the dot-indicator row appended
+    // afterward by HeroCarousel. Both stack here rather than each
+    // independently claiming vexpand space, which would split them apart.
+    public Gtk.Box footer_box;
+    public Gtk.Label time_label;
     public string url;
     public string? source_name;
     public string? category_id;
@@ -45,10 +51,10 @@ public class HeroCard : GLib.Object {
     public signal void save_for_later_requested(string url);
     public signal void share_requested(string url);
 
-    public HeroCard(string title, string url, int max_total_height, int image_h, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null) {
+    public HeroCard(string title, string url, int max_total_height, int image_h, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
         GLib.Object();
         init_base(url, enable_context_menu, state_store, window, max_total_height);
-        build_image_overlay_and_title(title, chip);
+        build_image_overlay_and_title(title, chip, published);
 
         // A Grid with homogeneous columns gives a proportional (not just
         // even) split that holds its ratio as the card is resized, which a
@@ -71,10 +77,10 @@ public class HeroCard : GLib.Object {
     * side, sized to an exact 70/30 pixel split of max_total_height rather
     * than a proportional grid share.
     */
-    public HeroCard.for_topten(string title, string url, int max_total_height, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null) {
+    public HeroCard.for_topten(string title, string url, int max_total_height, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
         GLib.Object();
         init_base(url, enable_context_menu, state_store, window, max_total_height);
-        build_image_overlay_and_title(title, chip);
+        build_image_overlay_and_title(title, chip, published);
         // .hero-card picture normally rounds only the right edge (image
         // sits on the right in the side-by-side layout) - this variant
         // needs the top edge rounded instead, since the image is now on
@@ -125,7 +131,7 @@ public class HeroCard : GLib.Object {
     * layout - only the grid/split arrangement and explicit sizing differ
     * between the constructors, so that part is factored out here.
     */
-    private void build_image_overlay_and_title(string title, Gtk.Widget? chip) {
+    private void build_image_overlay_and_title(string title, Gtk.Widget? chip, string? published = null) {
         image = new Gtk.Picture();
         image.set_halign(Gtk.Align.FILL);
         image.set_hexpand(true);
@@ -173,6 +179,25 @@ public class HeroCard : GLib.Object {
         title_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
         title_label.set_lines(4);
         title_box.append(title_label);
+
+        // Bottom-left relative-time caption ("7h ago"), pinned to the
+        // bottom of title_box via vexpand + valign END regardless of title
+        // length - matches ArticleCard's treatment. HeroCarousel appends its
+        // dot-indicator row into this same footer_box (see
+        // HeroCarousel.add_dots_row_for) so both stack together at the
+        // bottom instead of each claiming their own separate vexpand share.
+        footer_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
+        footer_box.set_halign(Gtk.Align.FILL);
+        footer_box.set_valign(Gtk.Align.END);
+        footer_box.set_vexpand(true);
+
+        time_label = new Gtk.Label(DateUtils.time_ago(published));
+        time_label.add_css_class("hero-card-time");
+        time_label.set_xalign(0);
+        time_label.set_halign(Gtk.Align.START);
+        footer_box.append(time_label);
+
+        title_box.append(footer_box);
     }
 
     /**

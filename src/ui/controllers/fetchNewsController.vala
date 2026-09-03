@@ -61,7 +61,7 @@ public class FetchNewsController {
     // safely post article additions to the main loop. This avoids
     // passing per-fetch capturing delegates into worker threads which
     // can be freed while the worker still holds a reference.
-    public static void global_add_item(string title, string url, string? thumbnail, string category_id, string? source_name) {
+    public static void global_add_item(string title, string url, string? thumbnail, string category_id, string? source_name, string? published = null) {
         Idle.add(() => {
             var cur = FetchContext.current_context();
             if (cur == null || !cur.is_valid()) return false;
@@ -93,7 +93,7 @@ public class FetchNewsController {
                 }
             }
             if (article_mgr != null) {
-                article_mgr.add_item(title, url, thumbnail, category_id, source_name);
+                article_mgr.add_item(title, url, thumbnail, category_id, source_name, published);
             }
             return false;
         });
@@ -349,7 +349,7 @@ public class FetchNewsController {
         var ui_add_queue = new Gee.ArrayList<ArticleItem>();
         bool ui_add_idle_scheduled = false;
 
-        AddItemFunc wrapped_add = (title, url, thumbnail, category_id, source_name) => {
+        AddItemFunc wrapped_add = (title, url, thumbnail, category_id, source_name, published) => {
             var cur_start = FetchContext.current_context();
             if (cur_start == null || cur_start.seq != my_seq) return;
             var w = cur_start.window;
@@ -378,9 +378,7 @@ public class FetchNewsController {
                 w.prefs.category == "lifestyle" ||
                 w.prefs.category == "markets" ||
                 w.prefs.category == "industries" ||
-                w.prefs.category == "economics" ||
-                w.prefs.category == "wealth" ||
-                w.prefs.category == "green"
+                w.prefs.category == "economics"
                 || w.prefs.category == "local_news"
                 || w.prefs.category == "myfeed"
             );
@@ -390,7 +388,7 @@ public class FetchNewsController {
             // If we're in Local News mode, enqueue and process in small batches to avoid UI lockups
             var prefs_local = NewsPreferences.get_instance();
             if (prefs_local != null && prefs_local.category == "local_news") {
-                    local_news_queue.add(new ArticleItem(title, url, thumbnail, category_id, source_name));
+                    local_news_queue.add(new ArticleItem(title, url, thumbnail, category_id, source_name, published));
                     local_news_items_enqueued++;
                     if (!local_news_flush_scheduled) {
                         local_news_flush_scheduled = true;
@@ -411,12 +409,12 @@ public class FetchNewsController {
                                         // CRITICAL: Also validate category hasn't changed
                                         if (w2 != null && w2.prefs != null && cur2.expected_category != null) {
                                             if (w2.prefs.category == cur2.expected_category) {
-                                                w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name);
+                                                w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
                                             }
                                             // else: user switched categories, drop this article
                                         } else if (w2 != null) {
                                             // Fallback if expected_category is not set
-                                            w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name);
+                                            w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
                                         }
                                     }
                                 }
@@ -441,7 +439,7 @@ public class FetchNewsController {
                 }
             
             // Add the article (handles deduplication)
-            w.article_manager.add_item(title, url, thumbnail, category_id, source_name);
+            w.article_manager.add_item(title, url, thumbnail, category_id, source_name, published);
         };
 
         // Support fetching from multiple preferred sources when the user
@@ -1009,7 +1007,8 @@ public class FetchNewsController {
                         article.url,
                         article.thumbnail_url,
                         "rssfeed:" + feed_url,
-                        feed_name
+                        feed_name,
+                        article.published_date
                     );
                 } catch (GLib.Error e) {
                     GLib.warning("Failed to add cached article: %s", e.message);
@@ -1233,6 +1232,30 @@ public class FetchNewsController {
     private static void fetch_local_news_query(string city, string category_id, string current_search_query, Soup.Session session) {
         string query = GLib.Uri.escape_string(city.strip(), null, false);
         string url = "https://news.google.com/rss/search?q=" + query + "&hl=en-US&gl=US&ceid=US:en";
+
+        // Local news articles are already cached under this exact URL by
+        // RssFeedProcessor (it caches unconditionally whenever a feed_url is
+        // given, which fetch_rss_url always does). Show that cache first so
+        // a slow, rate-limited, or genuinely empty live Google News response
+        // doesn't leave the view with nothing to show - the same "instant
+        // display, then update in the background" pattern followed RSS feeds
+        // already use (see handle_rss_feed above).
+        var cache = Paperboy.RssArticleCache.get_instance();
+        var cached_articles = cache.get_cached_articles(url);
+        foreach (var article in cached_articles) {
+            try {
+                FetchNewsController.global_add_item(
+                    article.title,
+                    article.url,
+                    article.thumbnail_url,
+                    category_id,
+                    city,
+                    article.published_date
+                );
+            } catch (GLib.Error e) {
+                GLib.warning("Failed to add cached local news article: %s", e.message);
+            }
+        }
 
         RssFeedProcessor.fetch_rss_url(
             url,

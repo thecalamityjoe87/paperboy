@@ -45,7 +45,7 @@ public class NewsPreferences : GLib.Object {
                 case "wsj": return NewsSource.WALL_STREET_JOURNAL;
                 case "nytimes": return NewsSource.NEW_YORK_TIMES;
                 case "bloomberg": return NewsSource.BLOOMBERG;
-                case "reuters": return NewsSource.REUTERS;
+                case "abc": return NewsSource.ABC_NEWS;
                 case "npr": return NewsSource.NPR;
                 case "fox": return NewsSource.FOX;
                 case "unknown": return NewsSource.UNKNOWN;
@@ -61,7 +61,7 @@ public class NewsPreferences : GLib.Object {
                 case NewsSource.WALL_STREET_JOURNAL: source_str = "wsj"; break;
                 case NewsSource.NEW_YORK_TIMES: source_str = "nytimes"; break;
                 case NewsSource.BLOOMBERG: source_str = "bloomberg"; break;
-                case NewsSource.REUTERS: source_str = "reuters"; break;
+                case NewsSource.ABC_NEWS: source_str = "abc"; break;
                 case NewsSource.NPR: source_str = "npr"; break;
                 case NewsSource.FOX: source_str = "fox"; break;
                 case NewsSource.UNKNOWN: source_str = "unknown"; break;
@@ -247,7 +247,7 @@ public class NewsPreferences : GLib.Object {
                 case "nytimes": news_source = NewsSource.NEW_YORK_TIMES; break;
                 case "wsj": news_source = NewsSource.WALL_STREET_JOURNAL; break;
                 case "bloomberg": news_source = NewsSource.BLOOMBERG; break;
-                case "reuters": news_source = NewsSource.REUTERS; break;
+                case "abc": news_source = NewsSource.ABC_NEWS; break;
                 case "npr": news_source = NewsSource.NPR; break;
                 case "fox": news_source = NewsSource.FOX; break;
                 default: /* leave news_source unchanged for unknown ids */ break;
@@ -313,7 +313,7 @@ public class NewsPreferences : GLib.Object {
     private bool category_valid_for_source(NewsSource source, string cat) {
         switch (source) {
             case NewsSource.BLOOMBERG:
-                string[] bb = { "markets", "industries", "economics", "wealth", "green", "politics", "technology" };
+                string[] bb = { "markets", "industries", "economics", "politics", "technology" };
                 foreach (var b in bb) if (b == cat) return true;
                 return false;
             default:
@@ -398,7 +398,7 @@ public class NewsPreferences : GLib.Object {
                 // not exist at startup). If the config file exists but lacks the
                 // key, leave it empty rather than seeding defaults.
                 if (first_run && !clean_config.has_key("preferences", "preferred_sources")) {
-                    string[] default_sources = {"guardian", "reddit", "bbc", "nytimes", "wsj", "bloomberg", "reuters", "npr", "fox"};
+                    string[] default_sources = {"guardian", "reddit", "bbc", "nytimes", "wsj", "bloomberg", "abc", "npr", "fox"};
                     clean_config.set_string_list("preferences", "preferred_sources", default_sources);
                 }
             }

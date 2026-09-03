@@ -107,6 +107,7 @@ public class RedditFetcher : BaseFetcher {
                         var post_data = post.get_object_member("data");
                         var title = post_data.has_member("title") ? post_data.get_string_member("title") : "No title";
                         var post_url = post_data.has_member("url") ? post_data.get_string_member("url") : "";
+                        string? published = post_data.has_member("created_utc") ? post_data.get_double_member("created_utc").to_string() : null;
                         string? thumbnail = null;
 
                         // Try to get high-quality preview image first
@@ -136,7 +137,7 @@ public class RedditFetcher : BaseFetcher {
                             }
                         }
 
-                        add_item(title, post_url, thumbnail, category, "Reddit");
+                        add_item(title, post_url, thumbnail, category, "Reddit", published);
                     }
                     return false;
                 });

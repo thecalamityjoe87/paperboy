@@ -150,8 +150,8 @@ namespace Managers {
          * Queue an article for the "Load More" overflow
          * Returns true if article was queued, false if it was a duplicate
          */
-        private bool queue_overflow_article(string title, string url, string? thumbnail_url, 
-                                            string category_id, string? source_name) {
+        private bool queue_overflow_article(string title, string url, string? thumbnail_url,
+                                            string category_id, string? source_name, string? published = null) {
             // Normalize and check for duplicates
             string normalized_url = "";
             normalized_url = window.normalize_article_url(url); 
@@ -167,7 +167,7 @@ namespace Managers {
             string? normalized_source = normalize_source_name(source_name, category_id, url);
 
             // Add to overflow queue
-            var queued_item = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source);
+            var queued_item = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source, published);
             remaining_articles.add(queued_item);
             string display_cat = extract_display_category(queued_item);
             remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) + 1);
@@ -259,7 +259,7 @@ namespace Managers {
                     remaining_articles.remove_at(i);
                     remaining_category_counts.set(cat, remaining_category_counts.get(cat) - 1);
                     article_buffer.add(item);
-                    add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, true);
+                    add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, true, item.published);
                     loaded++;
                 } else {
                     i++;
@@ -295,13 +295,13 @@ namespace Managers {
             return e != null && e.length > 0;
         }
 
-        public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
+        public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null) {
             // Check if we're viewing a category with article limits
             if (is_limited_category(window.prefs.category)) {
                 lock (articles_shown) {
                     // If we've reached the limit, queue remaining articles for "Load More"
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
-                        if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name)) {
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published)) {
                             show_load_more_button();
                         }
                         return;
@@ -324,7 +324,20 @@ namespace Managers {
             if (window.prefs.category != "topten" && normalized.length > 0 && seen_urls != null) {
                 lock (seen_urls) {
                     if (seen_urls.contains(normalized)) {
-                        return;  // Already added this article (duplicate)
+                        // Already added this article - but if this duplicate call
+                        // carries a published date the card doesn't have yet (e.g.
+                        // it was first shown from an on-disk cache entry that
+                        // predates this field, and a fresh fetch just resolved
+                        // one), backfill the already-rendered card's time label in
+                        // place instead of silently dropping the newer data.
+                        if (published != null && published.length > 0 && window.view_state != null) {
+                            Gtk.Widget? existing_widget = window.view_state.url_to_card.get(normalized);
+                            var existing_card = existing_widget != null ? existing_widget.get_data<ArticleCard>("article-card") : null;
+                            if (existing_card != null && existing_card.time_label != null && existing_card.time_label.get_text() == "") {
+                                existing_card.time_label.set_text(DateUtils.time_ago(published));
+                            }
+                        }
+                        return;
                     }
                     seen_urls.add(normalized);
                 }
@@ -395,10 +408,10 @@ namespace Managers {
             }
 
             // Add articles immediately
-            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name);
+            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published);
         }
 
-        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
+        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null) {
 
             // Decode HTML entities in title (e.g., &mdash; → —, &amp; → &)
             string decoded_title = stripHtmlUtils.strip_html(title);
@@ -415,7 +428,7 @@ namespace Managers {
 
                         // Queue overflow article using helper
                         string normalized_src = normalize_source_name(source_name, category_id, url);
-                        if (queue_overflow_article(title, url, thumbnail_url, category_id, normalized_src)) {
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, normalized_src, published)) {
                             if (!load_more_button_visible) {
                                 show_load_more_button();
                             }
@@ -480,7 +493,8 @@ namespace Managers {
                     default_hero_h,
                     hero_chip,
                     enable_hero_context_menu,
-                    window.prefs.category == "topten"
+                    window.prefs.category == "topten",
+                    published
                 );
 
                 // Populate the hero's snippet line via the existing on-demand
@@ -668,7 +682,7 @@ namespace Managers {
 
             // Build category chip and create slide via HeroCarousel
             var slide_chip = window.build_category_chip(slide_display_cat);
-            var components = hero_carousel.create_article_slide(decoded_title, url, thumbnail_url, category_id, source_name, slide_chip);
+            var components = hero_carousel.create_article_slide(decoded_title, url, thumbnail_url, category_id, source_name, slide_chip, published);
 
             // Populate this slide's snippet and source badge the same way as
             // the primary hero.
@@ -765,7 +779,8 @@ namespace Managers {
             col_w,
             img_h,
             chip,
-            card_display_cat
+            card_display_cat,
+            published
         );
 
         if (category_id != "local_news") {
@@ -931,7 +946,7 @@ namespace Managers {
                 // No need to check seen_urls here - articles were already deduplicated
                 // when they were added to remaining_articles queue
                 article_buffer.add(article);
-                add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, null, article.source_name, true);
+                add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, null, article.source_name, true, article.published);
             }
 
             // Animate any newly appended cards after they have been inserted

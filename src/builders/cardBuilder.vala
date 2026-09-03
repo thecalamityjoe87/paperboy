@@ -51,7 +51,7 @@ public class CardBuilder : GLib.Object {
             case NewsSource.REDDIT: return "Reddit";
             case NewsSource.NEW_YORK_TIMES: return "NY Times";
             case NewsSource.BLOOMBERG: return "Bloomberg";
-            case NewsSource.REUTERS: return "Reuters";
+            case NewsSource.ABC_NEWS: return "ABC News";
             case NewsSource.NPR: return "NPR";
             case NewsSource.FOX: return "Fox News";
             default: return "News";
@@ -65,7 +65,7 @@ public class CardBuilder : GLib.Object {
             case NewsSource.REDDIT: return "reddit-logo.png";
             case NewsSource.NEW_YORK_TIMES: return "nytimes-logo.png";
             case NewsSource.BLOOMBERG: return "bloomberg-logo.png";
-            case NewsSource.REUTERS: return "reuters-logo.png";
+            case NewsSource.ABC_NEWS: return "abc-logo.png";
             case NewsSource.NPR: return "npr-logo.png";
             case NewsSource.FOX: return "foxnews-logo.png";
             case NewsSource.WALL_STREET_JOURNAL: return "wsj-logo.png";
@@ -469,7 +469,7 @@ public class CardBuilder : GLib.Object {
                      (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
             else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
             else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
+            else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
             else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
             else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
 

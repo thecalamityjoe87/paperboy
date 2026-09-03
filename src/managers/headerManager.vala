@@ -312,9 +312,9 @@ public class HeaderManager : GLib.Object {
                 source_name = "Bloomberg";
                 logo_file = "bloomberg-logo.png";
                 break;
-            case NewsSource.REUTERS:
-                source_name = "Reuters";
-                logo_file = "reuters-logo.png";
+            case NewsSource.ABC_NEWS:
+                source_name = "ABC News";
+                logo_file = "abc-logo.png";
                 break;
             case NewsSource.NPR:
                 source_name = "NPR";
@@ -449,8 +449,6 @@ public class HeaderManager : GLib.Object {
             case "markets": return "Markets";
             case "industries": return "Industries";
             case "economics": return "Economics";
-            case "wealth": return "Wealth";
-            case "green": return "Green";
             case "myfeed": return "My Feed";
             case "local_news": return "Local News";
             default: break;

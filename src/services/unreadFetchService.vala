@@ -278,7 +278,7 @@ public class UnreadFetchService {
         // Regular news API categories - fetch ALL categories to populate regular category badges
         string[] regular_categories = {"general", "us", "sports", "science", "health", "technology",
                                        "business", "entertainment", "politics", "lifestyle", "markets",
-                                       "industries", "green", "wealth", "economics"};
+                                       "industries", "economics"};
 
         foreach (var source in enabled_sources) {
             foreach (string cat in regular_categories) {

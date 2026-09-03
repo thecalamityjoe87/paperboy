@@ -34,7 +34,7 @@ public class ArticleSourceResolver : GLib.Object {
         // Map source name if found in buffer
         if (found_article_item && article_source_name != null && article_source_name.length > 0) {
             string lower = article_source_name.down();
-            if (lower.contains("reuters")) { article_src = NewsSource.REUTERS; source_mapped = true; }
+            if (lower.contains("abc news") || lower.contains("abcnews")) { article_src = NewsSource.ABC_NEWS; source_mapped = true; }
             else if (lower.contains("guardian")) { article_src = NewsSource.GUARDIAN; source_mapped = true; }
             else if (lower.contains("bbc")) { article_src = NewsSource.BBC; source_mapped = true; }
             else if (lower.contains("nytimes")) { article_src = NewsSource.NEW_YORK_TIMES; source_mapped = true; }
@@ -59,7 +59,7 @@ public class ArticleSourceResolver : GLib.Object {
                 case NewsSource.NEW_YORK_TIMES: is_actual_match = url_lower.contains("nytimes") || url_lower.contains("nyti.ms"); break;
                 case NewsSource.WALL_STREET_JOURNAL: is_actual_match = url_lower.contains("wsj.com") || url_lower.contains("dowjones"); break;
                 case NewsSource.BLOOMBERG: is_actual_match = url_lower.contains("bloomberg"); break;
-                case NewsSource.REUTERS: is_actual_match = url_lower.contains("reuters"); break;
+                case NewsSource.ABC_NEWS: is_actual_match = url_lower.contains("abcnews"); break;
                 case NewsSource.NPR: is_actual_match = url_lower.contains("npr.org"); break;
                 case NewsSource.FOX: is_actual_match = url_lower.contains("foxnews") || url_lower.contains("fox.com"); break;
                 default: is_actual_match = false; break;

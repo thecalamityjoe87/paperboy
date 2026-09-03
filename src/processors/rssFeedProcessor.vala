@@ -129,10 +129,21 @@ public class RssFeedProcessor {
                             string? title = null;
                             string? link = null;
                             string? thumb = null;
+                            string? pub_date = null;
+                            string? updated_date = null; // Atom fallback, only used if no pubDate/published found
+                            int thumb_width = -1;
+                            bool thumb_is_thumbnail_tag = false;
                             for (Xml.Node* c = it->children; c != null; c = c->next) {
                                 if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
                                 if (c->name == "title") {
                                     title = c->get_content();
+                                } else if ((c->name == "pubDate" || c->name == "published" ||
+                                            (c->name == "date" && c->ns != null && c->ns->prefix == "dc")) && pub_date == null) {
+                                    string? content = c->get_content();
+                                    if (content != null && content.strip().length > 0) pub_date = content.strip();
+                                } else if (c->name == "updated" && updated_date == null) {
+                                    string? content = c->get_content();
+                                    if (content != null && content.strip().length > 0) updated_date = content.strip();
                                 } else if (c->name == "link") {
                                     Xml.Attr* href = c->properties;
                                     while (href != null) {
@@ -160,18 +171,27 @@ public class RssFeedProcessor {
                                         }
                                     }
                                 } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                    // Skip media:thumbnail if we already have media:content (higher quality)
-                                    if (thumb == null) {
+                                    // Skip media:thumbnail if we already have media:content (higher quality).
+                                    // Some feeds (e.g. ABC News) emit several media:thumbnail entries per
+                                    // item at different resolutions, in no guaranteed order, so keep the
+                                    // widest one seen instead of just the first.
+                                    if (thumb == null || thumb_is_thumbnail_tag) {
                                         Xml.Attr* a2 = c->properties;
+                                        string? cand_url = null;
+                                        int cand_width = -1;
                                         while (a2 != null) {
                                             if (a2->name == "url") {
-                                                thumb = a2->children != null ? (string) a2->children->content : null;
-                                                if (thumb != null) {
-                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                }
-                                                break;
+                                                cand_url = a2->children != null ? (string) a2->children->content : null;
+                                            } else if (a2->name == "width") {
+                                                string? wstr = a2->children != null ? (string) a2->children->content : null;
+                                                if (wstr != null) cand_width = int.parse(wstr);
                                             }
                                             a2 = a2->next;
+                                        }
+                                        if (cand_url != null && cand_width > thumb_width) {
+                                            thumb = cand_url.has_prefix("//") ? "https:" + cand_url : cand_url;
+                                            thumb_width = cand_width;
+                                            thumb_is_thumbnail_tag = true;
                                         }
                                     }
                                 } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
@@ -264,6 +284,7 @@ public class RssFeedProcessor {
                                 row.add(title);
                                 row.add(link);
                                 row.add(thumb);
+                                row.add(pub_date ?? updated_date);
                                 items.add(row);
                             }
                         }
@@ -299,10 +320,20 @@ public class RssFeedProcessor {
                                 string? title = null;
                                 string? link = null;
                                 string? thumb = null;
+                                string? pub_date = null;
+                                string? updated_date = null; // Atom fallback, only used if no pubDate/published found
+                                int thumb_width = -1;
+                                bool thumb_is_thumbnail_tag = false;
                                 for (Xml.Node* c = it->children; c != null; c = c->next) {
                                     if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
                                     if (c->name == "title") {
                                         title = c->get_content();
+                                    } else if ((c->name == "pubDate" || c->name == "published") && pub_date == null) {
+                                        string? content = c->get_content();
+                                        if (content != null && content.strip().length > 0) pub_date = content.strip();
+                                    } else if (c->name == "updated" && updated_date == null) {
+                                        string? content = c->get_content();
+                                        if (content != null && content.strip().length > 0) updated_date = content.strip();
                                     } else if (c->name == "link") {
                                         Xml.Attr* href = c->properties;
                                         while (href != null) {
@@ -330,18 +361,27 @@ public class RssFeedProcessor {
                                             }
                                         }
                                     } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                        // Skip media:thumbnail if we already have media:content (higher quality)
-                                        if (thumb == null) {
+                                        // Skip media:thumbnail if we already have media:content (higher quality).
+                                        // Some feeds (e.g. ABC News) emit several media:thumbnail entries per
+                                        // item at different resolutions, in no guaranteed order, so keep the
+                                        // widest one seen instead of just the first.
+                                        if (thumb == null || thumb_is_thumbnail_tag) {
                                             Xml.Attr* a2 = c->properties;
+                                            string? cand_url = null;
+                                            int cand_width = -1;
                                             while (a2 != null) {
                                                 if (a2->name == "url") {
-                                                    thumb = a2->children != null ? (string) a2->children->content : null;
-                                                    if (thumb != null) {
-                                                        if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                    }
-                                                    break;
+                                                    cand_url = a2->children != null ? (string) a2->children->content : null;
+                                                } else if (a2->name == "width") {
+                                                    string? wstr = a2->children != null ? (string) a2->children->content : null;
+                                                    if (wstr != null) cand_width = int.parse(wstr);
                                                 }
                                                 a2 = a2->next;
+                                            }
+                                            if (cand_url != null && cand_width > thumb_width) {
+                                                thumb = cand_url.has_prefix("//") ? "https:" + cand_url : cand_url;
+                                                thumb_width = cand_width;
+                                                thumb_is_thumbnail_tag = true;
                                             }
                                         }
                                     } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
@@ -426,6 +466,7 @@ public class RssFeedProcessor {
                                     row.add(title);
                                     row.add(link);
                                     row.add(thumb);
+                                    row.add(pub_date ?? updated_date);
                                     items.add(row);
                                 }
                             }
@@ -446,6 +487,7 @@ public class RssFeedProcessor {
                 foreach (var row in items) {
                     string title = row[0] ?? "No title";
                     string url = row[1] ?? "";
+                    string? pub_date = row.size > 3 ? row[3] : null;
 
                     // Filter by search query if provided (case-insensitive substring match)
                     if (current_search_query.length > 0) {
@@ -491,10 +533,10 @@ public class RssFeedProcessor {
                             }
                         }
 
-                        cache.cache_article(url, title, row[2], null, cache_key, extracted_source_name, extracted_logo_url, extracted_category_id);
+                        cache.cache_article(url, title, row[2], pub_date, cache_key, extracted_source_name, extracted_logo_url, extracted_category_id);
                     }
 
-                    add_item(title, url, row[2], category_id, source_name);
+                    add_item(title, url, row[2], category_id, source_name, pub_date);
                 }
 
                 return false;
@@ -524,8 +566,8 @@ public class RssFeedProcessor {
 
             // Background: for BBC links, try to fetch higher-resolution images
             if (bbc_enabled) {
-                AddItemFunc safe_add = (title, url, thumbnail, cid, sname) => {
-                    Idle.add(() => { add_item(title, url, thumbnail, cid, sname); return false; });
+                AddItemFunc safe_add = (title, url, thumbnail, cid, sname, published) => {
+                    Idle.add(() => { add_item(title, url, thumbnail, cid, sname, published); return false; });
                 };
 
                 new Thread<void*>("bbc-image-upgrade", () => {

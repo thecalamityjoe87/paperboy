@@ -78,7 +78,7 @@ namespace Managers {
             "headlines", "world", "nation", "politics", "business",
             "technology", "science", "health", "sports", "entertainment",
             "lifestyle", "general", "us", "markets", "industries",
-            "economics", "wealth", "green",
+            "economics",
             "more"
         };
 
@@ -714,7 +714,8 @@ namespace Managers {
             int default_hero_h,
             Gtk.Widget hero_chip,
             bool enable_context_menu,
-            bool is_topten
+            bool is_topten,
+            string? published = null
         ) {
             HeroCard hero_card;
             if (is_topten) {
@@ -725,7 +726,8 @@ namespace Managers {
                     hero_chip,
                     enable_context_menu,
                     window.article_state_store,
-                    window
+                    window,
+                    published
                 );
             } else {
                 hero_card = new HeroCard(
@@ -736,7 +738,8 @@ namespace Managers {
                     hero_chip,
                     enable_context_menu,
                     window.article_state_store,
-                    window
+                    window,
+                    published
                 );
             }
 
@@ -762,7 +765,8 @@ namespace Managers {
             int col_w,
             int img_h,
             Gtk.Widget chip,
-            string? section_category_id = null
+            string? section_category_id = null,
+            string? published = null
         ) {
             var article_card = new ArticleCard(
                 title,
@@ -771,7 +775,8 @@ namespace Managers {
                 img_h,
                 chip,
                 window.article_state_store,
-                window
+                window,
+                published
             );
 
             // ArticleCard fixes its own picture and title-area heights, so every

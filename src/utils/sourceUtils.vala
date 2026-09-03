@@ -34,8 +34,8 @@ public class SourceUtils {
                 return "NY Times";
             case NewsSource.BLOOMBERG:
                 return "Bloomberg";
-            case NewsSource.REUTERS:
-                return "Reuters";
+            case NewsSource.ABC_NEWS:
+                return "ABC News";
             case NewsSource.NPR:
                 return "NPR";
             case NewsSource.FOX:
@@ -66,8 +66,8 @@ public class SourceUtils {
             case NewsSource.BLOOMBERG:
                 icon_filename = "bloomberg-logo.png";
                 break;
-            case NewsSource.REUTERS:
-                icon_filename = "reuters-logo.png";
+            case NewsSource.ABC_NEWS:
+                icon_filename = "abc-logo.png";
                 break;
             case NewsSource.NPR:
                 icon_filename = "npr-logo.png";
@@ -99,7 +99,7 @@ public class SourceUtils {
         if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) return NewsSource.NEW_YORK_TIMES;
         if (low.index_of("wsj.com") >= 0 || low.index_of("dowjones") >= 0) return NewsSource.WALL_STREET_JOURNAL;
         if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
-        if (low.index_of("reuters") >= 0) return NewsSource.REUTERS;
+        if (low.index_of("abcnews") >= 0) return NewsSource.ABC_NEWS;
         if (low.index_of("npr.org") >= 0) return NewsSource.NPR;
         if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) return NewsSource.FOX;
         // Unknown source - don't default to user preference to avoid incorrect branding

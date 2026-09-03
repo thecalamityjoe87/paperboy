@@ -103,4 +103,53 @@ public class DateUtils {
         if (s.has_suffix("Z") && s.length > 0) s = s.substring(0, s.length - 1);
         return s;
     }
+
+    // Parse a raw published string into an absolute GLib.DateTime, trying
+    // both shapes seen in the wild: RSS's RFC 822 <pubDate> (e.g. "Thu, 03
+    // Sep 2026 07:55:42 -0400") and ISO 8601 (e.g. from JSON-LD/APIs, "2026-
+    // 09-03T11:56:14.000Z"). Returns null if neither parser recognizes it.
+    public static GLib.DateTime? parse_published_datetime(string? raw) {
+        if (raw == null) return null;
+        string s = raw.strip();
+        if (s.length == 0) return null;
+
+        var iso = new GLib.DateTime.from_iso8601(s, null);
+        if (iso != null) return iso;
+
+        var http_date = Soup.date_time_new_from_http_string(s);
+        if (http_date != null) return http_date;
+
+        // Some JSON APIs (e.g. Reddit's created_utc) give a raw Unix epoch
+        // seconds value instead of a formatted date string.
+        double epoch_seconds;
+        if (double.try_parse(s, out epoch_seconds)) {
+            return new GLib.DateTime.from_unix_utc((int64) epoch_seconds);
+        }
+
+        return null;
+    }
+
+    // Short relative-time label for article cards, matching what most RSS
+    // readers/Apple News show under a title: "Just now", "7m ago", "7h ago",
+    // "3d ago", falling back to an absolute short date once it's old enough
+    // that "Xd ago" stops being a useful at-a-glance signal.
+    public static string time_ago(string? raw) {
+        var dt = parse_published_datetime(raw);
+        if (dt == null) return "";
+
+        int64 seconds = new GLib.DateTime.now_utc().difference(dt) / GLib.TimeSpan.SECOND;
+        if (seconds < 0) seconds = 0; // clock skew / future timestamp
+
+        if (seconds < 60) return "Just now";
+        int64 minutes = seconds / 60;
+        if (minutes < 60) return "%sm ago".printf(minutes.to_string());
+        int64 hours = minutes / 60;
+        if (hours < 24) return "%sh ago".printf(hours.to_string());
+        int64 days = hours / 24;
+        if (days < 7) return "%sd ago".printf(days.to_string());
+
+        // Older than a week: fall back to a short absolute date ("Aug 27").
+        string[] months = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+        return "%s %d".printf(months[dt.get_month() - 1], dt.get_day_of_month());
+    }
 }

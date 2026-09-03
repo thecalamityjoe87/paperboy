@@ -37,7 +37,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // All available built-in sources
     private const string[] ALL_BUILTIN_SOURCES = {
         "guardian", "reddit", "bbc", "nytimes", "wsj",
-        "bloomberg", "reuters", "npr", "fox"
+        "bloomberg", "abc", "npr", "fox"
     };
 
     // Currently enabled sources (references prefs)
@@ -109,7 +109,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case "nytimes": return NewsSource.NEW_YORK_TIMES;
             case "wsj": return NewsSource.WALL_STREET_JOURNAL;
             case "bloomberg": return NewsSource.BLOOMBERG;
-            case "reuters": return NewsSource.REUTERS;
+            case "abc": return NewsSource.ABC_NEWS;
             case "npr": return NewsSource.NPR;
             case "fox": return NewsSource.FOX;
             default: return NewsSource.GUARDIAN; // fallback
@@ -125,7 +125,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case NewsSource.NEW_YORK_TIMES: return "nytimes";
             case NewsSource.WALL_STREET_JOURNAL: return "wsj";
             case NewsSource.BLOOMBERG: return "bloomberg";
-            case NewsSource.REUTERS: return "reuters";
+            case NewsSource.ABC_NEWS: return "abc";
             case NewsSource.NPR: return "npr";
             case NewsSource.FOX: return "fox";
             default: return "guardian";
@@ -147,8 +147,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 return "NY Times";
             case NewsSource.BLOOMBERG:
                 return "Bloomberg";
-            case NewsSource.REUTERS:
-                return "Reuters";
+            case NewsSource.ABC_NEWS:
+                return "ABC News";
             case NewsSource.NPR:
                 return "NPR";
             case NewsSource.FOX:
@@ -276,7 +276,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (low.index_of("new york times") >= 0 || low.index_of("ny times") >= 0 || low.index_of("nytimes") >= 0) return "nytimes";
         if (low.index_of("wall street") >= 0 || low == "wsj") return "wsj";
         if (low.index_of("bloomberg") >= 0) return "bloomberg";
-        if (low.index_of("reuters") >= 0) return "reuters";
+        if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) return "abc";
         if (low == "npr") return "npr";
         if (low.index_of("fox") >= 0) return "fox";
         if (low.index_of("hacker news") >= 0 || low == "hackernews") return "hackernews";
@@ -311,8 +311,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (low.index_of("bloomberg") >= 0) {
             return NewsSource.BLOOMBERG;
         }
-        if (low.index_of("reuters") >= 0) {
-            return NewsSource.REUTERS;
+        if (low.index_of("abcnews") >= 0) {
+            return NewsSource.ABC_NEWS;
         }
         if (low.index_of("npr.org") >= 0) {
             return NewsSource.NPR;
@@ -349,7 +349,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                      (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
             else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
             else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
+            else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
             else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
             else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
             // If we couldn't match the provided name, keep the URL-inferred value
@@ -404,7 +404,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case NewsSource.NEW_YORK_TIMES: return n.contains("nytimes") || n.contains("new york times");
             case NewsSource.WALL_STREET_JOURNAL: return n.contains("wsj") || n.contains("wall street");
             case NewsSource.BLOOMBERG: return n.contains("bloomberg");
-            case NewsSource.REUTERS: return n.contains("reuters");
+            case NewsSource.ABC_NEWS: return n.contains("abc news") || n.contains("abcnews");
             case NewsSource.NPR: return n.contains("npr");
             case NewsSource.FOX: return n.contains("fox");
             default: return false;
@@ -441,9 +441,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return source_id == "bloomberg";
         }
 
-        // Lifestyle is not provided by BBC, Reddit, Reuters
+        // Lifestyle is not provided by BBC, Reddit, ABC News
         if (category == "lifestyle") {
-            if (source_id == "bbc" || source_id == "reddit" || source_id == "reuters") {
+            if (source_id == "bbc" || source_id == "reddit" || source_id == "abc") {
                 return false;
             }
         }
@@ -466,8 +466,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case "markets":
             case "industries":
             case "economics":
-            case "wealth":
-            case "green":
                 return true;
             default:
                 return false;
@@ -511,8 +509,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             result.add("markets");
             result.add("industries");
             result.add("economics");
-            result.add("wealth");
-            result.add("green");
             return result;
         }
 
@@ -544,8 +540,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         result.add("markets");
         result.add("industries");
         result.add("economics");
-        result.add("wealth");
-        result.add("green");
         result.add("politics");
         result.add("technology");
         return result;

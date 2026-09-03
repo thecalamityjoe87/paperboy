@@ -199,12 +199,10 @@ public class HeroCarousel : GLib.Object {
     // bottom-aligned. update_dots keeps every row in sync.
     private void add_dots_row_for(Gtk.Widget slide) {
         var hero = slide.get_data<HeroCard>("hero-card");
-        if (hero == null || hero.title_box == null) return;
+        if (hero == null || hero.footer_box == null) return;
 
         var row = new Gtk.Box(Orientation.HORIZONTAL, 6);
         row.set_halign(Gtk.Align.CENTER);
-        row.set_valign(Gtk.Align.END);
-        row.set_vexpand(true);
 
         var labels = new ArrayList<Widget>();
         for (int d = 0; d < 5; d++) {
@@ -215,7 +213,11 @@ public class HeroCarousel : GLib.Object {
             labels.add(dot);
         }
 
-        hero.title_box.append(row);
+        // Appended into the same bottom-pinned footer_box as the time
+        // caption (see HeroCard.build_image_overlay_and_title) so the two
+        // stack together at the bottom instead of each claiming their own
+        // separate vexpand share of title_box.
+        hero.footer_box.append(row);
         dot_rows.add(labels);
     }
 
@@ -225,8 +227,8 @@ public class HeroCarousel : GLib.Object {
      */
     public SlideComponents create_article_slide(string title, string url, string? thumbnail_url,
                                                   string category_id, string? source_name,
-                                                  Gtk.Widget? category_chip) {
-        var hero = new HeroCard(title, url, SLIDE_MAX_HEIGHT, SLIDE_IMAGE_HEIGHT, category_chip, false, null, null);
+                                                  Gtk.Widget? category_chip, string? published = null) {
+        var hero = new HeroCard(title, url, SLIDE_MAX_HEIGHT, SLIDE_IMAGE_HEIGHT, category_chip, false, null, null, published);
         hero.source_name = source_name;
         hero.category_id = category_id;
         hero.activated.connect((activated_url) => {
@@ -321,6 +323,31 @@ public class HeroCarousel : GLib.Object {
 
     public void stop_timer() {
         if (timeout_id != 0) { Source.remove(timeout_id); timeout_id = 0; }
+    }
+
+    /**
+     * Snap out of any in-flight crossfade and force every slide back to a
+     * consistent state (only current_slide visible, full opacity).
+     *
+     * While the window is minimized/unfocused, the GLib timer that drives
+     * next() keeps firing on schedule even though the widget's frame clock
+     * is not ticking (nothing is being painted). Adw.TimedAnimation.done
+     * therefore never fires, so old_slide never gets hidden again and the
+     * new slide's opacity can stay stuck at 0 - i.e. the card renders
+     * blank. Call this when the window becomes active again to recover.
+     */
+    public void force_settle() {
+        foreach (var obj in active_slide_animations) {
+            var anim = obj as Adw.TimedAnimation;
+            if (anim != null) anim.pause();
+        }
+        active_slide_animations.clear();
+
+        if (widgets == null) return;
+        foreach (var w in widgets) {
+            w.set_opacity(1.0);
+            w.set_visible(w == current_slide);
+        }
     }
 
     ~HeroCarousel() {

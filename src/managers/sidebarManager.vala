@@ -296,12 +296,10 @@ public class SidebarManager : GLib.Object {
                     allowed.set("markets", true);
                     allowed.set("industries", true);
                     allowed.set("economics", true);
-                    allowed.set("wealth", true);
-                    allowed.set("green", true);
                 }
             }
 
-            string[] priority = { "general", "us", "technology", "business", "markets", "industries", "economics", "wealth", "green", "sports", "science", "health", "entertainment", "politics", "lifestyle" };
+            string[] priority = { "general", "us", "technology", "business", "markets", "industries", "economics", "sports", "science", "health", "entertainment", "politics", "lifestyle" };
             foreach (var cat in priority) {
                 if (allowed.has_key(cat) && allowed.get(cat)) {
                     items.add(create_item_data(window.category_display_name_for(cat), cat, SidebarItemType.CATEGORY));
@@ -314,8 +312,6 @@ public class SidebarManager : GLib.Object {
                 items.add(create_item_data("Markets", "markets", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Industries", "industries", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Economics", "economics", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Wealth", "wealth", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Green", "green", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Technology", "technology", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Politics", "politics", SidebarItemType.CATEGORY));
             } else {
@@ -448,7 +444,7 @@ public class SidebarManager : GLib.Object {
             case "nytimes": return NewsSource.NEW_YORK_TIMES;
             case "wsj": return NewsSource.WALL_STREET_JOURNAL;
             case "bloomberg": return NewsSource.BLOOMBERG;
-            case "reuters": return NewsSource.REUTERS;
+            case "abc": return NewsSource.ABC_NEWS;
             case "npr": return NewsSource.NPR;
             case "fox": return NewsSource.FOX;
             default: return window.prefs.news_source;

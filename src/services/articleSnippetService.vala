@@ -112,6 +112,26 @@ public class ArticleSnippetService : GLib.Object {
                         pos = end + 1;
                     }
                     if (published.length == 0) {
+                        // Many sites (e.g. ABC News) only expose the publish
+                        // date via JSON-LD ("datePublished":"...") rather
+                        // than a <meta> tag, so fall back to a plain string
+                        // search for that key before trying <time>.
+                        int jpos = lower.index_of("\"datepublished\"");
+                        if (jpos >= 0) {
+                            int colon = lower.index_of(":", jpos);
+                            if (colon > jpos) {
+                                int qstart = lower.index_of("\"", colon);
+                                if (qstart > colon) {
+                                    int qend = lower.index_of("\"", qstart + 1);
+                                    if (qend > qstart && html.length >= qend) {
+                                        string val = html.substring(qstart + 1, qend - (qstart + 1)).strip();
+                                        if (val.length > 0) published = val;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (published.length == 0) {
                         // search for <time datetime=\"...\">
                         int tpos = lower.index_of("<time");
                         if (tpos >= 0) {
@@ -201,7 +221,7 @@ public class ArticleSnippetService : GLib.Object {
                         string host = UrlUtils.extract_host_from_url(url);
                         if (host != null && host.length > 0) {
                             string lowhost = host.down();
-                            if (lowhost.index_of("bbc") >= 0 || lowhost.index_of("guardian") >= 0 || lowhost.index_of("nytimes") >= 0 || lowhost.index_of("wsj") >= 0 || lowhost.index_of("bloomberg") >= 0 || lowhost.index_of("reuters") >= 0 || lowhost.index_of("npr") >= 0 || lowhost.index_of("fox") >= 0) {
+                            if (lowhost.index_of("bbc") >= 0 || lowhost.index_of("guardian") >= 0 || lowhost.index_of("nytimes") >= 0 || lowhost.index_of("wsj") >= 0 || lowhost.index_of("bloomberg") >= 0 || lowhost.index_of("abcnews") >= 0 || lowhost.index_of("npr") >= 0 || lowhost.index_of("fox") >= 0) {
                                 display_source = SourceUtils.get_source_name(article_src);
                             } else {
                                 display_source = UrlUtils.prettify_host(host);

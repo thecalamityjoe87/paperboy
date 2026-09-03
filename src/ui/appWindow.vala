@@ -839,6 +839,18 @@ public class NewsWindow : Adw.ApplicationWindow {
 
             return false; // allow default handler to run
         });
+
+        // The hero carousel's crossfade animation can get stuck (blank
+        // card) if the window is minimized/unfocused while a slide
+        // transition is in flight, since the frame clock stops ticking but
+        // the carousel's timer keeps firing regardless - see
+        // HeroCarousel.force_settle(). Recover as soon as the window is
+        // active (and thus painting) again.
+        this.notify["is-active"].connect(() => {
+            if (this.is_active && article_manager != null && article_manager.hero_carousel != null) {
+                article_manager.hero_carousel.force_settle();
+            }
+        });
     }
 
     // Public helper so external callers (e.g., dialogs) can close an open article preview

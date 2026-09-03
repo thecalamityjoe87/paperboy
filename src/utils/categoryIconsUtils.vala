@@ -52,8 +52,6 @@ public class CategoryIconsUtils : GLib.Object {
             case "markets": filename = "markets-mono.svg"; break;
             case "industries": filename = "industries-mono.svg"; break;
             case "economics": filename = "economics-mono.svg"; break;
-            case "wealth": filename = "wealth-mono.svg"; break;
-            case "green": filename = "green-mono.svg"; break;
             case "us": filename = "us-mono.svg"; break;
             case "local_news": filename = "local-mono.svg"; break;
             case "technology": filename = "technology-mono.svg"; break;
@@ -194,8 +192,6 @@ public class CategoryIconsUtils : GLib.Object {
             case "markets": filename = "markets-mono.svg"; break;
             case "industries": filename = "industries-mono.svg"; break;
             case "economics": filename = "economics-mono.svg"; break;
-            case "wealth": filename = "wealth-mono.svg"; break;
-            case "green": filename = "green-mono.svg"; break;
             case "us": filename = "us-mono.svg"; break;
             case "local_news": filename = "local-mono.svg"; break;
             case "technology": filename = "technology-mono.svg"; break;

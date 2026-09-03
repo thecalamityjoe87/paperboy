@@ -94,6 +94,7 @@ public class GuardianFetcher : BaseFetcher {
                         var article = results.get_element(i).get_object();
                         var title = article.has_member("webTitle") ? article.get_string_member("webTitle") : "No title";
                         var article_url = article.has_member("webUrl") ? article.get_string_member("webUrl") : "";
+                        string? published = article.has_member("webPublicationDate") ? article.get_string_member("webPublicationDate") : null;
                         string? thumbnail = null;
                         if (article.has_member("fields")) {
                             var fields = article.get_object_member("fields");
@@ -101,7 +102,7 @@ public class GuardianFetcher : BaseFetcher {
                                 thumbnail = fields.get_string_member("thumbnail");
                             }
                         }
-                        add_item(title, article_url, thumbnail, category, "The Guardian");
+                        add_item(title, article_url, thumbnail, category, "The Guardian", published);
                     }
                     fetch_guardian_article_images(results, session, add_item, category);
                     return false;

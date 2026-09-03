@@ -24,7 +24,7 @@ public enum NewsSource {
     WALL_STREET_JOURNAL,
     REDDIT,
     BLOOMBERG,
-    REUTERS,
+    ABC_NEWS,
     NPR,
     FOX,
     UNKNOWN
@@ -68,8 +68,8 @@ public class NewsService {
             case NewsSource.BLOOMBERG:
                 fetcher = new BloombergFetcher(set_label, clear_items, add_item);
                 break;
-            case NewsSource.REUTERS:
-                fetcher = new ReutersFetcher(set_label, clear_items, add_item);
+            case NewsSource.ABC_NEWS:
+                fetcher = new AbcNewsFetcher(set_label, clear_items, add_item);
                 break;
             case NewsSource.NPR:
                 fetcher = new NprFetcher(set_label, clear_items, add_item);
@@ -98,8 +98,8 @@ public class NewsService {
                 return "New York Times";
             case NewsSource.BLOOMBERG:
                 return "Bloomberg";
-            case NewsSource.REUTERS:
-                return "Reuters";
+            case NewsSource.ABC_NEWS:
+                return "ABC News";
             case NewsSource.NPR:
                 return "NPR";
             case NewsSource.FOX:
@@ -110,8 +110,8 @@ public class NewsService {
     }
 
     public static bool supports_category(NewsSource source, string category) {
-        // BBC, Reddit, and Reuters do not provide dedicated "lifestyle" content
-        if (source == NewsSource.BBC || source == NewsSource.REDDIT || source == NewsSource.REUTERS) {
+        // BBC, Reddit, and ABC News do not provide dedicated "lifestyle" content
+        if (source == NewsSource.BBC || source == NewsSource.REDDIT || source == NewsSource.ABC_NEWS) {
             if (category == "lifestyle") return false;
         }
 
@@ -121,8 +121,6 @@ public class NewsService {
                 case "markets":
                 case "industries":
                 case "economics":
-                case "wealth":
-                case "green":
                 case "politics":
                 case "technology":
                     return true;

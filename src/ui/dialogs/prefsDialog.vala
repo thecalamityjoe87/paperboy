@@ -78,8 +78,6 @@ public class PrefsDialog : GLib.Object {
                 case "markets": filename = "markets-mono.svg"; break;
                 case "industries": filename = "industries-mono.svg"; break;
                 case "economics": filename = "economics-mono.svg"; break;
-                case "wealth": filename = "wealth-mono.svg"; break;
-                case "green": filename = "green-mono.svg"; break;
                 case "us": filename = "us-mono.svg"; break;
                 case "technology": filename = "technology-mono.svg"; break;
                 case "science": filename = "science-mono.svg"; break;
@@ -160,8 +158,8 @@ public class PrefsDialog : GLib.Object {
             bloomberg_only = (prefs.news_source == NewsSource.BLOOMBERG);
         }
 
-        string[] bb_ids = { "markets", "industries", "economics", "wealth", "green", "technology", "politics" };
-        string[] bb_titles = { "Markets", "Industries", "Economics", "Wealth", "Green", "Technology", "Politics" };
+        string[] bb_ids = { "markets", "industries", "economics", "technology", "politics" };
+        string[] bb_titles = { "Markets", "Industries", "Economics", "Technology", "Politics" };
 
         if (bloomberg_only) {
             for (int j = 0; j < bb_ids.length; j++) {
@@ -382,7 +380,7 @@ public class PrefsDialog : GLib.Object {
         builtin_sources_group.add(create_source_row("New York Times", "In-depth journalism across major categories", "nytimes", "https://www.nytimes.com/favicon.ico"));
         builtin_sources_group.add(create_source_row("Bloomberg", "Market, business, and finance coverage", "bloomberg", "https://www.bloomberg.com/favicon.ico"));
         builtin_sources_group.add(create_source_row("Wall Street Journal", "Business, economic, and political reporting", "wsj", "https://www.wsj.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Reuters", "Real-time global wire reporting", "reuters", "https://www.reuters.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("ABC News", "US network coverage across politics, business, and more", "abc", "https://abcnews.go.com/favicon.ico"));
         builtin_sources_group.add(create_source_row("NPR", "Public radio news and feature storytelling", "npr", "https://www.npr.org/favicon.ico"));
         builtin_sources_group.add(create_source_row("Fox News", "U.S. politics, headlines, and commentary", "fox", "https://www.foxnews.com/favicon.ico"));
 
@@ -1018,7 +1016,7 @@ public class PrefsDialog : GLib.Object {
                             case "nytimes": source = NewsSource.NEW_YORK_TIMES; break;
                             case "wsj": source = NewsSource.WALL_STREET_JOURNAL; break;
                             case "bloomberg": source = NewsSource.BLOOMBERG; break;
-                            case "reuters": source = NewsSource.REUTERS; break;
+                            case "abc": source = NewsSource.ABC_NEWS; break;
                             case "npr": source = NewsSource.NPR; break;
                             case "fox": source = NewsSource.FOX; break;
                             default: continue;

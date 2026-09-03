@@ -42,9 +42,6 @@ public class PaperboyFetcher : BaseFetcher {
         var frontpage_cache = Paperboy.RssArticleCache.get_instance();
         var cached_articles = frontpage_cache.get_cached_articles("paperboy:frontpage", Paperboy.RssArticleCache.MAX_FRONTPAGE_ARTICLES);
 
-        // Track which URLs we've already shown from cache to avoid duplicates
-        var shown_urls = new Gee.HashSet<string>();
-
         Idle.add(() => {
             if (current_search_query.length > 0) {
                 set_label(@"Search Results: \"$(current_search_query)\" in The Frontpage — Paperboy");
@@ -65,7 +62,6 @@ public class PaperboyFetcher : BaseFetcher {
                     if (!title_lower.contains(query_lower) && !url_lower.contains(query_lower)) continue;
                 }
 
-                shown_urls.add(article.url);
                 // Build display_source from cached metadata
                 string cached_display_source = "";
                 if (article.source_name != null && article.source_name.length > 0) {
@@ -80,7 +76,7 @@ public class PaperboyFetcher : BaseFetcher {
                 } else {
                     cached_display_source = "Paperboy##category::" + cached_category;
                 }
-                add_item(article.title, article.url, article.thumbnail_url, "frontpage", cached_display_source);
+                add_item(article.title, article.url, article.thumbnail_url, "frontpage", cached_display_source, article.published_date);
             }
             return false;
         });
@@ -127,13 +123,23 @@ public class PaperboyFetcher : BaseFetcher {
                         string title = json_get_string_safe(art, "title") != null ? json_get_string_safe(art, "title") : (json_get_string_safe(art, "headline") != null ? json_get_string_safe(art, "headline") : "No title");
                         string article_url = json_get_string_safe(art, "url") != null ? json_get_string_safe(art, "url") : (json_get_string_safe(art, "link") != null ? json_get_string_safe(art, "link") : "");
 
-                        // Skip if we already showed this from cache
-                        if (shown_urls.contains(article_url)) continue;
+                        // Note: previously this skipped all further processing for
+                        // URLs already shown from cache (`if (shown_urls.contains(...))
+                        // continue;`). That silently prevented ever refreshing the
+                        // on-disk cache row (so a dateless cached article stayed
+                        // dateless forever) and, worse, prevented the duplicate
+                        // add_item() call below that ArticleManager relies on to
+                        // backfill an already-rendered card's time label in place.
+                        // Both cache_article() and add_item() below now always run;
+                        // add_item()'s own URL dedup already prevents a second visible
+                        // card from being created.
 
                         string? thumbnail = null;
                         if (json_get_string_safe(art, "thumbnail") != null) thumbnail = json_get_string_safe(art, "thumbnail");
                         else if (json_get_string_safe(art, "image") != null) thumbnail = json_get_string_safe(art, "image");
                         else if (json_get_string_safe(art, "image_url") != null) thumbnail = json_get_string_safe(art, "image_url");
+
+                        string? published = json_get_string_safe(art, "publishedAt");
 
                         string source_name = "Paperboy API";
                         string? logo_url = null;
@@ -254,9 +260,16 @@ public class PaperboyFetcher : BaseFetcher {
 
                         // Cache frontpage article for offline access and better performance
                         // Store source_name (without logo), logo_url separately, and category_id
-                        frontpage_cache.cache_article(article_url, title, thumbnail, null, "paperboy:frontpage", source_name, logo_url, category_id);
+                        frontpage_cache.cache_article(article_url, title, thumbnail, published, "paperboy:frontpage", source_name, logo_url, category_id);
 
-                        add_item(title, article_url, thumbnail, "frontpage", display_source);
+                        // Always call add_item, even for articles already shown from
+                        // cache: ArticleManager.add_item() dedupes by URL itself and
+                        // won't create a second card, but a duplicate call carrying a
+                        // published date is exactly what lets it backfill an
+                        // already-rendered (cache-sourced, dateless) card's time label
+                        // in place. Skipping this call for already_shown articles was
+                        // silently defeating that backfill.
+                        add_item(title, article_url, thumbnail, "frontpage", display_source, published);
                     }
                     return false;
                 });
@@ -328,6 +341,8 @@ public class PaperboyFetcher : BaseFetcher {
                         if (json_get_string_safe(art, "thumbnail") != null) thumbnail = json_get_string_safe(art, "thumbnail");
                         else if (json_get_string_safe(art, "image") != null) thumbnail = json_get_string_safe(art, "image");
                         else if (json_get_string_safe(art, "image_url") != null) thumbnail = json_get_string_safe(art, "image_url");
+
+                        string? published = json_get_string_safe(art, "publishedAt");
 
                         string source_name = "Paperboy API";
                         string? logo_url = null;
@@ -453,7 +468,7 @@ public class PaperboyFetcher : BaseFetcher {
                         }
                         if (norm.length > 0) seen_urls.add(norm);
                         if (norm_title.length > 0) seen_titles.add(norm_title);
-                        add_item(title, article_url, thumbnail, "topten", display_source);
+                        add_item(title, article_url, thumbnail, "topten", display_source, published);
                         added_count++;
                     }
 
@@ -490,6 +505,7 @@ public class PaperboyFetcher : BaseFetcher {
                                         if (json_get_string_safe(a, "thumbnail") != null) thumb = json_get_string_safe(a, "thumbnail");
                                         else if (json_get_string_safe(a, "image") != null) thumb = json_get_string_safe(a, "image");
                                         else if (json_get_string_safe(a, "image_url") != null) thumb = json_get_string_safe(a, "image_url");
+                                        string? pub = json_get_string_safe(a, "publishedAt");
 
                                         // Filter by search query if provided
                                         if (current_search_query.length > 0) {
@@ -522,7 +538,7 @@ public class PaperboyFetcher : BaseFetcher {
                                             }
                                         }
                                         if (logo != null && logo.length > 0) ds = ds + "||" + logo;
-                                        add_item(t, u, thumb, "topten", ds);
+                                        add_item(t, u, thumb, "topten", ds, pub);
                                         added_count++;
                                     }
                                 }

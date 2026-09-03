@@ -263,7 +263,7 @@ public class OnboardingDialog : GLib.Object {
             // square, letterboxing the source image within it regardless of
             // its original aspect ratio - unlike Gtk.Picture, whose natural
             // size follows the image's own aspect ratio and would make wider
-            // logos (Reuters, WSJ, Fox) blow up their tile bigger than the
+            // logos (ABC News, WSJ, Fox) blow up their tile bigger than the
             // more square ones.
             var picture = new Gtk.Image();
             picture.set_pixel_size(68);
@@ -330,7 +330,7 @@ public class OnboardingDialog : GLib.Object {
         grid.append(make_tile("New York Times", "nytimes", "nytimes-logo.png"));
         grid.append(make_tile("Bloomberg", "bloomberg", "bloomberg-logo.png"));
         grid.append(make_tile("Wall Street Journal", "wsj", "wsj-logo.png"));
-        grid.append(make_tile("Reuters", "reuters", "reuters-logo.png"));
+        grid.append(make_tile("ABC News", "abc", "abc-logo.png"));
         grid.append(make_tile("NPR", "npr", "npr-logo.png"));
         grid.append(make_tile("Fox News", "fox", "foxnews-logo.png"));
         grid.append(make_tile("Reddit", "reddit", "reddit-logo.png"));

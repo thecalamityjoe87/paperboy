@@ -38,7 +38,7 @@
     <key name="news-source" type="s">
       <default>'guardian'</default>
       <summary>Default news source</summary>
-      <description>The currently selected news source (guardian, reddit, bbc, nytimes, wsj, bloomberg, reuters, npr, fox)</description>
+      <description>The currently selected news source (guardian, reddit, bbc, nytimes, wsj, bloomberg, abc, npr, fox)</description>
     </key>
 
     <key name="category" type="s">

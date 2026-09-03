@@ -21,15 +21,17 @@ using GLib;
 
 public class ArticleCard : GLib.Object {
     // Fixed height reserved for the title area (margins + up to 3 wrapped
-    // lines), so total card height is a hard constant that never depends on
-    // how much text a given title has.
-    public const int TITLE_AREA_HEIGHT = 60;
+    // title lines + the relative-time caption below it), so total card
+    // height is a hard constant that never depends on how much text a given
+    // title has.
+    public const int TITLE_AREA_HEIGHT = 78;
 
     public Gtk.Box root;
     public Gtk.Overlay overlay;
     public Gtk.Picture image;
     public Gtk.Box title_box;
     public Gtk.Label title_label;
+    public Gtk.Label time_label;
     public string url;
     public string title_text;
     public string? source_name;
@@ -50,7 +52,7 @@ public class ArticleCard : GLib.Object {
     public signal void save_for_later_requested(string url);
     public signal void share_requested(string url);
 
-    public ArticleCard(string title, string url, int col_w, int img_h, Gtk.Widget chip, ArticleStateStore? state_store = null, NewsWindow? window = null) {
+    public ArticleCard(string title, string url, int col_w, int img_h, Gtk.Widget chip, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
         GLib.Object();
         this.url = url;
         this.title_text = title;
@@ -126,6 +128,22 @@ public class ArticleCard : GLib.Object {
         title_label.set_size_request(col_w - 24, -1);
         title_label.set_lines(3);
         title_box.append(title_label);
+
+        // Relative-time caption ("7h ago"), like most RSS readers/Apple News
+        // show. Pinned to the bottom-left of the reserved title area via
+        // vexpand + valign END, so it sits at a fixed position regardless of
+        // how many lines the title above it actually takes up, rather than
+        // trailing right after a short title. Always created (even with
+        // empty text) so every card reserves the same title-area height
+        // regardless of whether this particular article has a known publish
+        // date.
+        time_label = new Gtk.Label(DateUtils.time_ago(published));
+        time_label.add_css_class("article-card-time");
+        time_label.set_xalign(0);
+        time_label.set_valign(Gtk.Align.END);
+        time_label.set_vexpand(true);
+        title_box.append(time_label);
+
         root.append(title_box);
 
         // Click gesture emits activated signal with the URL

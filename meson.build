@@ -106,7 +106,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/fetchers/wsjFetcher.vala',
     'src/services/fetchers/redditFetcher.vala',
     'src/services/fetchers/bloombergFetcher.vala',
-    'src/services/fetchers/reutersFetcher.vala',
+    'src/services/fetchers/abcNewsFetcher.vala',
     'src/services/fetchers/nprFetcher.vala',
     'src/services/fetchers/foxFetcher.vala',
     'src/services/fetchers/paperboyFetcher.vala',

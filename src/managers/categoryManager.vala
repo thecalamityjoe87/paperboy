@@ -205,8 +205,6 @@ using Gee;
             case "markets": return "Markets";
             case "industries": return "Industries";
             case "economics": return "Economics";
-            case "wealth": return "Wealth";
-            case "green": return "Green";
             case "frontpage": return "Front Page";
             case "topten": return "Top Ten";
             case "myfeed": return "My Feed";
@@ -231,8 +229,6 @@ using Gee;
             case "markets": return "stock-market-symbolic";
             case "industries": return "factory-symbolic";
             case "economics": return "currency-dollar-symbolic";
-            case "wealth": return "money-symbolic";
-            case "green": return "weather-clear-symbolic";
             case "frontpage": return "star-symbolic";
             case "topten": return "trophy-symbolic";
             case "myfeed": return "user-bookmarks-symbolic";
@@ -258,8 +254,6 @@ using Gee;
             category == "markets" ||
             category == "industries" ||
             category == "economics" ||
-            category == "wealth" ||
-            category == "green" ||
             category == "local_news" ||
             category == "myfeed" ||
             category == "frontpage" ||
@@ -283,9 +277,7 @@ using Gee;
             category == "lifestyle" ||
             category == "markets" ||
             category == "industries" ||
-            category == "economics" ||
-            category == "wealth" ||
-            category == "green"
+            category == "economics"
         );
     }
 }

@@ -29,7 +29,17 @@ using Gee;
  * concerns that don't apply to scores.
  */
 public class SportsScoresController : GLib.Object {
-    private const int POLL_SECONDS = 45;
+    // Fast cadence while at least one fetched game is actually in progress.
+    // Otherwise, scale the wait to how far off the *next* scheduled game
+    // actually is - a game a month out doesn't need re-checking every few
+    // minutes, but one kicking off in the next few minutes should still be
+    // caught promptly so it flips over to live-cadence polling on time.
+    private const int LIVE_POLL_SECONDS = 45;
+    private const int SOON_THRESHOLD_SECONDS = 300;   // next game starts within 5 min
+    private const int SOON_POLL_SECONDS = 45;
+    private const int UPCOMING_THRESHOLD_SECONDS = 1800; // next game starts within 30 min
+    private const int UPCOMING_POLL_SECONDS = 300;
+    private const int FAR_OUT_POLL_SECONDS = 1800; // next game is >30 min out, or nothing scheduled
 
     private static uint timeout_id = 0;
     private static weak NewsWindow? active_window = null;
@@ -53,7 +63,6 @@ public class SportsScoresController : GLib.Object {
     public static void load(NewsWindow win) {
         active_window = win;
         fetch_and_populate(win);
-        start_polling();
     }
 
     public static void stop_polling() {
@@ -74,16 +83,49 @@ public class SportsScoresController : GLib.Object {
         if (win.content_view.scores_articles_separator != null) win.content_view.scores_articles_separator.set_visible(false);
     }
 
-    private static void start_polling() {
-        if (timeout_id != 0) return; // already running
-        timeout_id = Timeout.add_seconds(POLL_SECONDS, () => {
+    // Re-schedules itself (rather than a single recurring GLib.Timeout) so
+    // the cadence can change poll-to-poll based on whether any game is
+    // currently live. Always cancels any outstanding poll first, so calling
+    // this repeatedly (e.g. load() firing again before the previous fetch's
+    // callback lands) collapses down to one live timer instead of leaking.
+    private static void schedule_next_poll(int seconds) {
+        if (timeout_id != 0) {
+            Source.remove(timeout_id);
+            timeout_id = 0;
+        }
+        timeout_id = Timeout.add_seconds(seconds, () => {
+            timeout_id = 0;
             if (active_window == null || active_window.prefs.category != "sports") {
-                timeout_id = 0;
                 return false;
             }
             fetch_and_populate(active_window);
-            return true;
+            return false; // one-shot; fetch_and_populate reschedules once results are in
         });
+    }
+
+    // Any game live -> poll fast. Otherwise, look at the soonest scheduled
+    // (not yet started) game across every league and scale the wait so we
+    // re-check well before it's due to start, without polling constantly
+    // for games that are still hours or weeks away.
+    private static int next_poll_seconds(Gee.HashMap<string, Gee.ArrayList<GameScore>> results) {
+        GLib.DateTime? soonest_start = null;
+        foreach (var games_list in results.values) {
+            foreach (var game in games_list) {
+                if (game.status == GameStatus.LIVE) return LIVE_POLL_SECONDS;
+                if (game.status == GameStatus.SCHEDULED && game.start_time != null) {
+                    if (soonest_start == null || game.start_time.compare(soonest_start) < 0) {
+                        soonest_start = game.start_time;
+                    }
+                }
+            }
+        }
+
+        if (soonest_start == null) return FAR_OUT_POLL_SECONDS;
+
+        int64 seconds_until = soonest_start.difference(new GLib.DateTime.now_utc()) / GLib.TimeSpan.SECOND;
+        if (seconds_until <= SOON_THRESHOLD_SECONDS) return SOON_POLL_SECONDS;
+        if (seconds_until <= UPCOMING_THRESHOLD_SECONDS) return UPCOMING_POLL_SECONDS;
+        return FAR_OUT_POLL_SECONDS;
     }
 
     private static void fetch_and_populate(NewsWindow win) {
@@ -114,6 +156,7 @@ public class SportsScoresController : GLib.Object {
                 pending--;
                 if (pending <= 0) {
                     render(win, league_keys, results);
+                    schedule_next_poll(next_poll_seconds(results));
                 }
             });
         }

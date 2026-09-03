@@ -81,7 +81,7 @@ public class FoxFetcher : BaseFetcher {
                     foreach (var article in articles) {
                         if (count >= ui_limit) break;
                         Idle.add(() => {
-                            add_item(article.title, article.url, article.image_url, current_category, "Fox News");
+                            add_item(article.title, article.url, article.image_url, current_category, "Fox News", article.published);
                             return false;
                         });
                         count++;
