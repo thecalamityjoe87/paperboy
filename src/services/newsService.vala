@@ -48,6 +48,14 @@ public class NewsService {
             return;
         }
 
+        // Don't let a source fetch (and mistag) content for a category it
+        // doesn't actually cover, e.g. PBS falling back to World News for
+        // "sports" - callers that already pre-filter via supports_category()
+        // (the multi-source path) just get a redundant true here.
+        if (!supports_category(source, current_category)) {
+            return;
+        }
+
         BaseFetcher? fetcher = null;
 
         switch (source) {

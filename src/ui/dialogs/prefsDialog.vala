@@ -1067,16 +1067,61 @@ public class PrefsDialog : GLib.Object {
     }
 
     
+    // Condensed highlights for the 5 most recent GitHub releases, shown in
+    // the About dialog's "What's New" page. release-notes only supports a
+    // limited HTML subset (p, ul, li, em) - no links - so the full changelog
+    // and issue tracker are exposed separately via add_link()/set_issue_url()
+    // below instead of being embedded here.
+    private const string RELEASE_NOTES = """
+        <p><em>v0.7.5a</em> — Performance, Persistence &amp; UI Polish</p>
+        <ul>
+        <li>Faster, incremental sidebar and badge updates with on-disk caching</li>
+        <li>Saved articles migrated from JSON to a SQLite database</li>
+        <li>Frontpage articles now cached for faster startup and navigation</li>
+        <li>New staggered entrance/exit animations for article cards</li>
+        </ul>
+        <p><em>v0.7.4a</em> — Native Animations, SplitView &amp; Smarter Search</p>
+        <ul>
+        <li>Sidebar rebuilt on Adw.OverlaySplitView and Adw.ExpanderRow for native, fluid transitions</li>
+        <li>Search is now tokenized, case-insensitive, and matches partial or reordered terms</li>
+        <li>Per-feed RSS article limits enforced correctly, with cleaner deduplication</li>
+        </ul>
+        <p><em>v0.7.3a</em> — My Feed, RSS, and Offline Improvements</p>
+        <ul>
+        <li>My Feed unread badges now reflect only enabled sources</li>
+        <li>Generated RSS feeds keep a stable cache across regenerations</li>
+        <li>Centralized offline detection to avoid dead-end network actions</li>
+        </ul>
+        <p><em>v0.7.2a</em> — Feature &amp; Polish Update</p>
+        <ul>
+        <li>Added back/forward/reload navigation to the in-app article viewer</li>
+        <li>Added a "mark as unread" option to the article context menu</li>
+        <li>Fixed Frontpage cards briefly appearing in the wrong section</li>
+        </ul>
+        <p><em>v0.7.0a</em></p>
+        <ul>
+        <li>Earlier milestone release - see the full changelog for details</li>
+        </ul>
+        """;
+
     public static void show_about_dialog(Gtk.Window parent) {
-    var about = new Adw.AboutDialog();
-    about.set_application_name("Paperboy");
-    about.set_application_icon("paperboy"); // Use the correct icon name
-    about.set_version("0.7.5a");
-    about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
-    about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
-    about.set_website("https://github.com/thecalamityjoe87/paperboy");
-    about.set_license_type(Gtk.License.GPL_3_0);
-    about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
-    about.present(parent);
+        var about = new Adw.AboutDialog();
+        about.set_application_name("Paperboy");
+        about.set_application_icon("paperboy"); // Use the correct icon name
+        about.set_version("0.8.0a");
+        about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
+        about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
+        about.set_website("https://github.com/thecalamityjoe87/paperboy");
+        about.set_license_type(Gtk.License.GPL_3_0);
+        about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
+
+        about.set_release_notes_version("0.7.5a");
+        about.set_release_notes(RELEASE_NOTES);
+
+        about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");
+        about.add_link("GitHub Repository", "https://github.com/thecalamityjoe87/paperboy");
+        about.add_link("All Releases", "https://github.com/thecalamityjoe87/paperboy/releases");
+
+        about.present(parent);
     }
 }

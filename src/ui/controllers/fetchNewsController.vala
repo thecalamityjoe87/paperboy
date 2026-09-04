@@ -471,6 +471,19 @@ public class FetchNewsController {
         // Grab search query via getter
         string current_search_query = win.get_current_search_query();
 
+        // Persistent Sports supplement: always additionally query the
+        // backend's dedicated sports endpoint when viewing Sports, so the
+        // category isn't empty for users whose enabled built-in sources
+        // have no sports desk (e.g. PBS). This runs alongside - not instead
+        // of - the normal per-source Sports fetch below, uses a no-op clear
+        // so it never wipes articles already added, and is intentionally
+        // not gated by preferred_sources: there is no user-facing toggle
+        // for it.
+        if (win.prefs.category == "sports") {
+            var paperboy_sports_fetcher = new PaperboyFetcher(FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
+            paperboy_sports_fetcher.fetch("sports", current_search_query, win.session);
+        }
+
         if (is_myfeed_mode) {
             // Load personalized categories if configured (applies only to built-in sources)
             if (win.category_manager.is_myfeed_configured()) {

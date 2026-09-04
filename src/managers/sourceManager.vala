@@ -581,6 +581,17 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return true;
         }
 
+        // Sports also always gets shown regardless of enabled-source filtering:
+        // the persistent Paperboy backend sports supplement (see
+        // PaperboyFetcher.fetch_paperboy_sports) fills the category for users
+        // whose enabled sources don't have a dedicated sports desk, and its
+        // articles come from third-party sites that don't map to any
+        // built-in source id, so the enabled-source check below would
+        // otherwise always filter them out.
+        if (category == "sports") {
+            return true;
+        }
+
         // RSS feed views - show all articles from that feed (no source filtering)
         if (category.has_prefix("rssfeed:")) {
             return true;

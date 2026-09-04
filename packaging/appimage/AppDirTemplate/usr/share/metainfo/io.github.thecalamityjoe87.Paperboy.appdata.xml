@@ -12,6 +12,8 @@
   <project_license>GPL-3.0-or-later</project_license>
   <developer_name>Isaac Joseph</developer_name>
   <releases>
+    <release version="0.8.0a" date="2026-09-04">
+    </release>
     <release version="0.7.3a" date="2025-12-12">
     </release>
   </releases>
