@@ -20,7 +20,7 @@ using Soup;
 
 public delegate void SetLabelFunc(string text);
 public delegate void ClearItemsFunc();
-public delegate void AddItemFunc(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null);
+public delegate void AddItemFunc(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null);
 
 public abstract class BaseFetcher : GLib.Object {
     protected SetLabelFunc set_label;

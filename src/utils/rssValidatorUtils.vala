@@ -109,22 +109,18 @@ public class RssValidatorUtils : GLib.Object {
         // If we still have zero, attempt an XML-parse fallback which will
         // correctly handle namespaces and unusual formatting.
         if (count == 0) {
-            try {
-                Xml.Doc* doc = Xml.Parser.parse_doc(xml_content);
-                if (doc != null) {
-                    Xml.Node* root = doc->get_root_element();
-                    if (root != null) {
-                        int xml_items = count_xml_elements(root, "item");
-                        int xml_entries = count_xml_elements(root, "entry");
-                        int xml_count = xml_items + xml_entries;
-                        delete doc;
-                        if (xml_count > 0) return xml_count;
-                    } else {
-                        delete doc;
-                    }
+            Xml.Doc* doc = Xml.Parser.parse_doc(xml_content);
+            if (doc != null) {
+                Xml.Node* root = doc->get_root_element();
+                if (root != null) {
+                    int xml_items = count_xml_elements(root, "item");
+                    int xml_entries = count_xml_elements(root, "entry");
+                    int xml_count = xml_items + xml_entries;
+                    delete doc;
+                    if (xml_count > 0) return xml_count;
+                } else {
+                    delete doc;
                 }
-            } catch (Error e) {
-                // best-effort fallback; ignore parse errors
             }
         }
 

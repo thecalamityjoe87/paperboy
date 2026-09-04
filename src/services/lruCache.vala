@@ -144,39 +144,34 @@ public class LruCache<K, V> : GLib.Object {
 
     public void clear() {
         mutex.lock();
-        try {
-            if (on_evict != null) {
-                for (int i = 0; i < order.size; i++) {
-                    K k = order.get(i);
-                    V? v = map.get(k);
-                    if (v != null) {
+        if (on_evict != null) {
+            for (int i = 0; i < order.size; i++) {
+                K k = order.get(i);
+                V? v = map.get(k);
+                if (v != null) {
+                    try {
+                        on_evict(k, v);
+                    } catch (GLib.Error e) {
+                        // Log eviction errors when debug is enabled
                         try {
-                            on_evict(k, v);
-                        } catch (GLib.Error e) {
-                            // Log eviction errors when debug is enabled
-                            try {
-                                if (AppDebugger.debug_enabled()) {
-                                    warning("LruCache eviction callback failed: %s", e.message);
-                                }
-                            } catch (GLib.Error _) { }
-                        }
+                            if (AppDebugger.debug_enabled()) {
+                                warning("LruCache eviction callback failed: %s", e.message);
+                            }
+                        } catch (GLib.Error _) { }
                     }
                 }
             }
-            order.clear();
-            map.clear();
-        } finally {
-            mutex.unlock();
         }
+        order.clear();
+        map.clear();
+        mutex.unlock();
     }
 
     public int size() {
         mutex.lock();
-        try {
-            return map.size;
-        } finally {
-            mutex.unlock();
-        }
+        int result = map.size;
+        mutex.unlock();
+        return result;
     }
 
     public int get_capacity() {
@@ -218,13 +213,10 @@ public class LruCache<K, V> : GLib.Object {
     public Gee.ArrayList<K> keys() {
         var copy = new Gee.ArrayList<K>();
         mutex.lock();
-        try {
-            for (int i = 0; i < order.size; i++) {
-                copy.add(order.get(i));
-            }
-        } finally {
-            mutex.unlock();
+        for (int i = 0; i < order.size; i++) {
+            copy.add(order.get(i));
         }
+        mutex.unlock();
         return copy;
     }
 }

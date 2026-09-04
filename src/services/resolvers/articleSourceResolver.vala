@@ -43,6 +43,7 @@ public class ArticleSourceResolver : GLib.Object {
             else if (lower.contains("npr")) { article_src = NewsSource.NPR; source_mapped = true; }
             else if (lower.contains("fox")) { article_src = NewsSource.FOX; source_mapped = true; }
             else if (lower.contains("reddit")) { article_src = NewsSource.REDDIT; source_mapped = true; }
+            else if (lower.contains("pbs")) { article_src = NewsSource.PBS; source_mapped = true; }
         }
 
         // If not found in buffer or mapping failed, infer from URL
@@ -62,6 +63,7 @@ public class ArticleSourceResolver : GLib.Object {
                 case NewsSource.ABC_NEWS: is_actual_match = url_lower.contains("abcnews"); break;
                 case NewsSource.NPR: is_actual_match = url_lower.contains("npr.org"); break;
                 case NewsSource.FOX: is_actual_match = url_lower.contains("foxnews") || url_lower.contains("fox.com"); break;
+                case NewsSource.PBS: is_actual_match = url_lower.contains("pbs.org"); break;
                 default: is_actual_match = false; break;
             }
 

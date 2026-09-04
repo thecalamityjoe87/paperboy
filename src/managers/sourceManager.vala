@@ -36,8 +36,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
     // All available built-in sources
     private const string[] ALL_BUILTIN_SOURCES = {
-        "guardian", "reddit", "bbc", "nytimes", "wsj",
-        "bloomberg", "abc", "npr", "fox"
+        "guardian", "bbc", "nytimes", "wsj",
+        "bloomberg", "abc", "npr", "fox", "pbs"
     };
 
     // Currently enabled sources (references prefs)
@@ -112,6 +112,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case "abc": return NewsSource.ABC_NEWS;
             case "npr": return NewsSource.NPR;
             case "fox": return NewsSource.FOX;
+            case "pbs": return NewsSource.PBS;
             default: return NewsSource.GUARDIAN; // fallback
         }
     }
@@ -128,6 +129,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case NewsSource.ABC_NEWS: return "abc";
             case NewsSource.NPR: return "npr";
             case NewsSource.FOX: return "fox";
+            case NewsSource.PBS: return "pbs";
             default: return "guardian";
         }
     }
@@ -153,6 +155,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 return "NPR";
             case NewsSource.FOX:
                 return "Fox News";
+            case NewsSource.PBS:
+                return "PBS NewsHour";
             default:
                 return "News";
         }
@@ -279,6 +283,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) return "abc";
         if (low == "npr") return "npr";
         if (low.index_of("fox") >= 0) return "fox";
+        if (low.index_of("pbs") >= 0) return "pbs";
         if (low.index_of("hacker news") >= 0 || low == "hackernews") return "hackernews";
 
         return null; // Not a recognized built-in source
@@ -320,6 +325,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) {
             return NewsSource.FOX;
         }
+        if (low.index_of("pbs.org") >= 0) {
+            return NewsSource.PBS;
+        }
 
         // Unknown source - don't default to user preference to avoid incorrect branding
         return NewsSource.UNKNOWN;
@@ -346,12 +354,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
             // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
             else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
-                     (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
+            (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
             else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
             else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
             else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
             else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
             else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
+            else if (low.index_of("pbs") >= 0) resolved = NewsSource.PBS;
             // If we couldn't match the provided name, keep the URL-inferred value
         }
         return resolved;
@@ -361,32 +370,28 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Handles local news special case and tries to match RSS source names.
     public static string? normalize_source_name(string? source_name, string category_id, string url) {
         string? result = source_name;
-        try {
-            if (result == null || result.length == 0) {
-                if (category_id == "local_news") {
-                    var prefs_local = NewsPreferences.get_instance();
-                    result = (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
-                        ? prefs_local.user_location_city : "Local News";
-                } else {
-                    NewsSource inferred = infer_source_from_url(url);
-                    result = get_source_name(inferred);
-                }
+        if (result == null || result.length == 0) {
+            if (category_id == "local_news") {
+                var prefs_local = NewsPreferences.get_instance();
+                result = (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
+                    ? prefs_local.user_location_city : "Local News";
             } else {
-                // Try to match to an RSS source in the database for consistent naming
-                var rss_store = Paperboy.RssSourceStore.get_instance();
-                var all_sources = rss_store.get_all_sources();
-                foreach (var src in all_sources) {
-                    if (src.name == null || result == null) continue;
-                    string src_lower = src.name.down();
-                    string result_lower = result.down();
-                    if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
-                        result = src.name;
-                        break;
-                    }
+                NewsSource inferred = infer_source_from_url(url);
+                result = get_source_name(inferred);
+            }
+        } else {
+            // Try to match to an RSS source in the database for consistent naming
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var all_sources = rss_store.get_all_sources();
+            foreach (var src in all_sources) {
+                if (src.name == null || result == null) continue;
+                string src_lower = src.name.down();
+                string result_lower = result.down();
+                if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
+                    result = src.name;
+                    break;
                 }
             }
-        } catch (GLib.Error e) {
-            result = source_name;
         }
         return result;
     }
@@ -407,6 +412,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case NewsSource.ABC_NEWS: return n.contains("abc news") || n.contains("abcnews");
             case NewsSource.NPR: return n.contains("npr");
             case NewsSource.FOX: return n.contains("fox");
+            case NewsSource.PBS: return n.contains("pbs");
             default: return false;
         }
     }
@@ -441,11 +447,17 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return source_id == "bloomberg";
         }
 
-        // Lifestyle is not provided by BBC, Reddit, ABC News
+        // Lifestyle is not provided by BBC, Reddit, ABC News, or PBS NewsHour
         if (category == "lifestyle") {
-            if (source_id == "bbc" || source_id == "reddit" || source_id == "abc") {
+            if (source_id == "bbc" || source_id == "reddit" || source_id == "abc" || source_id == "pbs") {
                 return false;
             }
+        }
+
+        // PBS NewsHour also has no dedicated technology or sports desk -
+        // see NewsService.supports_category for the matching enum-based check.
+        if (source_id == "pbs" && (category == "technology" || category == "sports")) {
+            return false;
         }
 
         // All other sources support standard categories

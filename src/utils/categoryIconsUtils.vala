@@ -77,46 +77,42 @@ public class CategoryIconsUtils : GLib.Object {
             }
 
             if (icon_path != null) {
-                try {
-                    string use_path = icon_path;
-                    if (is_dark_mode()) {
-                        string alt_name;
-                        if (filename.has_suffix(".svg")) {
-                            if (filename.length > 4)
-                                alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
-                            else
-                                alt_name = filename + "-white.svg";
-                        } else
+                string use_path = icon_path;
+                if (is_dark_mode()) {
+                    string alt_name;
+                    if (filename.has_suffix(".svg")) {
+                        if (filename.length > 4)
+                            alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                        else
                             alt_name = filename + "-white.svg";
+                    } else
+                        alt_name = filename + "-white.svg";
 
-                        string? white_candidate = null;
-                        white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
-                        if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", alt_name));
-                        if (white_candidate != null) use_path = white_candidate;
-                    }
-
-                    string key = "pixbuf::file:%s::%dx%d".printf(use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
-                    var cached = ImageCache.get_global().get_or_load_file(key, use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
-                    if (cached != null) {
-                        try {
-                            // Use cached texture instead of creating new one every time
-                            var tex = ImageCache.get_global().get_texture(key);
-                            if (tex != null) {
-                                var img = new Gtk.Image();
-                                try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
-                                img.set_pixel_size(SIDEBAR_ICON_SIZE);
-                                return img;
-                            }
-                        } catch (GLib.Error e) { }
-                    }
-                    try {
-                        var img2 = new Gtk.Image.from_file(use_path);
-                        img2.set_pixel_size(SIDEBAR_ICON_SIZE);
-                        return img2;
-                    } catch (GLib.Error e) { }
-                } catch (GLib.Error e) {
-                    warning("Failed to load bundled icon %s: %s", icon_path, e.message);
+                    string? white_candidate = null;
+                    white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
+                    if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", alt_name));
+                    if (white_candidate != null) use_path = white_candidate;
                 }
+
+                string key = "pixbuf::file:%s::%dx%d".printf(use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
+                var cached = ImageCache.get_global().get_or_load_file(key, use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
+                if (cached != null) {
+                    try {
+                        // Use cached texture instead of creating new one every time
+                        var tex = ImageCache.get_global().get_texture(key);
+                        if (tex != null) {
+                            var img = new Gtk.Image();
+                            try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
+                            img.set_pixel_size(SIDEBAR_ICON_SIZE);
+                            return img;
+                        }
+                    } catch (GLib.Error e) { }
+                }
+                try {
+                    var img2 = new Gtk.Image.from_file(use_path);
+                    img2.set_pixel_size(SIDEBAR_ICON_SIZE);
+                    return img2;
+                } catch (GLib.Error e) { }
             }
         }
 
@@ -185,6 +181,7 @@ public class CategoryIconsUtils : GLib.Object {
     public static Gtk.Widget? create_category_header_icon(string cat, int size) {
         string? filename = null;
         switch (cat) {
+            case "topten": filename = "topten-mono.svg"; break;
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
             case "saved": filename = "saved-mono.svg"; break;
@@ -218,65 +215,61 @@ public class CategoryIconsUtils : GLib.Object {
             }
 
             if (icon_path != null) {
-                try {
-                    string use_path = icon_path;
-                    if (is_dark_mode()) {
-                        string alt_name;
-                        if (filename.has_suffix(".svg")) {
-                            if (filename.length > 4)
-                                alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
-                            else
-                                alt_name = filename + "-white.svg"; // Fallback
-                        } else
-                            alt_name = filename + "-white.svg";
-                        string? white_candidate = null;
-                        white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "128x128", alt_name));
-                        if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "128x128", alt_name));
-                        if (white_candidate != null) use_path = white_candidate;
-                    }
-                    if (use_path.has_suffix(".svg")) {
-                        try {
-                            // Rasterize SVG to a higher-resolution pixbuf to avoid
-                            // blur on small sizes and when running on a HiDPI
-                            // display. Rendering at 2x the requested size then
-                            // scaling down improves visual crispness for icons.
-                            int render_size = size * 2;
-                            string key_hi = "pixbuf::file:%s::%dx%d".printf(use_path, render_size, render_size);
-                            var cached_hi = ImageCache.get_global().get_or_load_file(key_hi, use_path, render_size, render_size);
-                            if (cached_hi != null) {
-                                // Use cached texture instead of creating new one
-                                var tex = ImageCache.get_global().get_texture(key_hi);
-                                if (tex != null) {
-                                    var img = new Gtk.Image();
-                                    try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
-                                    img.set_pixel_size(size);
-                                    img.add_css_class("header-category-icon");
-                                    return img;
-                                }
-                            }
-                        } catch (GLib.Error e) {
-                            // Fall back to pixbuf path below on error
-                        }
-                    }
-
-                    string key_sz = "pixbuf::file:%s::%dx%d".printf(use_path, size, size);
-                    var cached_sz = ImageCache.get_global().get_or_load_file(key_sz, use_path, size, size);
-                    if (cached_sz != null) {
-                        try {
+                string use_path = icon_path;
+                if (is_dark_mode()) {
+                    string alt_name;
+                    if (filename.has_suffix(".svg")) {
+                        if (filename.length > 4)
+                            alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+                        else
+                            alt_name = filename + "-white.svg"; // Fallback
+                    } else
+                        alt_name = filename + "-white.svg";
+                    string? white_candidate = null;
+                    white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "128x128", alt_name));
+                    if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "128x128", alt_name));
+                    if (white_candidate != null) use_path = white_candidate;
+                }
+                if (use_path.has_suffix(".svg")) {
+                    try {
+                        // Rasterize SVG to a higher-resolution pixbuf to avoid
+                        // blur on small sizes and when running on a HiDPI
+                        // display. Rendering at 2x the requested size then
+                        // scaling down improves visual crispness for icons.
+                        int render_size = size * 2;
+                        string key_hi = "pixbuf::file:%s::%dx%d".printf(use_path, render_size, render_size);
+                        var cached_hi = ImageCache.get_global().get_or_load_file(key_hi, use_path, render_size, render_size);
+                        if (cached_hi != null) {
                             // Use cached texture instead of creating new one
-                            var tex = ImageCache.get_global().get_texture(key_sz);
+                            var tex = ImageCache.get_global().get_texture(key_hi);
                             if (tex != null) {
                                 var img = new Gtk.Image();
-                                try { img.set_from_paintable(tex); } catch (GLib.Error e) {
-                                    try { img.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
-                                }
+                                try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
+                                img.set_pixel_size(size);
                                 img.add_css_class("header-category-icon");
                                 return img;
                             }
-                        } catch (GLib.Error e) { }
+                        }
+                    } catch (GLib.Error e) {
+                        // Fall back to pixbuf path below on error
                     }
-                } catch (GLib.Error e) {
-                    // fall through to theme icons below
+                }
+
+                string key_sz = "pixbuf::file:%s::%dx%d".printf(use_path, size, size);
+                var cached_sz = ImageCache.get_global().get_or_load_file(key_sz, use_path, size, size);
+                if (cached_sz != null) {
+                    try {
+                        // Use cached texture instead of creating new one
+                        var tex = ImageCache.get_global().get_texture(key_sz);
+                        if (tex != null) {
+                            var img = new Gtk.Image();
+                            try { img.set_from_paintable(tex); } catch (GLib.Error e) {
+                                try { img.set_from_icon_name("application-rss+xml-symbolic"); } catch (GLib.Error ee) { }
+                            }
+                            img.add_css_class("header-category-icon");
+                            return img;
+                        }
+                    } catch (GLib.Error e) { }
                 }
             }
         }

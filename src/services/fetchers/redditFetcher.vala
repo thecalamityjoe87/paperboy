@@ -64,87 +64,150 @@ public class RedditFetcher : BaseFetcher {
                 subreddit = "politics";
                 category_name = "Politics";
                 break;
-            case "lifestyle":
-                subreddit = "lifestyle";
-                category_name = "Lifestyle";
-                break;
             default:
                 subreddit = "worldnews";
                 category_name = "World News";
                 break;
         }
-        string url = @"https://www.reddit.com/r/$(subreddit)/hot.json?limit=30";
+        // Reddit closed off unauthenticated access to the old .json
+        // endpoints (they now return 403 regardless of User-Agent, even a
+        // real browser one - confirmed by hand). Their per-subreddit Atom
+        // feed (.rss) is still open with no auth required, so that's what
+        // we fetch and parse here instead. Needs a real browser-looking
+        // User-Agent - Reddit blocks the generic default one on this
+        // endpoint too.
+        string url = @"https://www.reddit.com/r/$(subreddit)/.rss";
         if (search_query.length > 0) {
-            url = @"https://www.reddit.com/r/$(subreddit)/search.json?q=$(Uri.escape_string(search_query))&restrict_sr=1&limit=30";
+            url = @"https://www.reddit.com/r/$(subreddit)/search.rss?q=$(Uri.escape_string(search_query))&restrict_sr=1&limit=30";
         }
 
-        client.fetch_json(url, (response, parser, root) => {
-            if (!response.is_success() || root == null) {
-                warning("Reddit API HTTP error: %u", response.status_code);
+        var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
+        client.fetch_async(url, options, (response) => {
+            if (!response.is_success() || response.body == null) {
+                warning("Reddit RSS HTTP error: %u", response.status_code);
                 return;
             }
 
-            try {
-                var data = root.get_object();
-                if (!data.has_member("data")) {
-                    return;
+            string? body = response.get_body_string();
+            if (body == null) return;
+
+            var entries = parse_atom_entries(body);
+
+            Idle.add(() => {
+                if (search_query.length > 0) {
+                    set_label(@"Search Results: \"$(search_query)\" in $(category_name)");
+                } else {
+                    set_label(category_name);
                 }
-                var data_obj = data.get_object_member("data");
-                if (!data_obj.has_member("children")) {
-                    return;
+                foreach (var entry in entries) {
+                    add_item(entry.title, entry.article_url, entry.thumbnail, category, "Reddit", entry.published);
                 }
-                var children = data_obj.get_array_member("children");
-
-                Idle.add(() => {
-                    if (search_query.length > 0) {
-                        set_label(@"Search Results: \"$(search_query)\" in $(category_name)");
-                    } else {
-                        set_label(category_name);
-                    }
-                    uint len = children.get_length();
-                    for (uint i = 0; i < len; i++) {
-                        var post = children.get_element(i).get_object();
-                        var post_data = post.get_object_member("data");
-                        var title = post_data.has_member("title") ? post_data.get_string_member("title") : "No title";
-                        var post_url = post_data.has_member("url") ? post_data.get_string_member("url") : "";
-                        string? published = post_data.has_member("created_utc") ? post_data.get_double_member("created_utc").to_string() : null;
-                        string? thumbnail = null;
-
-                        // Try to get high-quality preview image first
-                        if (post_data.has_member("preview")) {
-                            var preview = post_data.get_object_member("preview");
-                            if (preview.has_member("images")) {
-                                var images = preview.get_array_member("images");
-                                if (images.get_length() > 0) {
-                                    var first_image = images.get_element(0).get_object();
-                                    if (first_image.has_member("source")) {
-                                        var source = first_image.get_object_member("source");
-                                        if (source.has_member("url")) {
-                                            string preview_url = source.get_string_member("url");
-                                            // Decode HTML entities in URL
-                                            thumbnail = preview_url.replace("&amp;", "&");
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Fallback to thumbnail if no preview available
-                        if (thumbnail == null && post_data.has_member("thumbnail")) {
-                            string thumb = post_data.get_string_member("thumbnail");
-                            if (thumb.has_prefix("http") && thumb != "default" && thumb != "self" && thumb != "nsfw") {
-                                thumbnail = thumb;
-                            }
-                        }
-
-                        add_item(title, post_url, thumbnail, category, "Reddit", published);
-                    }
-                    return false;
-                });
-            } catch (GLib.Error e) {
-                warning("Reddit fetch error: %s", e.message);
-            }
+                return false;
+            });
         });
+    }
+
+    private class RedditEntry {
+        public string title;
+        public string article_url;
+        public string? thumbnail;
+        public string? published;
+    }
+
+    // Parse a subreddit's Atom feed into a list of entries. Done with plain
+    // regexes rather than the libxml DOM parsing rssFeedProcessor.vala uses -
+    // Atom entries here are flat (their inner HTML is XML-entity-escaped,
+    // not raw nested tags), so there's no risk of a nested "<entry>" or
+    // "</entry>" confusing the non-greedy match below.
+    private Gee.ArrayList<RedditEntry> parse_atom_entries(string xml) {
+        var results = new Gee.ArrayList<RedditEntry>();
+        try {
+            var entry_regex = new Regex("<entry>(.*?)</entry>", RegexCompileFlags.DOTALL);
+            MatchInfo m;
+            if (!entry_regex.match(xml, 0, out m)) return results;
+            do {
+                string entry_xml = m.fetch(1);
+                var entry = new RedditEntry();
+
+                entry.title = xml_unescape(extract_tag(entry_xml, "title"));
+                if (entry.title.length == 0) continue;
+
+                string content_html = xml_unescape(extract_tag(entry_xml, "content"));
+
+                // The real external article URL (when there is one) is the
+                // href of the "[link]" anchor in the content body - the
+                // feed's own top-level <link> always points at Reddit's own
+                // comments page instead. Self-posts/meta threads don't have
+                // a "[link]" anchor at all, so fall back to Reddit's page.
+                string? link_href = extract_href_before_text(content_html, "[link]");
+                entry.article_url = link_href ?? extract_attr_value(entry_xml, "link", "href") ?? "";
+                if (entry.article_url.length == 0) continue;
+
+                entry.thumbnail = Tools.ImageProcessor.extract_image_from_html_snippet(content_html);
+                entry.published = extract_tag(entry_xml, "published");
+
+                results.add(entry);
+            } while (m.next());
+        } catch (GLib.Error e) {
+            warning("Reddit RSS parse error: %s", e.message);
+        }
+        return results;
+    }
+
+    // Extract the text content of the first <tag>...</tag> in `xml`.
+    private string extract_tag(string xml, string tag) {
+        try {
+            var regex = new Regex("<" + tag + "[^>]*>(.*?)</" + tag + ">", RegexCompileFlags.DOTALL);
+            MatchInfo m;
+            if (regex.match(xml, 0, out m)) {
+                return m.fetch(1);
+            }
+        } catch (GLib.Error e) { }
+        return "";
+    }
+
+    // Extract the value of `attr` from the first self-closing <tag .../> in `xml`
+    // (used for Atom's <link href="..." /> element).
+    private string? extract_attr_value(string xml, string tag, string attr) {
+        try {
+            var regex = new Regex("<" + tag + "\\s+[^>]*" + attr + "=\"([^\"]*)\"", RegexCompileFlags.DOTALL);
+            MatchInfo m;
+            if (regex.match(xml, 0, out m)) {
+                return m.fetch(1);
+            }
+        } catch (GLib.Error e) { }
+        return null;
+    }
+
+    // Find the href of the <a href="...">LABEL</a> anchor whose text is
+    // exactly `label` (e.g. "[link]"). Reddit's Atom content wraps the real
+    // external article URL this way.
+    private string? extract_href_before_text(string html, string label) {
+        try {
+            string escaped_label = Regex.escape_string(label);
+            var regex = new Regex("<a href=\"([^\"]+)\">\\s*" + escaped_label + "\\s*</a>", RegexCompileFlags.DOTALL);
+            MatchInfo m;
+            if (regex.match(html, 0, out m)) {
+                return m.fetch(1);
+            }
+        } catch (GLib.Error e) { }
+        return null;
+    }
+
+    // Undo one level of XML escaping (Reddit's Atom feed escapes each
+    // entry's embedded HTML this way) - not the fuller HTML-entity/tag
+    // stripping stripHtmlUtils.strip_html does, since callers here still
+    // need real "<" / ">" characters to regex the embedded HTML for hrefs
+    // and image URLs before any stripping happens.
+    private string xml_unescape(string s) {
+        string out_str = s;
+        out_str = out_str.replace("&lt;", "<");
+        out_str = out_str.replace("&gt;", ">");
+        out_str = out_str.replace("&quot;", "\"");
+        out_str = out_str.replace("&#39;", "'");
+        out_str = out_str.replace("&apos;", "'");
+        out_str = out_str.replace("&amp;", "&");
+        return out_str.strip();
     }
 
     public override string get_source_name() {

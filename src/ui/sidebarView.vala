@@ -539,8 +539,28 @@ public class SidebarView : GLib.Object {
         return prefs.unread_badges_enabled && base_flag;
     }
 
+    // Sets a badge label's text for `count`, keeping the "overflow" styling
+    // class in sync. Right-anchored, content-hugging badges naturally align
+    // by their LAST character across rows (e.g. "5" and "18" already line
+    // up correctly on the ones place this way) - "99+" is the one exception,
+    // since its last character is "+", not a digit, so "9+" ends up lining
+    // up with other counts instead of "99". unread-count-badge-overflow
+    // nudges just that case a bit further right (see style.css) so its
+    // digits land where a normal count's last digit would, with the "+"
+    // hanging past that point instead of competing for the same column.
+    private void set_badge_count_text(Gtk.Label label, int count) {
+        bool overflow = count > 99;
+        label.set_label(overflow ? "99+" : count.to_string());
+        if (overflow) {
+            label.add_css_class("unread-count-badge-overflow");
+        } else {
+            label.remove_css_class("unread-count-badge-overflow");
+        }
+    }
+
     private Gtk.Widget build_badge_widget(int count, bool is_source, string item_id) {
-        var label = new Gtk.Label(count > 99 ? "99+" : count.to_string());
+        var label = new Gtk.Label(null);
+        set_badge_count_text(label, count);
         label.add_css_class("unread-count-badge");
         // Wider gap before the count on Feeds/Popular Categories rows,
         // not on the special items.
@@ -610,7 +630,7 @@ public class SidebarView : GLib.Object {
                     label.set_data("is_placeholder", true);
                     badge.set_visible(badge_type_enabled(is_source, item_id));
                 } else {
-                    label.set_label(count > 99 ? "99+" : count.to_string());
+                    set_badge_count_text(label, count);
                     label.set_data("unread_count", count);
                     label.set_data("is_placeholder", false);
                     badge.set_visible(badge_type_enabled(is_source, item_id) && count > 0);
@@ -625,7 +645,7 @@ public class SidebarView : GLib.Object {
             var badge = badge_widgets.get(item_id);
             if (badge is Gtk.Label) {
                 var label = (Gtk.Label) badge;
-                label.set_label(count > 99 ? "99+" : count.to_string());
+                set_badge_count_text(label, count);
                 label.set_data("unread_count", count);
                 label.set_data("is_placeholder", false);
                 badge.set_visible(badge_type_enabled(is_source, item_id) && count > 0);

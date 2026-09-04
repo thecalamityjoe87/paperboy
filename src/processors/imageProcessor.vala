@@ -53,7 +53,7 @@ namespace Tools {
 			}
 		}
 
-		// Extract image URL from an HTML snippet (like RSS description or content:encoded).
+	// Extract image URL from an HTML snippet (like RSS description or content:encoded).
 	// Strategy: Collect candidates from both <a href> and <img src>, then pick the best one
 	// This handles cases like TechPowerUp where high-res images are in <a href> and low-res in <img src>
 	public static string? extract_image_from_html_snippet(string html_snippet) {
@@ -387,43 +387,39 @@ namespace Tools {
 		// Common on WordPress sites with image optimization plugins (Jetpack, WP Rocket, etc).
 		// Examples: ?resize=406x232, ?w=300, ?width=300, ?fit=crop
 		public static string strip_resize_params(string url) {
-			try {
-				int q_idx = url.index_of("?");
-				if (q_idx < 0) return url; // No query params
+										int q_idx = url.index_of("?");
+							if (q_idx < 0) return url; // No query params
 
-				string base_url = url.substring(0, q_idx);
-				string query = url.substring(q_idx + 1);
+							string base_url = url.substring(0, q_idx);
+							string query = url.substring(q_idx + 1);
 
-				// Split query string into parameters
-				string[] params = query.split("&");
-				var kept_params = new Gee.ArrayList<string>();
+							// Split query string into parameters
+							string[] params = query.split("&");
+							var kept_params = new Gee.ArrayList<string>();
 
-				foreach (string param in params) {
-					string param_lower = param.down();
-					// Strip common resize/dimension parameters
-					if (param_lower.has_prefix("resize=") ||
-						param_lower.has_prefix("w=") ||
-						param_lower.has_prefix("h=") ||
-						param_lower.has_prefix("width=") ||
-						param_lower.has_prefix("height=") ||
-						param_lower.has_prefix("fit=") ||
-						param_lower.has_prefix("crop=") ||
-						param_lower.has_prefix("quality=") ||
-						param_lower.has_prefix("zoom=")) {
-						continue; // Skip this parameter
-					}
-					kept_params.add(param);
-				}
+							foreach (string param in params) {
+								string param_lower = param.down();
+								// Strip common resize/dimension parameters
+								if (param_lower.has_prefix("resize=") ||
+									param_lower.has_prefix("w=") ||
+									param_lower.has_prefix("h=") ||
+									param_lower.has_prefix("width=") ||
+									param_lower.has_prefix("height=") ||
+									param_lower.has_prefix("fit=") ||
+									param_lower.has_prefix("crop=") ||
+									param_lower.has_prefix("quality=") ||
+									param_lower.has_prefix("zoom=")) {
+									continue; // Skip this parameter
+								}
+								kept_params.add(param);
+							}
 
-				// Rebuild URL with remaining params
-				if (kept_params.size == 0) {
-					return base_url;
-				} else {
-					return base_url + "?" + string.joinv("&", kept_params.to_array());
-				}
-			} catch (GLib.Error e) {
-				return url;
-			}
+							// Rebuild URL with remaining params
+							if (kept_params.size == 0) {
+								return base_url;
+							} else {
+								return base_url + "?" + string.joinv("&", kept_params.to_array());
+							}
 		}
 
 		// Try to normalize BBC CDN image URLs to a larger variant when possible.

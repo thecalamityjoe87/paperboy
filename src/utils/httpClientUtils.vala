@@ -228,20 +228,17 @@ public class HttpClientUtils : Object {
         _active_requests++;
         _request_mutex.unlock();
 
-        try {
-            HttpResponse response = fetch_sync_internal(task.url, task.options);
+        HttpResponse response = fetch_sync_internal(task.url, task.options);
 
-            if (task.callback != null) {
-                Idle.add(() => {
-                    task.callback(response);
-                    return false;
-                });
-            }
-        } finally {
-            _request_mutex.lock();
-            _active_requests--;
-            _request_mutex.unlock();
+        if (task.callback != null) {
+            Idle.add(() => {
+                task.callback(response);
+                return false;
+            });
         }
+        _request_mutex.lock();
+        _active_requests--;
+        _request_mutex.unlock();
     }
 
 

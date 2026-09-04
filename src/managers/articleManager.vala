@@ -36,8 +36,8 @@ namespace Managers {
         // rendered height instead of the old (shorter) stacked-image height.
         public const int HERO_MAX_HEIGHT = 460;
         public const int HERO_DEFAULT_HEIGHT = 460;
-        public const int TOPTEN_HERO_MAX_HEIGHT = 400;
-        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 400;
+        public const int TOPTEN_HERO_MAX_HEIGHT = 480;
+        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 480;
         public const int CARD_IMAGE_HEIGHT = 220;  // Fixed, never derived from column width
         public const int CARD_HEIGHT_ESTIMATE_OFFSET = 120;
         public const int IMAGE_QUALITY_MULTIPLIER_HIGH = 6;
@@ -151,7 +151,7 @@ namespace Managers {
          * Returns true if article was queued, false if it was a duplicate
          */
         private bool queue_overflow_article(string title, string url, string? thumbnail_url,
-                                            string category_id, string? source_name, string? published = null) {
+                                            string category_id, string? source_name, string? published = null, string? snippet = null) {
             // Normalize and check for duplicates
             string normalized_url = "";
             normalized_url = window.normalize_article_url(url); 
@@ -168,6 +168,7 @@ namespace Managers {
 
             // Add to overflow queue
             var queued_item = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source, published);
+            queued_item.snippet = snippet;
             remaining_articles.add(queued_item);
             string display_cat = extract_display_category(queued_item);
             remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) + 1);
@@ -295,13 +296,13 @@ namespace Managers {
             return e != null && e.length > 0;
         }
 
-        public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null) {
+        public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null) {
             // Check if we're viewing a category with article limits
             if (is_limited_category(window.prefs.category)) {
                 lock (articles_shown) {
                     // If we've reached the limit, queue remaining articles for "Load More"
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
-                        if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published)) {
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published, snippet)) {
                             show_load_more_button();
                         }
                         return;
@@ -408,10 +409,27 @@ namespace Managers {
             }
 
             // Add articles immediately
-            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published);
+            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published, snippet);
         }
 
-        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null) {
+        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null, string? snippet = null) {
+            // Make this article's feed-provided snippet and published date
+            // available as fallbacks for ArticleSnippetService, which
+            // live-fetches the article's own page and falls back to
+            // whatever matches this URL in article_buffer when that fetch
+            // fails, comes back empty, or (for the date) simply doesn't
+            // expose a recognizable published-date tag on the page itself.
+            // Without this, article_buffer was only ever populated by the
+            // "load more" paths - never for the first batch of articles
+            // shown when a category loads, which includes the hero card and
+            // is exactly where a missing preview/date was most visible.
+            bool has_snippet = snippet != null && snippet.length > 0;
+            bool has_published = published != null && published.length > 0;
+            if ((has_snippet || has_published) && article_buffer != null) {
+                var buffered_item = new ArticleItem(title, url, thumbnail_url, category_id, source_name, published);
+                if (has_snippet) buffered_item.snippet = snippet;
+                article_buffer.add(buffered_item);
+            }
 
             // Decode HTML entities in title (e.g., &mdash; → —, &amp; → &)
             string decoded_title = stripHtmlUtils.strip_html(title);

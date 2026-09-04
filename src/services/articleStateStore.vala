@@ -80,7 +80,7 @@ public class ArticleStateStore : GLib.Object {
         var cache_base = Environment.get_user_cache_dir();
         if (cache_base == null) cache_base = "/tmp";
         cache_dir_path = Path.build_filename(cache_base, "paperboy", "metadata");
-        try { DirUtils.create_with_parents(cache_dir_path, 0755); } catch (GLib.Error e) { }
+        DirUtils.create_with_parents(cache_dir_path, 0755); 
         cache_dir = cache_dir_path;
         viewed_meta_paths = new Gee.HashSet<string>();
         category_articles = new Gee.HashMap<string, Gee.HashSet<string>>();
@@ -107,20 +107,18 @@ public class ArticleStateStore : GLib.Object {
         // Ensure saved articles also participate in category-based tracking so
         // the "saved" category has a stable backing set for unread counts and
         // badge logic on startup.
-        try {
-            var current_saved = get_saved_articles();
-            foreach (var article in current_saved) {
-                if (article != null && article.url != null && article.url.length > 0) {
-                    try {
-                        string norm_url = UrlUtils.normalize_article_url(article.url);
-                        if (norm_url == null || norm_url.length == 0) norm_url = article.url.strip();
-                        register_article(norm_url, "saved", article.source);
-                    } catch (GLib.Error e) {
-                        // Best-effort; skip problematic entries
-                    }
+        var current_saved = get_saved_articles();
+        foreach (var article in current_saved) {
+            if (article != null && article.url != null && article.url.length > 0) {
+                try {
+                    string norm_url = UrlUtils.normalize_article_url(article.url);
+                    if (norm_url == null || norm_url.length == 0) norm_url = article.url.strip();
+                    register_article(norm_url, "saved", article.source);
+                } catch (GLib.Error e) {
+                    // Best-effort; skip problematic entries
                 }
             }
-        } catch (GLib.Error e) { }
+        }
 
         // preload small metadata set: scan .meta files for viewed flag
         try {
@@ -189,36 +187,38 @@ public class ArticleStateStore : GLib.Object {
 
     private void meta_lock_add_viewed(string meta_path) {
         meta_lock.lock();
-        try { viewed_meta_paths.add(meta_path); } finally { meta_lock.unlock(); }
+        viewed_meta_paths.add(meta_path);
+        meta_lock.unlock();
     }
 
     private void meta_lock_remove_viewed(string meta_path) {
         meta_lock.lock();
-        try { viewed_meta_paths.remove(meta_path); } finally { meta_lock.unlock(); }
+        viewed_meta_paths.remove(meta_path);
+        meta_lock.unlock();
     }
 
     private bool meta_lock_has_viewed(string meta_path) {
         meta_lock.lock();
-        try { return viewed_meta_paths.contains(meta_path); } finally { meta_lock.unlock(); }
+        bool result = viewed_meta_paths.contains(meta_path);
+        meta_lock.unlock();
+        return result;
     }
 
     // Public API
     public void mark_viewed(string url) {
         string meta_path = meta_path_for(url);
         if (meta_lock_has_viewed(meta_path)) return;
+        var kf = read_meta_from_path(meta_path);
+        if (kf == null) kf = new KeyFile();
+        long now_s = (long)(GLib.get_real_time() / 1000000);
+        kf.set_string("meta", "viewed", "1");
+        kf.set_string("meta", "viewed_at", "%d".printf((int)now_s));
+        write_meta_for_url(url, kf);
+        meta_lock_add_viewed(meta_path);
         try {
-            var kf = read_meta_from_path(meta_path);
-            if (kf == null) kf = new KeyFile();
-            long now_s = (long)(GLib.get_real_time() / 1000000);
-            kf.set_string("meta", "viewed", "1");
-            kf.set_string("meta", "viewed_at", "%d".printf((int)now_s));
-            write_meta_for_url(url, kf);
-            meta_lock_add_viewed(meta_path);
-            try {
-                string norm = url;
-                try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
-                try { viewed_status_changed(norm, true); } catch (GLib.Error e) { }
-            } catch (GLib.Error e) { }
+            string norm = url;
+            try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+            try { viewed_status_changed(norm, true); } catch (GLib.Error e) { }
         } catch (GLib.Error e) { }
     }
 
@@ -269,9 +269,7 @@ public class ArticleStateStore : GLib.Object {
         // Normalize the URL OUTSIDE the lock to reduce lock contention
         // when many threads are calling this simultaneously
         string norm_url = "";
-        try {
-            norm_url = UrlUtils.normalize_article_url(url);
-        } catch (GLib.Error e) { norm_url = url.strip(); }
+        norm_url = UrlUtils.normalize_article_url(url);
 
         article_tracking_lock.lock();
         try {
@@ -306,11 +304,8 @@ public class ArticleStateStore : GLib.Object {
     // Mark a category as visited by the user
     public void mark_category_visited(string category_id) {
         article_tracking_lock.lock();
-        try {
-            visited_categories.add(category_id);
-        } finally {
-            article_tracking_lock.unlock();
-        }
+        visited_categories.add(category_id);
+        article_tracking_lock.unlock();
         // Defer persist to disk to avoid blocking UI on every click
         // Save will happen on next article registration or app shutdown
     }
@@ -318,33 +313,25 @@ public class ArticleStateStore : GLib.Object {
     // Check if a category has been visited
     public bool is_category_visited(string category_id) {
         article_tracking_lock.lock();
-        try {
-            return visited_categories.contains(category_id);
-        } finally {
-            article_tracking_lock.unlock();
-        }
+        bool result = visited_categories.contains(category_id);
+        article_tracking_lock.unlock();
+        return result;
     }
 
     // Get all visited categories (for SidebarManager to populate its cache)
     public Gee.HashSet<string> get_visited_categories() {
         article_tracking_lock.lock();
-        try {
-            var result = new Gee.HashSet<string>();
-            result.add_all(visited_categories);
-            return result;
-        } finally {
-            article_tracking_lock.unlock();
-        }
+        var result = new Gee.HashSet<string>();
+        result.add_all(visited_categories);
+        article_tracking_lock.unlock();
+        return result;
     }
 
     // Mark a source as visited by the user
     public void mark_source_visited(string source_name) {
         article_tracking_lock.lock();
-        try {
-            visited_sources.add(source_name);
-        } finally {
-            article_tracking_lock.unlock();
-        }
+        visited_sources.add(source_name);
+        article_tracking_lock.unlock();
         // Defer persist to disk to avoid blocking UI on every click
         // Save will happen on next article registration or app shutdown
     }
@@ -352,23 +339,18 @@ public class ArticleStateStore : GLib.Object {
     // Check if a source has been visited
     public bool is_source_visited(string source_name) {
         article_tracking_lock.lock();
-        try {
-            return visited_sources.contains(source_name);
-        } finally {
-            article_tracking_lock.unlock();
-        }
+        bool result = visited_sources.contains(source_name);
+        article_tracking_lock.unlock();
+        return result;
     }
 
     // Get all visited sources (for SidebarManager to populate its cache)
     public Gee.HashSet<string> get_visited_sources() {
         article_tracking_lock.lock();
-        try {
-            var result = new Gee.HashSet<string>();
-            result.add_all(visited_sources);
-            return result;
-        } finally {
-            article_tracking_lock.unlock();
-        }
+        var result = new Gee.HashSet<string>();
+        result.add_all(visited_sources);
+        article_tracking_lock.unlock();
+        return result;
     }
 
     // Mark that initial metadata fetch is complete
@@ -570,18 +552,15 @@ public class ArticleStateStore : GLib.Object {
     public Gee.ArrayList<string> get_categories_for_url(string url) {
         var out = new Gee.ArrayList<string>();
         string norm = url;
-        try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+        norm = UrlUtils.normalize_article_url(url); 
         article_tracking_lock.lock();
-        try {
-            foreach (var entry in category_articles.entries) {
-                try {
-                    var set = entry.value;
-                    if (set.contains(norm)) out.add(entry.key);
-                } catch (GLib.Error e) { }
-            }
-        } finally {
-            article_tracking_lock.unlock();
+        foreach (var entry in category_articles.entries) {
+            try {
+                var set = entry.value;
+                if (set.contains(norm)) out.add(entry.key);
+            } catch (GLib.Error e) { }
         }
+        article_tracking_lock.unlock();
         return out;
     }
 
@@ -589,18 +568,15 @@ public class ArticleStateStore : GLib.Object {
     public Gee.ArrayList<string> get_sources_for_url(string url) {
         var out = new Gee.ArrayList<string>();
         string norm = url;
-        try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+        norm = UrlUtils.normalize_article_url(url); 
         article_tracking_lock.lock();
-        try {
-            foreach (var entry in source_articles.entries) {
-                try {
-                    var set = entry.value;
-                    if (set.contains(norm)) out.add(entry.key);
-                } catch (GLib.Error e) { }
-            }
-        } finally {
-            article_tracking_lock.unlock();
+        foreach (var entry in source_articles.entries) {
+            try {
+                var set = entry.value;
+                if (set.contains(norm)) out.add(entry.key);
+            } catch (GLib.Error e) { }
         }
+        article_tracking_lock.unlock();
         return out;
     }
 
@@ -819,24 +795,19 @@ public class ArticleStateStore : GLib.Object {
         // Persist saved metadata to database and ensure the article is registered under the
         // "saved" category for unread-count tracking.
         saved_lock.lock();
-        try {
-            var article = new SavedArticle(url, title, thumbnail, source);
-            saved_articles.set(url, article);
-        } finally {
-            saved_lock.unlock();
-        }
+        var article = new SavedArticle(url, title, thumbnail, source);
+        saved_articles.set(url, article);
+        saved_lock.unlock();
 
         // Persist to database
         save_article_to_db(url, title, thumbnail, source, GLib.get_real_time() / 1000000);
 
         // Register the saved article for category-based unread tracking. Do
         // this outside of the saved_lock to avoid lock ordering issues.
-        try {
-            string norm = UrlUtils.normalize_article_url(url);
-            if (norm == null || norm.length == 0) norm = url.strip();
-            register_article(norm, "saved", source);
-            try { saved_article_added(url); } catch (GLib.Error e) { }
-        } catch (GLib.Error e) { }
+        string norm = UrlUtils.normalize_article_url(url);
+        if (norm == null || norm.length == 0) norm = url.strip();
+        register_article(norm, "saved", source);
+        try { saved_article_added(url); } catch (GLib.Error e) { }
     }
 
     public void unsave_article(string url) {
@@ -914,19 +885,16 @@ public class ArticleStateStore : GLib.Object {
 
     public Gee.ArrayList<SavedArticle?> get_saved_articles() {
         saved_lock.lock();
-        try {
-            var list = new Gee.ArrayList<SavedArticle?>();
-            foreach (var article in saved_articles.values) {
-                list.add(article);
-            }
-            // Sort by saved timestamp, newest first
-            list.sort((a, b) => {
-                return (int)(b.saved_timestamp - a.saved_timestamp);
-            });
-            return list;
-        } finally {
-            saved_lock.unlock();
+        var list = new Gee.ArrayList<SavedArticle?>();
+        foreach (var article in saved_articles.values) {
+            list.add(article);
         }
+        // Sort by saved timestamp, newest first
+        list.sort((a, b) => {
+            return (int)(b.saved_timestamp - a.saved_timestamp);
+        });
+        saved_lock.unlock();
+        return list;
     }
 
     public SavedArticle? get_saved_article(string url) {
@@ -952,31 +920,26 @@ public class ArticleStateStore : GLib.Object {
 
     public int get_saved_count() {
         saved_lock.lock();
-        try {
-            return saved_articles.size;
-        } finally {
-            saved_lock.unlock();
-        }
+        int result = saved_articles.size;
+        saved_lock.unlock();
+        return result;
     }
 
     // Return count of saved articles that are not yet viewed
     public int get_unread_saved_count() {
         int cnt = 0;
         saved_lock.lock();
-        try {
-            foreach (var article in saved_articles.values) {
-                try {
-                    string norm = UrlUtils.normalize_article_url(article.url);
-                    if (norm == null || norm.length == 0) norm = article.url.strip();
-                    if (!is_viewed(norm)) cnt++;
-                } catch (GLib.Error e) {
-                    // Best-effort: treat as unread if we cannot normalize/check
-                    cnt++;
-                }
+        foreach (var article in saved_articles.values) {
+            try {
+                string norm = UrlUtils.normalize_article_url(article.url);
+                if (norm == null || norm.length == 0) norm = article.url.strip();
+                if (!is_viewed(norm)) cnt++;
+            } catch (GLib.Error e) {
+                // Best-effort: treat as unread if we cannot normalize/check
+                cnt++;
             }
-        } finally {
-            saved_lock.unlock();
         }
+        saved_lock.unlock();
         return cnt;
     }
 
@@ -1018,60 +981,62 @@ public class ArticleStateStore : GLib.Object {
     // Save article to database
     private void save_article_to_db(string url, string title, string? thumbnail, string? source, int64 timestamp) {
         saved_db_lock.lock();
-        try {
-            if (saved_db == null) return;
-
-            string sql = """
-                INSERT OR REPLACE INTO saved_articles (url, title, thumbnail, source, saved_timestamp)
-                VALUES (?, ?, ?, ?, ?);
-            """;
-
-            Sqlite.Statement stmt;
-            int rc = saved_db.prepare_v2(sql, -1, out stmt);
-            if (rc != Sqlite.OK) {
-                stderr.printf("Failed to prepare save article statement: %s\n", saved_db.errmsg());
-                return;
-            }
-
-            stmt.bind_text(1, url);
-            stmt.bind_text(2, title);
-            stmt.bind_text(3, thumbnail);
-            stmt.bind_text(4, source);
-            stmt.bind_int64(5, timestamp);
-
-            rc = stmt.step();
-            if (rc != Sqlite.DONE) {
-                stderr.printf("Failed to save article to database: %s\n", saved_db.errmsg());
-            }
-        } finally {
+        if (saved_db == null) {
             saved_db_lock.unlock();
+            return;
         }
+
+        string sql = """
+            INSERT OR REPLACE INTO saved_articles (url, title, thumbnail, source, saved_timestamp)
+            VALUES (?, ?, ?, ?, ?);
+        """;
+
+        Sqlite.Statement stmt;
+        int rc = saved_db.prepare_v2(sql, -1, out stmt);
+        if (rc != Sqlite.OK) {
+            stderr.printf("Failed to prepare save article statement: %s\n", saved_db.errmsg());
+            saved_db_lock.unlock();
+            return;
+        }
+
+        stmt.bind_text(1, url);
+        stmt.bind_text(2, title);
+        stmt.bind_text(3, thumbnail);
+        stmt.bind_text(4, source);
+        stmt.bind_int64(5, timestamp);
+
+        rc = stmt.step();
+        if (rc != Sqlite.DONE) {
+            stderr.printf("Failed to save article to database: %s\n", saved_db.errmsg());
+        }
+        saved_db_lock.unlock();
     }
 
     // Remove article from database
     private void remove_article_from_db(string url) {
         saved_db_lock.lock();
-        try {
-            if (saved_db == null) return;
-
-            string sql = "DELETE FROM saved_articles WHERE url = ?;";
-
-            Sqlite.Statement stmt;
-            int rc = saved_db.prepare_v2(sql, -1, out stmt);
-            if (rc != Sqlite.OK) {
-                stderr.printf("Failed to prepare delete article statement: %s\n", saved_db.errmsg());
-                return;
-            }
-
-            stmt.bind_text(1, url);
-
-            rc = stmt.step();
-            if (rc != Sqlite.DONE) {
-                stderr.printf("Failed to delete article from database: %s\n", saved_db.errmsg());
-            }
-        } finally {
+        if (saved_db == null) {
             saved_db_lock.unlock();
+            return;
         }
+
+        string sql = "DELETE FROM saved_articles WHERE url = ?;";
+
+        Sqlite.Statement stmt;
+        int rc = saved_db.prepare_v2(sql, -1, out stmt);
+        if (rc != Sqlite.OK) {
+            stderr.printf("Failed to prepare delete article statement: %s\n", saved_db.errmsg());
+            saved_db_lock.unlock();
+            return;
+        }
+
+        stmt.bind_text(1, url);
+
+        rc = stmt.step();
+        if (rc != Sqlite.DONE) {
+            stderr.printf("Failed to delete article from database: %s\n", saved_db.errmsg());
+        }
+        saved_db_lock.unlock();
     }
 
     // Load saved articles from database
@@ -1134,22 +1099,23 @@ public class ArticleStateStore : GLib.Object {
 
         // Check if database already has articles (already migrated)
         saved_db_lock.lock();
-        try {
-            if (saved_db == null) return;
-
-            string count_sql = "SELECT COUNT(*) FROM saved_articles;";
-            Sqlite.Statement stmt;
-            int rc = saved_db.prepare_v2(count_sql, -1, out stmt);
-            if (rc == Sqlite.OK && stmt.step() == Sqlite.ROW) {
-                int count = stmt.column_int(0);
-                if (count > 0) {
-                    // Database already has articles, skip migration
-                    return;
-                }
-            }
-        } finally {
+        if (saved_db == null) {
             saved_db_lock.unlock();
+            return;
         }
+
+        string count_sql = "SELECT COUNT(*) FROM saved_articles;";
+        Sqlite.Statement stmt;
+        int rc = saved_db.prepare_v2(count_sql, -1, out stmt);
+        if (rc == Sqlite.OK && stmt.step() == Sqlite.ROW) {
+            int count = stmt.column_int(0);
+            if (count > 0) {
+                // Database already has articles, skip migration
+                saved_db_lock.unlock();
+                return;
+            }
+        }
+        saved_db_lock.unlock();
 
         // Parse JSON file and migrate to database
         try {

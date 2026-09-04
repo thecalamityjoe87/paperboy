@@ -47,19 +47,15 @@ public class ImageCache : GLib.Object {
         // When pixbuf entries are evicted, log for debugging
         // No need to manually unref - HashMap will do it when removing the entry
         pixbuf_cache.set_eviction_callback((k, v) => {
-            try {
-                if (AppDebugger.debug_enabled()) {
-                }
-            } catch (GLib.Error e) { }
+            if (AppDebugger.debug_enabled()) {
+            }
         });
         
         // When texture entries are evicted, log for debugging
         // Textures are automatically freed when unreferenced
         texture_cache.set_eviction_callback((k, v) => {
-            try {
-                if (AppDebugger.debug_enabled()) {
-                }
-            } catch (GLib.Error e) { }
+            if (AppDebugger.debug_enabled()) {
+            }
         });
     }
 
@@ -76,24 +72,20 @@ public class ImageCache : GLib.Object {
     }
 
     public Gdk.Pixbuf? get(string key) {
+        var v = pixbuf_cache.get(key);
         try {
-            var v = pixbuf_cache.get(key);
-            try {
-                if (AppDebugger.debug_enabled()) {
-                }
-            } catch (GLib.Error e) { }
-            return v;
-        } catch (GLib.Error e) { return null; }
+            if (AppDebugger.debug_enabled()) {
+            }
+        } catch (GLib.Error e) { }
+        return v;
     }
 
     public void set(string key, Gdk.Pixbuf pixbuf) {
         // Do not ref here. Gee containers will take their own reference
         // (g_object_ref) when storing GObject values; ref/unref is
         // therefore managed by the container.
-        try {
-            if (AppDebugger.debug_enabled()) {
-            }
-        } catch (GLib.Error e) { }
+        if (AppDebugger.debug_enabled()) {
+        }
         pixbuf_cache.set(key, pixbuf);
         
         // When a new pixbuf is inserted, invalidate any cached texture for this key
@@ -127,13 +119,11 @@ public class ImageCache : GLib.Object {
     public Gdk.Pixbuf? get_or_from_surface(string key, Cairo.Surface surface, int x, int y, int w, int h) {
         var existing = get(key);
         if (existing != null) return existing;
-        try {
-            var pb = Gdk.pixbuf_get_from_surface(surface, x, y, w, h);
-            if (pb != null) {
-                set(key, pb);
-                return pb;
-            }
-        } catch (GLib.Error e) { }
+        var pb = Gdk.pixbuf_get_from_surface(surface, x, y, w, h);
+        if (pb != null) {
+            set(key, pb);
+            return pb;
+        }
         return null;
     }
 
@@ -143,15 +133,13 @@ public class ImageCache : GLib.Object {
     public Gdk.Pixbuf? get_or_scale_pixbuf(string key, Gdk.Pixbuf source, int w, int h) {
         var existing = get(key);
         if (existing != null) return existing;
-        try {
-            // Use HYPER interpolation for highest quality (crisper images)
-            // Trade-off: slightly slower but much better visual quality
-            var scaled = source.scale_simple(w, h, Gdk.InterpType.HYPER);
-            if (scaled != null) {
-                set(key, scaled);
-                return scaled;
-            }
-        } catch (GLib.Error e) { }
+                // Use HYPER interpolation for highest quality (crisper images)
+        // Trade-off: slightly slower but much better visual quality
+        var scaled = source.scale_simple(w, h, Gdk.InterpType.HYPER);
+        if (scaled != null) {
+            set(key, scaled);
+            return scaled;
+        }
         return null;
     }
 
@@ -160,39 +148,37 @@ public class ImageCache : GLib.Object {
     public Gdk.Pixbuf? get_or_scale_and_crop_pixbuf(string key, Gdk.Pixbuf source, int w, int h) {
         var existing = get(key);
         if (existing != null) return existing;
-        try {
-            int width = source.get_width();
-            int height = source.get_height();
-            if (width <= 0 || height <= 0) return null;
+        int width = source.get_width();
+        int height = source.get_height();
+        if (width <= 0 || height <= 0) return null;
 
-            double scale_x = (double) w / width;
-            double scale_y = (double) h / height;
-            double scale = double.max(scale_x, scale_y);
+        double scale_x = (double) w / width;
+        double scale_y = (double) h / height;
+        double scale = double.max(scale_x, scale_y);
 
-            int scaled_w = (int) (width * scale);
-            int scaled_h = (int) (height * scale);
-            if (scaled_w < 1) scaled_w = 1;
-            if (scaled_h < 1) scaled_h = 1;
+        int scaled_w = (int) (width * scale);
+        int scaled_h = (int) (height * scale);
+        if (scaled_w < 1) scaled_w = 1;
+        if (scaled_h < 1) scaled_h = 1;
 
-            // Reuse get_or_scale_pixbuf to get a high-quality scaled pixbuf
-            string tmp_key = "pixbuf::scaled-temp:%s::%dx%d".printf(key, scaled_w, scaled_h);
-            var scaled = get_or_scale_pixbuf(tmp_key, source, scaled_w, scaled_h);
-            if (scaled == null) return null;
+        // Reuse get_or_scale_pixbuf to get a high-quality scaled pixbuf
+        string tmp_key = "pixbuf::scaled-temp:%s::%dx%d".printf(key, scaled_w, scaled_h);
+        var scaled = get_or_scale_pixbuf(tmp_key, source, scaled_w, scaled_h);
+        if (scaled == null) return null;
 
-            // Paint the scaled pixbuf into a target surface and crop by centering it
-            var surface = new ImageSurface(Format.ARGB32, w, h);
-            var cr = new Context(surface);
-            // Transparent background
-            cr.set_source_rgba(0, 0, 0, 0);
-            cr.paint();
+        // Paint the scaled pixbuf into a target surface and crop by centering it
+        var surface = new ImageSurface(Format.ARGB32, w, h);
+        var cr = new Context(surface);
+        // Transparent background
+        cr.set_source_rgba(0, 0, 0, 0);
+        cr.paint();
 
-            int x = (w - scaled_w) / 2;
-            int y = (h - scaled_h) / 2;
-            try { Gdk.cairo_set_source_pixbuf(cr, scaled, x, y); cr.paint(); } catch (GLib.Error e) { }
+        int x = (w - scaled_w) / 2;
+        int y = (h - scaled_h) / 2;
+        try { Gdk.cairo_set_source_pixbuf(cr, scaled, x, y); cr.paint(); } catch (GLib.Error e) { }
 
-            var final_pb = get_or_from_surface(key, surface, 0, 0, w, h);
-            return final_pb;
-        } catch (GLib.Error e) { return null; }
+        var final_pb = get_or_from_surface(key, surface, 0, 0, w, h);
+        return final_pb;
     }
 
     public Gee.ArrayList<string> keys() {
@@ -203,10 +189,8 @@ public class ImageCache : GLib.Object {
         // Clear both caches - LruCache will call eviction callbacks for each entry
         pixbuf_cache.clear();
         texture_cache.clear();
-        try {
-            if (AppDebugger.debug_enabled()) {
-            }
-        } catch (GLib.Error e) { }
+        if (AppDebugger.debug_enabled()) {
+        }
     }
 
     public void set_capacity(int c) {
@@ -233,12 +217,8 @@ public class ImageCache : GLib.Object {
         var pb = get(key);
         if (pb == null) return null;
 
-        try {
-            // Always create a fresh texture from the pixbuf
-            var tex = Gdk.Texture.for_pixbuf(pb);
-            return tex;
-        } catch (GLib.Error e) {
-            return null;
-        }
+                // Always create a fresh texture from the pixbuf
+        var tex = Gdk.Texture.for_pixbuf(pb);
+        return tex;
     }
 }

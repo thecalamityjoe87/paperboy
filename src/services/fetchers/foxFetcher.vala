@@ -38,64 +38,56 @@ public class FoxFetcher : BaseFetcher {
         Soup.Session session
     ) {
         new Thread<void*>("fetch-fox-scrape", () => {
-            try {
-                Gee.ArrayList<string> section_urls = new Gee.ArrayList<string>();
-                switch (current_category) {
-                    case "politics": section_urls.add("https://www.foxnews.com/politics"); break;
-                    case "us": section_urls.add("https://www.foxnews.com/us"); break;
-                    case "technology":
-                        section_urls.add("https://www.foxnews.com/tech");
-                        section_urls.add("https://www.foxnews.com/technology");
-                        break;
-                    case "business": section_urls.add("https://www.foxnews.com/business"); break;
-                    case "science": section_urls.add("https://www.foxnews.com/science"); break;
-                    case "sports": section_urls.add("https://www.foxnews.com/sports"); break;
-                    case "health": section_urls.add("https://www.foxnews.com/health"); break;
-                    case "entertainment": section_urls.add("https://www.foxnews.com/entertainment"); break;
-                    case "lifestyle": section_urls.add("https://www.foxnews.com/lifestyle"); break;
-                    case "general":
-                        section_urls.add("https://www.foxnews.com/world");
-                        section_urls.add("https://www.foxnews.com");
-                        break;
-                    default: section_urls.add("https://www.foxnews.com"); break;
-                }
+            Gee.ArrayList<string> section_urls = new Gee.ArrayList<string>();
+            switch (current_category) {
+                case "politics": section_urls.add("https://www.foxnews.com/politics"); break;
+                case "us": section_urls.add("https://www.foxnews.com/us"); break;
+                case "technology":
+                    section_urls.add("https://www.foxnews.com/tech");
+                    section_urls.add("https://www.foxnews.com/technology");
+                    break;
+                case "business": section_urls.add("https://www.foxnews.com/business"); break;
+                case "science": section_urls.add("https://www.foxnews.com/science"); break;
+                case "sports": section_urls.add("https://www.foxnews.com/sports"); break;
+                case "health": section_urls.add("https://www.foxnews.com/health"); break;
+                case "entertainment": section_urls.add("https://www.foxnews.com/entertainment"); break;
+                case "lifestyle": section_urls.add("https://www.foxnews.com/lifestyle"); break;
+                case "general":
+                    section_urls.add("https://www.foxnews.com/world");
+                    section_urls.add("https://www.foxnews.com");
+                    break;
+                default: section_urls.add("https://www.foxnews.com"); break;
+            }
 
+            if (current_search_query.length > 0) {
+                Idle.add(() => {
+                    set_label(@"No Fox News results for search: \"$(current_search_query)\"");
+                    return false;
+                });
+                return null;
+            }
+
+            Gee.ArrayList<Paperboy.NewsArticle> articles = ArticleScraper.scrape_section_urls(section_urls, "https://www.foxnews.com", current_search_query, session);
+            Idle.add(() => {
+                string category_name = FetcherUtils.category_display_name(current_category) + " — Fox News";
                 if (current_search_query.length > 0) {
+                    set_label(@"Search Results: \"$(current_search_query)\" in $(category_name)");
+                } else {
+                    set_label(category_name);
+                }
+                int ui_limit = 16;
+                int count = 0;
+                foreach (var article in articles) {
+                    if (count >= ui_limit) break;
                     Idle.add(() => {
-                        set_label(@"No Fox News results for search: \"$(current_search_query)\"");
+                        add_item(article.title, article.url, article.image_url, current_category, "Fox News", article.published);
                         return false;
                     });
-                    return null;
+                    count++;
                 }
-
-                Gee.ArrayList<Paperboy.NewsArticle> articles = ArticleScraper.scrape_section_urls(section_urls, "https://www.foxnews.com", current_search_query, session);
-                Idle.add(() => {
-                    string category_name = FetcherUtils.category_display_name(current_category) + " — Fox News";
-                    if (current_search_query.length > 0) {
-                        set_label(@"Search Results: \"$(current_search_query)\" in $(category_name)");
-                    } else {
-                        set_label(category_name);
-                    }
-                    int ui_limit = 16;
-                    int count = 0;
-                    foreach (var article in articles) {
-                        if (count >= ui_limit) break;
-                        Idle.add(() => {
-                            add_item(article.title, article.url, article.image_url, current_category, "Fox News", article.published);
-                            return false;
-                        });
-                        count++;
-                    }
-                    fetch_fox_article_images(articles, session, add_item, current_category);
-                    return false;
-                });
-            } catch (GLib.Error e) {
-                warning("Error parsing Fox News HTML: %s", e.message);
-                Idle.add(() => {
-                    set_label("Fox News: Error loading articles");
-                    return false;
-                });
-            }
+                fetch_fox_article_images(articles, session, add_item, current_category);
+                return false;
+            });
             return null;
         });
     }

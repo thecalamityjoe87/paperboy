@@ -61,7 +61,7 @@ public class FetchNewsController {
     // safely post article additions to the main loop. This avoids
     // passing per-fetch capturing delegates into worker threads which
     // can be freed while the worker still holds a reference.
-    public static void global_add_item(string title, string url, string? thumbnail, string category_id, string? source_name, string? published = null) {
+    public static void global_add_item(string title, string url, string? thumbnail, string category_id, string? source_name, string? published = null, string? snippet = null) {
         Idle.add(() => {
             var cur = FetchContext.current_context();
             if (cur == null || !cur.is_valid()) return false;
@@ -86,14 +86,14 @@ public class FetchNewsController {
             // Track articles for adaptive layout (regular categories only, not RSS feeds)
             if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
                 bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
-                                     !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
-                                     w.prefs != null && w.prefs.category != "saved";
+                !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
+                w.prefs != null && w.prefs.category != "saved";
                 if (is_regular_cat) {
                     layout_mgr.track_category_article(cur.seq);
                 }
             }
             if (article_mgr != null) {
-                article_mgr.add_item(title, url, thumbnail, category_id, source_name, published);
+                article_mgr.add_item(title, url, thumbnail, category_id, source_name, published, snippet);
             }
             return false;
         });
@@ -141,11 +141,11 @@ public class FetchNewsController {
         // For regular categories that may use adaptive layout, mark that we're awaiting
         // the adaptive layout check so the spinner stays visible until layout is finalized
         bool is_regular_category = !win.category_manager.is_frontpage_view() &&
-                                   !win.category_manager.is_topten_view() &&
-                                   !win.category_manager.is_myfeed_category() &&
-                                   !win.category_manager.is_local_news_view() &&
-                                   !win.category_manager.is_rssfeed_view() &&
-                                   win.prefs.category != "saved";
+        !win.category_manager.is_topten_view() &&
+        !win.category_manager.is_myfeed_category() &&
+        !win.category_manager.is_local_news_view() &&
+        !win.category_manager.is_rssfeed_view() &&
+        win.prefs.category != "saved";
         if (is_regular_category && win.loading_state != null) {
             win.loading_state.awaiting_adaptive_layout = true;
         }
@@ -630,25 +630,20 @@ public class FetchNewsController {
                 // selected Bloomberg-specific personalized categories.
                 var filtered = new Gee.ArrayList<NewsSource>();
                 foreach (var s in srcs) {
-                    try {
-                        bool include = false;
-                        if (is_myfeed_mode) {
-                            // If no personalized categories selected, be permissive
-                            if (myfeed_cats == null || myfeed_cats.length == 0) {
-                                include = true;
-                            } else {
-                                foreach (var cat in myfeed_cats) {
-                                    if (NewsService.supports_category(s, cat)) { include = true; break; }
-                                }
-                            }
+                    bool include = false;
+                    if (is_myfeed_mode) {
+                        // If no personalized categories selected, be permissive
+                        if (myfeed_cats == null || myfeed_cats.length == 0) {
+                            include = true;
                         } else {
-                            if (NewsService.supports_category(s, win.prefs.category)) include = true;
+                            foreach (var cat in myfeed_cats) {
+                                if (NewsService.supports_category(s, cat)) { include = true; break; }
+                            }
                         }
-                        if (include) filtered.add(s);
-                    } catch (GLib.Error e) {
-                        // If something goes wrong querying support, include the source
-                        filtered.add(s);
+                    } else {
+                        if (NewsService.supports_category(s, win.prefs.category)) include = true;
                     }
+                    if (include) filtered.add(s);
                 }
 
                 // If filtering removed all sources (unlikely), fall back to original
@@ -875,7 +870,7 @@ public class FetchNewsController {
                 // Get actual deduplicated count from ArticleStateStore
                 int actual_count = store.get_total_count_for_category(w.prefs.category);
                 stderr.printf("DEBUG: adaptive layout check - category=%s, actual_count=%d\n",
-                             w.prefs.category, actual_count);
+                w.prefs.category, actual_count);
 
                 if (actual_count < 15 && actual_count > 0) {
                     stderr.printf("DEBUG: triggering adaptive 2-hero layout (count=%d < 15)\n", actual_count);
@@ -1001,18 +996,14 @@ public class FetchNewsController {
         if (cached_articles.size > 0) {
             // Display cached articles immediately
             foreach (var article in cached_articles) {
-                try {
-                    FetchNewsController.global_add_item(
-                        article.title,
-                        article.url,
-                        article.thumbnail_url,
-                        "rssfeed:" + feed_url,
-                        feed_name,
-                        article.published_date
-                    );
-                } catch (GLib.Error e) {
-                    GLib.warning("Failed to add cached article: %s", e.message);
-                }
+                FetchNewsController.global_add_item(
+                    article.title,
+                    article.url,
+                    article.thumbnail_url,
+                    "rssfeed:" + feed_url,
+                    feed_name,
+                    article.published_date
+                );
             }
 
             // Update label to show we're displaying cached content
@@ -1183,7 +1174,7 @@ public class FetchNewsController {
         string current_search_query
     ) {
         if (win == null) return false;
-        try { if (!win.category_manager.is_local_news_view()) return false; } catch (GLib.Error e) { return false; }
+        if (!win.category_manager.is_local_news_view()) return false; 
 
         var prefs = NewsPreferences.get_instance();
         string display_city = (prefs.user_location_city != null && prefs.user_location_city.length > 0)
@@ -1243,18 +1234,14 @@ public class FetchNewsController {
         var cache = Paperboy.RssArticleCache.get_instance();
         var cached_articles = cache.get_cached_articles(url);
         foreach (var article in cached_articles) {
-            try {
-                FetchNewsController.global_add_item(
-                    article.title,
-                    article.url,
-                    article.thumbnail_url,
-                    category_id,
-                    city,
-                    article.published_date
-                );
-            } catch (GLib.Error e) {
-                GLib.warning("Failed to add cached local news article: %s", e.message);
-            }
+            FetchNewsController.global_add_item(
+                article.title,
+                article.url,
+                article.thumbnail_url,
+                category_id,
+                city,
+                article.published_date
+            );
         }
 
         RssFeedProcessor.fetch_rss_url(

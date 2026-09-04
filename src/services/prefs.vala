@@ -48,6 +48,7 @@ public class NewsPreferences : GLib.Object {
                 case "abc": return NewsSource.ABC_NEWS;
                 case "npr": return NewsSource.NPR;
                 case "fox": return NewsSource.FOX;
+                case "pbs": return NewsSource.PBS;
                 case "unknown": return NewsSource.UNKNOWN;
                 default: return NewsSource.GUARDIAN;
             }
@@ -64,6 +65,7 @@ public class NewsPreferences : GLib.Object {
                 case NewsSource.ABC_NEWS: source_str = "abc"; break;
                 case NewsSource.NPR: source_str = "npr"; break;
                 case NewsSource.FOX: source_str = "fox"; break;
+                case NewsSource.PBS: source_str = "pbs"; break;
                 case NewsSource.UNKNOWN: source_str = "unknown"; break;
                 default: source_str = "guardian"; break;
             }
@@ -235,12 +237,26 @@ public class NewsPreferences : GLib.Object {
                 foreach (var r in to_remove) preferred_sources.remove(r);
             }
         }
-        // If the user has enabled exactly one preferred source, keep the
-        // single-source `news_source` value in sync so code that still
-        // reads `prefs.news_source` will reflect the user's intent.
-        if (preferred_sources != null && preferred_sources.size == 1) {
-            string only = preferred_sources.get(0);
-            switch (only) {
+        // Keep the single-source `news_source` value (which drives regular
+        // category browsing, e.g. World News/Technology/etc.) in sync with
+        // the "Built-in News Sources" switches in Preferences.
+        //
+        // This used to require the WHOLE `preferred_sources` list - built-in
+        // switches AND every followed custom RSS feed combined - to shrink
+        // to exactly one entry before updating news_source. That's the list
+        // "My Feed" personalization also uses, so anyone with even one
+        // custom feed followed (nearly everyone, in practice) could never
+        // trigger it: switching a built-in source on in Preferences would
+        // silently do nothing to what regular category pages show, with no
+        // indication anything was wrong.
+        //
+        // Toggling a built-in source's switch ON is an unambiguous signal
+        // on its own - it doesn't need the rest of the list's state to
+        // confirm intent - so sync directly off `id`/`enabled` here instead,
+        // completely independent of how many custom feeds happen to be
+        // enabled.
+        if (enabled) {
+            switch (id) {
                 case "guardian": news_source = NewsSource.GUARDIAN; break;
                 case "reddit": news_source = NewsSource.REDDIT; break;
                 case "bbc": news_source = NewsSource.BBC; break;
@@ -250,7 +266,7 @@ public class NewsPreferences : GLib.Object {
                 case "abc": news_source = NewsSource.ABC_NEWS; break;
                 case "npr": news_source = NewsSource.NPR; break;
                 case "fox": news_source = NewsSource.FOX; break;
-                default: /* leave news_source unchanged for unknown ids */ break;
+                default: /* not a built-in source id (e.g. a "custom:" feed) - leave news_source unchanged */ break;
             }
         }
         // Persist changes to KeyFile
@@ -316,6 +332,13 @@ public class NewsPreferences : GLib.Object {
                 string[] bb = { "markets", "industries", "economics", "politics", "technology" };
                 foreach (var b in bb) if (b == cat) return true;
                 return false;
+            case NewsSource.PBS:
+                // PBS NewsHour has no technology, sports, or lifestyle desk -
+                // see NewsService.supports_category for the matching check
+                // used when actually fetching/displaying categories.
+                string[] pbs_cats = { "general", "us", "business", "science", "health", "entertainment", "politics", "myfeed", "local_news" };
+                foreach (var p in pbs_cats) if (p == cat) return true;
+                return false;
             default:
                 // Include "local_news" as a top-level, non-category view so
                 // users can select it even when operating in single-source
@@ -341,10 +364,8 @@ public class NewsPreferences : GLib.Object {
         
         // Detect whether a configuration already exists so callers can
         // present first-run flows (dialogs, onboarding) when appropriate.
-        try {
-            bool exists = GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS);
-            first_run = !exists;
-        } catch (GLib.Error e) { first_run = false; }
+        bool exists = GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS);
+        first_run = !exists;
         
         // Load user-generated data from KeyFile
         load_config();

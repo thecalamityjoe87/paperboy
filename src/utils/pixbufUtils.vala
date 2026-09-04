@@ -32,13 +32,8 @@ public class PixbufUtils {
         // Cairo ARGB surface clipped to a circle. Converting the surface
         // back to a pixbuf avoids accessing raw pixel memory directly.
         Gdk.Pixbuf scaled_pb;
-        try {
-            // Scale the source pixbuf to the desired output size
-            scaled_pb = src.scale_simple (out_size, out_size, Gdk.InterpType.BILINEAR);
-        } catch (GLib.Error e) {
-            // If scaling fails, fall back to original (best-effort)
-            scaled_pb = src;
-        }
+                // Scale the source pixbuf to the desired output size
+        scaled_pb = src.scale_simple (out_size, out_size, Gdk.InterpType.BILINEAR);
 
         // Create ARGB surface and draw a circular badge with the logo
         var surface = new ImageSurface(Format.ARGB32, out_size, out_size);
@@ -69,11 +64,7 @@ public class PixbufUtils {
         int inset = 4; // matches previous code that centered a 16x16 inside 24x24
         int inner_size = out_size - (inset * 2);
         Gdk.Pixbuf inner_pb;
-        try {
-            inner_pb = scaled_pb.scale_simple(inner_size, inner_size, Gdk.InterpType.BILINEAR);
-        } catch (GLib.Error e) {
-            inner_pb = scaled_pb;
-        }
+        inner_pb = scaled_pb.scale_simple(inner_size, inner_size, Gdk.InterpType.BILINEAR);
 
         int ox = inset;
         int oy = inset;
@@ -81,11 +72,7 @@ public class PixbufUtils {
         cr.paint();
 
         // Convert surface back to pixbuf
-        try {
-            var result_pb = Gdk.pixbuf_get_from_surface(surface, 0, 0, out_size, out_size);
-            return result_pb;
-        } catch (GLib.Error e) {
-            return null;
-        }
+        var result_pb = Gdk.pixbuf_get_from_surface(surface, 0, 0, out_size, out_size);
+        return result_pb;
     }
 }

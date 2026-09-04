@@ -32,18 +32,14 @@ public class PreviewCacheManager : GLib.Object {
     // from a cached pixbuf on-demand.
 
     public static Gdk.Texture? get_paintable(string key) {
-        try {
-            var ic = ImageCache.get_global();
-            var tex = ic.get_texture(key);
-            return tex;
-        } catch (GLib.Error e) { return null; }
+        var ic = ImageCache.get_global();
+        var tex = ic.get_texture(key);
+        return tex;
     }
 
     public static void set_pixbuf(string key, Gdk.Pixbuf pb) {
-        try {
-            var ic = ImageCache.get_global();
-            ic.set(key, pb);
-        } catch (GLib.Error e) { }
+        var ic = ImageCache.get_global();
+        ic.set(key, pb);
     }
 
     public static void clear_cache() {
@@ -51,14 +47,12 @@ public class PreviewCacheManager : GLib.Object {
         // this can cause excessive eviction when users switch categories.
         // The ImageCache LRU policy will manage memory; keep this as a
         // no-op to avoid thrashing.
-        try {
-            if (AppDebugger.debug_enabled()) {
-            }
-        } catch (GLib.Error e) { }
+        if (AppDebugger.debug_enabled()) {
+        }
     }
 
     public static void set_capacity(int c) {
-        try { ImageCache.get_global().set_capacity(c); } catch (GLib.Error e) { }
+        ImageCache.get_global().set_capacity(c); 
     }
 
     // Compatibility accessor used by older callsites. Returns the global

@@ -154,6 +154,25 @@ public class ArticleSnippetService : GLib.Object {
                     }
                 }
             string final = result;
+
+            // The live fetch above can come back empty for reasons that have
+            // nothing to do with whether a description actually exists -
+            // paywalls, bot-blocking, a slow/unreachable server, a transient
+            // network error. Rather than surface "No preview available" in
+            // that case, fall back to the feed's own <description>/<summary>
+            // text for this URL, already sitting in article_buffer at no
+            // extra fetch cost. The live fetch is tried first because it's
+            // generally fuller and fresher than the feed's own summary; this
+            // is strictly a fallback for when it fails.
+            if (final.length == 0 && article_buffer != null) {
+                foreach (var item in article_buffer) {
+                    if (item.url == url && item.snippet != null && item.snippet.length > 0) {
+                        final = item.snippet;
+                        break;
+                    }
+                }
+            }
+
             Idle.add(() => {
                 var article_snippet = new ArticleSnippet();
                 article_snippet.snippet = final;
@@ -204,9 +223,7 @@ public class ArticleSnippetService : GLib.Object {
                 string? url_display_name = null;
                 string? url_logo_url = null;
                 string? url_filename = null;
-                try {
-                    SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename);
-                } catch (GLib.Error e) { }
+                SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename);
                 if (url_display_name != null && url_display_name.length > 0) display_source = url_display_name;
             }
 
@@ -221,7 +238,7 @@ public class ArticleSnippetService : GLib.Object {
                         string host = UrlUtils.extract_host_from_url(url);
                         if (host != null && host.length > 0) {
                             string lowhost = host.down();
-                            if (lowhost.index_of("bbc") >= 0 || lowhost.index_of("guardian") >= 0 || lowhost.index_of("nytimes") >= 0 || lowhost.index_of("wsj") >= 0 || lowhost.index_of("bloomberg") >= 0 || lowhost.index_of("abcnews") >= 0 || lowhost.index_of("npr") >= 0 || lowhost.index_of("fox") >= 0) {
+                            if (lowhost.index_of("bbc") >= 0 || lowhost.index_of("guardian") >= 0 || lowhost.index_of("nytimes") >= 0 || lowhost.index_of("wsj") >= 0 || lowhost.index_of("bloomberg") >= 0 || lowhost.index_of("abcnews") >= 0 || lowhost.index_of("npr") >= 0 || lowhost.index_of("fox") >= 0 || lowhost.index_of("pbs") >= 0) {
                                 display_source = SourceUtils.get_source_name(article_src);
                             } else {
                                 display_source = UrlUtils.prettify_host(host);
@@ -260,31 +277,33 @@ public class ArticleSnippetService : GLib.Object {
                     explicit_source_name_out = explicit_source_name_out.substring(0, cat_idx);
                 }
 
-                try {
-                    string? meta_display_name = SourceMetadata.get_display_name_for_source(explicit_source_name_out);
-                    if (meta_display_name == null || meta_display_name.length == 0) {
-                        string? url_display_name = null;
-                        string? url_logo_url = null;
-                        string? url_filename = null;
-                        try { SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename); } catch (GLib.Error e) { }
-                        if (url_display_name != null && url_display_name.length > 0) meta_display_name = url_display_name;
-                    }
-                    if (meta_display_name != null && meta_display_name.length > 0) explicit_source_name_out = meta_display_name;
-                } catch (GLib.Error e) { }
+                string? meta_display_name = SourceMetadata.get_display_name_for_source(explicit_source_name_out);
+                if (meta_display_name == null || meta_display_name.length == 0) {
+                    string? url_display_name = null;
+                    string? url_logo_url = null;
+                    string? url_filename = null;
+                    try { SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename); } catch (GLib.Error e) { }
+                    if (url_display_name != null && url_display_name.length > 0) meta_display_name = url_display_name;
+                }
+                if (meta_display_name != null && meta_display_name.length > 0) explicit_source_name_out = meta_display_name;
             }
 
             if (article_buffer != null) {
                 foreach (var item in article_buffer) {
-                    if (item.url == url) {
-                        try {
-                            if (item.get_type().name() == "Paperboy.NewsArticle") {
-                                var na = (Paperboy.NewsArticle) item;
-                                if (na.published != null && na.published.length > 0) {
-                                    homepage_published_any_out = na.published;
-                                    break;
-                                }
-                            }
-                        } catch (GLib.Error e) { }
+                    // Every real article is a plain ArticleItem - this used
+                    // to only match a "Paperboy.NewsArticle" type that
+                    // nothing in the codebase actually constructs, so this
+                    // lookup silently never found anything for any source.
+                    // Most of the time that was masked by the article
+                    // pane's other date source (meta tags scraped from the
+                    // live-fetched article page) filling in instead: it's
+                    // only sources whose article pages don't expose a
+                    // recognizable published-date tag (PBS NewsHour has
+                    // none at all; WSJ is paywalled) where the date went
+                    // missing entirely.
+                    if (item.url == url && item.published != null && item.published.length > 0) {
+                        homepage_published_any_out = item.published;
+                        break;
                     }
                 }
             }

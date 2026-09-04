@@ -196,12 +196,8 @@ public class ShareDialog : GLib.Object {
             }
             
             if (icon_path != null) {
-                try {
-                    icon = new Gtk.Image.from_file(icon_path);
-                    icon.set_pixel_size(16);
-                } catch (GLib.Error e) {
-                    warning("Failed to load custom icon %s: %s", icon_path, e.message);
-                }
+                icon = new Gtk.Image.from_file(icon_path);
+                icon.set_pixel_size(16);
             }
         }
         

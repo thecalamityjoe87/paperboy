@@ -144,12 +144,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Set the window icon
         set_icon_name("paperboy");
         // Initialize GSettings for persistent geometry
-        try {
-            settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
-        } catch (GLib.Error e) {
-            warning("Failed to initialize GSettings: %s", e.message);
-            settings = null;
-        }
+        settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
 
         // Restore saved window size (use defaults from schema when missing)
         int saved_w = 1400;
@@ -244,19 +239,15 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Load CSS
     var css_provider = new Gtk.CssProvider();
-    try {
         string? css_path = DataPathsUtils.find_data_file("style.css");
-        if (css_path != null) {
-            css_provider.load_from_path(css_path);
-        }
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        );
-    } catch (GLib.Error e) {
-        warning("Failed to load CSS: %s", e.message);
+    if (css_path != null) {
+        css_provider.load_from_path(css_path);
     }
+    Gtk.StyleContext.add_provider_for_display(
+        Gdk.Display.get_default(),
+        css_provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    );
 
     // Build header bars for sidebar and content (will be added to NavigationPages)
     // Sidebar headerbar: refresh action leading, title centered, main menu
@@ -809,12 +800,8 @@ public class NewsWindow : Adw.ApplicationWindow {
             SportsScoresController.stop_polling();
 
             // Clean up old cached articles (frontpage and RSS feeds)
-            try {
-                var cache = Paperboy.RssArticleCache.get_instance();
-                cache.cleanup();
-            } catch (GLib.Error e) {
-                warning("Failed to cleanup article cache: %s", e.message);
-            }
+            var cache = Paperboy.RssArticleCache.get_instance();
+            cache.cleanup();
 
             // Persist maximized state and size (only when not maximized)
             if (settings != null) {

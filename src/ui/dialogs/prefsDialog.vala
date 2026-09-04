@@ -209,12 +209,10 @@ public class PrefsDialog : GLib.Object {
                 holder.changed = true;
 
                 // Refresh My Feed metadata to reflect new personalized categories
-                try {
-                    var win = parent as NewsWindow;
-                    if (win != null) {
-                        UnreadFetchService.refresh_myfeed_metadata(win);
-                    }
-                } catch (GLib.Error e) { }
+                var win = parent as NewsWindow;
+                if (win != null) {
+                    UnreadFetchService.refresh_myfeed_metadata(win);
+                }
             });
 
             crow.add_suffix(cswitch);
@@ -375,7 +373,7 @@ public class PrefsDialog : GLib.Object {
 
         // Add all built-in sources with favicons
         builtin_sources_group.add(create_source_row("The Guardian", "Independent global news and analysis", "guardian", "https://www.theguardian.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Reddit", "Community-driven news and trending topics", "reddit", "https://www.reddit.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("PBS NewsHour", "Neutral, in-depth public affairs reporting", "pbs", "https://www.pbs.org/favicon.ico"));
         builtin_sources_group.add(create_source_row("BBC News", "Comprehensive international and UK reporting", "bbc", "https://www.bbc.co.uk/favicon.ico"));
         builtin_sources_group.add(create_source_row("New York Times", "In-depth journalism across major categories", "nytimes", "https://www.nytimes.com/favicon.ico"));
         builtin_sources_group.add(create_source_row("Bloomberg", "Market, business, and finance coverage", "bloomberg", "https://www.bloomberg.com/favicon.ico"));

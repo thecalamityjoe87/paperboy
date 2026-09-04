@@ -40,6 +40,8 @@ public class SourceUtils {
                 return "NPR";
             case NewsSource.FOX:
                 return "Fox News";
+            case NewsSource.PBS:
+                return "PBS NewsHour";
             case NewsSource.UNKNOWN:
                 return "News";
             default:
@@ -78,6 +80,9 @@ public class SourceUtils {
             case NewsSource.WALL_STREET_JOURNAL:
                 icon_filename = "wsj-logo.png";
                 break;
+            case NewsSource.PBS:
+                icon_filename = "pbs-logo.png";
+                break;
             case NewsSource.UNKNOWN:
                 return null;
             default:
@@ -102,6 +107,7 @@ public class SourceUtils {
         if (low.index_of("abcnews") >= 0) return NewsSource.ABC_NEWS;
         if (low.index_of("npr.org") >= 0) return NewsSource.NPR;
         if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) return NewsSource.FOX;
+        if (low.index_of("pbs.org") >= 0) return NewsSource.PBS;
         // Unknown source - don't default to user preference to avoid incorrect branding
         return NewsSource.UNKNOWN;
     }

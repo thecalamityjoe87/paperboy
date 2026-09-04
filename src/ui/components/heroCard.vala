@@ -92,6 +92,27 @@ public class HeroCard : GLib.Object {
         image.set_size_request(-1, image_height);
         title_box.set_size_request(-1, text_height);
 
+        // The shared title_label defaults to a 4-line cap, sized for the
+        // side-by-side layout's much taller full-height text pane. Here the
+        // text pane is only the remaining 30% (120px at the default 400px
+        // card height), which at .hero-title's 2.1em/900-weight size barely
+        // fits two lines plus the time caption below. Left at 4, a longer
+        // title that actually wraps to 3-4 lines would request a natural
+        // height taller than text_height, and since title_box shared
+        // vexpand(true) with the image above it, that overflow then got
+        // redistributed unevenly whenever the surrounding row was stretched
+        // to match a taller sibling card - producing different white-space
+        // heights across Top Ten cards purely based on how long each title
+        // happened to be. Capping to 2 lines keeps the natural height (and
+        // so the whole card) consistent regardless of title length; longer
+        // titles ellipsize instead of growing the box.
+        title_label.set_lines(2);
+        // Don't let title_box compete with the image for any extra height a
+        // FlowBox row hands this card (e.g. to match a taller sibling) -
+        // all of that should go to the picture, keeping the text pane
+        // pinned to exactly text_height.
+        title_box.set_vexpand(false);
+
         var split = new Gtk.Grid();
         split.set_hexpand(true);
         split.set_vexpand(true);

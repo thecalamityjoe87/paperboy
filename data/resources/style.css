@@ -98,9 +98,9 @@
 
 /* Relative-time caption ("7h ago") under an article card's title. */
 .article-card-time {
-    font-size: 0.85em;
-    font-weight: 400;
-    color: alpha(currentColor, 0.6);
+    font-size: 0.80em;
+    font-weight: 450;
+    color: alpha(currentColor, 0.60);
 }
 
 /* Hero cards lay text and picture out side by side (40/60 split) instead
@@ -147,8 +147,8 @@
 /* Relative-time caption ("7h ago") bottom-left of a hero card/slide. */
 .hero-card .hero-card-time {
     font-size: 0.95em;
-    font-weight: 400;
-    color: alpha(currentColor, 0.6);
+    font-weight: 450;
+    color: alpha(currentColor, 0.60);
 }
 
 /* Small pill category chip overlaid on images */
@@ -817,6 +817,19 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     margin-left: 20px;
 }
 
+/* "99+" is the one count value whose last character isn't a digit. Every
+   other badge is right-anchored and hugs its own text tightly, which
+   already aligns them correctly on their last digit (e.g. "5" and "18"
+   share a ones-place column with no help needed) - but that same anchoring
+   puts 99+'s "+" in that shared column instead of its second "9". Pulling
+   just this badge slightly further right (into the small gap that's
+   otherwise just unused margin past where other badges sit) puts "99" back
+   in that shared column, with "+" hanging past it instead of occupying it.
+*/
+.unread-count-badge.unread-count-badge-overflow {
+    margin-right: -5px;
+}
+
 /* Menu item styling for context menus */
 .menu-item label {
     font-weight: normal;
@@ -896,7 +909,13 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 }
 
 .onboarding-source-tile {
-    background-color: white;
+    /* Was a hardcoded white, which stayed a stark white box even in dark
+       mode. These same bundled logo PNGs already sit directly on both
+       light and dark surfaces elsewhere in the app (card badges, sidebar
+       followed-source icons, Preferences source rows) with no dedicated
+       backdrop at all - just a subtle border/shadow (see .circular-logo) -
+       so a theme-aware card surface here is a safe, consistent choice. */
+    background-color: @card_bg_color;
     border-radius: 14px;
     padding: 14px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
@@ -926,6 +945,10 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .onboarding-source-tile-btn:hover .onboarding-source-tile {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.onboarding-theme-swatch {
+    border-radius: 8px;
 }
 
 .onboarding-source-badge {

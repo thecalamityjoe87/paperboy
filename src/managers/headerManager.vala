@@ -181,26 +181,21 @@ public class HeaderManager : GLib.Object {
             return false;
         }
 
-        try {
-            string key = "pixbuf::file:%s::%dx%d".printf(logo_path, 36, 36);
-            var pixbuf = ImageCache.get_global().get_or_load_file(key, logo_path, 36, 36);
+        string key = "pixbuf::file:%s::%dx%d".printf(logo_path, 36, 36);
+        var pixbuf = ImageCache.get_global().get_or_load_file(key, logo_path, 36, 36);
 
-            if (pixbuf == null || pixbuf.get_width() <= 1 || pixbuf.get_height() <= 1) {
-                return false;
-            }
-
-            var circular = create_circular_pixbuf(pixbuf, 36);
-            if (circular == null) return false;
-
-            var texture = Gdk.Texture.for_pixbuf(circular);
-            var img = new Gtk.Image.from_paintable(texture);
-            img.set_pixel_size(36);
-            category_icon_holder.append(img);
-            return true;
-        } catch (GLib.Error e) {
-            warning("HeaderManager: Error loading logo: %s", e.message);
+        if (pixbuf == null || pixbuf.get_width() <= 1 || pixbuf.get_height() <= 1) {
             return false;
         }
+
+        var circular = create_circular_pixbuf(pixbuf, 36);
+        if (circular == null) return false;
+
+        var texture = Gdk.Texture.for_pixbuf(circular);
+        var img = new Gtk.Image.from_paintable(texture);
+        img.set_pixel_size(36);
+        category_icon_holder.append(img);
+        return true;
     }
 
     private void set_fallback_rss_icon() {
@@ -339,33 +334,29 @@ public class HeaderManager : GLib.Object {
         if (logo_file != null) {
             string? logo_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", logo_file));
             if (logo_path != null) {
-                try {
-                    // Load or fetch cached scaled logo pixbuf
-                    // First try to determine target dims by probing original image.
-                    var orig_pb = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, 0, 0), logo_path, 0, 0);
-                    if (orig_pb != null) {
-                        int orig_width = orig_pb.get_width(); int orig_height = orig_pb.get_height();
-                        double aspect_ratio = orig_width > 0 && orig_height > 0 ? (double)orig_width / orig_height : 1.0;
-                        double scale_factor;
-                        if (aspect_ratio > 2.0 || aspect_ratio < 0.5) {
-                            scale_factor = double.min(40.0 / orig_width, 40.0 / orig_height);
-                        } else if (aspect_ratio > 1.5 || aspect_ratio < 0.67) {
-                            scale_factor = double.min(36.0 / orig_width, 36.0 / orig_height);
-                        } else {
-                            scale_factor = double.min(32.0 / orig_width, 32.0 / orig_height);
-                        }
-                        int new_width = (int)(orig_width * scale_factor);
-                        int new_height = (int)(orig_height * scale_factor);
-                        string key = "pixbuf::file:%s::%dx%d".printf(logo_path, new_width, new_height);
-                        var cached = ImageCache.get_global().get_or_load_file(key, logo_path, new_width, new_height);
-                        if (cached != null) {
-                            var texture = Gdk.Texture.for_pixbuf(cached);
-                            source_logo.set_from_paintable(texture);
-                            return;
-                        }
+                                // Load or fetch cached scaled logo pixbuf
+                // First try to determine target dims by probing original image.
+                var orig_pb = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(logo_path, 0, 0), logo_path, 0, 0);
+                if (orig_pb != null) {
+                    int orig_width = orig_pb.get_width(); int orig_height = orig_pb.get_height();
+                    double aspect_ratio = orig_width > 0 && orig_height > 0 ? (double)orig_width / orig_height : 1.0;
+                    double scale_factor;
+                    if (aspect_ratio > 2.0 || aspect_ratio < 0.5) {
+                        scale_factor = double.min(40.0 / orig_width, 40.0 / orig_height);
+                    } else if (aspect_ratio > 1.5 || aspect_ratio < 0.67) {
+                        scale_factor = double.min(36.0 / orig_width, 36.0 / orig_height);
+                    } else {
+                        scale_factor = double.min(32.0 / orig_width, 32.0 / orig_height);
                     }
-                } catch (GLib.Error e) {
-                    warning("Failed to load logo %s: %s", logo_path, e.message);
+                    int new_width = (int)(orig_width * scale_factor);
+                    int new_height = (int)(orig_height * scale_factor);
+                    string key = "pixbuf::file:%s::%dx%d".printf(logo_path, new_width, new_height);
+                    var cached = ImageCache.get_global().get_or_load_file(key, logo_path, new_width, new_height);
+                    if (cached != null) {
+                        var texture = Gdk.Texture.for_pixbuf(cached);
+                        source_logo.set_from_paintable(texture);
+                        return;
+                    }
                 }
             }
         }

@@ -71,45 +71,41 @@ public class GuardianFetcher : BaseFetcher {
                 return;
             }
 
-            try {
-                var data = root.get_object();
-                if (!data.has_member("response")) {
-                    return;
-                }
-                var response_obj = data.get_object_member("response");
-                if (!response_obj.has_member("results")) {
-                    return;
-                }
-                var results = response_obj.get_array_member("results");
-
-                string category_name = FetcherUtils.category_display_name(category);
-                Idle.add(() => {
-                    if (search_query.length > 0) {
-                        set_label(@"Search Results: \"$(search_query)\" in $(category_name) — The Guardian");
-                    } else {
-                        set_label(@"$(category_name) — The Guardian");
-                    }
-                    uint len = results.get_length();
-                    for (uint i = 0; i < len; i++) {
-                        var article = results.get_element(i).get_object();
-                        var title = article.has_member("webTitle") ? article.get_string_member("webTitle") : "No title";
-                        var article_url = article.has_member("webUrl") ? article.get_string_member("webUrl") : "";
-                        string? published = article.has_member("webPublicationDate") ? article.get_string_member("webPublicationDate") : null;
-                        string? thumbnail = null;
-                        if (article.has_member("fields")) {
-                            var fields = article.get_object_member("fields");
-                            if (fields.has_member("thumbnail")) {
-                                thumbnail = fields.get_string_member("thumbnail");
-                            }
-                        }
-                        add_item(title, article_url, thumbnail, category, "The Guardian", published);
-                    }
-                    fetch_guardian_article_images(results, session, add_item, category);
-                    return false;
-                });
-            } catch (GLib.Error e) {
-                warning("Guardian fetch error: %s", e.message);
+            var data = root.get_object();
+            if (!data.has_member("response")) {
+                return;
             }
+            var response_obj = data.get_object_member("response");
+            if (!response_obj.has_member("results")) {
+                return;
+            }
+            var results = response_obj.get_array_member("results");
+
+            string category_name = FetcherUtils.category_display_name(category);
+            Idle.add(() => {
+                if (search_query.length > 0) {
+                    set_label(@"Search Results: \"$(search_query)\" in $(category_name) — The Guardian");
+                } else {
+                    set_label(@"$(category_name) — The Guardian");
+                }
+                uint len = results.get_length();
+                for (uint i = 0; i < len; i++) {
+                    var article = results.get_element(i).get_object();
+                    var title = article.has_member("webTitle") ? article.get_string_member("webTitle") : "No title";
+                    var article_url = article.has_member("webUrl") ? article.get_string_member("webUrl") : "";
+                    string? published = article.has_member("webPublicationDate") ? article.get_string_member("webPublicationDate") : null;
+                    string? thumbnail = null;
+                    if (article.has_member("fields")) {
+                        var fields = article.get_object_member("fields");
+                        if (fields.has_member("thumbnail")) {
+                            thumbnail = fields.get_string_member("thumbnail");
+                        }
+                    }
+                    add_item(title, article_url, thumbnail, category, "The Guardian", published);
+                }
+                fetch_guardian_article_images(results, session, add_item, category);
+                return false;
+            });
         });
     }
 

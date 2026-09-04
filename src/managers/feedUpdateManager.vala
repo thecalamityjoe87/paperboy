@@ -137,7 +137,7 @@ public class FeedUpdateManager : GLib.Object {
             }
 
             GLib.print("Checking %d RSS feeds for updates (interval: %lld seconds)...\n",
-                      sources.size, update_interval);
+            sources.size, update_interval);
 
             int updated_count = 0;
             int skipped_count = 0;
@@ -411,41 +411,37 @@ public class FeedUpdateManager : GLib.Object {
     private string extract_feed_signature(string feed_xml) {
         var signature = new StringBuilder();
         
-        try {
-            Xml.Doc* doc = Xml.Parser.parse_doc(feed_xml);
-            if (doc == null) {
-                return "";
-            }
-            
-            Xml.Node* root = doc->get_root_element();
-            if (root == null) {
-                delete doc;
-                return "";
-            }
-            
-            // Find all <item> or <entry> elements
-            for (Xml.Node* node = root->children; node != null; node = node->next) {
-                if (node->type != Xml.ElementType.ELEMENT_NODE) continue;
-                
-                // Handle RSS <channel> wrapper
-                if (node->name == "channel") {
-                    for (Xml.Node* item = node->children; item != null; item = item->next) {
-                        if (item->type != Xml.ElementType.ELEMENT_NODE) continue;
-                        if (item->name == "item") {
-                            extract_item_signature(item, signature);
-                        }
+        Xml.Doc* doc = Xml.Parser.parse_doc(feed_xml);
+        if (doc == null) {
+            return "";
+        }
+
+        Xml.Node* root = doc->get_root_element();
+        if (root == null) {
+            delete doc;
+            return "";
+        }
+
+        // Find all <item> or <entry> elements
+        for (Xml.Node* node = root->children; node != null; node = node->next) {
+            if (node->type != Xml.ElementType.ELEMENT_NODE) continue;
+
+            // Handle RSS <channel> wrapper
+            if (node->name == "channel") {
+                for (Xml.Node* item = node->children; item != null; item = item->next) {
+                    if (item->type != Xml.ElementType.ELEMENT_NODE) continue;
+                    if (item->name == "item") {
+                        extract_item_signature(item, signature);
                     }
                 }
-                // Handle Atom <entry> elements directly under root
-                else if (node->name == "entry") {
-                    extract_item_signature(node, signature);
-                }
             }
-            
-            delete doc;
-        } catch (Error e) {
-            GLib.warning("Error extracting feed signature: %s", e.message);
+            // Handle Atom <entry> elements directly under root
+            else if (node->name == "entry") {
+                extract_item_signature(node, signature);
+            }
         }
+
+        delete doc;
         
         return signature.str;
     }
@@ -624,14 +620,9 @@ public class FeedUpdateManager : GLib.Object {
 
         // Check each candidate and return the first executable match
         foreach (string c in candidates) {
-            try {
-                if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
-                GLib.message("Using html2rss at: %s", c);
-                return c;
-                }
-            } catch (GLib.Error e) {
-                // Not found
-                AppDebugger.log_if_enabled("/tmp/paperboy-debug.log", "html2rss not found in candidates");
+            if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
+            GLib.message("Using html2rss at: %s", c);
+            return c;
             }
         }
 

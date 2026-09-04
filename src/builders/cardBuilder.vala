@@ -54,6 +54,7 @@ public class CardBuilder : GLib.Object {
             case NewsSource.ABC_NEWS: return "ABC News";
             case NewsSource.NPR: return "NPR";
             case NewsSource.FOX: return "Fox News";
+            case NewsSource.PBS: return "PBS NewsHour";
             default: return "News";
         }
     }
@@ -69,6 +70,7 @@ public class CardBuilder : GLib.Object {
             case NewsSource.NPR: return "npr-logo.png";
             case NewsSource.FOX: return "foxnews-logo.png";
             case NewsSource.WALL_STREET_JOURNAL: return "wsj-logo.png";
+            case NewsSource.PBS: return "pbs-logo.png";
             default: return null;
         }
     }
@@ -472,6 +474,7 @@ public class CardBuilder : GLib.Object {
             else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
             else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
             else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
+            else if (low.index_of("pbs") >= 0) resolved = NewsSource.PBS;
 
             // Only use bundled badge if we have a positive match
             if (resolved != null) {

@@ -25,6 +25,13 @@ public class ArticleItem : GLib.Object {
     public string category_id { get; set; }
     public string? source_name { get; set; }
     public string? published { get; set; }
+    // The feed's own <description>/<summary>/<content:encoded> text, stripped
+    // to plain text at parse time. Used as a fallback by ArticleSnippetService
+    // when live-fetching the article's own page fails or comes back empty
+    // (paywalls, bot-blocking, transient network errors) - the feed already
+    // provided a real (if shorter) summary at no extra fetch cost, better
+    // than showing "No preview available" for something we already have.
+    public string? snippet { get; set; }
 
     public ArticleItem(string title, string url, string? thumbnail_url, string category_id, string? source_name = null, string? published = null) {
         this.title = title;

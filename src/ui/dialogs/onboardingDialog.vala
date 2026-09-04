@@ -179,36 +179,152 @@ public class OnboardingDialog : GLib.Object {
         subtitle.add_css_class("dim-label");
         box.append(subtitle);
 
-        var button_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        button_row.add_css_class("linked");
-        button_row.set_halign(Gtk.Align.CENTER);
-        button_row.set_margin_top(16);
+        // Three tappable preview swatches rather than a dropdown or plain
+        // text toggle buttons - GNOME's own onboarding/first-run surfaces
+        // (GNOME Tour, Initial Setup) favor a small set of large, directly
+        // tappable options for a single prominent decision like this one,
+        // with a miniature rendered preview doing the explaining instead of
+        // a text label alone. A dropdown remains the right call in
+        // Preferences (prefsDialog.vala's Theme row) - that's a dense list
+        // of settings rows where compactness matters more than directness.
+        var swatch_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 16);
+        swatch_row.set_halign(Gtk.Align.CENTER);
+        swatch_row.set_margin_top(20);
 
-        var system_btn = new Gtk.ToggleButton.with_label("Follow System");
-        var light_btn = new Gtk.ToggleButton.with_label("Light");
-        light_btn.set_group(system_btn);
-        var dark_btn = new Gtk.ToggleButton.with_label("Dark");
-        dark_btn.set_group(system_btn);
+        // One shared list of this page's badges so selecting one tile can
+        // un-check the other two - these three tiles are mutually
+        // exclusive (a radio group), unlike the source-picker page's
+        // same-looking tiles, which are independent toggles.
+        var badges = new Gee.ArrayList<Gtk.Widget>();
+        var variants = new Gee.ArrayList<string>();
 
-        switch (prefs.color_scheme) {
-            case "light": light_btn.set_active(true); break;
-            case "dark": dark_btn.set_active(true); break;
-            default: system_btn.set_active(true); break;
+        Gtk.Widget make_theme_tile(string variant, string title_text) {
+            var tile_frame = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
+            tile_frame.add_css_class("onboarding-source-tile");
+            tile_frame.set_halign(Gtk.Align.CENTER);
+            tile_frame.set_valign(Gtk.Align.CENTER);
+
+            var swatch = new Gtk.Picture();
+            swatch.set_content_fit(Gtk.ContentFit.CONTAIN);
+            swatch.set_size_request(108, 72);
+            swatch.set_paintable(render_theme_swatch(variant));
+            // Round just the swatch artwork's own corners, matching the
+            // source-picker tiles' logo treatment.
+            swatch.add_css_class("onboarding-theme-swatch");
+            swatch.set_overflow(Gtk.Overflow.HIDDEN);
+            tile_frame.append(swatch);
+
+            var label = new Gtk.Label(title_text);
+            label.add_css_class("caption");
+            tile_frame.append(label);
+
+            var badge = new Gtk.Image.from_icon_name("object-select-symbolic");
+            badge.add_css_class("onboarding-source-badge");
+            badge.set_pixel_size(11);
+            badge.set_halign(Gtk.Align.END);
+            badge.set_valign(Gtk.Align.START);
+            badge.set_margin_end(-4);
+            badge.set_margin_top(-4);
+            badge.set_visible(prefs.color_scheme == variant || (prefs.color_scheme == "" && variant == "system"));
+
+            tile_frame.set_overflow(Gtk.Overflow.HIDDEN);
+
+            var btn = new Gtk.Button();
+            btn.add_css_class("onboarding-source-tile-btn");
+            btn.set_child(tile_frame);
+            btn.set_tooltip_text(title_text);
+            btn.set_halign(Gtk.Align.CENTER);
+            btn.set_valign(Gtk.Align.CENTER);
+            btn.set_hexpand(false);
+            btn.set_vexpand(false);
+            btn.clicked.connect(() => {
+                // Applying immediately (rather than waiting for "Get
+                // Started") gives the user a live preview of the theme
+                // against the rest of the onboarding dialog itself.
+                prefs.color_scheme = variant;
+                for (int i = 0; i < badges.size; i++) {
+                    badges.get(i).set_visible(variants.get(i) == variant);
+                }
+            });
+
+            var overlay = new Gtk.Overlay();
+            overlay.set_child(btn);
+            overlay.add_overlay(badge);
+            overlay.set_halign(Gtk.Align.CENTER);
+            overlay.set_valign(Gtk.Align.CENTER);
+            overlay.set_hexpand(false);
+            overlay.set_vexpand(false);
+
+            badges.add(badge);
+            variants.add(variant);
+
+            return overlay;
         }
 
-        // Applying immediately (rather than waiting for "Get Started")
-        // gives the user a live preview of the theme against the rest of
-        // the onboarding dialog itself.
-        system_btn.toggled.connect(() => { if (system_btn.get_active()) prefs.color_scheme = "system"; });
-        light_btn.toggled.connect(() => { if (light_btn.get_active()) prefs.color_scheme = "light"; });
-        dark_btn.toggled.connect(() => { if (dark_btn.get_active()) prefs.color_scheme = "dark"; });
+        swatch_row.append(make_theme_tile("system", "Follow System"));
+        swatch_row.append(make_theme_tile("light", "Light"));
+        swatch_row.append(make_theme_tile("dark", "Dark"));
 
-        button_row.append(system_btn);
-        button_row.append(light_btn);
-        button_row.append(dark_btn);
-        box.append(button_row);
+        box.append(swatch_row);
 
         return box;
+    }
+
+    // Draws a miniature mockup of what the app looks like under `variant`
+    // ("light", "dark", or "system" - a light/dark split, the conventional
+    // way auto/follow-system options are depicted) - a sidebar strip plus a
+    // couple of card blocks and one accent-colored bar, echoing Paperboy's
+    // own actual layout rather than a generic swatch.
+    private static Gdk.Texture render_theme_swatch(string variant) {
+        int w = 108, h = 72;
+        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, w, h);
+        var cr = new Cairo.Context(surface);
+
+        void paint_variant(string v, double x0, double x1) {
+            bool dark = v == "dark";
+            double bg = dark ? 0.15 : 1.0;
+            double sidebar = dark ? 0.20 : 0.93;
+            double card = dark ? 0.26 : 0.85;
+
+            cr.save();
+            cr.rectangle(x0, 0, x1 - x0, h);
+            cr.clip();
+
+            cr.set_source_rgb(bg, bg, bg);
+            cr.rectangle(x0, 0, x1 - x0, h);
+            cr.fill();
+
+            // Sidebar strip along the left edge of this half/whole.
+            double sidebar_w = (x1 - x0) * 0.32;
+            cr.set_source_rgb(sidebar, sidebar, sidebar);
+            cr.rectangle(x0, 0, sidebar_w, h);
+            cr.fill();
+
+            // A short accent-colored bar standing in for a hero/highlight.
+            cr.set_source_rgb(0.20, 0.45, 0.85);
+            cr.rectangle(x0 + sidebar_w + 6, 8, (x1 - x0) - sidebar_w - 12, 10);
+            cr.fill();
+
+            // Two card blocks standing in for article cards.
+            cr.set_source_rgb(card, card, card);
+            cr.rectangle(x0 + sidebar_w + 6, 24, (x1 - x0) - sidebar_w - 12, 16);
+            cr.fill();
+            cr.rectangle(x0 + sidebar_w + 6, 46, (x1 - x0) - sidebar_w - 12, 16);
+            cr.fill();
+
+            cr.restore();
+        }
+
+        if (variant == "system") {
+            paint_variant("dark", 0, w / 2.0);
+            paint_variant("light", w / 2.0, w);
+        } else {
+            paint_variant(variant, 0, w);
+        }
+
+        surface.flush();
+        var pixbuf = Gdk.pixbuf_get_from_surface(surface, 0, 0, w, h);
+        return Gdk.Texture.for_pixbuf(pixbuf);
     }
 
     private static Gtk.Widget build_sources_page(NewsPreferences prefs) {
@@ -333,7 +449,7 @@ public class OnboardingDialog : GLib.Object {
         grid.append(make_tile("ABC News", "abc", "abc-logo.png"));
         grid.append(make_tile("NPR", "npr", "npr-logo.png"));
         grid.append(make_tile("Fox News", "fox", "foxnews-logo.png"));
-        grid.append(make_tile("Reddit", "reddit", "reddit-logo.png"));
+        grid.append(make_tile("PBS NewsHour", "pbs", "pbs-logo.png"));
 
         scroller.set_child(grid);
         box.append(scroller);

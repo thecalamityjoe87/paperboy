@@ -27,6 +27,7 @@ public enum NewsSource {
     ABC_NEWS,
     NPR,
     FOX,
+    PBS,
     UNKNOWN
 }
 
@@ -77,6 +78,9 @@ public class NewsService {
             case NewsSource.FOX:
                 fetcher = new FoxFetcher(set_label, clear_items, add_item);
                 break;
+            case NewsSource.PBS:
+                fetcher = new PbsFetcher(set_label, clear_items, add_item);
+                break;
         }
 
         if (fetcher != null) {
@@ -104,6 +108,8 @@ public class NewsService {
                 return "NPR";
             case NewsSource.FOX:
                 return "Fox News";
+            case NewsSource.PBS:
+                return "PBS NewsHour";
             default:
                 return "News";
         }
@@ -126,6 +132,20 @@ public class NewsService {
                     return true;
                 default:
                     return false;
+            }
+        }
+
+        // PBS NewsHour has no technology, sports, or lifestyle desk -
+        // PbsFetcher falls back to World News for those, which would be
+        // confusing to show under those category labels specifically.
+        if (source == NewsSource.PBS) {
+            switch (category) {
+                case "technology":
+                case "sports":
+                case "lifestyle":
+                    return false;
+                default:
+                    return true;
             }
         }
         return true;

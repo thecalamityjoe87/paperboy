@@ -191,7 +191,11 @@ public class stripHtmlUtils {
         return out_str.strip();
     }
 
-    // Safer attribute extractor (handles whitespace)
+    // Safer attribute extractor (handles whitespace). Also handles unquoted
+    // attribute values (e.g. <meta name=description content="...">) - valid
+    // HTML5 as long as the value has no whitespace/quotes/'>' in it, and used
+    // in the wild (usatoday.com serves its name/property meta attributes
+    // this way, though content= there happens to still be quoted).
     public static string extract_attr(string tag, string attr) {
         int ai = tag.index_of(attr + "=");
         if (ai < 0) return "";
@@ -199,7 +203,7 @@ public class stripHtmlUtils {
         ai += attr.length + 1;
         if (ai >= tag.length) return "";
 
-        // Skip whitespace before the quote
+        // Skip whitespace before the value
         int q = ai;
         while (q < tag.length && (tag[q] == ' ' || tag[q] == '\t'))
             q++;
@@ -207,13 +211,21 @@ public class stripHtmlUtils {
         if (q >= tag.length) return "";
 
         char quote = tag[q];
-        if (quote != '"' && quote != '\'') return "";
+        if (quote != '"' && quote != '\'') {
+            // Unquoted value: runs until whitespace, '>' or '/' (self-close).
+            int start = q;
+            int end = start;
+            while (end < tag.length && tag[end] != ' ' && tag[end] != '\t' && tag[end] != '>' && tag[end] != '/')
+                end++;
+            if (end <= start) return "";
+            return tag.substring(start, end - start);
+        }
 
-        int start = q + 1;
-        int end = tag.index_of_char(quote, start);
-        if (end <= start) return "";
+        int qstart = q + 1;
+        int qend = tag.index_of_char(quote, qstart);
+        if (qend <= qstart) return "";
 
-        return tag.substring(start, end - start);
+        return tag.substring(qstart, qend - qstart);
     }
 
     public static string extract_snippet_from_html(string raw_html) {
@@ -231,12 +243,20 @@ public class stripHtmlUtils {
             if (end < 0) break;
 
             string tag = html.substring(pos, end - pos + 1);
-            string tl  = lower.substring(pos, end - pos + 1);
 
+            // Compare the tag's actual name/property attribute value rather
+            // than substring-matching a quoted literal - some sites (e.g.
+            // usatoday.com) serve these unquoted (<meta name=description
+            // ...>, valid HTML5), which a quoted substring search misses
+            // entirely and used to silently fall through to the <p> fallback
+            // below, picking up nav/boilerplate text instead of the real
+            // description.
+            string name_attr = extract_attr(tag, "name").down();
+            string prop_attr = extract_attr(tag, "property").down();
             bool matches =
-                tl.index_of("property=\"og:description\"") >= 0 ||
-                tl.index_of("name=\"description\"") >= 0 ||
-                tl.index_of("name=\"twitter:description\"") >= 0;
+                prop_attr == "og:description" ||
+                name_attr == "description" ||
+                name_attr == "twitter:description";
 
             if (matches) {
                 string content = extract_attr(tag, "content");
