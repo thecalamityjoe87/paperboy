@@ -49,6 +49,20 @@ public class FetchContext : GLib.Object {
     public string? expected_category { get; private set; default = null; }
 
     /**
+     * Whether this fetch is racing more than one source concurrently for the
+     * same view (e.g. several preferred sources, or Sports' always-on
+     * backend supplement alongside the per-source fetch). When true,
+     * FetchNewsController briefly buffers incoming articles and flushes them
+     * newest-first instead of streaming them straight through in whatever
+     * order each source's network request happens to complete - otherwise a
+     * fast-but-stale source can plant its oldest article as the hero simply
+     * because it answered before a fresher source did. Set once, right after
+     * begin_new(), by the caller that knows how many sources it's about to
+     * query.
+     */
+    public bool is_multi_source { get; set; default = false; }
+
+    /**
      * Private constructor - use begin_new() to create contexts.
      */
     private FetchContext(uint sequence, NewsWindow? w) {

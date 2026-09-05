@@ -65,12 +65,19 @@ public class ArticleStateStore : GLib.Object {
         public string? thumbnail;
         public string? source;
         public int64 saved_timestamp;
+        // The original article's own published date (as given by its feed/
+        // API at the time it was saved), used to show the same "X ago" time
+        // caption on saved cards as everywhere else in the app. Null for
+        // articles saved before this field existed, or where the source
+        // never gave a published date to begin with.
+        public string? published;
 
-        public SavedArticle(string url, string title, string? thumbnail, string? source) {
+        public SavedArticle(string url, string title, string? thumbnail, string? source, string? published = null) {
             this.url = url;
             this.title = title;
             this.thumbnail = thumbnail;
             this.source = source;
+            this.published = published;
             this.saved_timestamp = GLib.get_real_time() / 1000000; // Unix timestamp
         }
     }
@@ -791,16 +798,16 @@ public class ArticleStateStore : GLib.Object {
     }
 
     // Saved articles management
-    public void save_article(string url, string title, string? thumbnail = null, string? source = null) {
+    public void save_article(string url, string title, string? thumbnail = null, string? source = null, string? published = null) {
         // Persist saved metadata to database and ensure the article is registered under the
         // "saved" category for unread-count tracking.
         saved_lock.lock();
-        var article = new SavedArticle(url, title, thumbnail, source);
+        var article = new SavedArticle(url, title, thumbnail, source, published);
         saved_articles.set(url, article);
         saved_lock.unlock();
 
         // Persist to database
-        save_article_to_db(url, title, thumbnail, source, GLib.get_real_time() / 1000000);
+        save_article_to_db(url, title, thumbnail, source, published, GLib.get_real_time() / 1000000);
 
         // Register the saved article for category-based unread tracking. Do
         // this outside of the saved_lock to avoid lock ordering issues.
@@ -965,7 +972,8 @@ public class ArticleStateStore : GLib.Object {
                     title TEXT NOT NULL,
                     thumbnail TEXT,
                     source TEXT,
-                    saved_timestamp INTEGER NOT NULL
+                    saved_timestamp INTEGER NOT NULL,
+                    published TEXT
                 );
             """;
 
@@ -973,13 +981,19 @@ public class ArticleStateStore : GLib.Object {
             if (rc != Sqlite.OK) {
                 stderr.printf("Failed to create saved articles table: %s\n", saved_db.errmsg());
             }
+
+            // Existing databases predate the "published" column above (added
+            // so saved cards can show the same "X ago" caption as every
+            // other card) - add it if it's not there yet. Ignore the error
+            // when the column already exists.
+            saved_db.exec("ALTER TABLE saved_articles ADD COLUMN published TEXT;", null, null);
         } finally {
             saved_db_lock.unlock();
         }
     }
 
     // Save article to database
-    private void save_article_to_db(string url, string title, string? thumbnail, string? source, int64 timestamp) {
+    private void save_article_to_db(string url, string title, string? thumbnail, string? source, string? published, int64 timestamp) {
         saved_db_lock.lock();
         if (saved_db == null) {
             saved_db_lock.unlock();
@@ -987,8 +1001,8 @@ public class ArticleStateStore : GLib.Object {
         }
 
         string sql = """
-            INSERT OR REPLACE INTO saved_articles (url, title, thumbnail, source, saved_timestamp)
-            VALUES (?, ?, ?, ?, ?);
+            INSERT OR REPLACE INTO saved_articles (url, title, thumbnail, source, saved_timestamp, published)
+            VALUES (?, ?, ?, ?, ?, ?);
         """;
 
         Sqlite.Statement stmt;
@@ -1004,6 +1018,7 @@ public class ArticleStateStore : GLib.Object {
         stmt.bind_text(3, thumbnail);
         stmt.bind_text(4, source);
         stmt.bind_int64(5, timestamp);
+        stmt.bind_text(6, published);
 
         rc = stmt.step();
         if (rc != Sqlite.DONE) {
@@ -1045,7 +1060,7 @@ public class ArticleStateStore : GLib.Object {
         try {
             if (saved_db == null) return;
 
-            string sql = "SELECT url, title, thumbnail, source, saved_timestamp FROM saved_articles ORDER BY saved_timestamp DESC;";
+            string sql = "SELECT url, title, thumbnail, source, saved_timestamp, published FROM saved_articles ORDER BY saved_timestamp DESC;";
 
             Sqlite.Statement stmt;
             int rc = saved_db.prepare_v2(sql, -1, out stmt);
@@ -1062,8 +1077,9 @@ public class ArticleStateStore : GLib.Object {
                     string? thumbnail = stmt.column_text(2);
                     string? source = stmt.column_text(3);
                     int64 timestamp = stmt.column_int64(4);
+                    string? published = stmt.column_text(5);
 
-                    var article = new SavedArticle(url, title, thumbnail, source);
+                    var article = new SavedArticle(url, title, thumbnail, source, published);
                     article.saved_timestamp = timestamp;
                     saved_articles.set(url, article);
                 }
@@ -1144,8 +1160,11 @@ public class ArticleStateStore : GLib.Object {
                             timestamp = article_obj.get_int_member("saved_timestamp");
                         }
 
-                        // Save to database
-                        save_article_to_db(url, title, thumbnail, source, timestamp);
+                        // Save to database. The old JSON format never
+                        // recorded the article's published date, so this
+                        // migrated entry won't have a time caption until
+                        // re-saved - there's no original value to recover.
+                        save_article_to_db(url, title, thumbnail, source, null, timestamp);
                         migrated_count++;
                     }
                 });

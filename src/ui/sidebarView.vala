@@ -569,6 +569,16 @@ public class SidebarView : GLib.Object {
         }
         label.set_valign(Gtk.Align.CENTER);
         label.set_halign(Gtk.Align.END);
+        // halign only positions the label WIDGET within its allocation; the
+        // TEXT inside that widget defaults to centered (xalign 0.5). That's
+        // invisible whenever content fills the badge's min-width, but a
+        // single-digit count ("8") is narrower than the 20px min-width, so
+        // the leftover space gets split evenly instead of landing all on
+        // the left - visibly shifting single-digit badges left of where
+        // every 2+-digit badge's last digit lands. Anchoring the text
+        // itself to the right edge makes every count - 1 digit or several -
+        // share the same ones-place column, with no per-row margin needed.
+        label.set_xalign(1.0f);
         label.set_data("unread_count", count);
         label.set_data("is_placeholder", false);
         label.set_visible(badge_type_enabled(is_source, item_id) && count > 0);

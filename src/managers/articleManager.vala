@@ -611,7 +611,7 @@ namespace Managers {
                                 }
                             }
                         } else {
-                            window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name);
+                            window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
                             request_show_toast("Added article to saved");
                             if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
                             // Visual vacuum effect: shrink the card and pulse the Saved badge
@@ -896,7 +896,7 @@ namespace Managers {
                         }
                     }
                 } else {
-                    window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name);
+                    window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
                     request_show_toast("Added article to saved");
                     // Visual vacuum effect: shrink the card and pulse the Saved badge
                     if (window.animation_manager != null) {

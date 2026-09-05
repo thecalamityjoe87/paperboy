@@ -17,6 +17,128 @@
 
 public class FetchNewsController {
 
+    // Buffering for multi-source fetches (see FetchContext.is_multi_source):
+    // instead of handing each article straight to ArticleManager as its
+    // source's network request completes - which orders the view by
+    // "whichever source answered first" rather than by how recent the
+    // articles actually are - we hold items in a short-lived per-fetch
+    // buffer, keyed by FetchContext.seq, and flush them newest-first once
+    // things go quiet (or a max wait elapses, so one slow source can't stall
+    // the whole view indefinitely). Any articles arriving after a seq has
+    // already flushed stream straight through unbuffered, same as before.
+    private const uint MULTI_SOURCE_DEBOUNCE_MS = 350;
+    private const uint MULTI_SOURCE_MAX_WAIT_MS = 2500;
+    // NOTE: Static Gee collections must be initialized lazily in Vala - a
+    // field initializer here never runs since FetchNewsController is never
+    // instantiated (only called through static methods), which left these
+    // null and crashed the first Gee call against them.
+    private static Gee.HashMap<uint, Gee.ArrayList<ArticleItem>>? _multi_source_buffers = null;
+    private static Gee.HashMap<uint, uint>? _multi_source_timeouts = null;
+    private static Gee.HashMap<uint, int64?>? _multi_source_started_at = null;
+    private static Gee.HashSet<uint>? _multi_source_flushed = null;
+
+    private static Gee.HashMap<uint, Gee.ArrayList<ArticleItem>> multi_source_buffers() {
+        if (_multi_source_buffers == null) _multi_source_buffers = new Gee.HashMap<uint, Gee.ArrayList<ArticleItem>>();
+        return _multi_source_buffers;
+    }
+    private static Gee.HashMap<uint, uint> multi_source_timeouts() {
+        if (_multi_source_timeouts == null) _multi_source_timeouts = new Gee.HashMap<uint, uint>();
+        return _multi_source_timeouts;
+    }
+    private static Gee.HashMap<uint, int64?> multi_source_started_at() {
+        if (_multi_source_started_at == null) _multi_source_started_at = new Gee.HashMap<uint, int64?>();
+        return _multi_source_started_at;
+    }
+    private static Gee.HashSet<uint> multi_source_flushed() {
+        if (_multi_source_flushed == null) _multi_source_flushed = new Gee.HashSet<uint>();
+        return _multi_source_flushed;
+    }
+
+    // Shared tail of global_add_item(): track this article for adaptive
+    // layout, then hand it to ArticleManager. Split out so the buffered
+    // (multi-source) and direct (single-source) paths can both funnel
+    // through the same logic.
+    private static void dispatch_item(NewsWindow w, FetchContext cur, string title, string url, string? thumbnail, string category_id, string? source_name, string? published, string? snippet) {
+        var cat_mgr = w.category_manager;
+        var layout_mgr = w.layout_manager;
+        var article_mgr = w.article_manager;
+
+        if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
+            bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
+            !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
+            w.prefs != null && w.prefs.category != "saved";
+            if (is_regular_cat) {
+                layout_mgr.track_category_article(cur.seq);
+            }
+        }
+        if (article_mgr != null) {
+            article_mgr.add_item(title, url, thumbnail, category_id, source_name, published, snippet);
+        }
+    }
+
+    // Queue one article for a multi-source fetch and (re)schedule its
+    // debounced flush. The debounce window resets on every new arrival so a
+    // burst of near-simultaneous responses gets sorted together, but is
+    // capped by MULTI_SOURCE_MAX_WAIT_MS from the first item so one
+    // unusually slow source can't hold up the whole view.
+    private static void buffer_multi_source_item(uint seq, string title, string url, string? thumbnail, string category_id, string? source_name, string? published, string? snippet) {
+        if (!multi_source_buffers().has_key(seq)) {
+            multi_source_buffers().set(seq, new Gee.ArrayList<ArticleItem>());
+            multi_source_started_at().set(seq, GLib.get_monotonic_time());
+        }
+        var item = new ArticleItem(title, url, thumbnail, category_id, source_name, published);
+        item.snippet = snippet;
+        multi_source_buffers().get(seq).add(item);
+
+        if (multi_source_timeouts().has_key(seq)) {
+            GLib.Source.remove(multi_source_timeouts().get(seq));
+            multi_source_timeouts().unset(seq);
+        }
+
+        int64 elapsed_ms = (GLib.get_monotonic_time() - multi_source_started_at().get(seq)) / 1000;
+        int64 remaining_ms = MULTI_SOURCE_MAX_WAIT_MS - elapsed_ms;
+        uint delay = (remaining_ms > MULTI_SOURCE_DEBOUNCE_MS) ? MULTI_SOURCE_DEBOUNCE_MS : (remaining_ms > 0 ? (uint) remaining_ms : 0);
+
+        uint tid = Timeout.add(delay, () => {
+            multi_source_timeouts().unset(seq);
+            flush_multi_source_buffer(seq);
+            return false;
+        });
+        multi_source_timeouts().set(seq, tid);
+    }
+
+    // Sort the buffered batch newest-first (articles with no recognizable
+    // published date sort last, keeping their arrival order among
+    // themselves) and hand each one to dispatch_item() in that order.
+    private static void flush_multi_source_buffer(uint seq) {
+        if (!multi_source_buffers().has_key(seq)) return;
+        var items = multi_source_buffers().get(seq);
+        multi_source_buffers().unset(seq);
+        multi_source_started_at().unset(seq);
+        multi_source_flushed().add(seq);
+
+        if (!FetchContext.is_current(seq)) return;
+        var cur = FetchContext.current_context();
+        if (cur == null || !cur.is_valid() || cur.seq != seq) return;
+        var w = cur.window;
+        if (w == null) return;
+        if (w.prefs != null && cur.expected_category != null && w.prefs.category != cur.expected_category) return;
+
+        items.sort((a, b) => {
+            var da = DateUtils.parse_published_datetime(a.published);
+            var db = DateUtils.parse_published_datetime(b.published);
+            if (da == null && db == null) return 0;
+            if (da == null) return 1;
+            if (db == null) return -1;
+            return db.compare(da);
+        });
+
+        foreach (var item in items) {
+            if (w.prefs != null && cur.expected_category != null && w.prefs.category != cur.expected_category) break;
+            dispatch_item(w, cur, item.title, item.url, item.thumbnail_url, item.category_id, item.source_name, item.published, item.snippet);
+        }
+    }
+
     // Non-capturing label forwarder used for passing a stable callback
     // into worker fetchers. It does not close over any stack state so
     // it is safe to pass across thread boundaries. It uses
@@ -78,23 +200,17 @@ public class FetchNewsController {
                 }
             }
 
-            // Safely access managers through local variables
-            var cat_mgr = w.category_manager;
-            var layout_mgr = w.layout_manager;
-            var article_mgr = w.article_manager;
+            // When this fetch is racing multiple sources for the same view,
+            // briefly buffer articles so they can be flushed newest-first
+            // instead of in "whichever source answered first" order - unless
+            // this seq's buffer has already flushed once, in which case a
+            // late straggler just streams straight through.
+            if (cur.is_multi_source && !multi_source_flushed().contains(cur.seq)) {
+                buffer_multi_source_item(cur.seq, title, url, thumbnail, category_id, source_name, published, snippet);
+                return false;
+            }
 
-            // Track articles for adaptive layout (regular categories only, not RSS feeds)
-            if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
-                bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
-                !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
-                w.prefs != null && w.prefs.category != "saved";
-                if (is_regular_cat) {
-                    layout_mgr.track_category_article(cur.seq);
-                }
-            }
-            if (article_mgr != null) {
-                article_mgr.add_item(title, url, thumbnail, category_id, source_name, published, snippet);
-            }
+            dispatch_item(w, cur, title, url, thumbnail, category_id, source_name, published, snippet);
             return false;
         });
     }
@@ -471,6 +587,27 @@ public class FetchNewsController {
         // Grab search query via getter
         string current_search_query = win.get_current_search_query();
 
+        // Determine up front whether this fetch will race more than one
+        // source concurrently for the same view, so FetchContext can flag it
+        // before ANY fetch starts streaming articles back - including the
+        // always-on Sports supplement immediately below, which itself races
+        // against Sports' normal per-source fetch. See the buffering block
+        // in global_add_item()/buffer_multi_source_item() for why this
+        // matters: without it, whichever source's HTTP response happens to
+        // land first wins the hero slot, even if its article is the oldest
+        // of the bunch.
+        bool is_saved_view = (win.prefs.category == "saved");
+        int total_sources = (win.prefs.preferred_sources != null ? win.prefs.preferred_sources.size : 0);
+        if (is_myfeed_mode && custom_rss_sources != null) {
+            total_sources += custom_rss_sources.size;
+        }
+        // Front Page/Top Ten always issue a single backend request no matter
+        // how many sources are in preferred_sources, so they never actually
+        // race sources against each other and should not be buffered.
+        bool is_frontpage_or_topten = win.category_manager.is_frontpage_view() || win.category_manager.is_topten_view();
+        ctx.is_multi_source = !is_frontpage_or_topten && ((win.prefs.category == "sports") ||
+            (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))));
+
         // Persistent Sports supplement: always additionally query the
         // backend's dedicated sports endpoint when viewing Sports, so the
         // category isn't empty for users whose enabled built-in sources
@@ -565,12 +702,7 @@ public class FetchNewsController {
 
         // Check if we should use multi-source mode (multiple built-in sources OR custom RSS sources in My Feed)
         // Skip multi-source mode for saved articles, local news, and individual RSS feeds - they have their own header setup
-        bool is_saved_view = (win.prefs.category == "saved");
-        int total_sources = (win.prefs.preferred_sources != null ? win.prefs.preferred_sources.size : 0);
-        if (is_myfeed_mode && custom_rss_sources != null) {
-            total_sources += custom_rss_sources.size;
-        }
-
+        // (is_saved_view/total_sources computed earlier, alongside ctx.is_multi_source)
         if (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))) {
             // Treat The Frontpage as a multi-source view visually, but do NOT
             // let the user's preferred_sources list influence which providers
@@ -1146,7 +1278,7 @@ public class FetchNewsController {
                     if (cur4 != null) {
                         var w4 = cur4.window;
                         if (w4 != null) {
-                            wrapped_add(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved");
+                            wrapped_add(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved", article.published);
                         }
                     }
                 }

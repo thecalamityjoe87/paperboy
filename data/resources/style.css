@@ -2,9 +2,7 @@
     background-color: @card_bg_color;
     border-radius: 12px;
     border: 1px solid alpha(@borders, 0.3);
-    /* Scoped to just what .card:hover actually animates, rather than
-       "all", so background-color/border/border-radius are never
-       implicitly animated. */
+    /* Scoped to box-shadow only, so other properties never animate. */
     transition: box-shadow 200ms ease;
     min-width: 0;
 }
@@ -17,9 +15,7 @@
 
 .card:hover,
 .card.card-hover {
-    /* Shadow only, no transform: the previous translateY(-2px) is what
-       actually moved the card on hover. A shadow alone reads as lifted
-       without any real motion. */
+    /* Shadow only, no transform - reads as lifted without real motion. */
     box-shadow: 0 4px 8px alpha(@shade_color, 0.15);
 }
 
@@ -43,10 +39,7 @@
     background-color: alpha(@borders, 0.7);
 }
 
-/* Same faint divider, drawn as a top border instead of a separate widget -
-   used between Front Page's category sections (see LayoutManager's
-   prepare_category_sections), whose count and which ones actually populate
-   varies at runtime, unlike the fixed hero/scores/articles layout above. */
+/* Same divider as a top border, for Front Page's dynamic category sections. */
 .frontpage-section-divider {
     border-top: 1px solid alpha(@borders, 0.7);
     padding-top: 20px;
@@ -103,14 +96,12 @@
     color: alpha(currentColor, 0.60);
 }
 
-/* Hero cards lay text and picture out side by side (40/60 split) instead
-   of stacking, so the picture only needs rounding on its right edge. */
+/* Hero cards lay text/picture side by side, so only the right edge rounds. */
 .hero-card picture {
     border-radius: 0 12px 12px 0;
 }
 
-/* Top Ten's stacked variant (picture over text, 70/30) needs the top edge
-   rounded instead, since the image sits on top rather than the right. */
+/* Top Ten's stacked variant has the image on top, so round the top edge. */
 .hero-card.hero-card-stacked picture {
     border-radius: 12px 12px 0 0;
 }
@@ -122,9 +113,7 @@
     font-weight: 900;
 }
 
-/* Slightly larger title for cards in the "TOP STORIES" hero carousel only
-   (see HeroCarousel.mark_slide_title) - every other hero card keeps the
-   2.1em size above. */
+/* Larger title for "TOP STORIES" carousel cards only. */
 .hero-card .hero-title.carousel-hero-title {
     font-size: 2.3em;
 }
@@ -136,9 +125,7 @@
     color: alpha(currentColor, 0.65);
 }
 
-/* Slightly larger/heavier snippet for the "TOP STORIES" hero carousel only
-   (see HeroCarousel.mark_slide_title) - every other hero card keeps the
-   1em/400 above. */
+/* Larger/heavier snippet for "TOP STORIES" carousel cards only. */
 .hero-card.hero-card-carousel .hero-snippet {
     font-size: 1.08em;
     font-weight: 500;
@@ -155,9 +142,7 @@
 .category-chip {
     background-color: alpha(black, 0.6);
     color: white;
-    /* Shorter than source-badge/viewed-badge (less vertical padding), so
-       the same 8px radius those use would still read as fully pill-shaped
-       here - scaled down to match their less-rounded look at this height. */
+    /* Shorter than source-badge/viewed-badge, so radius is scaled down too. */
     border-radius: 5px;
     padding: 2px 8px;
     margin: 8px;
@@ -178,9 +163,7 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-/* Viewed badge shown at the top-right of a card when the user has opened
-     and returned from an article preview. Uses theme-aware colors where
-     available and keeps a compact pill appearance. */
+/* Shown top-right on a card once its article has been viewed. */
 .viewed-badge {
     -gtk-icon-transform: none;
     padding: 4px 8px;
@@ -205,14 +188,10 @@
     min-width: 16px;
     min-height: 16px;
     padding: 1px;
-    /* add a subtle transparent white border so the green indicator is visually contained */
     border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-/* Ensure the icon area stays perfectly square and doesn't stretch
-   vertically due to line-height or flex growth. Adding an enforced
-   aspect-ratio and preventing the element from flexing fixes cases
-   where the widget is laid out by the toolkit and ends up oval. */
+/* Keeps the icon square instead of stretching oval. */
 .viewed-badge image,
 .viewed-badge picture,
 .viewed-badge .icon {
@@ -228,9 +207,7 @@
     font-weight: 600;
 }
 
-/* Strong override: force any text inside the viewed badge to be full-bright.
-   This covers cases where theme rules or ancestor classes apply dimming via
-   color/opacity or more specific selectors. */
+/* Force full-bright text, overriding any theme dimming. */
 .viewed-badge,
 .viewed-badge * {
     color: white;
@@ -238,16 +215,7 @@
     /* filter: none; */
 }
 
-/* For featured/hero cards, give badges more breathing room so they don't
-   get clipped or overlap the rounded card corners. This increases padding
-   and lifts badges away from text areas. */
-/* (no featured-specific overrides here; keep default badge sizing) */
-
-/* Circular wrapper for dynamic remote source logos used by dynamic badges.
-   Ensures logos are clipped to a circle and scale to fill the area. */
-/* Make wrapper and its direct image children clipped circles. We target
-   the wrapper, the internal picture/image nodes, and all descendants to
-   increase specificity and avoid theme overrides. */
+/* Clip dynamic remote source logos (wrapper + all descendants) to a circle. */
 .source-badge .circular-logo,
 .source-badge .circular-logo picture,
 .source-badge .circular-logo image,
@@ -257,15 +225,12 @@
     border-radius: 50%;
 }
 
-/* Small visual treatment to help circular logos stand out on light/dark
-   backgrounds: subtle border and shadow. Kept low-contrast to avoid
-   fighting brand logos. */
+/* Subtle border/shadow so circular logos stand out without fighting brand colors. */
 .source-badge .circular-logo {
     padding: 0;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.06);
     background-clip: padding-box;
-    /* ensure border doesn't overlay the image */
 }
 
 .sheet-header {
@@ -278,7 +243,6 @@
 
 .sheet {
     background-color: @view_bg_color;
-    /* ADD THIS */
 }
 
 /* Circular logo styling for sidebar RSS feeds */
@@ -307,7 +271,6 @@
     padding: 0;
     margin: 0;
     margin-top: 8px;
-    /* Center vertically in ActionRow - wait, I should check if this is needed with valign center */
     box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
     background-clip: padding-box;
 }
@@ -316,8 +279,6 @@
 .source-row .circular-logo image {
     min-width: 24px;
     min-height: 24px;
-    /* max-width: 24px; */
-    /* max-height: 24px; */
     border-radius: 50%;
 }
 
@@ -340,18 +301,11 @@
     color: white;
 }
 
-/* Smaller, lifted badge variant for hero/slide cards so long titles
-   don't overlap the badge. We increase the bottom margin (distance
-   from the widget bottom) which effectively lifts the badge up, and
-   reduce font/padding to keep it unobtrusive. */
+/* Smaller badge, lifted above the bottom edge so long titles don't overlap it. */
 .hero-badge {
-    /* Slightly larger horizontal padding and gap for hero badges so they
-       don't appear visually squashed on wide hero slides. Kept conservative
-       to avoid changing non-hero badge visuals. */
     font-size: 0.85em;
     padding: 4px 10px;
     margin-bottom: 44px;
-    /* lift up to avoid crowded titles */
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
@@ -383,11 +337,8 @@
     letter-spacing: 0.02em;
 }
 
-/* Top Ten's "TOP STORIES RIGHT NOW" (same base class above) renders its
-   top margin a couple px smaller than the carousel's "TOP STORIES" despite
-   identical CSS - this label starts hidden and only toggles visible later,
-   rather than being created fresh and shown immediately. Compensating here
-   rather than chasing that structural difference further. */
+/* Top Ten's title starts hidden and toggles visible, which renders its top
+   margin a couple px smaller than the carousel's - compensate here. */
 .top-stories-title-in-header {
     margin-top: 15px;
 }
@@ -413,11 +364,8 @@
     opacity: 1;
 }
 
-/* ScrollNavButtons renders the arrows as plain Unicode glyphs (see
-   scrollNavButtons.vala) rather than an icon, so they read as literal
-   arrows on every distro without needing a bundled asset or icon-theme
-   lookup. Bold weight and a slightly larger size keep them from looking
-   thin against the button's dark circle. */
+/* Arrows are plain Unicode glyphs, not icons - bold/larger so they don't
+   look thin against the button's dark circle. */
 .scroll-nav-arrow-label label {
     font-weight: 800;
     font-size: 1.15em;
@@ -425,8 +373,6 @@
 
 /* Navigation arrow buttons that appear on hover */
 .carousel-nav {
-    /* Larger, higher-contrast nav buttons (sized down ~5% from the original
-       52px/20px/8px) */
     background-color: alpha(black, 0.6);
     color: white;
     border-radius: 9999px;
@@ -443,17 +389,13 @@
     transform: scale(1.08);
 }
 
-/* heroCarousel.vala tracks pointer position and toggles this class on
-   whichever nav button is on the hovered side, so only that arrow shows
-   instead of both appearing together for any hover on the card. */
+/* Toggled on whichever side is hovered, so only that arrow shows. */
 .carousel-nav.carousel-nav-active {
     opacity: 1;
     background-color: alpha(black, 0.72);
 }
 
-/* Nav buttons for category-section scroll rows on the Front Page - same
-   look and hover-reveal behavior as .carousel-nav, sized down since these
-   rows are shorter than the hero carousel. */
+/* Same look/behavior as .carousel-nav, sized down for Front Page's rows. */
 .section-nav {
     background-color: alpha(black, 0.6);
     color: white;
@@ -475,36 +417,28 @@
     background-color: alpha(black, 0.72);
 }
 
-/* A disabled nav button (already at that end of the row) never appears,
-   even while hovered - there's nothing left to scroll to. */
+/* Never appears when already at that end of the row - nothing to scroll to. */
 .section-nav:disabled {
     opacity: 0;
 }
 
-/* Load-more spinner swapped in for the arrow inside .section-nav - kept the
-   same white as the icon it replaces so the button doesn't change weight. */
+/* Swapped in for the arrow inside .section-nav - same white so it matches. */
 .section-nav-spinner {
     color: white;
 }
 
-/* Static "more to scroll" cue at a category section's right edge: fades to
-   the page background rather than an actual blur of the cards underneath -
-   a real blur would need a custom widget with a GSK blur node for an effect
-   nobody would tell apart from this at a glance. */
+/* "More to scroll" cue at a section's right edge - fades to page background. */
 .section-scroll-fade {
     min-width: 26px;
     background-image: linear-gradient(to right, alpha(@window_bg_color, 0), @window_bg_color);
 }
 
-/* Left edge fades the opposite direction - hidden by default in Vala until
-   the row has actually been scrolled in from the start (see
-   update_section_scroll_fades). */
+/* Left edge fades the opposite direction; hidden until scrolled from start. */
 .section-scroll-fade-left {
     background-image: linear-gradient(to left, alpha(@window_bg_color, 0), @window_bg_color);
 }
 
-/* Same cue, vertical: shown at the top/bottom of the whole page (every
-   view, via ContentView.main_scroll_overlay) rather than a category row. */
+/* Same cue, vertical - shown at the top/bottom of the whole page. */
 .vertical-scroll-fade {
     min-height: 18px;
     background-image: linear-gradient(to bottom, alpha(@window_bg_color, 0), @window_bg_color);
@@ -514,10 +448,8 @@
     background-image: linear-gradient(to top, alpha(@window_bg_color, 0), @window_bg_color);
 }
 
-/* Category-section scroll rows: keep the ScrolledWindow's horizontal
-   policy at AUTOMATIC (required so it actually clips/scrolls its content -
-   GTK4's NEVER policy stops clipping entirely) but hide the scrollbar
-   widget itself, since the hover nav buttons are the intended affordance. */
+/* Keeps AUTOMATIC scroll policy (needed to clip content) but hides the
+   scrollbar itself - the hover nav buttons are the intended affordance. */
 .section-scroller scrollbar.horizontal {
     opacity: 0;
     min-height: 0;
@@ -556,23 +488,18 @@
     background-color: alpha(@window_fg_color, 0.12);
 }
 
-/* Flat expander row styling for sidebar - maintains flat appearance with smooth animations */
+/* Flat expander row styling for the sidebar's collapsible sections. */
 .navigation-sidebar .sidebar-expander {
     background-color: transparent;
     font-weight: 700;
     font-size: 0.966em;
     border-radius: 6px;
-    /* Scaled down to match the row content's 8px side margin (see
-       row_box/feed_box/button_box in sidebarView.vala) - both were 12px/6px
-       before, kept proportional so rows sit the same distance from the
-       sidebar edge whether or not they're inside this expander. */
+    /* Matches row content's 8px side margin; margin-right is 6px (not 4)
+       to cancel out this expander's own padding resets below, which
+       otherwise leave nested rows ~2px right of a bare sidebar row. */
     margin-left: 4px;
-    margin-right: 4px;
-    /* AdwExpanderRow is a preferences-row widget at heart, so its own
-       template padding is sized for settings-style lists, not a compact
-       sidebar. Without zeroing it here, this shows up as a huge gap around
-       the header specifically while collapsed (expanded, the row list
-       below it hides how much taller the header itself actually is). */
+    margin-right: 6px;
+    /* Zero out AdwExpanderRow's preferences-list template padding/height. */
     padding: 0;
     min-height: 0;
 }
@@ -582,21 +509,15 @@
     background-color: transparent;
 }
 
-/* Target the expander row header area - no background on hover, and the
-   same padding/min-height reset as above since the clickable header is its
-   own "row.header" node, separate from the outer .sidebar-expander row. */
+/* Same padding/min-height reset as above for the header's own "row.header" node. */
 .navigation-sidebar .sidebar-expander row.header {
     background-color: transparent;
     padding: 0;
     min-height: 0;
 }
 
-/* Every box the header nests (content box, suffix box) has its own
-   Adwaita-imposed min-height (~50px, sized for touch/preferences rows) -
-   zeroing it here shrinks the header from ~60px down to ~40px, though the
-   chevron icon's own intrinsic size still floors it a bit above the 34px
-   plain sidebar rows use (see .expander-row-arrow below - not further
-   reducible via CSS, that part is fixed in libadwaita's row template). */
+/* Zeroes Adwaita's own min-height on the header's nested boxes (~50px,
+   sized for touch/preferences rows), shrinking the header ~60px -> ~40px. */
 .navigation-sidebar .sidebar-expander row.header box {
     min-height: 0;
 }
@@ -611,13 +532,9 @@
     opacity: 0.7;
 }
 
-/* Style the expander row title to match caption headings - this margin is
-   now the only source of vertical space around the header text, so it
-   alone controls the header's height. Must be the DIRECT child box
-   (row.header > box.header.horizontal), not a descendant selector: the
-   header row nests a second box around its title/subtitle
-   (box.header.horizontal > box.vertical.title), and a bare "row.header box"
-   matched both, stacking two 5.7px margins into one huge gap. */
+/* Must be the DIRECT child box, not a descendant selector - the header row
+   nests a second title/subtitle box, and "row.header box" matched both,
+   stacking two margins into one huge gap. */
 .navigation-sidebar .sidebar-expander row.header > box {
     margin-top: 5.7px;
     margin-bottom: 5.7px;
@@ -641,13 +558,8 @@
     background-color: @sidebar_bg_color;
 }
 
-/* Keep items inside expander flat and seamless. Adwaita's own boxed-list/
-   expander-row stylesheet applies padding and a min-height directly to the
-   "row" node at higher specificity than a single class selector, so a plain
-   ".sidebar-expander-item { padding: 0 }" alone lost to it - these rows kept
-   extra top/bottom space the non-expander sidebar rows never had. Naming
-   both the element and the class together, on every node depth Adwaita
-   targets, is what actually wins that fight. */
+/* A plain ".sidebar-expander-item" alone loses to Adwaita's higher-specificity
+   "row" selector, so name both together at every node depth it targets. */
 .navigation-sidebar .sidebar-expander-item,
 .navigation-sidebar row.sidebar-expander-item,
 .navigation-sidebar .sidebar-expander list row.sidebar-expander-item,
@@ -707,20 +619,14 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     color: @sidebar_fg_color;
 }
 
-/* Increase touch/visual target size for action buttons in the
-   article preview. This makes the Close and Options buttons taller
-   so they're easier to tap on touch devices and more visually
-   prominent on desktop. Adjust values if you prefer a different
-   height. */
+/* Action buttons (Close/Options) in the article preview panel. */
 .article-actions button,
 .article-actions .button,
 .article-actions .suggested-action,
 .article-actions .menu-button {
-    /* Reduce height and vertical padding so buttons appear smaller */
     min-height: 36px;
     padding-top: 2px;
     padding-bottom: 2px;
-    /* let the button size be determined by content + padding */
     line-height: normal;
 }
 
@@ -741,14 +647,10 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     /* prevent scale-up animation */
 }
 
-/* Disable hover effects for cards inside the article sheet so the webview
-   content or sheet layout doesn't shift when hovered. We override the
-   general .card:hover rules only within the sheet. */
+/* No hover effects for cards inside the article sheet - avoids layout shift. */
 .article-sheet .card {
     background-color: @window_bg_color;
-    /* Ensure solid background */
     transition: none;
-    /* avoid hover transform animations */
 }
 
 .article-sheet .card:hover,
@@ -783,8 +685,7 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 }
 
 .custom-toast-close {
-    /* Slightly larger hit area and a small inner padding to avoid
-       visual clipping of the circular button. */
+    /* Larger hit area with inner padding to avoid clipping the circle. */
     min-width: 32px;
     min-height: 32px;
     padding: 4px;
@@ -799,7 +700,9 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     background-color: alpha(@window_bg_color, 0.1);
 }
 
-/* Unread Count Badge */
+/* Unread Count Badge. Alignment is anchored by the label's own
+   xalign(1.0) in build_badge_widget(), not by margin - don't try to fix
+   alignment issues with a margin-left/margin-right offset here. */
 .unread-count-badge {
     background-color: rgba(0, 0, 0, 0.4);
     color: @accent_fg_color;
@@ -807,25 +710,21 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     font-weight: 600;
     padding: 2px 8px;
     border-radius: 12px;
-    min-width: 20px;
+    /* No min-width: it forced single-digit counts to reserve as much width
+       as two-digit ones, so xalign dumped the extra space on the left
+       instead of it sitting centered in a snug pill. */
     margin-left: 8px;
 }
 
-/* Feeds/Popular Categories rows only - 2px more gap before the count than
-   the special items (Top Ten, Front Page, etc.) get above. */
+/* Feeds/Popular Categories rows get 2px more gap before the count than the
+   special items above; doesn't affect where the count itself lands. */
 .unread-count-badge.unread-count-badge-wide-gap {
     margin-left: 20px;
 }
 
-/* "99+" is the one count value whose last character isn't a digit. Every
-   other badge is right-anchored and hugs its own text tightly, which
-   already aligns them correctly on their last digit (e.g. "5" and "18"
-   share a ones-place column with no help needed) - but that same anchoring
-   puts 99+'s "+" in that shared column instead of its second "9". Pulling
-   just this badge slightly further right (into the small gap that's
-   otherwise just unused margin past where other badges sit) puts "99" back
-   in that shared column, with "+" hanging past it instead of occupying it.
-*/
+/* "99+"'s last character is "+", not a digit, so right-anchoring alone
+   would put "+" in the shared ones-place column instead of "9". Nudge it
+   right so "99" lands there instead, with "+" hanging past. */
 .unread-count-badge.unread-count-badge-overflow {
     margin-right: -5px;
 }
@@ -876,24 +775,17 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     color: alpha(@window_fg_color, 0.6);
 }
 
-/* Selected row/button - restore the pill background on its count badge.
-   Applied both as a descendant selector and as a class toggled directly on
-   the badge widget (unread-count-badge-selected), since not every selected
-   container exposes its badge as a CSS descendant (e.g. rows nested inside
-   an Adw.ExpanderRow). */
+/* Restore the pill on a selected row's badge - also as a toggled class,
+   since rows nested in an Adw.ExpanderRow don't expose it as a descendant. */
 .selected .unread-count-badge,
 .unread-count-badge.unread-count-badge-selected {
     background-color: @accent_bg_color;
     color: @accent_fg_color;
 }
 
-/* Onboarding source picker - square logo tiles with a checkmark badge
-   toggled on/off, instead of the switch-list rows used in Preferences.
-   The FlowBox cells are homogeneous and much wider than the 96px tile
-   they contain, so GTK's default flowboxchild:hover background (which
-   paints the full cell) reads as an oversized highlight around a small
-   tile - suppress it here so only the tile button's own :hover styling
-   (scoped to the tile's actual bounds) shows. */
+/* FlowBox cells are wider than the 96px tile they contain, so suppress
+   GTK's default flowboxchild:hover (which paints the full cell) in favor
+   of the tile button's own :hover, scoped to its actual bounds. */
 .onboarding-sources-grid flowboxchild {
     padding: 0;
     background: none;
@@ -909,12 +801,7 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 }
 
 .onboarding-source-tile {
-    /* Was a hardcoded white, which stayed a stark white box even in dark
-       mode. These same bundled logo PNGs already sit directly on both
-       light and dark surfaces elsewhere in the app (card badges, sidebar
-       followed-source icons, Preferences source rows) with no dedicated
-       backdrop at all - just a subtle border/shadow (see .circular-logo) -
-       so a theme-aware card surface here is a safe, consistent choice. */
+    /* Theme-aware, not hardcoded white - stayed a stark box in dark mode. */
     background-color: @card_bg_color;
     border-radius: 14px;
     padding: 14px;

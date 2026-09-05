@@ -1068,10 +1068,7 @@ public class PrefsDialog : GLib.Object {
 
     
     // Condensed highlights for the 5 most recent GitHub releases, shown in
-    // the About dialog's "What's New" page. release-notes only supports a
-    // limited HTML subset (p, ul, li, em) - no links - so the full changelog
-    // and issue tracker are exposed separately via add_link()/set_issue_url()
-    // below instead of being embedded here.
+    // the About dialog's "What's New" page.
     private const string RELEASE_NOTES = """
         <p><em>v0.7.5a</em> — Performance, Persistence &amp; UI Polish</p>
         <ul>
@@ -1120,7 +1117,7 @@ public class PrefsDialog : GLib.Object {
 
         about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");
         about.add_link("GitHub Repository", "https://github.com/thecalamityjoe87/paperboy");
-        about.add_link("All Releases", "https://github.com/thecalamityjoe87/paperboy/releases");
+        about.add_link("Releases", "https://github.com/thecalamityjoe87/paperboy/releases");
 
         about.present(parent);
     }
