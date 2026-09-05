@@ -61,6 +61,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Soup.Session session;
     public SidebarManager sidebar_manager;
     public SidebarView sidebar_view;
+    // Tracks "is any sports game live" independent of the current category,
+    // so the sidebar can show a Live pill next to the Sports badge at any
+    // time; must exist before sidebar_view is constructed below since it
+    // connects to this manager's live_state_changed signal at construction.
+    public SportsLiveIndicatorManager? sports_live_indicator;
     public Adw.OverlaySplitView split_view;
     public Adw.NavigationView nav_view;
     public Adw.OverlaySplitView article_preview_split;
@@ -164,6 +169,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         set_default_size(saved_w, saved_h);
         // Initialize preferences early (needed for building sidebar selection state)
         prefs = NewsPreferences.get_instance();
+        // Must exist before SidebarView is constructed below, since it connects
+        // to live_state_changed at construction time.
+        sports_live_indicator = new SportsLiveIndicatorManager(this);
         // Initialize source and category managers early (needed for all source/category logic)
         source_manager = new SourceManager(prefs);
         source_manager.set_window(this);
@@ -813,6 +821,17 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (feed_updater != null) {
             GLib.Timeout.add_seconds(45, () => {
                 feed_updater.start_recurring_updates();
+                return false; // One-shot
+            });
+        }
+
+        // Start the sports live-game poller (if enabled) with a short delay -
+        // unlike feed_updater's regeneration work, this is just a lightweight
+        // score fetch, so it doesn't need feed_updater's full 45s launch-smoothing
+        // delay, just enough to let initial content load first.
+        if (sports_live_indicator != null && prefs.sports_live_indicator_enabled && prefs.sports_scores_enabled) {
+            GLib.Timeout.add_seconds(5, () => {
+                sports_live_indicator.start();
                 return false; // One-shot
             });
         }

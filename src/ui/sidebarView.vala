@@ -38,6 +38,7 @@ public class SidebarView : GLib.Object {
     // Widget tracking for updates
     private Gee.HashMap<string, Gtk.Box> icon_holders;
     private Gee.HashMap<string, Gtk.Widget> badge_widgets;
+    private Gee.HashMap<string, Gtk.Widget> live_pill_widgets;
     private Gee.HashMap<string, Gtk.Widget> section_containers;
     private Gtk.Widget? currently_selected_widget = null;
     private string? currently_selected_item_id = null;
@@ -51,6 +52,7 @@ public class SidebarView : GLib.Object {
         this.manager = manager;
         this.icon_holders = new Gee.HashMap<string, Gtk.Box>();
         this.badge_widgets = new Gee.HashMap<string, Gtk.Widget>();
+        this.live_pill_widgets = new Gee.HashMap<string, Gtk.Widget>();
         this.section_containers = new Gee.HashMap<string, Gtk.Widget>();
         this.sidebar_menu = new SidebarMenu(window);
         
@@ -88,6 +90,16 @@ public class SidebarView : GLib.Object {
         manager.all_badges_refresh_requested.connect(on_all_badges_refresh);
         manager.expanded_state_changed.connect(on_expanded_state_changed);
         manager.selection_changed.connect(on_selection_changed);
+
+        if (window.sports_live_indicator != null) {
+            window.sports_live_indicator.live_state_changed.connect(on_live_state_changed);
+        }
+    }
+
+    private void on_live_state_changed(bool is_live) {
+        if (!live_pill_widgets.has_key("sports")) return;
+        live_pill_widgets.get("sports").set_visible(
+            is_live && window.prefs.sports_live_indicator_enabled && window.prefs.sports_scores_enabled);
     }
 
     // Expose badge widget lookup for animation helpers (e.g., vacuum save effect)
@@ -326,13 +338,43 @@ public class SidebarView : GLib.Object {
         label.set_hexpand(true);
         row_box.append(label);
 
-        var badge = build_badge_widget(item.unread_count, false, item.id);
-        row_box.append(badge);
-        badge_widgets.set(item.id, badge);
+        if (item.id == "sports") {
+            var live_pill = build_live_pill_widget();
+            live_pill_widgets.set(item.id, live_pill);
+
+            var badge = build_badge_widget(item.unread_count, false, item.id);
+            badge_widgets.set(item.id, badge);
+            // The badge's normal CSS margin classes (meant for a bare label
+            // to its left) don't apply here - the pill and badge share their
+            // own box below, so its spacing is the only thing controlling
+            // the gap between them.
+            badge.remove_css_class("unread-count-badge-wide-gap");
+            badge.add_css_class("unread-count-badge-no-margin");
+
+            var pill_badge_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+            pill_badge_box.append(live_pill);
+            pill_badge_box.append(badge);
+            row_box.append(pill_badge_box);
+        } else {
+            var badge = build_badge_widget(item.unread_count, false, item.id);
+            row_box.append(badge);
+            badge_widgets.set(item.id, badge);
+        }
 
         return finalize_sidebar_button(row_box, item);
     }
-    
+
+    // "Live" pill shown to the left of the Sports category's count badge
+    // while SportsLiveIndicatorManager reports a game in progress.
+    private Gtk.Widget build_live_pill_widget() {
+        var pill = new Gtk.Label("Live");
+        pill.add_css_class("live-pill");
+        pill.set_valign(Gtk.Align.CENTER);
+        bool is_live = window.sports_live_indicator != null && window.sports_live_indicator.get_is_live();
+        pill.set_visible(is_live && window.prefs.sports_live_indicator_enabled && window.prefs.sports_scores_enabled);
+        return pill;
+    }
+
     private Gtk.Widget build_rss_item_widget(SidebarItemData item) {
         var feed_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         feed_box.add_css_class("sidebar-row-vspace");

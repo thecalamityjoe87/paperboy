@@ -56,7 +56,7 @@ public class CategorySection : GLib.Object {
     // bordered/rounded panel so the row's cards read as one grouped unit -
     // used for the Sports score sections; article-row sections leave it off
     // and keep their plain flush layout.
-    public CategorySection(NewsWindow? window, string display_name, string query_category, bool center_nav_on_full_row = false, bool card_container = false, string? logo_url = null) {
+    public CategorySection(NewsWindow? window, string display_name, string query_category, bool center_nav_on_full_row = false, bool card_container = false, string? logo_url = null, bool show_live_pill = false) {
         this.window = window;
         this.query_category = query_category;
 
@@ -70,26 +70,47 @@ public class CategorySection : GLib.Object {
         label.add_css_class("caption");
         label.set_markup("<span size='18000'><b>%s</b></span>".printf(display_name.up()));
 
-        // Only the Sports score sections pass a logo_url - every other
-        // CategorySection caller keeps the plain text-only header.
-        if (logo_url != null && logo_url.length > 0) {
+        // Only the Sports score sections pass a logo_url and/or show_live_pill -
+        // every other CategorySection caller keeps the plain text-only header.
+        if ((logo_url != null && logo_url.length > 0) || show_live_pill) {
             var header = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
             header.set_halign(Gtk.Align.START);
             header.set_valign(Gtk.Align.CENTER);
 
-            // Circular logo baked into the pixel data via PixbufUtils, same
-            // technique the source-badge/source-row favicons already use
-            // elsewhere in the app - CSS-only circular clipping (a plain
-            // "circular-logo" class) only clips widgets already scoped
-            // under one of those existing selectors, so a new context like
-            // this header needs the circle baked in rather than a new CSS
-            // scope.
-            var logo = PixbufUtils.make_circular_logo_placeholder(30);
-            header.append(logo);
-            header.append(label);
-            wrapper.append(header);
+            if (logo_url != null && logo_url.length > 0) {
+                // Circular logo baked into the pixel data via PixbufUtils, same
+                // technique the source-badge/source-row favicons already use
+                // elsewhere in the app - CSS-only circular clipping (a plain
+                // "circular-logo" class) only clips widgets already scoped
+                // under one of those existing selectors, so a new context like
+                // this header needs the circle baked in rather than a new CSS
+                // scope.
+                var logo = PixbufUtils.make_circular_logo_placeholder(30);
+                header.append(logo);
+                PixbufUtils.load_circular_logo_async(logo, logo_url, 30);
+            }
 
-            PixbufUtils.load_circular_logo_async(logo, logo_url, 30);
+            if (show_live_pill) {
+                // Own box for the label+pill pair, so this gap is set by
+                // this box's own spacing rather than fighting header's 8px
+                // logo-label spacing above via CSS margins.
+                var label_pill_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
+                label_pill_box.append(label);
+
+                // Styled like the content view's other card chips
+                // (.category-chip/.source-badge), not the sidebar's
+                // theme-aware .live-pill - see .live-pill-header in style.css.
+                var live_pill = new Gtk.Label("Live");
+                live_pill.add_css_class("live-pill-header");
+                live_pill.set_valign(Gtk.Align.CENTER);
+                label_pill_box.append(live_pill);
+
+                header.append(label_pill_box);
+            } else {
+                header.append(label);
+            }
+
+            wrapper.append(header);
         } else {
             wrapper.append(label);
         }

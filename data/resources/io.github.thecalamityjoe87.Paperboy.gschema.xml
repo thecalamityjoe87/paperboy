@@ -120,6 +120,12 @@
       <description>Whether the Sports category shows live score-card sections at all</description>
     </key>
 
+    <key name="sports-live-indicator-enabled" type="b">
+      <default>true</default>
+      <summary>Sports live indicator enabled</summary>
+      <description>Whether the sidebar shows a "Live" pill next to the Sports category's count badge while a game is in progress</description>
+    </key>
+
     <key name="disabled-sports-leagues" type="as">
       <default>[]</default>
       <summary>Disabled sports leagues</summary>

@@ -913,7 +913,39 @@ public class PrefsDialog : GLib.Object {
             }
         });
 
+        var sports_live_indicator_row = new Adw.SwitchRow();
+        sports_live_indicator_row.set_title("Show Live Indicator");
+        sports_live_indicator_row.set_subtitle("Show a \"Live\" pill next to the Sports sidebar count while a game is in progress");
+        sports_live_indicator_row.set_active(prefs.sports_live_indicator_enabled);
+        sports_live_indicator_row.set_sensitive(prefs.sports_scores_enabled);
+        sports_live_indicator_row.notify["active"].connect(() => {
+            bool enabled = sports_live_indicator_row.get_active();
+            prefs.sports_live_indicator_enabled = enabled;
+            if (win != null && win.sports_live_indicator != null) {
+                if (enabled && prefs.sports_scores_enabled) {
+                    win.sports_live_indicator.start();
+                } else {
+                    win.sports_live_indicator.stop();
+                }
+            }
+        });
+
+        // Keep the live-indicator row in sync with the master switch: it
+        // can't be enabled while score cards themselves are off.
+        sports_master_row.notify["active"].connect(() => {
+            bool enabled = sports_master_row.get_active();
+            sports_live_indicator_row.set_sensitive(enabled);
+            if (win != null && win.sports_live_indicator != null) {
+                if (enabled && prefs.sports_live_indicator_enabled) {
+                    win.sports_live_indicator.start();
+                } else {
+                    win.sports_live_indicator.stop();
+                }
+            }
+        });
+
         sports_group.add(sports_master_row);
+        sports_group.add(sports_live_indicator_row);
         sports_group.add(sports_list_box);
         personalization_page.add(sports_group);
         dialog.add(personalization_page);

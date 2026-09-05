@@ -205,6 +205,15 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("sports-scores-enabled", value); }
     }
 
+    // Whether the sidebar shows a "Live" pill next to the Sports badge while
+    // a game is in progress. Independent of sports_scores_enabled so it can
+    // be turned off without hiding score cards themselves; SportsLiveIndicatorManager
+    // still treats sports_scores_enabled == false as "don't poll" too.
+    public bool sports_live_indicator_enabled {
+        get { return settings.get_boolean("sports-live-indicator-enabled"); }
+        set { settings.set_boolean("sports-live-indicator-enabled", value); }
+    }
+
     public Gee.ArrayList<string> disabled_sports_leagues {
         owned get {
             var list = new Gee.ArrayList<string>();

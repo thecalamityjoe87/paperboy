@@ -73,6 +73,30 @@
     font-weight: 700;
 }
 
+/* "Live" pill next to the Sports category's sidebar badge, shown while a
+   game is in progress (see SportsLiveIndicatorManager). */
+.live-pill {
+    background-color: @error_bg_color;
+    color: @error_fg_color;
+    font-size: 11.55px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+}
+
+/* "Live" chip in a Sports league's header (CategorySection), styled to
+   match the content view's other card chips (.category-chip/.source-badge)
+   rather than the sidebar's theme-aware .live-pill above. */
+.live-pill-header {
+    background-color: @error_bg_color;
+    color: @error_fg_color;
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
 .score-card-team {
     font-weight: 500;
 }
@@ -744,6 +768,14 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
    special items above; doesn't affect where the count itself lands. */
 .unread-count-badge.unread-count-badge-wide-gap {
     margin-left: 20px;
+}
+
+/* Sports row only: the badge sits in its own tightly-spaced box next to the
+   Live pill (see SidebarView.build_category_button), so none of the margin
+   rules above apply here - that box's own spacing is the only thing
+   controlling the gap between them. */
+.unread-count-badge.unread-count-badge-no-margin {
+    margin-left: 0;
 }
 
 /* "99+"'s last character is "+", not a digit, so right-anchoring alone

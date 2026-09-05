@@ -70,6 +70,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/imageManager.vala',
     'src/managers/toastManager.vala',
     'src/managers/feedUpdateManager.vala',
+    'src/managers/sportsLiveIndicatorManager.vala',
     'src/managers/searchManager.vala',
     'src/managers/animationManager.vala',
 

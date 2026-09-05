@@ -196,7 +196,15 @@ public class SportsScoresController : GLib.Object {
             var games = results.get(league_key);
             if (games == null || games.size == 0) continue;
 
-            var section = new CategorySection(win, SportsScoresService.display_name_for(league_key), "sports:" + league_key, true, true, SportsScoresService.logo_url_for(league_key));
+            bool league_has_live_game = false;
+            foreach (var game in games) {
+                if (game.status == GameStatus.LIVE) {
+                    league_has_live_game = true;
+                    break;
+                }
+            }
+
+            var section = new CategorySection(win, SportsScoresService.display_name_for(league_key), "sports:" + league_key, true, true, SportsScoresService.logo_url_for(league_key), league_has_live_game);
             foreach (var game in games) {
                 var card = new ScoreCard(game);
                 card.activated.connect((url) => {
