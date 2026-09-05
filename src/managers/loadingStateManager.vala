@@ -24,6 +24,13 @@ namespace Managers {
 public class LoadingStateManager : GLib.Object {
     private weak NewsWindow window;
 
+    // Fired from show_loading_spinner()/hide_loading_spinner() - the
+    // existing start/stop pair every fetch path in FetchNewsController
+    // already calls - so header UI (the refresh button's icon<->spinner
+    // swap) can track fetch activity without its own separate plumbing.
+    public signal void fetch_started();
+    public signal void fetch_finished();
+
     // UI widgets (public so NewsWindow can set them during construction)
     public Gtk.Widget? loading_container;
     public Gtk.Spinner? loading_spinner;
@@ -105,6 +112,7 @@ public class LoadingStateManager : GLib.Object {
     }
 
     public void show_loading_spinner() {
+        fetch_started();
         if (loading_container != null && loading_spinner != null && loading_label != null) {
             // Remove "No more articles" message when starting a new load
             var children = window.content_box.observe_children();
@@ -138,6 +146,7 @@ public class LoadingStateManager : GLib.Object {
     }
 
     public void hide_loading_spinner() {
+        fetch_finished();
         if (loading_container != null && loading_spinner != null && loading_label != null) {
             loading_label.set_text("Loading news...");
             loading_container.set_visible(false);

@@ -198,6 +198,13 @@ public class NewsPreferences : GLib.Object {
         }
     }
 
+    // Master on/off switch for the Sports category's score-card sections,
+    // independent of which individual leagues are enabled below.
+    public bool sports_scores_enabled {
+        get { return settings.get_boolean("sports-scores-enabled"); }
+        set { settings.set_boolean("sports-scores-enabled", value); }
+    }
+
     public Gee.ArrayList<string> disabled_sports_leagues {
         owned get {
             var list = new Gee.ArrayList<string>();
@@ -343,10 +350,50 @@ public class NewsPreferences : GLib.Object {
         }
     }
 
+    // User-chosen top-to-bottom order for sports league sections. Only
+    // stores keys the user has actually dragged into place; leagues absent
+    // from this list (including ones added to SportsScoresService after the
+    // user last reordered) fall back to their built-in position.
+    public Gee.ArrayList<string> sports_league_order {
+        owned get {
+            var list = new Gee.ArrayList<string>();
+            string[] arr = settings.get_strv("sports-league-order");
+            foreach (var s in arr) list.add(s);
+            return list;
+        }
+        set {
+            if (value == null) {
+                settings.set_strv("sports-league-order", new string[0]);
+            } else {
+                string[] arr = new string[value.size];
+                for (int i = 0; i < value.size; i++) arr[i] = value.get(i);
+                settings.set_strv("sports-league-order", arr);
+            }
+        }
+    }
+
     // Convenience helpers for managing which sports leagues show score cards
     public bool sports_league_enabled(string league_key) {
         foreach (var k in disabled_sports_leagues) if (k == league_key) return false;
         return true;
+    }
+
+    // All league keys (enabled or not) in the user's preferred display
+    // order: the stored order first (dropping any keys that no longer
+    // exist), then any remaining league keys appended in their built-in
+    // order so newly added leagues still show up without a re-sort.
+    public Gee.ArrayList<string> ordered_sports_league_keys() {
+        var all_keys = SportsScoresService.league_keys();
+        var ordered = new Gee.ArrayList<string>();
+
+        foreach (var key in sports_league_order) {
+            if (all_keys.contains(key) && !ordered.contains(key)) ordered.add(key);
+        }
+        foreach (var key in all_keys) {
+            if (!ordered.contains(key)) ordered.add(key);
+        }
+
+        return ordered;
     }
 
     public void set_sports_league_enabled(string league_key, bool enabled) {

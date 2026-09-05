@@ -758,28 +758,9 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     font-weight: normal;
 }
 
-/* Badge color inversions using theme-aware variables that adapt to light/dark mode */
-/* In light mode: @window_fg_color is dark, @window_bg_color is light */
-/* In dark mode: @window_fg_color is light, @window_bg_color is dark */
-/* So we invert: use fg color for background, bg color for text */
-
-/* Category chip - inverted colors */
-.category-chip {
-    background-color: alpha(@window_fg_color, 0.85);
-    color: @window_bg_color;
-}
-
-/* Source badge - inverted colors */
-.source-badge {
-    background-color: alpha(@window_fg_color, 0.85);
-    color: @window_bg_color;
-}
-
-.source-badge-label {
-    color: @window_bg_color;
-}
-
-/* Unread count badge - plain text by default, no pill background */
+/* Unread count badge sits on the sidebar's own background (not a photo), so
+   unlike source-badge/category-chip it follows the window theme: plain text
+   by default, no pill background. */
 .unread-count-badge {
     background-color: transparent;
     color: alpha(@window_fg_color, 0.6);

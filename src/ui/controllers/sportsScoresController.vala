@@ -61,6 +61,12 @@ public class SportsScoresController : GLib.Object {
     }
 
     public static void load(NewsWindow win) {
+        if (!win.prefs.sports_scores_enabled) {
+            stop_polling();
+            hide(win);
+            return;
+        }
+
         active_window = win;
         fetch_and_populate(win);
     }
@@ -129,7 +135,7 @@ public class SportsScoresController : GLib.Object {
     }
 
     private static void fetch_and_populate(NewsWindow win) {
-        var all_league_keys = SportsScoresService.league_keys();
+        var all_league_keys = win.prefs.ordered_sports_league_keys();
         var league_keys = new Gee.ArrayList<string>();
         foreach (var key in all_league_keys) {
             if (win.prefs.sports_league_enabled(key)) league_keys.add(key);
@@ -190,7 +196,7 @@ public class SportsScoresController : GLib.Object {
             var games = results.get(league_key);
             if (games == null || games.size == 0) continue;
 
-            var section = new CategorySection(win, SportsScoresService.display_name_for(league_key), "sports:" + league_key, true, true);
+            var section = new CategorySection(win, SportsScoresService.display_name_for(league_key), "sports:" + league_key, true, true, SportsScoresService.logo_url_for(league_key));
             foreach (var game in games) {
                 var card = new ScoreCard(game);
                 card.activated.connect((url) => {

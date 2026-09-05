@@ -27,39 +27,46 @@ using Gee;
 public class SportsScoresService : GLib.Object {
     public delegate void LeagueResultCallback(string league_key, Gee.ArrayList<GameScore>? games);
 
-    // (sport_path, league_path, display_name, key, extra_query) - add a row
-    // here to support another league; nothing else needs to change.
-    // extra_query is appended as-is (e.g. "groups=80") when non-null/empty.
+    // (sport_path, league_path, display_name, key, extra_query, logo_url) -
+    // add a row here to support another league; nothing else needs to
+    // change. extra_query is appended as-is (e.g. "groups=80") when
+    // non-null/empty. logo_url is the "full"/"default" logo href each
+    // league's own /scoreboard response reports under its top-level
+    // "leagues" entry - hardcoded here (rather than read from that response)
+    // so preference/onboarding UI can show a league's logo without having
+    // to fetch its scoreboard first; verified against the live endpoint
+    // when added, but ESPN's API is undocumented and could change the path.
     private struct League {
         public string sport_path;
         public string league_path;
         public string display_name;
         public string key;
         public string? extra_query;
+        public string logo_url;
     }
 
     private static League[] get_leagues() {
         return {
-            { "football", "nfl", "NFL", "nfl", null },
-            { "basketball", "nba", "NBA", "nba", null },
-            { "baseball", "mlb", "MLB", "mlb", null },
-            { "hockey", "nhl", "NHL", "nhl", null },
+            { "football", "nfl", "NFL", "nfl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" },
+            { "basketball", "nba", "NBA", "nba", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png" },
+            { "baseball", "mlb", "MLB", "mlb", null, "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png" },
+            { "hockey", "nhl", "NHL", "nhl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png" },
             // ESPN has no single catch-all league per sport for these four -
             // each picks one representative competition. Off-season for
             // that competition just means the section doesn't appear that
             // day, same as NHL/MLB already do outside their seasons.
-            { "soccer", "eng.1", "Premier League", "epl", null },
-            { "soccer", "usa.1", "MLS", "mls", null },
-            { "soccer", "uefa.champions", "Champions League", "ucl", null },
-            { "rugby", "270557", "Rugby (URC)", "rugby", null },
-            { "cricket", "8048", "Cricket (IPL)", "cricket", null },
-            { "mma", "ufc", "UFC", "mma", null },
+            { "soccer", "eng.1", "Premier League", "epl", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png" },
+            { "soccer", "usa.1", "MLS", "mls", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/19.png" },
+            { "soccer", "uefa.champions", "Champions League", "ucl", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png" },
+            { "rugby", "270557", "Rugby (URC)", "rugby", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-rugby.png" },
+            { "cricket", "8048", "Cricket (IPL)", "cricket", null, "https://a.espncdn.com/i/leaguelogos/cricket/500/8048.png" },
+            { "mma", "ufc", "UFC", "mma", null, "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png" },
             // groups=80 restricts college football to FBS; without it the
             // scoreboard is flooded with FCS/D2 games most weeks.
-            { "football", "college-football", "College Football", "cfb", "groups=80" },
-            { "basketball", "mens-college-basketball", "Men's College Basketball", "mbb", null },
-            { "basketball", "womens-college-basketball", "Women's College Basketball", "wbb", null },
-            { "baseball", "college-baseball", "College Baseball", "cbsb", null }
+            { "football", "college-football", "College Football", "cfb", "groups=80", "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-football-college.png" },
+            { "basketball", "mens-college-basketball", "Men's College Basketball", "mbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png" },
+            { "basketball", "womens-college-basketball", "Women's College Basketball", "wbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png" },
+            { "baseball", "college-baseball", "College Baseball", "cbsb", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-baseball.png" }
         };
     }
 
@@ -74,6 +81,13 @@ public class SportsScoresService : GLib.Object {
             if (l.key == league_key) return l.display_name;
         }
         return league_key.up();
+    }
+
+    public static string? logo_url_for(string league_key) {
+        foreach (var l in get_leagues()) {
+            if (l.key == league_key) return l.logo_url;
+        }
+        return null;
     }
 
     // Fetches a single league's scoreboard. Callers wanting all leagues

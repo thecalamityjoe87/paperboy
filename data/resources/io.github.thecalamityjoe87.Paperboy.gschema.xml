@@ -114,10 +114,26 @@
          Opt-out (rather than opt-in, like personalized-categories) so a
          newly added league shows up for existing users without requiring
          them to re-enable it. -->
+    <key name="sports-scores-enabled" type="b">
+      <default>true</default>
+      <summary>Sports score cards enabled</summary>
+      <description>Whether the Sports category shows live score-card sections at all</description>
+    </key>
+
     <key name="disabled-sports-leagues" type="as">
       <default>[]</default>
       <summary>Disabled sports leagues</summary>
       <description>List of sports league keys excluded from the Sports category's score-card sections</description>
+    </key>
+
+    <!-- User-chosen top-to-bottom display order for sports leagues. Only
+         holds the keys the user has actually dragged into place; any league
+         missing from this list (including newly added ones) falls back to
+         its position in SportsScoresService's built-in order. -->
+    <key name="sports-league-order" type="as">
+      <default>[]</default>
+      <summary>Sports league display order</summary>
+      <description>List of sports league keys in the order their score-card sections should appear in the Sports category</description>
     </key>
 
     <!-- App Settings -->

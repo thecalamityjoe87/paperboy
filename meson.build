@@ -156,6 +156,19 @@ install_data('data/icons/paperboy.png', install_dir: join_paths(get_option('data
 # Scalable SVG
 install_data('data/icons/scalable/paperboy.svg', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps'))
 
+# Vendored copies of a few symbolic action icons (open-menu, sidebar-show,
+# view-refresh), app-id-prefixed so they can't collide with or be
+# shadowed by the system icon theme's own versions of those names -
+# guarantees the current GNOME icon-library glyphs regardless of which
+# icon theme (Adwaita, Yaru, etc.) the user has installed. See
+# NewsWindow's header-bar setup for where these names are used.
+install_data(
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-open-menu-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-sidebar-show-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-view-refresh-symbolic.svg',
+  install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'actions')
+)
+
 # Install app data (styles, icons) to a namespaced datadir for runtime lookup
 install_data('data/resources/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'paperboy'))

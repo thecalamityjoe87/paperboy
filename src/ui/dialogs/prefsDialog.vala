@@ -23,6 +23,117 @@ using Gdk;
 
 public class PrefsDialog : GLib.Object {
 
+    private delegate void SportsOrderPersistFunc();
+
+    // Builds the drag-reorderable, per-league enable/disable list used for
+    // the Sports Score Cards section - shared between the Preferences
+    // dialog and the onboarding flow so both stay in sync automatically.
+    // `win` is null during onboarding (no NewsWindow yet to refresh).
+    public static Gtk.ListBox build_sports_league_list_box(NewsPreferences prefs, NewsWindow? win) {
+        var sports_list_box = new Gtk.ListBox();
+        sports_list_box.set_selection_mode(Gtk.SelectionMode.NONE);
+        sports_list_box.add_css_class("boxed-list");
+
+        // Persists the listbox's current row order back to prefs, reading
+        // each row's league key off the name we stashed on it below rather
+        // than tracking a separate parallel list.
+        SportsOrderPersistFunc persist_sports_order = () => {
+            var new_order = new Gee.ArrayList<string>();
+            var row = sports_list_box.get_row_at_index(0);
+            int i = 0;
+            while (row != null) {
+                new_order.add(row.get_name());
+                i++;
+                row = sports_list_box.get_row_at_index(i);
+            }
+            prefs.sports_league_order = new_order;
+
+            if (win != null && win.prefs.category == "sports") {
+                SportsScoresController.load(win);
+            }
+        };
+
+        foreach (var league_key in prefs.ordered_sports_league_keys()) {
+            string display_name = SportsScoresService.display_name_for(league_key);
+            var league_row = new Adw.SwitchRow();
+            league_row.set_title(display_name);
+            league_row.set_active(prefs.sports_league_enabled(league_key));
+            league_row.set_name(league_key);
+
+            // Column-aligned logo, same size and same circular-baked-pixel
+            // technique as the source rows' favicons above (PixbufUtils) -
+            // a plain "circular-logo" CSS class only clips widgets already
+            // scoped under an existing selector, so this bakes the circle
+            // into the image itself instead of depending on a new scope.
+            var league_logo = PixbufUtils.make_circular_logo_placeholder(26);
+            string? logo_url = SportsScoresService.logo_url_for(league_key);
+            if (logo_url != null && logo_url.length > 0) {
+                PixbufUtils.load_circular_logo_async(league_logo, logo_url, 26);
+            }
+
+            // add_prefix inserts each new widget before the ones already
+            // added, so the logo goes in first and the handle second to end
+            // up leftmost: handle | logo | text.
+            league_row.add_prefix(league_logo);
+            var drag_handle = new Gtk.Image.from_icon_name("list-drag-handle-symbolic");
+            drag_handle.add_css_class("dim-label");
+            drag_handle.set_tooltip_text("Drag to reorder");
+            league_row.add_prefix(drag_handle);
+
+            string _league_key = league_key;
+            league_row.notify["active"].connect(() => {
+                prefs.set_sports_league_enabled(_league_key, league_row.get_active());
+
+                // Reflect the change immediately rather than waiting on the
+                // "Refresh Content?" dialog other Preferences changes use -
+                // toggling a switch here has no other user-visible effect
+                // otherwise, since Sports may already be the open category.
+                if (win != null && win.prefs.category == "sports") {
+                    SportsScoresController.load(win);
+                }
+            });
+
+            // Drag-and-drop reordering. The drag source is scoped to the
+            // handle icon (not the whole row) so the switch and title stay
+            // normally clickable/toggleable.
+            var drag_source = new Gtk.DragSource();
+            drag_source.set_actions(Gdk.DragAction.MOVE);
+            drag_source.prepare.connect((source, x, y) => {
+                Value val = Value(typeof(Gtk.ListBoxRow));
+                val.set_object(league_row);
+                return new Gdk.ContentProvider.for_value(val);
+            });
+            drag_source.drag_begin.connect((source, drag) => {
+                var drag_icon = (Gtk.DragIcon) Gtk.DragIcon.get_for_drag(drag);
+                var icon_label = new Gtk.Label(display_name);
+                icon_label.add_css_class("card");
+                icon_label.set_margin_top(6);
+                icon_label.set_margin_bottom(6);
+                icon_label.set_margin_start(12);
+                icon_label.set_margin_end(12);
+                drag_icon.set_child(icon_label);
+            });
+            drag_handle.add_controller(drag_source);
+
+            var drop_target = new Gtk.DropTarget(typeof(Gtk.ListBoxRow), Gdk.DragAction.MOVE);
+            drop_target.drop.connect((value, x, y) => {
+                Gtk.ListBoxRow? src_row = (Gtk.ListBoxRow) value.get_object();
+                if (src_row == null || src_row == league_row) return false;
+
+                int target_index = league_row.get_index();
+                sports_list_box.remove(src_row);
+                sports_list_box.insert(src_row, target_index);
+                persist_sports_order();
+                return true;
+            });
+            league_row.add_controller(drop_target);
+
+            sports_list_box.append(league_row);
+        }
+
+        return sports_list_box;
+    }
+
     public static void show_source_dialog(Gtk.Window parent) {
         // If an article preview is currently open in the main window, close it
         var maybe_win = parent as NewsWindow;
@@ -783,30 +894,27 @@ public class PrefsDialog : GLib.Object {
         // ========== SPORTS SCORE CARDS GROUP ==========
         var sports_group = new Adw.PreferencesGroup();
         sports_group.set_title("Sports Score Cards");
-        sports_group.set_description("Choose which leagues show score cards in the Sports category");
+        sports_group.set_description("Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category");
 
-        foreach (var league_key in SportsScoresService.league_keys()) {
-            string display_name = SportsScoresService.display_name_for(league_key);
-            var league_row = new Adw.SwitchRow();
-            league_row.set_title(display_name);
-            league_row.set_active(prefs.sports_league_enabled(league_key));
+        var sports_list_box = build_sports_league_list_box(prefs, win);
+        sports_list_box.set_margin_top(18);
 
-            string _league_key = league_key;
-            league_row.notify["active"].connect(() => {
-                prefs.set_sports_league_enabled(_league_key, league_row.get_active());
+        var sports_master_row = new Adw.SwitchRow();
+        sports_master_row.set_title("Show Score Cards");
+        sports_master_row.set_subtitle("Turn off to hide all live score cards from the Sports category");
+        sports_master_row.set_active(prefs.sports_scores_enabled);
+        sports_list_box.set_sensitive(prefs.sports_scores_enabled);
+        sports_master_row.notify["active"].connect(() => {
+            bool enabled = sports_master_row.get_active();
+            prefs.sports_scores_enabled = enabled;
+            sports_list_box.set_sensitive(enabled);
+            if (win != null && win.prefs.category == "sports") {
+                SportsScoresController.load(win);
+            }
+        });
 
-                // Reflect the change immediately rather than waiting on the
-                // "Refresh Content?" dialog other Preferences changes use -
-                // toggling a switch here has no other user-visible effect
-                // otherwise, since Sports may already be the open category.
-                if (win != null && win.prefs.category == "sports") {
-                    SportsScoresController.load(win);
-                }
-            });
-
-            sports_group.add(league_row);
-        }
-
+        sports_group.add(sports_master_row);
+        sports_group.add(sports_list_box);
         personalization_page.add(sports_group);
         dialog.add(personalization_page);
 

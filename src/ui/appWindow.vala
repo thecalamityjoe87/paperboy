@@ -88,6 +88,10 @@ public class NewsWindow : Adw.ApplicationWindow {
     public HeaderManager header_manager;
     // Manager instance for loading/overlay UI
     public Managers.LoadingStateManager? loading_state;
+    // Sidebar header refresh button's icon<->spinner Gtk.Stack, toggled by
+    // loading_state.fetch_started/fetch_finished once loading_state exists.
+    private Gtk.Stack? refresh_stack;
+    private Gtk.Spinner? refresh_spinner;
     // Manager instance for entrance/animation handling
     public Managers.AnimationManager? animation_manager;
     // Manager instance for RSS feed updates
@@ -256,18 +260,46 @@ public class NewsWindow : Adw.ApplicationWindow {
     var sidebar_header = new Adw.HeaderBar();
     sidebar_header.add_css_class("flat");
 
-    var refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
+    // Prefer our own vendored copy of an icon (app-id-prefixed, installed
+    // under hicolor/scalable/actions - see meson.build) over the system
+    // icon theme's version of the same name, since some distro icon
+    // themes (e.g. Yaru) ship noticeably older glyphs for these than
+    // current GNOME upstream. Falls back to the stock name if the
+    // bundled one isn't installed yet (e.g. running straight from the
+    // build dir without `ninja install`).
+    string bundled_icon_name(string bare_name) {
+        string prefixed = "io.github.thecalamityjoe87.Paperboy-" + bare_name;
+        var theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+        if (theme != null && theme.has_icon(prefixed)) return prefixed;
+        return bare_name;
+    }
+
+    // Refresh button shows a spinner in place of its icon while a fetch is
+    // in flight (see loading_state.fetch_started/fetch_finished wiring
+    // below, once loading_state exists) - matches the standard GNOME
+    // pattern of a reload action becoming its own progress indicator
+    // rather than just disabling.
+    var refresh_icon = new Gtk.Image.from_icon_name(bundled_icon_name("view-refresh-symbolic"));
+    refresh_spinner = new Gtk.Spinner();
+    refresh_spinner.set_size_request(16, 16);
+    refresh_stack = new Gtk.Stack();
+    refresh_stack.add_named(refresh_icon, "icon");
+    refresh_stack.add_named(refresh_spinner, "spinner");
+    refresh_stack.set_visible_child_name("icon");
+
+    var refresh_btn = new Gtk.Button();
+    refresh_btn.add_css_class("flat");
+    refresh_btn.set_child(refresh_stack);
     refresh_btn.set_tooltip_text("Refresh news");
     refresh_btn.clicked.connect (() => {
-        refresh_btn.set_sensitive(false);
         fetch_news();
-        refresh_btn.set_sensitive(true);
     });
     sidebar_header.pack_start(refresh_btn);
 
-    // App title for sidebar (centered)
-    var sidebar_title = new Gtk.Label("Paperboy");
-    sidebar_title.add_css_class("title");
+    // App title for sidebar (centered) - Adw.WindowTitle (not a plain
+    // Gtk.Label) so it picks up the same bold title weight every other
+    // libadwaita app's headerbar title uses.
+    var sidebar_title = new Adw.WindowTitle("Paperboy", "");
     sidebar_header.set_title_widget(sidebar_title);
 
     // Main menu, on the sidebar's trailing (right) side
@@ -278,7 +310,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     menu.append("About Paperboy", "app.about");
 
     var menu_button = new Gtk.MenuButton();
-    menu_button.set_icon_name("open-menu-symbolic");
+    menu_button.set_icon_name(bundled_icon_name("open-menu-symbolic"));
     menu_button.set_menu_model(menu);
     menu_button.set_tooltip_text("Main Menu");
     sidebar_header.pack_end(menu_button);
@@ -286,10 +318,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Content headerbar with search and window controls
     var content_header = new Adw.HeaderBar();
 
-    // Sidebar toggle button for NavigationSplitView
-    var sidebar_toggle = new Gtk.ToggleButton();
-    sidebar_toggle.set_icon_name("sidebar-show-symbolic");
-    sidebar_toggle.set_active(true); // Start with sidebar shown
+    // Sidebar toggle button for NavigationSplitView. Plain Gtk.Button, not
+    // Gtk.ToggleButton - matches Vireo (gtk::Button, not a checkbox-style
+    // toggle) so it only highlights on hover/press, never showing the
+    // persistent "checked" background a ToggleButton gives its active
+    // state regardless of hover.
+    var sidebar_toggle = new Gtk.Button();
+    sidebar_toggle.add_css_class("flat");
+    sidebar_toggle.set_icon_name(bundled_icon_name("sidebar-show-symbolic"));
     sidebar_toggle.set_tooltip_text("Toggle Sidebar");
     content_header.pack_start(sidebar_toggle);
 
@@ -398,6 +434,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     layout_manager.ensure_hero_container_visible();
     // Wire loading/overlay widgets into LoadingStateManager (manager owns these now)
     loading_state = new Managers.LoadingStateManager(this);
+    loading_state.fetch_started.connect(() => {
+        if (refresh_stack != null) refresh_stack.set_visible_child_name("spinner");
+        if (refresh_spinner != null) refresh_spinner.start();
+    });
+    loading_state.fetch_finished.connect(() => {
+        if (refresh_stack != null) refresh_stack.set_visible_child_name("icon");
+        if (refresh_spinner != null) refresh_spinner.stop();
+    });
     loading_state.loading_container = content_view.loading_container;
     loading_state.loading_spinner = content_view.loading_spinner;
     loading_state.loading_label = content_view.loading_label;
@@ -593,19 +637,12 @@ public class NewsWindow : Adw.ApplicationWindow {
     split_view.set_content(content_page);
 
     // Wire up sidebar toggle button to control sidebar visibility with smooth animation
-    sidebar_toggle.toggled.connect(() => {
-        bool active = sidebar_toggle.get_active();
-        split_view.show_sidebar = active;
+    sidebar_toggle.clicked.connect(() => {
+        split_view.show_sidebar = !split_view.show_sidebar;
     });
 
-    // Sync toggle button state when sidebar visibility changes
     split_view.notify["show-sidebar"].connect(() => {
-        bool sidebar_visible = split_view.show_sidebar;
-        // Update toggle button to match current state
-        if (sidebar_toggle.get_active() != sidebar_visible) {
-            sidebar_toggle.set_active(sidebar_visible);
-        }
-        update_main_content_size(sidebar_visible);
+        update_main_content_size(split_view.show_sidebar);
     });
 
     // Initialize main content container size for initial state

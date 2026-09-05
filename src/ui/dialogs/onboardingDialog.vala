@@ -42,6 +42,7 @@ public class OnboardingDialog : GLib.Object {
         carousel.append(build_welcome_page());
         carousel.append(build_theme_page(prefs));
         carousel.append(build_sources_page(prefs));
+        carousel.append(build_sports_page(prefs));
         carousel.append(build_finish_page(parent));
         root.append(carousel);
 
@@ -452,6 +453,60 @@ public class OnboardingDialog : GLib.Object {
         grid.append(make_tile("PBS NewsHour", "pbs", "pbs-logo.png"));
 
         scroller.set_child(grid);
+        box.append(scroller);
+
+        return box;
+    }
+
+    // No NewsWindow exists yet during onboarding, so this reuses
+    // PrefsDialog.build_sports_league_list_box(prefs, null) - the same
+    // drag-reorderable list Preferences shows later - rather than
+    // duplicating its enable/reorder logic here.
+    private static Gtk.Widget build_sports_page(NewsPreferences prefs) {
+        var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
+        box.set_margin_start(36);
+        box.set_margin_end(36);
+        box.set_margin_top(36);
+        box.set_margin_bottom(18);
+
+        var title = new Gtk.Label("Live Sports Scores");
+        title.add_css_class("title-2");
+        title.set_halign(Gtk.Align.CENTER);
+        box.append(title);
+
+        var subtitle = new Gtk.Label("See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow and drag to set their order - you can change this anytime from Preferences.");
+        subtitle.set_wrap(true);
+        subtitle.set_justify(Gtk.Justification.CENTER);
+        subtitle.set_halign(Gtk.Align.CENTER);
+        subtitle.add_css_class("dim-label");
+        box.append(subtitle);
+
+        var master_row = new Adw.SwitchRow();
+        master_row.set_title("Show Score Cards");
+        master_row.set_active(prefs.sports_scores_enabled);
+
+        var master_list_box = new Gtk.ListBox();
+        master_list_box.set_selection_mode(Gtk.SelectionMode.NONE);
+        master_list_box.add_css_class("boxed-list");
+        master_list_box.set_margin_top(16);
+        master_list_box.append(master_row);
+
+        var scroller = new Gtk.ScrolledWindow();
+        scroller.set_vexpand(true);
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        scroller.set_margin_top(12);
+
+        var sports_list_box = PrefsDialog.build_sports_league_list_box(prefs, null);
+        sports_list_box.set_sensitive(prefs.sports_scores_enabled);
+        scroller.set_child(sports_list_box);
+
+        master_row.notify["active"].connect(() => {
+            bool enabled = master_row.get_active();
+            prefs.sports_scores_enabled = enabled;
+            sports_list_box.set_sensitive(enabled);
+        });
+
+        box.append(master_list_box);
         box.append(scroller);
 
         return box;
