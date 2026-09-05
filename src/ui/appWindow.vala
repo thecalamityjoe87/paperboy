@@ -274,7 +274,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     var menu = new Menu();
     menu.append("Preferences", "app.change-source");
     menu.append("Set User Location", "app.set-location");
-    menu.append("Show Welcome Guide", "app.show-onboarding");
+    menu.append("Show Welcome Tour", "app.show-onboarding");
     menu.append("About Paperboy", "app.about");
 
     var menu_button = new Gtk.MenuButton();
