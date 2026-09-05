@@ -151,6 +151,18 @@ public class ContentView : GLib.Object {
         date_label.add_css_class("header-date-label");
         header_box.append(date_label);
 
+        // Same faint line used elsewhere (hero/scores/article-grid
+        // separators) - sits between the date and whichever title comes
+        // next: category_subtitle ("TOP STORIES RIGHT NOW") when it's
+        // visible, or - since an invisible widget takes no layout space -
+        // effectively between the date and HeroCarousel's "FEATURED" label
+        // (a separate widget entirely, appended into featured_box) for
+        // every other category.
+        var date_title_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        date_title_separator.add_css_class("section-divider");
+        date_title_separator.set_margin_top(8);
+        header_box.append(date_title_separator);
+
         // Add subtitle label (for Top Ten category) - below date, bolded.
         // Same "top-stories-title" class as HeroCarousel's "TOP STORIES"
         // label so the two match (size, weight, margin above/below).

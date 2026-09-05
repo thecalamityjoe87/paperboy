@@ -72,13 +72,42 @@ namespace Managers {
         // for a HeroCard via its attached data first, matching how
         // heroCard.vala itself looks up "hero-card", and fall back to the
         // article-card shape otherwise.
-        private Gtk.Overlay? resolve_overlay_for_card(Gtk.Widget card) {
+        // The "Viewed" badge lives in the title area's bottom-right slot,
+        // opposite the time caption (see ArticleCard/HeroCard's
+        // viewed_badge_slot, populated in build_viewed_badge) - not the
+        // image overlay, and not the top-right corner row the save ribbon
+        // occupies.
+        private Gtk.Widget? resolve_badge_container_for_card(Gtk.Widget card) {
             var hero = card.get_data<HeroCard>("hero-card");
-            if (hero != null) return hero.overlay;
+            if (hero != null) return hero.viewed_badge_slot;
 
-            Gtk.Widget? first = card.get_first_child();
-            if (first != null && first is Gtk.Overlay) return (Gtk.Overlay) first;
+            var article = card.get_data<ArticleCard>("article-card");
+            if (article != null) return article.viewed_badge_slot;
+
             return null;
+        }
+
+        private void remove_viewed_badges_from(Gtk.Widget container) {
+            Gtk.Widget? child = container.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                if (child.get_style_context().has_class("viewed-badge")) {
+                    if (container is Gtk.Overlay) ((Gtk.Overlay) container).remove_overlay(child);
+                    else if (container is Gtk.Box) ((Gtk.Box) container).remove(child);
+                }
+                child = next;
+            }
+        }
+
+        private void add_viewed_badge_to(Gtk.Widget container) {
+            var badge = CardBuilder.build_viewed_badge();
+            if (container is Gtk.Overlay) ((Gtk.Overlay) container).add_overlay(badge);
+            else if (container is Gtk.Box) ((Gtk.Box) container).append(badge);
+            badge.set_visible(true);
+            container.queue_draw();
+            if (window != null && window.animation_manager != null) {
+                window.animation_manager.animate_viewed_badge_pop(badge);
+            }
         }
 
         public void mark_article_viewed(string url) {
@@ -96,10 +125,10 @@ namespace Managers {
             Timeout.add(50, () => {
                 Gtk.Widget? card = url_to_card.get(n);
                 if (card != null) {
-                    var overlay = resolve_overlay_for_card(card);
-                    if (overlay != null) {
+                    var container = resolve_badge_container_for_card(card);
+                    if (container != null) {
                         bool already = false;
-                        Gtk.Widget? c = overlay.get_first_child();
+                        Gtk.Widget? c = container.get_first_child();
                         while (c != null) {
                             if (c.get_style_context().has_class("viewed-badge")) {
                                 already = true;
@@ -107,12 +136,7 @@ namespace Managers {
                             if (already) break;
                             c = c.get_next_sibling();
                         }
-                        if (!already) {
-                            var badge = CardBuilder.build_viewed_badge();
-                            overlay.add_overlay(badge);
-                            badge.set_visible(true);
-                            overlay.queue_draw();
-                        }
+                        if (!already) add_viewed_badge_to(container);
                     }
                 }
                 return false;
@@ -209,25 +233,10 @@ namespace Managers {
                 
                 bool is_viewed = window.article_state_store.is_viewed(normalized);
 
-                var overlay = resolve_overlay_for_card(card);
-                if (overlay != null) {
-                    // Find and remove existing viewed badge if present
-                    Gtk.Widget? child = overlay.get_first_child();
-                    while (child != null) {
-                        Gtk.Widget? next = child.get_next_sibling();
-                        if (child.get_style_context().has_class("viewed-badge")) {
-                            overlay.remove_overlay(child);
-                        }
-                        child = next;
-                    }
-                    
-                    // Add viewed badge if article is viewed
-                    if (is_viewed) {
-                        var badge = CardBuilder.build_viewed_badge();
-                        overlay.add_overlay(badge);
-                        badge.set_visible(true);
-                        overlay.queue_draw();
-                    }
+                var container = resolve_badge_container_for_card(card);
+                if (container != null) {
+                    remove_viewed_badges_from(container);
+                    if (is_viewed) add_viewed_badge_to(container);
                 }
             }
         }
@@ -262,25 +271,13 @@ namespace Managers {
             bool is_viewed = false;
             is_viewed = window.article_state_store.is_viewed(n);
 
-            var overlay = resolve_overlay_for_card(card);
-            if (overlay != null) {
-                // Remove any existing viewed badges
-                Gtk.Widget? child = overlay.get_first_child();
-                while (child != null) {
-                    Gtk.Widget? next = child.get_next_sibling();
-                    if (child.get_style_context().has_class("viewed-badge")) {
-                        overlay.remove_overlay(child);
-                    }
-                    child = next;
-                }
-
+            var container = resolve_badge_container_for_card(card);
+            if (container != null) {
+                remove_viewed_badges_from(container);
                 if (is_viewed) {
-                    var badge = CardBuilder.build_viewed_badge();
-                    overlay.add_overlay(badge);
-                    badge.set_visible(true);
-                    overlay.queue_draw();
+                    add_viewed_badge_to(container);
                 } else {
-                    overlay.queue_draw();
+                    container.queue_draw();
                 }
             }
         }

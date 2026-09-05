@@ -597,7 +597,10 @@ namespace Managers {
                         if (is_saved) {
                             window.article_state_store.unsave_article(article_url);
                             request_show_toast("Removed article from saved");
-                            if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
+                            // animate_save_toggle() updates the Saved badge count itself.
+                            if (window.animation_manager != null) {
+                                window.animation_manager.animate_save_toggle(hero_card.root, hero_card.save_ribbon, decoded_title, false);
+                            }
 
                             if (window.prefs.category == "saved") {
                                 if (window.animation_manager != null) {
@@ -613,10 +616,10 @@ namespace Managers {
                         } else {
                             window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
                             request_show_toast("Added article to saved");
-                            if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
-                            // Visual vacuum effect: shrink the card and pulse the Saved badge
+                            // Ribbon/pop + fly-to-shelf; the Saved badge count
+                            // only bumps once the ghost actually arrives there.
                             if (window.animation_manager != null) {
-                                window.animation_manager.animate_bookmark_pop(hero_card.root);
+                                window.animation_manager.animate_save_toggle(hero_card.root, hero_card.save_ribbon, decoded_title, true);
                             }
                         }
                     }
@@ -881,7 +884,10 @@ namespace Managers {
                 if (is_saved) {
                     window.article_state_store.unsave_article(article_url);
                     request_show_toast("Removed article from saved");
-                    if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
+                    // animate_save_toggle() updates the Saved badge count itself.
+                    if (window.animation_manager != null) {
+                        window.animation_manager.animate_save_toggle(article_card.root, article_card.save_ribbon, decoded_title, false);
+                    }
 
                     if (window.prefs.category == "saved") {
                         // Animate removal of this single card instead of a full reload
@@ -898,9 +904,10 @@ namespace Managers {
                 } else {
                     window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
                     request_show_toast("Added article to saved");
-                    // Visual vacuum effect: shrink the card and pulse the Saved badge
+                    // Ribbon/pop + fly-to-shelf; the Saved badge count only
+                    // bumps once the ghost actually arrives there.
                     if (window.animation_manager != null) {
-                        window.animation_manager.animate_bookmark_pop(article_card.root);
+                        window.animation_manager.animate_save_toggle(article_card.root, article_card.save_ribbon, decoded_title, true);
                     }
                 }
             }
@@ -1293,8 +1300,9 @@ namespace Managers {
                 bool is_saved = window.article_state_store.is_saved(article_url);
                 if (is_saved) {
                     window.article_state_store.unsave_article(article_url);
-                    if (window.sidebar_manager != null) {
-                        window.sidebar_manager.update_badge_for_category("saved");
+                    // animate_save_toggle() updates the Saved badge count itself.
+                    if (window.animation_manager != null) {
+                        window.animation_manager.animate_save_toggle(article_card.root, article_card.save_ribbon, title, false);
                     }
                     if (window.prefs.category == "saved") {
                         if (window.animation_manager != null) {
@@ -1309,10 +1317,12 @@ namespace Managers {
                     request_show_toast("Removed article from saved");
                 } else {
                     window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
-                    if (window.sidebar_manager != null) {
-                        window.sidebar_manager.update_badge_for_category("saved");
-                    }
                     request_show_toast("Added article to saved");
+                    // Ribbon/pop + fly-to-shelf; the Saved badge count only
+                    // bumps once the ghost actually arrives there.
+                    if (window.animation_manager != null) {
+                        window.animation_manager.animate_save_toggle(article_card.root, article_card.save_ribbon, title, true);
+                    }
                 }
             }
         });

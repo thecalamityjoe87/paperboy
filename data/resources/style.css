@@ -161,58 +161,74 @@
     font-size: 0.82em;
     font-weight: 600;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    min-height: 20px;
 }
 
-/* Shown top-right on a card once its article has been viewed. */
+/* Shown bottom-right of the title area, opposite the time caption, once
+   an article has been read. Plain icon + text, no background pill - it
+   sits on the card's own background now, not over an image, so it's
+   styled like article-card-time/hero-card-time next to it: dimmed
+   currentColor, which resolves to a light or dark badge automatically
+   as the theme (or accent) changes, rather than a fixed black/white. */
 .viewed-badge {
-    -gtk-icon-transform: none;
-    padding: 4px 8px;
-    border-radius: 8px;
-    background-color: rgba(0, 0, 0, 0.6);
-    /* black @ 60% */
-    color: white;
-    /* Viewed text should be white */
+    color: alpha(currentColor, 0.60);
     font-size: 0.85em;
-    font-weight: 600;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    font-weight: 450;
 }
 
-/* Icon inside the viewed badge: white check on a black circular wrap */
-.viewed-badge image,
-.viewed-badge picture,
-.viewed-badge .icon {
-    background-color: rgb(26, 126, 64);
-    color: white;
-    /* symbolic icons inherit this color */
-    border-radius: 50%;
-    min-width: 16px;
-    min-height: 16px;
-    padding: 1px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+/* Match .hero-card-time's own larger size in hero cards (including Top
+   Ten's stacked layout, which also uses .hero-card) - the base 0.85em
+   above is sized for the regular grid cards' smaller .article-card-time. */
+.hero-card .viewed-badge {
+    font-size: 0.95em;
 }
 
-/* Keeps the icon square instead of stretching oval. */
-.viewed-badge image,
-.viewed-badge picture,
-.viewed-badge .icon {
+/* Carousel slides ("TOP STORIES") override back down to the base size:
+   their own time caption doesn't get a carousel-specific bump the way
+   .hero-snippet does, so matching the plain .hero-card rate above left
+   the badge visibly bigger than the time caption next to it there. */
+.hero-card.hero-card-carousel .viewed-badge {
+    font-size: 0.85em;
+}
+
+.viewed-badge image {
+    /* Keeps the icon square instead of stretching oval. */
     line-height: 0;
 }
 
-/* Ensure the label text inside the badge is white, not dimmed, and doesn't inherit theme-dim styles */
-.viewed-badge label,
-.viewed-badge .caption,
-.viewed-badge .dim-label {
-    color: white;
-    opacity: 1;
+/* Persistent "this is saved" ribbon shown in the corner row next to the
+   "Viewed" badge - the bundled save-ribbon.svg asset (see
+   CardBuilder.build_save_ribbon), draped so it hangs down over the card's
+   own top edge. Its color is baked into the SVG itself, so no rules are
+   needed here; the corner row (CardBuilder.build_corner_badge_row) needs
+   none either, its layout is set entirely in code. */
+
+/* "Flying ghost" (icon + truncated title) that travels from a saved card
+   to the Saved sidebar entry (see AnimationManager.spawn_save_ghost). */
+.save-ghost {
+    background-color: @card_bg_color;
+    border: 1px solid @accent_color;
+    border-radius: 9px;
+    padding: 6px 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.save-ghost image {
+    color: @accent_color;
+}
+
+.save-ghost label {
+    font-size: 0.8em;
     font-weight: 600;
 }
 
-/* Force full-bright text, overriding any theme dimming. */
-.viewed-badge,
-.viewed-badge * {
-    color: white;
-    opacity: 1;
-    /* filter: none; */
+/* Soft pulse on the Saved sidebar row itself once a ghost lands there
+   (see AnimationManager.pop_sidebar_saved_row) - a gentle fade in/out, not
+   a scale pop; background-color is also paint-only, so it can't reflow
+   the rows around it either way. */
+.navigation-sidebar .sidebar-item-row.save-arrival-pulse {
+    background-color: alpha(@accent_bg_color, 0.25);
+    transition: background-color 250ms ease;
 }
 
 /* Clip dynamic remote source logos (wrapper + all descendants) to a circle. */
@@ -460,6 +476,10 @@
     background-color: transparent;
     font-weight: 600;
     font-size: 0.924em;
+    /* Present on the base row (not just .save-arrival-pulse below) so the
+       pulse eases back OUT too, not just in - a transition only applies
+       going into whichever rule declares it. */
+    transition: background-color 250ms ease;
 }
 
 /* Vertical spacing between sidebar rows (category buttons, followed
@@ -666,10 +686,14 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     min-height: 64px;
 }
 
-/* Custom toast styling to match Adwaita toasts */
+/* Custom toast styling - based on real Adwaita's own toast colors (checked
+   against libadwaita's compiled stylesheet: a fixed near-black pill with
+   white text in both themes, not tied to the surrounding surface/text
+   colors at all) with a touch more transparency than Adwaita's own
+   near-opaque 0.975, by request. */
 .custom-toast {
-    background-color: alpha(@window_fg_color, 0.9);
-    color: @window_bg_color;
+    background-color: rgba(29, 29, 29, 0.9);
+    color: white;
     border-radius: 9999px;
     /* Give more horizontal padding so circular close button doesn't get clipped */
     padding: 8px 24px;
@@ -680,7 +704,7 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 }
 
 .custom-toast-label {
-    color: @window_bg_color;
+    color: white;
     font-weight: 500;
 }
 
@@ -697,7 +721,7 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 }
 
 .custom-toast-close:hover {
-    background-color: alpha(@window_bg_color, 0.1);
+    background-color: alpha(white, 0.15);
 }
 
 /* Unread Count Badge. Alignment is anchored by the label's own
@@ -752,20 +776,6 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 }
 
 .source-badge-label {
-    color: @window_bg_color;
-}
-
-/* Viewed badge - inverted colors */
-.viewed-badge {
-    background-color: alpha(@window_fg_color, 0.85);
-    color: @window_bg_color;
-}
-
-.viewed-badge label,
-.viewed-badge .caption,
-.viewed-badge .dim-label,
-.viewed-badge,
-.viewed-badge * {
     color: @window_bg_color;
 }
 

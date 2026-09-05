@@ -32,6 +32,14 @@ public class ArticleCard : GLib.Object {
     public Gtk.Box title_box;
     public Gtk.Label title_label;
     public Gtk.Label time_label;
+    // Top-right corner row (save ribbon, see CardBuilder) and the ribbon
+    // itself - exposed so AnimationManager can animate it when the article
+    // is saved/unsaved.
+    public Gtk.Box corner_badges;
+    public Gtk.Widget save_ribbon;
+    // Bottom-right of the title area, opposite time_label - where
+    // ViewStateManager adds/removes the "Read" badge (see build_viewed_badge).
+    public Gtk.Box viewed_badge_slot;
     public string url;
     public string title_text;
     public string? source_name;
@@ -100,6 +108,17 @@ public class ArticleCard : GLib.Object {
         // Add the provided category chip overlay (owner computes chip)
         if (chip != null) overlay.add_overlay(chip);
 
+        // Persistent save badge, top-right (see CardBuilder.build_corner_badge_row).
+        bool already_saved = false;
+        if (state_store != null) {
+            string norm_for_save = window != null ? window.normalize_article_url(url) : url;
+            already_saved = state_store.is_saved(norm_for_save);
+        }
+        corner_badges = CardBuilder.build_corner_badge_row();
+        overlay.add_overlay(corner_badges);
+        save_ribbon = CardBuilder.build_save_ribbon(already_saved);
+        corner_badges.append(save_ribbon);
+
         root.append(overlay);
 
         // Title container
@@ -129,20 +148,31 @@ public class ArticleCard : GLib.Object {
         title_label.set_lines(3);
         title_box.append(title_label);
 
-        // Relative-time caption ("7h ago"), like most RSS readers/Apple News
-        // show. Pinned to the bottom-left of the reserved title area via
-        // vexpand + valign END, so it sits at a fixed position regardless of
-        // how many lines the title above it actually takes up, rather than
-        // trailing right after a short title. Always created (even with
-        // empty text) so every card reserves the same title-area height
-        // regardless of whether this particular article has a known publish
-        // date.
+        // Bottom row of the reserved title area: relative-time caption
+        // ("7h ago") on the left, "Read" badge (added/removed by
+        // ViewStateManager into viewed_badge_slot) on the right - the row
+        // itself is pinned to the bottom via vexpand + valign END, so it
+        // sits at a fixed position regardless of how many lines the title
+        // above it takes up, rather than trailing right after a short
+        // title. Always created (even with empty time text) so every card
+        // reserves the same title-area height regardless of whether this
+        // particular article has a known publish date.
+        var bottom_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        bottom_row.set_valign(Gtk.Align.END);
+        bottom_row.set_vexpand(true);
+
         time_label = new Gtk.Label(DateUtils.time_ago(published));
         time_label.add_css_class("article-card-time");
         time_label.set_xalign(0);
-        time_label.set_valign(Gtk.Align.END);
-        time_label.set_vexpand(true);
-        title_box.append(time_label);
+        time_label.set_hexpand(true);
+        bottom_row.append(time_label);
+
+        viewed_badge_slot = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        viewed_badge_slot.set_halign(Gtk.Align.END);
+        viewed_badge_slot.set_valign(Gtk.Align.CENTER);
+        bottom_row.append(viewed_badge_slot);
+
+        title_box.append(bottom_row);
 
         root.append(title_box);
 

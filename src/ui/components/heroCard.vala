@@ -35,6 +35,14 @@ public class HeroCard : GLib.Object {
     public string? source_name;
     public string? category_id;
     public string? thumbnail_url;
+    // Top-right corner row (save ribbon, see CardBuilder) and the ribbon
+    // itself - exposed so AnimationManager can animate it when the article
+    // is saved/unsaved.
+    public Gtk.Box corner_badges;
+    public Gtk.Widget save_ribbon;
+    // Bottom-right of the footer row, opposite time_label - where
+    // ViewStateManager adds/removes the "Read" badge (see build_viewed_badge).
+    public Gtk.Box viewed_badge_slot;
     private bool enable_context_menu;
     private ArticleStateStore? article_state_store;
     private NewsWindow? parent_window;
@@ -176,6 +184,17 @@ public class HeroCard : GLib.Object {
             overlay.add_overlay(chip);
         }
 
+        // Persistent save badge, top-right (see CardBuilder.build_corner_badge_row).
+        bool already_saved = false;
+        if (article_state_store != null) {
+            string norm_for_save = parent_window != null ? parent_window.normalize_article_url(url) : url;
+            already_saved = article_state_store.is_saved(norm_for_save);
+        }
+        corner_badges = CardBuilder.build_corner_badge_row();
+        overlay.add_overlay(corner_badges);
+        save_ribbon = CardBuilder.build_save_ribbon(already_saved);
+        corner_badges.append(save_ribbon);
+
         title_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 10);
         title_box.set_margin_start(20);
         title_box.set_margin_end(16);
@@ -212,11 +231,24 @@ public class HeroCard : GLib.Object {
         footer_box.set_valign(Gtk.Align.END);
         footer_box.set_vexpand(true);
 
+        // Time caption + "Read" badge (added/removed by ViewStateManager
+        // into viewed_badge_slot) share one row, opposite ends - this row
+        // is footer_box's first child, so HeroCarousel's dots (appended
+        // after) still stack below it rather than sharing its row.
+        var time_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+
         time_label = new Gtk.Label(DateUtils.time_ago(published));
         time_label.add_css_class("hero-card-time");
         time_label.set_xalign(0);
-        time_label.set_halign(Gtk.Align.START);
-        footer_box.append(time_label);
+        time_label.set_hexpand(true);
+        time_row.append(time_label);
+
+        viewed_badge_slot = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        viewed_badge_slot.set_halign(Gtk.Align.END);
+        viewed_badge_slot.set_valign(Gtk.Align.CENTER);
+        time_row.append(viewed_badge_slot);
+
+        footer_box.append(time_row);
 
         title_box.append(footer_box);
     }
@@ -337,17 +369,17 @@ public class HeroCard : GLib.Object {
             // Remove from in-memory viewed set so UI updates immediately
             if (parent_window != null && parent_window.view_state != null) parent_window.view_state.viewed_articles.remove(nurl);
 
-            // Also remove any viewed-badge overlay directly from this hero
-            if (overlay != null) {
-                Gtk.Widget? child = overlay.get_first_child();
+            // Also remove any viewed-badge directly from this hero's slot
+            if (viewed_badge_slot != null) {
+                Gtk.Widget? child = viewed_badge_slot.get_first_child();
                 while (child != null) {
                     Gtk.Widget? next = child.get_next_sibling();
                     if (child.get_style_context().has_class("viewed-badge")) {
-                        overlay.remove_overlay(child);
+                        viewed_badge_slot.remove(child);
                     }
                     child = next;
                 }
-                overlay.queue_draw();
+                viewed_badge_slot.queue_draw();
             }
 
             // Badge update is handled via ArticleStateStore.viewed_status_changed signal

@@ -96,6 +96,16 @@ public class SidebarView : GLib.Object {
         return badge_widgets.get(item_id);
     }
 
+    // Expose the row's icon widget - a fixed, always-visible landing spot
+    // for the "fly to shelf" ghost (see AnimationManager.spawn_save_ghost),
+    // unlike the row's own count badge (hidden until the count is nonzero)
+    // or the row as a whole (whose center is mostly empty space next to
+    // the icon/label, not anywhere the ghost should visually land).
+    public Gtk.Widget? get_icon_widget(string item_id) {
+        if (icon_holders == null) return null;
+        return icon_holders.get(item_id);
+    }
+
     // Find the sidebar row/button widget corresponding to `item_id` (e.g. "saved").
     // This searches the built sidebar hierarchy for a widget that has the
     // `item_id` value stored via `set_data("item_id", ...)` when rows are
