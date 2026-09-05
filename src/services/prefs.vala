@@ -198,6 +198,24 @@ public class NewsPreferences : GLib.Object {
         }
     }
 
+    public Gee.ArrayList<string> disabled_sports_leagues {
+        owned get {
+            var list = new Gee.ArrayList<string>();
+            string[] arr = settings.get_strv("disabled-sports-leagues");
+            foreach (var s in arr) list.add(s);
+            return list;
+        }
+        set {
+            if (value == null) {
+                settings.set_strv("disabled-sports-leagues", new string[0]);
+            } else {
+                string[] arr = new string[value.size];
+                for (int i = 0; i < value.size; i++) arr[i] = value.get(i);
+                settings.set_strv("disabled-sports-leagues", arr);
+            }
+        }
+    }
+
     // User-generated data: preferred sources (includes custom RSS feeds) - stored in KeyFile
     private Gee.ArrayList<string>? _preferred_sources = null;
     public Gee.ArrayList<string> preferred_sources {
@@ -323,6 +341,30 @@ public class NewsPreferences : GLib.Object {
         foreach (var c in verify_list) {
             warning("  - category: %s", c);
         }
+    }
+
+    // Convenience helpers for managing which sports leagues show score cards
+    public bool sports_league_enabled(string league_key) {
+        foreach (var k in disabled_sports_leagues) if (k == league_key) return false;
+        return true;
+    }
+
+    public void set_sports_league_enabled(string league_key, bool enabled) {
+        var current_list = disabled_sports_leagues;
+        var updated_list = new Gee.ArrayList<string>();
+        foreach (var k in current_list) updated_list.add(k);
+
+        if (enabled) {
+            var to_remove = new Gee.ArrayList<string>();
+            foreach (var k in updated_list) if (k == league_key) to_remove.add(k);
+            foreach (var r in to_remove) updated_list.remove(r);
+        } else {
+            bool already_present = false;
+            foreach (var k in updated_list) if (k == league_key) { already_present = true; break; }
+            if (!already_present) updated_list.add(league_key);
+        }
+
+        disabled_sports_leagues = updated_list;
     }
 
     // Return true if the provided category is valid for the given source

@@ -129,9 +129,19 @@ public class SportsScoresController : GLib.Object {
     }
 
     private static void fetch_and_populate(NewsWindow win) {
-        var league_keys = SportsScoresService.league_keys();
+        var all_league_keys = SportsScoresService.league_keys();
+        var league_keys = new Gee.ArrayList<string>();
+        foreach (var key in all_league_keys) {
+            if (win.prefs.sports_league_enabled(key)) league_keys.add(key);
+        }
         var results = new Gee.HashMap<string, Gee.ArrayList<GameScore>>();
         int pending = league_keys.size;
+
+        if (pending == 0) {
+            render(win, league_keys, results);
+            schedule_next_poll(FAR_OUT_POLL_SECONDS);
+            return;
+        }
 
         // One fetch_league call per league, each constructing its own
         // closure right here rather than going through a helper that fans

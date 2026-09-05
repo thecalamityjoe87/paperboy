@@ -109,6 +109,17 @@
       <description>List of category IDs included in the personalized feed</description>
     </key>
 
+    <!-- Empty means every league SportsScoresService knows about is shown;
+         a league key here is hidden from the Sports score-card sections.
+         Opt-out (rather than opt-in, like personalized-categories) so a
+         newly added league shows up for existing users without requiring
+         them to re-enable it. -->
+    <key name="disabled-sports-leagues" type="as">
+      <default>[]</default>
+      <summary>Disabled sports leagues</summary>
+      <description>List of sports league keys excluded from the Sports category's score-card sections</description>
+    </key>
+
     <!-- App Settings -->
     <key name="update-interval" type="s">
       <default>'manual'</default>

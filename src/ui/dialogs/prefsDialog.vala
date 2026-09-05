@@ -133,7 +133,7 @@ public class PrefsDialog : GLib.Object {
         var scroller = new Gtk.ScrolledWindow();
         scroller.set_vexpand(true);
         scroller.set_min_content_height(500);
-        scroller.set_max_content_height(700);
+        scroller.set_max_content_height(680);
         scroller.set_hexpand(true);
         scroller.set_min_content_width(300);
         var cats_list = new Gtk.ListBox();
@@ -241,8 +241,11 @@ public class PrefsDialog : GLib.Object {
         var dialog = new Adw.PreferencesDialog();
         dialog.set_title("Preferences");
 
-        // Set a more compact width for the dialog
-        dialog.set_content_width(425);
+        // Wide enough to keep the top view-switcher showing all three tabs
+        // as pills - narrower than this and Adw.PreferencesDialog collapses
+        // them into a dropdown menu instead.
+        dialog.set_content_width(600);
+        dialog.set_content_height(680);
 
         // Track if sources changed for refresh on close
         bool sources_changed = false;
@@ -636,6 +639,11 @@ public class PrefsDialog : GLib.Object {
 
         app_page.add(appearance_group);
 
+        // ========== PERSONALIZATION PAGE ==========
+        var personalization_page = new Adw.PreferencesPage();
+        personalization_page.set_title("Personalization");
+        personalization_page.set_icon_name("preferences-desktop-symbolic");
+
         var app_group = new Adw.PreferencesGroup();
         app_group.set_title("Personalization");
 
@@ -770,7 +778,37 @@ public class PrefsDialog : GLib.Object {
         });
         app_group.add(unread_badges_row);
 
-        app_page.add(app_group);
+        personalization_page.add(app_group);
+
+        // ========== SPORTS SCORE CARDS GROUP ==========
+        var sports_group = new Adw.PreferencesGroup();
+        sports_group.set_title("Sports Score Cards");
+        sports_group.set_description("Choose which leagues show score cards in the Sports category");
+
+        foreach (var league_key in SportsScoresService.league_keys()) {
+            string display_name = SportsScoresService.display_name_for(league_key);
+            var league_row = new Adw.SwitchRow();
+            league_row.set_title(display_name);
+            league_row.set_active(prefs.sports_league_enabled(league_key));
+
+            string _league_key = league_key;
+            league_row.notify["active"].connect(() => {
+                prefs.set_sports_league_enabled(_league_key, league_row.get_active());
+
+                // Reflect the change immediately rather than waiting on the
+                // "Refresh Content?" dialog other Preferences changes use -
+                // toggling a switch here has no other user-visible effect
+                // otherwise, since Sports may already be the open category.
+                if (win != null && win.prefs.category == "sports") {
+                    SportsScoresController.load(win);
+                }
+            });
+
+            sports_group.add(league_row);
+        }
+
+        personalization_page.add(sports_group);
+        dialog.add(personalization_page);
 
         // ========== UPDATE INTERVAL GROUP ==========
         var update_interval_group = new Adw.PreferencesGroup();
