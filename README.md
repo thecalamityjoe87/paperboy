@@ -18,19 +18,21 @@ A simple news app written in Vala, built with GTK4 and Libadwaita. My motivation
 
 ## 🚀 Some cool features of Paperboy
 
-- 📰 **Curated sources out of the box** – including The Guardian, Reddit, BBC, and FOX News.  
+- 📰 **Curated sources out of the box** – including The Guardian, Reddit, BBC, FOX News, NPR, PBS, ABC News, Bloomberg, the NYT, and the WSJ.
 - ⚡ **Powered by PaperboyAPI** – fetches articles from multiple sources and categories seamlessly.  
 - ⭐ **Follow news sources** – users can add sources they find through the API.  
 - 📡 **RSS feed support** – add any RSS feeds to Paperboy to follow additional websites or blogs.  
 - 🛠️ **Customizable feeds** – mix and match sources and categories to create your own personalized news stream.  
-- 📖 **In-app article viewing** – read articles without leaving the app.  
-- 🌍 **Local news support** – stay updated on what’s happening in your area.
+- 📖 **In-app article viewing** – read articles without leaving the app, with a built-in ad blocker for a cleaner reading experience.
+- 🌍 **Local news support** – uses your location (via GeoClue) to surface news for your area.
+- 🏆 **Live sports scores** – track live and recent game scores from a dedicated sports view.
+- 🔗 **Share articles** – quickly share articles you find to other apps.
 
 ### WARNING
 This app is very much so in an alpha state. It will definitely eat your dogs and throw your kittens outside. It's functional, but it's still very much so a WIP.
 
 ## Build dependencies
-This project declares several dependencies in `meson.build` (GTK4, Libadwaita, libsoup-3.0, JSON-GLib, GdkPixbuf, libxml2, Gee, WebKitGTK) plus the Vala toolchain and the usual build tools (Meson, Ninja, a C compiler and `pkg-config`).
+This project declares several dependencies in `meson.build` (GTK4, Libadwaita, libsoup-3.0, JSON-GLib, GdkPixbuf, libxml2, Gee, GIO, SQLite, WebKitGTK, GeoClue, and geocode-glib) plus the Vala toolchain and the usual build tools (Meson, Ninja, a C compiler and `pkg-config`).
 
 Additionally, the repository contains a small Rust helper (`tools/html2rss`) that is built with Cargo during the Meson configure step. To produce AppImages you will also need `appimagetool` (or the AppImage bundle of `appimagetool`).
 
@@ -45,6 +47,8 @@ Summary of required toolchain and libraries:
 - libxml2: `libxml2-dev`
 - Gee collection library: `libgee-0.8-dev`
 - SQLite (runtime and headers): `libsqlite3-dev`
+- GeoClue (used for the local-news location lookup): `libgeoclue-2-dev`
+- geocode-glib (reverse geocoding for location lookup): `libgeocode-glib-2-dev`
 - Rust toolchain (Cargo) for building `tools/html2rss` (recommended install via `rustup`)
 - `appimagetool` (optional, to create AppImages)
 
@@ -60,7 +64,8 @@ sudo apt update
 sudo apt install build-essential valac meson ninja-build pkg-config \
 	libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev \
 	libsoup3.0-dev libjson-glib-dev libgdk-pixbuf-2.0-dev \
-	libxml2-dev libgee-0.8-dev libsqlite3-dev
+	libxml2-dev libgee-0.8-dev libsqlite3-dev \
+	libgeoclue-2-dev libgeocode-glib-2-dev
 
 # Rust (recommended via rustup) and appimagetool (optional):
 sudo apt install curl
@@ -73,7 +78,8 @@ Fedora:
 ```bash
 sudo dnf install @development-tools vala meson ninja pkgconf-pkg-config \
   gtk4-devel libadwaita-devel webkitgtk6-devel libsoup3-devel json-glib-devel \
-  gdk-pixbuf2-devel libxml2-devel libgee-devel sqlite-devel
+  gdk-pixbuf2-devel libxml2-devel libgee-devel sqlite-devel \
+  geoclue2-devel geocode-glib2-devel
 
 # Rust toolchain and appimagetool (if desired):
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -84,7 +90,8 @@ Arch Linux:
 
 ```bash
 sudo pacman -S --needed base-devel vala meson ninja pkgconf \
-  gtk4 libadwaita webkit2gtk libsoup json-glib gdk-pixbuf2 libxml2 gee sqlite
+  gtk4 libadwaita webkit2gtk libsoup json-glib gdk-pixbuf2 libxml2 gee sqlite \
+  geoclue geocode-glib
 
 # Rust and appimagetool (optional):
 rustup default stable
@@ -94,7 +101,8 @@ pacman -S appimagetool || true
 OpenSUSE Tumbleweed:
 ```bash
 sudo zypper in -t pattern devel_basis && sudo zypper in meson vala gtk4-devel \
-  libwebkitgtk6.0-devel libsoup3-devel json-glib-devel libadwaita-devel libgee-devel sqlite3-devel
+  libwebkitgtk6.0-devel libsoup3-devel json-glib-devel libadwaita-devel libgee-devel sqlite3-devel \
+  geoclue2-devel geocode-glib2-devel
 ```
 
 Build & run
