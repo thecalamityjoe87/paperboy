@@ -45,15 +45,13 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Managers.ViewStateManager? view_state;
     // Image caching moved to ImageCache (pixbuf-backed). Do not store
     // Gdk.Texture or Gdk.Pixbuf in window fields; use `image_cache`.
-    public Gee.HashMap<string, string> requested_image_sizes;
-    public Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
-    public Gee.HashMap<Gtk.Picture, DeferredRequest> deferred_downloads;
-    // THREAD SAFETY: Mutex to protect pending_downloads and requested_image_sizes
-    // from concurrent access by background download threads
-    public GLib.Mutex download_mutex;
-    // Per-picture flag indicating we should show the local placeholder
-    // (used for Local News cards so fallbacks keep the local look).
-    public Gee.HashMap<Gtk.Picture, bool> pending_local_placeholder;
+    // Download bookkeeping (pending downloads, deferred requests, requested
+    // sizes, the local-placeholder flag map, and the download mutex) lives
+    // on `image_manager`, not here - use `image_manager.pending_downloads`
+    // etc. (See imageManager.vala; this window used to keep its own copies
+    // of these maps, but they were never populated after that logic moved
+    // into ImageManager, which left cleanup_old_content() clearing empty
+    // maps instead of the real ones.)
     public MetaCache? meta_cache;
     public ArticleStateStore? article_state_store;
     public ImageCache? image_cache;
@@ -85,8 +83,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Gtk.Label category_label;
     public Gtk.Label category_subtitle;
     public Gtk.Box? category_icon_holder;
-    public Gtk.Image source_logo;
-    public Gtk.Label source_label;
     public Gtk.Box featured_box_dummy;
 
     // Manager instance for header-related UI
@@ -109,12 +105,6 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Deferred download check timeout
     public uint deferred_check_timeout_id = 0;
-
-    // Update the source/logo label via HeaderManager
-    private void update_source_info() {
-        if (header_manager != null) header_manager.update_source_info();
-    }
-    
 
     // Return the NewsSource the UI should treat as "active". If the
     // user has enabled exactly one preferred source, map that id to the
@@ -236,12 +226,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Use ImageCache for in-memory pixbuf caching; evictions/unrefs are
         // handled by ImageCache itself. The per-window `image_cache` is
         // instantiated below and will be set as the global ImageCache.
-        requested_image_sizes = new Gee.HashMap<string, string>();
-        pending_downloads = new Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>>();
-        deferred_downloads = new Gee.HashMap<Gtk.Picture, DeferredRequest>();
-        pending_local_placeholder = new Gee.HashMap<Gtk.Picture, bool>();
-        // Initialize download mutex for thread-safe access
-        download_mutex = new GLib.Mutex();
         // Initialize on-disk cache helper
         meta_cache = new MetaCache();
         article_state_store = new ArticleStateStore();
@@ -417,8 +401,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     category_label = content_view.category_label;
     category_subtitle = content_view.category_subtitle;
     category_icon_holder = content_view.category_icon_holder;
-    source_logo = content_view.source_logo;
-    source_label = content_view.source_label;
     content_box = content_view.content_box;
     main_scrolled = content_view.main_scrolled;
     // Instantiate LayoutManager and wire container refs
@@ -481,8 +463,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     header_manager.category_label = category_label;
     header_manager.category_subtitle = category_subtitle;
     header_manager.category_icon_holder = category_icon_holder;
-    header_manager.source_label = source_label;
-    header_manager.source_logo = source_logo;
 
     // LoadingStateManager already initialized and wired above
 
@@ -773,14 +753,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         var sm = Adw.StyleManager.get_default();
         if (sm != null) {
             // When the theme's dark property changes, update sidebar icons
-            // and the source/logo in the header so bundled mono icons can
+            // and the category icon in the header so bundled mono icons can
             // be swapped for their white variants or back to the original
             // variant as appropriate.
             sm.notify["dark"].connect(() => {
                 if (sidebar_view != null) sidebar_view.update_icons_for_theme();
-                // Update the top-right source logo to pick the correct
-                // white or normal variant based on the new theme.
-                update_source_info();
                 // Update the category icon in the header so bundled
                 // mono icons can swap to their white variants in dark
                 // mode as well.
@@ -874,9 +851,6 @@ public class NewsWindow : Adw.ApplicationWindow {
                     }
                 }
             }
-
-            // Clear any paintables held by window-level widgets to release textures
-            if (source_logo != null) source_logo.set_from_paintable(null);
 
             if (image_cache != null) image_cache.clear();
 
@@ -1083,21 +1057,22 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (view_state != null) view_state.url_to_card.clear();
         if (view_state != null) view_state.normalized_to_url.clear();
         
-        // Clear pending downloads
-        pending_downloads.clear();
-        
-        // Clear hero requests
-        image_manager.hero_requests.clear();
-        
-        // Clear deferred downloads
-        deferred_downloads.clear();
-
-        // Clear requested image sizes
-        requested_image_sizes.clear();
-
-        // Clear pending local-placeholder markers (keyed by Gtk.Picture; left
-        // unset entries here would hold a strong ref to widgets forever)
-        if (image_manager != null) image_manager.pending_local_placeholder.clear();
+        // Clear download bookkeeping on image_manager - these are keyed by
+        // Gtk.Picture or hold onto them (pending_downloads, deferred_downloads,
+        // pending_local_placeholder, hero_requests); leaving stale entries here
+        // after a view/category switch would hold widgets alive forever and
+        // let requested_image_sizes grow without bound for the life of the
+        // window (this used to happen: cleanup_old_content() cleared its own
+        // now-removed copies of these maps instead of image_manager's real ones).
+        if (image_manager != null) {
+            image_manager.download_mutex.lock();
+            image_manager.pending_downloads.clear();
+            image_manager.download_mutex.unlock();
+            image_manager.hero_requests.clear();
+            image_manager.deferred_downloads.clear();
+            image_manager.requested_image_sizes.clear();
+            image_manager.pending_local_placeholder.clear();
+        }
         
         // Clear the centralized ImageCache (pixbufs) and preview cache.
         // Suppress clearing here to avoid excessive eviction when switching

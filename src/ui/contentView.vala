@@ -44,8 +44,6 @@ public class ContentView : GLib.Object {
     public Gtk.Box category_icon_holder;
     public Gtk.Label category_label;
     public Gtk.Label category_subtitle;
-    public Gtk.Image source_logo;
-    public Gtk.Label source_label;
     public Gtk.Overlay main_overlay;
     public Gtk.Box loading_container;
     public Gtk.Spinner loading_spinner;
@@ -115,31 +113,6 @@ public class ContentView : GLib.Object {
         cat_title_box.append(category_label);
         title_row.append(cat_title_box);
 
-        // Create source info box (logo + text) - right aligned
-        var source_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-        source_box.set_valign(Gtk.Align.CENTER);
-
-        // Add circular source logo
-        source_logo = new Gtk.Image();
-        source_logo.set_pixel_size(32);
-        source_logo.set_valign(Gtk.Align.CENTER);
-        source_logo.set_halign(Gtk.Align.CENTER);
-        source_logo.set_size_request(32, 32);
-        source_logo.add_css_class("header-source-logo");
-        source_box.append(source_logo);
-
-        // Add source label
-        source_label = new Gtk.Label("");
-        source_label.set_xalign(1);
-        source_label.add_css_class("dim-label");
-        source_label.add_css_class("title-4");
-        var source_attrs = new Pango.AttrList();
-        source_attrs.insert(Pango.attr_scale_new(1.2));
-        source_attrs.insert(Pango.attr_weight_new(Pango.Weight.MEDIUM));
-        source_label.set_attributes(source_attrs);
-        source_box.append(source_label);
-
-        title_row.append(source_box);
         header_box.append(title_row);
 
         // Add current date label - weekday + full month name/day, no year.

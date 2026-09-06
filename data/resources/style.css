@@ -323,13 +323,6 @@
 }
 
 
-/* Source logo styling for content header (top right source info) */
-.header-source-logo {
-    min-width: 32px;
-    min-height: 32px;
-    -gtk-icon-transform: scale(1);
-}
-
 /* Category icon styling for content header (top left) */
 .header-category-icon {
     min-width: 36px;

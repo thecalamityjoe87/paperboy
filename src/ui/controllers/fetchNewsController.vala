@@ -662,9 +662,6 @@ public class FetchNewsController {
         // before the multi-source branch so frontpage works even when the
         // user has zero or one preferred source selected.
         if (win.category_manager.is_frontpage_view()) {
-            // Present the multi-source label/logo in the header
-            var header_mgr = win.header_manager;
-            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
                 wrapped_clear();
@@ -683,9 +680,6 @@ public class FetchNewsController {
         // If the user selected "Top Ten", request the backend headlines endpoint
         // regardless of preferred_sources. Same early-return logic as frontpage.
         if (win.category_manager.is_topten_view()) {
-            // Present the multi-source label/logo in the header
-            var header_mgr = win.header_manager;
-            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
                 wrapped_clear();
@@ -710,8 +704,6 @@ public class FetchNewsController {
             // category, simply request the backend frontpage once and present
             // the combined/multi-source UI.
             if (win.category_manager.is_frontpage_view()) {
-                var header_mgr = win.header_manager;
-                if (header_mgr != null) header_mgr.setup_multi_source_header();
                 used_multi = true;
 
                 // Clear UI and ask the backend frontpage fetcher once. NewsService
@@ -730,8 +722,6 @@ public class FetchNewsController {
 
             // Same logic for Top Ten: request backend headlines endpoint
             if (win.category_manager.is_topten_view()) {
-                var header_mgr = win.header_manager;
-                if (header_mgr != null) header_mgr.setup_multi_source_header();
                 used_multi = true;
 
                 wrapped_clear();
@@ -745,9 +735,6 @@ public class FetchNewsController {
                 return;
             }
 
-            // Display a combined label and bundled monochrome logo for multi-source mode
-            var header_mgr = win.header_manager;
-            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
             //Use SourceManager to get enabled sources as enums
@@ -1212,8 +1199,6 @@ public class FetchNewsController {
         if (win.prefs == null) return false;
 
         if (win.prefs.category != "saved") return false;
-
-        win.header_manager.update_for_saved_articles();
 
         if (win.article_state_store == null) {
             wrapped_set_label("Saved Articles — Unable to load saved articles");
