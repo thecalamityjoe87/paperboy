@@ -69,20 +69,19 @@ namespace Managers {
         // HeroCard's overlay is nested inside a Grid (the text/picture
         // split), so the same "first child is an Overlay" check that works
         // for article cards silently finds nothing on a hero card. Check
-        // for a HeroCard via its attached data first, matching how
-        // heroCard.vala itself looks up "hero-card", and fall back to the
-        // article-card shape otherwise.
+        // the hero shape's viewed-badge-slot data first, then fall back to
+        // the article-card shape.
         // The "Viewed" badge lives in the title area's bottom-right slot,
         // opposite the time caption (see ArticleCard/HeroCard's
         // viewed_badge_slot, populated in build_viewed_badge) - not the
         // image overlay, and not the top-right corner row the save ribbon
         // occupies.
         private Gtk.Widget? resolve_badge_container_for_card(Gtk.Widget card) {
-            var hero = card.get_data<HeroCard>("hero-card");
-            if (hero != null) return hero.viewed_badge_slot;
+            var hero_badge_slot = card.get_data<Gtk.Box>("hero-viewed-badge-slot");
+            if (hero_badge_slot != null) return hero_badge_slot;
 
-            var article = card.get_data<ArticleCard>("article-card");
-            if (article != null) return article.viewed_badge_slot;
+            var article_badge_slot = card.get_data<Gtk.Box>("article-viewed-badge-slot");
+            if (article_badge_slot != null) return article_badge_slot;
 
             return null;
         }

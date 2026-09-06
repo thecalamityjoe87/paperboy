@@ -30,9 +30,6 @@ public class ScoreCard : GLib.Object {
     public Gtk.Box root;
     public string url;
 
-    // Signal emitted when the card is activated (clicked/tapped)
-    public signal void activated(string url);
-
     public ScoreCard(GameScore game) {
         GLib.Object();
         this.url = game.espn_link;
@@ -58,17 +55,26 @@ public class ScoreCard : GLib.Object {
         root.append(build_team_row(game.away_team, game.away_team_abbr, game.away_logo_url, game.away_score, game.status));
         root.append(build_team_row(game.home_team, game.home_team_abbr, game.home_logo_url, game.home_score, game.status));
 
+        wire_interactions(root, url);
+    }
+
+    // Must stay static: Vala folds a strong ref to `self` into the shared
+    // closure block of any instance method that defines a lambda, even one
+    // that never touches `self`. Connecting these controllers here instead
+    // of in the constructor means root -> controller -> closure never
+    // chains back to a ScoreCard -> root reference cycle.
+    private static void wire_interactions(Gtk.Box root_widget, string card_url) {
         var gesture = new Gtk.GestureClick();
         gesture.set_button(1);
         gesture.released.connect(() => {
-            activated(url);
+            BrowserUtils.open_url_in_browser(card_url);
         });
-        root.add_controller(gesture);
+        root_widget.add_controller(gesture);
 
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root.remove_css_class("card-hover"); });
-        root.add_controller(motion);
+        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
+        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        root_widget.add_controller(motion);
     }
 
     private Gtk.Widget build_status_row(GameScore game) {
@@ -118,12 +124,36 @@ public class ScoreCard : GLib.Object {
     // enough - no need for the app's stateful image cache/defer pipeline
     // used for article thumbnails, which assumes callers pair it with
     // article-specific loading-state bookkeeping this card doesn't have.
-    private void load_team_logo(Gtk.Picture picture, string logo_url) {
+    // Static for the same reason as wire_interactions() above.
+    //
+    // Decoded-texture cache keyed by logo URL: team logos never change, but
+    // score cards rebuild from scratch on every live-game poll, so without
+    // this every poll re-fetched and re-decoded the same handful of
+    // textures. Caching them bounds total memory to the fixed set of
+    // distinct teams instead of growing every cycle.
+    //
+    // Lazily constructed rather than a field initializer, since this class
+    // is only ever used through its constructor/static helpers, never a
+    // path that would run a static field initializer.
+    private static Gee.HashMap<string, Gdk.Texture>? _logo_texture_cache = null;
+    private static Gee.HashMap<string, Gdk.Texture> logo_texture_cache() {
+        if (_logo_texture_cache == null) _logo_texture_cache = new Gee.HashMap<string, Gdk.Texture>();
+        return _logo_texture_cache;
+    }
+
+    private static void load_team_logo(Gtk.Picture picture, string logo_url) {
+        var cached = logo_texture_cache().get(logo_url);
+        if (cached != null) {
+            picture.set_paintable(cached);
+            return;
+        }
+
         var client = Paperboy.HttpClientUtils.get_default();
         client.fetch_bytes(logo_url, null, (response) => {
             if (!response.is_success() || response.body == null) return;
             try {
                 var texture = Gdk.Texture.from_bytes(response.body);
+                logo_texture_cache().set(logo_url, texture);
                 picture.set_paintable(texture);
             } catch (GLib.Error e) {
                 // Missing/broken team logo - leave the placeholder blank

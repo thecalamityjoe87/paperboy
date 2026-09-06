@@ -333,9 +333,9 @@ namespace Managers {
                         // place instead of silently dropping the newer data.
                         if (published != null && published.length > 0 && window.view_state != null) {
                             Gtk.Widget? existing_widget = window.view_state.url_to_card.get(normalized);
-                            var existing_card = existing_widget != null ? existing_widget.get_data<ArticleCard>("article-card") : null;
-                            if (existing_card != null && existing_card.time_label != null && existing_card.time_label.get_text() == "") {
-                                existing_card.time_label.set_text(DateUtils.time_ago(published));
+                            Gtk.Label? existing_time_label = existing_widget != null ? existing_widget.get_data<Gtk.Label>("article-time-label") : null;
+                            if (existing_time_label != null && existing_time_label.get_text() == "") {
+                                existing_time_label.set_text(DateUtils.time_ago(published));
                             }
                         }
                         return;
@@ -575,57 +575,67 @@ namespace Managers {
                     window.article_state_store.register_article(_norm, category_id, source_name);
                 }
 
-                hero_card.activated.connect((s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); });
-
-                // Connect context menu signals
-                hero_card.open_in_app_requested.connect((article_url) => {
-                    open_article_in_app_if_online(article_url);
-                });
-
-                hero_card.open_in_browser_requested.connect((article_url) => {
-                    open_article_in_browser_if_online(article_url);
-                });
-
-                hero_card.follow_source_requested.connect((article_url, src_name) => {
-                    request_show_toast("Searching for feed...", true);
-                    window.source_manager.follow_rss_source(article_url, src_name);
-                });
-
-                hero_card.save_for_later_requested.connect((article_url) => {
-                    if (window.article_state_store != null) {
-                        bool is_saved = window.article_state_store.is_saved(article_url);
-                        if (is_saved) {
-                            window.article_state_store.unsave_article(article_url);
-                            request_show_toast("Removed article from saved");
-                            // animate_save_toggle() updates the Saved badge count itself.
-                            if (window.animation_manager != null) {
-                                window.animation_manager.animate_save_toggle(hero_card.root, hero_card.save_ribbon, decoded_title, false);
-                            }
-
-                            if (window.prefs.category == "saved") {
+                // Capture plain widget locals instead of referencing
+                // hero_card.root/save_ribbon inside these callbacks - see
+                // HeroCard.wire_interactions().
+                var hero_root = hero_card.root;
+                var hero_save_ribbon = hero_card.save_ribbon;
+                HeroCard.wire_interactions(
+                    hero_root,
+                    url,
+                    enable_hero_context_menu,
+                    window.article_state_store,
+                    window,
+                    source_name,
+                    category_id,
+                    thumbnail_url,
+                    hero_card.title_label,
+                    hero_card.image,
+                    hero_card.viewed_badge_slot,
+                    hero_card.footer_box,
+                    hero_card.overlay,
+                    (s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); },
+                    (article_url) => { open_article_in_app_if_online(article_url); },
+                    (article_url) => { open_article_in_browser_if_online(article_url); },
+                    (article_url, src_name) => {
+                        request_show_toast("Searching for feed...", true);
+                        window.source_manager.follow_rss_source(article_url, src_name);
+                    },
+                    (article_url) => {
+                        if (window.article_state_store != null) {
+                            bool is_saved = window.article_state_store.is_saved(article_url);
+                            if (is_saved) {
+                                window.article_state_store.unsave_article(article_url);
+                                request_show_toast("Removed article from saved");
+                                // animate_save_toggle() updates the Saved badge count itself.
                                 if (window.animation_manager != null) {
-                                    var w = hero_card.root;
-                                    string? normalized = null;
-                                    if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
-                                    if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
-                                    window.animation_manager.animate_card_exit_and_remove(w, 0);
-                                } else {
-                                    window.fetch_news();
+                                    window.animation_manager.animate_save_toggle(hero_root, hero_save_ribbon, decoded_title, false);
+                                }
+
+                                if (window.prefs.category == "saved") {
+                                    if (window.animation_manager != null) {
+                                        var w = hero_root;
+                                        string? normalized = null;
+                                        if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
+                                        if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
+                                        window.animation_manager.animate_card_exit_and_remove(w, 0);
+                                    } else {
+                                        window.fetch_news();
+                                    }
+                                }
+                            } else {
+                                window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
+                                request_show_toast("Added article to saved");
+                                // Ribbon/pop + fly-to-shelf; the Saved badge count
+                                // only bumps once the ghost actually arrives there.
+                                if (window.animation_manager != null) {
+                                    window.animation_manager.animate_save_toggle(hero_root, hero_save_ribbon, decoded_title, true);
                                 }
                             }
-                        } else {
-                            window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
-                            request_show_toast("Added article to saved");
-                            // Ribbon/pop + fly-to-shelf; the Saved badge count
-                            // only bumps once the ghost actually arrives there.
-                            if (window.animation_manager != null) {
-                                window.animation_manager.animate_save_toggle(hero_card.root, hero_card.save_ribbon, decoded_title, true);
-                            }
                         }
-                    }
-                });
-
-                hero_card.share_requested.connect((article_url) => { window.show_share_dialog(article_url); });
+                    },
+                    (article_url) => { window.show_share_dialog(article_url); }
+                );
 
                 if (window.prefs.category == "topten") {
                     if (topten_hero_count < 2) {
@@ -638,9 +648,6 @@ namespace Managers {
                     if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
                     if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
                         hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
-                        hero_carousel.slide_activated.connect((t, u, thumb, cat, src) => {
-                            window.article_pane.show_article_preview(t, u, thumb, cat, src);
-                        });
                     }
                     featured_carousel_items.add(new ArticleItem(decoded_title, url, thumbnail_url, category_id, source_name));
                     featured_carousel_category = category_id;
@@ -695,19 +702,19 @@ namespace Managers {
             // Ensure carousel exists
             if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
                 hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
-                // Connect slide activation signal
-                hero_carousel.slide_activated.connect((t, u, thumb, cat, src) => {
-                    window.article_pane.show_article_preview(t, u, thumb, cat, src);
-                });
             }
 
             // Build category chip and create slide via HeroCarousel
             var slide_chip = window.build_category_chip(slide_display_cat);
-            var components = hero_carousel.create_article_slide(decoded_title, url, thumbnail_url, category_id, source_name, slide_chip, published);
+            var components = hero_carousel.create_article_slide(
+                decoded_title, url, thumbnail_url, category_id, source_name, slide_chip,
+                (t, u, thumb, cat, src) => { window.article_pane.show_article_preview(t, u, thumb, cat, src); },
+                published
+            );
 
             // Populate this slide's snippet and source badge the same way as
             // the primary hero.
-            var slide_hero = components.slide.get_data<HeroCard>("hero-card");
+            var slide_hero = components.hero;
             if (slide_hero != null) {
                 ArticleSnippetService.attach_hero_snippet(slide_hero, url, source_name, article_buffer);
                 if (category_id != "local_news") {
@@ -862,65 +869,60 @@ namespace Managers {
             window.article_state_store.register_article(_norm, category_id, source_name);
         }
 
-        article_card.activated.connect((s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); });
-
-        // Connect context menu signals
-        article_card.open_in_app_requested.connect((article_url) => {
-            open_article_in_app_if_online(article_url);
-        });
-
-        article_card.open_in_browser_requested.connect((article_url) => {
-            open_article_in_browser_if_online(article_url);
-        });
-
-        article_card.follow_source_requested.connect((article_url, src_name) => {
-            request_show_toast("Searching for feed...", true);
-            window.source_manager.follow_rss_source(article_url, src_name);
-        });
-
-                article_card.save_for_later_requested.connect((article_url) => {
-            if (window.article_state_store != null) {
-                bool is_saved = window.article_state_store.is_saved(article_url);
-                if (is_saved) {
-                    window.article_state_store.unsave_article(article_url);
-                    request_show_toast("Removed article from saved");
-                    // animate_save_toggle() updates the Saved badge count itself.
-                    if (window.animation_manager != null) {
-                        window.animation_manager.animate_save_toggle(article_card.root, article_card.save_ribbon, decoded_title, false);
-                    }
-
-                    if (window.prefs.category == "saved") {
-                        // Animate removal of this single card instead of a full reload
+        // Capture plain widget locals instead of referencing
+        // article_card.root/save_ribbon inside these callbacks - see
+        // ArticleCard.wire_interactions().
+        var card_root = article_card.root;
+        var card_save_ribbon = article_card.save_ribbon;
+        ArticleCard.wire_interactions(
+            card_root,
+            url,
+            window.article_state_store,
+            window,
+            source_name,
+            (s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); },
+            (article_url) => { open_article_in_app_if_online(article_url); },
+            (article_url) => { open_article_in_browser_if_online(article_url); },
+            (article_url, src_name) => {
+                request_show_toast("Searching for feed...", true);
+                window.source_manager.follow_rss_source(article_url, src_name);
+            },
+            (article_url) => {
+                if (window.article_state_store != null) {
+                    bool is_saved = window.article_state_store.is_saved(article_url);
+                    if (is_saved) {
+                        window.article_state_store.unsave_article(article_url);
+                        request_show_toast("Removed article from saved");
+                        // animate_save_toggle() updates the Saved badge count itself.
                         if (window.animation_manager != null) {
-                                    var w = article_card.root;
-                                    string? normalized = null;
-                                    if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
-                                    if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
-                                    window.animation_manager.animate_card_exit_and_remove(w, 0);
-                        } else {
-                            window.fetch_news();
+                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, decoded_title, false);
+                        }
+
+                        if (window.prefs.category == "saved") {
+                            // Animate removal of this single card instead of a full reload
+                            if (window.animation_manager != null) {
+                                        var w = card_root;
+                                        string? normalized = null;
+                                        if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
+                                        if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
+                                        window.animation_manager.animate_card_exit_and_remove(w, 0);
+                            } else {
+                                window.fetch_news();
+                            }
+                        }
+                    } else {
+                        window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
+                        request_show_toast("Added article to saved");
+                        // Ribbon/pop + fly-to-shelf; the Saved badge count only
+                        // bumps once the ghost actually arrives there.
+                        if (window.animation_manager != null) {
+                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, decoded_title, true);
                         }
                     }
-                } else {
-                    window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
-                    request_show_toast("Added article to saved");
-                    // Ribbon/pop + fly-to-shelf; the Saved badge count only
-                    // bumps once the ghost actually arrives there.
-                    if (window.animation_manager != null) {
-                        window.animation_manager.animate_save_toggle(article_card.root, article_card.save_ribbon, decoded_title, true);
-                    }
                 }
-            }
-        });
-
-        article_card.share_requested.connect((article_url) => {
-            window.show_share_dialog(article_url);
-        });
-
-        // Attach debug hooks to the created widget so we can observe parent changes and disposals
-        article_card.root.notify.connect((obj, pspec) => {
-        });
-        // Note: cannot reliably connect to dispose; rely on notify("parent") to track unparenting
+            },
+            (article_url) => { window.show_share_dialog(article_url); }
+        );
 
         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
     }
@@ -1203,16 +1205,29 @@ namespace Managers {
         featured_used = false;
         topten_hero_count = 0;
         if (featured_carousel_items != null) featured_carousel_items.clear();
+        // Must stop the timer before dropping the reference, or its
+        // GLib.Timeout source stays registered forever.
+        if (hero_carousel != null) hero_carousel.stop_timer();
         hero_carousel = null;
         featured_carousel_category = null;
     }
 
     /**
-     * Create an ArticleCard from a HeroCard and wire up all handlers
-     * Used by search to convert hero cards to article cards for display
+     * Create an ArticleCard from a hero's data and wire up all handlers.
+     * Used by search to convert hero cards to article cards for display.
+     *
+     * Takes plain data rather than a HeroCard reference since a HeroCard no
+     * longer stays reachable past its own construction (see
+     * HeroCard.wire_interactions()); the caller pulls these values off the
+     * hero's root widget instead.
      */
     public ArticleCard create_article_card_from_hero(
-        HeroCard hero,
+        string hero_title,
+        string hero_url,
+        Gdk.Paintable? hero_paintable,
+        string? hero_source_name,
+        string? hero_category_id,
+        string? hero_thumbnail_url,
         int col_w,
         int img_h,
         ArticleStateStore? state_store
@@ -1221,8 +1236,8 @@ namespace Managers {
         chip.set_visible(false);
 
         var article_card = new ArticleCard(
-            hero.title_label.get_label(),
-            hero.url,
+            hero_title,
+            hero_url,
             col_w,
             img_h,
             chip,
@@ -1231,17 +1246,17 @@ namespace Managers {
         );
 
         // Copy image
-        if (hero.image.get_paintable() != null) {
-            article_card.image.set_paintable(hero.image.get_paintable());
+        if (hero_paintable != null) {
+            article_card.image.set_paintable(hero_paintable);
         }
 
         // Preserve metadata
-        article_card.source_name = hero.source_name;
-        article_card.category_id = hero.category_id;
-        article_card.thumbnail_url = hero.thumbnail_url;
+        article_card.source_name = hero_source_name;
+        article_card.category_id = hero_category_id;
+        article_card.thumbnail_url = hero_thumbnail_url;
 
         // Wire up application-level handlers
-        wire_article_card_handlers(article_card, hero.title_label.get_label(), hero.url, hero.thumbnail_url, hero.category_id, hero.source_name);
+        wire_article_card_handlers(article_card, hero_title, hero_url, hero_thumbnail_url, hero_category_id, hero_source_name);
 
         return article_card;
     }
@@ -1272,66 +1287,65 @@ namespace Managers {
             window.article_state_store.register_article(norm, category_id != null ? category_id : "", source_name);
         }
 
-        // Connect activation to show preview
-        article_card.activated.connect((s) => {
-            if (window.article_pane != null) {
-                window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
-            }
-        });
-
-        // Context menu actions
-        article_card.open_in_app_requested.connect((article_url) => {
-            open_article_in_app_if_online(article_url);
-        });
-
-        article_card.open_in_browser_requested.connect((article_url) => {
-            open_article_in_browser_if_online(article_url);
-        });
-
-        article_card.follow_source_requested.connect((article_url, src_name) => {
-            request_show_toast("Searching for feed...", true);
-            if (window.source_manager != null) {
-                window.source_manager.follow_rss_source(article_url, src_name);
-            }
-        });
-
-        article_card.save_for_later_requested.connect((article_url) => {
-            if (window.article_state_store != null) {
-                bool is_saved = window.article_state_store.is_saved(article_url);
-                if (is_saved) {
-                    window.article_state_store.unsave_article(article_url);
-                    // animate_save_toggle() updates the Saved badge count itself.
-                    if (window.animation_manager != null) {
-                        window.animation_manager.animate_save_toggle(article_card.root, article_card.save_ribbon, title, false);
-                    }
-                    if (window.prefs.category == "saved") {
+        // Capture plain widget locals - see ArticleCard.wire_interactions().
+        var card_root = article_card.root;
+        var card_save_ribbon = article_card.save_ribbon;
+        ArticleCard.wire_interactions(
+            card_root,
+            url,
+            window.article_state_store,
+            window,
+            source_name,
+            (s) => {
+                if (window.article_pane != null) {
+                    window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
+                }
+            },
+            (article_url) => { open_article_in_app_if_online(article_url); },
+            (article_url) => { open_article_in_browser_if_online(article_url); },
+            (article_url, src_name) => {
+                request_show_toast("Searching for feed...", true);
+                if (window.source_manager != null) {
+                    window.source_manager.follow_rss_source(article_url, src_name);
+                }
+            },
+            (article_url) => {
+                if (window.article_state_store != null) {
+                    bool is_saved = window.article_state_store.is_saved(article_url);
+                    if (is_saved) {
+                        window.article_state_store.unsave_article(article_url);
+                        // animate_save_toggle() updates the Saved badge count itself.
                         if (window.animation_manager != null) {
-                            var w = article_card.root;
-                            string normalized = norm;
-                            if (window.view_state != null) window.view_state.unregister_card_for_url(normalized);
-                            window.animation_manager.animate_card_exit_and_remove(w, 0);
-                        } else {
-                            window.fetch_news();
+                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, title, false);
+                        }
+                        if (window.prefs.category == "saved") {
+                            if (window.animation_manager != null) {
+                                var w = card_root;
+                                string normalized = norm;
+                                if (window.view_state != null) window.view_state.unregister_card_for_url(normalized);
+                                window.animation_manager.animate_card_exit_and_remove(w, 0);
+                            } else {
+                                window.fetch_news();
+                            }
+                        }
+                        request_show_toast("Removed article from saved");
+                    } else {
+                        window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                        request_show_toast("Added article to saved");
+                        // Ribbon/pop + fly-to-shelf; the Saved badge count only
+                        // bumps once the ghost actually arrives there.
+                        if (window.animation_manager != null) {
+                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, title, true);
                         }
                     }
-                    request_show_toast("Removed article from saved");
-                } else {
-                    window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
-                    request_show_toast("Added article to saved");
-                    // Ribbon/pop + fly-to-shelf; the Saved badge count only
-                    // bumps once the ghost actually arrives there.
-                    if (window.animation_manager != null) {
-                        window.animation_manager.animate_save_toggle(article_card.root, article_card.save_ribbon, title, true);
-                    }
+                }
+            },
+            (article_url) => {
+                if (window != null) {
+                    window.show_share_dialog(article_url);
                 }
             }
-        });
-
-        article_card.share_requested.connect((article_url) => {
-            if (window != null) {
-                window.show_share_dialog(article_url);
-            }
-        });
+        );
     }
 }
 }

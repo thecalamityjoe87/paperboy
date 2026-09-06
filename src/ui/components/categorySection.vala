@@ -42,8 +42,13 @@ public class CategorySection : GLib.Object {
     // fires the adjustment's own changed/value_changed signals almost
     // immediately - those are wired to update_load_more_affordance too, and
     // without this guard they'd stomp the spinner back to the arrow before
-    // it ever got a chance to render a frame.
-    private bool loading_more = false;
+    // it ever got a chance to render a frame. Held in a separate non-cyclic
+    // object rather than a plain field so add_nav_buttons' static closures
+    // can share it without needing `this`.
+    private class LoadMoreState : GLib.Object {
+        public bool loading = false;
+    }
+    private LoadMoreState load_more_state = new LoadMoreState();
 
     // center_nav_on_full_row: article cards place a fixed-height picture
     // flush at the top of the row (see ArticleCard), so by default the nav
@@ -150,7 +155,11 @@ public class CategorySection : GLib.Object {
             wrapper.append(overlay);
         }
 
-        add_nav_buttons(overlay, scroller, center_nav_on_full_row);
+        Gtk.Adjustment result_adj;
+        Gtk.Button result_right_button;
+        add_nav_buttons(overlay, scroller, row, window, query_category, load_more_state, out result_adj, out result_right_button, center_nav_on_full_row);
+        scroll_adjustment = result_adj;
+        right_nav_button = result_right_button;
     }
 
     /**
@@ -178,7 +187,13 @@ public class CategorySection : GLib.Object {
     * never obscured and the left fade stays hidden until the row has been
     * scrolled in from the start.
     */
-    private void add_nav_buttons(Gtk.Overlay overlay, Gtk.ScrolledWindow scroller, bool center_nav_on_full_row = false) {
+    // Must stay static: every closure below attaches to a signal owned
+    // (directly or transitively) by `wrapper`, a field of this
+    // CategorySection, so an instance method here would chain
+    // wrapper -> ... -> closure -> self -> wrapper into an uncollectible
+    // cycle. Per-section state travels as explicit parameters instead of
+    // fields; the resulting adjustment/button go back via `out`.
+    private static void add_nav_buttons(Gtk.Overlay overlay, Gtk.ScrolledWindow scroller, Gtk.Box row_widget, NewsWindow? win, string qcat, LoadMoreState load_state, out Gtk.Adjustment out_adj, out Gtk.Button out_right_button, bool center_nav_on_full_row = false) {
         Gtk.Adjustment adj = scroller.get_hadjustment();
 
         var left_fade = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
@@ -199,8 +214,8 @@ public class CategorySection : GLib.Object {
         overlay.add_overlay(right_fade);
 
         var nav_buttons = new ScrollNavButtons(overlay, "section-nav", 4);
-        scroll_adjustment = adj;
-        right_nav_button = nav_buttons.right_button;
+        out_adj = adj;
+        out_right_button = nav_buttons.right_button;
 
         if (!center_nav_on_full_row) {
             // Center the nav buttons on the card picture, not the full row
@@ -227,10 +242,10 @@ public class CategorySection : GLib.Object {
             bool can_scroll_more = adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0;
             if (can_scroll_more) {
                 scroller.scroll_child(Gtk.ScrollType.PAGE_FORWARD, true);
-            } else if (window != null && window.article_manager != null) {
-                loading_more = true;
+            } else if (win != null && win.article_manager != null) {
+                load_state.loading = true;
                 show_load_more_spinner(nav_buttons.right_button);
-                window.article_manager.load_more_for_category(query_category);
+                win.article_manager.load_more_for_category(qcat);
 
                 // The new cards widen the row, but scroll position is
                 // unchanged, so without this the user would still be
@@ -248,7 +263,7 @@ public class CategorySection : GLib.Object {
                     double max_value = adj.get_upper() - adj.get_page_size();
                     if (target_value > max_value) target_value = max_value;
                     var scroll_target = new Adw.PropertyAnimationTarget((GLib.Object) adj, "value");
-                    var scroll_anim = new Adw.TimedAnimation(row, adj.get_value(), target_value, 300u, scroll_target);
+                    var scroll_anim = new Adw.TimedAnimation(row_widget, adj.get_value(), target_value, 300u, scroll_target);
                     scroll_anim.play();
                     return false;
                 });
@@ -259,8 +274,8 @@ public class CategorySection : GLib.Object {
                 // genuinely being added - give it a moment to register
                 // before swapping the arrow back in.
                 GLib.Timeout.add(450, () => {
-                    loading_more = false;
-                    update_load_more_affordance(adj, nav_buttons.right_button);
+                    load_state.loading = false;
+                    update_load_more_affordance(adj, nav_buttons.right_button, load_state, win, qcat);
                     return false;
                 });
             }
@@ -271,9 +286,9 @@ public class CategorySection : GLib.Object {
         // ...then layer the load-more override on top, connected after
         // bind_adjustment so it runs second and has the final say on the
         // right button's icon/sensitivity for this row.
-        adj.value_changed.connect(() => update_load_more_affordance(adj, nav_buttons.right_button));
-        adj.changed.connect(() => update_load_more_affordance(adj, nav_buttons.right_button));
-        update_load_more_affordance(adj, nav_buttons.right_button);
+        adj.value_changed.connect(() => update_load_more_affordance(adj, nav_buttons.right_button, load_state, win, qcat));
+        adj.changed.connect(() => update_load_more_affordance(adj, nav_buttons.right_button, load_state, win, qcat));
+        update_load_more_affordance(adj, nav_buttons.right_button, load_state, win, qcat);
 
         adj.value_changed.connect(() => update_scroll_fades(adj, left_fade, right_fade));
         adj.changed.connect(() => update_scroll_fades(adj, left_fade, right_fade));
@@ -288,20 +303,22 @@ public class CategorySection : GLib.Object {
     */
     public void refresh_load_more_affordance() {
         if (scroll_adjustment == null || right_nav_button == null) return;
-        update_load_more_affordance(scroll_adjustment, right_nav_button);
+        update_load_more_affordance(scroll_adjustment, right_nav_button, load_more_state, window, query_category);
     }
 
-    private void update_scroll_fades(Gtk.Adjustment adj, Gtk.Widget left_fade, Gtk.Widget right_fade) {
+    // Static for the same reason as add_nav_buttons: called from closures
+    // owned by `wrapper`, so an instance method would recreate the cycle.
+    private static void update_scroll_fades(Gtk.Adjustment adj, Gtk.Widget left_fade, Gtk.Widget right_fade) {
         left_fade.set_visible(adj.get_value() > adj.get_lower() + 1.0);
         right_fade.set_visible(adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0);
     }
 
-    private void update_load_more_affordance(Gtk.Adjustment adj, Gtk.Button right_btn) {
+    private static void update_load_more_affordance(Gtk.Adjustment adj, Gtk.Button right_btn, LoadMoreState load_state, NewsWindow? window, string query_category) {
         // While the spinner is showing, leave the button alone - the
         // adjustment's own changed/value_changed signals also call into
         // here and would otherwise immediately replace the spinner with the
         // arrow again as soon as the newly-loaded cards resize the row.
-        if (loading_more) return;
+        if (load_state.loading) return;
 
         bool can_scroll_more = adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0;
         if (can_scroll_more) {
@@ -319,7 +336,7 @@ public class CategorySection : GLib.Object {
 
     // Swap the right nav button's arrow for a spinner while the next batch
     // of queued articles for this category is being added to the row.
-    private void show_load_more_spinner(Gtk.Button btn) {
+    private static void show_load_more_spinner(Gtk.Button btn) {
         var spinner = new Gtk.Spinner();
         // Match the arrow glyph's footprint instead of the spinner's own
         // larger default, so swapping in the spinner doesn't visibly

@@ -28,7 +28,7 @@ using Gee;
      * Filter article cards from the grid and hero container based on a search query
      * Creates ArticleCards from matching HeroCards and includes them in results
      */
-    public static Gee.ArrayList<ArticleCard> filter_cards_from_columns(
+    public static Gee.ArrayList<Gtk.Widget> filter_cards_from_columns(
         GLib.ListModel grid_children,
         Gtk.Box hero_container,
         string query,
@@ -37,7 +37,7 @@ using Gee;
         ArticleStateStore? state_store,
         NewsWindow? window
     ) {
-        var matching_cards = new Gee.ArrayList<ArticleCard>();
+        var matching_cards = new Gee.ArrayList<Gtk.Widget>();
         var seen_urls = new Gee.HashSet<string>();
         bool searching = query.strip().length > 0;
 
@@ -52,15 +52,18 @@ using Gee;
             }
             if (card_root == null) continue;
 
-            ArticleCard? card = card_root.get_data("article-card");
-            if (card == null) continue;
+            // See ArticleCard.wire_interactions(): plain values on the
+            // widget instead of a reference to the ArticleCard wrapper.
+            string? card_url = card_root.get_data<string>("article-url");
+            string? card_title = card_root.get_data<string>("article-title-text");
+            if (card_url == null) continue;
 
             if (!searching) {
-                matching_cards.add(card);
-            } else if (!seen_urls.contains(card.url) &&
-                       Managers.SearchManager.article_matches_query(card.title_text, card.url, query)) {
-                matching_cards.add(card);
-                seen_urls.add(card.url);
+                matching_cards.add(card_root);
+            } else if (!seen_urls.contains(card_url) &&
+                       Managers.SearchManager.article_matches_query(card_title ?? "", card_url, query)) {
+                matching_cards.add(card_root);
+                seen_urls.add(card_url);
             }
         }
 
@@ -79,31 +82,43 @@ using Gee;
         Gtk.Widget widget,
         string query,
         Gee.HashSet<string> seen_urls,
-        Gee.ArrayList<ArticleCard> matching_cards,
+        Gee.ArrayList<Gtk.Widget> matching_cards,
         int col_w,
         int img_h,
         ArticleStateStore? state_store,
         NewsWindow? window
     ) {
-        // Check if this widget has a HeroCard
+        // See HeroCard.wire_interactions(): plain values on the widget
+        // instead of a reference to the HeroCard wrapper.
         if (widget is Gtk.Box) {
             var box = widget as Gtk.Box;
-            HeroCard? hero = box.get_data("hero-card");
+            string? hero_url = box.get_data<string>("hero-url");
+            Gtk.Label? hero_title_label = box.get_data<Gtk.Label>("hero-title-label");
 
-            if (hero != null && !seen_urls.contains(hero.url)) {
+            if (hero_url != null && hero_title_label != null && !seen_urls.contains(hero_url)) {
+                string hero_title = hero_title_label.get_label();
                 // Use SearchManager for matching logic
-                if (Managers.SearchManager.article_matches_query(hero.title_label.get_label(), hero.url, query)) {
-                    seen_urls.add(hero.url);
+                if (Managers.SearchManager.article_matches_query(hero_title, hero_url, query)) {
+                    seen_urls.add(hero_url);
 
                     // Delegate ArticleCard creation to ArticleManager
                     if (window != null && window.article_manager != null) {
+                        Gtk.Picture? hero_image = box.get_data<Gtk.Picture>("hero-image");
+                        string? hero_source_name = box.get_data<string>("hero-source-name");
+                        string? hero_category_id = box.get_data<string>("hero-category-id");
+                        string? hero_thumbnail_url = box.get_data<string>("hero-thumbnail-url");
                         var article_card = window.article_manager.create_article_card_from_hero(
-                            hero,
+                            hero_title,
+                            hero_url,
+                            hero_image != null ? hero_image.get_paintable() : null,
+                            hero_source_name,
+                            hero_category_id,
+                            hero_thumbnail_url,
                             col_w,
                             img_h,
                             state_store
                         );
-                        matching_cards.add(article_card);
+                        matching_cards.add(article_card.root);
                     }
                 }
             }

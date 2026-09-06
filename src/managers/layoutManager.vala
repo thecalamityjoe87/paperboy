@@ -864,14 +864,14 @@ namespace Managers {
         * Add matching cards back into the grid after search filtering.
         * Gtk.FlowBox handles row/column placement automatically.
         */
-        public void redistribute_cards_across_columns(Gee.ArrayList<ArticleCard> cards) {
+        public void redistribute_cards_across_columns(Gee.ArrayList<Gtk.Widget> card_roots) {
             if (using_category_sections) {
-                foreach (var card in cards) {
-                    CategorySection? home = card_home_section != null ? card_home_section.get(card.root) : null;
+                foreach (var card_root in card_roots) {
+                    CategorySection? home = card_home_section != null ? card_home_section.get(card_root) : null;
                     if (home != null) {
-                        home.add_card(card.root);
+                        home.add_card(card_root);
                     } else if (columns_row != null) {
-                        columns_row.append(card.root);
+                        columns_row.append(card_root);
                     }
                 }
                 return;
@@ -879,8 +879,8 @@ namespace Managers {
 
             if (columns_row == null) return;
 
-            foreach (var card in cards) {
-                columns_row.append(card.root);
+            foreach (var card_root in card_roots) {
+                columns_row.append(card_root);
             }
         }
 
@@ -929,7 +929,7 @@ namespace Managers {
         /**
         * Apply search filter - clear and redistribute matching cards
         */
-        public void apply_search_filter(Gee.ArrayList<ArticleCard> matching_cards) {
+        public void apply_search_filter(Gee.ArrayList<Gtk.Widget> matching_cards) {
             clear_all_columns_for_filter();
             redistribute_cards_across_columns(matching_cards);
         }

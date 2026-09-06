@@ -1091,9 +1091,13 @@ public class NewsWindow : Adw.ApplicationWindow {
         
         // Clear deferred downloads
         deferred_downloads.clear();
-        
+
         // Clear requested image sizes
         requested_image_sizes.clear();
+
+        // Clear pending local-placeholder markers (keyed by Gtk.Picture; left
+        // unset entries here would hold a strong ref to widgets forever)
+        if (image_manager != null) image_manager.pending_local_placeholder.clear();
         
         // Clear the centralized ImageCache (pixbufs) and preview cache.
         // Suppress clearing here to avoid excessive eviction when switching

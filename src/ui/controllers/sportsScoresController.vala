@@ -207,9 +207,6 @@ public class SportsScoresController : GLib.Object {
             var section = new CategorySection(win, SportsScoresService.display_name_for(league_key), "sports:" + league_key, true, true, SportsScoresService.logo_url_for(league_key), league_has_live_game);
             foreach (var game in games) {
                 var card = new ScoreCard(game);
-                card.activated.connect((url) => {
-                    BrowserUtils.open_url_in_browser(url);
-                });
                 section.add_card(card.root);
             }
             container.append(section.wrapper);

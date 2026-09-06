@@ -45,36 +45,22 @@ public class ArticleCard : GLib.Object {
     public string? source_name;
     public string? category_id;
     public string? thumbnail_url;
-    private ArticleStateStore? article_state_store;
-    private NewsWindow? parent_window;
-    private ArticleMenu? current_menu;
-    private Gtk.Popover? current_popover;
 
-    // Signal emitted when the card is activated (clicked/tapped)
-    public signal void activated(string url);
-
-    // Signal emitted when context menu action is requested
-    public signal void open_in_app_requested(string url);
-    public signal void open_in_browser_requested(string url);
-    public signal void follow_source_requested(string url, string? source_name);
-    public signal void save_for_later_requested(string url);
-    public signal void share_requested(string url);
+    // Plain callback types used by wire_interactions() instead of GObject
+    // signals - see the comment there for why.
+    public delegate void UrlCallback(string url);
+    public delegate void FollowSourceCallback(string url, string? source_name);
 
     public ArticleCard(string title, string url, int col_w, int img_h, Gtk.Widget chip, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
         GLib.Object();
         this.url = url;
         this.title_text = title;
-        this.article_state_store = state_store;
-        this.parent_window = window;
 
         root = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         root.add_css_class("card");
         root.set_hexpand(true);
         root.set_halign(Gtk.Align.FILL);
         root.set_size_request(col_w, -1);
-
-        // Attach this ArticleCard object to the root widget so search can access it
-        root.set_data("article-card", this);
 
         image = new Gtk.Picture();
         image.set_halign(Gtk.Align.FILL);
@@ -176,34 +162,79 @@ public class ArticleCard : GLib.Object {
 
         root.append(title_box);
 
-        // Click gesture emits activated signal with the URL
+        // Expose just what external code needs to look up via the widget
+        // (search, dedup-time backfill, viewed-badge updates) instead of
+        // attaching a reference to this ArticleCard itself - see
+        // wire_interactions() below.
+        root.set_data("article-url", url);
+        root.set_data("article-title-text", title);
+        root.set_data("article-time-label", time_label);
+        root.set_data("article-viewed-badge-slot", viewed_badge_slot);
+    }
+
+    // Called explicitly by the caller once source_name/category_id/
+    // thumbnail_url are set, instead of the old
+    // `article_card.activated.connect(...)` pattern.
+    //
+    // Must stay static: an instance method here would fold a strong ref to
+    // `self` into the shared closure block of every lambda below, and
+    // those lambdas attach to controllers owned by `root_widget` - itself
+    // owned by this ArticleCard's own `root` field - closing an
+    // uncollectible root -> controller -> closure -> self -> root cycle.
+    // Actions that used to be signals emitted via `self.activated(url)`
+    // are plain callback delegates instead, built in the caller's own
+    // scope (e.g. ArticleManager), so nothing here ever needs `self`.
+    public static void wire_interactions(
+        Gtk.Box root_widget,
+        string card_url,
+        ArticleStateStore? article_state_store,
+        NewsWindow? parent_window,
+        string? source_name,
+        owned UrlCallback? on_activated,
+        owned UrlCallback? on_open_in_app,
+        owned UrlCallback? on_open_in_browser,
+        owned FollowSourceCallback? on_follow_source,
+        owned UrlCallback? on_save_for_later,
+        owned UrlCallback? on_share
+    ) {
         var gesture = new Gtk.GestureClick();
-        // Accept primary button clicks (1) and handle release with full signature
         gesture.set_button(1);
-        // Use a simple no-argument handler (original pattern) to avoid
-        // signature mismatches; emit the declared signal so connected
-        // handlers receive the article URL.
         gesture.released.connect(() => {
-            activated(url);
+            if (on_activated != null) on_activated(card_url);
         });
-        root.add_controller(gesture);
+        root_widget.add_controller(gesture);
 
-        // Hover effects
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root.remove_css_class("card-hover"); });
-        root.add_controller(motion);
+        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
+        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        root_widget.add_controller(motion);
 
-        // Right-click context menu
         var right_click = new Gtk.GestureClick();
         right_click.set_button(3);
         right_click.pressed.connect((n_press, x, y) => {
-            show_context_menu(x, y);
+            show_context_menu(
+                root_widget, card_url, article_state_store, parent_window, source_name, x, y,
+                on_open_in_app, on_open_in_browser, on_follow_source, on_save_for_later, on_share
+            );
         });
-        root.add_controller(right_click);
+        root_widget.add_controller(right_click);
     }
 
-    private void show_context_menu(double x, double y) {
+    // Static for the same reason as wire_interactions() above.
+    private static void show_context_menu(
+        Gtk.Box root_widget,
+        string url,
+        ArticleStateStore? article_state_store,
+        NewsWindow? parent_window,
+        string? source_name,
+        double x,
+        double y,
+        owned UrlCallback? on_open_in_app,
+        owned UrlCallback? on_open_in_browser,
+        owned FollowSourceCallback? on_follow_source,
+        owned UrlCallback? on_save_for_later,
+        owned UrlCallback? on_share
+    ) {
         // Check if article is already saved and if it's viewed
         bool is_saved = false;
         bool is_viewed = false;
@@ -215,28 +246,27 @@ public class ArticleCard : GLib.Object {
             is_viewed = article_state_store.is_viewed(norm_url);
         }
 
-        // Create ArticleMenu instance and keep reference to prevent garbage collection
-        current_menu = new ArticleMenu(url, source_name, is_saved, is_viewed, parent_window);
-        
-        // Connect menu signals to card signals
-        current_menu.open_in_app_requested.connect((url) => {
-            open_in_app_requested(url);
+        var menu = new ArticleMenu(url, source_name, is_saved, is_viewed, parent_window);
+
+        // Connect menu signals to the caller-supplied callbacks
+        menu.open_in_app_requested.connect((article_url) => {
+            if (on_open_in_app != null) on_open_in_app(article_url);
         });
-        current_menu.open_in_browser_requested.connect((url) => {
-            open_in_browser_requested(url);
+        menu.open_in_browser_requested.connect((article_url) => {
+            if (on_open_in_browser != null) on_open_in_browser(article_url);
         });
-        current_menu.follow_source_requested.connect((url, source_name) => {
-            follow_source_requested(url, source_name);
+        menu.follow_source_requested.connect((article_url, menu_source_name) => {
+            if (on_follow_source != null) on_follow_source(article_url, menu_source_name);
         });
-        current_menu.save_for_later_requested.connect((url) => {
-            save_for_later_requested(url);
+        menu.save_for_later_requested.connect((article_url) => {
+            if (on_save_for_later != null) on_save_for_later(article_url);
         });
-        current_menu.share_requested.connect((url) => {
-            share_requested(url);
+        menu.share_requested.connect((article_url) => {
+            if (on_share != null) on_share(article_url);
         });
 
         // Handle marking a single article as unread
-        current_menu.mark_unread_requested.connect((article_url) => {
+        menu.mark_unread_requested.connect((article_url) => {
             // Normalize and operate on canonical URL so disk/meta keys match
             string nurl = article_url;
             if (parent_window != null) nurl = parent_window.normalize_article_url(article_url);
@@ -256,8 +286,11 @@ public class ArticleCard : GLib.Object {
             }
         });
 
-        // Create and show popover, keep reference to prevent garbage collection
-        current_popover = current_menu.create_popover(root, x, y);
-        current_popover.popup();
+        // Keep menu/popover alive on root_widget (not an ArticleCard field)
+        // until the popover closes.
+        var popover = menu.create_popover(root_widget, x, y);
+        root_widget.set_data("article-current-menu", menu);
+        root_widget.set_data("article-current-popover", popover);
+        popover.popup();
     }
 }

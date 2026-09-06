@@ -46,18 +46,11 @@ public class HeroCard : GLib.Object {
     private bool enable_context_menu;
     private ArticleStateStore? article_state_store;
     private NewsWindow? parent_window;
-    private ArticleMenu? current_menu;
-    private Gtk.Popover? current_popover;
 
-    // Signal emitted when the hero/slide is activated (clicked)
-    public signal void activated(string url);
-
-    // Signal emitted when context menu action is requested
-    public signal void open_in_app_requested(string url);
-    public signal void open_in_browser_requested(string url);
-    public signal void follow_source_requested(string url, string? source_name);
-    public signal void save_for_later_requested(string url);
-    public signal void share_requested(string url);
+    // Plain callback types used by wire_interactions() instead of GObject
+    // signals - see the comment there for why.
+    public delegate void UrlCallback(string url);
+    public delegate void FollowSourceCallback(string url, string? source_name);
 
     public HeroCard(string title, string url, int max_total_height, int image_h, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
         GLib.Object();
@@ -76,8 +69,6 @@ public class HeroCard : GLib.Object {
         split.attach(title_box, 0, 0, 2, 1);
         split.attach(overlay, 2, 0, 3, 1);
         root.append(split);
-
-        finish_interactive_setup();
     }
 
     /**
@@ -100,20 +91,8 @@ public class HeroCard : GLib.Object {
         image.set_size_request(-1, image_height);
         title_box.set_size_request(-1, text_height);
 
-        // The shared title_label defaults to a 4-line cap, sized for the
-        // side-by-side layout's much taller full-height text pane. Here the
-        // text pane is only the remaining 30% (120px at the default 400px
-        // card height), which at .hero-title's 2.1em/900-weight size barely
-        // fits two lines plus the time caption below. Left at 4, a longer
-        // title that actually wraps to 3-4 lines would request a natural
-        // height taller than text_height, and since title_box shared
-        // vexpand(true) with the image above it, that overflow then got
-        // redistributed unevenly whenever the surrounding row was stretched
-        // to match a taller sibling card - producing different white-space
-        // heights across Top Ten cards purely based on how long each title
-        // happened to be. Capping to 2 lines keeps the natural height (and
-        // so the whole card) consistent regardless of title length; longer
-        // titles ellipsize instead of growing the box.
+        // Cap at 2 lines (not the shared 4-line default) so a long title
+        // can't grow past text_height and desync card heights in the row.
         title_label.set_lines(2);
         // Don't let title_box compete with the image for any extra height a
         // FlowBox row hands this card (e.g. to match a taller sibling) -
@@ -127,8 +106,6 @@ public class HeroCard : GLib.Object {
         split.attach(overlay, 0, 0, 1, 1);
         split.attach(title_box, 0, 1, 1, 1);
         root.append(split);
-
-        finish_interactive_setup();
     }
 
     /**
@@ -253,38 +230,6 @@ public class HeroCard : GLib.Object {
         title_box.append(footer_box);
     }
 
-    /**
-    * Click/hover/context-menu wiring shared by every HeroCard layout.
-    */
-    private void finish_interactive_setup() {
-        // Attach HeroCard object to root for search functionality
-        root.set_data("hero-card", this);
-
-        // Click gesture -> emit activated
-        var gesture = new Gtk.GestureClick();
-        gesture.set_button(1);
-        gesture.released.connect(() => {
-            activated(this.url);
-        });
-        root.add_controller(gesture);
-
-        // Hover effects
-        var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root.remove_css_class("card-hover"); });
-        root.add_controller(motion);
-
-        // Right-click context menu (only if enabled)
-        if (enable_context_menu) {
-            var right_click = new Gtk.GestureClick();
-            right_click.set_button(3);
-            right_click.pressed.connect((n_press, x, y) => {
-                show_context_menu(x, y);
-            });
-            root.add_controller(right_click);
-        }
-    }
-
     // Show (or update, or clear) the snippet line under the title. Called
     // once ArticleSnippetService resolves, since fetching it is an async
     // network request rather than something available at construction time.
@@ -326,7 +271,90 @@ public class HeroCard : GLib.Object {
         }
     }
 
-    private void show_context_menu(double x, double y) {
+    // Called explicitly by the caller once source_name/category_id/
+    // thumbnail_url are set - the HeroCard equivalent of
+    // ArticleCard.wire_interactions() (see there for the full reasoning).
+    // Must stay static so none of these closures fold in a `self` ref that
+    // would chain root -> controller -> closure -> self -> root into an
+    // uncollectible cycle. Only plain, non-back-referencing data (strings,
+    // Gtk.Label/Box/Picture widgets) goes on `root_widget` via set_data for
+    // later lookup (search, badge updates, carousel dot/title updates).
+    public static void wire_interactions(
+        Gtk.Box root_widget,
+        string card_url,
+        bool enable_context_menu,
+        ArticleStateStore? article_state_store,
+        NewsWindow? parent_window,
+        string? source_name,
+        string? category_id,
+        string? thumbnail_url,
+        Gtk.Label title_label,
+        Gtk.Picture image,
+        Gtk.Box viewed_badge_slot,
+        Gtk.Box footer_box,
+        Gtk.Overlay overlay,
+        owned UrlCallback? on_activated,
+        owned UrlCallback? on_open_in_app,
+        owned UrlCallback? on_open_in_browser,
+        owned FollowSourceCallback? on_follow_source,
+        owned UrlCallback? on_save_for_later,
+        owned UrlCallback? on_share
+    ) {
+        // Expose just the pieces external code needs to look up via the
+        // widget (search, carousel title/dots updates, viewed-badge
+        // updates, ArticleCard-from-hero conversion) as plain data on
+        // `root_widget` itself.
+        root_widget.set_data("hero-url", card_url);
+        root_widget.set_data("hero-title-label", title_label);
+        root_widget.set_data("hero-image", image);
+        root_widget.set_data("hero-viewed-badge-slot", viewed_badge_slot);
+        root_widget.set_data("hero-footer-box", footer_box);
+        root_widget.set_data("hero-overlay", overlay);
+        if (source_name != null) root_widget.set_data("hero-source-name", source_name);
+        if (category_id != null) root_widget.set_data("hero-category-id", category_id);
+        if (thumbnail_url != null) root_widget.set_data("hero-thumbnail-url", thumbnail_url);
+
+        var gesture = new Gtk.GestureClick();
+        gesture.set_button(1);
+        gesture.released.connect(() => {
+            if (on_activated != null) on_activated(card_url);
+        });
+        root_widget.add_controller(gesture);
+
+        var motion = new Gtk.EventControllerMotion();
+        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
+        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        root_widget.add_controller(motion);
+
+        if (enable_context_menu) {
+            var right_click = new Gtk.GestureClick();
+            right_click.set_button(3);
+            right_click.pressed.connect((n_press, x, y) => {
+                show_context_menu(
+                    root_widget, card_url, article_state_store, parent_window, source_name, viewed_badge_slot, x, y,
+                    on_open_in_app, on_open_in_browser, on_follow_source, on_save_for_later, on_share
+                );
+            });
+            root_widget.add_controller(right_click);
+        }
+    }
+
+    // Static for the same reason as wire_interactions() above.
+    private static void show_context_menu(
+        Gtk.Box root_widget,
+        string url,
+        ArticleStateStore? article_state_store,
+        NewsWindow? parent_window,
+        string? source_name,
+        Gtk.Box viewed_badge_slot,
+        double x,
+        double y,
+        owned UrlCallback? on_open_in_app,
+        owned UrlCallback? on_open_in_browser,
+        owned FollowSourceCallback? on_follow_source,
+        owned UrlCallback? on_save_for_later,
+        owned UrlCallback? on_share
+    ) {
         // Check if article is already saved and if it's viewed
         bool is_saved = false;
         bool is_viewed = false;
@@ -338,27 +366,25 @@ public class HeroCard : GLib.Object {
             is_viewed = article_state_store.is_viewed(norm_url);
         }
 
-        // Create ArticleMenu instance and keep reference to prevent garbage collection
-        current_menu = new ArticleMenu(url, source_name, is_saved, is_viewed, parent_window);
+        var menu = new ArticleMenu(url, source_name, is_saved, is_viewed, parent_window);
 
-        // Connect menu signals to card signals
-        current_menu.open_in_app_requested.connect((url) => {
-            open_in_app_requested(url);
+        menu.open_in_app_requested.connect((article_url) => {
+            if (on_open_in_app != null) on_open_in_app(article_url);
         });
-        current_menu.open_in_browser_requested.connect((url) => {
-            open_in_browser_requested(url);
+        menu.open_in_browser_requested.connect((article_url) => {
+            if (on_open_in_browser != null) on_open_in_browser(article_url);
         });
-        current_menu.follow_source_requested.connect((url, source_name) => {
-            follow_source_requested(url, source_name);
+        menu.follow_source_requested.connect((article_url, menu_source_name) => {
+            if (on_follow_source != null) on_follow_source(article_url, menu_source_name);
         });
-        current_menu.save_for_later_requested.connect((url) => {
-            save_for_later_requested(url);
+        menu.save_for_later_requested.connect((article_url) => {
+            if (on_save_for_later != null) on_save_for_later(article_url);
         });
-        current_menu.share_requested.connect((url) => {
-            share_requested(url);
+        menu.share_requested.connect((article_url) => {
+            if (on_share != null) on_share(article_url);
         });
 
-        current_menu.mark_unread_requested.connect((article_url) => {
+        menu.mark_unread_requested.connect((article_url) => {
             string nurl = article_url;
             if (parent_window != null) nurl = parent_window.normalize_article_url(article_url);
 
@@ -390,8 +416,11 @@ public class HeroCard : GLib.Object {
             }
         });
 
-        // Create and show popover, keep reference to prevent garbage collection
-        current_popover = current_menu.create_popover(root, x, y);
-        current_popover.popup();
+        // Keep menu/popover alive on root_widget (not a HeroCard field)
+        // until the popover closes.
+        var popover = menu.create_popover(root_widget, x, y);
+        root_widget.set_data("hero-current-menu", menu);
+        root_widget.set_data("hero-current-popover", popover);
+        popover.popup();
     }
 }
