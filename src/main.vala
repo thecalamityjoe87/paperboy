@@ -65,7 +65,20 @@ public class PaperboyApp : Adw.Application {
 
 }
 
+// Setting MALLOC_ARENA_MAX via env var is too late once main() is already
+// running, so cap it directly with mallopt() instead.
+[CCode (cname = "mallopt")]
+private static extern int mallopt(int param, int val);
+private const int M_ARENA_MAX = -8;
+private const int M_ARENA_TEST = -7;
+
 public static int main(string[] args) {
+    // Caps glibc's per-thread malloc arenas: the image download/decode
+    // worker pools' allocate/free churn was fragmenting memory across many
+    // arenas that never got returned to the OS, ballooning RSS past 2GB
+    // independent of actual live data (confirmed via heaptrack).
+    mallopt(M_ARENA_MAX, 2);
+    mallopt(M_ARENA_TEST, 1);
 
     var app = new PaperboyApp();
     return app.run(args);

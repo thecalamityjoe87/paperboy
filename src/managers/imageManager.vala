@@ -163,6 +163,14 @@ public class ImageManager : GLib.Object {
         return v;
     }
 
+    // Hard ceiling on the pixel dimensions we'll ever decode/crop an image
+    // to, applied *after* multiplying by device_scale. The 2400px clamp in
+    // network_fallback() only bounds target_w/target_h before that
+    // multiplication, so on a HiDPI (2x/3x) display the actual decode size
+    // could otherwise reach 4800px+ per side - tens of megabytes for a
+    // single hero image that's displayed under a megapixel.
+    private const int MAX_DECODE_DIM = 2400;
+
     // Start a single download for a URL and update all registered targets when done.
     // MAIN THREAD ONLY (reads Gtk.Picture.get_scale_factor and window fields).
     public void start_image_download_for_url(string url, int target_w, int target_h) {
@@ -259,7 +267,9 @@ public class ImageManager : GLib.Object {
                 if (pix == null) return outcome;
 
                 outcome.size_key = make_cache_key(url, target_w, target_h);
-                outcome.pixbuf = apply_cover_crop(img_cache, outcome.size_key, pix, target_w * device_scale, target_h * device_scale);
+                outcome.pixbuf = apply_cover_crop(img_cache, outcome.size_key, pix,
+                    clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
+                    clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
                 outcome.ok = true;
                 return outcome;
             }
@@ -284,7 +294,9 @@ public class ImageManager : GLib.Object {
                 if (pixbuf == null) return outcome;
 
                 outcome.size_key = make_cache_key(url, target_w, target_h);
-                outcome.pixbuf = apply_cover_crop(img_cache, outcome.size_key, pixbuf, target_w * device_scale, target_h * device_scale);
+                outcome.pixbuf = apply_cover_crop(img_cache, outcome.size_key, pixbuf,
+                    clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
+                    clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
                 outcome.ok = true;
                 return outcome;
             }
@@ -582,7 +594,9 @@ public class ImageManager : GLib.Object {
             string file_key = "pixbuf::file:%s::%dx%d".printf(disk_path, 0, 0);
             var loaded = img_cache != null ? img_cache.get_or_load_file(file_key, disk_path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, disk_path, 0, 0);
             if (loaded != null) {
-                pix = apply_cover_crop(img_cache, size_key, loaded, target_w * device_scale, target_h * device_scale);
+                pix = apply_cover_crop(img_cache, size_key, loaded,
+                    clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
+                    clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
             }
         } catch (GLib.Error e) {
             // fall through to the network fallback below

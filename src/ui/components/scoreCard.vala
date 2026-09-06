@@ -129,16 +129,43 @@ public class ScoreCard : GLib.Object {
     // Decoded-texture cache keyed by logo URL: team logos never change, but
     // score cards rebuild from scratch on every live-game poll, so without
     // this every poll re-fetched and re-decoded the same handful of
-    // textures. Caching them bounds total memory to the fixed set of
-    // distinct teams instead of growing every cycle.
+    // textures. Byte-budgeted (not just count-based) since these are
+    // decoded GPU textures, not compressed file bytes - a heaptrack profile
+    // of real usage found this cache alone holding 450MB+ of leaked-looking
+    // (never-evicted) textures after only a few minutes of live-score
+    // polling, once accounting for the retry/thundering-herd duplicate
+    // fetches fixed below.
     //
     // Lazily constructed rather than a field initializer, since this class
     // is only ever used through its constructor/static helpers, never a
     // path that would run a static field initializer.
-    private static Gee.HashMap<string, Gdk.Texture>? _logo_texture_cache = null;
-    private static Gee.HashMap<string, Gdk.Texture> logo_texture_cache() {
-        if (_logo_texture_cache == null) _logo_texture_cache = new Gee.HashMap<string, Gdk.Texture>();
+    private const int64 MAX_LOGO_CACHE_BYTES = 40 * 1024 * 1024;
+    // Displayed at 24x24 (see build_team_row); 72 gives 3x HiDPI headroom
+    // without keeping the CDN's full 500x500 source resolution around.
+    private const int LOGO_DECODE_DIM = 72;
+    private static LruCache<string, Gdk.Texture>? _logo_texture_cache = null;
+    private static LruCache<string, Gdk.Texture> logo_texture_cache() {
+        if (_logo_texture_cache == null) {
+            _logo_texture_cache = new LruCache<string, Gdk.Texture>(256);
+            _logo_texture_cache.set_byte_budget(MAX_LOGO_CACHE_BYTES, (key, tex) => {
+                return (int64) tex.get_width() * tex.get_height() * 4;
+            });
+        }
         return _logo_texture_cache;
+    }
+
+    // Score cards for the same team logo can be built many times in quick
+    // succession (every league section on every live-game poll), and the
+    // HTTP fetch is async - without tracking in-flight requests, every one
+    // of those cards would race to fetch/decode its own independent texture
+    // for the same URL before the first fetch's result had a chance to
+    // populate the cache above, each leaving its own several-hundred-KB to
+    // multi-MB decoded texture in memory. Track waiters per URL instead, the
+    // same pattern ImageManager uses for article thumbnail downloads.
+    private static Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>>? _pending_logo_pictures = null;
+    private static Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_logo_pictures() {
+        if (_pending_logo_pictures == null) _pending_logo_pictures = new Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>>();
+        return _pending_logo_pictures;
     }
 
     private static void load_team_logo(Gtk.Picture picture, string logo_url) {
@@ -148,13 +175,47 @@ public class ScoreCard : GLib.Object {
             return;
         }
 
+        var pending = pending_logo_pictures();
+        var waiters = pending.get(logo_url);
+        if (waiters != null) {
+            // A fetch for this exact URL is already in flight - just join it.
+            waiters.add(picture);
+            return;
+        }
+        waiters = new Gee.ArrayList<Gtk.Picture>();
+        waiters.add(picture);
+        pending.set(logo_url, waiters);
+
         var client = Paperboy.HttpClientUtils.get_default();
         client.fetch_bytes(logo_url, null, (response) => {
+            var waiting = pending.get(logo_url);
+            pending.unset(logo_url);
             if (!response.is_success() || response.body == null) return;
             try {
-                var texture = Gdk.Texture.from_bytes(response.body);
+                // Team logos ship from ESPN's CDN at 500x500 but render here
+                // at 24x24 (see build_team_row) - decoding straight to a
+                // texture from the raw network bytes (the previous
+                // approach) kept every distinct team's logo around at full
+                // resolution, ~1-2MB each. A heaptrack profile of live
+                // sports polling found this the single largest source of
+                // growth in the app (400MB+) once enough distinct teams had
+                // been shown. Downscale before texturing, same as article
+                // thumbnails elsewhere - LOGO_DECODE_DIM leaves headroom for
+                // HiDPI displays without keeping the full source resolution.
+                var loader = new Gdk.PixbufLoader();
+                loader.write(response.body.get_data());
+                loader.close();
+                var pixbuf = loader.get_pixbuf();
+                if (pixbuf == null) return;
+                if (pixbuf.get_width() > LOGO_DECODE_DIM || pixbuf.get_height() > LOGO_DECODE_DIM) {
+                    pixbuf = pixbuf.scale_simple(LOGO_DECODE_DIM, LOGO_DECODE_DIM, Gdk.InterpType.HYPER);
+                    if (pixbuf == null) return;
+                }
+                var texture = Gdk.Texture.for_pixbuf(pixbuf);
                 logo_texture_cache().set(logo_url, texture);
-                picture.set_paintable(texture);
+                if (waiting != null) {
+                    foreach (var pic in waiting) pic.set_paintable(texture);
+                }
             } catch (GLib.Error e) {
                 // Missing/broken team logo - leave the placeholder blank
                 // rather than failing the whole card.

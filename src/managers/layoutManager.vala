@@ -563,10 +563,28 @@ namespace Managers {
 
         /**
         * Leave category-sections mode (any view other than Front Page).
+        *
+        * Unparents the Front Page section widgets immediately rather than
+        * just hiding the container: each section holds a full row of
+        * article cards with their own decoded thumbnail textures, and
+        * leaving them merely hidden-but-parented kept every one of those
+        * alive in memory for as long as the user stayed away from Front
+        * Page - only the *next* visit's prepare_category_sections() call
+        * would finally clear them. Switching Front Page -> another
+        * category -> Front Page repeatedly compounded this, since each
+        * round trip left one full stale copy resident the whole time.
         */
         public void teardown_category_sections() {
             using_category_sections = false;
-            if (category_sections_container != null) category_sections_container.set_visible(false);
+            if (category_sections_container != null) {
+                category_sections_container.set_visible(false);
+                Gtk.Widget? child = category_sections_container.get_first_child();
+                while (child != null) {
+                    Gtk.Widget? next = child.get_next_sibling();
+                    category_sections_container.remove(child);
+                    child = next;
+                }
+            }
             if (hero_frontpage_separator != null) hero_frontpage_separator.set_visible(false);
             if (columns_row != null) columns_row.set_visible(true);
             category_sections = null;

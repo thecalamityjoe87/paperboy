@@ -230,6 +230,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         meta_cache = new MetaCache();
         article_state_store = new ArticleStateStore();
         image_cache = new ImageCache(256);
+        // PreviewCacheManager and other legacy call sites reach the cache via
+        // ImageCache.get_global() - without this, they operate on an unused
+        // second singleton and calls like set_capacity() during category
+        // switches silently do nothing to the cache that's actually in use.
+        ImageCache.set_global(image_cache);
     // Initialize external image handler that owns download/cache logic
     image_manager = new ImageManager(this);        
 
