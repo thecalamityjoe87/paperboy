@@ -29,7 +29,7 @@ public class WsjFetcher : BaseFetcher {
             fetch_google_domain(category, search_query, session, "wsj.com", "WSJ");
             return;
         }
-        string url = "https://feeds.content.dowjones.io/public/rss/RSSWorldNews.xml";
+        string url = "https://feeds.content.dowjones.io/public/rss/RSSWorldNews";
         switch (category) {
             case "technology":
                 url = "https://feeds.content.dowjones.io/public/rss/RSSWSJD";

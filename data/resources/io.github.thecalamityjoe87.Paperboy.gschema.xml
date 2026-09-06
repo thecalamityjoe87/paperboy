@@ -38,7 +38,7 @@
     <key name="news-source" type="s">
       <default>'guardian'</default>
       <summary>Default news source</summary>
-      <description>The currently selected news source (guardian, reddit, bbc, nytimes, wsj, bloomberg, reuters, npr, fox)</description>
+      <description>The currently selected news source (guardian, reddit, bbc, nytimes, wsj, bloomberg, abc, npr, fox)</description>
     </key>
 
     <key name="category" type="s">
@@ -69,6 +69,12 @@
       <default>''</default>
       <summary>Resolved location city name</summary>
       <description>Resolved canonical city name for the provided location (e.g., "San Francisco, California")</description>
+    </key>
+
+    <key name="user-location-news-query" type="s">
+      <default>''</default>
+      <summary>Local News search term</summary>
+      <description>City name used to query local news; the nearest major city when the resolved location is a small town, otherwise the same as user-location-city</description>
     </key>
 
     <!-- Unread Badge Preferences -->
@@ -103,11 +109,56 @@
       <description>List of category IDs included in the personalized feed</description>
     </key>
 
+    <!-- Empty means every league SportsScoresService knows about is shown;
+         a league key here is hidden from the Sports score-card sections.
+         Opt-out (rather than opt-in, like personalized-categories) so a
+         newly added league shows up for existing users without requiring
+         them to re-enable it. -->
+    <key name="sports-scores-enabled" type="b">
+      <default>true</default>
+      <summary>Sports score cards enabled</summary>
+      <description>Whether the Sports category shows live score-card sections at all</description>
+    </key>
+
+    <key name="sports-live-indicator-enabled" type="b">
+      <default>true</default>
+      <summary>Sports live indicator enabled</summary>
+      <description>Whether the sidebar shows a "Live" pill next to the Sports category's count badge while a game is in progress</description>
+    </key>
+
+    <key name="disabled-sports-leagues" type="as">
+      <default>[]</default>
+      <summary>Disabled sports leagues</summary>
+      <description>List of sports league keys excluded from the Sports category's score-card sections</description>
+    </key>
+
+    <!-- User-chosen top-to-bottom display order for sports leagues. Only
+         holds the keys the user has actually dragged into place; any league
+         missing from this list (including newly added ones) falls back to
+         its position in SportsScoresService's built-in order. -->
+    <key name="sports-league-order" type="as">
+      <default>[]</default>
+      <summary>Sports league display order</summary>
+      <description>List of sports league keys in the order their score-card sections should appear in the Sports category</description>
+    </key>
+
     <!-- App Settings -->
     <key name="update-interval" type="s">
       <default>'manual'</default>
       <summary>Auto-update interval</summary>
       <description>How often to automatically refresh feeds ('manual', '15min', '30min', '1hour', '2hours', '4hours')</description>
+    </key>
+
+    <key name="onboarding-completed" type="b">
+      <default>false</default>
+      <summary>Onboarding completed</summary>
+      <description>Whether the user has completed (or skipped) the first-run welcome dialog</description>
+    </key>
+
+    <key name="color-scheme" type="s">
+      <default>'system'</default>
+      <summary>Color scheme</summary>
+      <description>Preferred app color scheme ('system', 'light', or 'dark')</description>
     </key>
 
   </schema>

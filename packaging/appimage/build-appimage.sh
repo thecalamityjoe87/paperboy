@@ -93,15 +93,6 @@ fi
 cp "$BUILD_DIR/paperboy" "$APPDIR/usr/bin/paperboy"
 chmod +x "$APPDIR/usr/bin/paperboy"
 
-# Copy helper binaries (rssFinder) - install in libexec per FHS 4.7
-if [ -x "$BUILD_DIR/rssFinder" ]; then
-  mkdir -p "$APPDIR/usr/libexec/paperboy"
-  cp "$BUILD_DIR/rssFinder" "$APPDIR/usr/libexec/paperboy/rssFinder"
-  chmod +x "$APPDIR/usr/libexec/paperboy/rssFinder"
-else
-  echo "Warning: rssFinder binary not found at $BUILD_DIR/rssFinder"
-fi
-
 # Attempt to locate html2rss built by Cargo in common build locations and copy
 # it into the AppDir. Per FHS 4.7, internal binaries belong in libexecdir.
 HTML2RSS_CANDIDATES=(
@@ -248,12 +239,6 @@ elif [ -f "$ROOT_DIR/data/style.css" ]; then
   cp "$ROOT_DIR/data/style.css" "$APPDIR/usr/share/paperboy/style.css"
 else
   echo "Warning: style.css not found in $ROOT_DIR/data or $ROOT_DIR/data/resources"
-fi
-
-if [ -f "$ROOT_DIR/data/usZips.csv" ]; then
-  cp "$ROOT_DIR/data/usZips.csv" "$APPDIR/usr/share/paperboy/usZips.csv"
-else
-  echo "Warning: usZips.csv not found in $ROOT_DIR/data"
 fi
 
 # Write AppRun

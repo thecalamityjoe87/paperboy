@@ -23,6 +23,117 @@ using Gdk;
 
 public class PrefsDialog : GLib.Object {
 
+    private delegate void SportsOrderPersistFunc();
+
+    // Builds the drag-reorderable, per-league enable/disable list used for
+    // the Sports Score Cards section - shared between the Preferences
+    // dialog and the onboarding flow so both stay in sync automatically.
+    // `win` is null during onboarding (no NewsWindow yet to refresh).
+    public static Gtk.ListBox build_sports_league_list_box(NewsPreferences prefs, NewsWindow? win) {
+        var sports_list_box = new Gtk.ListBox();
+        sports_list_box.set_selection_mode(Gtk.SelectionMode.NONE);
+        sports_list_box.add_css_class("boxed-list");
+
+        // Persists the listbox's current row order back to prefs, reading
+        // each row's league key off the name we stashed on it below rather
+        // than tracking a separate parallel list.
+        SportsOrderPersistFunc persist_sports_order = () => {
+            var new_order = new Gee.ArrayList<string>();
+            var row = sports_list_box.get_row_at_index(0);
+            int i = 0;
+            while (row != null) {
+                new_order.add(row.get_name());
+                i++;
+                row = sports_list_box.get_row_at_index(i);
+            }
+            prefs.sports_league_order = new_order;
+
+            if (win != null && win.prefs.category == "sports") {
+                SportsScoresController.load(win);
+            }
+        };
+
+        foreach (var league_key in prefs.ordered_sports_league_keys()) {
+            string display_name = SportsScoresService.display_name_for(league_key);
+            var league_row = new Adw.SwitchRow();
+            league_row.set_title(display_name);
+            league_row.set_active(prefs.sports_league_enabled(league_key));
+            league_row.set_name(league_key);
+
+            // Column-aligned logo, same size and same circular-baked-pixel
+            // technique as the source rows' favicons above (PixbufUtils) -
+            // a plain "circular-logo" CSS class only clips widgets already
+            // scoped under an existing selector, so this bakes the circle
+            // into the image itself instead of depending on a new scope.
+            var league_logo = PixbufUtils.make_circular_logo_placeholder(26);
+            string? logo_url = SportsScoresService.logo_url_for(league_key);
+            if (logo_url != null && logo_url.length > 0) {
+                PixbufUtils.load_circular_logo_async(league_logo, logo_url, 26);
+            }
+
+            // add_prefix inserts each new widget before the ones already
+            // added, so the logo goes in first and the handle second to end
+            // up leftmost: handle | logo | text.
+            league_row.add_prefix(league_logo);
+            var drag_handle = new Gtk.Image.from_icon_name("list-drag-handle-symbolic");
+            drag_handle.add_css_class("dim-label");
+            drag_handle.set_tooltip_text("Drag to reorder");
+            league_row.add_prefix(drag_handle);
+
+            string _league_key = league_key;
+            league_row.notify["active"].connect(() => {
+                prefs.set_sports_league_enabled(_league_key, league_row.get_active());
+
+                // Reflect the change immediately rather than waiting on the
+                // "Refresh Content?" dialog other Preferences changes use -
+                // toggling a switch here has no other user-visible effect
+                // otherwise, since Sports may already be the open category.
+                if (win != null && win.prefs.category == "sports") {
+                    SportsScoresController.load(win);
+                }
+            });
+
+            // Drag-and-drop reordering. The drag source is scoped to the
+            // handle icon (not the whole row) so the switch and title stay
+            // normally clickable/toggleable.
+            var drag_source = new Gtk.DragSource();
+            drag_source.set_actions(Gdk.DragAction.MOVE);
+            drag_source.prepare.connect((source, x, y) => {
+                Value val = Value(typeof(Gtk.ListBoxRow));
+                val.set_object(league_row);
+                return new Gdk.ContentProvider.for_value(val);
+            });
+            drag_source.drag_begin.connect((source, drag) => {
+                var drag_icon = (Gtk.DragIcon) Gtk.DragIcon.get_for_drag(drag);
+                var icon_label = new Gtk.Label(display_name);
+                icon_label.add_css_class("card");
+                icon_label.set_margin_top(6);
+                icon_label.set_margin_bottom(6);
+                icon_label.set_margin_start(12);
+                icon_label.set_margin_end(12);
+                drag_icon.set_child(icon_label);
+            });
+            drag_handle.add_controller(drag_source);
+
+            var drop_target = new Gtk.DropTarget(typeof(Gtk.ListBoxRow), Gdk.DragAction.MOVE);
+            drop_target.drop.connect((value, x, y) => {
+                Gtk.ListBoxRow? src_row = (Gtk.ListBoxRow) value.get_object();
+                if (src_row == null || src_row == league_row) return false;
+
+                int target_index = league_row.get_index();
+                sports_list_box.remove(src_row);
+                sports_list_box.insert(src_row, target_index);
+                persist_sports_order();
+                return true;
+            });
+            league_row.add_controller(drop_target);
+
+            sports_list_box.append(league_row);
+        }
+
+        return sports_list_box;
+    }
+
     public static void show_source_dialog(Gtk.Window parent) {
         // If an article preview is currently open in the main window, close it
         var maybe_win = parent as NewsWindow;
@@ -78,8 +189,6 @@ public class PrefsDialog : GLib.Object {
                 case "markets": filename = "markets-mono.svg"; break;
                 case "industries": filename = "industries-mono.svg"; break;
                 case "economics": filename = "economics-mono.svg"; break;
-                case "wealth": filename = "wealth-mono.svg"; break;
-                case "green": filename = "green-mono.svg"; break;
                 case "us": filename = "us-mono.svg"; break;
                 case "technology": filename = "technology-mono.svg"; break;
                 case "science": filename = "science-mono.svg"; break;
@@ -135,7 +244,7 @@ public class PrefsDialog : GLib.Object {
         var scroller = new Gtk.ScrolledWindow();
         scroller.set_vexpand(true);
         scroller.set_min_content_height(500);
-        scroller.set_max_content_height(700);
+        scroller.set_max_content_height(680);
         scroller.set_hexpand(true);
         scroller.set_min_content_width(300);
         var cats_list = new Gtk.ListBox();
@@ -160,8 +269,8 @@ public class PrefsDialog : GLib.Object {
             bloomberg_only = (prefs.news_source == NewsSource.BLOOMBERG);
         }
 
-        string[] bb_ids = { "markets", "industries", "economics", "wealth", "green", "technology", "politics" };
-        string[] bb_titles = { "Markets", "Industries", "Economics", "Wealth", "Green", "Technology", "Politics" };
+        string[] bb_ids = { "markets", "industries", "economics", "technology", "politics" };
+        string[] bb_titles = { "Markets", "Industries", "Economics", "Technology", "Politics" };
 
         if (bloomberg_only) {
             for (int j = 0; j < bb_ids.length; j++) {
@@ -211,12 +320,10 @@ public class PrefsDialog : GLib.Object {
                 holder.changed = true;
 
                 // Refresh My Feed metadata to reflect new personalized categories
-                try {
-                    var win = parent as NewsWindow;
-                    if (win != null) {
-                        UnreadFetchService.refresh_myfeed_metadata(win);
-                    }
-                } catch (GLib.Error e) { }
+                var win = parent as NewsWindow;
+                if (win != null) {
+                    UnreadFetchService.refresh_myfeed_metadata(win);
+                }
             });
 
             crow.add_suffix(cswitch);
@@ -245,8 +352,11 @@ public class PrefsDialog : GLib.Object {
         var dialog = new Adw.PreferencesDialog();
         dialog.set_title("Preferences");
 
-        // Set a more compact width for the dialog
-        dialog.set_content_width(425);
+        // Wide enough to keep the top view-switcher showing all three tabs
+        // as pills - narrower than this and Adw.PreferencesDialog collapses
+        // them into a dropdown menu instead.
+        dialog.set_content_width(600);
+        dialog.set_content_height(680);
 
         // Track if sources changed for refresh on close
         bool sources_changed = false;
@@ -377,12 +487,12 @@ public class PrefsDialog : GLib.Object {
 
         // Add all built-in sources with favicons
         builtin_sources_group.add(create_source_row("The Guardian", "Independent global news and analysis", "guardian", "https://www.theguardian.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Reddit", "Community-driven news and trending topics", "reddit", "https://www.reddit.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("PBS NewsHour", "Neutral, in-depth public affairs reporting", "pbs", "https://www.pbs.org/favicon.ico"));
         builtin_sources_group.add(create_source_row("BBC News", "Comprehensive international and UK reporting", "bbc", "https://www.bbc.co.uk/favicon.ico"));
         builtin_sources_group.add(create_source_row("New York Times", "In-depth journalism across major categories", "nytimes", "https://www.nytimes.com/favicon.ico"));
         builtin_sources_group.add(create_source_row("Bloomberg", "Market, business, and finance coverage", "bloomberg", "https://www.bloomberg.com/favicon.ico"));
         builtin_sources_group.add(create_source_row("Wall Street Journal", "Business, economic, and political reporting", "wsj", "https://www.wsj.com/favicon.ico"));
-        builtin_sources_group.add(create_source_row("Reuters", "Real-time global wire reporting", "reuters", "https://www.reuters.com/favicon.ico"));
+        builtin_sources_group.add(create_source_row("ABC News", "US network coverage across politics, business, and more", "abc", "https://abcnews.go.com/favicon.ico"));
         builtin_sources_group.add(create_source_row("NPR", "Public radio news and feature storytelling", "npr", "https://www.npr.org/favicon.ico"));
         builtin_sources_group.add(create_source_row("Fox News", "U.S. politics, headlines, and commentary", "fox", "https://www.foxnews.com/favicon.ico"));
 
@@ -391,7 +501,7 @@ public class PrefsDialog : GLib.Object {
 
         // Followed RSS Sources Group
         var rss_sources_group = new Adw.PreferencesGroup();
-        rss_sources_group.set_title("Followed Sources");
+        rss_sources_group.set_title("Feeds");
         
         // Helper to load icon from file with circular clipping
         void try_load_icon_circular(string path, Gtk.Picture picture) {
@@ -562,13 +672,29 @@ public class PrefsDialog : GLib.Object {
                 custom_switch.set_active(prefs.preferred_source_enabled("custom:" + rss_source.url));
                 custom_switch.set_valign(Gtk.Align.CENTER);
                 custom_switch.notify["active"].connect(() => {
-                    prefs.set_preferred_source_enabled("custom:" + rss_source.url, custom_switch.get_active());
+                    bool now_enabled = custom_switch.get_active();
+                    prefs.set_preferred_source_enabled("custom:" + rss_source.url, now_enabled);
                     prefs.save_config();
                     sources_changed = true;
 
-                    // Update My Feed unread badge immediately when source is toggled
+                    // Reflect the enable/disable immediately in the sidebar
+                    // rather than waiting on the "Refresh Content?" dialog
+                    // that only appears once Preferences is closed.
                     if (win != null && win.sidebar_manager != null) {
+                        win.sidebar_manager.rebuild_sidebar();
                         win.sidebar_manager.update_badge_for_category("myfeed");
+                    }
+
+                    // If the user just disabled the feed they're currently
+                    // viewing, its sidebar row is now gone - leaving its
+                    // content on screen would be stale and unreachable, so
+                    // redirect to Front Page like the "no sources support
+                    // this category" fallback below does on dialog close.
+                    if (!now_enabled && win != null && win.prefs.category == "rssfeed:" + rss_source.url) {
+                        win.prefs.category = "frontpage";
+                        win.prefs.save_config();
+                        win.update_content_header();
+                        win.fetch_news();
                     }
                 });
 
@@ -592,6 +718,42 @@ public class PrefsDialog : GLib.Object {
         var app_page = new Adw.PreferencesPage();
         app_page.set_title("App");
         app_page.set_icon_name("preferences-system-symbolic");
+
+        // ========== APPEARANCE GROUP ==========
+        var appearance_group = new Adw.PreferencesGroup();
+        appearance_group.set_title("Appearance");
+
+        var theme_row = new Adw.ActionRow();
+        theme_row.set_title("Theme");
+        theme_row.set_subtitle("Follow the system theme, or force light or dark mode");
+
+        var theme_dropdown = new Gtk.DropDown.from_strings(new string[] {
+            "Follow System", "Light", "Dark"
+        });
+        theme_dropdown.set_valign(Gtk.Align.CENTER);
+        switch (prefs.color_scheme) {
+            case "light": theme_dropdown.set_selected(1); break;
+            case "dark": theme_dropdown.set_selected(2); break;
+            default: theme_dropdown.set_selected(0); break;
+        }
+        theme_dropdown.notify["selected"].connect(() => {
+            switch (theme_dropdown.get_selected()) {
+                case 1: prefs.color_scheme = "light"; break;
+                case 2: prefs.color_scheme = "dark"; break;
+                default: prefs.color_scheme = "system"; break;
+            }
+            prefs.save_config();
+        });
+        theme_row.add_suffix(theme_dropdown);
+        theme_row.set_activatable_widget(theme_dropdown);
+        appearance_group.add(theme_row);
+
+        app_page.add(appearance_group);
+
+        // ========== PERSONALIZATION PAGE ==========
+        var personalization_page = new Adw.PreferencesPage();
+        personalization_page.set_title("Personalization");
+        personalization_page.set_icon_name("preferences-desktop-symbolic");
 
         var app_group = new Adw.PreferencesGroup();
         app_group.set_title("Personalization");
@@ -692,7 +854,7 @@ public class PrefsDialog : GLib.Object {
                 }
             });
 
-            var sources_check = new Gtk.CheckButton.with_label("Show on followed sources");
+            var sources_check = new Gtk.CheckButton.with_label("Show on Feeds");
             sources_check.set_active(prefs.unread_badges_sources);
             sources_check.toggled.connect(() => {
                 prefs.unread_badges_sources = sources_check.get_active();
@@ -727,7 +889,66 @@ public class PrefsDialog : GLib.Object {
         });
         app_group.add(unread_badges_row);
 
-        app_page.add(app_group);
+        personalization_page.add(app_group);
+
+        // ========== SPORTS SCORE CARDS GROUP ==========
+        var sports_group = new Adw.PreferencesGroup();
+        sports_group.set_title("Sports Score Cards");
+        sports_group.set_description("Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category");
+
+        var sports_list_box = build_sports_league_list_box(prefs, win);
+        sports_list_box.set_margin_top(18);
+
+        var sports_master_row = new Adw.SwitchRow();
+        sports_master_row.set_title("Show Score Cards");
+        sports_master_row.set_subtitle("Turn off to hide all live score cards from the Sports category");
+        sports_master_row.set_active(prefs.sports_scores_enabled);
+        sports_list_box.set_sensitive(prefs.sports_scores_enabled);
+        sports_master_row.notify["active"].connect(() => {
+            bool enabled = sports_master_row.get_active();
+            prefs.sports_scores_enabled = enabled;
+            sports_list_box.set_sensitive(enabled);
+            if (win != null && win.prefs.category == "sports") {
+                SportsScoresController.load(win);
+            }
+        });
+
+        var sports_live_indicator_row = new Adw.SwitchRow();
+        sports_live_indicator_row.set_title("Show Live Indicator");
+        sports_live_indicator_row.set_subtitle("Show a \"Live\" pill next to the Sports sidebar count while a game is in progress");
+        sports_live_indicator_row.set_active(prefs.sports_live_indicator_enabled);
+        sports_live_indicator_row.set_sensitive(prefs.sports_scores_enabled);
+        sports_live_indicator_row.notify["active"].connect(() => {
+            bool enabled = sports_live_indicator_row.get_active();
+            prefs.sports_live_indicator_enabled = enabled;
+            if (win != null && win.sports_live_indicator != null) {
+                if (enabled && prefs.sports_scores_enabled) {
+                    win.sports_live_indicator.start();
+                } else {
+                    win.sports_live_indicator.stop();
+                }
+            }
+        });
+
+        // Keep the live-indicator row in sync with the master switch: it
+        // can't be enabled while score cards themselves are off.
+        sports_master_row.notify["active"].connect(() => {
+            bool enabled = sports_master_row.get_active();
+            sports_live_indicator_row.set_sensitive(enabled);
+            if (win != null && win.sports_live_indicator != null) {
+                if (enabled && prefs.sports_live_indicator_enabled) {
+                    win.sports_live_indicator.start();
+                } else {
+                    win.sports_live_indicator.stop();
+                }
+            }
+        });
+
+        sports_group.add(sports_master_row);
+        sports_group.add(sports_live_indicator_row);
+        sports_group.add(sports_list_box);
+        personalization_page.add(sports_group);
+        dialog.add(personalization_page);
 
         // ========== UPDATE INTERVAL GROUP ==========
         var update_interval_group = new Adw.PreferencesGroup();
@@ -971,7 +1192,7 @@ public class PrefsDialog : GLib.Object {
                             case "nytimes": source = NewsSource.NEW_YORK_TIMES; break;
                             case "wsj": source = NewsSource.WALL_STREET_JOURNAL; break;
                             case "bloomberg": source = NewsSource.BLOOMBERG; break;
-                            case "reuters": source = NewsSource.REUTERS; break;
+                            case "abc": source = NewsSource.ABC_NEWS; break;
                             case "npr": source = NewsSource.NPR; break;
                             case "fox": source = NewsSource.FOX; break;
                             default: continue;
@@ -1024,16 +1245,58 @@ public class PrefsDialog : GLib.Object {
     }
 
     
+    // Condensed highlights for the 5 most recent GitHub releases, shown in
+    // the About dialog's "What's New" page.
+    private const string RELEASE_NOTES = """
+        <p><em>v0.7.5a</em> — Performance, Persistence &amp; UI Polish</p>
+        <ul>
+        <li>Faster, incremental sidebar and badge updates with on-disk caching</li>
+        <li>Saved articles migrated from JSON to a SQLite database</li>
+        <li>Frontpage articles now cached for faster startup and navigation</li>
+        <li>New staggered entrance/exit animations for article cards</li>
+        </ul>
+        <p><em>v0.7.4a</em> — Native Animations, SplitView &amp; Smarter Search</p>
+        <ul>
+        <li>Sidebar rebuilt on Adw.OverlaySplitView and Adw.ExpanderRow for native, fluid transitions</li>
+        <li>Search is now tokenized, case-insensitive, and matches partial or reordered terms</li>
+        <li>Per-feed RSS article limits enforced correctly, with cleaner deduplication</li>
+        </ul>
+        <p><em>v0.7.3a</em> — My Feed, RSS, and Offline Improvements</p>
+        <ul>
+        <li>My Feed unread badges now reflect only enabled sources</li>
+        <li>Generated RSS feeds keep a stable cache across regenerations</li>
+        <li>Centralized offline detection to avoid dead-end network actions</li>
+        </ul>
+        <p><em>v0.7.2a</em> — Feature &amp; Polish Update</p>
+        <ul>
+        <li>Added back/forward/reload navigation to the in-app article viewer</li>
+        <li>Added a "mark as unread" option to the article context menu</li>
+        <li>Fixed Frontpage cards briefly appearing in the wrong section</li>
+        </ul>
+        <p><em>v0.7.0a</em></p>
+        <ul>
+        <li>Earlier milestone release - see the full changelog for details</li>
+        </ul>
+        """;
+
     public static void show_about_dialog(Gtk.Window parent) {
-    var about = new Adw.AboutDialog();
-    about.set_application_name("Paperboy");
-    about.set_application_icon("paperboy"); // Use the correct icon name
-    about.set_version("0.7.5a");
-    about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
-    about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
-    about.set_website("https://github.com/thecalamityjoe87/paperboy");
-    about.set_license_type(Gtk.License.GPL_3_0);
-    about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
-    about.present(parent);
+        var about = new Adw.AboutDialog();
+        about.set_application_name("Paperboy");
+        about.set_application_icon("paperboy"); // Use the correct icon name
+        about.set_version("0.8.0a");
+        about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
+        about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
+        about.set_website("https://github.com/thecalamityjoe87/paperboy");
+        about.set_license_type(Gtk.License.GPL_3_0);
+        about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
+
+        about.set_release_notes_version("0.7.5a");
+        about.set_release_notes(RELEASE_NOTES);
+
+        about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");
+        about.add_link("GitHub Repository", "https://github.com/thecalamityjoe87/paperboy");
+        about.add_link("Releases", "https://github.com/thecalamityjoe87/paperboy/releases");
+
+        about.present(parent);
     }
 }

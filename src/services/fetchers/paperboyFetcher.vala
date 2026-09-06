@@ -30,6 +30,8 @@ public class PaperboyFetcher : BaseFetcher {
             fetch_paperboy_frontpage(search_query, session);
         } else if (category == "topten") {
             fetch_paperboy_topten(search_query, session);
+        } else if (category == "sports") {
+            fetch_paperboy_sports(search_query, session);
         }
     }
 
@@ -41,9 +43,6 @@ public class PaperboyFetcher : BaseFetcher {
         // First, load cached articles to show immediately (up to 120 articles from last 48 hours)
         var frontpage_cache = Paperboy.RssArticleCache.get_instance();
         var cached_articles = frontpage_cache.get_cached_articles("paperboy:frontpage", Paperboy.RssArticleCache.MAX_FRONTPAGE_ARTICLES);
-
-        // Track which URLs we've already shown from cache to avoid duplicates
-        var shown_urls = new Gee.HashSet<string>();
 
         Idle.add(() => {
             if (current_search_query.length > 0) {
@@ -65,7 +64,6 @@ public class PaperboyFetcher : BaseFetcher {
                     if (!title_lower.contains(query_lower) && !url_lower.contains(query_lower)) continue;
                 }
 
-                shown_urls.add(article.url);
                 // Build display_source from cached metadata
                 string cached_display_source = "";
                 if (article.source_name != null && article.source_name.length > 0) {
@@ -80,7 +78,7 @@ public class PaperboyFetcher : BaseFetcher {
                 } else {
                     cached_display_source = "Paperboy##category::" + cached_category;
                 }
-                add_item(article.title, article.url, article.thumbnail_url, "frontpage", cached_display_source);
+                add_item(article.title, article.url, article.thumbnail_url, "frontpage", cached_display_source, article.published_date);
             }
             return false;
         });
@@ -127,13 +125,23 @@ public class PaperboyFetcher : BaseFetcher {
                         string title = json_get_string_safe(art, "title") != null ? json_get_string_safe(art, "title") : (json_get_string_safe(art, "headline") != null ? json_get_string_safe(art, "headline") : "No title");
                         string article_url = json_get_string_safe(art, "url") != null ? json_get_string_safe(art, "url") : (json_get_string_safe(art, "link") != null ? json_get_string_safe(art, "link") : "");
 
-                        // Skip if we already showed this from cache
-                        if (shown_urls.contains(article_url)) continue;
+                        // Note: previously this skipped all further processing for
+                        // URLs already shown from cache (`if (shown_urls.contains(...))
+                        // continue;`). That silently prevented ever refreshing the
+                        // on-disk cache row (so a dateless cached article stayed
+                        // dateless forever) and, worse, prevented the duplicate
+                        // add_item() call below that ArticleManager relies on to
+                        // backfill an already-rendered card's time label in place.
+                        // Both cache_article() and add_item() below now always run;
+                        // add_item()'s own URL dedup already prevents a second visible
+                        // card from being created.
 
                         string? thumbnail = null;
                         if (json_get_string_safe(art, "thumbnail") != null) thumbnail = json_get_string_safe(art, "thumbnail");
                         else if (json_get_string_safe(art, "image") != null) thumbnail = json_get_string_safe(art, "image");
                         else if (json_get_string_safe(art, "image_url") != null) thumbnail = json_get_string_safe(art, "image_url");
+
+                        string? published = json_get_string_safe(art, "publishedAt");
 
                         string source_name = "Paperboy API";
                         string? logo_url = null;
@@ -254,9 +262,16 @@ public class PaperboyFetcher : BaseFetcher {
 
                         // Cache frontpage article for offline access and better performance
                         // Store source_name (without logo), logo_url separately, and category_id
-                        frontpage_cache.cache_article(article_url, title, thumbnail, null, "paperboy:frontpage", source_name, logo_url, category_id);
+                        frontpage_cache.cache_article(article_url, title, thumbnail, published, "paperboy:frontpage", source_name, logo_url, category_id);
 
-                        add_item(title, article_url, thumbnail, "frontpage", display_source);
+                        // Always call add_item, even for articles already shown from
+                        // cache: ArticleManager.add_item() dedupes by URL itself and
+                        // won't create a second card, but a duplicate call carrying a
+                        // published date is exactly what lets it backfill an
+                        // already-rendered (cache-sourced, dateless) card's time label
+                        // in place. Skipping this call for already_shown articles was
+                        // silently defeating that backfill.
+                        add_item(title, article_url, thumbnail, "frontpage", display_source, published);
                     }
                     return false;
                 });
@@ -328,6 +343,8 @@ public class PaperboyFetcher : BaseFetcher {
                         if (json_get_string_safe(art, "thumbnail") != null) thumbnail = json_get_string_safe(art, "thumbnail");
                         else if (json_get_string_safe(art, "image") != null) thumbnail = json_get_string_safe(art, "image");
                         else if (json_get_string_safe(art, "image_url") != null) thumbnail = json_get_string_safe(art, "image_url");
+
+                        string? published = json_get_string_safe(art, "publishedAt");
 
                         string source_name = "Paperboy API";
                         string? logo_url = null;
@@ -453,7 +470,7 @@ public class PaperboyFetcher : BaseFetcher {
                         }
                         if (norm.length > 0) seen_urls.add(norm);
                         if (norm_title.length > 0) seen_titles.add(norm_title);
-                        add_item(title, article_url, thumbnail, "topten", display_source);
+                        add_item(title, article_url, thumbnail, "topten", display_source, published);
                         added_count++;
                     }
 
@@ -490,6 +507,7 @@ public class PaperboyFetcher : BaseFetcher {
                                         if (json_get_string_safe(a, "thumbnail") != null) thumb = json_get_string_safe(a, "thumbnail");
                                         else if (json_get_string_safe(a, "image") != null) thumb = json_get_string_safe(a, "image");
                                         else if (json_get_string_safe(a, "image_url") != null) thumb = json_get_string_safe(a, "image_url");
+                                        string? pub = json_get_string_safe(a, "publishedAt");
 
                                         // Filter by search query if provided
                                         if (current_search_query.length > 0) {
@@ -522,7 +540,7 @@ public class PaperboyFetcher : BaseFetcher {
                                             }
                                         }
                                         if (logo != null && logo.length > 0) ds = ds + "||" + logo;
-                                        add_item(t, u, thumb, "topten", ds);
+                                        add_item(t, u, thumb, "topten", ds, pub);
                                         added_count++;
                                     }
                                 }
@@ -533,6 +551,124 @@ public class PaperboyFetcher : BaseFetcher {
                 });
             } catch (GLib.Error e) {
                 warning("Paperboy Top Ten fetch error: %s", e.message);
+            }
+        });
+    }
+
+    // Persistent Sports supplement: unlike frontpage/topten this does not
+    // clear existing items or set the header label - it is called
+    // additively alongside the normal per-source Sports fetch (see
+    // FetchNewsController.fetch_news_impl) so it fills gaps for built-in
+    // sources that have no dedicated sports desk, without disturbing
+    // whatever those sources already contributed. Not user-configurable:
+    // there is intentionally no source toggle for it in preferences.
+    private void fetch_paperboy_sports(string current_search_query, Soup.Session session) {
+        var client = Paperboy.HttpClientUtils.get_default();
+        // Backend defaults to only 10 results with no max_results param;
+        // request a generously high value so we always get everything it has.
+        string url = BASE_URL + "/news/sports?max_results=100";
+
+        client.fetch_json(url, (response, parser, root) => {
+            if (!response.is_success() || root == null) {
+                warning("Paperboy API HTTP error: %u", response.status_code);
+                return;
+            }
+
+            try {
+                Json.Array articles = null;
+                if (root.get_node_type() == Json.NodeType.ARRAY) {
+                    articles = root.get_array();
+                } else {
+                    var obj = root.get_object();
+                    if (obj.has_member("articles")) {
+                        articles = obj.get_array_member("articles");
+                    } else if (obj.has_member("data")) {
+                        var data = obj.get_object_member("data");
+                        if (data.has_member("articles"))
+                            articles = data.get_array_member("articles");
+                    }
+                }
+
+                if (articles == null) {
+                    return;
+                }
+
+                Idle.add(() => {
+                    uint len = articles.get_length();
+                    for (uint i = 0; i < len; i++) {
+                        var art = articles.get_element(i).get_object();
+                        string title = json_get_string_safe(art, "title") != null ? json_get_string_safe(art, "title") : (json_get_string_safe(art, "headline") != null ? json_get_string_safe(art, "headline") : "No title");
+                        string article_url = json_get_string_safe(art, "url") != null ? json_get_string_safe(art, "url") : (json_get_string_safe(art, "link") != null ? json_get_string_safe(art, "link") : "");
+                        if (article_url.length == 0) continue;
+
+                        string? thumbnail = null;
+                        if (json_get_string_safe(art, "thumbnail") != null) thumbnail = json_get_string_safe(art, "thumbnail");
+                        else if (json_get_string_safe(art, "image") != null) thumbnail = json_get_string_safe(art, "image");
+                        else if (json_get_string_safe(art, "image_url") != null) thumbnail = json_get_string_safe(art, "image_url");
+
+                        string? published = json_get_string_safe(art, "publishedAt");
+
+                        string source_name = "Paperboy API";
+                        string? logo_url = null;
+
+                        if (art.has_member("source")) {
+                            var src_node = art.get_member("source");
+                            if (src_node != null && src_node.get_node_type() == Json.NodeType.OBJECT) {
+                                var src_obj = src_node.get_object();
+                                string? n = json_get_string_safe(src_obj, "name");
+                                if (n == null) n = json_get_string_safe(src_obj, "title");
+                                if (n != null) source_name = n;
+
+                                if (json_get_string_safe(src_obj, "logo_url") != null) logo_url = json_get_string_safe(src_obj, "logo_url");
+                                else if (json_get_string_safe(src_obj, "logo") != null) logo_url = json_get_string_safe(src_obj, "logo");
+                                else if (json_get_string_safe(src_obj, "favicon") != null) logo_url = json_get_string_safe(src_obj, "favicon");
+                            } else {
+                                string? s = json_get_string_safe(art, "source");
+                                if (s != null) source_name = s;
+                            }
+                        } else {
+                            if (json_get_string_safe(art, "source") != null) source_name = json_get_string_safe(art, "source");
+                            else if (json_get_string_safe(art, "provider") != null) source_name = json_get_string_safe(art, "provider");
+                        }
+
+                        if (source_name == null || source_name.length == 0 || source_name == "Paperboy API") {
+                            string inferred = infer_display_name_from_url(article_url);
+                            if (inferred != null && inferred.length > 0) source_name = inferred;
+                        }
+
+                        if (logo_url == null) {
+                            if (json_get_string_safe(art, "logo") != null) logo_url = json_get_string_safe(art, "logo");
+                            else if (json_get_string_safe(art, "favicon") != null) logo_url = json_get_string_safe(art, "favicon");
+                            else if (json_get_string_safe(art, "logo_url") != null) logo_url = json_get_string_safe(art, "logo_url");
+                            else if (json_get_string_safe(art, "site_icon") != null) logo_url = json_get_string_safe(art, "site_icon");
+                        }
+
+                        if (logo_url != null) {
+                            logo_url = logo_url.strip();
+                            if (logo_url.has_prefix("//")) {
+                                logo_url = "https:" + logo_url;
+                            }
+                        }
+
+                        if (current_search_query.length > 0) {
+                            string query_lower = current_search_query.down();
+                            string title_lower = title.down();
+                            string url_lower = article_url.down();
+                            if (!title_lower.contains(query_lower) && !url_lower.contains(query_lower)) continue;
+                        }
+
+                        string display_source = source_name;
+                        if (logo_url != null && logo_url.length > 0) {
+                            display_source = source_name + "||" + logo_url;
+                        }
+                        display_source = display_source + "##category::sports";
+
+                        add_item(title, article_url, thumbnail, "sports", display_source, published);
+                    }
+                    return false;
+                });
+            } catch (GLib.Error e) {
+                warning("Paperboy Sports fetch error: %s", e.message);
             }
         });
     }

@@ -29,8 +29,6 @@ namespace FetcherUtils {
             case "markets": return "Markets";
             case "industries": return "Industries";
             case "economics": return "Economics";
-            case "wealth": return "Wealth";
-            case "green": return "Green";
             case "science": return "Science";
             case "sports": return "Sports";
             case "health": return "Health";

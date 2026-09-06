@@ -218,23 +218,7 @@ public class SidebarManager : GLib.Object {
 
         sections.add(special_section);
 
-        // Section 2: Followed Sources (RSS feeds)
-        var followed_section = SidebarSectionData();
-        followed_section.section_id = "followed_sources";
-        followed_section.title = "Followed Sources";
-        followed_section.is_expandable = true;
-        followed_section.is_expanded = followed_sources_expanded;
-        followed_section.items = new Gee.ArrayList<SidebarItemData?>();
-
-        var store = Paperboy.RssSourceStore.get_instance();
-        var sources = store.get_all_sources();
-        foreach (var source in sources) {
-            followed_section.items.add(create_rss_item_data(source));
-        }
-
-        sections.add(followed_section);
-
-        // Section 3: Popular Categories
+        // Section 2: Popular Categories
         var categories_section = SidebarSectionData();
         categories_section.section_id = "popular_categories";
         categories_section.title = "Popular Categories";
@@ -246,6 +230,23 @@ public class SidebarManager : GLib.Object {
         add_categories_for_sources(categories_section.items);
 
         sections.add(categories_section);
+
+        // Section 3: Followed Sources (RSS feeds)
+        var followed_section = SidebarSectionData();
+        followed_section.section_id = "followed_sources";
+        followed_section.title = "Feeds";
+        followed_section.is_expandable = true;
+        followed_section.is_expanded = followed_sources_expanded;
+        followed_section.items = new Gee.ArrayList<SidebarItemData?>();
+
+        var store = Paperboy.RssSourceStore.get_instance();
+        var sources = store.get_all_sources();
+        foreach (var source in sources) {
+            if (!window.prefs.preferred_source_enabled("custom:" + source.url)) continue;
+            followed_section.items.add(create_rss_item_data(source));
+        }
+
+        sections.add(followed_section);
 
         return sections;
     }
@@ -295,12 +296,10 @@ public class SidebarManager : GLib.Object {
                     allowed.set("markets", true);
                     allowed.set("industries", true);
                     allowed.set("economics", true);
-                    allowed.set("wealth", true);
-                    allowed.set("green", true);
                 }
             }
 
-            string[] priority = { "general", "us", "technology", "business", "markets", "industries", "economics", "wealth", "green", "sports", "science", "health", "entertainment", "politics", "lifestyle" };
+            string[] priority = { "general", "us", "technology", "business", "markets", "industries", "economics", "sports", "science", "health", "entertainment", "politics", "lifestyle" };
             foreach (var cat in priority) {
                 if (allowed.has_key(cat) && allowed.get(cat)) {
                     items.add(create_item_data(window.category_display_name_for(cat), cat, SidebarItemType.CATEGORY));
@@ -313,8 +312,6 @@ public class SidebarManager : GLib.Object {
                 items.add(create_item_data("Markets", "markets", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Industries", "industries", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Economics", "economics", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Wealth", "wealth", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Green", "green", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Technology", "technology", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Politics", "politics", SidebarItemType.CATEGORY));
             } else {
@@ -447,7 +444,7 @@ public class SidebarManager : GLib.Object {
             case "nytimes": return NewsSource.NEW_YORK_TIMES;
             case "wsj": return NewsSource.WALL_STREET_JOURNAL;
             case "bloomberg": return NewsSource.BLOOMBERG;
-            case "reuters": return NewsSource.REUTERS;
+            case "abc": return NewsSource.ABC_NEWS;
             case "npr": return NewsSource.NPR;
             case "fox": return NewsSource.FOX;
             default: return window.prefs.news_source;
@@ -559,7 +556,7 @@ public class SidebarManager : GLib.Object {
 
     private string? get_icon_path_for_source(Paperboy.RssSource source) {
         // Use SourceMetadata.get_valid_saved_filename_for_source (validates file exists)
-        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, CategoryIconsUtils.SIDEBAR_ICON_SIZE, CategoryIconsUtils.SIDEBAR_ICON_SIZE);
+        string? icon_filename = SourceMetadata.get_valid_saved_filename_for_source(source.name, CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE, CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE);
         if (icon_filename != null && icon_filename.length > 0) {
             var data_dir = GLib.Environment.get_user_data_dir();
             var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);

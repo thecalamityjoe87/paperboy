@@ -36,8 +36,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
     // All available built-in sources
     private const string[] ALL_BUILTIN_SOURCES = {
-        "guardian", "reddit", "bbc", "nytimes", "wsj",
-        "bloomberg", "reuters", "npr", "fox"
+        "guardian", "bbc", "nytimes", "wsj",
+        "bloomberg", "abc", "npr", "fox", "pbs"
     };
 
     // Currently enabled sources (references prefs)
@@ -109,9 +109,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case "nytimes": return NewsSource.NEW_YORK_TIMES;
             case "wsj": return NewsSource.WALL_STREET_JOURNAL;
             case "bloomberg": return NewsSource.BLOOMBERG;
-            case "reuters": return NewsSource.REUTERS;
+            case "abc": return NewsSource.ABC_NEWS;
             case "npr": return NewsSource.NPR;
             case "fox": return NewsSource.FOX;
+            case "pbs": return NewsSource.PBS;
             default: return NewsSource.GUARDIAN; // fallback
         }
     }
@@ -125,9 +126,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case NewsSource.NEW_YORK_TIMES: return "nytimes";
             case NewsSource.WALL_STREET_JOURNAL: return "wsj";
             case NewsSource.BLOOMBERG: return "bloomberg";
-            case NewsSource.REUTERS: return "reuters";
+            case NewsSource.ABC_NEWS: return "abc";
             case NewsSource.NPR: return "npr";
             case NewsSource.FOX: return "fox";
+            case NewsSource.PBS: return "pbs";
             default: return "guardian";
         }
     }
@@ -147,12 +149,14 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 return "NY Times";
             case NewsSource.BLOOMBERG:
                 return "Bloomberg";
-            case NewsSource.REUTERS:
-                return "Reuters";
+            case NewsSource.ABC_NEWS:
+                return "ABC News";
             case NewsSource.NPR:
                 return "NPR";
             case NewsSource.FOX:
                 return "Fox News";
+            case NewsSource.PBS:
+                return "PBS NewsHour";
             default:
                 return "News";
         }
@@ -276,9 +280,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (low.index_of("new york times") >= 0 || low.index_of("ny times") >= 0 || low.index_of("nytimes") >= 0) return "nytimes";
         if (low.index_of("wall street") >= 0 || low == "wsj") return "wsj";
         if (low.index_of("bloomberg") >= 0) return "bloomberg";
-        if (low.index_of("reuters") >= 0) return "reuters";
+        if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) return "abc";
         if (low == "npr") return "npr";
         if (low.index_of("fox") >= 0) return "fox";
+        if (low.index_of("pbs") >= 0) return "pbs";
         if (low.index_of("hacker news") >= 0 || low == "hackernews") return "hackernews";
 
         return null; // Not a recognized built-in source
@@ -311,14 +316,17 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (low.index_of("bloomberg") >= 0) {
             return NewsSource.BLOOMBERG;
         }
-        if (low.index_of("reuters") >= 0) {
-            return NewsSource.REUTERS;
+        if (low.index_of("abcnews") >= 0) {
+            return NewsSource.ABC_NEWS;
         }
         if (low.index_of("npr.org") >= 0) {
             return NewsSource.NPR;
         }
         if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) {
             return NewsSource.FOX;
+        }
+        if (low.index_of("pbs.org") >= 0) {
+            return NewsSource.PBS;
         }
 
         // Unknown source - don't default to user preference to avoid incorrect branding
@@ -346,12 +354,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
             // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
             else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
-                     (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
+            (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
             else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
             else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
+            else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
             else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
             else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
+            else if (low.index_of("pbs") >= 0) resolved = NewsSource.PBS;
             // If we couldn't match the provided name, keep the URL-inferred value
         }
         return resolved;
@@ -361,32 +370,28 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Handles local news special case and tries to match RSS source names.
     public static string? normalize_source_name(string? source_name, string category_id, string url) {
         string? result = source_name;
-        try {
-            if (result == null || result.length == 0) {
-                if (category_id == "local_news") {
-                    var prefs_local = NewsPreferences.get_instance();
-                    result = (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
-                        ? prefs_local.user_location_city : "Local News";
-                } else {
-                    NewsSource inferred = infer_source_from_url(url);
-                    result = get_source_name(inferred);
-                }
+        if (result == null || result.length == 0) {
+            if (category_id == "local_news") {
+                var prefs_local = NewsPreferences.get_instance();
+                result = (prefs_local.user_location_city != null && prefs_local.user_location_city.length > 0)
+                    ? prefs_local.user_location_city : "Local News";
             } else {
-                // Try to match to an RSS source in the database for consistent naming
-                var rss_store = Paperboy.RssSourceStore.get_instance();
-                var all_sources = rss_store.get_all_sources();
-                foreach (var src in all_sources) {
-                    if (src.name == null || result == null) continue;
-                    string src_lower = src.name.down();
-                    string result_lower = result.down();
-                    if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
-                        result = src.name;
-                        break;
-                    }
+                NewsSource inferred = infer_source_from_url(url);
+                result = get_source_name(inferred);
+            }
+        } else {
+            // Try to match to an RSS source in the database for consistent naming
+            var rss_store = Paperboy.RssSourceStore.get_instance();
+            var all_sources = rss_store.get_all_sources();
+            foreach (var src in all_sources) {
+                if (src.name == null || result == null) continue;
+                string src_lower = src.name.down();
+                string result_lower = result.down();
+                if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
+                    result = src.name;
+                    break;
                 }
             }
-        } catch (GLib.Error e) {
-            result = source_name;
         }
         return result;
     }
@@ -404,9 +409,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case NewsSource.NEW_YORK_TIMES: return n.contains("nytimes") || n.contains("new york times");
             case NewsSource.WALL_STREET_JOURNAL: return n.contains("wsj") || n.contains("wall street");
             case NewsSource.BLOOMBERG: return n.contains("bloomberg");
-            case NewsSource.REUTERS: return n.contains("reuters");
+            case NewsSource.ABC_NEWS: return n.contains("abc news") || n.contains("abcnews");
             case NewsSource.NPR: return n.contains("npr");
             case NewsSource.FOX: return n.contains("fox");
+            case NewsSource.PBS: return n.contains("pbs");
             default: return false;
         }
     }
@@ -441,11 +447,17 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return source_id == "bloomberg";
         }
 
-        // Lifestyle is not provided by BBC, Reddit, Reuters
+        // Lifestyle is not provided by BBC, Reddit, ABC News, or PBS NewsHour
         if (category == "lifestyle") {
-            if (source_id == "bbc" || source_id == "reddit" || source_id == "reuters") {
+            if (source_id == "bbc" || source_id == "reddit" || source_id == "abc" || source_id == "pbs") {
                 return false;
             }
+        }
+
+        // PBS NewsHour also has no dedicated technology or sports desk -
+        // see NewsService.supports_category for the matching enum-based check.
+        if (source_id == "pbs" && (category == "technology" || category == "sports")) {
+            return false;
         }
 
         // All other sources support standard categories
@@ -466,8 +478,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             case "markets":
             case "industries":
             case "economics":
-            case "wealth":
-            case "green":
                 return true;
             default:
                 return false;
@@ -511,8 +521,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             result.add("markets");
             result.add("industries");
             result.add("economics");
-            result.add("wealth");
-            result.add("green");
             return result;
         }
 
@@ -544,8 +552,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         result.add("markets");
         result.add("industries");
         result.add("economics");
-        result.add("wealth");
-        result.add("green");
         result.add("politics");
         result.add("technology");
         return result;
@@ -572,6 +578,17 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     public bool should_display_article(string article_url, string category) {
         // Front Page, Top Ten, and Local News are always shown (backend aggregates)
         if (category == "frontpage" || category == "topten" || category == "local_news") {
+            return true;
+        }
+
+        // Sports also always gets shown regardless of enabled-source filtering:
+        // the persistent Paperboy backend sports supplement (see
+        // PaperboyFetcher.fetch_paperboy_sports) fills the category for users
+        // whose enabled sources don't have a dedicated sports desk, and its
+        // articles come from third-party sites that don't map to any
+        // built-in source id, so the enabled-source check below would
+        // otherwise always filter them out.
+        if (category == "sports") {
             return true;
         }
 
@@ -729,6 +746,12 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                 // Step 5: Callback with result
                 GLib.Idle.add(() => {
+                    // A newly added source should show up as active without
+                    // requiring the user to also flip its switch in Settings.
+                    if (success && window != null && window.prefs != null) {
+                        window.prefs.set_preferred_source_enabled("custom:" + feed_url, true);
+                        window.prefs.save_config();
+                    }
                     callback(success, final_name);
                     return false;
                 });
@@ -934,6 +957,21 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                                             if (success) {
                                                 GLib.Idle.add(() => {
+                                                    // A newly added source should show up as active without
+                                                    // requiring the user to also flip its switch in Settings.
+                                                    if (window != null && window.prefs != null) {
+                                                        window.prefs.set_preferred_source_enabled("custom:" + feed_url, true);
+                                                        window.prefs.save_config();
+                                                    }
+                                                    // The RssSourceStore's source_added signal (emitted
+                                                    // synchronously inside add_source() above) already
+                                                    // queued its own sidebar rebuild via an earlier Idle
+                                                    // callback, which can run before the enable step above
+                                                    // and filter this source right back out. Rebuild again
+                                                    // now that it's actually enabled.
+                                                    if (window != null && window.sidebar_manager != null) {
+                                                        window.sidebar_manager.rebuild_sidebar();
+                                                    }
                                                     request_show_toast("Following " + final_title);
                                                     return false;
                                                 });
@@ -1200,6 +1238,21 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                     
                                     if (success) {
                                         GLib.Idle.add(() => {
+                                            // A newly added source should show up as active without
+                                            // requiring the user to also flip its switch in Settings.
+                                            if (window != null && window.prefs != null) {
+                                                window.prefs.set_preferred_source_enabled("custom:" + gen_feed, true);
+                                                window.prefs.save_config();
+                                            }
+                                            // The RssSourceStore's source_added signal (emitted
+                                            // synchronously inside add_source_with_original_url()
+                                            // above) already queued its own sidebar rebuild via an
+                                            // earlier Idle callback, which can run before the enable
+                                            // step above and filter this source right back out.
+                                            // Rebuild again now that it's actually enabled.
+                                            if (window != null && window.sidebar_manager != null) {
+                                                window.sidebar_manager.rebuild_sidebar();
+                                            }
                                             // Show followed message with article count
                                             request_show_toast("Following %s (%d articles)".printf(feed_name, item_count));
                                             return false;

@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.7.5a',
+  version : '0.8.0a',
   meson_version : '>=0.59.0'
 )
 
@@ -13,6 +13,8 @@ gee = dependency('gee-0.8')
 gio = dependency('gio-2.0')
 sqlite = dependency('sqlite3')
 webkit = dependency('webkitgtk-6.0')
+geoclue = dependency('libgeoclue-2.0')
+geocode = dependency('geocode-glib-2.0')
 
 # Generate build-time constants so the application knows where meson
 # installed internal binaries. This avoids hardcoding candidate paths
@@ -38,12 +40,17 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/articleSheet.vala',
     'src/ui/components/heroCard.vala',
     'src/ui/components/heroCarousel.vala',
+    'src/ui/components/scrollNavButtons.vala',
+    'src/ui/components/categorySection.vala',
+    'src/ui/components/scoreCard.vala',
     'src/ui/components/toastWidget.vala',
     'src/ui/controllers/fetchNewsController.vala',
     'src/ui/controllers/searchController.vala',
+    'src/ui/controllers/sportsScoresController.vala',
     'src/ui/dialogs/prefsDialog.vala',
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',
+    'src/ui/dialogs/onboardingDialog.vala',
     'src/ui/menus/articleMenu.vala',
     'src/ui/menus/sidebarMenu.vala',
 
@@ -63,6 +70,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/imageManager.vala',
     'src/managers/toastManager.vala',
     'src/managers/feedUpdateManager.vala',
+    'src/managers/sportsLiveIndicatorManager.vala',
     'src/managers/searchManager.vala',
     'src/managers/animationManager.vala',
 
@@ -78,15 +86,17 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/lruCache.vala',
     'src/services/sourceMetadata.vala',
     'src/services/previewCache.vala',
-    'src/services/rssFinderService.vala',
     'src/services/articleShareService.vala',
     'src/services/rssSourceStore.vala',
     'src/services/rssArticleCache.vala',
+    'src/services/locationLookupService.vala',
+    'src/services/sportsScoresService.vala',
     'src/services/resolvers/articleSourceResolver.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
     'src/models/articleItem.vala',
     'src/models/imageModels.vala',
+    'src/models/gameScore.vala',
 
     # Fetchers
     'src/services/fetchers/baseFetcher.vala',
@@ -97,9 +107,10 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/fetchers/wsjFetcher.vala',
     'src/services/fetchers/redditFetcher.vala',
     'src/services/fetchers/bloombergFetcher.vala',
-    'src/services/fetchers/reutersFetcher.vala',
+    'src/services/fetchers/abcNewsFetcher.vala',
     'src/services/fetchers/nprFetcher.vala',
     'src/services/fetchers/foxFetcher.vala',
+    'src/services/fetchers/pbsFetcher.vala',
     'src/services/fetchers/paperboyFetcher.vala',
 
     # Utils
@@ -115,25 +126,17 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/httpClientUtils.vala',
     'src/utils/rssValidatorUtils.vala',
     'src/utils/stripHtmlUtils.vala',
+    'src/utils/majorCitiesUtils.vala',
 
     # Processors (RSS/HTML/image processing)
     'src/processors/rssFeedProcessor.vala',
     'src/processors/imageProcessor.vala',
     'tools/articleScraper.vala',
-    'tools/zipLookup.vala',
   ],
-  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit],
+  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, geocode],
   install : true,
   link_args : ['-lm']
 )
-
-  # Install the rssFinder helper as an internal binary per FHS 4.7.
-  # This is only called by the Paperboy application, not by users directly.
-  executable('rssFinder', 'tools/rssFinder.vala',
-    dependencies : [gio],
-    install : true,
-    install_dir : join_paths(get_option('libexecdir'), 'paperboy')
-  )
 
 install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
 
@@ -143,6 +146,7 @@ install_data('data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml',
 
 gnome = import('gnome')
 gnome.compile_schemas(depend_files: 'data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml')
+gnome.post_install(glib_compile_schemas: true)
 
 # Install app icons to system icon directories at different sizes
 install_data('data/icons/128x128/paperboy.png', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', '128x128', 'apps'))
@@ -153,10 +157,22 @@ install_data('data/icons/paperboy.png', install_dir: join_paths(get_option('data
 # Scalable SVG
 install_data('data/icons/scalable/paperboy.svg', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps'))
 
+# Vendored copies of a few symbolic action icons (open-menu, sidebar-show,
+# view-refresh), app-id-prefixed so they can't collide with or be
+# shadowed by the system icon theme's own versions of those names -
+# guarantees the current GNOME icon-library glyphs regardless of which
+# icon theme (Adwaita, Yaru, etc.) the user has installed. See
+# NewsWindow's header-bar setup for where these names are used.
+install_data(
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-open-menu-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-sidebar-show-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-view-refresh-symbolic.svg',
+  install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'actions')
+)
+
 # Install app data (styles, icons) to a namespaced datadir for runtime lookup
 install_data('data/resources/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'paperboy'))
-install_data('data/usZips.csv', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 
 # Ensure adblock stylesheet is installed under the namespaced datadir so
 # runtime lookups like DataPaths.find_data_file("resources/adblock.css")

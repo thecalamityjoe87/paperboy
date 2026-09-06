@@ -25,21 +25,19 @@ public class PaperboyApp : Adw.Application {
         // Ensure global HttpClient is constructed on the main thread
         // before any other subsystem can spawn worker threads.
         Paperboy.HttpClientUtils.ensure_initialized();
-        
+
+        // Apply the user's saved color scheme before the window is built
+        // so it opens with the right theme instead of flashing the
+        // libadwaita default and then switching.
+        var prefs = NewsPreferences.get_instance();
+        prefs.apply_color_scheme();
+
         var win = new NewsWindow(this);
         win.present();
-        // Eagerly instantiate ZipLookup so it starts loading the CSV in
-        // the background during app startup. This helps ensure the ZIP
-        // database is ready by the time the user opens the Set Location
-        // dialog.
-        ZipLookup.get_instance();
-        // If this is the user's first time running the app, show the
-        // preferences dialog so they can adjust sources immediately.
-        var prefs = NewsPreferences.get_instance();
-        // On first run, show the preferences dialog so users can immediately
-        // enable/disable individual providers and configure the app.
-        if (prefs.first_run) PrefsDialog.show_preferences_dialog(win);
-        
+        // On first run, show the welcome/onboarding dialog so users can
+        // get an introduction and immediately pick a few sources.
+        if (!prefs.onboarding_completed) OnboardingDialog.show(win);
+
         var change_source_action = new SimpleAction("change-source", null);
         change_source_action.activate.connect(() => {
             PrefsDialog.show_source_dialog(win);
@@ -57,11 +55,30 @@ public class PaperboyApp : Adw.Application {
             LocationDialog.show(win);
         });
         this.add_action(set_location_action);
+
+        var onboarding_action = new SimpleAction("show-onboarding", null);
+        onboarding_action.activate.connect(() => {
+            OnboardingDialog.show(win);
+        });
+        this.add_action(onboarding_action);
     }
 
 }
 
+// Setting MALLOC_ARENA_MAX via env var is too late once main() is already
+// running, so cap it directly with mallopt() instead.
+[CCode (cname = "mallopt")]
+private static extern int mallopt(int param, int val);
+private const int M_ARENA_MAX = -8;
+private const int M_ARENA_TEST = -7;
+
 public static int main(string[] args) {
+    // Caps glibc's per-thread malloc arenas: the image download/decode
+    // worker pools' allocate/free churn was fragmenting memory across many
+    // arenas that never got returned to the OS, ballooning RSS past 2GB
+    // independent of actual live data (confirmed via heaptrack).
+    mallopt(M_ARENA_MAX, 2);
+    mallopt(M_ARENA_TEST, 1);
 
     var app = new PaperboyApp();
     return app.run(args);

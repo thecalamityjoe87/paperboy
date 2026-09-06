@@ -24,9 +24,10 @@ public enum NewsSource {
     WALL_STREET_JOURNAL,
     REDDIT,
     BLOOMBERG,
-    REUTERS,
+    ABC_NEWS,
     NPR,
     FOX,
+    PBS,
     UNKNOWN
 }
 
@@ -44,6 +45,14 @@ public class NewsService {
         if (current_category == "frontpage" || current_category == "topten") {
             var paperboy_fetcher = new PaperboyFetcher(set_label, clear_items, add_item);
             paperboy_fetcher.fetch(current_category, current_search_query, session);
+            return;
+        }
+
+        // Don't let a source fetch (and mistag) content for a category it
+        // doesn't actually cover, e.g. PBS falling back to World News for
+        // "sports" - callers that already pre-filter via supports_category()
+        // (the multi-source path) just get a redundant true here.
+        if (!supports_category(source, current_category)) {
             return;
         }
 
@@ -68,14 +77,17 @@ public class NewsService {
             case NewsSource.BLOOMBERG:
                 fetcher = new BloombergFetcher(set_label, clear_items, add_item);
                 break;
-            case NewsSource.REUTERS:
-                fetcher = new ReutersFetcher(set_label, clear_items, add_item);
+            case NewsSource.ABC_NEWS:
+                fetcher = new AbcNewsFetcher(set_label, clear_items, add_item);
                 break;
             case NewsSource.NPR:
                 fetcher = new NprFetcher(set_label, clear_items, add_item);
                 break;
             case NewsSource.FOX:
                 fetcher = new FoxFetcher(set_label, clear_items, add_item);
+                break;
+            case NewsSource.PBS:
+                fetcher = new PbsFetcher(set_label, clear_items, add_item);
                 break;
         }
 
@@ -98,20 +110,22 @@ public class NewsService {
                 return "New York Times";
             case NewsSource.BLOOMBERG:
                 return "Bloomberg";
-            case NewsSource.REUTERS:
-                return "Reuters";
+            case NewsSource.ABC_NEWS:
+                return "ABC News";
             case NewsSource.NPR:
                 return "NPR";
             case NewsSource.FOX:
                 return "Fox News";
+            case NewsSource.PBS:
+                return "PBS NewsHour";
             default:
                 return "News";
         }
     }
 
     public static bool supports_category(NewsSource source, string category) {
-        // BBC, Reddit, and Reuters do not provide dedicated "lifestyle" content
-        if (source == NewsSource.BBC || source == NewsSource.REDDIT || source == NewsSource.REUTERS) {
+        // BBC, Reddit, and ABC News do not provide dedicated "lifestyle" content
+        if (source == NewsSource.BBC || source == NewsSource.REDDIT || source == NewsSource.ABC_NEWS) {
             if (category == "lifestyle") return false;
         }
 
@@ -121,13 +135,25 @@ public class NewsService {
                 case "markets":
                 case "industries":
                 case "economics":
-                case "wealth":
-                case "green":
                 case "politics":
                 case "technology":
                     return true;
                 default:
                     return false;
+            }
+        }
+
+        // PBS NewsHour has no technology, sports, or lifestyle desk -
+        // PbsFetcher falls back to World News for those, which would be
+        // confusing to show under those category labels specifically.
+        if (source == NewsSource.PBS) {
+            switch (category) {
+                case "technology":
+                case "sports":
+                case "lifestyle":
+                    return false;
+                default:
+                    return true;
             }
         }
         return true;

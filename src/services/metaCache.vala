@@ -63,18 +63,10 @@ public class MetaCache : GLib.Object {
         var cache_base = Environment.get_user_cache_dir();
         if (cache_base == null) cache_base = "/tmp";
         cache_dir_path = Path.build_filename(cache_base, "paperboy", "metadata");
-        try {
-            DirUtils.create_with_parents(cache_dir_path, 0755);
-        } catch (GLib.Error e) {
-            warning("Failed to create cache dir %s: %s", cache_dir_path, e.message);
-        }
+        DirUtils.create_with_parents(cache_dir_path, 0755);
         // Images are stored in a separate subdirectory to keep metadata separate
         images_dir_path = Path.build_filename(cache_dir_path, "images");
-        try {
-            DirUtils.create_with_parents(images_dir_path, 0755);
-        } catch (GLib.Error e) {
-            warning("Failed to create images cache dir %s: %s", images_dir_path, e.message);
-        }
+        DirUtils.create_with_parents(images_dir_path, 0755);
 
 
     cache_dir = cache_dir_path;
@@ -248,10 +240,8 @@ public class MetaCache : GLib.Object {
     string? img = null;
     if (ext != null) img = image_write_path_for(url, ext);
         // Ensure parent dirs exist (constructor already attempted, but be safe)
-        try {
-            DirUtils.create_with_parents(cache_dir_path, 0755);
-            DirUtils.create_with_parents(images_dir_path, 0755);
-        } catch (GLib.Error e) { /* best-effort */ }
+        DirUtils.create_with_parents(cache_dir_path, 0755);
+        DirUtils.create_with_parents(images_dir_path, 0755);
 
         if (img != null) {
             try {
@@ -287,20 +277,16 @@ public class MetaCache : GLib.Object {
         }
 
         // Write metadata (ETag, Last-Modified, last_access, size)
-        try {
-            var kf = new KeyFile();
-            if (etag != null) kf.set_string("cache", "etag", etag);
-            if (last_modified != null) kf.set_string("cache", "last_modified", last_modified);
-            long now_s = (long)(GLib.get_real_time() / 1000000);
-            kf.set_string("cache", "last_access", "%d".printf((int)now_s));
-            kf.set_string("cache", "size", "%d".printf((int)data.length));
-            write_meta(url, kf);
-            // If cache folder grew too large, clear it (best-effort) to avoid
-            // unbounded disk usage between application runs.
-            try { maybe_clear_if_oversized(); } catch (GLib.Error e) { }
-        } catch (GLib.Error e) {
-            warning("Failed to write cache meta for %s: %s", url, e.message);
-        }
+        var kf = new KeyFile();
+        if (etag != null) kf.set_string("cache", "etag", etag);
+        if (last_modified != null) kf.set_string("cache", "last_modified", last_modified);
+        long now_s = (long)(GLib.get_real_time() / 1000000);
+        kf.set_string("cache", "last_access", "%d".printf((int)now_s));
+        kf.set_string("cache", "size", "%d".printf((int)data.length));
+        write_meta(url, kf);
+        // If cache folder grew too large, clear it (best-effort) to avoid
+        // unbounded disk usage between application runs.
+        try { maybe_clear_if_oversized(); } catch (GLib.Error e) { }
     }
 
     public void touch(string url) {

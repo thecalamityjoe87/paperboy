@@ -27,10 +27,10 @@ public class CardBuilder : GLib.Object {
     }
 
     public static Gtk.Widget build_category_chip(NewsWindow win, string category_id) {
-        // For RSS feed categories, show "Followed Source" instead of "My Feed"
+        // For RSS feed categories, show "Feeds" instead of "My Feed"
         string label_text;
         if (category_id != null && category_id.has_prefix("rssfeed:")) {
-            label_text = "Followed Source";
+            label_text = "Feeds";
         } else {
             label_text = win.category_display_name_for(category_id);
         }
@@ -51,9 +51,10 @@ public class CardBuilder : GLib.Object {
             case NewsSource.REDDIT: return "Reddit";
             case NewsSource.NEW_YORK_TIMES: return "NY Times";
             case NewsSource.BLOOMBERG: return "Bloomberg";
-            case NewsSource.REUTERS: return "Reuters";
+            case NewsSource.ABC_NEWS: return "ABC News";
             case NewsSource.NPR: return "NPR";
             case NewsSource.FOX: return "Fox News";
+            case NewsSource.PBS: return "PBS NewsHour";
             default: return "News";
         }
     }
@@ -65,10 +66,11 @@ public class CardBuilder : GLib.Object {
             case NewsSource.REDDIT: return "reddit-logo.png";
             case NewsSource.NEW_YORK_TIMES: return "nytimes-logo.png";
             case NewsSource.BLOOMBERG: return "bloomberg-logo.png";
-            case NewsSource.REUTERS: return "reuters-logo.png";
+            case NewsSource.ABC_NEWS: return "abc-logo.png";
             case NewsSource.NPR: return "npr-logo.png";
             case NewsSource.FOX: return "foxnews-logo.png";
             case NewsSource.WALL_STREET_JOURNAL: return "wsj-logo.png";
+            case NewsSource.PBS: return "pbs-logo.png";
             default: return null;
         }
     }
@@ -469,9 +471,10 @@ public class CardBuilder : GLib.Object {
                      (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
             else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
             else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("reuters") >= 0) resolved = NewsSource.REUTERS;
+            else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
             else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
             else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
+            else if (low.index_of("pbs") >= 0) resolved = NewsSource.PBS;
 
             // Only use bundled badge if we have a positive match
             if (resolved != null) {
@@ -731,26 +734,96 @@ public class CardBuilder : GLib.Object {
     }
 
     public static Gtk.Widget build_viewed_badge() {
-        var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
+        var box = new Gtk.Box(Orientation.HORIZONTAL, 4);
         box.add_css_class("viewed-badge");
-        box.set_valign(Gtk.Align.START);
-        box.set_halign(Gtk.Align.END);
-        box.set_margin_top(8);
-        box.set_margin_end(8);
+        // Packed into viewed_badge_slot (bottom-right of the title area,
+        // opposite time_label - see ArticleCard/HeroCard), not floated over
+        // the image, so no halign/valign/margin positioning needed here;
+        // ordinary box layout handles it.
+        box.set_valign(Gtk.Align.CENTER);
 
-
-        var icon = new Gtk.Image.from_icon_name("emblem-ok-symbolic");
-        icon.set_pixel_size(12);
+        // An eye, not a checkmark: a check reads as "verified" in a news
+        // app (a much worse misread than just being unclear), while an eye
+        // reinforces "you've seen this" instead. view-reveal-symbolic is
+        // the standard open-eye glyph (used elsewhere for password-reveal
+        // toggles).
+        var icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
+        icon.set_pixel_size(14);
         icon.get_style_context().add_class("viewed-badge-icon");
         icon.set_valign(Gtk.Align.CENTER); icon.set_halign(Gtk.Align.CENTER);
         box.append(icon);
 
-        var lbl = new Gtk.Label("Viewed");
+        var lbl = new Gtk.Label("Read");
         lbl.get_style_context().remove_class("dim-label");
         lbl.add_css_class("viewed-badge-label");
         lbl.add_css_class("caption");
         box.append(lbl);
         return box;
+    }
+
+    // Top-right corner row shared by every card: holds the persistent save
+    // ribbon. The "Viewed" badge lives in the bottom-left corner instead
+    // (see build_viewed_badge) rather than sharing this row - the two used
+    // to compete for space here.
+    public static Gtk.Box build_corner_badge_row() {
+        var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
+        box.add_css_class("card-corner-badges");
+        box.set_valign(Gtk.Align.START);
+        box.set_halign(Gtk.Align.END);
+        box.set_margin_top(8);
+        box.set_margin_end(8);
+        return box;
+    }
+
+    // Rest position for the save ribbon: pokes up past the corner row's
+    // own margin_top(8), draping over the card's top edge instead of
+    // sitting inset like the row's other badges. Public so AnimationManager
+    // can animate toward/away from the same value.
+    public const int SAVE_RIBBON_HEIGHT = 50; // 10% bigger (29px icon, was 26px)
+    public const int SAVE_RIBBON_REST_MARGIN = -16; // 2px higher than before (-14)
+    // Fully tucked away above the card, tab's bottom edge at the rest
+    // tab's own top edge - i.e. rest minus its own height.
+    public const int SAVE_RIBBON_HIDDEN_MARGIN = SAVE_RIBBON_REST_MARGIN - SAVE_RIBBON_HEIGHT;
+
+    // Persistent "this is saved" tag shown in the corner badge row, next to
+    // the "Viewed" badge - the exact gold/orange gradient ribbon-with-star
+    // graphic the user provided, bundled as
+    // data/icons/symbolic/save-ribbon.png, not a system icon or a plain
+    // rectangle. Slides down as a single rigid piece from fully above the
+    // card to its rest position (see AnimationManager.animate_save_toggle,
+    // which animates margin_top between SAVE_RIBBON_HIDDEN_MARGIN and
+    // SAVE_RIBBON_REST_MARGIN) rather than a Gtk.Revealer-style reveal,
+    // which grows/clips the shape open instead of translating it.
+    public static Gtk.Widget build_save_ribbon(bool initially_saved) {
+        var tab = new Gtk.Image();
+        tab.add_css_class("save-ribbon");
+        int icon_px = SAVE_RIBBON_HEIGHT - 6;
+
+        string? asset_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "save-ribbon.png"));
+        if (asset_path != null) {
+            var cache = ImageCache.get_global();
+            int hi = icon_px * 2;
+            string key = "pixbuf::file:%s::%dx%d".printf(asset_path, hi, hi);
+            if (cache.get_or_load_file(key, asset_path, hi, hi) != null) {
+                var tex = cache.get_texture(key);
+                if (tex != null) tab.set_from_paintable(tex);
+            }
+        }
+        if (tab.get_paintable() == null) {
+            // Bundled asset missing for some reason - fall back to a
+            // recognizable bookmark glyph rather than a blank space.
+            tab.set_from_icon_name("user-bookmarks-symbolic");
+        }
+        tab.set_pixel_size(icon_px);
+        tab.set_size_request(20, SAVE_RIBBON_HEIGHT);
+        tab.set_valign(Gtk.Align.START);
+        tab.set_margin_top(initially_saved ? SAVE_RIBBON_REST_MARGIN : SAVE_RIBBON_HIDDEN_MARGIN);
+        // Not just positioned off the top - removed from layout entirely
+        // while unsaved, so it doesn't reserve a gap next to the "Viewed"
+        // badge in the corner row (see AnimationManager.animate_save_toggle,
+        // which flips this back to true right before sliding it in).
+        tab.set_visible(initially_saved);
+        return tab;
     }
 
 }

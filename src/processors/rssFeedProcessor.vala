@@ -30,7 +30,7 @@ public class RssFeedProcessor {
     // Maximum items to parse from local news RSS feeds (prevents memory bloat from large feeds)
     // TODO: Make this configurable via preferences to allow power users to increase the limit
     // Currently hardcoded to prevent UI slowdowns, but users may want more items for archival feeds
-    private const int LOCAL_FEED_MAX_ITEMS = 12;
+    private const int LOCAL_FEED_MAX_ITEMS = 30;
 
     // Sanitize XML by removing invalid control characters and fixing encoding issues
     private static string sanitize_xml(string input) {
@@ -129,10 +129,26 @@ public class RssFeedProcessor {
                             string? title = null;
                             string? link = null;
                             string? thumb = null;
+                            string? pub_date = null;
+                            string? updated_date = null; // Atom fallback, only used if no pubDate/published found
+                            // The feed's own <description>/<summary> text, stripped to plain
+                            // text - stored on the resulting ArticleItem as a fallback snippet
+                            // for when live-fetching the article's own page fails (paywalls,
+                            // bot-blocking, transient errors). See ArticleSnippetService.
+                            string? desc_text = null;
+                            int thumb_width = -1;
+                            bool thumb_is_thumbnail_tag = false;
                             for (Xml.Node* c = it->children; c != null; c = c->next) {
                                 if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
                                 if (c->name == "title") {
                                     title = c->get_content();
+                                } else if ((c->name == "pubDate" || c->name == "published" ||
+                                            (c->name == "date" && c->ns != null && c->ns->prefix == "dc")) && pub_date == null) {
+                                    string? content = c->get_content();
+                                    if (content != null && content.strip().length > 0) pub_date = content.strip();
+                                } else if (c->name == "updated" && updated_date == null) {
+                                    string? content = c->get_content();
+                                    if (content != null && content.strip().length > 0) updated_date = content.strip();
                                 } else if (c->name == "link") {
                                     Xml.Attr* href = c->properties;
                                     while (href != null) {
@@ -160,18 +176,27 @@ public class RssFeedProcessor {
                                         }
                                     }
                                 } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                    // Skip media:thumbnail if we already have media:content (higher quality)
-                                    if (thumb == null) {
+                                    // Skip media:thumbnail if we already have media:content (higher quality).
+                                    // Some feeds (e.g. ABC News) emit several media:thumbnail entries per
+                                    // item at different resolutions, in no guaranteed order, so keep the
+                                    // widest one seen instead of just the first.
+                                    if (thumb == null || thumb_is_thumbnail_tag) {
                                         Xml.Attr* a2 = c->properties;
+                                        string? cand_url = null;
+                                        int cand_width = -1;
                                         while (a2 != null) {
                                             if (a2->name == "url") {
-                                                thumb = a2->children != null ? (string) a2->children->content : null;
-                                                if (thumb != null) {
-                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                }
-                                                break;
+                                                cand_url = a2->children != null ? (string) a2->children->content : null;
+                                            } else if (a2->name == "width") {
+                                                string? wstr = a2->children != null ? (string) a2->children->content : null;
+                                                if (wstr != null) cand_width = int.parse(wstr);
                                             }
                                             a2 = a2->next;
+                                        }
+                                        if (cand_url != null && cand_width > thumb_width) {
+                                            thumb = cand_url.has_prefix("//") ? "https:" + cand_url : cand_url;
+                                            thumb_width = cand_width;
+                                            thumb_is_thumbnail_tag = true;
                                         }
                                     }
                                 } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
@@ -198,9 +223,13 @@ public class RssFeedProcessor {
                                             if (is_image) thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
                                         }
                                     }
-                                } else if (c->name == "description" && thumb == null) {
+                                } else if (c->name == "description") {
                                     string? desc = c->get_content();
-                                    if (desc != null) {
+                                    if (desc != null && desc_text == null) {
+                                        string plain = stripHtmlUtils.truncate_snippet(stripHtmlUtils.strip_html(desc).strip(), 280);
+                                        if (plain.length > 0) desc_text = plain;
+                                    }
+                                    if (desc != null && thumb == null) {
                                         thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
                                         if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
                                             GLib.warning("rssFeedProcessor: extracted from description: %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
@@ -220,10 +249,14 @@ public class RssFeedProcessor {
                                             thumb = Tools.ImageProcessor.strip_resize_params(thumb);
                                         }
                                     }
-                                } else if (c->name == "summary" && thumb == null) {
+                                } else if (c->name == "summary") {
                                     // Atom <summary> can also include an image snippet
                                     string? summary_html = c->get_content();
-                                    if (summary_html != null) {
+                                    if (summary_html != null && desc_text == null) {
+                                        string plain = stripHtmlUtils.truncate_snippet(stripHtmlUtils.strip_html(summary_html).strip(), 280);
+                                        if (plain.length > 0) desc_text = plain;
+                                    }
+                                    if (summary_html != null && thumb == null) {
                                         thumb = Tools.ImageProcessor.extract_image_from_html_snippet(summary_html);
                                         if (thumb != null) {
                                             if (thumb.has_prefix("//")) thumb = "https:" + thumb;
@@ -264,6 +297,8 @@ public class RssFeedProcessor {
                                 row.add(title);
                                 row.add(link);
                                 row.add(thumb);
+                                row.add(pub_date ?? updated_date);
+                                row.add(desc_text);
                                 items.add(row);
                             }
                         }
@@ -299,10 +334,21 @@ public class RssFeedProcessor {
                                 string? title = null;
                                 string? link = null;
                                 string? thumb = null;
+                                string? pub_date = null;
+                                string? updated_date = null; // Atom fallback, only used if no pubDate/published found
+                                string? desc_text = null;
+                                int thumb_width = -1;
+                                bool thumb_is_thumbnail_tag = false;
                                 for (Xml.Node* c = it->children; c != null; c = c->next) {
                                     if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
                                     if (c->name == "title") {
                                         title = c->get_content();
+                                    } else if ((c->name == "pubDate" || c->name == "published") && pub_date == null) {
+                                        string? content = c->get_content();
+                                        if (content != null && content.strip().length > 0) pub_date = content.strip();
+                                    } else if (c->name == "updated" && updated_date == null) {
+                                        string? content = c->get_content();
+                                        if (content != null && content.strip().length > 0) updated_date = content.strip();
                                     } else if (c->name == "link") {
                                         Xml.Attr* href = c->properties;
                                         while (href != null) {
@@ -330,18 +376,27 @@ public class RssFeedProcessor {
                                             }
                                         }
                                     } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                        // Skip media:thumbnail if we already have media:content (higher quality)
-                                        if (thumb == null) {
+                                        // Skip media:thumbnail if we already have media:content (higher quality).
+                                        // Some feeds (e.g. ABC News) emit several media:thumbnail entries per
+                                        // item at different resolutions, in no guaranteed order, so keep the
+                                        // widest one seen instead of just the first.
+                                        if (thumb == null || thumb_is_thumbnail_tag) {
                                             Xml.Attr* a2 = c->properties;
+                                            string? cand_url = null;
+                                            int cand_width = -1;
                                             while (a2 != null) {
                                                 if (a2->name == "url") {
-                                                    thumb = a2->children != null ? (string) a2->children->content : null;
-                                                    if (thumb != null) {
-                                                        if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                    }
-                                                    break;
+                                                    cand_url = a2->children != null ? (string) a2->children->content : null;
+                                                } else if (a2->name == "width") {
+                                                    string? wstr = a2->children != null ? (string) a2->children->content : null;
+                                                    if (wstr != null) cand_width = int.parse(wstr);
                                                 }
                                                 a2 = a2->next;
+                                            }
+                                            if (cand_url != null && cand_width > thumb_width) {
+                                                thumb = cand_url.has_prefix("//") ? "https:" + cand_url : cand_url;
+                                                thumb_width = cand_width;
+                                                thumb_is_thumbnail_tag = true;
                                             }
                                         }
                                     } else if (c->name == "content" && c->ns != null && c->ns->prefix == "media") {
@@ -368,9 +423,13 @@ public class RssFeedProcessor {
                                                 if (is_image) thumb = media_url.has_prefix("//") ? "https:" + media_url : media_url;
                                             }
                                         }
-                                    } else if (c->name == "description" && thumb == null) {
+                                    } else if (c->name == "description") {
                                         string? desc = c->get_content();
-                                        if (desc != null) {
+                                        if (desc != null && desc_text == null) {
+                                            string plain = stripHtmlUtils.truncate_snippet(stripHtmlUtils.strip_html(desc).strip(), 280);
+                                            if (plain.length > 0) desc_text = plain;
+                                        }
+                                        if (desc != null && thumb == null) {
                                             thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
                                             if (thumb != null) thumb = Tools.ImageProcessor.strip_resize_params(thumb);
                                         }
@@ -383,9 +442,13 @@ public class RssFeedProcessor {
                                                 thumb = Tools.ImageProcessor.strip_resize_params(thumb);
                                             }
                                         }
-                                    } else if (c->name == "summary" && thumb == null) {
+                                    } else if (c->name == "summary") {
                                         string? summary_html = c->get_content();
-                                        if (summary_html != null) {
+                                        if (summary_html != null && desc_text == null) {
+                                            string plain = stripHtmlUtils.truncate_snippet(stripHtmlUtils.strip_html(summary_html).strip(), 280);
+                                            if (plain.length > 0) desc_text = plain;
+                                        }
+                                        if (summary_html != null && thumb == null) {
                                             thumb = Tools.ImageProcessor.extract_image_from_html_snippet(summary_html);
                                             if (thumb != null) {
                                                 if (thumb.has_prefix("//")) thumb = "https:" + thumb;
@@ -426,6 +489,8 @@ public class RssFeedProcessor {
                                     row.add(title);
                                     row.add(link);
                                     row.add(thumb);
+                                    row.add(pub_date ?? updated_date);
+                                    row.add(desc_text);
                                     items.add(row);
                                 }
                             }
@@ -446,6 +511,7 @@ public class RssFeedProcessor {
                 foreach (var row in items) {
                     string title = row[0] ?? "No title";
                     string url = row[1] ?? "";
+                    string? pub_date = row.size > 3 ? row[3] : null;
 
                     // Filter by search query if provided (case-insensitive substring match)
                     if (current_search_query.length > 0) {
@@ -491,10 +557,11 @@ public class RssFeedProcessor {
                             }
                         }
 
-                        cache.cache_article(url, title, row[2], null, cache_key, extracted_source_name, extracted_logo_url, extracted_category_id);
+                        cache.cache_article(url, title, row[2], pub_date, cache_key, extracted_source_name, extracted_logo_url, extracted_category_id);
                     }
 
-                    add_item(title, url, row[2], category_id, source_name);
+                    string? row_snippet = row.size > 4 ? row[4] : null;
+                    add_item(title, url, row[2], category_id, source_name, pub_date, row_snippet);
                 }
 
                 return false;
@@ -524,8 +591,8 @@ public class RssFeedProcessor {
 
             // Background: for BBC links, try to fetch higher-resolution images
             if (bbc_enabled) {
-                AddItemFunc safe_add = (title, url, thumbnail, cid, sname) => {
-                    Idle.add(() => { add_item(title, url, thumbnail, cid, sname); return false; });
+                AddItemFunc safe_add = (title, url, thumbnail, cid, sname, published) => {
+                    Idle.add(() => { add_item(title, url, thumbnail, cid, sname, published); return false; });
                 };
 
                 new Thread<void*>("bbc-image-upgrade", () => {
@@ -555,34 +622,6 @@ public class RssFeedProcessor {
             if (doc != null) {
                 xml_free_doc(doc);
             }
-        }
-    }
-
-    // Remove a dead URL from the user's `local_feeds` list. This is best-effort
-    // and will log warnings on failure. Kept as a static method so it can be
-    // called from worker threads safely (it performs file I/O synchronously).
-    private static void prune_local_feed(string bad_url) {
-        try {
-            string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
-            string file_path = config_dir + "/local_feeds";
-            string contents = "";
-            bool ok = false;
-            try { ok = GLib.FileUtils.get_contents(file_path, out contents); } catch (GLib.Error ee) { contents = ""; ok = false; }
-            if (!ok || contents == null) return;
-            string[] lines = contents.split("\n");
-            var kept = new Gee.ArrayList<string>();
-            foreach (var l in lines) {
-                string t = l.strip();
-                if (t.length == 0) continue;
-                if (t == bad_url) continue;
-                kept.add(t);
-            }
-            string new_contents = "";
-            foreach (var e in kept) new_contents += e + "\n";
-            try { GLib.FileUtils.set_contents(file_path, new_contents); } catch (GLib.Error eee) { warning("Failed to update local_feeds: %s", eee.message); }
-            warning("Pruned dead local feed: %s", bad_url);
-        } catch (GLib.Error e) {
-            warning("Error pruning local feed: %s", e.message);
         }
     }
 
@@ -656,7 +695,19 @@ public class RssFeedProcessor {
                 }
 
                 var client = Paperboy.HttpClientUtils.get_default();
-                var http_response = client.fetch_sync(url, null);
+                // Reddit's RSS/Atom feeds are very aggressive about
+                // rejecting/rate-limiting the generic default User-Agent
+                // (confirmed: it gets blocked almost immediately, while a
+                // real-browser-looking one is treated normally) - so use
+                // browser-style headers specifically for reddit.com feed
+                // URLs, same as RedditFetcher does for the built-in Reddit
+                // category. Left as the plain default for every other feed
+                // to avoid touching behavior for sources that already work.
+                Paperboy.HttpClientUtils.RequestOptions? fetch_options = null;
+                if (url.down().contains("reddit.com")) {
+                    fetch_options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
+                }
+                var http_response = client.fetch_sync(url, fetch_options);
 
                 // Defensive handling for network-level failures (status_code == 0)
                 if (http_response.status_code == 0) {
@@ -674,21 +725,18 @@ public class RssFeedProcessor {
                         warning("Network error fetching RSS for '%s' (%s): unknown error", source_name, url);
                     }
                     try { set_label("Error loading feed — network/DNS error"); } catch (GLib.Error e) { }
-                    if (category_id == "local_news") prune_local_feed(url);
                     return null;
                 }
 
                 if (!http_response.is_success()) {
                     warning("HTTP %u fetching RSS for '%s' (%s)", http_response.status_code, source_name, url);
                     try { set_label(("Error loading feed — HTTP %u").printf(http_response.status_code)); } catch (GLib.Error e) { }
-                    if (category_id == "local_news") prune_local_feed(url);
                     return null;
                 }
 
                 if (http_response.body == null) {
                     warning("Empty response for RSS from '%s' (%s)", source_name, url);
                     try { set_label("Error loading feed — empty response"); } catch (GLib.Error e) { }
-                    if (category_id == "local_news") prune_local_feed(url);
                     return null;
                 }
 
@@ -697,7 +745,6 @@ public class RssFeedProcessor {
             } catch (GLib.Error e) {
                 warning("RSS fetch error: %s", e.message);
                 try { set_label("Error loading feed"); } catch (GLib.Error _) { }
-                if (category_id == "local_news") prune_local_feed(url);
             }
             // Drop our explicit references so they can be freed.
             _set_label_ref = null;

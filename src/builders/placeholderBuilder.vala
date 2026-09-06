@@ -114,9 +114,9 @@ public class PlaceholderBuilder : GLib.Object {
                     gradient.add_color_stop_rgb(0, 0.0, 0.3, 0.7);
                     gradient.add_color_stop_rgb(1, 0.1, 0.5, 0.9);
                     break;
-                case NewsSource.REUTERS:
-                    gradient.add_color_stop_rgb(0, 0.3, 0.3, 0.4);
-                    gradient.add_color_stop_rgb(1, 0.5, 0.5, 0.6);
+                case NewsSource.ABC_NEWS:
+                    gradient.add_color_stop_rgb(0, 0.0, 0.1, 0.3);
+                    gradient.add_color_stop_rgb(1, 0.1, 0.3, 0.6);
                     break;
                 case NewsSource.NPR:
                     gradient.add_color_stop_rgb(0, 0.1, 0.2, 0.5);
@@ -125,6 +125,10 @@ public class PlaceholderBuilder : GLib.Object {
                 case NewsSource.FOX:
                     gradient.add_color_stop_rgb(0, 0.0, 0.2, 0.6);
                     gradient.add_color_stop_rgb(1, 0.1, 0.3, 0.8);
+                    break;
+                case NewsSource.PBS:
+                    gradient.add_color_stop_rgb(0, 0.0, 0.15, 0.35);
+                    gradient.add_color_stop_rgb(1, 0.05, 0.3, 0.55);
                     break;
                 case NewsSource.UNKNOWN:
                     gradient.add_color_stop_rgb(0, 0.9, 0.9, 0.9);
@@ -234,9 +238,9 @@ public class PlaceholderBuilder : GLib.Object {
                     gradient.add_color_stop_rgb(0, 0.0, 0.4, 0.8);
                     gradient.add_color_stop_rgb(1, 0.2, 0.6, 1.0);
                     break;
-                case NewsSource.REUTERS:
-                    gradient.add_color_stop_rgb(0, 0.4, 0.4, 0.4);
-                    gradient.add_color_stop_rgb(1, 0.6, 0.6, 0.6);
+                case NewsSource.ABC_NEWS:
+                    gradient.add_color_stop_rgb(0, 0.0, 0.15, 0.4);
+                    gradient.add_color_stop_rgb(1, 0.15, 0.4, 0.7);
                     break;
                 case NewsSource.NPR:
                     gradient.add_color_stop_rgb(0, 0.2, 0.2, 0.6);
@@ -245,6 +249,10 @@ public class PlaceholderBuilder : GLib.Object {
                 case NewsSource.FOX:
                     gradient.add_color_stop_rgb(0, 0.0, 0.3, 0.7);
                     gradient.add_color_stop_rgb(1, 0.2, 0.5, 0.9);
+                    break;
+                case NewsSource.PBS:
+                    gradient.add_color_stop_rgb(0, 0.0, 0.18, 0.4);
+                    gradient.add_color_stop_rgb(1, 0.1, 0.35, 0.6);
                     break;
                 case NewsSource.UNKNOWN:
                     gradient.add_color_stop_rgb(0, 0.9, 0.9, 0.9);
@@ -440,9 +448,10 @@ public class PlaceholderBuilder : GLib.Object {
             case NewsSource.REDDIT: return "Reddit";
             case NewsSource.NEW_YORK_TIMES: return "NY Times";
             case NewsSource.BLOOMBERG: return "Bloomberg";
-            case NewsSource.REUTERS: return "Reuters";
+            case NewsSource.ABC_NEWS: return "ABC News";
             case NewsSource.NPR: return "NPR";
             case NewsSource.FOX: return "Fox News";
+            case NewsSource.PBS: return "PBS NewsHour";
             case NewsSource.UNKNOWN: return "News Source";
             default: return "News";
         }
@@ -456,10 +465,11 @@ public class PlaceholderBuilder : GLib.Object {
             case NewsSource.REDDIT: icon_filename = "reddit-logo.png"; break;
             case NewsSource.NEW_YORK_TIMES: icon_filename = "nytimes-logo.png"; break;
             case NewsSource.BLOOMBERG: icon_filename = "bloomberg-logo.png"; break;
-            case NewsSource.REUTERS: icon_filename = "reuters-logo.png"; break;
+            case NewsSource.ABC_NEWS: icon_filename = "abc-logo.png"; break;
             case NewsSource.NPR: icon_filename = "npr-logo.png"; break;
             case NewsSource.FOX: icon_filename = "foxnews-logo.png"; break;
             case NewsSource.WALL_STREET_JOURNAL: icon_filename = "wsj-logo.png"; break;
+            case NewsSource.PBS: icon_filename = "pbs-logo.png"; break;
             case NewsSource.UNKNOWN: return null;
             default: return null;
         }

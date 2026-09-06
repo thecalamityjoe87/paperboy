@@ -43,16 +43,14 @@ public class SourceMetadata : GLib.Object {
     
     // Return the user data dir for saved source logos, creating it when needed.
     public static string? get_user_logos_dir() {
+        string? ud = DataPathsUtils.get_user_data_dir();
+        if (ud == null) return null;
+        string path = GLib.Path.build_filename(ud, "paperboy", "source_logos");
         try {
-            string? ud = DataPathsUtils.get_user_data_dir();
-            if (ud == null) return null;
-            string path = GLib.Path.build_filename(ud, "paperboy", "source_logos");
-            try {
-                if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS))
-                    GLib.DirUtils.create_with_parents(path, 0755);
-            } catch (GLib.Error e) { /* best-effort */ }
-            return path;
-        } catch (GLib.Error e) { return null; }
+            if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS))
+                GLib.DirUtils.create_with_parents(path, 0755);
+        } catch (GLib.Error e) { /* best-effort */ }
+        return path;
     }
 
     // Per-provider metadata files are stored in the user's data dir under
@@ -60,16 +58,14 @@ public class SourceMetadata : GLib.Object {
     // This keeps metadata in a single place and makes it easier to inspect
     // or rotate without touching the saved images.
     public static string? get_user_source_info_dir() {
+        string? ud = DataPathsUtils.get_user_data_dir();
+        if (ud == null) return null;
+        string path = GLib.Path.build_filename(ud, "paperboy", "source_info");
         try {
-            string? ud = DataPathsUtils.get_user_data_dir();
-            if (ud == null) return null;
-            string path = GLib.Path.build_filename(ud, "paperboy", "source_info");
-            try {
-                if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS))
-                    GLib.DirUtils.create_with_parents(path, 0755);
-            } catch (GLib.Error e) { /* best-effort */ }
-            return path;
-        } catch (GLib.Error e) { return null; }
+            if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS))
+                GLib.DirUtils.create_with_parents(path, 0755);
+        } catch (GLib.Error e) { /* best-effort */ }
+        return path;
     }
 
     // Write a small per-provider JSON file into the `source_info` dir. The
@@ -381,7 +377,7 @@ public class SourceMetadata : GLib.Object {
                     int64 content_length = (int64)http_response.body.get_size();
                     if (content_length > MAX_DOWNLOAD_SIZE) {
                         warning("SourceMetadata: content too large for %s (%lld bytes, max %lld)", 
-                                logo_url, content_length, MAX_DOWNLOAD_SIZE);
+                        logo_url, content_length, MAX_DOWNLOAD_SIZE);
                         return null;
                     }
                     
@@ -398,7 +394,7 @@ public class SourceMetadata : GLib.Object {
                             bool is_image = ct_lower.has_prefix("image/");
                             if (!is_image) {
                                 warning("SourceMetadata: invalid Content-Type for %s: %s (expected image/*)",
-                                        logo_url, content_type);
+                                logo_url, content_type);
                                 return null;
                             }
                         }
@@ -433,7 +429,7 @@ public class SourceMetadata : GLib.Object {
                                 const int MIN_SAVE_DIM = 32;
                                 if (pw < MIN_SAVE_DIM || ph < MIN_SAVE_DIM) {
                                     message("SourceMetadata: skipping save of small logo for %s -> %s (pixbuf=%dx%d)", 
-                                            logo_url, tpath, pw, ph);
+                                    logo_url, tpath, pw, ph);
                                 } else {
                                     // Thread-safe file save: check again if file exists
                                     download_mutex.lock();
@@ -441,7 +437,7 @@ public class SourceMetadata : GLib.Object {
                                     if (!exists_now) {
                                         try {
                                             message("SourceMetadata: saving logo for %s -> %s (response size=%d bytes, pixbuf=%dx%d)", 
-                                                    logo_url, tpath, data.length, pw, ph);
+                                            logo_url, tpath, data.length, pw, ph);
                                             pb.savev(tpath, "png", null, null);
                                             saved = true;
                                         } catch (GLib.Error e) {
@@ -559,7 +555,7 @@ public class SourceMetadata : GLib.Object {
         }
         
         warning("SourceMetadata: unrecognized image format (first bytes: %02X %02X %02X %02X)", 
-                data[0], data[1], data[2], data[3]);
+        data[0], data[1], data[2], data[3]);
         return false;
     }
 

@@ -68,20 +68,12 @@ public class WorkerPool : GLib.Object {
                 mutex.unlock();
                 break;
             }
-            try {
-                var obj = queue.remove_at(0);
-                if (obj != null) job = obj.job;
-            } catch (GLib.Error e) {
-                job = null;
-            }
+            var obj = queue.remove_at(0);
+            if (obj != null) job = obj.job;
             mutex.unlock();
 
             if (job != null) {
-                try {
-                    job();
-                } catch (GLib.Error e) {
-                    // Swallow job errors to keep workers alive
-                }
+                job();
             }
         }
     }

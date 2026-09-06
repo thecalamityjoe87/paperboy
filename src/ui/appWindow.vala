@@ -33,7 +33,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     private Gtk.Box hero_container;
     // Settings for persistent window geometry
     private GLib.Settings settings;
-    public const int SIDEBAR_ICON_SIZE = 24;
     public const int MAX_CONCURRENT_DOWNLOADS = 10;
     public const int INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS = 10;  // Match MAX to avoid retry delays on startup
     public const int INITIAL_MAX_WAIT_MS = 30000;  // Increased from 15s to 30s to allow more time for image downloads on startup
@@ -43,19 +42,16 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Restored fields required by window logic (many are accessed from other modules)
     public NewsPreferences prefs;
     public LocationDialog location_dialog;
-    public GLib.Rand rng;
     public Managers.ViewStateManager? view_state;
     // Image caching moved to ImageCache (pixbuf-backed). Do not store
     // Gdk.Texture or Gdk.Pixbuf in window fields; use `image_cache`.
-    public Gee.HashMap<string, string> requested_image_sizes;
-    public Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
-    public Gee.HashMap<Gtk.Picture, DeferredRequest> deferred_downloads;
-    // THREAD SAFETY: Mutex to protect pending_downloads and requested_image_sizes
-    // from concurrent access by background download threads
-    public GLib.Mutex download_mutex;
-    // Per-picture flag indicating we should show the local placeholder
-    // (used for Local News cards so fallbacks keep the local look).
-    public Gee.HashMap<Gtk.Picture, bool> pending_local_placeholder;
+    // Download bookkeeping (pending downloads, deferred requests, requested
+    // sizes, the local-placeholder flag map, and the download mutex) lives
+    // on `image_manager`, not here - use `image_manager.pending_downloads`
+    // etc. (See imageManager.vala; this window used to keep its own copies
+    // of these maps, but they were never populated after that logic moved
+    // into ImageManager, which left cleanup_old_content() clearing empty
+    // maps instead of the real ones.)
     public MetaCache? meta_cache;
     public ArticleStateStore? article_state_store;
     public ImageCache? image_cache;
@@ -63,6 +59,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Soup.Session session;
     public SidebarManager sidebar_manager;
     public SidebarView sidebar_view;
+    // Tracks "is any sports game live" independent of the current category,
+    // so the sidebar can show a Live pill next to the Sports badge at any
+    // time; must exist before sidebar_view is constructed below since it
+    // connects to this manager's live_state_changed signal at construction.
+    public SportsLiveIndicatorManager? sports_live_indicator;
     public Adw.OverlaySplitView split_view;
     public Adw.NavigationView nav_view;
     public Adw.OverlaySplitView article_preview_split;
@@ -82,14 +83,16 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Gtk.Label category_label;
     public Gtk.Label category_subtitle;
     public Gtk.Box? category_icon_holder;
-    public Gtk.Image source_logo;
-    public Gtk.Label source_label;
     public Gtk.Box featured_box_dummy;
 
     // Manager instance for header-related UI
     public HeaderManager header_manager;
     // Manager instance for loading/overlay UI
     public Managers.LoadingStateManager? loading_state;
+    // Sidebar header refresh button's icon<->spinner Gtk.Stack, toggled by
+    // loading_state.fetch_started/fetch_finished once loading_state exists.
+    private Gtk.Stack? refresh_stack;
+    private Gtk.Spinner? refresh_spinner;
     // Manager instance for entrance/animation handling
     public Managers.AnimationManager? animation_manager;
     // Manager instance for RSS feed updates
@@ -102,12 +105,6 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Deferred download check timeout
     public uint deferred_check_timeout_id = 0;
-
-    // Update the source/logo label via HeaderManager
-    private void update_source_info() {
-        if (header_manager != null) header_manager.update_source_info();
-    }
-    
 
     // Return the NewsSource the UI should treat as "active". If the
     // user has enabled exactly one preferred source, map that id to the
@@ -146,12 +143,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Set the window icon
         set_icon_name("paperboy");
         // Initialize GSettings for persistent geometry
-        try {
-            settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
-        } catch (GLib.Error e) {
-            warning("Failed to initialize GSettings: %s", e.message);
-            settings = null;
-        }
+        settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
 
         // Restore saved window size (use defaults from schema when missing)
         int saved_w = 1400;
@@ -165,10 +157,11 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Apply the saved size (use get_default_size()/set_default_size for Wayland correctness)
         set_default_size(saved_w, saved_h);
-        // Initialize RNG for per-card randomization
-        rng = new GLib.Rand();
         // Initialize preferences early (needed for building sidebar selection state)
         prefs = NewsPreferences.get_instance();
+        // Must exist before SidebarView is constructed below, since it connects
+        // to live_state_changed at construction time.
+        sports_live_indicator = new SportsLiveIndicatorManager(this);
         // Initialize source and category managers early (needed for all source/category logic)
         source_manager = new SourceManager(prefs);
         source_manager.set_window(this);
@@ -233,70 +226,116 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Use ImageCache for in-memory pixbuf caching; evictions/unrefs are
         // handled by ImageCache itself. The per-window `image_cache` is
         // instantiated below and will be set as the global ImageCache.
-        requested_image_sizes = new Gee.HashMap<string, string>();
-        pending_downloads = new Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>>();
-        deferred_downloads = new Gee.HashMap<Gtk.Picture, DeferredRequest>();
-        pending_local_placeholder = new Gee.HashMap<Gtk.Picture, bool>();
-        // Initialize download mutex for thread-safe access
-        download_mutex = new GLib.Mutex();
         // Initialize on-disk cache helper
         meta_cache = new MetaCache();
         article_state_store = new ArticleStateStore();
         image_cache = new ImageCache(256);
+        // PreviewCacheManager and other legacy call sites reach the cache via
+        // ImageCache.get_global() - without this, they operate on an unused
+        // second singleton and calls like set_capacity() during category
+        // switches silently do nothing to the cache that's actually in use.
+        ImageCache.set_global(image_cache);
     // Initialize external image handler that owns download/cache logic
     image_manager = new ImageManager(this);        
 
     // Load CSS
     var css_provider = new Gtk.CssProvider();
-    try {
         string? css_path = DataPathsUtils.find_data_file("style.css");
-        if (css_path != null) {
-            css_provider.load_from_path(css_path);
-        }
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        );
-    } catch (GLib.Error e) {
-        warning("Failed to load CSS: %s", e.message);
+    if (css_path != null) {
+        css_provider.load_from_path(css_path);
     }
+    Gtk.StyleContext.add_provider_for_display(
+        Gdk.Display.get_default(),
+        css_provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    );
 
     // Build header bars for sidebar and content (will be added to NavigationPages)
-    // Sidebar headerbar with app icon and title
+    // Sidebar headerbar: refresh action leading, title centered, main menu
+    // trailing - per GNOME HIG, a sidebar's own header carries the app-level
+    // actions rather than the app icon.
     var sidebar_header = new Adw.HeaderBar();
     sidebar_header.add_css_class("flat");
-    
-    // App icon for sidebar (left corner)
-    var sidebar_icon = new Gtk.Image.from_icon_name("paperboy");
-    sidebar_icon.set_pixel_size(SIDEBAR_ICON_SIZE);
-    sidebar_header.pack_start(sidebar_icon);
-    
-    // App title for sidebar (centered)
-    var sidebar_title = new Gtk.Label("Paperboy");
-    sidebar_title.add_css_class("title");
+
+    // Prefer our own vendored copy of an icon (app-id-prefixed, installed
+    // under hicolor/scalable/actions - see meson.build) over the system
+    // icon theme's version of the same name, since some distro icon
+    // themes (e.g. Yaru) ship noticeably older glyphs for these than
+    // current GNOME upstream. Falls back to the stock name if the
+    // bundled one isn't installed yet (e.g. running straight from the
+    // build dir without `ninja install`).
+    string bundled_icon_name(string bare_name) {
+        string prefixed = "io.github.thecalamityjoe87.Paperboy-" + bare_name;
+        var theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+        if (theme != null && theme.has_icon(prefixed)) return prefixed;
+        return bare_name;
+    }
+
+    // Refresh button shows a spinner in place of its icon while a fetch is
+    // in flight (see loading_state.fetch_started/fetch_finished wiring
+    // below, once loading_state exists) - matches the standard GNOME
+    // pattern of a reload action becoming its own progress indicator
+    // rather than just disabling.
+    var refresh_icon = new Gtk.Image.from_icon_name(bundled_icon_name("view-refresh-symbolic"));
+    refresh_spinner = new Gtk.Spinner();
+    refresh_spinner.set_size_request(16, 16);
+    refresh_stack = new Gtk.Stack();
+    refresh_stack.add_named(refresh_icon, "icon");
+    refresh_stack.add_named(refresh_spinner, "spinner");
+    refresh_stack.set_visible_child_name("icon");
+
+    var refresh_btn = new Gtk.Button();
+    refresh_btn.add_css_class("flat");
+    refresh_btn.set_child(refresh_stack);
+    refresh_btn.set_tooltip_text("Refresh news");
+    refresh_btn.clicked.connect (() => {
+        fetch_news();
+    });
+    sidebar_header.pack_start(refresh_btn);
+
+    // App title for sidebar (centered) - Adw.WindowTitle (not a plain
+    // Gtk.Label) so it picks up the same bold title weight every other
+    // libadwaita app's headerbar title uses.
+    var sidebar_title = new Adw.WindowTitle("Paperboy", "");
     sidebar_header.set_title_widget(sidebar_title);
-    
-    // Content headerbar with app branding and controls
+
+    // Main menu, on the sidebar's trailing (right) side
+    var menu = new Menu();
+    menu.append("Preferences", "app.change-source");
+    menu.append("Set User Location", "app.set-location");
+    menu.append("Show Welcome Tour", "app.show-onboarding");
+    menu.append("About Paperboy", "app.about");
+
+    var menu_button = new Gtk.MenuButton();
+    menu_button.set_icon_name(bundled_icon_name("open-menu-symbolic"));
+    menu_button.set_menu_model(menu);
+    menu_button.set_tooltip_text("Main Menu");
+    sidebar_header.pack_end(menu_button);
+
+    // Content headerbar with search and window controls
     var content_header = new Adw.HeaderBar();
-    
-    // Sidebar toggle button for NavigationSplitView
-    var sidebar_toggle = new Gtk.ToggleButton();
-    sidebar_toggle.set_icon_name("sidebar-show-symbolic");
-    sidebar_toggle.set_active(true); // Start with sidebar shown
+
+    // Sidebar toggle button for NavigationSplitView. Plain Gtk.Button, not
+    // Gtk.ToggleButton - matches Vireo (gtk::Button, not a checkbox-style
+    // toggle) so it only highlights on hover/press, never showing the
+    // persistent "checked" background a ToggleButton gives its active
+    // state regardless of hover.
+    var sidebar_toggle = new Gtk.Button();
+    sidebar_toggle.add_css_class("flat");
+    sidebar_toggle.set_icon_name(bundled_icon_name("sidebar-show-symbolic"));
     sidebar_toggle.set_tooltip_text("Toggle Sidebar");
     content_header.pack_start(sidebar_toggle);
 
     // Search bar in the center
     var search_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-    
+
     var search_entry = new Gtk.SearchEntry();
     search_entry.set_placeholder_text("Search News for Keywords...");
     search_entry.set_max_width_chars(60);
     search_container.append(search_entry);
-    
+
     content_header.set_title_widget(search_container);
-    
+
     // Connect search entry to search manager (with debouncing)
     search_entry.search_changed.connect(() => {
         if (search_manager != null) {
@@ -304,26 +343,6 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     });
 
-    var refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
-    refresh_btn.set_tooltip_text("Refresh news");
-    refresh_btn.clicked.connect (() => {
-        refresh_btn.set_sensitive(false);
-        fetch_news();
-        refresh_btn.set_sensitive(true);
-    });
-    content_header.pack_end(refresh_btn);
-    
-    // Add hamburger menu
-    var menu = new Menu();
-    menu.append("Preferences", "app.change-source");
-    menu.append("Set User Location", "app.set-location");
-    menu.append("About Paperboy", "app.about");
-    
-    var menu_button = new Gtk.MenuButton();
-    menu_button.set_icon_name("open-menu-symbolic");
-    menu_button.set_menu_model(menu);
-    menu_button.set_tooltip_text("Main Menu");
-    content_header.pack_end(menu_button);
     // Create SidebarManager (logic only)
     sidebar_manager = new SidebarManager(this);
 
@@ -387,8 +406,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     category_label = content_view.category_label;
     category_subtitle = content_view.category_subtitle;
     category_icon_holder = content_view.category_icon_holder;
-    source_logo = content_view.source_logo;
-    source_label = content_view.source_label;
     content_box = content_view.content_box;
     main_scrolled = content_view.main_scrolled;
     // Instantiate LayoutManager and wire container refs
@@ -401,6 +418,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     layout_manager.hero_container = content_view.hero_container;
     layout_manager.featured_box = content_view.featured_box;
     layout_manager.columns_row = content_view.columns_row;
+    layout_manager.category_sections_container = content_view.category_sections_container;
+    layout_manager.hero_frontpage_separator = content_view.hero_frontpage_separator;
     layout_manager.content_area = content_view.content_area;
     // Ensure UI containers are visible after wiring
     layout_manager.hero_container?.set_visible(true);
@@ -410,6 +429,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     layout_manager.ensure_hero_container_visible();
     // Wire loading/overlay widgets into LoadingStateManager (manager owns these now)
     loading_state = new Managers.LoadingStateManager(this);
+    loading_state.fetch_started.connect(() => {
+        if (refresh_stack != null) refresh_stack.set_visible_child_name("spinner");
+        if (refresh_spinner != null) refresh_spinner.start();
+    });
+    loading_state.fetch_finished.connect(() => {
+        if (refresh_stack != null) refresh_stack.set_visible_child_name("icon");
+        if (refresh_spinner != null) refresh_spinner.stop();
+    });
     loading_state.loading_container = content_view.loading_container;
     loading_state.loading_spinner = content_view.loading_spinner;
     loading_state.loading_label = content_view.loading_label;
@@ -441,8 +468,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     header_manager.category_label = category_label;
     header_manager.category_subtitle = category_subtitle;
     header_manager.category_icon_holder = category_icon_holder;
-    header_manager.source_label = source_label;
-    header_manager.source_logo = source_logo;
 
     // LoadingStateManager already initialized and wired above
 
@@ -454,7 +479,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     split_view.show_sidebar = true; // Start with sidebar shown
     // Wrap content in a NavigationView so we can slide in a preview page
     nav_view = new Adw.NavigationView();
-    var main_page = new Adw.NavigationPage(main_scrolled, "Main");
+    var main_page = new Adw.NavigationPage(content_view.main_scroll_overlay, "Main");
     nav_view.push(main_page);
 
     // Create a root overlay that wraps the NavigationView so we can
@@ -605,19 +630,12 @@ public class NewsWindow : Adw.ApplicationWindow {
     split_view.set_content(content_page);
 
     // Wire up sidebar toggle button to control sidebar visibility with smooth animation
-    sidebar_toggle.toggled.connect(() => {
-        bool active = sidebar_toggle.get_active();
-        split_view.show_sidebar = active;
+    sidebar_toggle.clicked.connect(() => {
+        split_view.show_sidebar = !split_view.show_sidebar;
     });
 
-    // Sync toggle button state when sidebar visibility changes
     split_view.notify["show-sidebar"].connect(() => {
-        bool sidebar_visible = split_view.show_sidebar;
-        // Update toggle button to match current state
-        if (sidebar_toggle.get_active() != sidebar_visible) {
-            sidebar_toggle.set_active(sidebar_visible);
-        }
-        update_main_content_size(sidebar_visible);
+        update_main_content_size(split_view.show_sidebar);
     });
 
     // Initialize main content container size for initial state
@@ -740,14 +758,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         var sm = Adw.StyleManager.get_default();
         if (sm != null) {
             // When the theme's dark property changes, update sidebar icons
-            // and the source/logo in the header so bundled mono icons
-            // (including the multi-source icon) can be swapped for their
-            // white variants or back to the original variant as appropriate.
+            // and the category icon in the header so bundled mono icons can
+            // be swapped for their white variants or back to the original
+            // variant as appropriate.
             sm.notify["dark"].connect(() => {
                 if (sidebar_view != null) sidebar_view.update_icons_for_theme();
-                // Update the top-right source logo to pick the correct
-                // white or normal variant based on the new theme.
-                update_source_info();
                 // Update the category icon in the header so bundled
                 // mono icons can swap to their white variants in dark
                 // mode as well.
@@ -792,6 +807,17 @@ public class NewsWindow : Adw.ApplicationWindow {
             });
         }
 
+        // Start the sports live-game poller (if enabled) with a short delay -
+        // unlike feed_updater's regeneration work, this is just a lightweight
+        // score fetch, so it doesn't need feed_updater's full 45s launch-smoothing
+        // delay, just enough to let initial content load first.
+        if (sports_live_indicator != null && prefs.sports_live_indicator_enabled && prefs.sports_scores_enabled) {
+            GLib.Timeout.add_seconds(5, () => {
+                sports_live_indicator.start();
+                return false; // One-shot
+            });
+        }
+
     // Ensure the personalized message visibility is correct at startup
     update_personalization_ui();
 
@@ -809,13 +835,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Also persist window geometry into GSettings. We save on close (not on resize)
         // so transient states (like maximized) don't become stored as normal sizes.
         this.close_request.connect(() => {
+            SportsScoresController.stop_polling();
+
             // Clean up old cached articles (frontpage and RSS feeds)
-            try {
-                var cache = Paperboy.RssArticleCache.get_instance();
-                cache.cleanup();
-            } catch (GLib.Error e) {
-                warning("Failed to cleanup article cache: %s", e.message);
-            }
+            var cache = Paperboy.RssArticleCache.get_instance();
+            cache.cleanup();
 
             // Persist maximized state and size (only when not maximized)
             if (settings != null) {
@@ -833,12 +857,21 @@ public class NewsWindow : Adw.ApplicationWindow {
                 }
             }
 
-            // Clear any paintables held by window-level widgets to release textures
-            if (source_logo != null) source_logo.set_from_paintable(null);
-
             if (image_cache != null) image_cache.clear();
 
             return false; // allow default handler to run
+        });
+
+        // The hero carousel's crossfade animation can get stuck (blank
+        // card) if the window is minimized/unfocused while a slide
+        // transition is in flight, since the frame clock stops ticking but
+        // the carousel's timer keeps firing regardless - see
+        // HeroCarousel.force_settle(). Recover as soon as the window is
+        // active (and thus painting) again.
+        this.notify["is-active"].connect(() => {
+            if (this.is_active && article_manager != null && article_manager.hero_carousel != null) {
+                article_manager.hero_carousel.force_settle();
+            }
         });
     }
 
@@ -1029,17 +1062,22 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (view_state != null) view_state.url_to_card.clear();
         if (view_state != null) view_state.normalized_to_url.clear();
         
-        // Clear pending downloads
-        pending_downloads.clear();
-        
-        // Clear hero requests
-        image_manager.hero_requests.clear();
-        
-        // Clear deferred downloads
-        deferred_downloads.clear();
-        
-        // Clear requested image sizes
-        requested_image_sizes.clear();
+        // Clear download bookkeeping on image_manager - these are keyed by
+        // Gtk.Picture or hold onto them (pending_downloads, deferred_downloads,
+        // pending_local_placeholder, hero_requests); leaving stale entries here
+        // after a view/category switch would hold widgets alive forever and
+        // let requested_image_sizes grow without bound for the life of the
+        // window (this used to happen: cleanup_old_content() cleared its own
+        // now-removed copies of these maps instead of image_manager's real ones).
+        if (image_manager != null) {
+            image_manager.download_mutex.lock();
+            image_manager.pending_downloads.clear();
+            image_manager.download_mutex.unlock();
+            image_manager.hero_requests.clear();
+            image_manager.deferred_downloads.clear();
+            image_manager.requested_image_sizes.clear();
+            image_manager.pending_local_placeholder.clear();
+        }
         
         // Clear the centralized ImageCache (pixbufs) and preview cache.
         // Suppress clearing here to avoid excessive eviction when switching
@@ -1052,6 +1090,16 @@ public class NewsWindow : Adw.ApplicationWindow {
     // staged extraction.
     public void fetch_news() {
         FetchNewsController.fetch_news(this);
+
+        // Additive only: live scores render underneath whatever the Sports
+        // category already shows above (RSS hero + article grid, untouched
+        // by this call). See SportsScoresController for details.
+        if (prefs.category == "sports") {
+            SportsScoresController.load(this);
+        } else {
+            SportsScoresController.stop_polling();
+            SportsScoresController.hide(this);
+        }
     }
 
     // Fetch article metadata for all *regular* categories and RSS sources in background

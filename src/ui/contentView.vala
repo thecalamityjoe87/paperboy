@@ -23,17 +23,27 @@ public class ContentView : GLib.Object {
     private weak NewsWindow? window;
     
     public Gtk.ScrolledWindow main_scrolled;
+    // Wraps main_scrolled so the vertical scroll edge-fades (see
+    // update_vertical_scroll_fades) stay pinned to the viewport's actual
+    // top/bottom regardless of scroll position - fade widgets placed inside
+    // main_scrolled itself would scroll away with the content instead of
+    // staying fixed. This, not main_scrolled directly, is what gets placed
+    // into the window (see appWindow.vala's Adw.NavigationPage).
+    public Gtk.Overlay main_scroll_overlay;
     public Gtk.Box content_area;
     public Gtk.Box content_box;
     public Gtk.Box main_content_container;
     public Gtk.Box hero_container;
     public Gtk.Box featured_box;
-    public Gtk.Box columns_row;
+    public Gtk.FlowBox columns_row;
+    public Gtk.Box category_sections_container;
+    public Gtk.Box sports_scores_container;
+    public Gtk.Separator hero_scores_separator;
+    public Gtk.Separator scores_articles_separator;
+    public Gtk.Separator hero_frontpage_separator;
     public Gtk.Box category_icon_holder;
     public Gtk.Label category_label;
     public Gtk.Label category_subtitle;
-    public Gtk.Image source_logo;
-    public Gtk.Label source_label;
     public Gtk.Overlay main_overlay;
     public Gtk.Box loading_container;
     public Gtk.Spinner loading_spinner;
@@ -71,8 +81,12 @@ public class ContentView : GLib.Object {
 
         // Create a container for category header (title + date)
         var header_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
-        header_box.set_margin_start(12);
-        header_box.set_margin_end(12);
+        // Matches main_content_container's own margin_start/end (see
+        // Managers.LayoutManager.H_MARGIN) below, so the category
+        // icon/label, source info, and date/subtitle all line up with the
+        // hero cards and grid content instead of sitting inside their edges.
+        header_box.set_margin_start(Managers.LayoutManager.H_MARGIN);
+        header_box.set_margin_end(Managers.LayoutManager.H_MARGIN);
         header_box.set_margin_top(12);
         header_box.set_margin_bottom(6);
 
@@ -99,50 +113,42 @@ public class ContentView : GLib.Object {
         cat_title_box.append(category_label);
         title_row.append(cat_title_box);
 
-        // Create source info box (logo + text) - right aligned
-        var source_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-        source_box.set_valign(Gtk.Align.CENTER);
-
-        // Add circular source logo
-        source_logo = new Gtk.Image();
-        source_logo.set_pixel_size(32);
-        source_logo.set_valign(Gtk.Align.CENTER);
-        source_logo.set_halign(Gtk.Align.CENTER);
-        source_logo.set_size_request(32, 32);
-        source_logo.add_css_class("header-source-logo");
-        source_box.append(source_logo);
-
-        // Add source label
-        source_label = new Gtk.Label("");
-        source_label.set_xalign(1);
-        source_label.add_css_class("dim-label");
-        source_label.add_css_class("title-4");
-        var source_attrs = new Pango.AttrList();
-        source_attrs.insert(Pango.attr_scale_new(1.2));
-        source_attrs.insert(Pango.attr_weight_new(Pango.Weight.MEDIUM));
-        source_label.set_attributes(source_attrs);
-        source_box.append(source_label);
-
-        title_row.append(source_box);
         header_box.append(title_row);
 
-        // Add current date label (smaller text)
+        // Add current date label - weekday + full month name/day, no year.
         var date = new DateTime.now_local();
-        var date_str = date.format("%A, %B %d, %Y");
+        var date_str = date.format("%A, %B %d");
         var date_label = new Gtk.Label(date_str);
         date_label.set_xalign(0);
         date_label.add_css_class("dim-label");
-        date_label.add_css_class("body");
+        date_label.add_css_class("header-date-label");
         header_box.append(date_label);
 
-        // Add subtitle label (for Top Ten category) - below date, bolded
+        // Same faint line used elsewhere (hero/scores/article-grid
+        // separators) - sits between the date and whichever title comes
+        // next: category_subtitle ("TOP STORIES RIGHT NOW") when it's
+        // visible, or - since an invisible widget takes no layout space -
+        // effectively between the date and HeroCarousel's "FEATURED" label
+        // (a separate widget entirely, appended into featured_box) for
+        // every other category.
+        var date_title_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        date_title_separator.add_css_class("section-divider");
+        date_title_separator.set_margin_top(8);
+        header_box.append(date_title_separator);
+
+        // Add subtitle label (for Top Ten category) - below date, bolded.
+        // Same "top-stories-title" class as HeroCarousel's "TOP STORIES"
+        // label so the two match (size, weight, margin above/below).
         category_subtitle = new Gtk.Label("");
         category_subtitle.set_xalign(0);
         category_subtitle.add_css_class("caption");
-        var subtitle_attrs = new Pango.AttrList();
-        subtitle_attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD));
-        subtitle_attrs.insert(Pango.attr_scale_new(1.2)); // Make subtitle font 20% larger
-        category_subtitle.set_attributes(subtitle_attrs);
+        category_subtitle.add_css_class("top-stories-title");
+        // A couple px shy of HeroCarousel's version even with identical
+        // margin - some small structural difference (this label starts
+        // hidden and toggles visible vs. being created fresh and shown
+        // immediately) still nets a slightly smaller top gap. Nudge it to
+        // match rather than chase the root cause further.
+        category_subtitle.add_css_class("top-stories-title-in-header");
         category_subtitle.set_visible(false);
         header_box.append(category_subtitle);
 
@@ -152,8 +158,8 @@ public class ContentView : GLib.Object {
         main_content_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         main_content_container.set_halign(Gtk.Align.FILL);
         main_content_container.set_hexpand(true);
-        main_content_container.set_margin_start(12);
-        main_content_container.set_margin_end(12);
+        main_content_container.set_margin_start(Managers.LayoutManager.H_MARGIN);
+        main_content_container.set_margin_end(Managers.LayoutManager.H_MARGIN);
         main_content_container.set_margin_top(6);
         main_content_container.set_margin_bottom(12);
 
@@ -171,16 +177,82 @@ public class ContentView : GLib.Object {
         hero_container.append(featured_box);
         main_content_container.append(hero_container);
 
-        // Masonry columns container - also within main container
-        columns_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
+        // Live sports scores (Sports category only): league-header sections
+        // of score cards, shown directly under the hero and above the
+        // article grid below (RSS hero + article grid otherwise left
+        // untouched). Owned entirely by SportsScoresController, independent
+        // of category_sections_container so Front Page's own show/hide
+        // logic for that container can't affect this one.
+        //
+        // The separators either side are only ever shown alongside this
+        // container (see SportsScoresController.render/hide) - every other
+        // category never has anything between the hero and the article
+        // grid, so they'd otherwise show a stray line with nothing to divide.
+        // Equal margin on both sides of each separator (rather than
+        // leaning on sports_scores_container's own margin, which only
+        // padded its top and left the hero-side gap uneven) so the hero,
+        // divider, score panel, divider, and article grid all land the
+        // same distance apart.
+        hero_scores_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        hero_scores_separator.add_css_class("section-divider");
+        hero_scores_separator.set_margin_top(14);
+        hero_scores_separator.set_margin_bottom(14);
+        hero_scores_separator.set_visible(false);
+        main_content_container.append(hero_scores_separator);
+
+        sports_scores_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
+        sports_scores_container.set_halign(Gtk.Align.FILL);
+        sports_scores_container.set_hexpand(true);
+        sports_scores_container.set_visible(false);
+        main_content_container.append(sports_scores_container);
+
+        scores_articles_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        scores_articles_separator.add_css_class("section-divider");
+        scores_articles_separator.set_margin_top(14);
+        scores_articles_separator.set_margin_bottom(14);
+        scores_articles_separator.set_visible(false);
+        main_content_container.append(scores_articles_separator);
+
+        // Article grid - a real grid (FlowBox) so cards line up into even rows
+        // and columns with consistent gutters, instead of independently
+        // stacking columns that can drift out of alignment.
+        columns_row = new Gtk.FlowBox();
         columns_row.set_halign(Gtk.Align.FILL);
         columns_row.set_valign(Gtk.Align.START);
         columns_row.set_hexpand(true);
         columns_row.set_vexpand(true);
+        // Homogeneous: every card now has a fixed, hard-coded total height
+        // (fixed picture height + fixed title-area height, see ArticleCard),
+        // so this just reinforces that every card and row is forced identical.
         columns_row.set_homogeneous(true);
+        columns_row.set_row_spacing(12);
+        columns_row.set_column_spacing(12);
+        columns_row.set_selection_mode(Gtk.SelectionMode.NONE);
+        columns_row.set_min_children_per_line(3);
+        columns_row.set_max_children_per_line(3);
 
         // Do not call rebuild_columns here; caller will arrange columns
         main_content_container.append(columns_row);
+
+        // Same faint divider as hero_scores_separator/scores_articles_separator,
+        // shown only alongside category_sections_container (see LayoutManager's
+        // prepare_category_sections/teardown_category_sections) so it never
+        // shows for the other views that use the flat columns_row instead.
+        hero_frontpage_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        hero_frontpage_separator.add_css_class("section-divider");
+        hero_frontpage_separator.set_margin_top(14);
+        hero_frontpage_separator.set_margin_bottom(14);
+        hero_frontpage_separator.set_visible(false);
+        main_content_container.append(hero_frontpage_separator);
+
+        // Category-grouped sections (Front Page only): one labeled,
+        // horizontally-scrollable row of cards per category, built and
+        // shown/hidden by LayoutManager instead of the flat columns_row.
+        category_sections_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
+        category_sections_container.set_halign(Gtk.Align.FILL);
+        category_sections_container.set_hexpand(true);
+        category_sections_container.set_visible(false);
+        main_content_container.append(category_sections_container);
 
         // Create an overlay container for main content and loading spinner
         main_overlay = new Gtk.Overlay();
@@ -330,6 +402,45 @@ public class ContentView : GLib.Object {
         content_box.append(main_overlay);
         content_area.append(content_box);
         main_scrolled.set_child(content_area);
+
+        // Vertical "more to scroll" cue for the whole page (every view, not
+        // just Front Page) - same cheap edge-fade-to-background approach as
+        // the category sections' horizontal fades, not an actual blur.
+        main_scroll_overlay = new Gtk.Overlay();
+        main_scroll_overlay.set_child(main_scrolled);
+
+        var top_fade = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        top_fade.add_css_class("vertical-scroll-fade");
+        top_fade.add_css_class("vertical-scroll-fade-top");
+        top_fade.set_valign(Gtk.Align.START);
+        top_fade.set_halign(Gtk.Align.FILL);
+        top_fade.set_hexpand(true);
+        top_fade.set_can_target(false);
+        main_scroll_overlay.add_overlay(top_fade);
+
+        var bottom_fade = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        bottom_fade.add_css_class("vertical-scroll-fade");
+        bottom_fade.set_valign(Gtk.Align.END);
+        bottom_fade.set_halign(Gtk.Align.FILL);
+        bottom_fade.set_hexpand(true);
+        bottom_fade.set_can_target(false);
+        main_scroll_overlay.add_overlay(bottom_fade);
+
+        Gtk.Adjustment vadj = main_scrolled.get_vadjustment();
+        vadj.value_changed.connect(() => update_vertical_scroll_fades(vadj, top_fade, bottom_fade));
+        vadj.changed.connect(() => update_vertical_scroll_fades(vadj, top_fade, bottom_fade));
+        update_vertical_scroll_fades(vadj, top_fade, bottom_fade);
+    }
+
+    /**
+    * Same idea as CategorySection's horizontal fades: each one only shows
+    * when there's actually more content in that direction, so the top fade
+    * stays hidden until the page has been scrolled down from the very top,
+    * and the bottom fade hides once the true end of the page is reached.
+    */
+    private void update_vertical_scroll_fades(Gtk.Adjustment adj, Gtk.Widget top_fade, Gtk.Widget bottom_fade) {
+        top_fade.set_visible(adj.get_value() > adj.get_lower() + 1.0);
+        bottom_fade.set_visible(adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0);
     }
     
     public void set_window(NewsWindow win) {
@@ -431,8 +542,9 @@ public class ContentView : GLib.Object {
 
             // Restore category subtitle based on category type
             if (window.prefs != null && window.prefs.category == "topten") {
-                category_subtitle.set_markup("<span size='11000'>TOP STORIES RIGHT NOW</span>");
+                category_subtitle.set_markup("<span size='22000'><b>TOP STORIES RIGHT NOW</b></span>");
                 category_subtitle.set_visible(true);
+                category_subtitle.queue_resize();
             } else {
                 category_subtitle.set_visible(false);
             }
@@ -473,22 +585,6 @@ public class ContentView : GLib.Object {
     }
 
     /**
-     * Update search result label (UI presentation only)
-    private void update_search_label(int match_count, string query) {
-        // Special case for when only 1 article match is found
-        if (match_count > 0 && match_count < 2) {
-            category_subtitle.set_label("Search results: found %d article matching \"%s\"".printf(match_count, query));
-            category_subtitle.set_visible(true);
-        } else if (match_count > 0) {
-            category_subtitle.set_label("Search results: found %d articles matching \"%s\"".printf(match_count, query));
-            category_subtitle.set_visible(true);
-        } else {
-            category_subtitle.set_label("No articles found matching \"%s\"".printf(query));
-            category_subtitle.set_visible(true);
-        }
-    }*/
-
-    /**
     * Update search result label (UI presentation only)
     */
     private void update_search_label(int match_count, string query) {
@@ -504,6 +600,7 @@ public class ContentView : GLib.Object {
 
         category_subtitle.set_label(label_text);
         category_subtitle.set_visible(true);
+        category_subtitle.queue_resize();
     }
 }
 

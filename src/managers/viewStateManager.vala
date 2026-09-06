@@ -65,6 +65,50 @@ namespace Managers {
             url_to_card.remove(normalized);
         }
 
+        // ArticleCard's overlay is its root's direct first child, but
+        // HeroCard's overlay is nested inside a Grid (the text/picture
+        // split), so the same "first child is an Overlay" check that works
+        // for article cards silently finds nothing on a hero card. Check
+        // the hero shape's viewed-badge-slot data first, then fall back to
+        // the article-card shape.
+        // The "Viewed" badge lives in the title area's bottom-right slot,
+        // opposite the time caption (see ArticleCard/HeroCard's
+        // viewed_badge_slot, populated in build_viewed_badge) - not the
+        // image overlay, and not the top-right corner row the save ribbon
+        // occupies.
+        private Gtk.Widget? resolve_badge_container_for_card(Gtk.Widget card) {
+            var hero_badge_slot = card.get_data<Gtk.Box>("hero-viewed-badge-slot");
+            if (hero_badge_slot != null) return hero_badge_slot;
+
+            var article_badge_slot = card.get_data<Gtk.Box>("article-viewed-badge-slot");
+            if (article_badge_slot != null) return article_badge_slot;
+
+            return null;
+        }
+
+        private void remove_viewed_badges_from(Gtk.Widget container) {
+            Gtk.Widget? child = container.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                if (child.get_style_context().has_class("viewed-badge")) {
+                    if (container is Gtk.Overlay) ((Gtk.Overlay) container).remove_overlay(child);
+                    else if (container is Gtk.Box) ((Gtk.Box) container).remove(child);
+                }
+                child = next;
+            }
+        }
+
+        private void add_viewed_badge_to(Gtk.Widget container) {
+            var badge = CardBuilder.build_viewed_badge();
+            if (container is Gtk.Overlay) ((Gtk.Overlay) container).add_overlay(badge);
+            else if (container is Gtk.Box) ((Gtk.Box) container).append(badge);
+            badge.set_visible(true);
+            container.queue_draw();
+            if (window != null && window.animation_manager != null) {
+                window.animation_manager.animate_viewed_badge_pop(badge);
+            }
+        }
+
         public void mark_article_viewed(string url) {
             if (url == null) return;
             string n = normalize_article_url(url);
@@ -80,11 +124,10 @@ namespace Managers {
             Timeout.add(50, () => {
                 Gtk.Widget? card = url_to_card.get(n);
                 if (card != null) {
-                    Gtk.Widget? first = card.get_first_child();
-                    if (first != null && first is Gtk.Overlay) {
-                        var overlay = (Gtk.Overlay) first;
+                    var container = resolve_badge_container_for_card(card);
+                    if (container != null) {
                         bool already = false;
-                        Gtk.Widget? c = overlay.get_first_child();
+                        Gtk.Widget? c = container.get_first_child();
                         while (c != null) {
                             if (c.get_style_context().has_class("viewed-badge")) {
                                 already = true;
@@ -92,12 +135,7 @@ namespace Managers {
                             if (already) break;
                             c = c.get_next_sibling();
                         }
-                        if (!already) {
-                            var badge = CardBuilder.build_viewed_badge();
-                            overlay.add_overlay(badge);
-                            badge.set_visible(true);
-                            overlay.queue_draw();
-                        }
+                        if (!already) add_viewed_badge_to(container);
                     }
                 }
                 return false;
@@ -193,28 +231,11 @@ namespace Managers {
                 if (card == null) continue;
                 
                 bool is_viewed = window.article_state_store.is_viewed(normalized);
-                
-                Gtk.Widget? first = card.get_first_child();
-                if (first != null && first is Gtk.Overlay) {
-                    var overlay = (Gtk.Overlay) first;
-                    
-                    // Find and remove existing viewed badge if present
-                    Gtk.Widget? child = overlay.get_first_child();
-                    while (child != null) {
-                        Gtk.Widget? next = child.get_next_sibling();
-                        if (child.get_style_context().has_class("viewed-badge")) {
-                            overlay.remove_overlay(child);
-                        }
-                        child = next;
-                    }
-                    
-                    // Add viewed badge if article is viewed
-                    if (is_viewed) {
-                        var badge = CardBuilder.build_viewed_badge();
-                        overlay.add_overlay(badge);
-                        badge.set_visible(true);
-                        overlay.queue_draw();
-                    }
+
+                var container = resolve_badge_container_for_card(card);
+                if (container != null) {
+                    remove_viewed_badges_from(container);
+                    if (is_viewed) add_viewed_badge_to(container);
                 }
             }
         }
@@ -249,26 +270,13 @@ namespace Managers {
             bool is_viewed = false;
             is_viewed = window.article_state_store.is_viewed(n);
 
-            Gtk.Widget? first = card.get_first_child();
-            if (first != null && first is Gtk.Overlay) {
-                var overlay = (Gtk.Overlay) first;
-                // Remove any existing viewed badges
-                Gtk.Widget? child = overlay.get_first_child();
-                while (child != null) {
-                    Gtk.Widget? next = child.get_next_sibling();
-                    if (child.get_style_context().has_class("viewed-badge")) {
-                        overlay.remove_overlay(child);
-                    }
-                    child = next;
-                }
-
+            var container = resolve_badge_container_for_card(card);
+            if (container != null) {
+                remove_viewed_badges_from(container);
                 if (is_viewed) {
-                    var badge = CardBuilder.build_viewed_badge();
-                    overlay.add_overlay(badge);
-                    badge.set_visible(true);
-                    overlay.queue_draw();
+                    add_viewed_badge_to(container);
                 } else {
-                    overlay.queue_draw();
+                    container.queue_draw();
                 }
             }
         }

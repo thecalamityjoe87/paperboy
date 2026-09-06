@@ -36,10 +36,20 @@ public delegate void ArticleSnippetCallback(ArticleSnippet article_snippet);
 
 public class ArticleSnippetService : GLib.Object {
     // Fetch a short snippet from an article URL using common meta tags or first paragraph
-    // This service is UI-agnostic and does not touch GTK widgets. It returns
+    // This service is UI-agnostic and does not touch GTK widgets - it returns
     // an ArticlePreview object via the callback containing snippet and
-    // optional published date string.
-    public static void fetch_snippet_async(string url, ArticleSnippetCallback on_done, NewsSource source, string? display_source, Gee.ArrayList<ArticleItem>? article_buffer = null) {
+    // optional published date string. The one exception is attach_hero_snippet
+    // below, a convenience wrapper that does touch a widget (HeroCard) since
+    // its whole purpose is to centralize that glue instead of duplicating it
+    // in every caller.
+    // `owned` on the callback is required: this method hands it to a
+    // background thread and invokes it later via Idle.add, well after this
+    // method itself returns. Without `owned`, Vala treats the callback as
+    // borrowed for the duration of the call and frees its captured closure
+    // data immediately on return, so a caller's callback can be invoked
+    // against already-freed memory (a real crash, not just theoretical -
+    // hit this wiring hero cards up to their snippet through this service).
+    public static void fetch_snippet_async(string url, owned ArticleSnippetCallback on_done, NewsSource source, string? display_source, Gee.ArrayList<ArticleItem>? article_buffer = null) {
         // If caller provided an article buffer, check for a pre-cached snippet
         // for FOX entries (feed-provided NewsArticle objects). If found, return
         // it immediately without performing a network fetch to keep the UI snappy.
@@ -102,6 +112,26 @@ public class ArticleSnippetService : GLib.Object {
                         pos = end + 1;
                     }
                     if (published.length == 0) {
+                        // Many sites (e.g. ABC News) only expose the publish
+                        // date via JSON-LD ("datePublished":"...") rather
+                        // than a <meta> tag, so fall back to a plain string
+                        // search for that key before trying <time>.
+                        int jpos = lower.index_of("\"datepublished\"");
+                        if (jpos >= 0) {
+                            int colon = lower.index_of(":", jpos);
+                            if (colon > jpos) {
+                                int qstart = lower.index_of("\"", colon);
+                                if (qstart > colon) {
+                                    int qend = lower.index_of("\"", qstart + 1);
+                                    if (qend > qstart && html.length >= qend) {
+                                        string val = html.substring(qstart + 1, qend - (qstart + 1)).strip();
+                                        if (val.length > 0) published = val;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (published.length == 0) {
                         // search for <time datetime=\"...\">
                         int tpos = lower.index_of("<time");
                         if (tpos >= 0) {
@@ -124,6 +154,25 @@ public class ArticleSnippetService : GLib.Object {
                     }
                 }
             string final = result;
+
+            // The live fetch above can come back empty for reasons that have
+            // nothing to do with whether a description actually exists -
+            // paywalls, bot-blocking, a slow/unreachable server, a transient
+            // network error. Rather than surface "No preview available" in
+            // that case, fall back to the feed's own <description>/<summary>
+            // text for this URL, already sitting in article_buffer at no
+            // extra fetch cost. The live fetch is tried first because it's
+            // generally fuller and fresher than the feed's own summary; this
+            // is strictly a fallback for when it fails.
+            if (final.length == 0 && article_buffer != null) {
+                foreach (var item in article_buffer) {
+                    if (item.url == url && item.snippet != null && item.snippet.length > 0) {
+                        final = item.snippet;
+                        break;
+                    }
+                }
+            }
+
             Idle.add(() => {
                 var article_snippet = new ArticleSnippet();
                 article_snippet.snippet = final;
@@ -133,6 +182,23 @@ public class ArticleSnippetService : GLib.Object {
             });
             return null;
         });
+    }
+
+    // Convenience wrapper for HeroCard callers: resolves the article's
+    // source and fetches its snippet the same way fetch_snippet_async does
+    // above, then pushes the result into the card itself. This is the one
+    // place in the service allowed to touch a widget - it exists so callers
+    // (ArticleManager, HeroCarousel) don't each need to re-implement the
+    // resolve-then-fetch-then-set-snippet glue inline.
+    public static void attach_hero_snippet(HeroCard card, string url, string? source_name, Gee.ArrayList<ArticleItem>? article_buffer) {
+        NewsSource article_src;
+        bool source_mapped;
+        string? published;
+        ArticleSourceResolver.resolve(source_name, url, article_buffer ?? new Gee.ArrayList<ArticleItem>(), out article_src, out source_mapped, out published);
+        fetch_snippet_async(url, (preview) => {
+            if (card == null) return;
+            card.set_snippet(preview.snippet);
+        }, article_src, source_name, article_buffer);
     }
 
 
@@ -157,9 +223,7 @@ public class ArticleSnippetService : GLib.Object {
                 string? url_display_name = null;
                 string? url_logo_url = null;
                 string? url_filename = null;
-                try {
-                    SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename);
-                } catch (GLib.Error e) { }
+                SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename);
                 if (url_display_name != null && url_display_name.length > 0) display_source = url_display_name;
             }
 
@@ -174,7 +238,7 @@ public class ArticleSnippetService : GLib.Object {
                         string host = UrlUtils.extract_host_from_url(url);
                         if (host != null && host.length > 0) {
                             string lowhost = host.down();
-                            if (lowhost.index_of("bbc") >= 0 || lowhost.index_of("guardian") >= 0 || lowhost.index_of("nytimes") >= 0 || lowhost.index_of("wsj") >= 0 || lowhost.index_of("bloomberg") >= 0 || lowhost.index_of("reuters") >= 0 || lowhost.index_of("npr") >= 0 || lowhost.index_of("fox") >= 0) {
+                            if (lowhost.index_of("bbc") >= 0 || lowhost.index_of("guardian") >= 0 || lowhost.index_of("nytimes") >= 0 || lowhost.index_of("wsj") >= 0 || lowhost.index_of("bloomberg") >= 0 || lowhost.index_of("abcnews") >= 0 || lowhost.index_of("npr") >= 0 || lowhost.index_of("fox") >= 0 || lowhost.index_of("pbs") >= 0) {
                                 display_source = SourceUtils.get_source_name(article_src);
                             } else {
                                 display_source = UrlUtils.prettify_host(host);
@@ -213,31 +277,33 @@ public class ArticleSnippetService : GLib.Object {
                     explicit_source_name_out = explicit_source_name_out.substring(0, cat_idx);
                 }
 
-                try {
-                    string? meta_display_name = SourceMetadata.get_display_name_for_source(explicit_source_name_out);
-                    if (meta_display_name == null || meta_display_name.length == 0) {
-                        string? url_display_name = null;
-                        string? url_logo_url = null;
-                        string? url_filename = null;
-                        try { SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename); } catch (GLib.Error e) { }
-                        if (url_display_name != null && url_display_name.length > 0) meta_display_name = url_display_name;
-                    }
-                    if (meta_display_name != null && meta_display_name.length > 0) explicit_source_name_out = meta_display_name;
-                } catch (GLib.Error e) { }
+                string? meta_display_name = SourceMetadata.get_display_name_for_source(explicit_source_name_out);
+                if (meta_display_name == null || meta_display_name.length == 0) {
+                    string? url_display_name = null;
+                    string? url_logo_url = null;
+                    string? url_filename = null;
+                    try { SourceMetadata.get_source_info_by_url(url, out url_display_name, out url_logo_url, out url_filename); } catch (GLib.Error e) { }
+                    if (url_display_name != null && url_display_name.length > 0) meta_display_name = url_display_name;
+                }
+                if (meta_display_name != null && meta_display_name.length > 0) explicit_source_name_out = meta_display_name;
             }
 
             if (article_buffer != null) {
                 foreach (var item in article_buffer) {
-                    if (item.url == url) {
-                        try {
-                            if (item.get_type().name() == "Paperboy.NewsArticle") {
-                                var na = (Paperboy.NewsArticle) item;
-                                if (na.published != null && na.published.length > 0) {
-                                    homepage_published_any_out = na.published;
-                                    break;
-                                }
-                            }
-                        } catch (GLib.Error e) { }
+                    // Every real article is a plain ArticleItem - this used
+                    // to only match a "Paperboy.NewsArticle" type that
+                    // nothing in the codebase actually constructs, so this
+                    // lookup silently never found anything for any source.
+                    // Most of the time that was masked by the article
+                    // pane's other date source (meta tags scraped from the
+                    // live-fetched article page) filling in instead: it's
+                    // only sources whose article pages don't expose a
+                    // recognizable published-date tag (PBS NewsHour has
+                    // none at all; WSJ is paywalled) where the date went
+                    // missing entirely.
+                    if (item.url == url && item.published != null && item.published.length > 0) {
+                        homepage_published_any_out = item.published;
+                        break;
                     }
                 }
             }

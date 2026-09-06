@@ -37,6 +37,18 @@ public class LruCache<K, V> : GLib.Object {
     public delegate void EvictionCallback<K, V>(K key, V value);
     private EvictionCallback<K, V>? on_evict;
 
+    // Optional byte-weighed eviction. When a weigher is installed (see
+    // set_byte_budget), eviction is driven by the summed byte size of the
+    // stored values instead of the raw entry count - a handful of huge
+    // decoded images can otherwise sit well under a count-based `capacity`
+    // while consuming gigabytes of memory. The entry-count `capacity` is
+    // still enforced as a secondary hard cap in this mode so a flood of
+    // tiny entries can't grow the order/map bookkeeping unboundedly.
+    public delegate int64 SizeFunc<K, V>(K key, V value);
+    private SizeFunc<K, V>? size_func;
+    private int64 max_bytes = -1;
+    private int64 current_bytes = 0;
+
     public LruCache(int capacity) {
         GLib.Object();
         if (capacity <= 0) capacity = 128;
@@ -54,6 +66,28 @@ public class LruCache<K, V> : GLib.Object {
     // Set an optional eviction callback. Passing null clears the callback.
     public void set_eviction_callback(EvictionCallback<K, V>? cb) {
         on_evict = cb;
+    }
+
+    // Switch this cache into byte-budget mode: `weigher` computes the
+    // approximate byte size of a stored value, and `set()` will evict the
+    // least-recently-used entries until the running total is back under
+    // `bytes`. Pass a non-positive `bytes` to disable and fall back to
+    // plain entry-count eviction.
+    public void set_byte_budget(int64 bytes, owned SizeFunc<K, V> weigher) {
+        mutex.lock();
+        try {
+            size_func = (owned) weigher;
+            max_bytes = bytes;
+            current_bytes = 0;
+            if (max_bytes > 0 && size_func != null) {
+                foreach (var k in order) {
+                    V? v = map.get(k);
+                    if (v != null) current_bytes += size_func(k, v);
+                }
+            }
+        } finally {
+            mutex.unlock();
+        }
     }
 
     // Retrieve a value or null if missing. Marks the key as recently used.
@@ -74,42 +108,58 @@ public class LruCache<K, V> : GLib.Object {
         }
     }
 
-    // Insert or update a value and enforce capacity eviction.
+    // Evict the single oldest entry. Caller must hold `mutex`.
+    private void evict_oldest() {
+        K oldest = order.get(0);
+        order.remove_at(0);
+        V? val = map.get(oldest);
+        if (val != null) {
+            if (size_func != null) current_bytes -= size_func(oldest, val);
+            if (on_evict != null) {
+                try {
+                    on_evict(oldest, val);
+                } catch (GLib.Error e) {
+                    // Log eviction errors when debug is enabled
+                    try {
+                        if (AppDebugger.debug_enabled()) {
+                            warning("LruCache eviction callback failed: %s", e.message);
+                        }
+                    } catch (GLib.Error _) { }
+                }
+            }
+        }
+        map.remove(oldest);
+    }
+
+    // Insert or update a value and enforce capacity/byte-budget eviction.
     public void set(K key, V value) {
         mutex.lock();
         try {
-            bool exists = false;
-            var tmp = map.get(key);
-            if (tmp != null) exists = true;
+            var existing = map.get(key);
+            bool exists = existing != null;
 
+            if (exists && size_func != null) current_bytes -= size_func(key, existing);
             map.set(key, value);
+            if (size_func != null) current_bytes += size_func(key, value);
+
             if (exists) {
                 order.remove(key);
                 order.add(key);
-                return;
+            } else {
+                order.add(key);
             }
 
-            order.add(key);
-            // Evict oldest if over capacity
-            // Invoke eviction callback immediately while we still hold the mutex
-            // and the value is still valid in the map
-            while (order.size > capacity) {
-                K oldest = order.get(0);
-                order.remove_at(0);
-                V? val = map.get(oldest);
-                if (val != null && on_evict != null) {
-                    try {
-                        on_evict(oldest, val);
-                    } catch (GLib.Error e) {
-                        // Log eviction errors when debug is enabled
-                        try {
-                            if (AppDebugger.debug_enabled()) {
-                                warning("LruCache eviction callback failed: %s", e.message);
-                            }
-                        } catch (GLib.Error _) { }
-                    }
+            // Evict oldest entries while over the byte budget (when active)
+            // and always enforce the entry-count capacity as a hard cap -
+            // this bounds unbounded growth from many tiny entries even in
+            // byte-budget mode.
+            if (max_bytes > 0 && size_func != null) {
+                while (order.size > 0 && current_bytes > max_bytes) {
+                    evict_oldest();
                 }
-                map.remove(oldest);
+            }
+            while (order.size > capacity) {
+                evict_oldest();
             }
         } finally {
             mutex.unlock();
@@ -123,16 +173,19 @@ public class LruCache<K, V> : GLib.Object {
         try {
             order.remove(key);
             V? val = map.get(key);
-            if (val != null && on_evict != null) {
-                try {
-                    on_evict(key, val);
-                } catch (GLib.Error e) {
-                    // Log eviction errors when debug is enabled
+            if (val != null) {
+                if (size_func != null) current_bytes -= size_func(key, val);
+                if (on_evict != null) {
                     try {
-                        if (AppDebugger.debug_enabled()) {
-                            warning("LruCache eviction callback failed: %s", e.message);
-                        }
-                    } catch (GLib.Error _) { }
+                        on_evict(key, val);
+                    } catch (GLib.Error e) {
+                        // Log eviction errors when debug is enabled
+                        try {
+                            if (AppDebugger.debug_enabled()) {
+                                warning("LruCache eviction callback failed: %s", e.message);
+                            }
+                        } catch (GLib.Error _) { }
+                    }
                 }
             }
             removed = map.remove(key);
@@ -144,39 +197,35 @@ public class LruCache<K, V> : GLib.Object {
 
     public void clear() {
         mutex.lock();
-        try {
-            if (on_evict != null) {
-                for (int i = 0; i < order.size; i++) {
-                    K k = order.get(i);
-                    V? v = map.get(k);
-                    if (v != null) {
+        if (on_evict != null) {
+            for (int i = 0; i < order.size; i++) {
+                K k = order.get(i);
+                V? v = map.get(k);
+                if (v != null) {
+                    try {
+                        on_evict(k, v);
+                    } catch (GLib.Error e) {
+                        // Log eviction errors when debug is enabled
                         try {
-                            on_evict(k, v);
-                        } catch (GLib.Error e) {
-                            // Log eviction errors when debug is enabled
-                            try {
-                                if (AppDebugger.debug_enabled()) {
-                                    warning("LruCache eviction callback failed: %s", e.message);
-                                }
-                            } catch (GLib.Error _) { }
-                        }
+                            if (AppDebugger.debug_enabled()) {
+                                warning("LruCache eviction callback failed: %s", e.message);
+                            }
+                        } catch (GLib.Error _) { }
                     }
                 }
             }
-            order.clear();
-            map.clear();
-        } finally {
-            mutex.unlock();
         }
+        order.clear();
+        map.clear();
+        current_bytes = 0;
+        mutex.unlock();
     }
 
     public int size() {
         mutex.lock();
-        try {
-            return map.size;
-        } finally {
-            mutex.unlock();
-        }
+        int result = map.size;
+        mutex.unlock();
+        return result;
     }
 
     public int get_capacity() {
@@ -190,22 +239,7 @@ public class LruCache<K, V> : GLib.Object {
             capacity = c;
             // Trim if necessary
             while (order.size > capacity) {
-                K oldest = order.get(0);
-                order.remove_at(0);
-                V? val = map.get(oldest);
-                if (val != null && on_evict != null) {
-                    try {
-                        on_evict(oldest, val);
-                    } catch (GLib.Error e) {
-                        // Log eviction errors when debug is enabled
-                        try {
-                            if (AppDebugger.debug_enabled()) {
-                                warning("LruCache eviction callback failed: %s", e.message);
-                            }
-                        } catch (GLib.Error _) { }
-                    }
-                }
-                map.remove(oldest);
+                evict_oldest();
             }
         } finally {
             mutex.unlock();
@@ -218,13 +252,10 @@ public class LruCache<K, V> : GLib.Object {
     public Gee.ArrayList<K> keys() {
         var copy = new Gee.ArrayList<K>();
         mutex.lock();
-        try {
-            for (int i = 0; i < order.size; i++) {
-                copy.add(order.get(i));
-            }
-        } finally {
-            mutex.unlock();
+        for (int i = 0; i < order.size; i++) {
+            copy.add(order.get(i));
         }
+        mutex.unlock();
         return copy;
     }
 }

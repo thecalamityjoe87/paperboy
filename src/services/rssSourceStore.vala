@@ -59,11 +59,7 @@ namespace Paperboy {
             var paperboy_dir = GLib.Path.build_filename(data_dir, "paperboy");
 
             // Ensure directory exists
-            try {
-                GLib.DirUtils.create_with_parents(paperboy_dir, 0755);
-            } catch (GLib.Error e) {
-                GLib.warning("Failed to create paperboy data directory: %s", e.message);
-            }
+            GLib.DirUtils.create_with_parents(paperboy_dir, 0755);
 
             return GLib.Path.build_filename(paperboy_dir, "sources.db");
         }
@@ -164,7 +160,7 @@ namespace Paperboy {
             // Fetch the inserted source and emit a signal so UI can update
             var added = get_source_by_url(url);
             if (added != null) {
-                try { source_added(added); } catch (GLib.Error e) { }
+                source_added(added); 
             }
 
             // Best-effort: write per-source metadata so user-provided display
@@ -260,7 +256,7 @@ namespace Paperboy {
             // Fetch the inserted source and emit a signal so UI can update
             var added = get_source_by_url(url);
             if (added != null) {
-                try { source_added(added); } catch (GLib.Error e) { }
+                source_added(added); 
             }
 
             // Best-effort metadata write for generated feeds: prefer original_url host
@@ -407,15 +403,11 @@ namespace Paperboy {
             cleanup_source_files(source);
 
             // Clear cached articles for this feed
-            try {
-                var article_cache = Paperboy.RssArticleCache.get_instance();
-                article_cache.clear_feed_cache(url);
-            } catch (GLib.Error e) {
-                GLib.warning("Failed to clear article cache for removed source: %s", e.message);
-            }
+            var article_cache = Paperboy.RssArticleCache.get_instance();
+            article_cache.clear_feed_cache(url);
 
             // Emit removal signal so UI can update
-            try { source_removed(source); } catch (GLib.Error e) { }
+            source_removed(source); 
 
             GLib.print("Successfully removed RSS source: %s\n", source.name);
             return true;
@@ -602,7 +594,7 @@ namespace Paperboy {
             // can refresh without requiring an app restart.
             var updated = get_source_by_url(url);
             if (updated != null) {
-                try { source_updated(updated); } catch (GLib.Error e) { }
+                source_updated(updated); 
             }
 
             return true;
@@ -638,7 +630,7 @@ namespace Paperboy {
             // Emit an update notification for UI so icons can refresh
             var updated = get_source_by_url(url);
             if (updated != null) {
-                try { source_updated(updated); } catch (GLib.Error e) { }
+                source_updated(updated); 
             }
 
             return true;
@@ -706,7 +698,7 @@ namespace Paperboy {
             // and refresh any references to this source (sidebar, badges, etc.).
             var updated = get_source_by_url(new_url);
             if (updated != null) {
-                try { source_updated(updated); } catch (GLib.Error e) { }
+                source_updated(updated); 
             }
 
             return true;

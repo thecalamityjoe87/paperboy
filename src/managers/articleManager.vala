@@ -30,13 +30,15 @@ namespace Managers {
         public const int MAX_CAROUSEL_SLIDES = 5;
         
         // Layout dimensions
-        public const int HERO_MAX_HEIGHT = 350;
-        public const int HERO_DEFAULT_HEIGHT = 250;
-        public const int TOPTEN_HERO_MAX_HEIGHT = 364;  // 280 * 1.30
-        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 273;  // 210 * 1.30
-        public const int CARD_IMAGE_HEIGHT = 200;  // Fixed image height for uniform layout (Top Ten)
-        public const int CARD_TEXT_HEIGHT = 120;   // Minimum card text area height
-        public const int MIN_CARD_IMAGE_HEIGHT = 80;  // Absolute minimum image height
+        // Hero cards now lay text/picture side by side instead of stacked, so
+        // the picture spans the card's full height - default/max are kept
+        // equal to size fetched images and placeholders at the actual
+        // rendered height instead of the old (shorter) stacked-image height.
+        public const int HERO_MAX_HEIGHT = 460;
+        public const int HERO_DEFAULT_HEIGHT = 460;
+        public const int TOPTEN_HERO_MAX_HEIGHT = 480;
+        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 480;
+        public const int CARD_IMAGE_HEIGHT = 220;  // Fixed, never derived from column width
         public const int CARD_HEIGHT_ESTIMATE_OFFSET = 120;
         public const int IMAGE_QUALITY_MULTIPLIER_HIGH = 6;
         public const int IMAGE_QUALITY_MULTIPLIER_MEDIUM = 3;
@@ -44,7 +46,15 @@ namespace Managers {
         
         public Gee.ArrayList<ArticleItem> article_buffer;
         public Gee.ArrayList<ArticleItem> remaining_articles;
-        public int remaining_articles_index = 0;
+        // PERFORMANCE: per-category count of remaining_articles, kept in
+        // sync on every add/remove so remaining_count_for_category() is O(1)
+        // instead of rescanning the whole (potentially large) overflow queue.
+        private Gee.HashMap<string, int> remaining_category_counts;
+        // Debounce latch for reveal_sections_with_pending_overflow(): a whole
+        // batch of queued overflow articles (e.g. ~95 frontpage cards in one
+        // Idle.add callback) should only trigger one reveal pass, not one per
+        // article.
+        private bool reveal_pending = false;
         public int articles_shown = 0;
         
         // Track URLs seen in current view to prevent duplicate cards (race condition fix)
@@ -53,7 +63,6 @@ namespace Managers {
         // Category distribution
         public Gee.HashMap<string, int> category_column_counts;
         public Gee.ArrayList<string> recent_categories;
-        public int next_column_index;
         public Gee.HashMap<string, int> category_last_column;
         public Gee.ArrayList<string> recent_category_queue;
         
@@ -76,12 +85,12 @@ namespace Managers {
             window = w;
             article_buffer = new Gee.ArrayList<ArticleItem>();
             remaining_articles = new Gee.ArrayList<ArticleItem>();
+            remaining_category_counts = new Gee.HashMap<string, int>();
             category_column_counts = new Gee.HashMap<string, int>();
             recent_categories = new Gee.ArrayList<string>();
             category_last_column = new Gee.HashMap<string, int>();
             recent_category_queue = new Gee.ArrayList<string>();
             seen_urls = new Gee.HashSet<string>();
-            next_column_index = 0;
         }
 
         /**
@@ -141,8 +150,8 @@ namespace Managers {
          * Queue an article for the "Load More" overflow
          * Returns true if article was queued, false if it was a duplicate
          */
-        private bool queue_overflow_article(string title, string url, string? thumbnail_url, 
-                                            string category_id, string? source_name) {
+        private bool queue_overflow_article(string title, string url, string? thumbnail_url,
+                                            string category_id, string? source_name, string? published = null, string? snippet = null) {
             // Normalize and check for duplicates
             string normalized_url = "";
             normalized_url = window.normalize_article_url(url); 
@@ -158,7 +167,11 @@ namespace Managers {
             string? normalized_source = normalize_source_name(source_name, category_id, url);
 
             // Add to overflow queue
-            remaining_articles.add(new ArticleItem(title, url, thumbnail_url, category_id, normalized_source));
+            var queued_item = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source, published);
+            queued_item.snippet = snippet;
+            remaining_articles.add(queued_item);
+            string display_cat = extract_display_category(queued_item);
+            remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) + 1);
 
             // Register for unread tracking
             string norm = url.strip();
@@ -166,9 +179,115 @@ namespace Managers {
                 window.article_state_store.register_article(norm, category_id, normalized_source);
             }
 
+            // A category that got zero cards into the initial 25-article
+            // cap would otherwise stay permanently hidden with no way to
+            // reach its queued overflow - see
+            // LayoutManager.reveal_sections_with_pending_overflow().
+            //
+            // PERFORMANCE: debounced via a single Idle.add latch so a whole
+            // batch of queued articles (all added synchronously from one
+            // fetcher callback) triggers exactly one reveal pass instead of
+            // one per article.
+            if (window.layout_manager != null && !reveal_pending) {
+                reveal_pending = true;
+                GLib.Idle.add(() => {
+                    reveal_pending = false;
+                    if (window.layout_manager != null) {
+                        window.layout_manager.reveal_sections_with_pending_overflow();
+                    }
+                    return false;
+                });
+            }
+
             return true;
         }
-        
+
+        /**
+         * The real category for a queued overflow article. On Front Page,
+         * category_id is always the literal string "frontpage" - the actual
+         * category travels in source_name as a "##category::<cat>" suffix
+         * (same convention used when building each card's category chip).
+         */
+        private string extract_display_category(ArticleItem item) {
+            string cat = item.category_id;
+            if (cat == "frontpage" && item.source_name != null) {
+                int idx = item.source_name.index_of("##category::");
+                if (idx >= 0 && item.source_name.length > idx + 12) {
+                    cat = item.source_name.substring(idx + 12).strip();
+                }
+            }
+            return cat;
+        }
+
+        /**
+         * How many overflow articles for one category are still queued -
+         * used by the category-section nav button to decide whether to show
+         * a "load more" affordance once that row is scrolled to its end.
+         */
+        public int remaining_count_for_category(string cat) {
+            if (remaining_category_counts == null) return 0;
+            return remaining_category_counts.get(cat);
+        }
+
+        /**
+         * Load the next batch of queued overflow articles for one category
+         * only, appending them to that category's section (existing card
+         * placement already routes by category via the same
+         * "##category::" parsing, so no extra wiring is needed there).
+         * Removes matched items from the shared remaining_articles pool -
+         * see load_more_articles() for why removal (not an index cursor) is
+         * required now that two flows draw from the same queue.
+         */
+        public void load_more_for_category(string cat, int max_to_load = LOAD_MORE_BATCH_SIZE) {
+            if (remaining_articles == null) return;
+
+            // Snapshot the section's current card count so newly appended
+            // cards can be told apart afterward and given the same
+            // fade/slide entrance as the global "Load more articles" flow.
+            Gtk.Widget? row = (window != null && window.layout_manager != null)
+                ? window.layout_manager.get_category_section_row(cat)
+                : null;
+            int prev_count = 0;
+            if (row != null) {
+                var c = row.get_first_child();
+                while (c != null) { prev_count++; c = c.get_next_sibling(); }
+            }
+            int loaded = 0;
+            int i = 0;
+            while (i < remaining_articles.size && loaded < max_to_load) {
+                var item = remaining_articles.get(i);
+                if (extract_display_category(item) == cat) {
+                    remaining_articles.remove_at(i);
+                    remaining_category_counts.set(cat, remaining_category_counts.get(cat) - 1);
+                    article_buffer.add(item);
+                    add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, true, item.published);
+                    loaded++;
+                } else {
+                    i++;
+                }
+            }
+
+            if (row != null && window != null && window.animation_manager != null) {
+                var anim_mgr = window.animation_manager;
+                // Delay until idle so widgets are realized/parented.
+                GLib.Idle.add(() => {
+                    uint animate_index = 0;
+                    uint per_item_ms = 28;
+                    int idx = 0;
+                    var child = row.get_first_child();
+                    while (child != null) {
+                        if (idx >= prev_count) {
+                            anim_mgr.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                            animate_index++;
+                        }
+                        idx++;
+                        child = child.get_next_sibling();
+                    }
+                    return false;
+                });
+            }
+        }
+
         /**
          * Check if debug mode is enabled
          */
@@ -177,13 +296,13 @@ namespace Managers {
             return e != null && e.length > 0;
         }
 
-        public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
+        public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null) {
             // Check if we're viewing a category with article limits
             if (is_limited_category(window.prefs.category)) {
                 lock (articles_shown) {
                     // If we've reached the limit, queue remaining articles for "Load More"
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
-                        if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name)) {
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published, snippet)) {
                             show_load_more_button();
                         }
                         return;
@@ -206,7 +325,20 @@ namespace Managers {
             if (window.prefs.category != "topten" && normalized.length > 0 && seen_urls != null) {
                 lock (seen_urls) {
                     if (seen_urls.contains(normalized)) {
-                        return;  // Already added this article (duplicate)
+                        // Already added this article - but if this duplicate call
+                        // carries a published date the card doesn't have yet (e.g.
+                        // it was first shown from an on-disk cache entry that
+                        // predates this field, and a fresh fetch just resolved
+                        // one), backfill the already-rendered card's time label in
+                        // place instead of silently dropping the newer data.
+                        if (published != null && published.length > 0 && window.view_state != null) {
+                            Gtk.Widget? existing_widget = window.view_state.url_to_card.get(normalized);
+                            Gtk.Label? existing_time_label = existing_widget != null ? existing_widget.get_data<Gtk.Label>("article-time-label") : null;
+                            if (existing_time_label != null && existing_time_label.get_text() == "") {
+                                existing_time_label.set_text(DateUtils.time_ago(published));
+                            }
+                        }
+                        return;
                     }
                     seen_urls.add(normalized);
                 }
@@ -242,7 +374,9 @@ namespace Managers {
                         if (info != null) {
                             target_w = info.last_requested_w;
                         } else if (window.layout_manager != null) {
-                            target_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+                            target_w = window.layout_manager.cached_col_w > 0
+                                ? window.layout_manager.cached_col_w
+                                : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
                         }
                         int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
                         if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(existing, category_id == "local_news");
@@ -275,10 +409,27 @@ namespace Managers {
             }
 
             // Add articles immediately
-            add_item_immediate_to_column(title, url, thumbnail_url, category_id, -1, null, final_source_name);
+            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published, snippet);
         }
-        
-        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, int forced_column = -1, string? original_category = null, string? source_name = null, bool bypass_limit = false) {
+
+        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null, string? snippet = null) {
+            // Make this article's feed-provided snippet and published date
+            // available as fallbacks for ArticleSnippetService, which
+            // live-fetches the article's own page and falls back to
+            // whatever matches this URL in article_buffer when that fetch
+            // fails, comes back empty, or (for the date) simply doesn't
+            // expose a recognizable published-date tag on the page itself.
+            // Without this, article_buffer was only ever populated by the
+            // "load more" paths - never for the first batch of articles
+            // shown when a category loads, which includes the hero card and
+            // is exactly where a missing preview/date was most visible.
+            bool has_snippet = snippet != null && snippet.length > 0;
+            bool has_published = published != null && published.length > 0;
+            if ((has_snippet || has_published) && article_buffer != null) {
+                var buffered_item = new ArticleItem(title, url, thumbnail_url, category_id, source_name, published);
+                if (has_snippet) buffered_item.snippet = snippet;
+                article_buffer.add(buffered_item);
+            }
 
             // Decode HTML entities in title (e.g., &mdash; → —, &amp; → &)
             string decoded_title = stripHtmlUtils.strip_html(title);
@@ -295,7 +446,7 @@ namespace Managers {
 
                         // Queue overflow article using helper
                         string normalized_src = normalize_source_name(source_name, category_id, url);
-                        if (queue_overflow_article(title, url, thumbnail_url, category_id, normalized_src)) {
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, normalized_src, published)) {
                             if (!load_more_button_visible) {
                                 show_load_more_button();
                             }
@@ -304,16 +455,6 @@ namespace Managers {
                     }
                     
                     articles_shown++;
-                }
-            }
-            
-            int target_col = -1;
-            if (forced_column != -1) {
-                target_col = forced_column;
-            } else {
-                target_col = next_column_index;
-                if (window.layout_manager != null && window.layout_manager.columns != null) {
-                    next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
                 }
             }
             
@@ -370,8 +511,24 @@ namespace Managers {
                     default_hero_h,
                     hero_chip,
                     enable_hero_context_menu,
-                    window.prefs.category == "topten"
+                    window.prefs.category == "topten",
+                    published
                 );
+
+                // Populate the hero's snippet line via the existing on-demand
+                // preview service (same one articlePane uses), rather than
+                // parsing feed/API responses again ourselves. Skipped for Top
+                // Ten: its stacked picture-over-text layout only has room
+                // for the title.
+                if (window.prefs.category != "topten") {
+                    ArticleSnippetService.attach_hero_snippet(hero_card, url, source_name, article_buffer);
+                }
+
+                // Source badge (logo + name), same as regular article cards.
+                if (category_id != "local_news") {
+                    var hero_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
+                    hero_card.overlay.add_overlay(hero_source_badge);
+                }
 
                 string _norm = window.normalize_article_url(url);
 
@@ -418,54 +575,67 @@ namespace Managers {
                     window.article_state_store.register_article(_norm, category_id, source_name);
                 }
 
-                hero_card.activated.connect((s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); });
-
-                // Connect context menu signals
-                hero_card.open_in_app_requested.connect((article_url) => {
-                    open_article_in_app_if_online(article_url);
-                });
-
-                hero_card.open_in_browser_requested.connect((article_url) => {
-                    open_article_in_browser_if_online(article_url);
-                });
-
-                hero_card.follow_source_requested.connect((article_url, src_name) => {
-                    request_show_toast("Searching for feed...", true);
-                    window.source_manager.follow_rss_source(article_url, src_name);
-                });
-
-                hero_card.save_for_later_requested.connect((article_url) => {
-                    if (window.article_state_store != null) {
-                        bool is_saved = window.article_state_store.is_saved(article_url);
-                        if (is_saved) {
-                            window.article_state_store.unsave_article(article_url);
-                            request_show_toast("Removed article from saved");
-                            if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
-
-                            if (window.prefs.category == "saved") {
+                // Capture plain widget locals instead of referencing
+                // hero_card.root/save_ribbon inside these callbacks - see
+                // HeroCard.wire_interactions().
+                var hero_root = hero_card.root;
+                var hero_save_ribbon = hero_card.save_ribbon;
+                HeroCard.wire_interactions(
+                    hero_root,
+                    url,
+                    enable_hero_context_menu,
+                    window.article_state_store,
+                    window,
+                    source_name,
+                    category_id,
+                    thumbnail_url,
+                    hero_card.title_label,
+                    hero_card.image,
+                    hero_card.viewed_badge_slot,
+                    hero_card.footer_box,
+                    hero_card.overlay,
+                    (s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); },
+                    (article_url) => { open_article_in_app_if_online(article_url); },
+                    (article_url) => { open_article_in_browser_if_online(article_url); },
+                    (article_url, src_name) => {
+                        request_show_toast("Searching for feed...", true);
+                        window.source_manager.follow_rss_source(article_url, src_name);
+                    },
+                    (article_url) => {
+                        if (window.article_state_store != null) {
+                            bool is_saved = window.article_state_store.is_saved(article_url);
+                            if (is_saved) {
+                                window.article_state_store.unsave_article(article_url);
+                                request_show_toast("Removed article from saved");
+                                // animate_save_toggle() updates the Saved badge count itself.
                                 if (window.animation_manager != null) {
-                                    var w = hero_card.root;
-                                    string? normalized = null;
-                                    if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
-                                    if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
-                                    window.animation_manager.animate_card_exit_and_remove(w, 0);
-                                } else {
-                                    window.fetch_news();
+                                    window.animation_manager.animate_save_toggle(hero_root, hero_save_ribbon, decoded_title, false);
+                                }
+
+                                if (window.prefs.category == "saved") {
+                                    if (window.animation_manager != null) {
+                                        var w = hero_root;
+                                        string? normalized = null;
+                                        if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
+                                        if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
+                                        window.animation_manager.animate_card_exit_and_remove(w, 0);
+                                    } else {
+                                        window.fetch_news();
+                                    }
+                                }
+                            } else {
+                                window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
+                                request_show_toast("Added article to saved");
+                                // Ribbon/pop + fly-to-shelf; the Saved badge count
+                                // only bumps once the ghost actually arrives there.
+                                if (window.animation_manager != null) {
+                                    window.animation_manager.animate_save_toggle(hero_root, hero_save_ribbon, decoded_title, true);
                                 }
                             }
-                        } else {
-                            window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name);
-                            request_show_toast("Added article to saved");
-                            if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
-                            // Visual vacuum effect: shrink the card and pulse the Saved badge
-                            if (window.animation_manager != null) {
-                                window.animation_manager.animate_bookmark_pop(hero_card.root);
-                            }
                         }
-                    }
-                });
-
-                hero_card.share_requested.connect((article_url) => { window.show_share_dialog(article_url); });
+                    },
+                    (article_url) => { window.show_share_dialog(article_url); }
+                );
 
                 if (window.prefs.category == "topten") {
                     if (topten_hero_count < 2) {
@@ -478,15 +648,12 @@ namespace Managers {
                     if (featured_carousel_items == null) featured_carousel_items = new Gee.ArrayList<ArticleItem>();
                     if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
                         hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
-                        hero_carousel.slide_activated.connect((t, u, thumb, cat, src) => {
-                            window.article_pane.show_article_preview(t, u, thumb, cat, src);
-                        });
                     }
                     featured_carousel_items.add(new ArticleItem(decoded_title, url, thumbnail_url, category_id, source_name));
                     featured_carousel_category = category_id;
 
                     hero_carousel.add_initial_slide(hero_card.root);
-                    hero_carousel.start_timer(5);
+                    hero_carousel.start_timer(25);
 
                     featured_used = true;
                     if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
@@ -535,15 +702,26 @@ namespace Managers {
             // Ensure carousel exists
             if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
                 hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
-                // Connect slide activation signal
-                hero_carousel.slide_activated.connect((t, u, thumb, cat, src) => {
-                    window.article_pane.show_article_preview(t, u, thumb, cat, src);
-                });
             }
 
             // Build category chip and create slide via HeroCarousel
             var slide_chip = window.build_category_chip(slide_display_cat);
-            var components = hero_carousel.create_article_slide(decoded_title, url, thumbnail_url, category_id, source_name, slide_chip);
+            var components = hero_carousel.create_article_slide(
+                decoded_title, url, thumbnail_url, category_id, source_name, slide_chip,
+                (t, u, thumb, cat, src) => { window.article_pane.show_article_preview(t, u, thumb, cat, src); },
+                published
+            );
+
+            // Populate this slide's snippet and source badge the same way as
+            // the primary hero.
+            var slide_hero = components.hero;
+            if (slide_hero != null) {
+                ArticleSnippetService.attach_hero_snippet(slide_hero, url, source_name, article_buffer);
+                if (category_id != "local_news") {
+                    var slide_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
+                    slide_hero.overlay.add_overlay(slide_source_badge);
+                }
+            }
             var slide = components.slide;
             var slide_image = components.image;
 
@@ -592,36 +770,23 @@ namespace Managers {
             return;
         }
 
-        int variant = window.rng.int_range(0, 3);
+        // All cards use uniform sizing so columns stay evenly spaced.
+        // Use the column width cached for this layout pass (set once in
+        // LayoutManager.rebuild_columns) rather than recomputing it per-card,
+        // so every card gets identical dimensions even if the reported content
+        // width drifts slightly while articles are still streaming in.
         int col_w = 400;
         if (window.layout_manager != null) {
-            col_w = window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+            col_w = window.layout_manager.cached_col_w > 0
+                ? window.layout_manager.cached_col_w
+                : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
         }
         int img_w = col_w;
-        int img_h = 0;
-
-        // Top Ten uses uniform card heights (non-masonry layout)
-        if (category_id == "topten") {
-            img_h = CARD_IMAGE_HEIGHT;  // Fixed image height for uniform layout
-            variant = 0;  // Use consistent variant
-        } else {
-            switch (variant) {
-                case 0:
-                    img_h = (int)(col_w * 0.42);
-                    if (img_h < MIN_CARD_IMAGE_HEIGHT) img_h = MIN_CARD_IMAGE_HEIGHT;
-                    break;
-                case 1:
-                    img_h = (int)(col_w * 0.5);
-                    if (img_h < 100) img_h = 100;
-                    break;
-                default:
-                    img_h = (int)(col_w * 0.58);
-                    if (img_h < CARD_TEXT_HEIGHT) img_h = CARD_TEXT_HEIGHT;
-                    break;
-            }
-
-            img_h = (int)(img_h * 1.2);
-        }
+        // Fixed pixel height, not derived from col_w: any computed value is a
+        // vector for cards to end up with different picture heights if col_w
+        // is read at slightly different times as articles stream in. A hard
+        // constant makes the picture area identical on every card, always.
+        int img_h = CARD_IMAGE_HEIGHT;
 
         string card_display_cat = category_id;
         if (card_display_cat == "frontpage" && source_name != null) {
@@ -631,42 +796,10 @@ namespace Managers {
 
         var chip = window.build_category_chip(card_display_cat);
 
-        // Determine target column for the card
-        if (target_col == -1) {
-            if (window.layout_manager == null || window.layout_manager.columns == null || window.layout_manager.column_heights == null) {
-                warning("ArticleManager: layout_manager or columns not initialized, cannot place card");
-                return;
-            }
-
-            if (window.prefs.category == "topten") {
-                target_col = next_column_index;
-                if (window.layout_manager.columns.length > 0) {
-                    next_column_index = (next_column_index + 1) % window.layout_manager.columns.length;
-                }
-            } else {
-                target_col = 0;
-                if (window.layout_manager.column_heights.length > 0 && window.layout_manager.columns.length > 0) {
-                    int random_noise = window.rng.int_range(0, 11);
-                    int best_score = window.layout_manager.column_heights[0] + random_noise;
-                    for (int i = 1; i < window.layout_manager.columns.length && i < window.layout_manager.column_heights.length; i++) {
-                        random_noise = window.rng.int_range(0, 11);
-                        int score = window.layout_manager.column_heights[i] + random_noise;
-                        if (score < best_score) { best_score = score; target_col = i; }
-                    }
-                }
-            }
-        }
-
-        // Bounds check before accessing columns
-        if (window.layout_manager == null || window.layout_manager.columns == null ||
-            target_col < 0 || target_col >= window.layout_manager.columns.length) {
-            warning("ArticleManager: invalid target_col=%d, columns.length=%d", target_col,
-                    window.layout_manager != null && window.layout_manager.columns != null ? window.layout_manager.columns.length : -1);
+        if (window.layout_manager == null) {
+            warning("ArticleManager: layout_manager not initialized, cannot place card");
             return;
         }
-
-        // Make cards ~10% shorter for a tighter layout in Top Ten view
-        int uniform_card_h = (int)((img_h + 100));
 
         var article_card = window.layout_manager.create_and_place_article_card(
             decoded_title,
@@ -674,10 +807,8 @@ namespace Managers {
             col_w,
             img_h,
             chip,
-            variant,
-            target_col,
-            window.prefs.category == "topten",
-            uniform_card_h
+            card_display_cat,
+            published
         );
 
         if (category_id != "local_news") {
@@ -738,67 +869,66 @@ namespace Managers {
             window.article_state_store.register_article(_norm, category_id, source_name);
         }
 
-        article_card.activated.connect((s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); });
-
-        // Connect context menu signals
-        article_card.open_in_app_requested.connect((article_url) => {
-            open_article_in_app_if_online(article_url);
-        });
-
-        article_card.open_in_browser_requested.connect((article_url) => {
-            open_article_in_browser_if_online(article_url);
-        });
-
-        article_card.follow_source_requested.connect((article_url, src_name) => {
-            request_show_toast("Searching for feed...", true);
-            window.source_manager.follow_rss_source(article_url, src_name);
-        });
-
-                article_card.save_for_later_requested.connect((article_url) => {
-            if (window.article_state_store != null) {
-                bool is_saved = window.article_state_store.is_saved(article_url);
-                if (is_saved) {
-                    window.article_state_store.unsave_article(article_url);
-                    request_show_toast("Removed article from saved");
-                    if (window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("saved");
-
-                    if (window.prefs.category == "saved") {
-                        // Animate removal of this single card instead of a full reload
+        // Capture plain widget locals instead of referencing
+        // article_card.root/save_ribbon inside these callbacks - see
+        // ArticleCard.wire_interactions().
+        var card_root = article_card.root;
+        var card_save_ribbon = article_card.save_ribbon;
+        ArticleCard.wire_interactions(
+            card_root,
+            url,
+            window.article_state_store,
+            window,
+            source_name,
+            (s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); },
+            (article_url) => { open_article_in_app_if_online(article_url); },
+            (article_url) => { open_article_in_browser_if_online(article_url); },
+            (article_url, src_name) => {
+                request_show_toast("Searching for feed...", true);
+                window.source_manager.follow_rss_source(article_url, src_name);
+            },
+            (article_url) => {
+                if (window.article_state_store != null) {
+                    bool is_saved = window.article_state_store.is_saved(article_url);
+                    if (is_saved) {
+                        window.article_state_store.unsave_article(article_url);
+                        request_show_toast("Removed article from saved");
+                        // animate_save_toggle() updates the Saved badge count itself.
                         if (window.animation_manager != null) {
-                                    var w = article_card.root;
-                                    string? normalized = null;
-                                    if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
-                                    if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
-                                    window.animation_manager.animate_card_exit_and_remove(w, 0);
-                        } else {
-                            window.fetch_news();
+                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, decoded_title, false);
+                        }
+
+                        if (window.prefs.category == "saved") {
+                            // Animate removal of this single card instead of a full reload
+                            if (window.animation_manager != null) {
+                                        var w = card_root;
+                                        string? normalized = null;
+                                        if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
+                                        if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
+                                        window.animation_manager.animate_card_exit_and_remove(w, 0);
+                            } else {
+                                window.fetch_news();
+                            }
+                        }
+                    } else {
+                        window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
+                        request_show_toast("Added article to saved");
+                        // Ribbon/pop + fly-to-shelf; the Saved badge count only
+                        // bumps once the ghost actually arrives there.
+                        if (window.animation_manager != null) {
+                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, decoded_title, true);
                         }
                     }
-                } else {
-                    window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name);
-                    request_show_toast("Added article to saved");
-                    // Visual vacuum effect: shrink the card and pulse the Saved badge
-                    if (window.animation_manager != null) {
-                        window.animation_manager.animate_bookmark_pop(article_card.root);
-                    }
                 }
-            }
-        });
-
-        article_card.share_requested.connect((article_url) => {
-            window.show_share_dialog(article_url);
-        });
-
-        // Attach debug hooks to the created widget so we can observe parent changes and disposals
-        article_card.root.notify.connect((obj, pspec) => {
-        });
-        // Note: cannot reliably connect to dispose; rely on notify("parent") to track unparenting
+            },
+            (article_url) => { window.show_share_dialog(article_url); }
+        );
 
         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
     }
         
         public void load_more_articles() {
-            if (remaining_articles == null || remaining_articles_index >= remaining_articles.size) {
+            if (remaining_articles == null || remaining_articles.size == 0) {
                 if (load_more_button_visible) {
                     request_hide_load_more_button();
                     load_more_button_visible = false;
@@ -813,22 +943,16 @@ namespace Managers {
                 return;
             }
             
-            int articles_to_load = int.min(10, remaining_articles.size - remaining_articles_index);
+            int articles_to_load = int.min(10, remaining_articles.size);
             
-            // Snapshot current child counts so we can detect newly appended cards
-            int[] col_child_counts = null;
+            // Snapshot current card count so we can detect newly appended cards
+            int prev_card_count = 0;
             int featured_count = 0;
             if (window != null && window.layout_manager != null) {
                 var lm = window.layout_manager;
-                if (lm.columns != null) {
-                    col_child_counts = new int[lm.columns.length];
-                    for (int ci = 0; ci < lm.columns.length; ci++) {
-                        var col = lm.columns[ci];
-                        int cnt = 0;
-                        var child = col.get_first_child();
-                        while (child != null) { cnt++; child = child.get_next_sibling(); }
-                        col_child_counts[ci] = cnt;
-                    }
+                if (lm.columns_row != null) {
+                    var child = lm.columns_row.get_first_child();
+                    while (child != null) { prev_card_count++; child = child.get_next_sibling(); }
                 }
                 if (lm.featured_box != null) {
                     var f = lm.featured_box;
@@ -838,11 +962,18 @@ namespace Managers {
             }
 
             for (int i = 0; i < articles_to_load; i++) {
-                var article = remaining_articles.get(remaining_articles_index + i);
+                // Remove from the front rather than indexing in place: this
+                // queue is now a shared pool that per-category "load more"
+                // (load_more_for_category) can also pull from out of order,
+                // so consumption has to be removal-based everywhere to keep
+                // both flows from stepping on each other.
+                var article = remaining_articles.remove_at(0);
+                string display_cat = extract_display_category(article);
+                remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) - 1);
                 // No need to check seen_urls here - articles were already deduplicated
                 // when they were added to remaining_articles queue
                 article_buffer.add(article);
-                add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, -1, null, article.source_name, true);
+                add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, null, article.source_name, true, article.published);
             }
 
             // Animate any newly appended cards after they have been inserted
@@ -867,37 +998,18 @@ namespace Managers {
                         }
                     }
 
-                    // Columns new children — animate in row-major order (left-to-right, top-to-bottom)
-                    if (lm2.columns != null) {
-                        int ncols = lm2.columns.length;
-                        // compute current counts per column and max rows
-                        int[] cur_counts = new int[ncols];
-                        int max_rows = 0;
-                        for (int ci = 0; ci < ncols; ci++) {
-                            var col = lm2.columns[ci];
-                            if (col == null) { cur_counts[ci] = 0; continue; }
-                            int cnt = 0;
-                            var ch = col.get_first_child();
-                            while (ch != null) { cnt++; ch = ch.get_next_sibling(); }
-                            cur_counts[ci] = cnt;
-                            if (cnt > max_rows) max_rows = cnt;
-                        }
-
-                        for (int r = 0; r < max_rows; r++) {
-                            for (int c = 0; c < ncols; c++) {
-                                if ((int) animate_index >= 1000000) break; // safety
-                                var col = lm2.columns[c];
-                                if (col == null) continue;
-                                int prev = (col_child_counts != null && c < col_child_counts.length) ? col_child_counts[c] : 0;
-                                // locate child at row r
-                                var child = col.get_first_child();
-                                int idx = 0;
-                                while (child != null && idx < r) { child = child.get_next_sibling(); idx++; }
-                                if (child != null && idx >= prev) {
-                                    window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                                    animate_index++;
-                                }
+                    // New cards in the grid — animate in row-major order (left-to-right,
+                    // top-to-bottom), which is simply insertion order for a Gtk.FlowBox.
+                    if (lm2.columns_row != null) {
+                        var child = lm2.columns_row.get_first_child();
+                        int idx = 0;
+                        while (child != null) {
+                            if (idx >= prev_card_count) {
+                                window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                                animate_index++;
                             }
+                            idx++;
+                            child = child.get_next_sibling();
                         }
                     }
 
@@ -905,14 +1017,12 @@ namespace Managers {
                 });
             }
             
-            remaining_articles_index += articles_to_load;
-            
             if (load_more_button_visible) {
                 request_hide_load_more_button();
                 load_more_button_visible = false;
-                
+
                 Timeout.add(300, () => {
-                    if (remaining_articles_index < remaining_articles.size) {
+                    if (remaining_articles.size > 0) {
                         Timeout.add(500, () => {
                             show_load_more_button();
                             return false;
@@ -932,7 +1042,15 @@ namespace Managers {
 
         public void show_load_more_button() {
             if (load_more_button_visible) return;
-            
+
+            // Front Page has its own per-category "load more" on each
+            // section's nav button (see LayoutManager.add_section_nav_buttons)
+            // now that its sections give overflow articles somewhere to land
+            // that a single page-bottom button doesn't - so skip the global
+            // button there. Every other limited category still uses the old
+            // flat grid and keeps this as its only "load more" affordance.
+            if (window.prefs.category == "frontpage") return;
+
             if (window.loading_state.loading_container != null && window.loading_state.loading_container.get_visible()) {
                 return;
             }
@@ -973,7 +1091,9 @@ namespace Managers {
             if (remaining_articles != null) {
                 remaining_articles.clear();
             }
-            remaining_articles_index = 0;
+            if (remaining_category_counts != null) {
+                remaining_category_counts.clear();
+            }
             articles_shown = 0;
 
             // Clear seen_urls to allow fresh deduplication for new fetch
@@ -996,7 +1116,6 @@ namespace Managers {
             }
 
             // Reset counters
-            next_column_index = 0;
             topten_hero_count = 0;
 
             // Clear featured carousel state
@@ -1086,16 +1205,29 @@ namespace Managers {
         featured_used = false;
         topten_hero_count = 0;
         if (featured_carousel_items != null) featured_carousel_items.clear();
+        // Must stop the timer before dropping the reference, or its
+        // GLib.Timeout source stays registered forever.
+        if (hero_carousel != null) hero_carousel.stop_timer();
         hero_carousel = null;
         featured_carousel_category = null;
     }
 
     /**
-     * Create an ArticleCard from a HeroCard and wire up all handlers
-     * Used by search to convert hero cards to article cards for display
+     * Create an ArticleCard from a hero's data and wire up all handlers.
+     * Used by search to convert hero cards to article cards for display.
+     *
+     * Takes plain data rather than a HeroCard reference since a HeroCard no
+     * longer stays reachable past its own construction (see
+     * HeroCard.wire_interactions()); the caller pulls these values off the
+     * hero's root widget instead.
      */
     public ArticleCard create_article_card_from_hero(
-        HeroCard hero,
+        string hero_title,
+        string hero_url,
+        Gdk.Paintable? hero_paintable,
+        string? hero_source_name,
+        string? hero_category_id,
+        string? hero_thumbnail_url,
         int col_w,
         int img_h,
         ArticleStateStore? state_store
@@ -1104,28 +1236,27 @@ namespace Managers {
         chip.set_visible(false);
 
         var article_card = new ArticleCard(
-            hero.title_label.get_label(),
-            hero.url,
+            hero_title,
+            hero_url,
             col_w,
             img_h,
             chip,
-            0,
             state_store,
             window
         );
 
         // Copy image
-        if (hero.image.get_paintable() != null) {
-            article_card.image.set_paintable(hero.image.get_paintable());
+        if (hero_paintable != null) {
+            article_card.image.set_paintable(hero_paintable);
         }
 
         // Preserve metadata
-        article_card.source_name = hero.source_name;
-        article_card.category_id = hero.category_id;
-        article_card.thumbnail_url = hero.thumbnail_url;
+        article_card.source_name = hero_source_name;
+        article_card.category_id = hero_category_id;
+        article_card.thumbnail_url = hero_thumbnail_url;
 
         // Wire up application-level handlers
-        wire_article_card_handlers(article_card, hero.title_label.get_label(), hero.url, hero.thumbnail_url, hero.category_id, hero.source_name);
+        wire_article_card_handlers(article_card, hero_title, hero_url, hero_thumbnail_url, hero_category_id, hero_source_name);
 
         return article_card;
     }
@@ -1156,63 +1287,65 @@ namespace Managers {
             window.article_state_store.register_article(norm, category_id != null ? category_id : "", source_name);
         }
 
-        // Connect activation to show preview
-        article_card.activated.connect((s) => {
-            if (window.article_pane != null) {
-                window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
-            }
-        });
-
-        // Context menu actions
-        article_card.open_in_app_requested.connect((article_url) => {
-            open_article_in_app_if_online(article_url);
-        });
-
-        article_card.open_in_browser_requested.connect((article_url) => {
-            open_article_in_browser_if_online(article_url);
-        });
-
-        article_card.follow_source_requested.connect((article_url, src_name) => {
-            request_show_toast("Searching for feed...", true);
-            if (window.source_manager != null) {
-                window.source_manager.follow_rss_source(article_url, src_name);
-            }
-        });
-
-        article_card.save_for_later_requested.connect((article_url) => {
-            if (window.article_state_store != null) {
-                bool is_saved = window.article_state_store.is_saved(article_url);
-                if (is_saved) {
-                    window.article_state_store.unsave_article(article_url);
-                    if (window.sidebar_manager != null) {
-                        window.sidebar_manager.update_badge_for_category("saved");
-                    }
-                    if (window.prefs.category == "saved") {
+        // Capture plain widget locals - see ArticleCard.wire_interactions().
+        var card_root = article_card.root;
+        var card_save_ribbon = article_card.save_ribbon;
+        ArticleCard.wire_interactions(
+            card_root,
+            url,
+            window.article_state_store,
+            window,
+            source_name,
+            (s) => {
+                if (window.article_pane != null) {
+                    window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
+                }
+            },
+            (article_url) => { open_article_in_app_if_online(article_url); },
+            (article_url) => { open_article_in_browser_if_online(article_url); },
+            (article_url, src_name) => {
+                request_show_toast("Searching for feed...", true);
+                if (window.source_manager != null) {
+                    window.source_manager.follow_rss_source(article_url, src_name);
+                }
+            },
+            (article_url) => {
+                if (window.article_state_store != null) {
+                    bool is_saved = window.article_state_store.is_saved(article_url);
+                    if (is_saved) {
+                        window.article_state_store.unsave_article(article_url);
+                        // animate_save_toggle() updates the Saved badge count itself.
                         if (window.animation_manager != null) {
-                            var w = article_card.root;
-                            string normalized = norm;
-                            if (window.view_state != null) window.view_state.unregister_card_for_url(normalized);
-                            window.animation_manager.animate_card_exit_and_remove(w, 0);
-                        } else {
-                            window.fetch_news();
+                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, title, false);
+                        }
+                        if (window.prefs.category == "saved") {
+                            if (window.animation_manager != null) {
+                                var w = card_root;
+                                string normalized = norm;
+                                if (window.view_state != null) window.view_state.unregister_card_for_url(normalized);
+                                window.animation_manager.animate_card_exit_and_remove(w, 0);
+                            } else {
+                                window.fetch_news();
+                            }
+                        }
+                        request_show_toast("Removed article from saved");
+                    } else {
+                        window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
+                        request_show_toast("Added article to saved");
+                        // Ribbon/pop + fly-to-shelf; the Saved badge count only
+                        // bumps once the ghost actually arrives there.
+                        if (window.animation_manager != null) {
+                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, title, true);
                         }
                     }
-                    request_show_toast("Removed article from saved");
-                } else {
-                    window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
-                    if (window.sidebar_manager != null) {
-                        window.sidebar_manager.update_badge_for_category("saved");
-                    }
-                    request_show_toast("Added article to saved");
+                }
+            },
+            (article_url) => {
+                if (window != null) {
+                    window.show_share_dialog(article_url);
                 }
             }
-        });
-
-        article_card.share_requested.connect((article_url) => {
-            if (window != null) {
-                window.show_share_dialog(article_url);
-            }
-        });
+        );
     }
 }
 }

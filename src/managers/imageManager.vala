@@ -16,10 +16,59 @@
  */
 
 
+// Plain data carried into the network-download worker pool. Deliberately a
+// simple GObject with value fields rather than a captured closure: the
+// project's home-grown WorkerPool stores ad-hoc per-call closures and turned
+// out to drop their captured-environment ownership (job_target_destroy_notify
+// was always cleared in the generated code), causing a use-after-free once a
+// queued job actually ran. GLib.ThreadPool<T> only ever creates one long-lived
+// closure (the processing func, over `this`) - per-job state travels as plain
+// fields on this object instead, so there is no per-call closure lifetime to
+// get wrong.
+private class ImageDownloadJob : GLib.Object {
+    public string url;
+    public int target_w;
+    public int target_h;
+    public uint gen_seq;
+    public int device_scale;
+    public NewsSource news_src;
+    public Soup.Session session;
+    public MetaCache? meta_cache;
+    public ImageCache? img_cache;
+}
+
+private class CachedImageJob : GLib.Object {
+    public Gtk.Picture image;
+    public string url;
+    public int target_w;
+    public int target_h;
+    public int device_scale;
+    public string disk_path;
+    public ImageCache? img_cache;
+}
+
+// Outcome of the worker-thread half of a network image download. Carries
+// only plain data (never a Gtk.Picture or a Gee collection), so it is safe
+// to build entirely on a download_pool thread and hand to the main thread
+// afterwards. `ok == false` means "show the fallback placeholder" - it
+// covers network errors, decode failures, and the oversized-Reddit-image
+// bailout uniformly.
+private class DownloadOutcome : GLib.Object {
+    public bool ok = false;
+    public string? size_key;
+    public Gdk.Pixbuf? pixbuf;
+}
+
 public class ImageManager : GLib.Object {
     public weak NewsWindow window;
     private Gee.HashMap<string, int> download_retry_counts;
-    
+
+    // Bounded worker pools for image downloads/decodes, sized to match
+    // NewsWindow.MAX_CONCURRENT_DOWNLOADS so this doesn't reduce load
+    // throughput compared to the previous one-OS-thread-per-image approach.
+    private GLib.ThreadPool<ImageDownloadJob> download_pool;
+    private GLib.ThreadPool<CachedImageJob> cached_load_pool;
+
     // Download queue and state management (moved from appWindow)
     public Gee.HashMap<string, string> requested_image_sizes;
     public Gee.HashMap<string, Gee.ArrayList<Gtk.Picture>> pending_downloads;
@@ -29,8 +78,40 @@ public class ImageManager : GLib.Object {
     public GLib.Mutex download_mutex;
     public uint deferred_check_timeout_id = 0;
 
+    // ------------------------------------------------------------------
+    // THREADING CONTRACT
+    //
+    // `download_pool` and `cached_load_pool` run their jobs on dedicated
+    // worker threads. GTK widgets (Gtk.Picture and friends) and the Gee
+    // collections above are not thread-safe and must only ever be touched
+    // from the main thread. The methods below are split along that line
+    // and named/commented accordingly:
+    //
+    //   - Methods marked "worker thread" (fetch_and_decode,
+    //     apply_cover_crop) do pure computation - HTTP fetch, pixbuf
+    //     decode/scale - and never reference a Gtk.Picture, a Gee
+    //     collection field, or `window.loading_state`.
+    //   - Methods marked "MAIN THREAD ONLY" do the opposite: they are the
+    //     only code allowed to mutate pending_downloads/requested_image_
+    //     sizes or call into GTK, and must only be invoked from a GLib
+    //     main-loop callback (Idle.add/Timeout.add), never directly from
+    //     a worker thread.
+    //
+    // Every worker-thread job function (do_image_download,
+    // do_cached_image_load) does its computation, then makes exactly one
+    // Idle.add() call to hand the result to a MAIN THREAD ONLY delivery
+    // method - including on the error paths. Historically the error
+    // paths here skipped that hand-off and called into GTK straight from
+    // the worker thread, which is undefined behavior in GTK and is the
+    // most likely cause of the segfaults this code used to produce under
+    // ordinary network errors (timeouts, DNS failures, resets - ordinary
+    // events, not edge cases). Keep new code on the correct side of this
+    // line.
+    // ------------------------------------------------------------------
+
     // Helper: when an image download fails or we need a fallback placeholder,
     // prefer the local placeholder for pictures that were marked as local-news.
+    // MAIN THREAD ONLY.
     private void set_fallback_placeholder_for(Gtk.Picture pic, int w, int h, string url) {
         bool prefer_local = false;
         try {
@@ -40,15 +121,15 @@ public class ImageManager : GLib.Object {
         } catch (GLib.Error e) { prefer_local = false; }
 
         if (prefer_local) {
-            try { window.set_local_placeholder_image(pic, w, h); } catch (GLib.Error e) { try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error _e) { } }
+            window.set_local_placeholder_image(pic, w, h);
             try { if (pending_local_placeholder != null) pending_local_placeholder.remove(pic); } catch (GLib.Error e) { }
         } else {
             NewsSource source = window.infer_source_from_url(url);
             // For unknown sources, use generic gradient placeholder instead of source branding
             if (source == NewsSource.UNKNOWN) {
-                try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error e) { }
+                PlaceholderBuilder.create_gradient_placeholder(pic, w, h);
             } else {
-                try { window.set_placeholder_image_for_source(pic, w, h, source); } catch (GLib.Error e) { try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error _e) { } }
+                window.set_placeholder_image_for_source(pic, w, h, source);
             }
         }
     }
@@ -62,6 +143,17 @@ public class ImageManager : GLib.Object {
         pending_local_placeholder = new Gee.HashMap<Gtk.Picture, bool>();
         hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
         download_mutex = new GLib.Mutex();
+
+        try {
+            download_pool = new GLib.ThreadPool<ImageDownloadJob>.with_owned_data((job) => {
+                do_image_download(job);
+            }, NewsWindow.MAX_CONCURRENT_DOWNLOADS, false);
+            cached_load_pool = new GLib.ThreadPool<CachedImageJob>.with_owned_data((job) => {
+                do_cached_image_load(job);
+            }, NewsWindow.MAX_CONCURRENT_DOWNLOADS, false);
+        } catch (GLib.ThreadError e) {
+            warning("Failed to create image worker pools: %s", e.message);
+        }
     }
 
     // Integer clamp helper (valac doesn't provide clampi by default)
@@ -71,492 +163,245 @@ public class ImageManager : GLib.Object {
         return v;
     }
 
+    // Hard ceiling on the pixel dimensions we'll ever decode/crop an image
+    // to, applied *after* multiplying by device_scale. The 2400px clamp in
+    // network_fallback() only bounds target_w/target_h before that
+    // multiplication, so on a HiDPI (2x/3x) display the actual decode size
+    // could otherwise reach 4800px+ per side - tens of megabytes for a
+    // single hero image that's displayed under a megapixel.
+    private const int MAX_DECODE_DIM = 2400;
+
     // Start a single download for a URL and update all registered targets when done.
+    // MAIN THREAD ONLY (reads Gtk.Picture.get_scale_factor and window fields).
     public void start_image_download_for_url(string url, int target_w, int target_h) {
-        // Capture a snapshot of main-thread-only data we need in the worker:
+        // Capture a snapshot of main-thread-only data we need in the worker
+        // so do_image_download() never has to dereference `window` or a
+        // Gtk.Picture from a background thread.
         int device_scale = 1;
+        var list_try = pending_downloads.get(url);
+        if (list_try != null && list_try.size > 0) {
+            foreach (var pic_obj in list_try) {
+                try {
+                    var pic = (Gtk.Picture) pic_obj;
+                    int s = pic.get_scale_factor();
+                    if (s > device_scale) device_scale = s;
+                } catch (GLib.Error e) {
+                    // ignore and continue
+                }
+            }
+            if (device_scale < 1) device_scale = 1;
+        }
+
+        // Concurrency is already bounded by the caller (ensure_start_download
+        // admits at most MAX_CONCURRENT_DOWNLOADS at a time). Run on the
+        // bounded download_pool rather than a dedicated OS thread per
+        // download: spawning a raw Thread per image causes glibc to hand out
+        // a fresh malloc arena per thread, and those arenas are never
+        // returned to the OS even after the thread exits, which showed up as
+        // steady RSS growth over a browsing session.
+        var job = new ImageDownloadJob();
+        job.url = url;
+        job.target_w = target_w;
+        job.target_h = target_h;
+        job.gen_seq = FetchContext.current;
+        job.device_scale = device_scale;
+        job.news_src = window.prefs.news_source;
+        job.session = window.session;
+        job.meta_cache = window.meta_cache;
+        job.img_cache = window.image_cache;
         try {
-            var list_try = pending_downloads.get(url);
-            if (list_try != null && list_try.size > 0) {
-                foreach (var pic_obj in list_try) {
-                    try {
-                        var pic = (Gtk.Picture) pic_obj;
-                        int s = pic.get_scale_factor();
-                        if (s > device_scale) device_scale = s;
-                    } catch (GLib.Error e) {
-                        // ignore and continue
-                    }
+            download_pool.add(job);
+        } catch (GLib.ThreadError e) {
+            warning("Failed to queue image download: %s", e.message);
+        }
+    }
+
+    // Runs on the download_pool worker threads. Pure computation only: HTTP
+    // fetch plus decode/scale/crop. Deliberately touches nothing that
+    // requires the main thread - see the THREADING CONTRACT note above.
+    private DownloadOutcome fetch_and_decode(ImageDownloadJob job) {
+        var outcome = new DownloadOutcome();
+        string url = job.url;
+        int target_w = job.target_w;
+        int target_h = job.target_h;
+        int device_scale = job.device_scale;
+        var meta_cache = job.meta_cache;
+        var img_cache = job.img_cache;
+
+        try {
+            // Upgrade Guardian image URLs to request higher resolution for network download.
+            // Guardian URLs end with /XXX.jpg where XXX is the width; their CDN allows
+            // 1000px but returns 403 for larger sizes like 2000px/2400px.
+            string download_url = url;
+            if (url.index_of("media.guim.co.uk") >= 0) {
+                try {
+                    var regex = new Regex("/(\\d+)\\.(jpg|png|jpeg)$", RegexCompileFlags.CASELESS);
+                    download_url = regex.replace(url, -1, 0, "/1000.\\2");
+                } catch (GLib.Error e) {
+                    // Regex error, use original URL
                 }
-                if (device_scale < 1) device_scale = 1;
             }
-        } catch (GLib.Error e) { device_scale = 1; }
 
-    string? size_rec = null;
-    try { size_rec = requested_image_sizes.get(url); } catch (GLib.Error e) { size_rec = null; }
+            var client = Paperboy.HttpClientUtils.get_default();
+            var options = new Paperboy.HttpClientUtils.RequestOptions().with_image_headers();
+            var http_response = client.fetch_sync(download_url, options);
 
-    // Capture a few more main-thread-only references/values so the
-    // worker doesn't dereference `window` fields from a background
-    // thread. This keeps the worker self-contained and avoids
-    // potential races on `window` pointer fields.
-    NewsSource news_src = NewsSource.GUARDIAN;
-    try { news_src = window.prefs.news_source; } catch (GLib.Error e) { }
-    var session = window.session;
-    var meta_cache = window.meta_cache;
+            uint status = http_response.status_code;
+            GLib.Bytes? body = http_response.body;
+            int64 length = (body != null) ? (int64) body.get_size() : 0;
 
-        // Use a thread pool with max 8 threads instead of creating unlimited new threads
-        // This dramatically improves performance by avoiding thread creation overhead
-        uint gen_seq = FetchContext.current;
+            if (job.news_src == NewsSource.REDDIT && length > 2 * 1024 * 1024) {
+                // Reddit oversized image - report failure, caller shows a placeholder.
+                return outcome;
+            }
 
-        new Thread<void*>("image-download", () => {
-            GLib.AtomicInt.inc(ref NewsWindow.active_downloads);
-            try {
-                // Upgrade Guardian image URLs to request higher resolution for network download
-                // Guardian URLs end with /XXX.jpg where XXX is the width
-                // Guardian CDN allows 1000px but returns 403 for larger sizes like 2000px/2400px
-                string download_url = url;
-                if (url.index_of("media.guim.co.uk") >= 0) {
+            if (status == Soup.Status.NOT_MODIFIED) {
+                // Not modified; refresh last-access and re-decode the cached copy at
+                // the size this specific job was requested for.
+                if (meta_cache != null) meta_cache.touch(url);
+                var path = meta_cache != null ? meta_cache.get_cached_path(url) : null;
+                if (path == null) return outcome;
+
+                string file_key = "pixbuf::file:%s::%dx%d".printf(path, 0, 0);
+                var pix = img_cache != null ? img_cache.get_or_load_file(file_key, path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, path, 0, 0);
+                if (pix == null) return outcome;
+
+                outcome.size_key = make_cache_key(url, target_w, target_h);
+                outcome.pixbuf = apply_cover_crop(img_cache, outcome.size_key, pix,
+                    clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
+                    clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
+                outcome.ok = true;
+                return outcome;
+            }
+
+            if (status == Soup.Status.OK && length > 0 && body != null) {
+                unowned uint8[] body_data = body.get_data();
+                uint8[] data = new uint8[body_data.length];
+                Memory.copy(data, body_data, body_data.length);
+
+                string? etag = http_response.get_header("etag");
+                string? last_modified = http_response.get_header("last-modified");
+                string? content_type = http_response.get_header("content-type");
+                if (meta_cache != null) {
+                    try { meta_cache.write_cache(url, data, etag, last_modified, content_type); } catch (GLib.Error e) { }
+                }
+
+                var loader = new Gdk.PixbufLoader();
+                loader.write(data);
+                loader.close();
+                var pixbuf = loader.get_pixbuf();
+                loader = null;
+                if (pixbuf == null) return outcome;
+
+                outcome.size_key = make_cache_key(url, target_w, target_h);
+                outcome.pixbuf = apply_cover_crop(img_cache, outcome.size_key, pixbuf,
+                    clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
+                    clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
+                outcome.ok = true;
+                return outcome;
+            }
+        } catch (GLib.Error e) {
+            // Network or decode failure - outcome.ok stays false, caller shows a placeholder.
+        }
+        return outcome;
+    }
+
+    // Worker-thread-safe: scales+center-crops to fully cover the (device-scaled)
+    // target, via the shared ImageCache pixbuf cache. No GTK/collection access.
+    private Gdk.Pixbuf apply_cover_crop(ImageCache? cache, string size_key, Gdk.Pixbuf pixbuf, int eff_w, int eff_h) {
+        try {
+            var final_pb = cache != null ? cache.get_or_scale_and_crop_pixbuf(size_key, pixbuf, eff_w, eff_h) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(size_key, pixbuf, eff_w, eff_h);
+            if (final_pb != null) return final_pb;
+        } catch (GLib.Error e) { }
+        return pixbuf;
+    }
+
+    // Runs on the download_pool worker threads.
+    private void do_image_download(ImageDownloadJob job) {
+        GLib.AtomicInt.inc(ref NewsWindow.active_downloads);
+        try {
+            string url = job.url;
+            int target_w = job.target_w;
+            int target_h = job.target_h;
+            uint gen_seq = job.gen_seq;
+
+            var outcome = fetch_and_decode(job);
+            Idle.add(() => {
+                deliver_download_outcome(url, target_w, target_h, gen_seq, outcome);
+                return false;
+            });
+        } finally {
+            // Decrement active downloads counter
+            GLib.AtomicInt.dec_and_test(ref NewsWindow.active_downloads);
+        }
+    }
+
+    // MAIN THREAD ONLY. If the fetch sequence changed since this download
+    // started (view/category switched), the result no longer belongs to the
+    // current view: drop it without touching any picture. Otherwise deliver
+    // it (or the fallback placeholder, if the fetch failed) to every
+    // picture waiting on this url.
+    private void deliver_download_outcome(string url, int target_w, int target_h, uint gen_seq, DownloadOutcome outcome) {
+        if (FetchContext.current != gen_seq) {
+            pending_downloads.remove(url);
+            forget_requested_size(url);
+            return;
+        }
+        deliver_to_pending(url, target_w, target_h, outcome.ok ? outcome.pixbuf : null, outcome.size_key);
+    }
+
+    // MAIN THREAD ONLY. Shared delivery path for both network downloads and
+    // disk-cache loads: caches the pixbuf (when present), paints every
+    // Gtk.Picture waiting on `url`, notifies loading_state, and clears
+    // bookkeeping for the url. Pass a null pixbuf to fail every waiting
+    // picture with its fallback placeholder instead.
+    private void deliver_to_pending(string url, int target_w, int target_h, Gdk.Pixbuf? pixbuf, string? size_key) {
+        if (pixbuf != null && size_key != null) {
+            try { if (window.image_cache != null) window.image_cache.set(size_key, pixbuf); else ImageCache.get_global().set(size_key, pixbuf); } catch (GLib.Error e) { }
+            if (target_w <= 64 && target_h <= 64) {
+                try {
+                    string any_key = make_cache_key(url, 0, 0);
+                    if (window.image_cache != null) window.image_cache.set(any_key, pixbuf);
+                    else ImageCache.get_global().set(any_key, pixbuf);
+                } catch (GLib.Error e) { }
+            }
+        }
+
+        var list = pending_downloads.get(url);
+        if (list != null) {
+            foreach (var pic in list) {
+                if (pixbuf != null && size_key != null) {
                     try {
-                        var regex = new Regex("/(\\d+)\\.(jpg|png|jpeg)$", RegexCompileFlags.CASELESS);
-                        // Request 1000px - Guardian's CDN allows this size
-                        string replacement = "/1000.\\2";
-                        download_url = regex.replace(url, -1, 0, replacement);
-                    } catch (GLib.Error e) {
-                        // Regex error, use original URL
-                    }
-                }
-
-                var client = Paperboy.HttpClientUtils.get_default();
-                var options = new Paperboy.HttpClientUtils.RequestOptions().with_image_headers();
-                var http_response = client.fetch_sync(download_url, options);
-
-                // Capture response data
-                uint response_status = http_response.status_code;
-                GLib.Bytes? response = http_response.body;
-                int64 response_length = (response != null) ? (int64)response.get_size() : 0;
-                uint8[]? response_data = null;
-                string? etag = null;
-                string? last_modified = null;
-                string? content_type = null;
-
-                if (news_src == NewsSource.REDDIT && response_length > 2 * 1024 * 1024) {
-                    // Reddit oversized image - bail early
-                    Idle.add(() => {
-                        // If the fetch sequence changed since this download started,
-                        // the results no longer belong to the current view. Avoid
-                        // populating caches and painting images for stale fetches.
-                        if (FetchContext.current != gen_seq) {
-                            try { pending_downloads.remove(url); } catch (GLib.Error e) { }
-                            try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
-                            try {
-                                string nkey = UrlUtils.normalize_article_url(url);
-                                if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                            } catch (GLib.Error e) { }
-                            return false;
-                        }
-                        var list = pending_downloads.get(url);
-                            if (list != null) {
-                                foreach (var pic in list) {
-                                    set_fallback_placeholder_for(pic, target_w, target_h, url);
-                                    if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                }
-                                pending_downloads.remove(url);
-                                try { requested_image_sizes.remove(url); } catch (GLib.Error e1) { }
-                                try {
-                                    string nkey = UrlUtils.normalize_article_url(url);
-                                    if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                } catch (GLib.Error e1) { }
-                            }
-                        return false;
-                    });
-                    // Don't return early - let finally block decrement active_downloads
-                }
-
-                if (response_status == Soup.Status.NOT_MODIFIED) {
-                    // 304 Not Modified
-                    // Not modified; refresh last-access and serve cached image
-                    if (meta_cache != null) meta_cache.touch(url);
-                    var path = meta_cache != null ? meta_cache.get_cached_path(url) : null;
-                    if (path != null) {
-                        try {
-                            string file_key = "pixbuf::file:%s::%dx%d".printf(path, 0, 0);
-                            var pix = window.image_cache != null ? window.image_cache.get_or_load_file(file_key, path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, path, 0, 0);
-                            if (pix != null) {
-                                if (pix != null && size_rec != null && size_rec.length > 0) {
-                                    try {
-                                        string[] parts = size_rec.split("x");
-                                        if (parts.length == 2) {
-                                            int sw = int.parse(parts[0]);
-                                            int sh = int.parse(parts[1]);
-                                            int eff_sw = sw * device_scale;
-                                            int eff_sh = sh * device_scale;
-                                            string k = make_cache_key(url, sw, sh);
-                                            // Create a cover-scaled & center-cropped pixbuf for the requested size
-                                            try {
-                                                var final_pb = window.image_cache != null ? window.image_cache.get_or_scale_and_crop_pixbuf(k, pix, eff_sw, eff_sh) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(k, pix, eff_sw, eff_sh);
-                                                if (final_pb != null) pix = final_pb;
-                                            } catch (GLib.Error e) { }
-                                            var pb_for_idle = pix;
-                                            Idle.add(() => {
-                                                if (FetchContext.current != gen_seq) {
-                                                    try { pending_downloads.remove(url); } catch (GLib.Error e) { }
-                                                    try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
-                                                    try {
-                                                        string nkey = UrlUtils.normalize_article_url(url);
-                                                        if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                                    } catch (GLib.Error e) { }
-                                                    return false;
-                                                }
-                                                try {
-                                                    // Cache the pixbuf (not a texture) so long-lived
-                                                    // storage is centralized in ImageCache. Create a
-                                                    // transient texture only for widgets.
-                                                    try {
-                                                        if (window.image_cache != null) window.image_cache.set(k, pb_for_idle);
-                                                        else ImageCache.get_global().set(k, pb_for_idle);
-                                                    } catch (GLib.Error e) { }
-                                                    if (sw <= 64 && sh <= 64) {
-                                                        try {
-                                                            string any_key2 = make_cache_key(url, 0, 0);
-                                                            if (window.image_cache != null) window.image_cache.set(any_key2, pb_for_idle);
-                                                            else ImageCache.get_global().set(any_key2, pb_for_idle);
-                                                        } catch (GLib.Error e) { }
-                                                    }
-
-                                                    var list2 = pending_downloads.get(url);
-                                                    if (list2 != null) {
-                                                        foreach (var pic in list2) {
-                                                            try {
-                                                                var tex = window.image_cache != null ? window.image_cache.get_texture(k) : ImageCache.get_global().get_texture(k);
-                                                                if (tex != null) {
-                                                                    pic.set_paintable(tex);
-                                                                } else {
-                                                                    try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_for_idle)); } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
-                                                                }
-                                                            } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
-                                                            if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                                        }
-                                                        pending_downloads.remove(url);
-                                                        try { requested_image_sizes.remove(url); } catch (GLib.Error e1) { }
-                                                        try {
-                                                            string nkey = UrlUtils.normalize_article_url(url);
-                                                            if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                                        } catch (GLib.Error e1) { }
-                                                    }
-                                                } catch (GLib.Error e) {
-                                                    var list2 = pending_downloads.get(url);
-                                                    if (list2 != null) {
-                                                        foreach (var pic in list2) { set_fallback_placeholder_for(pic, target_w, target_h, url); if (window.loading_state != null) window.loading_state.on_image_loaded(pic); }
-                                                        pending_downloads.remove(url);
-                                                        try { requested_image_sizes.remove(url); } catch (GLib.Error e2) { }
-                                                        try {
-                                                            string nkey = UrlUtils.normalize_article_url(url);
-                                                            if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                                        } catch (GLib.Error e2) { }
-                                                    }
-                                                }
-                                                return false;
-                                            });
-                                        } else {
-                                            var pb_for_idle = pix;
-                                            Idle.add(() => {
-                                                if (FetchContext.current != gen_seq) {
-                                                    try { pending_downloads.remove(url); } catch (GLib.Error e) { }
-                                                    try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
-                                                    try {
-                                                        string nkey = UrlUtils.normalize_article_url(url);
-                                                        if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                                    } catch (GLib.Error e) { }
-                                                    return false;
-                                                }
-                                                try {
-                                                    // Cache pixbuf and emit transient textures to widgets
-                                                    string any_key = make_cache_key(url, pb_for_idle.get_width(), pb_for_idle.get_height());
-                                                    try {
-                                                        if (window.image_cache != null) window.image_cache.set(any_key, pb_for_idle);
-                                                        else ImageCache.get_global().set(any_key, pb_for_idle);
-                                                    } catch (GLib.Error e) { }
-                                                    var list2 = pending_downloads.get(url);
-                                                    if (list2 != null) {
-                                                        foreach (var pic in list2) {
-                                                            try {
-                                                                var tex = window.image_cache != null ? window.image_cache.get_texture(any_key) : ImageCache.get_global().get_texture(any_key);
-                                                                if (tex != null) {
-                                                                    pic.set_paintable(tex);
-                                                                } else {
-                                                                    try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_for_idle)); } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
-                                                                }
-                                                            } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
-                                                            if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                                        }
-                                                        pending_downloads.remove(url);
-                                                        try { requested_image_sizes.remove(url); } catch (GLib.Error e1) { }
-                                                        try {
-                                                            string nkey = UrlUtils.normalize_article_url(url);
-                                                            if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                                        } catch (GLib.Error e1) { }
-                                                    }
-                                                } catch (GLib.Error e) {
-                                                    var list2 = pending_downloads.get(url);
-                                                    if (list2 != null) {
-                                                        foreach (var pic in list2) { set_fallback_placeholder_for(pic, target_w, target_h, url); if (window.loading_state != null) window.loading_state.on_image_loaded(pic); }
-                                                        pending_downloads.remove(url);
-                                                        try { requested_image_sizes.remove(url); } catch (GLib.Error e2) { }
-                                                        try {
-                                                            string nkey = UrlUtils.normalize_article_url(url);
-                                                            if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                                        } catch (GLib.Error e2) { }
-                                                    }
-                                                }
-                                                return false;
-                                            });
-                                        }
-                                    } catch (GLib.Error e) {
-                                        var list2 = pending_downloads.get(url);
-                                        if (list2 != null) {
-                                                        foreach (var pic in list2) { set_fallback_placeholder_for(pic, target_w, target_h, url); if (window.loading_state != null) window.loading_state.on_image_loaded(pic); }
-                                            pending_downloads.remove(url);
-                                            try { requested_image_sizes.remove(url); } catch (GLib.Error e3) { }
-                                            try {
-                                                string nkey = UrlUtils.normalize_article_url(url);
-                                                if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                            } catch (GLib.Error e3) { }
-                                        }
-                                    }
-                                } else {
-                                    var pb_for_idle = pix;
-                                    Idle.add(() => {
-                                        if (FetchContext.current != gen_seq) {
-                                            try { pending_downloads.remove(url); } catch (GLib.Error e) { }
-                                            try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
-                                            try {
-                                                string nkey = UrlUtils.normalize_article_url(url);
-                                                if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                            } catch (GLib.Error e) { }
-                                            return false;
-                                        }
-                                        try {
-                                            string size_key = make_cache_key(url, target_w, target_h);
-                                            try { if (window.image_cache != null) window.image_cache.set(size_key, pb_for_idle); else ImageCache.get_global().set(size_key, pb_for_idle); } catch (GLib.Error e) { }
-                                            if (pb_for_idle.get_width() <= 64 && pb_for_idle.get_height() <= 64) {
-                                                try {
-                                                    string any_key2 = make_cache_key(url, 0, 0);
-                                                    if (window.image_cache != null) window.image_cache.set(any_key2, pb_for_idle);
-                                                    else ImageCache.get_global().set(any_key2, pb_for_idle);
-                                                } catch (GLib.Error e) { }
-                                            }
-
-                                            var list2 = pending_downloads.get(url);
-                                            if (list2 != null) {
-                                                foreach (var pic in list2) {
-                                                    try {
-                                                        var tex = window.image_cache != null ? window.image_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
-                                                        if (tex != null) {
-                                                            pic.set_paintable(tex);
-                                                        } else {
-                                                            try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_for_idle)); } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
-                                                        }
-                                                    } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
-                                                    if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                                }
-                                                pending_downloads.remove(url);
-                                                try { requested_image_sizes.remove(url); } catch (GLib.Error e4) { }
-                                                try {
-                                                    string nkey = UrlUtils.normalize_article_url(url);
-                                                    if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                                } catch (GLib.Error e4) { }
-                                            }
-                                        } catch (GLib.Error e) {
-                                                    var list2 = pending_downloads.get(url);
-                                                    if (list2 != null) {
-                                                        foreach (var pic in list2) { set_fallback_placeholder_for(pic, target_w, target_h, url); if (window.loading_state != null) window.loading_state.on_image_loaded(pic); }
-                                                        pending_downloads.remove(url);
-                                                        try { requested_image_sizes.remove(url); } catch (GLib.Error e2) { }
-                                                        try {
-                                                            string nkey = UrlUtils.normalize_article_url(url);
-                                                            if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                                        } catch (GLib.Error e2) { }
-                                                    }
-                                        }
-                                        return false;
-                                    });
-                                }
-                            }
-                        } catch (GLib.Error e) {
-                            var list2 = pending_downloads.get(url);
-                            if (list2 != null) {
-                                                        foreach (var pic in list2) { set_fallback_placeholder_for(pic, target_w, target_h, url); if (window.loading_state != null) window.loading_state.on_image_loaded(pic); }
-                                pending_downloads.remove(url);
-                                try { requested_image_sizes.remove(url); } catch (GLib.Error e6) { }
-                                try {
-                                    string nkey = UrlUtils.normalize_article_url(url);
-                                    if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                } catch (GLib.Error e6) { }
-                            }
-                        }
-                    } else {
-                            Idle.add(() => {
-                                if (FetchContext.current != gen_seq) {
-                                    try { pending_downloads.remove(url); } catch (GLib.Error e) { }
-                                    try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
-                                    try {
-                                        string nkey = UrlUtils.normalize_article_url(url);
-                                        if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                                    } catch (GLib.Error e) { }
-                                    return false;
-                                }
-                            var list2 = pending_downloads.get(url);
-                            if (list2 != null) {
-                                foreach (var pic in list2) { set_fallback_placeholder_for(pic, target_w, target_h, url); if (window.loading_state != null) window.loading_state.on_image_loaded(pic); }
-                                pending_downloads.remove(url);
-                            }
-                            return false;
-                        });
-                    }
-                    // continue after handling 304
-                }
-
-                if (response_status == Soup.Status.OK && response_length > 0 && response != null) {
-                    try {
-                        // Get response data from GLib.Bytes
-                        unowned uint8[] body_data = response.get_data();
-
-                        // Copy to uint8[] array for processing
-                        uint8[] data = new uint8[body_data.length];
-                        Memory.copy(data, body_data, body_data.length);
-
-                        // Extract response headers
-                        etag = http_response.get_header("etag");
-                        last_modified = http_response.get_header("last-modified");
-                        content_type = http_response.get_header("content-type");
-
-                        if (meta_cache != null) {
-                            try {
-                                meta_cache.write_cache(url, data, etag, last_modified, content_type);
-                            } catch (GLib.Error e) { }
-                        }
-
-                        var loader = new Gdk.PixbufLoader();
-                        loader.write(data);
-                        loader.close();
-                        var pixbuf = loader.get_pixbuf();
-                        // Set loader to null to free it (Vala auto-manages GObject refs)
-                        loader = null;
-                        if (pixbuf != null) {
-                            int width = pixbuf.get_width();
-                            int height = pixbuf.get_height();
-
-                            // Use COVER strategy: scale so image fully covers the target, then center-crop
-                            int eff_w = target_w * device_scale;
-                            int eff_h = target_h * device_scale;
-
-                            string size_key = make_cache_key(url, target_w, target_h);
-                            try {
-                                var final_pb = window.image_cache != null ? window.image_cache.get_or_scale_and_crop_pixbuf(size_key, pixbuf, eff_w, eff_h) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(size_key, pixbuf, eff_w, eff_h);
-                                if (final_pb != null) {
-                                    pixbuf = final_pb;
-                                }
-                            } catch (GLib.Error e) { }
-
-                            var pb_for_idle = pixbuf;
-                            Idle.add(() => {
-                                if (FetchContext.current != gen_seq) {
-                                    try { pending_downloads.remove(url); } catch (GLib.Error e) { }
-                                    return false;
-                                }
-                                try {
-                                    try { if (window.image_cache != null) window.image_cache.set(size_key, pb_for_idle); else ImageCache.get_global().set(size_key, pb_for_idle); } catch (GLib.Error e) { }
-
-                                    var list = pending_downloads.get(url);
-                                    if (list != null) {
-                                        foreach (var pic in list) {
-                                            try {
-                                                var tex = window.image_cache != null ? window.image_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
-                                                if (tex != null) {
-                                                    pic.set_paintable(tex);
-                                                    try { if (pending_local_placeholder != null) pending_local_placeholder.remove(pic); } catch (GLib.Error e) { }
-                                                } else {
-                                                    try { pic.set_paintable(Gdk.Texture.for_pixbuf(pb_for_idle)); } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
-                                                }
-                                            } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
-                                            if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                        }
-                                        pending_downloads.remove(url);
-                                    }
-                                } catch (GLib.Error e) {
-                                    var list = pending_downloads.get(url);
-                                    if (list != null) {
-                                        foreach (var pic in list) {
-                                            set_fallback_placeholder_for(pic, target_w, target_h, url);
-                                            if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                        }
-                                        pending_downloads.remove(url);
-                                    }
-                                }
-                                return false;
-                            });
+                        var tex = window.image_cache != null ? window.image_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
+                        if (tex != null) {
+                            pic.set_paintable(tex);
+                            try { pending_local_placeholder.remove(pic); } catch (GLib.Error e) { }
                         } else {
-                            Idle.add(() => {
-                                var list = pending_downloads.get(url);
-                                if (list != null) {
-                                    foreach (var pic in list) {
-                                        set_fallback_placeholder_for(pic, target_w, target_h, url);
-                                        if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                    }
-                                    pending_downloads.remove(url);
-                                }
-                                return false;
-                            });
+                            try { pic.set_paintable(Gdk.Texture.for_pixbuf(pixbuf)); } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
                         }
-                    } catch (GLib.Error e) {
-                        // Error during image decode - make sure to unref msg if we haven't already
-                        Idle.add(() => {
-                            var list = pending_downloads.get(url);
-                            if (list != null) {
-                                foreach (var pic in list) {
-                                    set_fallback_placeholder_for(pic, target_w, target_h, url);
-                                    if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                }
-                                pending_downloads.remove(url);
-                            }
-                            return false;
-                        });
-                    }
+                    } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
                 } else {
-                    // Status is not 200 or 304
-                    Idle.add(() => {
-                        if (FetchContext.current != gen_seq) {
-                            try { pending_downloads.remove(url); } catch (GLib.Error e) { }
-                            return false;
-                        }
-                        var list = pending_downloads.get(url);
-                        if (list != null) {
-                            foreach (var pic in list) {
-                                    set_fallback_placeholder_for(pic, target_w, target_h, url);
-                                if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                            }
-                            pending_downloads.remove(url);
-                        }
-                        return false;
-                    });
+                    set_fallback_placeholder_for(pic, target_w, target_h, url);
                 }
-            } catch (GLib.Error e) {
-                Idle.add(() => {
-                    var list = pending_downloads.get(url);
-                    if (list != null) {
-                        foreach (var pic in list) {
-                            set_fallback_placeholder_for(pic, target_w, target_h, url);
-                            if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                        }
-                        pending_downloads.remove(url);
-                    }
-                    return false;
-                });
-            } finally {
-                // Decrement active downloads counter
-                GLib.AtomicInt.dec_and_test(ref NewsWindow.active_downloads);
+                if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
             }
-            return null;
-        });
+            pending_downloads.remove(url);
+        }
+        forget_requested_size(url);
+    }
+
+    // MAIN THREAD ONLY. Convenience wrapper for the failure case.
+    private void fail_pending(string url, int target_w, int target_h) {
+        deliver_to_pending(url, target_w, target_h, null, null);
+    }
+
+    // MAIN THREAD ONLY.
+    private void forget_requested_size(string url) {
+        try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
+        try {
+            string nkey = UrlUtils.normalize_article_url(url);
+            if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
+        } catch (GLib.Error e) { }
     }
 
     // Ensure we don't start more than MAX_CONCURRENT_DOWNLOADS downloads; if we are at capacity,
@@ -572,22 +417,10 @@ public class ImageManager : GLib.Object {
                 }
             } catch (GLib.Error e) { retry_count = 0; }
 
-                    if (retry_count >= 100) {
+            if (retry_count >= 100) {
                 // Give up after 100 retries (15 seconds). Clean up pending downloads.
                 try {
-                    var list = pending_downloads.get(url);
-                    if (list != null) {
-                                foreach (var pic in list) {
-                                    set_fallback_placeholder_for(pic, target_w, target_h, url);
-                                    if (window.loading_state != null) window.loading_state.on_image_loaded(pic);
-                                }
-                        pending_downloads.remove(url);
-                        try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
-                        try {
-                            string nkey = UrlUtils.normalize_article_url(url);
-                            if (nkey != null && nkey.length > 0) requested_image_sizes.remove(nkey);
-                        } catch (GLib.Error e) { }
-                    }
+                    fail_pending(url, target_w, target_h);
                     download_retry_counts.remove(url);
                 } catch (GLib.Error e) { }
                 return;
@@ -603,53 +436,36 @@ public class ImageManager : GLib.Object {
     }
 
     public void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, bool force = false) {
+        if (!force) {
+            bool vis = false;
+            try { vis = image.get_visible(); } catch (GLib.Error e) { vis = true; }
+            if (!vis) {
+                requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
+                try {
+                    string nkey = UrlUtils.normalize_article_url(url);
+                    if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
+                } catch (GLib.Error e) { }
 
-        // CRITICAL FIX: Revert to old behavior - ALWAYS defer hidden images during initial_phase
-        // The refactor changed this to skip_defer=true during initial_phase, which caused
-        // set_paintable() to be called on hidden widgets. GTK doesn't render paintables
-        // set on invisible widgets, causing blank images at startup.
-        bool skip_defer = false;  // Never skip deferral based on initial_phase
-
-        if (!force && !skip_defer) {
-            try {
-                bool vis = false;
-                try { vis = image.get_visible(); } catch (GLib.Error e) { vis = true; }
-                if (!vis) {
-                    requested_image_sizes.set(url, "%dx%d".printf(target_w, target_h));
-                    try {
-                        string nkey = UrlUtils.normalize_article_url(url);
-                        if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
-                    } catch (GLib.Error e) { }
-
-                    deferred_downloads.set(image, new DeferredRequest(url, target_w, target_h));
-                    if (deferred_check_timeout_id == 0) {
-                        deferred_check_timeout_id = Timeout.add(1000, () => {
-                            try { process_deferred_downloads(); } catch (GLib.Error e) { }
-                            deferred_check_timeout_id = 0;
-                            return false;
-                        });
-                    }
-                    return;
+                deferred_downloads.set(image, new DeferredRequest(url, target_w, target_h));
+                if (deferred_check_timeout_id == 0) {
+                    deferred_check_timeout_id = Timeout.add(1000, () => {
+                        try { process_deferred_downloads(); } catch (GLib.Error e) { }
+                        deferred_check_timeout_id = 0;
+                        return false;
+                    });
                 }
-            } catch (GLib.Error e) { }
+                return;
+            }
         }
 
         string key = make_cache_key(url, target_w, target_h);
-        
+
         // Check thumbnail cache first for small images (faster lookup, better hit rate)
         if (target_w <= 64 && target_h <= 64) {
             var any_key_thumb = make_cache_key(url, 0, 0);
             var thumb_pb = window.image_cache != null ? window.image_cache.get(any_key_thumb) : ImageCache.get_global().get(any_key_thumb);
             if (thumb_pb != null) {
-                try {
-                    var tex = window.image_cache != null ? window.image_cache.get_texture(any_key_thumb) : ImageCache.get_global().get_texture(any_key_thumb);
-                    if (tex != null) {
-                        image.set_paintable(tex);
-                    } else {
-                        try { image.set_paintable(Gdk.Texture.for_pixbuf(thumb_pb)); } catch (GLib.Error e) { }
-                    }
-                } catch (GLib.Error e) { }
-                if (window.loading_state != null) window.loading_state.on_image_loaded(image);
+                paint_synchronously(image, any_key_thumb, thumb_pb);
                 return;
             }
         }
@@ -657,93 +473,85 @@ public class ImageManager : GLib.Object {
         // Check main memory cache (now stored as pixbufs in ImageCache)
         var cached_pb = window.image_cache != null ? window.image_cache.get(key) : ImageCache.get_global().get(key);
         if (cached_pb != null) {
-            try {
-                var tex = window.image_cache != null ? window.image_cache.get_texture(key) : ImageCache.get_global().get_texture(key);
-                if (tex != null) {
-                    image.set_paintable(tex);
-                } else {
-                    try { image.set_paintable(Gdk.Texture.for_pixbuf(cached_pb)); } catch (GLib.Error e) { }
-                }
-            } catch (GLib.Error e) { }
-            if (window.loading_state != null) window.loading_state.on_image_loaded(image);
+            paint_synchronously(image, key, cached_pb);
             return;
         }
 
         var any_key = make_cache_key(url, 0, 0);
         var cached_any_pb = window.image_cache != null ? window.image_cache.get(any_key) : ImageCache.get_global().get(any_key);
-        if (cached_any_pb != null) {
-                if (target_w <= 64 && target_h <= 64) {
+        if (cached_any_pb != null && target_w <= 64 && target_h <= 64) {
+            paint_synchronously(image, any_key, cached_any_pb);
+            return;
+        }
+
+        if (window.meta_cache != null) {
+            var disk_path = window.meta_cache.get_cached_path(url);
+            if (disk_path != null) {
+                // PERFORMANCE: decoding + scale/crop of an on-disk cached
+                // thumbnail is real CPU work (JPEG/PNG decode, bilinear
+                // scale). This used to run inline on the caller's thread,
+                // which is the main thread for every card built during
+                // article insertion - on views with many already-cached
+                // thumbnails (Front Page especially, which can have far
+                // more cards than any single-source view) that added up
+                // to several seconds of main-thread work and visible
+                // churn. Do the decode/scale off the main thread instead,
+                // mirroring the pattern already used for network
+                // downloads below: only the final texture/cache write
+                // touches GTK state, via Idle.add.
+                int device_scale = 1;
+                try { device_scale = image.get_scale_factor(); if (device_scale < 1) device_scale = 1; } catch (GLib.Error e) { device_scale = 1; }
+
+                var job = new CachedImageJob();
+                job.image = image;
+                job.url = url;
+                job.target_w = target_w;
+                job.target_h = target_h;
+                job.device_scale = device_scale;
+                job.disk_path = disk_path;
+                job.img_cache = window.image_cache;
                 try {
-                    var tex = window.image_cache != null ? window.image_cache.get_texture(any_key) : ImageCache.get_global().get_texture(any_key);
-                    if (tex != null) {
-                        image.set_paintable(tex);
-                    } else {
-                        try { image.set_paintable(Gdk.Texture.for_pixbuf(cached_any_pb)); } catch (GLib.Error e) { }
-                    }
-                } catch (GLib.Error e) { }
-                if (window.loading_state != null) window.loading_state.on_image_loaded(image);
+                    cached_load_pool.add(job);
+                } catch (GLib.ThreadError e) {
+                    warning("Failed to queue cached image load: %s", e.message);
+                    network_fallback(image, url, target_w, target_h);
+                }
                 return;
-            } else {
             }
         }
 
-        try {
-            if (window.meta_cache != null) {
-                var disk_path = window.meta_cache.get_cached_path(url);
-                if (disk_path != null) {
-                        try {
-                            string file_key = "pixbuf::file:%s::%dx%d".printf(disk_path, 0, 0);
-                            var pix = window.image_cache != null ? window.image_cache.get_or_load_file(file_key, disk_path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, disk_path, 0, 0);
-                            if (pix != null) {
-                                int device_scale = 1;
-                                try { device_scale = image.get_scale_factor(); if (device_scale < 1) device_scale = 1; } catch (GLib.Error e) { device_scale = 1; }
+        network_fallback(image, url, target_w, target_h);
+    }
 
-                                int eff_target_w = target_w * device_scale;
-                                int eff_target_h = target_h * device_scale;
+    // MAIN THREAD ONLY. Paints an already-cached pixbuf onto `image`
+    // immediately (synchronous cache-hit path - no worker pool involved).
+    private void paint_synchronously(Gtk.Picture image, string key, Gdk.Pixbuf pixbuf) {
+        var tex = window.image_cache != null ? window.image_cache.get_texture(key) : ImageCache.get_global().get_texture(key);
+        if (tex != null) {
+            image.set_paintable(tex);
+        } else {
+            try { image.set_paintable(Gdk.Texture.for_pixbuf(pixbuf)); } catch (GLib.Error e) { }
+        }
+        if (window.loading_state != null) window.loading_state.on_image_loaded(image);
+        try { pending_local_placeholder.remove(image); } catch (GLib.Error e) { }
+    }
 
-                                int width = pix.get_width();
-                                int height = pix.get_height();
-
-                                // Use COVER strategy: scale so image fully covers the (device-scaled) target, then crop
-                                string size_key = make_cache_key(url, target_w, target_h);
-                                try {
-                                    var final_pb = window.image_cache != null ? window.image_cache.get_or_scale_and_crop_pixbuf(size_key, pix, eff_target_w, eff_target_h) : ImageCache.get_global().get_or_scale_and_crop_pixbuf(size_key, pix, eff_target_w, eff_target_h);
-                                    if (final_pb != null) pix = final_pb;
-                                    try { if (window.image_cache != null) window.image_cache.set(size_key, pix); else ImageCache.get_global().set(size_key, pix); } catch (GLib.Error e) { }
-                                } catch (GLib.Error e) { }
-                                if (target_w <= 64 && target_h <= 64) {
-                                    try {
-                                        string any_key2 = make_cache_key(url, 0, 0);
-                                        if (window.image_cache != null) window.image_cache.set(any_key2, pix);
-                                        else ImageCache.get_global().set(any_key2, pix);
-                                    } catch (GLib.Error e) { }
-                                }
-                                try {
-                                    var tex = window.image_cache != null ? window.image_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
-                                    if (tex != null) {
-                                        image.set_paintable(tex);
-                                    } else {
-                                        try { image.set_paintable(Gdk.Texture.for_pixbuf(pix)); } catch (GLib.Error e) { }
-                                    }
-                                } catch (GLib.Error e) { }
-                                if (window.loading_state != null) window.loading_state.on_image_loaded(image);
-                                return;
-                            }
-                        } catch (GLib.Error e) {
-                            // Fall through to network fetch
-                        }
-                }
-            }
-        } catch (GLib.Error e) { }
-
+    // Shared fallback: register `image` as waiting for `url` and start
+    // (or join) a network download for it. Used both when there's no
+    // disk-cached copy at all, and when decoding a disk-cached copy fails.
+    // MAIN THREAD ONLY.
+    private void network_fallback(Gtk.Picture image, string url, int target_w, int target_h) {
         // THREAD SAFETY: Lock mutex while checking and modifying pending_downloads
-        // to prevent race with background threads accessing the HashMap
+        // to prevent race with background threads accessing the HashMap.
+        // Wrapped in try/finally (not just a trailing unlock call) because
+        // of the early `return` below - without finally, that return path
+        // would leak the lock and permanently deadlock every subsequent
+        // caller of network_fallback() on any thread.
         download_mutex.lock();
         try {
             var existing = pending_downloads.get(url);
             if (existing != null) {
                 existing.add(image);
-                // Don't unlock here - finally block will handle it
                 return;
             }
 
@@ -765,8 +573,67 @@ public class ImageManager : GLib.Object {
         // 1000px but returns 403 for larger sizes like 2000px/2400px)
         int download_w = clampi(target_w, target_w, 2400);
         int download_h = clampi(target_h, target_h, 2400);
-        //try { GLib.message("ImageManager: queue download for %s target=%dx%d download=%dx%d", url, target_w, target_h, download_w, download_h); } catch (GLib.Error e) { }
         ensure_start_download(url, download_w, download_h);
+    }
+
+    // Runs on the cached_load_pool worker threads. Pure computation only
+    // (disk read + decode/scale/crop) up until the final Idle.add - see the
+    // THREADING CONTRACT note above.
+    private void do_cached_image_load(CachedImageJob job) {
+        Gtk.Picture image = job.image;
+        string url = job.url;
+        int target_w = job.target_w;
+        int target_h = job.target_h;
+        int device_scale = job.device_scale;
+        string disk_path = job.disk_path;
+        var img_cache = job.img_cache;
+
+        Gdk.Pixbuf? pix = null;
+        string size_key = make_cache_key(url, target_w, target_h);
+        try {
+            string file_key = "pixbuf::file:%s::%dx%d".printf(disk_path, 0, 0);
+            var loaded = img_cache != null ? img_cache.get_or_load_file(file_key, disk_path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, disk_path, 0, 0);
+            if (loaded != null) {
+                pix = apply_cover_crop(img_cache, size_key, loaded,
+                    clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
+                    clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
+            }
+        } catch (GLib.Error e) {
+            // fall through to the network fallback below
+        }
+
+        if (pix != null) {
+            Gdk.Pixbuf pix_for_idle = pix;
+            Idle.add(() => {
+                try { if (img_cache != null) img_cache.set(size_key, pix_for_idle); else ImageCache.get_global().set(size_key, pix_for_idle); } catch (GLib.Error e) { }
+                if (target_w <= 64 && target_h <= 64) {
+                    try {
+                        string any_key = make_cache_key(url, 0, 0);
+                        if (img_cache != null) img_cache.set(any_key, pix_for_idle);
+                        else ImageCache.get_global().set(any_key, pix_for_idle);
+                    } catch (GLib.Error e) { }
+                }
+                try {
+                    var tex = img_cache != null ? img_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
+                    if (tex != null) {
+                        image.set_paintable(tex);
+                    } else {
+                        try { image.set_paintable(Gdk.Texture.for_pixbuf(pix_for_idle)); } catch (GLib.Error e) { }
+                    }
+                } catch (GLib.Error e) { }
+                if (window.loading_state != null) window.loading_state.on_image_loaded(image);
+                return false;
+            });
+            return;
+        }
+
+        // Disk cache read/decode failed - fall back to a network download,
+        // same as the original inline behavior. network_fallback() touches
+        // GTK/instance state, so it must run on the main thread.
+        Idle.add(() => {
+            network_fallback(image, url, target_w, target_h);
+            return false;
+        });
     }
 
     // Generate a cache key for preview textures (url + requested size)
@@ -778,24 +645,16 @@ public class ImageManager : GLib.Object {
     // is available (used by legacy code paths that don't hold an ImageManager).
     public static void set_preview_placeholder(Gtk.Picture pic, int w, int h, NewsSource source, string? category_id = null, bool source_mapped = true, NewsWindow? window = null) {
         if (category_id != null && category_id == "local_news") {
-            try {
-                if (window != null) {
-                    window.set_local_placeholder_image(pic, w, h);
-                } else {
-                    PlaceholderBuilder.create_gradient_placeholder(pic, w, h);
-                }
-            } catch (GLib.Error e) {
-                try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error _) { }
+            if (window != null) {
+                window.set_local_placeholder_image(pic, w, h);
+            } else {
+                PlaceholderBuilder.create_gradient_placeholder(pic, w, h);
             }
         } else if (!source_mapped) {
-            try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error e) { }
+            PlaceholderBuilder.create_gradient_placeholder(pic, w, h);
         } else {
-            try {
-                if (window != null) window.set_placeholder_image_for_source(pic, w, h, source);
-                else PlaceholderBuilder.set_placeholder_image_for_source(pic, w, h, source);
-            } catch (GLib.Error e) {
-                try { PlaceholderBuilder.create_gradient_placeholder(pic, w, h); } catch (GLib.Error _) { }
-            }
+            if (window != null) window.set_placeholder_image_for_source(pic, w, h, source);
+            else PlaceholderBuilder.set_placeholder_image_for_source(pic, w, h, source);
         }
     }
 
@@ -804,8 +663,8 @@ public class ImageManager : GLib.Object {
     // so UI code remains layout-only.
     public void load_preview_image(Gtk.Picture pic, string? thumbnail_url, int img_w, int img_h, NewsSource source, string? category_id = null, bool source_mapped = true) {
         bool will_load_image = thumbnail_url != null &&
-                           thumbnail_url.length > 0 &&
-                           (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+        thumbnail_url.length > 0 &&
+        (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
 
         // Handle cases where no thumbnail is provided
         if (!will_load_image) {
@@ -841,58 +700,49 @@ public class ImageManager : GLib.Object {
         }
     }
 
-    
     // Helper to form memory cache keys that include requested size
     public string make_cache_key(string url, int w, int h) {
         return "pixbuf::url:%s::%dx%d".printf(url, w, h);
     }
-    
+
     // Cleanup stale downloads to prevent unbounded HashMap growth and memory leaks
     public void cleanup_stale_downloads() {
         download_mutex.lock();
-        try {
-            const int MAX_PENDING_DOWNLOADS = 100;
-            
-            if (pending_downloads.size > MAX_PENDING_DOWNLOADS) {
-                warning("cleanup_stale_downloads: pending_downloads size=%d exceeds limit, clearing oldest entries", pending_downloads.size);
-                
-                int to_remove = pending_downloads.size / 2;
-                var keys_to_remove = new Gee.ArrayList<string>();
-                
-                int count = 0;
-                foreach (var entry in pending_downloads.entries) {
-                    if (count >= to_remove) break;
-                    keys_to_remove.add(entry.key);
-                    count++;
-                }
-                
-                foreach (var key in keys_to_remove) {
-                    try {
-                        pending_downloads.unset(key);
-                        requested_image_sizes.unset(key);
-                    } catch (GLib.Error e) { }
-                }
+        const int MAX_PENDING_DOWNLOADS = 100;
+
+        if (pending_downloads.size > MAX_PENDING_DOWNLOADS) {
+            warning("cleanup_stale_downloads: pending_downloads size=%d exceeds limit, clearing oldest entries", pending_downloads.size);
+
+            int to_remove = pending_downloads.size / 2;
+            var keys_to_remove = new Gee.ArrayList<string>();
+
+            int count = 0;
+            foreach (var entry in pending_downloads.entries) {
+                if (count >= to_remove) break;
+                keys_to_remove.add(entry.key);
+                count++;
             }
-        } catch (GLib.Error e) {
-            warning("cleanup_stale_downloads: error during cleanup: %s", e.message);
-        } finally {
-            download_mutex.unlock();
+
+            foreach (var key in keys_to_remove) {
+                try {
+                    pending_downloads.unset(key);
+                    requested_image_sizes.unset(key);
+                } catch (GLib.Error e) { }
+            }
         }
+        download_mutex.unlock();
     }
-    
+
     // Process deferred download requests: if a deferred widget becomes visible, start its download
     public void process_deferred_downloads() {
         const int MAX_BATCH = 5;
         int processed = 0;
-        
+
         var to_start = new Gee.ArrayList<Gtk.Picture>();
         foreach (var kv in deferred_downloads.entries) {
             if (processed >= MAX_BATCH) break;
             Gtk.Picture pic = kv.key;
-            DeferredRequest req = kv.value;
-            bool vis = false;
-            try { vis = pic.get_visible(); } catch (GLib.Error e) { vis = true; }
-            if (vis) {
+            if (pic.get_visible()) {
                 to_start.add(pic);
                 processed++;
             }
@@ -902,20 +752,20 @@ public class ImageManager : GLib.Object {
             var req = deferred_downloads.get(pic);
             if (req == null) continue;
             try { deferred_downloads.remove(pic); } catch (GLib.Error e) { }
-            try { load_image_async(pic, req.url, req.w, req.h, true); } catch (GLib.Error e) { }
+            load_image_async(pic, req.url, req.w, req.h, true);
         }
-        
+
         if (deferred_downloads.size > 0) {
             if (deferred_check_timeout_id == 0) {
                 deferred_check_timeout_id = Timeout.add(1200, () => {
-                    try { process_deferred_downloads(); } catch (GLib.Error e) { }
+                    process_deferred_downloads();
                     deferred_check_timeout_id = 0;
                     return false;
                 });
             }
         }
     }
-    
+
     // Upgrade images to higher resolution after initial load phase
     public void upgrade_images_after_initial() {
         const int UPGRADE_BATCH_SIZE = 3;
@@ -934,17 +784,14 @@ public class ImageManager : GLib.Object {
                 int last_w = 0; int last_h = 0;
                 try { last_w = int.parse(parts[0]); last_h = int.parse(parts[1]); } catch (GLib.Error e) { continue; }
 
-                int new_w = (int)(last_w * 2);
-                int new_h = (int)(last_h * 2);
-                new_w = clampi(new_w, last_w, 1600);
-                new_h = clampi(new_h, last_h, 1600);
+                int new_w = clampi(last_w * 2, last_w, 1600);
+                int new_h = clampi(last_h * 2, last_h, 1600);
 
                 bool has_large = false;
                 string key_norm = make_cache_key(norm_url, new_w, new_h);
                 if ((window.image_cache != null ? window.image_cache.get(key_norm) : ImageCache.get_global().get(key_norm)) != null) has_large = true;
 
-                string? original = null;
-                try { if (window.view_state != null) original = window.view_state.normalized_to_url.get(norm_url); } catch (GLib.Error e) { original = null; }
+                string? original = window.view_state != null ? window.view_state.normalized_to_url.get(norm_url) : null;
                 if (!has_large && original != null) {
                     string key_orig = make_cache_key(original, new_w, new_h);
                     if ((window.image_cache != null ? window.image_cache.get(key_orig) : ImageCache.get_global().get(key_orig)) != null) has_large = true;
@@ -969,15 +816,11 @@ public class ImageManager : GLib.Object {
     // Force GTK to re-render all visible images by calling queue_draw on their pictures
     // This fixes the issue where images set while container was hidden don't render properly
     public void refresh_visible_images() {
-        try {
-            var children = window.content_box.observe_children();
-            for (uint i = 0; i < children.get_n_items(); i++) {
-                var child = children.get_item(i);
-                // Recursively find all Gtk.Picture widgets and force them to redraw
-                refresh_pictures_in_widget(child as Gtk.Widget);
-            }
-        } catch (GLib.Error e) {
-            warning("IMAGE MANAGER: Error refreshing images: %s", e.message);
+        var children = window.content_box.observe_children();
+        for (uint i = 0; i < children.get_n_items(); i++) {
+            var child = children.get_item(i);
+            // Recursively find all Gtk.Picture widgets and force them to redraw
+            refresh_pictures_in_widget(child as Gtk.Widget);
         }
     }
 
@@ -987,31 +830,17 @@ public class ImageManager : GLib.Object {
         if (widget is Gtk.Picture) {
             var pic = widget as Gtk.Picture;
             // Force the picture to redraw by calling queue_draw
-            try { pic.queue_draw(); } catch (GLib.Error e) { }
+            pic.queue_draw();
             return;
         }
 
         // Recurse into container widgets
         if (widget is Gtk.Box || widget is Gtk.Grid || widget is Adw.Clamp) {
-            try {
-                var first = widget.get_first_child();
-                var current = first;
-                while (current != null) {
-                    refresh_pictures_in_widget(current);
-                    current = current.get_next_sibling();
-                }
-            } catch (GLib.Error e) { }
+            var current = widget.get_first_child();
+            while (current != null) {
+                refresh_pictures_in_widget(current);
+                current = current.get_next_sibling();
+            }
         }
     }
-
-    // Called when an image finished loading
-    public void on_image_loaded(Gtk.Picture image) {
-        if (window.loading_state == null) return;
-        if (!window.loading_state.initial_phase) return;
-        if (hero_requests.get(image) != null) window.loading_state.hero_image_loaded = true;
-
-        // Decrement pending_images as images finish loading
-        if (window.loading_state.pending_images > 0) window.loading_state.pending_images--;
-    }
 }
-

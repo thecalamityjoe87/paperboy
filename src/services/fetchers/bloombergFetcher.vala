@@ -43,12 +43,6 @@ public class BloombergFetcher : BaseFetcher {
             case "economics":
                 url = "https://feeds.bloomberg.com/economics/news.rss";
                 break;
-            case "wealth":
-                url = "https://feeds.bloomberg.com/wealth/news.rss";
-                break;
-            case "green":
-                url = "https://feeds.bloomberg.com/green/news.rss";
-                break;
             case "politics":
                 url = "https://feeds.bloomberg.com/politics/news.rss";
                 break;

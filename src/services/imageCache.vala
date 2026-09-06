@@ -30,11 +30,27 @@ public class ImageCache : GLib.Object {
     private LruCache<string, Gdk.Texture> texture_cache;
     private static ImageCache? global_instance = null;
 
+    // Hard ceiling on total decoded pixbuf memory this cache will hold.
+    // Entry-count capacity alone doesn't protect against this: a handful of
+    // oversized hero/carousel decodes can each be tens of megabytes, so a
+    // count-based cap of a couple hundred entries still allows multi-GB
+    // growth. This bounds actual memory instead.
+    private const int64 MAX_PIXBUF_CACHE_BYTES = 200 * 1024 * 1024;
+
     public ImageCache(int capacity = 256) {
         GLib.Object();
         pixbuf_cache = new LruCache<string, Gdk.Pixbuf>(capacity);
         texture_cache = new LruCache<string, Gdk.Texture>(capacity);
-        
+        pixbuf_cache.set_byte_budget(MAX_PIXBUF_CACHE_BYTES, (key, pixbuf) => {
+            return (int64) pixbuf.get_byte_length();
+        });
+        // Same budget for cached textures: get_texture() below reuses a
+        // cached Gdk.Texture instead of re-uploading on every call, so this
+        // needs its own bound just like the pixbuf cache does.
+        texture_cache.set_byte_budget(MAX_PIXBUF_CACHE_BYTES, (key, tex) => {
+            return (int64) tex.get_width() * tex.get_height() * 4;
+        });
+
         // IMPORTANT DEPENDENCY: This implementation relies on Gee.HashMap's automatic
         // reference counting behavior for GObject values. When Gee stores a GObject
         // (like Gdk.Pixbuf or Gdk.Texture), it automatically calls g_object_ref() on
@@ -43,23 +59,21 @@ public class ImageCache : GLib.Object {
         // 2. The container manages the lifecycle automatically
         // 3. If Gee's behavior changes or we switch container libraries, this could break
         // 4. Tests should verify this behavior doesn't regress
-        
-        // When pixbuf entries are evicted, log for debugging
-        // No need to manually unref - HashMap will do it when removing the entry
+
+        // A pixbuf falling out of the cache - whether overwritten (see set()
+        // below) or LRU-evicted - must take its cached texture with it.
+        // get_texture() reuses whatever's in texture_cache, so a stale
+        // entry surviving its pixbuf's eviction would keep serving a
+        // texture whose content no longer matches what's nominally cached
+        // under that key.
         pixbuf_cache.set_eviction_callback((k, v) => {
-            try {
-                if (AppDebugger.debug_enabled()) {
-                }
-            } catch (GLib.Error e) { }
+            try { texture_cache.remove(k); } catch (GLib.Error e) { }
         });
-        
-        // When texture entries are evicted, log for debugging
+
         // Textures are automatically freed when unreferenced
         texture_cache.set_eviction_callback((k, v) => {
-            try {
-                if (AppDebugger.debug_enabled()) {
-                }
-            } catch (GLib.Error e) { }
+            if (AppDebugger.debug_enabled()) {
+            }
         });
     }
 
@@ -76,24 +90,20 @@ public class ImageCache : GLib.Object {
     }
 
     public Gdk.Pixbuf? get(string key) {
+        var v = pixbuf_cache.get(key);
         try {
-            var v = pixbuf_cache.get(key);
-            try {
-                if (AppDebugger.debug_enabled()) {
-                }
-            } catch (GLib.Error e) { }
-            return v;
-        } catch (GLib.Error e) { return null; }
+            if (AppDebugger.debug_enabled()) {
+            }
+        } catch (GLib.Error e) { }
+        return v;
     }
 
     public void set(string key, Gdk.Pixbuf pixbuf) {
         // Do not ref here. Gee containers will take their own reference
         // (g_object_ref) when storing GObject values; ref/unref is
         // therefore managed by the container.
-        try {
-            if (AppDebugger.debug_enabled()) {
-            }
-        } catch (GLib.Error e) { }
+        if (AppDebugger.debug_enabled()) {
+        }
         pixbuf_cache.set(key, pixbuf);
         
         // When a new pixbuf is inserted, invalidate any cached texture for this key
@@ -127,13 +137,11 @@ public class ImageCache : GLib.Object {
     public Gdk.Pixbuf? get_or_from_surface(string key, Cairo.Surface surface, int x, int y, int w, int h) {
         var existing = get(key);
         if (existing != null) return existing;
-        try {
-            var pb = Gdk.pixbuf_get_from_surface(surface, x, y, w, h);
-            if (pb != null) {
-                set(key, pb);
-                return pb;
-            }
-        } catch (GLib.Error e) { }
+        var pb = Gdk.pixbuf_get_from_surface(surface, x, y, w, h);
+        if (pb != null) {
+            set(key, pb);
+            return pb;
+        }
         return null;
     }
 
@@ -143,15 +151,13 @@ public class ImageCache : GLib.Object {
     public Gdk.Pixbuf? get_or_scale_pixbuf(string key, Gdk.Pixbuf source, int w, int h) {
         var existing = get(key);
         if (existing != null) return existing;
-        try {
-            // Use HYPER interpolation for highest quality (crisper images)
-            // Trade-off: slightly slower but much better visual quality
-            var scaled = source.scale_simple(w, h, Gdk.InterpType.HYPER);
-            if (scaled != null) {
-                set(key, scaled);
-                return scaled;
-            }
-        } catch (GLib.Error e) { }
+                // Use HYPER interpolation for highest quality (crisper images)
+        // Trade-off: slightly slower but much better visual quality
+        var scaled = source.scale_simple(w, h, Gdk.InterpType.HYPER);
+        if (scaled != null) {
+            set(key, scaled);
+            return scaled;
+        }
         return null;
     }
 
@@ -160,39 +166,39 @@ public class ImageCache : GLib.Object {
     public Gdk.Pixbuf? get_or_scale_and_crop_pixbuf(string key, Gdk.Pixbuf source, int w, int h) {
         var existing = get(key);
         if (existing != null) return existing;
-        try {
-            int width = source.get_width();
-            int height = source.get_height();
-            if (width <= 0 || height <= 0) return null;
+        int width = source.get_width();
+        int height = source.get_height();
+        if (width <= 0 || height <= 0) return null;
 
-            double scale_x = (double) w / width;
-            double scale_y = (double) h / height;
-            double scale = double.max(scale_x, scale_y);
+        double scale_x = (double) w / width;
+        double scale_y = (double) h / height;
+        double scale = double.max(scale_x, scale_y);
 
-            int scaled_w = (int) (width * scale);
-            int scaled_h = (int) (height * scale);
-            if (scaled_w < 1) scaled_w = 1;
-            if (scaled_h < 1) scaled_h = 1;
+        int scaled_w = (int) (width * scale);
+        int scaled_h = (int) (height * scale);
+        if (scaled_w < 1) scaled_w = 1;
+        if (scaled_h < 1) scaled_h = 1;
 
-            // Reuse get_or_scale_pixbuf to get a high-quality scaled pixbuf
-            string tmp_key = "pixbuf::scaled-temp:%s::%dx%d".printf(key, scaled_w, scaled_h);
-            var scaled = get_or_scale_pixbuf(tmp_key, source, scaled_w, scaled_h);
-            if (scaled == null) return null;
+        // Scale to a transient pixbuf - not cached under its own key, since
+        // it's only ever an intermediate step towards the cropped `key`
+        // result below and would otherwise sit in the cache permanently as
+        // a near-duplicate of the final image.
+        var scaled = source.scale_simple(scaled_w, scaled_h, Gdk.InterpType.HYPER);
+        if (scaled == null) return null;
 
-            // Paint the scaled pixbuf into a target surface and crop by centering it
-            var surface = new ImageSurface(Format.ARGB32, w, h);
-            var cr = new Context(surface);
-            // Transparent background
-            cr.set_source_rgba(0, 0, 0, 0);
-            cr.paint();
+        // Paint the scaled pixbuf into a target surface and crop by centering it
+        var surface = new ImageSurface(Format.ARGB32, w, h);
+        var cr = new Context(surface);
+        // Transparent background
+        cr.set_source_rgba(0, 0, 0, 0);
+        cr.paint();
 
-            int x = (w - scaled_w) / 2;
-            int y = (h - scaled_h) / 2;
-            try { Gdk.cairo_set_source_pixbuf(cr, scaled, x, y); cr.paint(); } catch (GLib.Error e) { }
+        int x = (w - scaled_w) / 2;
+        int y = (h - scaled_h) / 2;
+        try { Gdk.cairo_set_source_pixbuf(cr, scaled, x, y); cr.paint(); } catch (GLib.Error e) { }
 
-            var final_pb = get_or_from_surface(key, surface, 0, 0, w, h);
-            return final_pb;
-        } catch (GLib.Error e) { return null; }
+        var final_pb = get_or_from_surface(key, surface, 0, 0, w, h);
+        return final_pb;
     }
 
     public Gee.ArrayList<string> keys() {
@@ -203,10 +209,8 @@ public class ImageCache : GLib.Object {
         // Clear both caches - LruCache will call eviction callbacks for each entry
         pixbuf_cache.clear();
         texture_cache.clear();
-        try {
-            if (AppDebugger.debug_enabled()) {
-            }
-        } catch (GLib.Error e) { }
+        if (AppDebugger.debug_enabled()) {
+        }
     }
 
     public void set_capacity(int c) {
@@ -218,27 +222,19 @@ public class ImageCache : GLib.Object {
         return pixbuf_cache.size();
     }
 
-    // FIXED: Return a cached texture for a cached pixbuf. The texture is created
-    // once and stored in texture_cache, so multiple widgets can share the same
-    // texture object. This dramatically reduces GPU memory usage by avoiding
-    // redundant texture creation.
+    // Reuse a cached texture instead of re-uploading on every call. Safe
+    // because set() and the eviction callback above both drop a key's
+    // texture the moment its pixbuf changes or falls out of the LRU, so
+    // anything found here always matches the currently-cached pixbuf.
     public Gdk.Texture? get_texture(string key) {
-        // CRITICAL FIX: Don't cache Gdk.Texture objects - they can become invalid
-        // across widget tree rebuilds or app state changes. Always create fresh
-        // textures from the cached pixbufs to ensure they're valid for the current
-        // widget state. This fixes the issue where images appear on first run but
-        // are missing on subsequent runs when cached textures are reused.
+        var cached_tex = texture_cache.get(key);
+        if (cached_tex != null) return cached_tex;
 
-        // Get the pixbuf from cache
         var pb = get(key);
         if (pb == null) return null;
 
-        try {
-            // Always create a fresh texture from the pixbuf
-            var tex = Gdk.Texture.for_pixbuf(pb);
-            return tex;
-        } catch (GLib.Error e) {
-            return null;
-        }
+        var tex = Gdk.Texture.for_pixbuf(pb);
+        texture_cache.set(key, tex);
+        return tex;
     }
 }

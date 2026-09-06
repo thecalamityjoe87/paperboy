@@ -17,6 +17,128 @@
 
 public class FetchNewsController {
 
+    // Buffering for multi-source fetches (see FetchContext.is_multi_source):
+    // instead of handing each article straight to ArticleManager as its
+    // source's network request completes - which orders the view by
+    // "whichever source answered first" rather than by how recent the
+    // articles actually are - we hold items in a short-lived per-fetch
+    // buffer, keyed by FetchContext.seq, and flush them newest-first once
+    // things go quiet (or a max wait elapses, so one slow source can't stall
+    // the whole view indefinitely). Any articles arriving after a seq has
+    // already flushed stream straight through unbuffered, same as before.
+    private const uint MULTI_SOURCE_DEBOUNCE_MS = 350;
+    private const uint MULTI_SOURCE_MAX_WAIT_MS = 2500;
+    // NOTE: Static Gee collections must be initialized lazily in Vala - a
+    // field initializer here never runs since FetchNewsController is never
+    // instantiated (only called through static methods), which left these
+    // null and crashed the first Gee call against them.
+    private static Gee.HashMap<uint, Gee.ArrayList<ArticleItem>>? _multi_source_buffers = null;
+    private static Gee.HashMap<uint, uint>? _multi_source_timeouts = null;
+    private static Gee.HashMap<uint, int64?>? _multi_source_started_at = null;
+    private static Gee.HashSet<uint>? _multi_source_flushed = null;
+
+    private static Gee.HashMap<uint, Gee.ArrayList<ArticleItem>> multi_source_buffers() {
+        if (_multi_source_buffers == null) _multi_source_buffers = new Gee.HashMap<uint, Gee.ArrayList<ArticleItem>>();
+        return _multi_source_buffers;
+    }
+    private static Gee.HashMap<uint, uint> multi_source_timeouts() {
+        if (_multi_source_timeouts == null) _multi_source_timeouts = new Gee.HashMap<uint, uint>();
+        return _multi_source_timeouts;
+    }
+    private static Gee.HashMap<uint, int64?> multi_source_started_at() {
+        if (_multi_source_started_at == null) _multi_source_started_at = new Gee.HashMap<uint, int64?>();
+        return _multi_source_started_at;
+    }
+    private static Gee.HashSet<uint> multi_source_flushed() {
+        if (_multi_source_flushed == null) _multi_source_flushed = new Gee.HashSet<uint>();
+        return _multi_source_flushed;
+    }
+
+    // Shared tail of global_add_item(): track this article for adaptive
+    // layout, then hand it to ArticleManager. Split out so the buffered
+    // (multi-source) and direct (single-source) paths can both funnel
+    // through the same logic.
+    private static void dispatch_item(NewsWindow w, FetchContext cur, string title, string url, string? thumbnail, string category_id, string? source_name, string? published, string? snippet) {
+        var cat_mgr = w.category_manager;
+        var layout_mgr = w.layout_manager;
+        var article_mgr = w.article_manager;
+
+        if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
+            bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
+            !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
+            w.prefs != null && w.prefs.category != "saved";
+            if (is_regular_cat) {
+                layout_mgr.track_category_article(cur.seq);
+            }
+        }
+        if (article_mgr != null) {
+            article_mgr.add_item(title, url, thumbnail, category_id, source_name, published, snippet);
+        }
+    }
+
+    // Queue one article for a multi-source fetch and (re)schedule its
+    // debounced flush. The debounce window resets on every new arrival so a
+    // burst of near-simultaneous responses gets sorted together, but is
+    // capped by MULTI_SOURCE_MAX_WAIT_MS from the first item so one
+    // unusually slow source can't hold up the whole view.
+    private static void buffer_multi_source_item(uint seq, string title, string url, string? thumbnail, string category_id, string? source_name, string? published, string? snippet) {
+        if (!multi_source_buffers().has_key(seq)) {
+            multi_source_buffers().set(seq, new Gee.ArrayList<ArticleItem>());
+            multi_source_started_at().set(seq, GLib.get_monotonic_time());
+        }
+        var item = new ArticleItem(title, url, thumbnail, category_id, source_name, published);
+        item.snippet = snippet;
+        multi_source_buffers().get(seq).add(item);
+
+        if (multi_source_timeouts().has_key(seq)) {
+            GLib.Source.remove(multi_source_timeouts().get(seq));
+            multi_source_timeouts().unset(seq);
+        }
+
+        int64 elapsed_ms = (GLib.get_monotonic_time() - multi_source_started_at().get(seq)) / 1000;
+        int64 remaining_ms = MULTI_SOURCE_MAX_WAIT_MS - elapsed_ms;
+        uint delay = (remaining_ms > MULTI_SOURCE_DEBOUNCE_MS) ? MULTI_SOURCE_DEBOUNCE_MS : (remaining_ms > 0 ? (uint) remaining_ms : 0);
+
+        uint tid = Timeout.add(delay, () => {
+            multi_source_timeouts().unset(seq);
+            flush_multi_source_buffer(seq);
+            return false;
+        });
+        multi_source_timeouts().set(seq, tid);
+    }
+
+    // Sort the buffered batch newest-first (articles with no recognizable
+    // published date sort last, keeping their arrival order among
+    // themselves) and hand each one to dispatch_item() in that order.
+    private static void flush_multi_source_buffer(uint seq) {
+        if (!multi_source_buffers().has_key(seq)) return;
+        var items = multi_source_buffers().get(seq);
+        multi_source_buffers().unset(seq);
+        multi_source_started_at().unset(seq);
+        multi_source_flushed().add(seq);
+
+        if (!FetchContext.is_current(seq)) return;
+        var cur = FetchContext.current_context();
+        if (cur == null || !cur.is_valid() || cur.seq != seq) return;
+        var w = cur.window;
+        if (w == null) return;
+        if (w.prefs != null && cur.expected_category != null && w.prefs.category != cur.expected_category) return;
+
+        items.sort((a, b) => {
+            var da = DateUtils.parse_published_datetime(a.published);
+            var db = DateUtils.parse_published_datetime(b.published);
+            if (da == null && db == null) return 0;
+            if (da == null) return 1;
+            if (db == null) return -1;
+            return db.compare(da);
+        });
+
+        foreach (var item in items) {
+            if (w.prefs != null && cur.expected_category != null && w.prefs.category != cur.expected_category) break;
+            dispatch_item(w, cur, item.title, item.url, item.thumbnail_url, item.category_id, item.source_name, item.published, item.snippet);
+        }
+    }
+
     // Non-capturing label forwarder used for passing a stable callback
     // into worker fetchers. It does not close over any stack state so
     // it is safe to pass across thread boundaries. It uses
@@ -61,7 +183,7 @@ public class FetchNewsController {
     // safely post article additions to the main loop. This avoids
     // passing per-fetch capturing delegates into worker threads which
     // can be freed while the worker still holds a reference.
-    public static void global_add_item(string title, string url, string? thumbnail, string category_id, string? source_name) {
+    public static void global_add_item(string title, string url, string? thumbnail, string category_id, string? source_name, string? published = null, string? snippet = null) {
         Idle.add(() => {
             var cur = FetchContext.current_context();
             if (cur == null || !cur.is_valid()) return false;
@@ -78,23 +200,17 @@ public class FetchNewsController {
                 }
             }
 
-            // Safely access managers through local variables
-            var cat_mgr = w.category_manager;
-            var layout_mgr = w.layout_manager;
-            var article_mgr = w.article_manager;
+            // When this fetch is racing multiple sources for the same view,
+            // briefly buffer articles so they can be flushed newest-first
+            // instead of in "whichever source answered first" order - unless
+            // this seq's buffer has already flushed once, in which case a
+            // late straggler just streams straight through.
+            if (cur.is_multi_source && !multi_source_flushed().contains(cur.seq)) {
+                buffer_multi_source_item(cur.seq, title, url, thumbnail, category_id, source_name, published, snippet);
+                return false;
+            }
 
-            // Track articles for adaptive layout (regular categories only, not RSS feeds)
-            if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
-                bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
-                                     !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
-                                     w.prefs != null && w.prefs.category != "saved";
-                if (is_regular_cat) {
-                    layout_mgr.track_category_article(cur.seq);
-                }
-            }
-            if (article_mgr != null) {
-                article_mgr.add_item(title, url, thumbnail, category_id, source_name);
-            }
+            dispatch_item(w, cur, title, url, thumbnail, category_id, source_name, published, snippet);
             return false;
         });
     }
@@ -141,11 +257,11 @@ public class FetchNewsController {
         // For regular categories that may use adaptive layout, mark that we're awaiting
         // the adaptive layout check so the spinner stays visible until layout is finalized
         bool is_regular_category = !win.category_manager.is_frontpage_view() &&
-                                   !win.category_manager.is_topten_view() &&
-                                   !win.category_manager.is_myfeed_category() &&
-                                   !win.category_manager.is_local_news_view() &&
-                                   !win.category_manager.is_rssfeed_view() &&
-                                   win.prefs.category != "saved";
+        !win.category_manager.is_topten_view() &&
+        !win.category_manager.is_myfeed_category() &&
+        !win.category_manager.is_local_news_view() &&
+        !win.category_manager.is_rssfeed_view() &&
+        win.prefs.category != "saved";
         if (is_regular_category && win.loading_state != null) {
             win.loading_state.awaiting_adaptive_layout = true;
         }
@@ -329,7 +445,6 @@ public class FetchNewsController {
                     if (article_mgr.remaining_articles != null) {
                         article_mgr.remaining_articles.clear();
                     }
-                    article_mgr.remaining_articles_index = 0;
                     article_mgr.articles_shown = 0;
                 }
                 
@@ -350,7 +465,7 @@ public class FetchNewsController {
         var ui_add_queue = new Gee.ArrayList<ArticleItem>();
         bool ui_add_idle_scheduled = false;
 
-        AddItemFunc wrapped_add = (title, url, thumbnail, category_id, source_name) => {
+        AddItemFunc wrapped_add = (title, url, thumbnail, category_id, source_name, published) => {
             var cur_start = FetchContext.current_context();
             if (cur_start == null || cur_start.seq != my_seq) return;
             var w = cur_start.window;
@@ -379,9 +494,7 @@ public class FetchNewsController {
                 w.prefs.category == "lifestyle" ||
                 w.prefs.category == "markets" ||
                 w.prefs.category == "industries" ||
-                w.prefs.category == "economics" ||
-                w.prefs.category == "wealth" ||
-                w.prefs.category == "green"
+                w.prefs.category == "economics"
                 || w.prefs.category == "local_news"
                 || w.prefs.category == "myfeed"
             );
@@ -391,7 +504,7 @@ public class FetchNewsController {
             // If we're in Local News mode, enqueue and process in small batches to avoid UI lockups
             var prefs_local = NewsPreferences.get_instance();
             if (prefs_local != null && prefs_local.category == "local_news") {
-                    local_news_queue.add(new ArticleItem(title, url, thumbnail, category_id, source_name));
+                    local_news_queue.add(new ArticleItem(title, url, thumbnail, category_id, source_name, published));
                     local_news_items_enqueued++;
                     if (!local_news_flush_scheduled) {
                         local_news_flush_scheduled = true;
@@ -412,12 +525,12 @@ public class FetchNewsController {
                                         // CRITICAL: Also validate category hasn't changed
                                         if (w2 != null && w2.prefs != null && cur2.expected_category != null) {
                                             if (w2.prefs.category == cur2.expected_category) {
-                                                w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name);
+                                                w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
                                             }
                                             // else: user switched categories, drop this article
                                         } else if (w2 != null) {
                                             // Fallback if expected_category is not set
-                                            w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name);
+                                            w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
                                         }
                                     }
                                 }
@@ -442,7 +555,7 @@ public class FetchNewsController {
                 }
             
             // Add the article (handles deduplication)
-            w.article_manager.add_item(title, url, thumbnail, category_id, source_name);
+            w.article_manager.add_item(title, url, thumbnail, category_id, source_name, published);
         };
 
         // Support fetching from multiple preferred sources when the user
@@ -473,6 +586,40 @@ public class FetchNewsController {
         
         // Grab search query via getter
         string current_search_query = win.get_current_search_query();
+
+        // Determine up front whether this fetch will race more than one
+        // source concurrently for the same view, so FetchContext can flag it
+        // before ANY fetch starts streaming articles back - including the
+        // always-on Sports supplement immediately below, which itself races
+        // against Sports' normal per-source fetch. See the buffering block
+        // in global_add_item()/buffer_multi_source_item() for why this
+        // matters: without it, whichever source's HTTP response happens to
+        // land first wins the hero slot, even if its article is the oldest
+        // of the bunch.
+        bool is_saved_view = (win.prefs.category == "saved");
+        int total_sources = (win.prefs.preferred_sources != null ? win.prefs.preferred_sources.size : 0);
+        if (is_myfeed_mode && custom_rss_sources != null) {
+            total_sources += custom_rss_sources.size;
+        }
+        // Front Page/Top Ten always issue a single backend request no matter
+        // how many sources are in preferred_sources, so they never actually
+        // race sources against each other and should not be buffered.
+        bool is_frontpage_or_topten = win.category_manager.is_frontpage_view() || win.category_manager.is_topten_view();
+        ctx.is_multi_source = !is_frontpage_or_topten && ((win.prefs.category == "sports") ||
+            (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))));
+
+        // Persistent Sports supplement: always additionally query the
+        // backend's dedicated sports endpoint when viewing Sports, so the
+        // category isn't empty for users whose enabled built-in sources
+        // have no sports desk (e.g. PBS). This runs alongside - not instead
+        // of - the normal per-source Sports fetch below, uses a no-op clear
+        // so it never wipes articles already added, and is intentionally
+        // not gated by preferred_sources: there is no user-facing toggle
+        // for it.
+        if (win.prefs.category == "sports") {
+            var paperboy_sports_fetcher = new PaperboyFetcher(FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
+            paperboy_sports_fetcher.fetch("sports", current_search_query, win.session);
+        }
 
         if (is_myfeed_mode) {
             // Load personalized categories if configured (applies only to built-in sources)
@@ -515,9 +662,6 @@ public class FetchNewsController {
         // before the multi-source branch so frontpage works even when the
         // user has zero or one preferred source selected.
         if (win.category_manager.is_frontpage_view()) {
-            // Present the multi-source label/logo in the header
-            var header_mgr = win.header_manager;
-            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
                 wrapped_clear();
@@ -536,9 +680,6 @@ public class FetchNewsController {
         // If the user selected "Top Ten", request the backend headlines endpoint
         // regardless of preferred_sources. Same early-return logic as frontpage.
         if (win.category_manager.is_topten_view()) {
-            // Present the multi-source label/logo in the header
-            var header_mgr = win.header_manager;
-            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
                 wrapped_clear();
@@ -555,12 +696,7 @@ public class FetchNewsController {
 
         // Check if we should use multi-source mode (multiple built-in sources OR custom RSS sources in My Feed)
         // Skip multi-source mode for saved articles, local news, and individual RSS feeds - they have their own header setup
-        bool is_saved_view = (win.prefs.category == "saved");
-        int total_sources = (win.prefs.preferred_sources != null ? win.prefs.preferred_sources.size : 0);
-        if (is_myfeed_mode && custom_rss_sources != null) {
-            total_sources += custom_rss_sources.size;
-        }
-
+        // (is_saved_view/total_sources computed earlier, alongside ctx.is_multi_source)
         if (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))) {
             // Treat The Frontpage as a multi-source view visually, but do NOT
             // let the user's preferred_sources list influence which providers
@@ -568,8 +704,6 @@ public class FetchNewsController {
             // category, simply request the backend frontpage once and present
             // the combined/multi-source UI.
             if (win.category_manager.is_frontpage_view()) {
-                var header_mgr = win.header_manager;
-                if (header_mgr != null) header_mgr.setup_multi_source_header();
                 used_multi = true;
 
                 // Clear UI and ask the backend frontpage fetcher once. NewsService
@@ -588,8 +722,6 @@ public class FetchNewsController {
 
             // Same logic for Top Ten: request backend headlines endpoint
             if (win.category_manager.is_topten_view()) {
-                var header_mgr = win.header_manager;
-                if (header_mgr != null) header_mgr.setup_multi_source_header();
                 used_multi = true;
 
                 wrapped_clear();
@@ -603,9 +735,6 @@ public class FetchNewsController {
                 return;
             }
 
-            // Display a combined label and bundled monochrome logo for multi-source mode
-            var header_mgr = win.header_manager;
-            if (header_mgr != null) header_mgr.setup_multi_source_header();
             used_multi = true;
 
             //Use SourceManager to get enabled sources as enums
@@ -633,25 +762,20 @@ public class FetchNewsController {
                 // selected Bloomberg-specific personalized categories.
                 var filtered = new Gee.ArrayList<NewsSource>();
                 foreach (var s in srcs) {
-                    try {
-                        bool include = false;
-                        if (is_myfeed_mode) {
-                            // If no personalized categories selected, be permissive
-                            if (myfeed_cats == null || myfeed_cats.length == 0) {
-                                include = true;
-                            } else {
-                                foreach (var cat in myfeed_cats) {
-                                    if (NewsService.supports_category(s, cat)) { include = true; break; }
-                                }
-                            }
+                    bool include = false;
+                    if (is_myfeed_mode) {
+                        // If no personalized categories selected, be permissive
+                        if (myfeed_cats == null || myfeed_cats.length == 0) {
+                            include = true;
                         } else {
-                            if (NewsService.supports_category(s, win.prefs.category)) include = true;
+                            foreach (var cat in myfeed_cats) {
+                                if (NewsService.supports_category(s, cat)) { include = true; break; }
+                            }
                         }
-                        if (include) filtered.add(s);
-                    } catch (GLib.Error e) {
-                        // If something goes wrong querying support, include the source
-                        filtered.add(s);
+                    } else {
+                        if (NewsService.supports_category(s, win.prefs.category)) include = true;
                     }
+                    if (include) filtered.add(s);
                 }
 
                 // If filtering removed all sources (unlikely), fall back to original
@@ -878,7 +1002,7 @@ public class FetchNewsController {
                 // Get actual deduplicated count from ArticleStateStore
                 int actual_count = store.get_total_count_for_category(w.prefs.category);
                 stderr.printf("DEBUG: adaptive layout check - category=%s, actual_count=%d\n",
-                             w.prefs.category, actual_count);
+                w.prefs.category, actual_count);
 
                 if (actual_count < 15 && actual_count > 0) {
                     stderr.printf("DEBUG: triggering adaptive 2-hero layout (count=%d < 15)\n", actual_count);
@@ -1004,17 +1128,14 @@ public class FetchNewsController {
         if (cached_articles.size > 0) {
             // Display cached articles immediately
             foreach (var article in cached_articles) {
-                try {
-                    FetchNewsController.global_add_item(
-                        article.title,
-                        article.url,
-                        article.thumbnail_url,
-                        "rssfeed:" + feed_url,
-                        feed_name
-                    );
-                } catch (GLib.Error e) {
-                    GLib.warning("Failed to add cached article: %s", e.message);
-                }
+                FetchNewsController.global_add_item(
+                    article.title,
+                    article.url,
+                    article.thumbnail_url,
+                    "rssfeed:" + feed_url,
+                    feed_name,
+                    article.published_date
+                );
             }
 
             // Update label to show we're displaying cached content
@@ -1079,8 +1200,6 @@ public class FetchNewsController {
 
         if (win.prefs.category != "saved") return false;
 
-        win.header_manager.update_for_saved_articles();
-
         if (win.article_state_store == null) {
             wrapped_set_label("Saved Articles — Unable to load saved articles");
             win.hide_loading_spinner();
@@ -1144,7 +1263,7 @@ public class FetchNewsController {
                     if (cur4 != null) {
                         var w4 = cur4.window;
                         if (w4 != null) {
-                            wrapped_add(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved");
+                            wrapped_add(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved", article.published);
                         }
                     }
                 }
@@ -1185,68 +1304,86 @@ public class FetchNewsController {
         string current_search_query
     ) {
         if (win == null) return false;
-        try { if (!win.category_manager.is_local_news_view()) return false; } catch (GLib.Error e) { return false; }
+        if (!win.category_manager.is_local_news_view()) return false; 
 
-        string config_dir = GLib.Environment.get_user_config_dir() + "/paperboy";
-        string file_path = config_dir + "/local_feeds";
+        var prefs = NewsPreferences.get_instance();
+        string display_city = (prefs.user_location_city != null && prefs.user_location_city.length > 0)
+            ? prefs.user_location_city
+            : prefs.user_location;
 
-        if (!GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
-            wrapped_set_label("Local News — No local feeds configured");
+        if (display_city == null || display_city.strip().length == 0) {
+            wrapped_set_label("Local News — No location configured");
             win.hide_loading_spinner();
             return true;
         }
 
-        string contents = "";
-        try { GLib.FileUtils.get_contents(file_path, out contents); } catch (GLib.Error e) { contents = ""; }
-        if (contents == null || contents.strip() == "") {
-            wrapped_set_label("Local News — No local feeds configured");
-            win.hide_loading_spinner();
-            return true;
-        }
+        // Prefer the nearest-major-city search term (falls back to the
+        // exact resolved city for locations already near/in a major city,
+        // or for locations saved without running the geocode lookup).
+        string news_query_city = (prefs.user_location_news_query != null && prefs.user_location_news_query.length > 0)
+            ? prefs.user_location_news_query
+            : display_city;
 
-        // Clear UI and schedule per-feed fetches
+        // Clear UI and fetch via Google News' RSS search endpoint, scoped to
+        // the user's resolved location. This replaced a feedspot.com HTML
+        // scrape (see rssFinder tool, now removed) that broke whenever
+        // feedspot changed its page markup; Google News' RSS output is a
+        // stable, first-party feed so it can go straight through the same
+        // generic RSS pipeline every other source uses.
         wrapped_clear();
-        ClearItemsFunc no_op_clear = () => { };
-        uint my_seq = ctx.seq;
-        SetLabelFunc label_fn = (text) => {
-            Idle.add(() => {
-                if (!FetchContext.is_current(my_seq)) return false;
-                var cur = FetchContext.current_context();
-                if (cur == null) return false;
-                var w = cur.window;
-                if (w == null) return false;
-                w.update_content_header_now();
-                return false;
-            });
-        };
+        var article_mgr = win.article_manager;
+        if (article_mgr != null) article_mgr.featured_used = true;
 
         // Ensure the top-right source badge / header reflects Local News
         win.update_content_header_now();
 
-        string[] lines = contents.split("\n");
-        bool found_feed = false;
-        for (int i = 0; i < lines.length; i++) {
-            string u = lines[i].strip();
-            if (u.length == 0) continue;
-            found_feed = true;
-            var article_mgr = win.article_manager;
-            if (article_mgr != null) article_mgr.featured_used = true;
-            RssFeedProcessor.fetch_rss_url(
-                u,
-                "Local Feed",
-                "Local News",
-                "local_news",
-                current_search_query,
-                session,
-                FetchNewsController.global_forward_label,
-                no_op_clear,
-                FetchNewsController.global_add_item
-            );
-        }
-        if (!found_feed) {
-            wrapped_set_label("Local News — No local feeds configured");
+        // Fetch both the exact resolved town and the nearest major metro
+        // (when they differ) so users near a small town get that town's
+        // own coverage plus the metro's, rather than just one or the
+        // other. ArticleManager already dedupes by normalized URL, so any
+        // story both searches turn up is only shown once.
+        fetch_local_news_query(display_city, "local_news", current_search_query, session);
+        if (news_query_city != display_city) {
+            fetch_local_news_query(news_query_city, "local_news", current_search_query, session);
         }
 
         return true;
+    }
+
+    private static void fetch_local_news_query(string city, string category_id, string current_search_query, Soup.Session session) {
+        string query = GLib.Uri.escape_string(city.strip(), null, false);
+        string url = "https://news.google.com/rss/search?q=" + query + "&hl=en-US&gl=US&ceid=US:en";
+
+        // Local news articles are already cached under this exact URL by
+        // RssFeedProcessor (it caches unconditionally whenever a feed_url is
+        // given, which fetch_rss_url always does). Show that cache first so
+        // a slow, rate-limited, or genuinely empty live Google News response
+        // doesn't leave the view with nothing to show - the same "instant
+        // display, then update in the background" pattern followed RSS feeds
+        // already use (see handle_rss_feed above).
+        var cache = Paperboy.RssArticleCache.get_instance();
+        var cached_articles = cache.get_cached_articles(url);
+        foreach (var article in cached_articles) {
+            FetchNewsController.global_add_item(
+                article.title,
+                article.url,
+                article.thumbnail_url,
+                category_id,
+                city,
+                article.published_date
+            );
+        }
+
+        RssFeedProcessor.fetch_rss_url(
+            url,
+            city,
+            "Local News",
+            category_id,
+            current_search_query,
+            session,
+            FetchNewsController.global_forward_label,
+            FetchNewsController.global_no_op_clear,
+            FetchNewsController.global_add_item
+        );
     }
 }
