@@ -21,6 +21,14 @@ using Adw;
 using Soup;
 using Gdk;
 
+// Bound directly to the C symbol rather than through Gtk.DragIcon.get_for_drag
+// because different GTK4 minor versions ship vapi bindings for it in
+// incompatible shapes (a plain static method vs. a named constructor),
+// which breaks compiling the same source against multiple GTK4/vala SDKs
+// (e.g. the system toolchain vs. the flatpak runtime's).
+[CCode (cname = "gtk_drag_icon_get_for_drag")]
+private static extern unowned Gtk.Widget prefs_dialog_drag_icon_get_for_drag(Gdk.Drag drag);
+
 public class PrefsDialog : GLib.Object {
 
     private delegate void SportsOrderPersistFunc();
@@ -104,7 +112,7 @@ public class PrefsDialog : GLib.Object {
                 return new Gdk.ContentProvider.for_value(val);
             });
             drag_source.drag_begin.connect((source, drag) => {
-                var drag_icon = (Gtk.DragIcon) Gtk.DragIcon.get_for_drag(drag);
+                var drag_icon = (Gtk.DragIcon) prefs_dialog_drag_icon_get_for_drag(drag);
                 var icon_label = new Gtk.Label(display_name);
                 icon_label.add_css_class("card");
                 icon_label.set_margin_top(6);
@@ -1248,6 +1256,14 @@ public class PrefsDialog : GLib.Object {
     // Condensed highlights for the 5 most recent GitHub releases, shown in
     // the About dialog's "What's New" page.
     private const string RELEASE_NOTES = """
+        <p><em>v0.8.0a</em> — Live Sports Scores, UI Redesign &amp; Major Performance Overhaul</p>
+        <ul>
+        <li>Added live ESPN scoreboard cards to the Sports category, covering major leagues from the NFL to Champions League, with polling that scales to game state</li>
+        <li>Redesigned the Front Page: a fixed grid layout, refreshed hero cards, per-category scrollable sections, and relative-time captions on cards</li>
+        <li>Added first-run onboarding, a light/dark/system theme picker, and release notes/issue links in the About dialog</li>
+        <li>Replaced Reddit and Reuters as builtin sources with PBS NewsHour and ABC News, and improved Local News with GeoClue-based location lookup</li>
+        <li>Fixed severe startup/Front Page freezes and memory leaks; capped image cache growth with an LRU eviction budget</li>
+        </ul>
         <p><em>v0.7.5a</em> — Performance, Persistence &amp; UI Polish</p>
         <ul>
         <li>Faster, incremental sidebar and badge updates with on-disk caching</li>
@@ -1273,10 +1289,6 @@ public class PrefsDialog : GLib.Object {
         <li>Added a "mark as unread" option to the article context menu</li>
         <li>Fixed Frontpage cards briefly appearing in the wrong section</li>
         </ul>
-        <p><em>v0.7.0a</em></p>
-        <ul>
-        <li>Earlier milestone release - see the full changelog for details</li>
-        </ul>
         """;
 
     public static void show_about_dialog(Gtk.Window parent) {
@@ -1290,7 +1302,7 @@ public class PrefsDialog : GLib.Object {
         about.set_license_type(Gtk.License.GPL_3_0);
         about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
 
-        about.set_release_notes_version("0.7.5a");
+        about.set_release_notes_version("0.8.0a");
         about.set_release_notes(RELEASE_NOTES);
 
         about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");

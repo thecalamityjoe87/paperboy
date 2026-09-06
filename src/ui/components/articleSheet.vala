@@ -141,9 +141,11 @@ public class ArticleSheet : GLib.Object {
         revealer.notify["reveal-child"].connect(() => {
             if (!revealer.get_reveal_child()) {
                 container.set_visible(false);
-                if (webview != null) {
-                    webview.stop_loading(); webview.load_uri("about:blank");
-                }
+                // Rebuild the webview so its back-forward list (and any
+                // WebKit-suspended processes retained for it) is dropped
+                // once the article is closed, instead of accumulating for
+                // the lifetime of this long-lived, reused ArticleSheet.
+                setup_webview();
                 closed();
             }
         });
@@ -167,6 +169,7 @@ public class ArticleSheet : GLib.Object {
         }
 
         webview = new WebKit.WebView();
+        webview.get_settings().set_enable_page_cache(false);
         if (adblock_css.length > 0) {
             user_content_manager = webview.get_user_content_manager();
             adblock_sheet = new WebKit.UserStyleSheet(adblock_css, WebKit.UserContentInjectedFrames.ALL_FRAMES, WebKit.UserStyleLevel.USER, null, null);
@@ -242,7 +245,7 @@ public class ArticleSheet : GLib.Object {
     public void open(string url) {
         if (url == null) return;
         current_url = url;
-        setup_webview();
+        if (webview == null) setup_webview();
         if (webview != null) webview.load_uri(url);
         container.set_visible(true);
         revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
