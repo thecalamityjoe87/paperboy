@@ -30,20 +30,15 @@ public class LruCache<K, V> : GLib.Object {
     // Protect internal state from concurrent access across threads
     private GLib.Mutex mutex;
     private int capacity;
-    // Optional eviction callback invoked when entries are removed due to
-    // capacity limits or explicit clear/remove. Callers can use this to
-    // release resources or log heavy textures. Kept optional to remain
-    // backwards-compatible.
+    // Called when an entry is removed via capacity/byte-budget eviction or
+    // explicit clear/remove.
     public delegate void EvictionCallback<K, V>(K key, V value);
     private EvictionCallback<K, V>? on_evict;
 
-    // Optional byte-weighed eviction. When a weigher is installed (see
-    // set_byte_budget), eviction is driven by the summed byte size of the
-    // stored values instead of the raw entry count - a handful of huge
-    // decoded images can otherwise sit well under a count-based `capacity`
-    // while consuming gigabytes of memory. The entry-count `capacity` is
-    // still enforced as a secondary hard cap in this mode so a flood of
-    // tiny entries can't grow the order/map bookkeeping unboundedly.
+    // When a weigher is installed (see set_byte_budget), eviction is driven
+    // by summed byte size instead of entry count. `capacity` still applies
+    // as a secondary hard cap so a flood of tiny entries can't grow
+    // bookkeeping unboundedly.
     public delegate int64 SizeFunc<K, V>(K key, V value);
     private SizeFunc<K, V>? size_func;
     private int64 max_bytes = -1;
@@ -53,26 +48,18 @@ public class LruCache<K, V> : GLib.Object {
         GLib.Object();
         if (capacity <= 0) capacity = 128;
         this.capacity = capacity;
-        // Use default Gee containers. Gee will handle GObject
-        // duplication/destroy semantics for stored values (it will
-        // ref on insert and unref on remove/clear). ImageCache is
-        // adjusted to avoid double-unref and therefore we rely on
-        // the container to manage the pixbuf lifecycle.
         map = new Gee.HashMap<K, V>();
         order = new Gee.ArrayList<K>();
         mutex = new GLib.Mutex();
     }
 
-    // Set an optional eviction callback. Passing null clears the callback.
     public void set_eviction_callback(EvictionCallback<K, V>? cb) {
         on_evict = cb;
     }
 
-    // Switch this cache into byte-budget mode: `weigher` computes the
-    // approximate byte size of a stored value, and `set()` will evict the
-    // least-recently-used entries until the running total is back under
-    // `bytes`. Pass a non-positive `bytes` to disable and fall back to
-    // plain entry-count eviction.
+    // `weigher` computes a stored value's approximate byte size; set() then
+    // evicts LRU entries until under `bytes`. Non-positive `bytes` disables
+    // byte-budget mode.
     public void set_byte_budget(int64 bytes, owned SizeFunc<K, V> weigher) {
         mutex.lock();
         try {

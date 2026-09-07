@@ -19,11 +19,8 @@ using GLib;
 using Gee;
 using Sqlite;
 
-/*
- * ArticleStateStore: manages only simple per-article metadata (viewed/favorite/timestamps)
- * No pixbufs, textures, widgets, or image URLs. Minimal, thread-safe helpers.
- */
-
+// Manages per-article metadata (viewed/favorite/timestamps) only - no pixbufs, textures,
+// widgets, or image URLs.
 public class ArticleStateStore : GLib.Object {
     // Emitted when saved articles have been loaded from disk
     public signal void saved_articles_loaded();
@@ -65,11 +62,8 @@ public class ArticleStateStore : GLib.Object {
         public string? thumbnail;
         public string? source;
         public int64 saved_timestamp;
-        // The original article's own published date (as given by its feed/
-        // API at the time it was saved), used to show the same "X ago" time
-        // caption on saved cards as everywhere else in the app. Null for
-        // articles saved before this field existed, or where the source
-        // never gave a published date to begin with.
+        // The original published date from the article's feed/API, so saved cards can show the
+        // same "X ago" caption as everywhere else. Null for articles saved before this field existed.
         public string? published;
 
         public SavedArticle(string url, string title, string? thumbnail, string? source, string? published = null) {
@@ -97,23 +91,14 @@ public class ArticleStateStore : GLib.Object {
         visited_sources = new Gee.HashSet<string>();
         saved_articles = new Gee.HashMap<string, SavedArticle>();
 
-        // Initialize SQLite database for saved articles
         init_saved_articles_db();
-
-        // Migrate saved articles from JSON to database if needed
         migrate_saved_articles_from_json();
 
-        // Load persisted article tracking on startup to show cached badge counts immediately
-        // The deferred background metadata fetch (at 10s) will update with fresh counts
-        // This provides instant visual feedback while fresh data loads in background
+        // Show cached badge counts immediately; the deferred background metadata fetch updates them later.
         load_article_tracking();
-
-        // Load saved articles from database
         load_saved_articles_from_db();
 
-        // Ensure saved articles also participate in category-based tracking so
-        // the "saved" category has a stable backing set for unread counts and
-        // badge logic on startup.
+        // Saved articles need their own category tracking entry for unread-count/badge logic on startup.
         var current_saved = get_saved_articles();
         foreach (var article in current_saved) {
             if (article != null && article.url != null && article.url.length > 0) {
@@ -121,13 +106,11 @@ public class ArticleStateStore : GLib.Object {
                     string norm_url = UrlUtils.normalize_article_url(article.url);
                     if (norm_url == null || norm_url.length == 0) norm_url = article.url.strip();
                     register_article(norm_url, "saved", article.source);
-                } catch (GLib.Error e) {
-                    // Best-effort; skip problematic entries
-                }
+                } catch (GLib.Error e) { }
             }
         }
 
-        // preload small metadata set: scan .meta files for viewed flag
+        // Preload viewed flags from .meta files
         try {
             var meta_dir = File.new_for_path(cache_dir_path);
             FileEnumerator? en = null;
@@ -273,8 +256,7 @@ public class ArticleStateStore : GLib.Object {
 
     // Register an article with its category and source for unread tracking
     public void register_article(string url, string? category_id, string? source_name) {
-        // Normalize the URL OUTSIDE the lock to reduce lock contention
-        // when many threads are calling this simultaneously
+        // Normalize outside the lock to reduce contention under concurrent callers
         string norm_url = "";
         norm_url = UrlUtils.normalize_article_url(url);
 
@@ -313,8 +295,7 @@ public class ArticleStateStore : GLib.Object {
         article_tracking_lock.lock();
         visited_categories.add(category_id);
         article_tracking_lock.unlock();
-        // Defer persist to disk to avoid blocking UI on every click
-        // Save will happen on next article registration or app shutdown
+        // Persisted on next article registration or shutdown, not here, to avoid blocking the UI thread.
     }
 
     // Check if a category has been visited
@@ -339,8 +320,7 @@ public class ArticleStateStore : GLib.Object {
         article_tracking_lock.lock();
         visited_sources.add(source_name);
         article_tracking_lock.unlock();
-        // Defer persist to disk to avoid blocking UI on every click
-        // Save will happen on next article registration or app shutdown
+        // Persisted on next article registration or shutdown, not here, to avoid blocking the UI thread.
     }
 
     // Check if a source has been visited
@@ -397,8 +377,7 @@ public class ArticleStateStore : GLib.Object {
             var articles = category_articles.get(category_id);
             total = articles.size;
 
-            // PERFORMANCE: Only check viewed status from in-memory cache
-            // Don't do disk I/O during count calculation - that's too slow
+            // In-memory cache only - no disk I/O during count calculation
             meta_lock.lock();
             try {
                 foreach (string url in articles) {
@@ -417,57 +396,25 @@ public class ArticleStateStore : GLib.Object {
         return total - viewed;
     }
 
-    // Get unread count for "myfeed" category, filtering by enabled sources only
-    public int get_unread_count_for_myfeed(NewsPreferences prefs) {
+    // Get unread count for "myfeed" category, restricted to what actually got
+    // a card built in the current My Feed view (displayed_urls - see
+    // ArticleManager.get_myfeed_displayed_urls()). category_articles["myfeed"]
+    // holds every article ever registered for the category, which is far
+    // more than ArticleManager.MYFEED_ROW_CARD_CAP ever lets onto the page,
+    // so counting that directly badly overcounts. Falls back to 0 if My Feed
+    // hasn't been built yet this session (displayed_urls null/empty) rather
+    // than showing that inflated total.
+    public int get_unread_count_for_myfeed(Gee.HashSet<string>? displayed_urls) {
+        if (displayed_urls == null || displayed_urls.size == 0) return 0;
+
         int total = 0;
         int viewed = 0;
 
         article_tracking_lock.lock();
         try {
-            if (!category_articles.has_key("myfeed")) {
-                return 0;
-            }
-
-            var articles = category_articles.get("myfeed");
-
-            // PERFORMANCE: Build the set of URLs that belong to an enabled
-            // source in one pass over category_articles/source_articles,
-            // instead of rescanning both maps for every myfeed article
-            // (which was O(articles * (categories + sources))).
-            var enabled_urls = new Gee.HashSet<string>();
-
-            foreach (var entry in category_articles.entries) {
-                string category_id = entry.key;
-                if (!category_id.has_prefix("rssfeed:")) continue;
-
-                string rss_url = category_id.substring("rssfeed:".length);
-                string check_key = "custom:" + rss_url;
-                if (!prefs.preferred_source_enabled(check_key)) continue;
-
-                foreach (string url in entry.value) {
-                    enabled_urls.add(url);
-                }
-            }
-
-            // Built-in sources only count if "custom only" mode is disabled
-            if (!prefs.myfeed_custom_only) {
-                foreach (var source_entry in source_articles.entries) {
-                    string source_name = source_entry.key;
-                    if (source_name.has_prefix("rssfeed:")) continue;
-                    if (!prefs.preferred_source_enabled(source_name)) continue;
-
-                    foreach (string url in source_entry.value) {
-                        enabled_urls.add(url);
-                    }
-                }
-            }
-
-            // PERFORMANCE: Only check viewed status from in-memory cache
             meta_lock.lock();
             try {
-                foreach (string url in articles) {
-                    if (!enabled_urls.contains(url)) continue;
-
+                foreach (string url in displayed_urls) {
                     total++;
                     string meta_path = meta_path_for(url);
                     if (viewed_meta_paths.contains(meta_path)) {
@@ -498,8 +445,6 @@ public class ArticleStateStore : GLib.Object {
             var articles = source_articles.get(source_name);
             total = articles.size;
 
-            // PERFORMANCE: Only check viewed status from in-memory cache
-            // Don't do disk I/O during count calculation - that's too slow
             meta_lock.lock();
             try {
                 foreach (string url in articles) {
@@ -525,7 +470,6 @@ public class ArticleStateStore : GLib.Object {
             if (!source_articles.has_key(source_name)) {
                 return null;
             }
-            // Return a copy to avoid concurrent modification
             var copy = new Gee.HashSet<string>();
             var articles = source_articles.get(source_name);
             foreach (string url in articles) {
@@ -587,21 +531,19 @@ public class ArticleStateStore : GLib.Object {
         return out;
     }
 
-    // Clear all article tracking (useful when refreshing/reloading)
-    // Preserves the "saved" category since saved articles are persistent user data
+    // Clear all article tracking (useful when refreshing/reloading), preserving "saved"
+    // since saved articles are persistent user data.
     public void clear_article_tracking() {
         article_tracking_lock.lock();
         try {
-            // Preserve saved articles tracking
             Gee.HashSet<string>? saved_set = null;
             if (category_articles.has_key("saved")) {
                 saved_set = category_articles.get("saved");
             }
-            
+
             category_articles.clear();
             source_articles.clear();
-            
-            // Restore saved articles tracking
+
             if (saved_set != null) {
                 category_articles.set("saved", saved_set);
             }
@@ -797,20 +739,15 @@ public class ArticleStateStore : GLib.Object {
         }
     }
 
-    // Saved articles management
     public void save_article(string url, string title, string? thumbnail = null, string? source = null, string? published = null) {
-        // Persist saved metadata to database and ensure the article is registered under the
-        // "saved" category for unread-count tracking.
         saved_lock.lock();
         var article = new SavedArticle(url, title, thumbnail, source, published);
         saved_articles.set(url, article);
         saved_lock.unlock();
 
-        // Persist to database
         save_article_to_db(url, title, thumbnail, source, published, GLib.get_real_time() / 1000000);
 
-        // Register the saved article for category-based unread tracking. Do
-        // this outside of the saved_lock to avoid lock ordering issues.
+        // Register outside saved_lock to avoid lock ordering issues.
         string norm = UrlUtils.normalize_article_url(url);
         if (norm == null || norm.length == 0) norm = url.strip();
         register_article(norm, "saved", source);
@@ -818,18 +755,13 @@ public class ArticleStateStore : GLib.Object {
     }
 
     public void unsave_article(string url) {
-        // Remove from saved list and from the "saved" category tracking so
-        // unread counts update correctly.
         saved_lock.lock();
         try {
-            // Attempt direct remove first
             if (saved_articles.has_key(url)) {
                 saved_articles.unset(url);
             } else {
-                // Fallback: remove any entry whose canonical normalized URL
-                // matches the requested URL's normalized form. This covers
-                // situations where saved entries were stored with a slightly
-                // different URL form (scheme missing, trailing slash, etc.).
+                // Fall back to normalized-URL match in case the entry was stored in a
+                // slightly different form (missing scheme, trailing slash, etc).
                 string norm = url;
                 try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
                 var keys_to_remove = new Gee.ArrayList<string>();
@@ -849,10 +781,8 @@ public class ArticleStateStore : GLib.Object {
             saved_lock.unlock();
         }
 
-        // Remove from database
         remove_article_from_db(url);
 
-        // Also remove from category tracking
         try {
             string norm = UrlUtils.normalize_article_url(url);
             if (norm == null || norm.length == 0) norm = url.strip();
@@ -873,7 +803,6 @@ public class ArticleStateStore : GLib.Object {
         saved_lock.lock();
         try {
             if (saved_articles.has_key(url)) return true;
-            // Check normalized match
             string norm = url;
             try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
             foreach (var k in saved_articles.keys) {
@@ -896,7 +825,6 @@ public class ArticleStateStore : GLib.Object {
         foreach (var article in saved_articles.values) {
             list.add(article);
         }
-        // Sort by saved timestamp, newest first
         list.sort((a, b) => {
             return (int)(b.saved_timestamp - a.saved_timestamp);
         });
@@ -908,7 +836,6 @@ public class ArticleStateStore : GLib.Object {
         saved_lock.lock();
         try {
             if (saved_articles.has_key(url)) return saved_articles.get(url);
-            // Try normalized lookup
             string norm = url;
             try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
             foreach (var k in saved_articles.keys) {
@@ -942,8 +869,7 @@ public class ArticleStateStore : GLib.Object {
                 if (norm == null || norm.length == 0) norm = article.url.strip();
                 if (!is_viewed(norm)) cnt++;
             } catch (GLib.Error e) {
-                // Best-effort: treat as unread if we cannot normalize/check
-                cnt++;
+                cnt++; // treat as unread if normalization fails
             }
         }
         saved_lock.unlock();
@@ -965,7 +891,6 @@ public class ArticleStateStore : GLib.Object {
                 return;
             }
 
-            // Create table if it doesn't exist
             string create_table = """
                 CREATE TABLE IF NOT EXISTS saved_articles (
                     url TEXT PRIMARY KEY,
@@ -982,17 +907,13 @@ public class ArticleStateStore : GLib.Object {
                 stderr.printf("Failed to create saved articles table: %s\n", saved_db.errmsg());
             }
 
-            // Existing databases predate the "published" column above (added
-            // so saved cards can show the same "X ago" caption as every
-            // other card) - add it if it's not there yet. Ignore the error
-            // when the column already exists.
+            // Older databases predate the "published" column; add it, ignoring the error if it exists.
             saved_db.exec("ALTER TABLE saved_articles ADD COLUMN published TEXT;", null, null);
         } finally {
             saved_db_lock.unlock();
         }
     }
 
-    // Save article to database
     private void save_article_to_db(string url, string title, string? thumbnail, string? source, string? published, int64 timestamp) {
         saved_db_lock.lock();
         if (saved_db == null) {
@@ -1027,7 +948,6 @@ public class ArticleStateStore : GLib.Object {
         saved_db_lock.unlock();
     }
 
-    // Remove article from database
     private void remove_article_from_db(string url) {
         saved_db_lock.lock();
         if (saved_db == null) {
@@ -1054,7 +974,6 @@ public class ArticleStateStore : GLib.Object {
         saved_db_lock.unlock();
     }
 
-    // Load saved articles from database
     private void load_saved_articles_from_db() {
         saved_db_lock.lock();
         try {
@@ -1087,8 +1006,7 @@ public class ArticleStateStore : GLib.Object {
                 saved_lock.unlock();
             }
 
-            // Register loaded saved articles into category tracking so the
-            // sidebar can immediately show the correct "Saved" badge count.
+            // So the sidebar can immediately show the correct "Saved" badge count.
             try {
                 foreach (var article in saved_articles.values) {
                     try {
@@ -1099,21 +1017,19 @@ public class ArticleStateStore : GLib.Object {
                 }
             } catch (GLib.Error e) { }
 
-            // Notify listeners (UI) that saved articles are now available
             try { saved_articles_loaded(); } catch (GLib.Error e) { }
         } finally {
             saved_db_lock.unlock();
         }
     }
 
-    // Migrate saved articles from JSON file to database (one-time migration)
+    // One-time migration of saved articles from the old JSON file to SQLite.
     private void migrate_saved_articles_from_json() {
         string saved_file = Path.build_filename(cache_dir_path, "saved_articles.json");
         if (!FileUtils.test(saved_file, FileTest.EXISTS)) {
-            return; // No JSON file to migrate
+            return;
         }
 
-        // Check if database already has articles (already migrated)
         saved_db_lock.lock();
         if (saved_db == null) {
             saved_db_lock.unlock();
@@ -1126,14 +1042,12 @@ public class ArticleStateStore : GLib.Object {
         if (rc == Sqlite.OK && stmt.step() == Sqlite.ROW) {
             int count = stmt.column_int(0);
             if (count > 0) {
-                // Database already has articles, skip migration
                 saved_db_lock.unlock();
                 return;
             }
         }
         saved_db_lock.unlock();
 
-        // Parse JSON file and migrate to database
         try {
             var parser = new Json.Parser();
             parser.load_from_file(saved_file);
@@ -1160,10 +1074,7 @@ public class ArticleStateStore : GLib.Object {
                             timestamp = article_obj.get_int_member("saved_timestamp");
                         }
 
-                        // Save to database. The old JSON format never
-                        // recorded the article's published date, so this
-                        // migrated entry won't have a time caption until
-                        // re-saved - there's no original value to recover.
+                        // Old JSON format never recorded published date; nothing to migrate for it.
                         save_article_to_db(url, title, thumbnail, source, null, timestamp);
                         migrated_count++;
                     }
@@ -1171,7 +1082,6 @@ public class ArticleStateStore : GLib.Object {
 
                 stderr.printf("Migrated %d saved articles from JSON to SQLite database\n", migrated_count);
 
-                // Rename JSON file to .bak to avoid re-migration
                 string backup_file = saved_file + ".bak";
                 try {
                     FileUtils.rename(saved_file, backup_file);

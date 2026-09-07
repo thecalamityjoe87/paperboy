@@ -612,7 +612,6 @@ public class SidebarView : GLib.Object {
 
     private Gtk.Widget build_badge_widget(int count, bool is_source, string item_id) {
         var label = new Gtk.Label(null);
-        set_badge_count_text(label, count);
         label.add_css_class("unread-count-badge");
         // Wider gap before the count on Feeds/Popular Categories rows,
         // not on the special items.
@@ -631,9 +630,21 @@ public class SidebarView : GLib.Object {
         // itself to the right edge makes every count - 1 digit or several -
         // share the same ones-place column, with no per-row margin needed.
         label.set_xalign(1.0f);
-        label.set_data("unread_count", count);
-        label.set_data("is_placeholder", false);
-        label.set_visible(badge_type_enabled(is_source, item_id) && count > 0);
+
+        // -1 is the "not visited yet" placeholder (see get_unread_count_for_item) -
+        // matches on_badge_updated()'s handling of the same sentinel for
+        // updates after creation.
+        if (count == -1) {
+            label.set_label("--");
+            label.set_data("unread_count", 0);
+            label.set_data("is_placeholder", true);
+            label.set_visible(badge_type_enabled(is_source, item_id));
+        } else {
+            set_badge_count_text(label, count);
+            label.set_data("unread_count", count);
+            label.set_data("is_placeholder", false);
+            label.set_visible(badge_type_enabled(is_source, item_id) && count > 0);
+        }
         return label;
     }
     

@@ -30,10 +30,9 @@ namespace Managers {
         public const int MAX_CAROUSEL_SLIDES = 5;
         
         // Layout dimensions
-        // Hero cards now lay text/picture side by side instead of stacked, so
-        // the picture spans the card's full height - default/max are kept
-        // equal to size fetched images and placeholders at the actual
-        // rendered height instead of the old (shorter) stacked-image height.
+        // Hero cards lay text/picture side by side, so the picture spans the
+        // card's full height - default/max must match so images and
+        // placeholders size consistently.
         public const int HERO_MAX_HEIGHT = 460;
         public const int HERO_DEFAULT_HEIGHT = 460;
         public const int TOPTEN_HERO_MAX_HEIGHT = 480;
@@ -46,18 +45,34 @@ namespace Managers {
         
         public Gee.ArrayList<ArticleItem> article_buffer;
         public Gee.ArrayList<ArticleItem> remaining_articles;
-        // PERFORMANCE: per-category count of remaining_articles, kept in
-        // sync on every add/remove so remaining_count_for_category() is O(1)
-        // instead of rescanning the whole (potentially large) overflow queue.
+        // Per-category counts of remaining_articles, kept in sync on every
+        // add/remove so remaining_count_for_category() is O(1).
         private Gee.HashMap<string, int> remaining_category_counts;
-        // Debounce latch for reveal_sections_with_pending_overflow(): a whole
-        // batch of queued overflow articles (e.g. ~95 frontpage cards in one
-        // Idle.add callback) should only trigger one reveal pass, not one per
-        // article.
+        // Debounces reveal_sections_with_pending_overflow() so a whole batch
+        // of queued overflow articles triggers one reveal pass, not one per article.
         private bool reveal_pending = false;
         public int articles_shown = 0;
-        
-        // Track URLs seen in current view to prevent duplicate cards (race condition fix)
+
+        // Per-row real-card counts for My Feed (keyed by section key, e.g.
+        // "source:guardian" or a bare category id), reset each fetch. My Feed
+        // has many independent rows rather than one flat grid, so each row
+        // gets its own modest cap instead of sharing articles_shown/INITIAL_ARTICLE_LIMIT
+        // (see add_item) - otherwise a full load could build hundreds of
+        // real card widgets, each with its own image fetch, at once.
+        private Gee.HashMap<string, int>? myfeed_row_card_counts = null;
+        private const int MYFEED_ROW_CARD_CAP = 10;
+
+        // URLs that actually got a real card built in the current My Feed
+        // build (see place_myfeed_article_cards) - reset once per My Feed
+        // fetch by LayoutManager.prepare_myfeed_sections(), not by the
+        // general clear_articles() (which runs on every category switch and
+        // would otherwise wipe this the moment the user leaves My Feed).
+        // ArticleStateStore.get_unread_count_for_myfeed() uses this instead
+        // of the full registered-article pool, which includes far more
+        // articles than MYFEED_ROW_CARD_CAP ever lets onto the page.
+        private Gee.HashSet<string>? myfeed_displayed_urls = null;
+
+        // Track URLs seen in current view to prevent duplicate cards
         private Gee.HashSet<string> seen_urls;
         
         // Category distribution
@@ -93,10 +108,6 @@ namespace Managers {
             seen_urls = new Gee.HashSet<string>();
         }
 
-        /**
-         * Open article in app with offline check
-         * Centralized method to handle opening articles in the article sheet
-         */
         public void open_article_in_app_if_online(string article_url) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
@@ -109,10 +120,6 @@ namespace Managers {
             if (window.article_sheet != null) window.article_sheet.open(normalized);
         }
 
-        /**
-         * Open article in browser with offline check
-         * Centralized method to handle opening articles in external browser
-         */
         public void open_article_in_browser_if_online(string article_url) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
@@ -125,34 +132,21 @@ namespace Managers {
             if (window.article_pane != null) window.article_pane.open_article_in_browser(normalized);
         }
 
-        /**
-         * Check if a category has article limits applied (most categories do)
-         */
         private bool is_limited_category(string category) {
             return CategoryManager.is_limited_category(category);
         }
 
-        /**
-         * Check if this is a regular news category (not frontpage, topten, myfeed, local_news, saved, or RSS)
-         */
         private bool is_regular_news_category(string category) {
             return CategoryManager.is_regular_news_category(category);
         }
-        
-        /**
-         * Normalize source name for consistent tracking
-         */
+
         private string? normalize_source_name(string? source_name, string category_id, string url) {
             return SourceManager.normalize_source_name(source_name, category_id, url);
         }
-        
-        /**
-         * Queue an article for the "Load More" overflow
-         * Returns true if article was queued, false if it was a duplicate
-         */
+
+        // Returns false if the article is a duplicate (already queued this view).
         private bool queue_overflow_article(string title, string url, string? thumbnail_url,
                                             string category_id, string? source_name, string? published = null, string? snippet = null) {
-            // Normalize and check for duplicates
             string normalized_url = "";
             normalized_url = window.normalize_article_url(url); 
             
@@ -179,15 +173,11 @@ namespace Managers {
                 window.article_state_store.register_article(norm, category_id, normalized_source);
             }
 
-            // A category that got zero cards into the initial 25-article
-            // cap would otherwise stay permanently hidden with no way to
-            // reach its queued overflow - see
-            // LayoutManager.reveal_sections_with_pending_overflow().
-            //
-            // PERFORMANCE: debounced via a single Idle.add latch so a whole
-            // batch of queued articles (all added synchronously from one
-            // fetcher callback) triggers exactly one reveal pass instead of
-            // one per article.
+            // A category with zero cards in the initial cap would otherwise
+            // stay hidden with no way to reach its queued overflow - see
+            // LayoutManager.reveal_sections_with_pending_overflow(). Debounced
+            // via a single Idle.add latch so a batch of articles triggers one
+            // reveal pass, not one per article.
             if (window.layout_manager != null && !reveal_pending) {
                 reveal_pending = true;
                 GLib.Idle.add(() => {
@@ -202,12 +192,8 @@ namespace Managers {
             return true;
         }
 
-        /**
-         * The real category for a queued overflow article. On Front Page,
-         * category_id is always the literal string "frontpage" - the actual
-         * category travels in source_name as a "##category::<cat>" suffix
-         * (same convention used when building each card's category chip).
-         */
+        // On Front Page, category_id is always "frontpage" - the real
+        // category travels in source_name as a "##category::<cat>" suffix.
         private string extract_display_category(ArticleItem item) {
             string cat = item.category_id;
             if (cat == "frontpage" && item.source_name != null) {
@@ -219,31 +205,19 @@ namespace Managers {
             return cat;
         }
 
-        /**
-         * How many overflow articles for one category are still queued -
-         * used by the category-section nav button to decide whether to show
-         * a "load more" affordance once that row is scrolled to its end.
-         */
         public int remaining_count_for_category(string cat) {
             if (remaining_category_counts == null) return 0;
             return remaining_category_counts.get(cat);
         }
 
-        /**
-         * Load the next batch of queued overflow articles for one category
-         * only, appending them to that category's section (existing card
-         * placement already routes by category via the same
-         * "##category::" parsing, so no extra wiring is needed there).
-         * Removes matched items from the shared remaining_articles pool -
-         * see load_more_articles() for why removal (not an index cursor) is
-         * required now that two flows draw from the same queue.
-         */
+        // Removes matched items from the shared remaining_articles pool
+        // rather than tracking an index cursor, since load_more_articles()
+        // also draws from the same queue.
         public void load_more_for_category(string cat, int max_to_load = LOAD_MORE_BATCH_SIZE) {
             if (remaining_articles == null) return;
 
-            // Snapshot the section's current card count so newly appended
-            // cards can be told apart afterward and given the same
-            // fade/slide entrance as the global "Load more articles" flow.
+            // Snapshot current card count so newly appended cards can be
+            // given the same fade/slide entrance as the global "load more" flow.
             Gtk.Widget? row = (window != null && window.layout_manager != null)
                 ? window.layout_manager.get_category_section_row(cat)
                 : null;
@@ -288,19 +262,37 @@ namespace Managers {
             }
         }
 
-        /**
-         * Check if debug mode is enabled
-         */
         private bool debug_enabled() {
             string? e = Environment.get_variable("PAPERBOY_DEBUG");
             return e != null && e.length > 0;
         }
 
+        // My Feed's row identity for one article ("source:<id>" or
+        // "customfeed:<url>"). Must be resolved before normalize_source_name
+        // rewrites source_name into a display name, since matching against
+        // enabled sources depends on seeing the raw name/URL.
+        private string? resolve_myfeed_row_key_hint(string category_id, string? source_name) {
+            if (category_id == "myfeed") {
+                return (source_name != null && source_name.length > 0) ? "customfeed:" + source_name : null;
+            }
+            if (source_name == null || source_name.length == 0 || window.source_manager == null) return null;
+            foreach (var src in window.source_manager.get_enabled_source_enums()) {
+                if (SourceManager.source_name_matches(src, source_name)) {
+                    return "source:" + SourceManager.source_enum_to_id(src);
+                }
+            }
+            return null;
+        }
+
         public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null) {
-            // Check if we're viewing a category with article limits
-            if (is_limited_category(window.prefs.category)) {
+            bool is_myfeed = window.category_manager.is_myfeed_view();
+
+            // My Feed doesn't use the flat article-count cap: its rows are
+            // independent scrolling strips, not one shared grid, and several
+            // row kinds have no "load more" path to rescue overflow (see
+            // LayoutManager.reveal_sections_with_pending_overflow).
+            if (!is_myfeed && is_limited_category(window.prefs.category)) {
                 lock (articles_shown) {
-                    // If we've reached the limit, queue remaining articles for "Load More"
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
                         if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published, snippet)) {
                             show_load_more_button();
@@ -310,32 +302,31 @@ namespace Managers {
                 }
             }
 
-            // Normalize source name for consistent tracking
+            string? myfeed_row_key_hint = is_myfeed ? resolve_myfeed_row_key_hint(category_id, source_name) : null;
+
             string? final_source_name = normalize_source_name(source_name, category_id, url);
-            
-            // Normalize URL for deduplication
+
             string normalized = "";
             if (url != null) normalized = window.normalize_article_url(url);
             if (normalized == null) normalized = "";
 
-            // Early dedup check: Skip if we've already seen this URL in this view session.
-            // This prevents race conditions where multiple async fetches add the same article
-            // before the first one registers its picture in url_to_picture.
-            // Note: Top Ten allows duplicates intentionally to show headlines from multiple providers.
+            // Skip if already seen this view session, to avoid duplicate cards
+            // when multiple async fetches race on the same URL. Top Ten allows
+            // duplicates intentionally (same headline from multiple providers).
             if (window.prefs.category != "topten" && normalized.length > 0 && seen_urls != null) {
                 lock (seen_urls) {
                     if (seen_urls.contains(normalized)) {
-                        // Already added this article - but if this duplicate call
-                        // carries a published date the card doesn't have yet (e.g.
-                        // it was first shown from an on-disk cache entry that
-                        // predates this field, and a fresh fetch just resolved
-                        // one), backfill the already-rendered card's time label in
-                        // place instead of silently dropping the newer data.
+                        // Backfill the already-rendered card's time label if this
+                        // duplicate call carries a published date it doesn't have yet.
                         if (published != null && published.length > 0 && window.view_state != null) {
-                            Gtk.Widget? existing_widget = window.view_state.url_to_card.get(normalized);
-                            Gtk.Label? existing_time_label = existing_widget != null ? existing_widget.get_data<Gtk.Label>("article-time-label") : null;
-                            if (existing_time_label != null && existing_time_label.get_text() == "") {
-                                existing_time_label.set_text(DateUtils.time_ago(published));
+                            var existing_widgets = window.view_state.get_cards_for_url(normalized);
+                            if (existing_widgets != null) {
+                                foreach (var existing_widget in existing_widgets) {
+                                    Gtk.Label? existing_time_label = existing_widget.get_data<Gtk.Label>("article-time-label");
+                                    if (existing_time_label != null && existing_time_label.get_text() == "") {
+                                        existing_time_label.set_text(DateUtils.time_ago(published));
+                                    }
+                                }
                             }
                         }
                         return;
@@ -360,14 +351,10 @@ namespace Managers {
                 }
             }
             if (existing != null && thumbnail_url != null && thumbnail_url.length > 0) {
-                    // Normally reuse an existing Picture mapping to avoid duplicate
-                    // image widgets for the same normalized URL. However, the
-                    // Top Ten view intentionally displays many headlines from
-                    // multiple providers and we should not dedupe by the
-                    // normalized image key there — doing so can collapse
-                    // distinct headlines that happen to normalize to the same
-                    // URL (tracking/query params removed). Allow Top Ten to
-                    // create separate cards even when an image mapping exists.
+                    // Reuse an existing Picture mapping to avoid duplicate image
+                    // widgets for the same normalized URL. Skip on Top Ten, where
+                    // distinct headlines can normalize to the same URL (tracking
+                    // params stripped) and shouldn't collapse into one card.
                     if (window.prefs.category != "topten") {
                         var info = window.image_manager.hero_requests.get(existing);
                         int target_w = 400;
@@ -380,20 +367,17 @@ namespace Managers {
                         }
                         int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
                         if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(existing, category_id == "local_news");
-                        // Track image loading during initial phase
                         if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
-                        // Force immediate loading for reused images (don't defer) since they're already visible
                         window.image_manager.load_image_async(existing, thumbnail_url, target_w, target_h, true);
                         return;
                     } else {
                     }
             }
 
-            // Skip filtering for saved articles - they should always be displayed regardless of source
+            // Saved articles should always display regardless of source
             bool is_saved_view = (window.prefs.category == "saved");
 
             if (!is_saved_view) {
-                // Use CategoryManager for category filtering
                 if (!window.category_manager.should_display_article(category_id)) {
                     if (debug_enabled()) {
                         warning("Article filtered by category: view=%s article_cat=%s title=%s",
@@ -402,27 +386,18 @@ namespace Managers {
                     return;
                 }
 
-                // Use SourceManager for source filtering
                 if (!window.source_manager.should_display_article(url, category_id)) {
                     return;
                 }
             }
 
-            // Add articles immediately
-            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published, snippet);
+            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published, snippet, myfeed_row_key_hint);
         }
 
-        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null, string? snippet = null) {
-            // Make this article's feed-provided snippet and published date
-            // available as fallbacks for ArticleSnippetService, which
-            // live-fetches the article's own page and falls back to
-            // whatever matches this URL in article_buffer when that fetch
-            // fails, comes back empty, or (for the date) simply doesn't
-            // expose a recognizable published-date tag on the page itself.
-            // Without this, article_buffer was only ever populated by the
-            // "load more" paths - never for the first batch of articles
-            // shown when a category loads, which includes the hero card and
-            // is exactly where a missing preview/date was most visible.
+        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null, string? snippet = null, string? myfeed_row_key_hint = null) {
+            // Buffer this article's snippet/published date as a fallback for
+            // ArticleSnippetService, which live-fetches the article page and
+            // falls back to article_buffer when that fetch fails or is incomplete.
             bool has_snippet = snippet != null && snippet.length > 0;
             bool has_published = published != null && published.length > 0;
             if ((has_snippet || has_published) && article_buffer != null) {
@@ -431,20 +406,18 @@ namespace Managers {
                 article_buffer.add(buffered_item);
             }
 
-            // Decode HTML entities in title (e.g., &mdash; → —, &amp; → &)
             string decoded_title = stripHtmlUtils.strip_html(title);
 
             string check_category = original_category ?? window.prefs.category;
 
-            // Use helper to check if category has article limits
-            if (is_limited_category(check_category) && !bypass_limit) {
+            // My Feed is exempt here too - see add_item() above.
+            if (is_limited_category(check_category) && !bypass_limit && window.prefs.category != "myfeed") {
                 lock (articles_shown) {
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
                         if (title == null || url == null) {
                             return;
                         }
 
-                        // Queue overflow article using helper
                         string normalized_src = normalize_source_name(source_name, category_id, url);
                         if (queue_overflow_article(title, url, thumbnail_url, category_id, normalized_src, published)) {
                             if (!load_more_button_visible) {
@@ -460,15 +433,12 @@ namespace Managers {
             
             bool should_be_hero = false;
             if (window.prefs.category == "saved") {
-                // Saved articles: skip hero, display as regular cards
                 should_be_hero = false;
             } else if (window.prefs.category == "topten") {
                 should_be_hero = (topten_hero_count < 2);
             } else if (window.prefs.category == "frontpage") {
-                // For frontpage, only make the first article a hero (same as other categories)
                 should_be_hero = !featured_used;
             } else if (window.category_manager.is_rssfeed_view()) {
-                // Individual RSS feeds: skip hero, go straight to carousel/columns for adaptive layout
                 should_be_hero = false;
             } else if (!featured_used) {
                 should_be_hero = true;
@@ -515,16 +485,11 @@ namespace Managers {
                     published
                 );
 
-                // Populate the hero's snippet line via the existing on-demand
-                // preview service (same one articlePane uses), rather than
-                // parsing feed/API responses again ourselves. Skipped for Top
-                // Ten: its stacked picture-over-text layout only has room
-                // for the title.
+                // Skipped for Top Ten: its stacked layout only has room for the title.
                 if (window.prefs.category != "topten") {
                     ArticleSnippetService.attach_hero_snippet(hero_card, url, source_name, article_buffer);
                 }
 
-                // Source badge (logo + name), same as regular article cards.
                 if (category_id != "local_news") {
                     var hero_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
                     hero_card.overlay.add_overlay(hero_source_badge);
@@ -545,10 +510,8 @@ namespace Managers {
                     if (hero_will_load) {
                     // Hero images are the most prominent feature - always use maximum quality
                     int multiplier = 6;
-                    // Track hero image loading to gate initial content reveal
                     if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
                     if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(hero_card.image, category_id == "local_news");
-                    // Force immediate loading for hero images (don't defer) to ensure they load quickly
                     window.image_manager.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, true);
                     window.image_manager.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
                     if (window.view_state != null) {
@@ -564,12 +527,10 @@ namespace Managers {
                     Timeout.add(300, () => { var info = window.image_manager.hero_requests.get(hero_card.image); if (info != null) window.maybe_refetch_hero_for(hero_card.image, info); return false; });
                 }
 
-                // Set metadata for context menu
                 hero_card.source_name = source_name;
                 hero_card.category_id = category_id;
                 hero_card.thumbnail_url = thumbnail_url;
 
-                // Register article for unread count tracking
                 // Note: source_name is already normalized by add_item() before being passed here
                 if (window.article_state_store != null) {
                     window.article_state_store.register_article(_norm, category_id, source_name);
@@ -607,7 +568,6 @@ namespace Managers {
                             if (is_saved) {
                                 window.article_state_store.unsave_article(article_url);
                                 request_show_toast("Removed article from saved");
-                                // animate_save_toggle() updates the Saved badge count itself.
                                 if (window.animation_manager != null) {
                                     window.animation_manager.animate_save_toggle(hero_root, hero_save_ribbon, decoded_title, false);
                                 }
@@ -626,8 +586,6 @@ namespace Managers {
                             } else {
                                 window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
                                 request_show_toast("Added article to saved");
-                                // Ribbon/pop + fly-to-shelf; the Saved badge count
-                                // only bumps once the ghost actually arrives there.
                                 if (window.animation_manager != null) {
                                     window.animation_manager.animate_save_toggle(hero_root, hero_save_ribbon, decoded_title, true);
                                 }
@@ -665,7 +623,6 @@ namespace Managers {
             featured_carousel_items.size < 5) {
             bool allow_slide = false;
             if (window.prefs.category == "myfeed" && window.prefs.personalized_feed_enabled) {
-                // Custom RSS sources in My Feed come with category_id="myfeed"
                 if (category_id == "myfeed") {
                     allow_slide = true;
                 } else if (featured_carousel_category != null && featured_carousel_category == category_id) {
@@ -681,9 +638,6 @@ namespace Managers {
                     }
                 }
             } else if (window.category_manager.is_rssfeed_view()) {
-                // RSS feed views: allow articles for carousel (for adaptive layout)
-                // Individual RSS feeds have category_id="rssfeed:<feed_url>"
-                // My Feed RSS sources have category_id="myfeed"
                 allow_slide = (category_id.has_prefix("rssfeed:") || category_id == "myfeed");
             } else {
                 allow_slide = (category_id == window.prefs.category);
@@ -692,19 +646,16 @@ namespace Managers {
                 return;
             }
 
-            // Extract display category from source_name if available
             string slide_display_cat = category_id;
             if (slide_display_cat == "frontpage" && source_name != null) {
                 int idx2 = source_name.index_of("##category::");
                 if (idx2 >= 0 && source_name.length > idx2 + 12) slide_display_cat = source_name.substring(idx2 + 12).strip();
             }
 
-            // Ensure carousel exists
             if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
                 hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
             }
 
-            // Build category chip and create slide via HeroCarousel
             var slide_chip = window.build_category_chip(slide_display_cat);
             var components = hero_carousel.create_article_slide(
                 decoded_title, url, thumbnail_url, category_id, source_name, slide_chip,
@@ -712,8 +663,6 @@ namespace Managers {
                 published
             );
 
-            // Populate this slide's snippet and source badge the same way as
-            // the primary hero.
             var slide_hero = components.hero;
             if (slide_hero != null) {
                 ArticleSnippetService.attach_hero_snippet(slide_hero, url, source_name, article_buffer);
@@ -725,7 +674,6 @@ namespace Managers {
             var slide = components.slide;
             var slide_image = components.image;
 
-            // Handle image loading (this logic stays in ArticleManager as it coordinates with ImageManager)
             int default_w = window.estimate_content_width();
             int default_h = HeroCarousel.SLIDE_IMAGE_HEIGHT;
             bool slide_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
@@ -738,12 +686,9 @@ namespace Managers {
                     set_smart_placeholder(slide_image, default_w, default_h, source_name, url);
                 }
             } else {
-                // Carousel slides are prominent features - always use maximum quality
                 int multiplier = IMAGE_QUALITY_MULTIPLIER_HIGH;
-                // Track carousel image loading to gate initial content reveal
                 if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
                 if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(slide_image, category_id == "local_news");
-                // Force immediate loading for carousel images (don't defer) to ensure they load quickly
                 window.image_manager.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier, true);
                 window.image_manager.hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));
                 string _norm = window.normalize_article_url(url);
@@ -760,8 +705,6 @@ namespace Managers {
 
             featured_carousel_items.add(new ArticleItem(decoded_title, url, thumbnail_url, category_id, source_name));
 
-            // Register article for unread count tracking
-            // Carousel slides 2-5 need to be registered just like the first hero card
             string _norm2 = window.normalize_article_url(url);
             if (window.article_state_store != null) {
                 window.article_state_store.register_article(_norm2, category_id, source_name);
@@ -770,11 +713,94 @@ namespace Managers {
             return;
         }
 
-        // All cards use uniform sizing so columns stay evenly spaced.
-        // Use the column width cached for this layout pass (set once in
-        // LayoutManager.rebuild_columns) rather than recomputing it per-card,
-        // so every card gets identical dimensions even if the reported content
-        // width drifts slightly while articles are still streaming in.
+        if (window.layout_manager == null) {
+            warning("ArticleManager: layout_manager not initialized, cannot place card");
+            return;
+        }
+
+        // My Feed's section rows place this article twice - once in its
+        // source's row, once in its category's row (see
+        // LayoutManager.prepare_myfeed_sections) - since a widget can only
+        // have one parent. Every other view builds exactly one card.
+        if (window.category_manager.is_myfeed_view() && window.layout_manager.is_using_category_sections()) {
+            place_myfeed_article_cards(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, myfeed_row_key_hint);
+        } else {
+            string card_display_cat = category_id;
+            if (card_display_cat == "frontpage" && source_name != null) {
+                int idx3 = source_name.index_of("##category::");
+                if (idx3 >= 0 && source_name.length > idx3 + 12) card_display_cat = source_name.substring(idx3 + 12).strip();
+            }
+            place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, card_display_cat, false);
+        }
+    }
+
+    // Places one article into My Feed's row-based layout: 0, 1, or 2 cards,
+    // depending on whether the article's category and/or source has a live
+    // row (see LayoutManager.resolve_myfeed_category_key/resolve_myfeed_source_key).
+    private void place_myfeed_article_cards(string decoded_title, string url, string? thumbnail_url, string category_id, string? source_name, bool bypass_limit, string? published, string? myfeed_row_key_hint) {
+        string? cat_key = window.layout_manager.resolve_myfeed_category_key(category_id);
+        string? src_key = window.layout_manager.resolve_myfeed_source_key(myfeed_row_key_hint);
+
+        bool placed = false;
+        // Either placement may legitimately miss a row - skip that half
+        // gracefully rather than falling back to a catch-all.
+        if (cat_key != null && try_take_myfeed_row_slot(cat_key)) {
+            place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, cat_key, true);
+            placed = true;
+        }
+        if (src_key != null && try_take_myfeed_row_slot(src_key)) {
+            place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, src_key, true);
+            placed = true;
+        }
+        if (placed) {
+            if (myfeed_displayed_urls == null) myfeed_displayed_urls = new Gee.HashSet<string>();
+            myfeed_displayed_urls.add(window.normalize_article_url(url));
+        }
+    }
+
+    // Reset once per My Feed fetch (see LayoutManager.prepare_myfeed_sections)
+    // so the badge count reflects only the current build's cards.
+    public void reset_myfeed_displayed_urls() {
+        if (myfeed_displayed_urls == null) myfeed_displayed_urls = new Gee.HashSet<string>();
+        else myfeed_displayed_urls.clear();
+    }
+
+    public Gee.HashSet<string> get_myfeed_displayed_urls() {
+        if (myfeed_displayed_urls == null) myfeed_displayed_urls = new Gee.HashSet<string>();
+        return myfeed_displayed_urls;
+    }
+
+    // Claims one of MYFEED_ROW_CARD_CAP real-card slots for this row key,
+    // returning false once that row is full so the caller skips building
+    // a widget for it. Each row is independent - a full "Guardian" row
+    // doesn't affect the "Technology" row's own budget.
+    private bool try_take_myfeed_row_slot(string row_key) {
+        if (myfeed_row_card_counts == null) myfeed_row_card_counts = new Gee.HashMap<string, int>();
+        int count = myfeed_row_card_counts.has_key(row_key) ? myfeed_row_card_counts.get(row_key) : 0;
+        if (count >= MYFEED_ROW_CARD_CAP) return false;
+        myfeed_row_card_counts.set(row_key, count + 1);
+        return true;
+    }
+
+    // Builds one regular (non-hero, non-carousel) article card and places it
+    // into section_key's section (or the flat grid outside sections mode).
+    // no_fallback_section: when true, an unrecognized section_key means skip
+    // placement (My Feed rows); when false, falls back to Front Page's
+    // "More Stories" catch-all.
+    private void place_regular_article_card(
+        string decoded_title,
+        string url,
+        string? thumbnail_url,
+        string category_id,
+        string? source_name,
+        bool bypass_limit,
+        string? published,
+        string section_key,
+        bool no_fallback_section
+    ) {
+        // Use the column width cached for this layout pass rather than
+        // recomputing per-card, so every card gets identical dimensions even
+        // if the reported content width drifts while articles stream in.
         int col_w = 400;
         if (window.layout_manager != null) {
             col_w = window.layout_manager.cached_col_w > 0
@@ -782,10 +808,8 @@ namespace Managers {
                 : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
         }
         int img_w = col_w;
-        // Fixed pixel height, not derived from col_w: any computed value is a
-        // vector for cards to end up with different picture heights if col_w
-        // is read at slightly different times as articles stream in. A hard
-        // constant makes the picture area identical on every card, always.
+        // Fixed height, not derived from col_w, so every card's picture area
+        // matches even if col_w is read at slightly different times.
         int img_h = CARD_IMAGE_HEIGHT;
 
         string card_display_cat = category_id;
@@ -807,8 +831,9 @@ namespace Managers {
             col_w,
             img_h,
             chip,
-            card_display_cat,
-            published
+            section_key,
+            published,
+            no_fallback_section
         );
 
         if (category_id != "local_news") {
@@ -828,16 +853,12 @@ namespace Managers {
                         if (window.view_state != null) window.view_state.register_picture_for_url(_norm, article_card.image);
                         card_will_load = false;
                     }
-                
+
             }
-            // In single-source mode, use higher 3x multiplier for crisp quality; in multi-source mode, use 2x initially then 3x
             bool single_source = (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size == 1);
             int multiplier = single_source ? 3 : ((window.loading_state != null && window.loading_state.initial_phase) ? 2 : 3);
-            // Track regular card images in pending_images counter during initial phase
             if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
             if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(article_card.image, category_id == "local_news");
-            // Always force image load so animations or initial-phase state
-            // never prevent images from being fetched and shown.
             bool force_load = true;
             window.image_manager.load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier, force_load);
             if (window.view_state != null) window.view_state.register_picture_for_url(_norm, article_card.image);
@@ -856,22 +877,15 @@ namespace Managers {
             if (was) window.mark_article_viewed(_norm);
         }
 
-        // Set metadata for context menu
         article_card.source_name = source_name;
         article_card.category_id = category_id;
         article_card.thumbnail_url = thumbnail_url;
 
-        // Register article for unread count tracking
-        // Skip registration if bypass_limit is true - these articles were already
-        // registered when added to the overflow queue (lines 131 & 314)
-        // Note: source_name is already normalized by add_item() before being passed here
+        // bypass_limit articles were already registered when queued as overflow.
         if (window.article_state_store != null && !bypass_limit) {
             window.article_state_store.register_article(_norm, category_id, source_name);
         }
 
-        // Capture plain widget locals instead of referencing
-        // article_card.root/save_ribbon inside these callbacks - see
-        // ArticleCard.wire_interactions().
         var card_root = article_card.root;
         var card_save_ribbon = article_card.save_ribbon;
         ArticleCard.wire_interactions(
@@ -893,13 +907,11 @@ namespace Managers {
                     if (is_saved) {
                         window.article_state_store.unsave_article(article_url);
                         request_show_toast("Removed article from saved");
-                        // animate_save_toggle() updates the Saved badge count itself.
                         if (window.animation_manager != null) {
                             window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, decoded_title, false);
                         }
 
                         if (window.prefs.category == "saved") {
-                            // Animate removal of this single card instead of a full reload
                             if (window.animation_manager != null) {
                                         var w = card_root;
                                         string? normalized = null;
@@ -913,8 +925,6 @@ namespace Managers {
                     } else {
                         window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
                         request_show_toast("Added article to saved");
-                        // Ribbon/pop + fly-to-shelf; the Saved badge count only
-                        // bumps once the ghost actually arrives there.
                         if (window.animation_manager != null) {
                             window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, decoded_title, true);
                         }
@@ -926,7 +936,7 @@ namespace Managers {
 
         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
     }
-        
+
         public void load_more_articles() {
             if (remaining_articles == null || remaining_articles.size == 0) {
                 if (load_more_button_visible) {
@@ -944,8 +954,8 @@ namespace Managers {
             }
             
             int articles_to_load = int.min(10, remaining_articles.size);
-            
-            // Snapshot current card count so we can detect newly appended cards
+
+            // Snapshot current card count to detect newly appended cards.
             int prev_card_count = 0;
             int featured_count = 0;
             if (window != null && window.layout_manager != null) {
@@ -963,14 +973,12 @@ namespace Managers {
 
             for (int i = 0; i < articles_to_load; i++) {
                 // Remove from the front rather than indexing in place: this
-                // queue is now a shared pool that per-category "load more"
-                // (load_more_for_category) can also pull from out of order,
-                // so consumption has to be removal-based everywhere to keep
-                // both flows from stepping on each other.
+                // queue is a shared pool that load_more_for_category() also
+                // pulls from out of order.
                 var article = remaining_articles.remove_at(0);
                 string display_cat = extract_display_category(article);
                 remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) - 1);
-                // No need to check seen_urls here - articles were already deduplicated
+                // No need to check seen_urls - articles were already deduplicated
                 // when they were added to remaining_articles queue
                 article_buffer.add(article);
                 add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, null, article.source_name, true, article.published);
@@ -1044,50 +1052,35 @@ namespace Managers {
             if (load_more_button_visible) return;
 
             // Front Page has its own per-category "load more" on each
-            // section's nav button (see LayoutManager.add_section_nav_buttons)
-            // now that its sections give overflow articles somewhere to land
-            // that a single page-bottom button doesn't - so skip the global
-            // button there. Every other limited category still uses the old
-            // flat grid and keeps this as its only "load more" affordance.
+            // section's nav button instead of one global button.
             if (window.prefs.category == "frontpage") return;
 
             if (window.loading_state.loading_container != null && window.loading_state.loading_container.get_visible()) {
                 return;
             }
-            
-            // Remove any end of feed message
+
             request_remove_end_feed_message();
-            
-            // Request UI to show the load more button
             request_show_load_more_button();
             load_more_button_visible = true;
         }
-                
-        // Ensure any existing load-more button is removed and cleared.
+
         public void clear_load_more_button() {
             if (!load_more_button_visible) return;
             request_hide_load_more_button();
             load_more_button_visible = false;
         }
 
-        // Public query so other managers can know whether a load-more
-        // button is currently present. This avoids races where two
-        // managers append conflicting UI elements (button vs end label).
         public bool has_load_more_button() {
             return load_more_button_visible;
         }
 
-        // Public helper to clear all article state and destroy article widgets
         public void clear_articles() {
-            // DON'T clear article tracking - we want to accumulate articles across all categories
-            // for persistent unread counts that survive category switches
-
-            // Clear article buffer
+            // Article tracking (view/save state) is intentionally not cleared
+            // here - unread counts persist across category switches.
             if (article_buffer != null) {
                 article_buffer.clear();
             }
 
-            // Clear remaining articles list
             if (remaining_articles != null) {
                 remaining_articles.clear();
             }
@@ -1095,13 +1088,12 @@ namespace Managers {
                 remaining_category_counts.clear();
             }
             articles_shown = 0;
+            if (myfeed_row_card_counts != null) myfeed_row_card_counts.clear();
 
-            // Clear seen_urls to allow fresh deduplication for new fetch
             if (seen_urls != null) {
                 seen_urls.clear();
             }
 
-            // Clear category tracking maps
             if (category_column_counts != null) {
                 category_column_counts.clear();
             }
@@ -1115,35 +1107,26 @@ namespace Managers {
                 recent_category_queue.clear();
             }
 
-            // Reset counters
             topten_hero_count = 0;
 
-            // Clear featured carousel state
             if (featured_carousel_items != null) {
                 featured_carousel_items.clear();
             }
             featured_carousel_category = null;
             featured_used = false;
 
-            // Remove load more button if present
             clear_load_more_button();
 
-            // CRITICAL: Remove and destroy all article card widgets from the grid
             if (window != null && window.layout_manager != null) {
                 window.layout_manager.clear_columns();
             }
         }
 
-        /**
-         * Reset article manager state for a new fetch.
-         * Call this at the start of fetch_news() to prepare for new content.
-         * Clears articles, stops carousel timer, and resets tracking state.
-         */
+        // Resets state for a new fetch: clears articles, stops the carousel
+        // timer, and resets tracking. Call at the start of fetch_news().
         public void reset_for_new_fetch() {
-            // Clear all articles and widgets
             clear_articles();
 
-            // Stop and clear hero carousel
             if (hero_carousel != null) {
                 hero_carousel.stop_timer();
                 if (hero_carousel.container != null && window.layout_manager.featured_box != null) {
@@ -1152,7 +1135,6 @@ namespace Managers {
                 hero_carousel = null;
             }
 
-            // Reset carousel state
             if (featured_carousel_items != null) {
                 featured_carousel_items.clear();
             }
@@ -1160,7 +1142,6 @@ namespace Managers {
             featured_used = false;
             topten_hero_count = 0;
 
-            // Cancel any pending buffer flush timeout
             if (buffer_flush_timeout_id > 0) {
                 Source.remove(buffer_flush_timeout_id);
                 buffer_flush_timeout_id = 0;
@@ -1173,7 +1154,6 @@ namespace Managers {
 
 
     private void set_smart_placeholder(Gtk.Picture image, int w, int h, string? source_name, string url) {
-        // If explicitly in RSS feed view, always use RSS placeholder
         if (window.category_manager.is_rssfeed_view() && source_name != null && source_name.length > 0) {
             window.set_rss_placeholder_image(image, w, h, source_name);
             return;
@@ -1181,10 +1161,10 @@ namespace Managers {
 
         NewsSource resolved = window.resolve_source(source_name, url);
         NewsSource default_source = window.prefs.news_source;
-        
-        // Check if it resolved to the default source (fallback behavior)
+
+        // A name that doesn't match the resolved default source's own name
+        // means this is actually a custom RSS feed that fell back to the default.
         if (resolved == default_source && source_name != null && source_name.length > 0) {
-            // If the name doesn't match the default source, assume it's a custom RSS feed
             if (!source_name_matches(resolved, source_name)) {
                 window.set_rss_placeholder_image(image, w, h, source_name);
                 return;
@@ -1212,15 +1192,10 @@ namespace Managers {
         featured_carousel_category = null;
     }
 
-    /**
-     * Create an ArticleCard from a hero's data and wire up all handlers.
-     * Used by search to convert hero cards to article cards for display.
-     *
-     * Takes plain data rather than a HeroCard reference since a HeroCard no
-     * longer stays reachable past its own construction (see
-     * HeroCard.wire_interactions()); the caller pulls these values off the
-     * hero's root widget instead.
-     */
+    // Creates an ArticleCard from a hero's data and wires up handlers. Used
+    // by search to convert hero cards to article cards for display. Takes
+    // plain data rather than a HeroCard reference since a HeroCard isn't
+    // reachable past its own construction.
     public ArticleCard create_article_card_from_hero(
         string hero_title,
         string hero_url,
@@ -1250,21 +1225,15 @@ namespace Managers {
             article_card.image.set_paintable(hero_paintable);
         }
 
-        // Preserve metadata
         article_card.source_name = hero_source_name;
         article_card.category_id = hero_category_id;
         article_card.thumbnail_url = hero_thumbnail_url;
 
-        // Wire up application-level handlers
         wire_article_card_handlers(article_card, hero_title, hero_url, hero_thumbnail_url, hero_category_id, hero_source_name);
 
         return article_card;
     }
 
-    /**
-     * Wire up all handlers and registration for an article card
-     * Centralizes the signal connections and state registration logic
-     */
     public void wire_article_card_handlers(
         ArticleCard article_card,
         string title,
@@ -1275,14 +1244,12 @@ namespace Managers {
     ) {
         string norm = window.normalize_article_url(url);
 
-        // Register with ViewStateManager
         if (window.view_state != null) {
             window.view_state.register_picture_for_url(norm, article_card.image);
             window.view_state.normalized_to_url.set(norm, url);
             window.view_state.register_card_for_url(norm, article_card.root);
         }
 
-        // Register with ArticleStateStore
         if (window.article_state_store != null) {
             window.article_state_store.register_article(norm, category_id != null ? category_id : "", source_name);
         }
@@ -1314,7 +1281,6 @@ namespace Managers {
                     bool is_saved = window.article_state_store.is_saved(article_url);
                     if (is_saved) {
                         window.article_state_store.unsave_article(article_url);
-                        // animate_save_toggle() updates the Saved badge count itself.
                         if (window.animation_manager != null) {
                             window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, title, false);
                         }
@@ -1332,8 +1298,6 @@ namespace Managers {
                     } else {
                         window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
                         request_show_toast("Added article to saved");
-                        // Ribbon/pop + fly-to-shelf; the Saved badge count only
-                        // bumps once the ghost actually arrives there.
                         if (window.animation_manager != null) {
                             window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, title, true);
                         }

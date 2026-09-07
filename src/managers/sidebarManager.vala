@@ -397,7 +397,16 @@ public class SidebarManager : GLib.Object {
             if (!window.prefs.personalized_feed_enabled) {
                 return 0;
             }
-            return window.article_state_store.get_unread_count_for_myfeed(window.prefs);
+            var displayed = window.article_manager != null ? window.article_manager.get_myfeed_displayed_urls() : null;
+            // Placeholder until My Feed has actually been built this
+            // session (is_category_visited persists across app restarts,
+            // but displayed_urls is reset fresh each launch - gating on the
+            // persisted flag would skip the placeholder even when there's
+            // no real data yet this session).
+            if (displayed == null || displayed.size == 0) {
+                return -1;
+            }
+            return window.article_state_store.get_unread_count_for_myfeed(displayed);
         }
 
         // Local News: use category-based unread count (articles registered
@@ -653,19 +662,25 @@ public class SidebarManager : GLib.Object {
      */
     public void update_badge_for_category(string category_id) {
         int unread_count = 0;
+        // My Feed has no real count until it's actually been built this
+        // session (displayed_urls is reset fresh each launch, unlike the
+        // persisted is_category_visited flag popular categories use) -
+        // keep showing "--" until then.
+        bool myfeed_has_data = false;
         if (window.article_state_store != null) {
-            // For myfeed, use filtered count that only includes enabled sources
             if (category_id == "myfeed") {
-                unread_count = window.article_state_store.get_unread_count_for_myfeed(window.prefs);
+                var displayed = window.article_manager != null ? window.article_manager.get_myfeed_displayed_urls() : null;
+                myfeed_has_data = displayed != null && displayed.size > 0;
+                unread_count = window.article_state_store.get_unread_count_for_myfeed(displayed);
             } else {
                 unread_count = window.article_state_store.get_unread_count_for_category(category_id);
             }
         }
         category_unread_counts.set(category_id, unread_count);
 
-        // For popular categories, only update badge if user has visited it
-        // Otherwise keep showing "--" placeholder
-        if (is_popular_category(category_id) && !is_category_visited(category_id)) {
+        if (category_id == "myfeed") {
+            if (!myfeed_has_data) return;
+        } else if (is_popular_category(category_id) && !is_category_visited(category_id)) {
             // Don't update - keep placeholder
             return;
         }

@@ -226,6 +226,8 @@ public class HeaderManager : GLib.Object {
             case "saved": return "Saved";
             case "general": return "World News";
             case "us": return "US News";
+            case "world": return "World News";
+            case "nation": return "US News";
             case "technology": return "Technology";
             case "business": return "Business";
             case "sports": return "Sports";

@@ -19,6 +19,13 @@
 using Gtk;
 using Gee;
 
+// glibc-specific: forces freed heap pages back to the OS immediately instead
+// of waiting on glibc's own heuristics. Needed because rebuilding My Feed's
+// rows frees up to ~120 full-size card textures at once, which otherwise
+// leaves RSS elevated even though everything was properly freed.
+[CCode (cname = "malloc_trim")]
+private static extern int malloc_trim(size_t pad);
+
 namespace Managers {
 
     public class LayoutManager : GLib.Object {
@@ -51,29 +58,27 @@ namespace Managers {
         public Gtk.Widget? content_area;
 
         // Category-grouped sections (Front Page only). Each section is a
-        // vertical "wrapper" (label + horizontally-scrollable row of cards),
+        // vertical wrapper (label + horizontally-scrollable row of cards),
         // pre-built in a fixed priority order and hidden until its first
-        // card arrives, since articles stream in asynchronously and we don't
-        // want section order to depend on fetch timing.
+        // card arrives, since articles stream in asynchronously.
         public Gtk.Box? category_sections_container;
         public Gtk.Separator? hero_frontpage_separator;
         private bool using_category_sections = false;
         private Gee.HashMap<string, CategorySection>? category_sections;
-        // Card root -> its home section, so search filtering (which
-        // temporarily removes non-matching cards) can put matching cards
-        // back into the section they came from instead of a flat grid.
+        // Ordered section keys for the active mode: FRONTPAGE_SECTION_CATEGORIES
+        // for Front Page, or the interleaved key list from prepare_myfeed_sections()
+        // for My Feed - both modes share the same iteration code over this.
+        private Gee.ArrayList<string>? active_section_order;
+        // Card root -> its home section, so search filtering (which temporarily
+        // removes non-matching cards) can restore them to their own section.
         private Gee.HashMap<Gtk.Widget, CategorySection>? card_home_section;
         // Each section's randomly-rolled top-up target (see
-        // reveal_sections_with_pending_overflow) - rolled once per section
-        // per fetch and cached here so repeated calls (one per queued
-        // overflow article) don't re-roll a different target each time.
+        // reveal_sections_with_pending_overflow), cached so repeated calls
+        // don't re-roll a different target each time.
         private Gee.HashMap<string, int>? section_target_depth;
         private const string MISC_SECTION_KEY = "more";
-        // "headlines", "world", and "nation" are the real category ids the
-        // Paperboy frontpage API sends (confirmed against the cached article
-        // data) - "general"/"us" were a guess based on other fetchers and
-        // don't actually occur here, which is why articles in those
-        // categories were falling through to the "more" catch-all.
+        // These are the actual category ids the Paperboy frontpage API sends;
+        // anything else falls through to the "more" catch-all.
         private static string[] FRONTPAGE_SECTION_CATEGORIES = {
             "headlines", "world", "nation", "politics", "business",
             "technology", "science", "health", "sports", "entertainment",
@@ -81,6 +86,21 @@ namespace Managers {
             "economics",
             "more"
         };
+
+        // The sidebar uses "general"/"us" for World/US news where the
+        // frontpage API uses "world"/"nation" - map to the sidebar's id so
+        // the "..." button's navigation and highlight land on the right
+        // row. Returns null when a category has no sidebar entry at all
+        // (e.g. "headlines"), which hides the button for that row.
+        private static string? sidebar_nav_id_for(string cat) {
+            switch (cat) {
+                case "world": return "general";
+                case "nation": return "us";
+                case "headlines": return null;
+                case MISC_SECTION_KEY: return null;
+                default: return cat;
+            }
+        }
 
         // Adaptive layout tracking (for both RSS feeds and regular categories)
         public uint adaptive_layout_timeout_id = 0;
@@ -94,9 +114,6 @@ namespace Managers {
             window = w;
         }
 
-        /**
-        * Reset adaptive layout tracking counters. Call at start of fetch.
-        */
         public void reset_adaptive_tracking() {
             article_count_for_adaptive = 0;
             if (adaptive_layout_timeout_id > 0) {
@@ -110,45 +127,42 @@ namespace Managers {
             reset_adaptive_tracking();
         }
 
-        /**
-        * Track a regular category article arrival and schedule adaptive layout check.
-        * When article count < 15 and no new articles for 500ms, rebuilds as 2-hero layout.
-        *
-        * @param current_fetch_seq The fetch sequence to validate against
-        */
+        // Schedules an adaptive layout check 400ms after the last article
+        // arrival; if the category ends up with fewer than 15 articles,
+        // rebuilds it as a 2-column hero layout.
         public void track_category_article(uint current_fetch_seq) {
-            // Don't increment counter - we'll check ArticleStateStore instead
-            // to get the actual deduplicated count
-
-            // Cancel any existing timeout and schedule a new one
             if (adaptive_layout_timeout_id > 0) {
                 Source.remove(adaptive_layout_timeout_id);
                 adaptive_layout_timeout_id = 0;
             }
 
-            // Schedule layout check after 400ms of no new articles
-            // Reduced from 500ms to 400ms for faster adaptive layout decision
             adaptive_layout_timeout_id = Timeout.add(400, () => {
                 if (current_fetch_seq != FetchContext.current) {
                     return false;
                 }
 
-                // Get the actual deduplicated article count from ArticleStateStore
                 int actual_count = 0;
                 if (window != null && window.article_state_store != null && window.prefs != null) {
                     actual_count = window.article_state_store.get_total_count_for_category(window.prefs.category);
                 }
 
-                // Check if we need to adapt the layout
-                if (actual_count < 15 && actual_count > 0) {
-                    // Rebuild as 2-column hero layout
+                // Sports runs two concurrent fetches (the normal one plus an
+                // extra sports-desk fetch), which can arrive in uneven
+                // bursts under load - a mid-stream gap here can read as
+                // "fetch done" while more articles are still on the way.
+                // Converting to the sparse-category hero grid hides the
+                // normal hero carousel with nothing to un-hide it once the
+                // rest lands, so Sports always keeps its normal layout
+                // regardless of count.
+                bool is_sports = window != null && window.prefs != null && window.prefs.category == "sports";
+
+                if (actual_count < 15 && actual_count > 0 && !is_sports) {
                     Idle.add(() => {
                         if (current_fetch_seq != FetchContext.current) return false;
                         rebuild_as_category_heroes();
                         return false;
                     });
                 } else {
-                    // No adaptive layout needed, allow normal spinner hiding
                     if (window != null && window.loading_state != null) {
                         window.loading_state.awaiting_adaptive_layout = false;
                         if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
@@ -244,10 +258,6 @@ namespace Managers {
             return clampi(col_w, 160, 280);
         }
 
-        /**
-        * Unwrap a Gtk.FlowBox's direct child (a Gtk.FlowBoxChild) down to the
-        * actual card widget it wraps.
-        */
         private Gtk.Widget? unwrap_flow_child(Gtk.Widget? flow_child) {
             if (flow_child == null) return null;
             if (flow_child is Gtk.FlowBoxChild) {
@@ -266,22 +276,15 @@ namespace Managers {
             columns_row.set_max_children_per_line(count);
             columns_row.set_visible(true);
 
-            // Fix the column width for this layout pass so every card created
-            // afterward gets identical dimensions. Computing this per-card instead
-            // (as before) let it drift as the content area's reported width
-            // shifted slightly while articles were still streaming in, so
-            // different cards baked in different image heights.
+            // Fixed once per layout pass so every card gets identical
+            // dimensions, rather than drifting as content width is
+            // re-measured while articles stream in.
             cached_col_w = estimate_column_width(count);
         }
 
-        /**
-        * Prepare layout for a new fetch - clears hero/featured containers and rebuilds columns.
-        * Call this at the start of fetch_news() to reset layout state.
-        *
-        * @param is_topten Whether the current view is Top Ten (uses 4 columns, different hero handling)
-        */
+        // Clears hero/featured containers and rebuilds columns. Call at the
+        // start of fetch_news(). is_topten: Top Ten uses 4 columns, others 3.
         public void prepare_for_new_fetch(bool is_topten) {
-            // Clear featured box children
             if (featured_box != null) {
                 Gtk.Widget? fchild = featured_box.get_first_child();
                 while (fchild != null) {
@@ -292,11 +295,10 @@ namespace Managers {
                 }
             }
 
-            // Restore hero/featured container visibility (may have been hidden by RSS adaptive layout)
+            // Restore visibility in case adaptive layout hid these.
             if (hero_container != null) hero_container.set_visible(true);
             if (featured_box != null) featured_box.set_visible(true);
 
-            // Clear hero_container
             if (hero_container != null) {
                 Gtk.Widget? hchild = hero_container.get_first_child();
                 while (hchild != null) {
@@ -307,51 +309,45 @@ namespace Managers {
                 }
             }
 
-            // For non-topten views, add featured_box back for carousel
             if (!is_topten && hero_container != null && featured_box != null) {
                 hero_container.append(featured_box);
             }
 
-            // Rebuild columns: Top Ten uses a 4-column grid, others use 3
             rebuild_columns(is_topten ? 4 : 3);
 
-            // Front Page groups articles into per-category sections instead
-            // of the flat grid; every other view uses the flat grid as before.
-            bool want_sections = (window != null && window.category_manager != null && window.category_manager.is_frontpage_view());
-            if (want_sections) {
+            // Front Page and My Feed both group articles into per-row
+            // sections instead of the flat grid; every other view uses the
+            // flat grid as before.
+            bool is_frontpage = (window != null && window.category_manager != null && window.category_manager.is_frontpage_view());
+            bool is_myfeed = (window != null && window.category_manager != null && window.category_manager.is_myfeed_view());
+            if (is_frontpage) {
                 prepare_category_sections();
+            } else if (is_myfeed) {
+                prepare_myfeed_sections();
             } else {
                 teardown_category_sections();
             }
         }
 
 
-        /**
-        * Common helper for when categories show less than
-        * 15 to adaptively build hero cards
-        */
+        // Builds adaptive hero cards for categories/feeds with under 15 articles.
         public void rebuild_as_adapative_heroes() {
-            // Hide the hero/featured area since we want all articles in columns
             if (hero_container != null) hero_container.set_visible(false);
             if (featured_box != null) featured_box.set_visible(false);
 
-            // Switch the grid to 2 columns - existing cards reflow in place
             rebuild_columns(2);
 
             if (columns_row == null) return;
 
-            // Apply uniform sizing to all article cards in the grid
             Gtk.Widget? flow_child = columns_row.get_first_child();
             while (flow_child != null) {
                 Gtk.Widget? next = flow_child.get_next_sibling();
                 Gtk.Widget? child = unwrap_flow_child(flow_child);
 
                 if (child != null) {
-                    // Force uniform tall hero card dimensions
                     child.set_size_request(-1, RSS_HERO_CARD_HEIGHT);
                     child.add_css_class("rss-hero-card");
 
-                    // Dive into the card structure to set uniform heights on image and text sections
                     if (child is Gtk.Box) {
                         Gtk.Box card_root = (Gtk.Box) child;
                         Gtk.Widget? card_child = card_root.get_first_child();
@@ -514,10 +510,13 @@ namespace Managers {
                 category_sections_container.remove(child);
                 child = next;
             }
+            malloc_trim(0);
 
             category_sections = new Gee.HashMap<string, CategorySection>();
             card_home_section = new Gee.HashMap<Gtk.Widget, CategorySection>();
             section_target_depth = new Gee.HashMap<string, int>();
+            active_section_order = new Gee.ArrayList<string>();
+            foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) active_section_order.add(cat);
 
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) {
                 // Written as if/else rather than a nested ternary: mixing an
@@ -543,8 +542,9 @@ namespace Managers {
                 // section's load-more button queries the value that's
                 // actually on those queued items.
                 string query_cat = (cat == MISC_SECTION_KEY) ? "frontpage" : cat;
+                string? nav_target = sidebar_nav_id_for(cat);
 
-                var section = new CategorySection(window, display_name, query_cat);
+                var section = new CategorySection(window, display_name, query_cat, false, false, null, false, null, nav_target);
                 // Faint divider between Front Page category sections,
                 // matching the hero/score/article dividers (see
                 // .section-divider in style.css). Skipped on the first
@@ -553,6 +553,127 @@ namespace Managers {
                 section.wrapper.add_css_class("frontpage-section-divider");
                 category_sections_container.append(section.wrapper);
                 category_sections.set(cat, section);
+            }
+
+            using_category_sections = true;
+            category_sections_container.set_visible(true);
+            if (hero_frontpage_separator != null) hero_frontpage_separator.set_visible(true);
+            if (columns_row != null) columns_row.set_visible(false);
+        }
+
+        /**
+        * Build (or rebuild) My Feed's row sections: rows alternate between
+        * one per followed built-in source (that source's latest articles,
+        * any category) and one per personalized My Feed category (that
+        * topic's articles, any followed source), in source/category/
+        * source/category... order. The hero carousel above these rows is
+        * untouched - this only replaces the flat grid below it.
+        *
+        * Section key convention: category rows use the bare category_id
+        * (unprefixed, exactly like Front Page) so find_category_section()
+        * and the overflow/load-more machinery keep working unmodified for
+        * them. Source rows use "source:<id>" (see SourceManager.
+        * source_enum_to_id) so they can never collide with a category id.
+        *
+        * Custom RSS feeds opted into My Feed (NewsPreferences.
+        * myfeed_feed_enabled, set from the My Feed Custom Feeds dialog) get
+        * a source row too, keyed "customfeed:<url>" so it can never collide
+        * with a built-in "source:<id>" key or a topic category id - see
+        * resolve_myfeed_source_key(), which matches a custom feed article
+        * (whose source_name is literally its feed URL) against this key.
+        */
+        public void prepare_myfeed_sections() {
+            if (category_sections_container == null) return;
+
+            if (window != null && window.article_manager != null) {
+                window.article_manager.reset_myfeed_displayed_urls();
+            }
+
+            Gtk.Widget? child = category_sections_container.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                category_sections_container.remove(child);
+                child = next;
+            }
+            malloc_trim(0);
+
+            category_sections = new Gee.HashMap<string, CategorySection>();
+            card_home_section = new Gee.HashMap<Gtk.Widget, CategorySection>();
+            section_target_depth = new Gee.HashMap<string, int>();
+            active_section_order = new Gee.ArrayList<string>();
+
+            // Source-like rows: built-in enabled sources first, then any
+            // custom RSS feeds opted into My Feed - unified into one
+            // (key, display name) list so both interleave against
+            // categories the same way below.
+            var source_keys = new Gee.ArrayList<string>();
+            var source_names = new Gee.ArrayList<string>();
+            // Parallel to source_keys/source_names: a local bundled/saved
+            // logo file path if one's available, else a network favicon
+            // URL to fetch, else both null (plain text header, as before).
+            var source_logo_files = new Gee.ArrayList<string?>();
+            var source_logo_urls = new Gee.ArrayList<string?>();
+            if (window != null && window.source_manager != null) {
+                foreach (var src in window.source_manager.get_enabled_source_enums()) {
+                    source_keys.add("source:" + SourceManager.source_enum_to_id(src));
+                    source_names.add(SourceManager.get_source_name(src));
+                    source_logo_files.add(SourceUtils.get_source_icon_path(src));
+                    source_logo_urls.add(null);
+                }
+            }
+            if (window != null && window.prefs != null) {
+                var rss_store = Paperboy.RssSourceStore.get_instance();
+                foreach (var feed in rss_store.get_all_sources()) {
+                    if (window.prefs.preferred_source_enabled("custom:" + feed.url) && window.prefs.myfeed_feed_enabled(feed.url)) {
+                        source_keys.add("customfeed:" + feed.url);
+                        source_names.add(feed.name);
+
+                        // Same precedence CardBuilder.build_source_badge_dynamic
+                        // uses for custom sources: a previously-saved local
+                        // favicon file first, network favicon_url otherwise.
+                        string? local_path = null;
+                        if (feed.icon_filename != null && feed.icon_filename.length > 0) {
+                            var data_dir = GLib.Environment.get_user_data_dir();
+                            var candidate = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", feed.icon_filename);
+                            if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS)) local_path = candidate;
+                        }
+                        source_logo_files.add(local_path);
+                        source_logo_urls.add(local_path == null ? feed.favicon_url : null);
+                    }
+                }
+            }
+
+            Gee.ArrayList<string> categories = (window != null && window.category_manager != null)
+                ? window.category_manager.get_myfeed_categories()
+                : new Gee.ArrayList<string>();
+
+            int max_len = int.max(source_keys.size, categories.size);
+            for (int i = 0; i < max_len; i++) {
+                if (i < source_keys.size) {
+                    string key = source_keys.get(i);
+                    string display_name = source_names.get(i);
+                    // Built-in sources ("source:<id>") have no single-source
+                    // page to jump to yet; custom feeds do, via the same
+                    // "rssfeed:<url>" id their sidebar entry already uses.
+                    string? nav_target = key.has_prefix("customfeed:")
+                        ? "rssfeed:" + key.substring("customfeed:".length)
+                        : null;
+                    var section = new CategorySection(window, display_name, key, false, false, source_logo_urls.get(i), false, source_logo_files.get(i), nav_target);
+                    section.wrapper.add_css_class("frontpage-section-divider");
+                    category_sections_container.append(section.wrapper);
+                    category_sections.set(key, section);
+                    active_section_order.add(key);
+                }
+                if (i < categories.size) {
+                    string cat = categories.get(i);
+                    string display_name = (window != null) ? window.category_display_name_for(cat) : cat;
+                    string? nav_target = sidebar_nav_id_for(cat);
+                    var section = new CategorySection(window, display_name, cat, false, false, null, false, null, nav_target);
+                    section.wrapper.add_css_class("frontpage-section-divider");
+                    category_sections_container.append(section.wrapper);
+                    category_sections.set(cat, section);
+                    active_section_order.add(cat);
+                }
             }
 
             using_category_sections = true;
@@ -589,6 +710,16 @@ namespace Managers {
             if (columns_row != null) columns_row.set_visible(true);
             category_sections = null;
             card_home_section = null;
+            active_section_order = null;
+            malloc_trim(0);
+        }
+
+        /**
+        * Whether sections mode (Front Page or My Feed rows) is currently
+        * active, as opposed to the flat grid.
+        */
+        public bool is_using_category_sections() {
+            return using_category_sections;
         }
 
         /**
@@ -606,6 +737,50 @@ namespace Managers {
 
             section.add_card(card_root);
             if (card_home_section != null) card_home_section.set(card_root, section);
+        }
+
+        /**
+        * Route an article card into a specific section by its exact key,
+        * with NO catch-all fallback: a key that doesn't correspond to a
+        * live section (e.g. a My Feed row whose source/category the
+        * article doesn't match) simply means "don't place it here",
+        * silently. Used for My Feed's dual source+category placement,
+        * where add_card_to_category_section's Front-Page-specific
+        * "More Stories" fallback would be wrong - dumping an unmatched
+        * article into a misc bucket that doesn't exist in My Feed's model.
+        */
+        public void add_card_to_named_section(string key, Gtk.Widget card_root) {
+            if (!using_category_sections || category_sections == null) return;
+            CategorySection? section = category_sections.get(key);
+            if (section == null) return;
+
+            section.add_card(card_root);
+            if (card_home_section != null) card_home_section.set(card_root, section);
+        }
+
+        /**
+        * Resolve a My Feed article's category_id to its section key, if
+        * that category currently has a live row (i.e. it's one of the
+        * user's personalized My Feed categories). Returns null otherwise
+        * so the caller can skip that placement.
+        */
+        public string? resolve_myfeed_category_key(string category_id) {
+            if (!using_category_sections || category_sections == null) return null;
+            return category_sections.has_key(category_id) ? category_id : null;
+        }
+
+        /**
+        * Confirm a My Feed row key (e.g. "source:guardian" or
+        * "customfeed:<url>") corresponds to a currently-live row. The key is
+        * resolved by the caller (ArticleManager.add_item(), from
+        * source_name/category_id before SourceManager.normalize_source_name
+        * rewrites source_name into a display name) rather than fuzzy-matched
+        * here against the already-mutated name.
+        */
+        public string? resolve_myfeed_source_key(string? row_key_hint) {
+            if (!using_category_sections || category_sections == null) return null;
+            if (row_key_hint == null || row_key_hint.length == 0) return null;
+            return category_sections.has_key(row_key_hint) ? row_key_hint : null;
         }
 
         /**
@@ -686,10 +861,17 @@ namespace Managers {
         }
 
         public void reveal_sections_with_pending_overflow() {
-            if (!using_category_sections || category_sections == null) return;
+            if (!using_category_sections || category_sections == null || active_section_order == null) return;
             if (window == null || window.article_manager == null) return;
 
-            foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) {
+            foreach (string cat in active_section_order) {
+                // My Feed source rows ("source:<id>") and custom feed rows
+                // ("customfeed:<url>") have no overflow/load-more backing
+                // yet - remaining_count_for_category only knows real
+                // category ids, so skip them here rather than asking it a
+                // question it has no answer for.
+                if (cat.has_prefix("source:") || cat.has_prefix("customfeed:")) continue;
+
                 CategorySection? section = category_sections.get(cat);
                 if (section == null) continue;
 
@@ -784,7 +966,8 @@ namespace Managers {
             int img_h,
             Gtk.Widget chip,
             string? section_category_id = null,
-            string? published = null
+            string? published = null,
+            bool no_fallback_section = false
         ) {
             var article_card = new ArticleCard(
                 title,
@@ -804,7 +987,11 @@ namespace Managers {
             // appends straight to the grid, which handles row/column placement
             // automatically.
             if (using_category_sections && section_category_id != null) {
-                add_card_to_category_section(section_category_id, article_card.root);
+                if (no_fallback_section) {
+                    add_card_to_named_section(section_category_id, article_card.root);
+                } else {
+                    add_card_to_category_section(section_category_id, article_card.root);
+                }
             } else if (columns_row != null) {
                 columns_row.append(article_card.root);
             }
@@ -829,8 +1016,8 @@ namespace Managers {
             var original_cards = new Gee.ArrayList<Gtk.Widget>();
 
             if (using_category_sections) {
-                if (category_sections == null) return original_cards;
-                foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) {
+                if (category_sections == null || active_section_order == null) return original_cards;
+                foreach (string cat in active_section_order) {
                     CategorySection? section = category_sections.get(cat);
                     if (section == null) continue;
                     Gtk.Widget? child = section.row.get_first_child();
@@ -992,8 +1179,8 @@ namespace Managers {
         public GLib.ListModel? get_cards_for_iteration() {
             if (using_category_sections) {
                 var store = new GLib.ListStore(typeof(Gtk.Widget));
-                if (category_sections != null) {
-                    foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) {
+                if (category_sections != null && active_section_order != null) {
+                    foreach (string cat in active_section_order) {
                         CategorySection? section = category_sections.get(cat);
                         if (section == null) continue;
                         Gtk.Widget? child = section.row.get_first_child();

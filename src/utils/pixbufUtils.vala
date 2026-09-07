@@ -20,13 +20,9 @@ using GLib;
 using Cairo;
 
 public class PixbufUtils {
-    // Scale to square (out_size x out_size) and mask to a circle (alpha
-    // outside = 0). border_width (in the same pixel space as out_size), if
-    // > 0, strokes a subtle ring around the circle's edge - without it, a
-    // logo whose own colors are close to the background it sits on (e.g. a
-    // mostly-white or mostly-transparent logo in light mode) can look like
-    // it has no circle at all, since the white circular backdrop below
-    // blends straight into the page.
+    // Scales to a square and masks to a circle. border_width, if > 0,
+    // strokes a ring around the edge so light/transparent logos don't
+    // blend into the page.
     public static Gdk.Pixbuf? scale_and_circularize (Gdk.Pixbuf? src, int out_size, double border_width = 0) {
         if (src == null) return null;
 
@@ -34,30 +30,28 @@ public class PixbufUtils {
         int h = src.get_height();
         int src_size = (w < h) ? w : h;
 
-        // Create a square pixbuf scaled to out_size then paint it into a
-        // Cairo ARGB surface clipped to a circle. Converting the surface
-        // back to a pixbuf avoids accessing raw pixel memory directly.
-        Gdk.Pixbuf scaled_pb;
-                // Scale the source pixbuf to the desired output size
-        scaled_pb = src.scale_simple (out_size, out_size, Gdk.InterpType.BILINEAR);
+        // Center-crop to a square on the shorter dimension so non-square
+        // logos (e.g. wide wordmarks) don't get stretched.
+        int crop_x = (w - src_size) / 2;
+        int crop_y = (h - src_size) / 2;
+        Gdk.Pixbuf square_src = new Gdk.Pixbuf.subpixbuf(src, crop_x, crop_y, src_size, src_size);
 
-        // Create ARGB surface and draw a circular badge with the logo
+        Gdk.Pixbuf scaled_pb;
+        scaled_pb = square_src.scale_simple (out_size, out_size, Gdk.InterpType.BILINEAR);
+
         var surface = new ImageSurface(Format.ARGB32, out_size, out_size);
         var cr = new Context(surface);
 
-        // Fill transparent first
         cr.set_source_rgba(0, 0, 0, 0);
         cr.paint();
 
-        // Use a slight inset (0.5) and best antialiasing to produce a
-        // visually-crisp circle across different scale factors / DPI.
+        // Slight inset keeps the circle crisp across scale factors/DPI.
         cr.set_antialias(Antialias.BEST);
         double inset_f = 0.5;
         double radius = (out_size - (inset_f * 2.0)) / 2.0;
         double cx = out_size / 2.0;
         double cy = out_size / 2.0;
 
-        // Draw solid circular background (white) so the badge is opaque.
         cr.arc(cx, cy, radius, 0, 2 * Math.PI);
         cr.set_source_rgba(1, 1, 1, 1);
         cr.fill();
@@ -66,20 +60,10 @@ public class PixbufUtils {
         cr.arc(cx, cy, radius, 0, 2 * Math.PI);
         cr.clip();
 
-        // Draw the scaled pixbuf inset slightly so it sits comfortably inside the badge
-        int inset = 4; // matches previous code that centered a 16x16 inside 24x24
-        int inner_size = out_size - (inset * 2);
-        Gdk.Pixbuf inner_pb;
-        inner_pb = scaled_pb.scale_simple(inner_size, inner_size, Gdk.InterpType.BILINEAR);
-
-        int ox = inset;
-        int oy = inset;
-        Gdk.cairo_set_source_pixbuf(cr, inner_pb, ox, oy);
+        Gdk.cairo_set_source_pixbuf(cr, scaled_pb, 0, 0);
         cr.paint();
 
-        // Stroke a subtle ring around the edge, outside the fill clip
-        // above (reset_clip so the full stroke width is visible rather
-        // than just its inward half).
+        // reset_clip so the stroke isn't half-clipped by the fill clip above.
         if (border_width > 0) {
             cr.reset_clip();
             cr.set_line_width(border_width);
@@ -88,38 +72,19 @@ public class PixbufUtils {
             cr.stroke();
         }
 
-        // Convert surface back to pixbuf
         var result_pb = Gdk.pixbuf_get_from_surface(surface, 0, 0, out_size, out_size);
         return result_pb;
     }
 
-    // Logos are rendered at this many times `display_size` and then scaled
-    // back down into that logical box via CONTAIN, rather than rendered at
-    // exactly display_size and shown 1:1 - a 1:1 texture only has enough
-    // pixels for a 1x display, so on any HiDPI screen (scale factor 2+)
-    // GTK has to upscale it to fill the physical pixels, which is what
-    // made these logos look blurry. Supersampling first means there's
-    // always more source detail than the box needs, so GTK downsamples
-    // (sharp) instead of upsampling (blurry) at every scale factor.
+    // Render at this multiple of display_size and let GTK downsample, so
+    // HiDPI screens get sharp scaling instead of upsampling a 1:1 texture.
     private const int LOGO_RENDER_SCALE = 3;
 
-    // Neutral gray circle the same size/shape a fetched logo will end up
-    // as, baked into the pixels (not CSS) so it stays circular regardless
-    // of the widget/theme it's dropped into. Used as the initial contents
-    // of the returned Gtk.Image before its real logo has loaded (or if it
-    // never does).
-    //
-    // Gtk.Image (not Gtk.Picture) + set_pixel_size, same as every other
-    // fixed-size icon in this codebase (see categoryIconsUtils.vala,
-    // sidebarView.vala, etc.) - pixel_size pins BOTH the widget's minimum
-    // and natural size to exactly display_size regardless of the backing
-    // texture's actual resolution. Gtk.Picture has no equivalent: its
-    // natural size always follows the paintable's real pixel dimensions,
-    // and size_request is only a floor, not a ceiling - any container with
-    // spare room (an Adw.ActionRow prefix, sized for the row's full
-    // title+subtitle height) was free to grant it that larger natural
-    // size, which is why supersampling it for sharpness (see
-    // LOGO_RENDER_SCALE) also made it balloon past display_size.
+    // Gtk.Image + set_pixel_size (not Gtk.Picture) pins both min and
+    // natural size to display_size regardless of the backing texture's
+    // resolution; Gtk.Picture's natural size follows the paintable's real
+    // pixel size, which would let a supersampled texture balloon past
+    // display_size in a container with spare room.
     public static Gtk.Image make_circular_logo_placeholder(int display_size) {
         int render_size = display_size * LOGO_RENDER_SCALE;
         var surface = new ImageSurface(Format.ARGB32, render_size, render_size);
@@ -144,11 +109,6 @@ public class PixbufUtils {
         return image;
     }
 
-    // Fetches `url`, circularizes it at display_size * LOGO_RENDER_SCALE
-    // (see make_circular_logo_placeholder), and swaps it into `image` in
-    // place of whatever placeholder it's showing. Same one-off
-    // fetch-and-forget approach as ScoreCard.load_team_logo: leaves the
-    // placeholder showing on any failure rather than erroring.
     public static void load_circular_logo_async(Gtk.Image image, string url, int display_size) {
         int render_size = display_size * LOGO_RENDER_SCALE;
         Paperboy.HttpClientUtils.get_default().fetch_bytes(url, null, (response) => {
@@ -166,5 +126,18 @@ public class PixbufUtils {
                 // Leave the placeholder showing.
             }
         });
+    }
+
+    // Same as load_circular_logo_async but synchronous, for local files.
+    public static void load_circular_logo_from_file(Gtk.Image image, string file_path, int display_size) {
+        int render_size = display_size * LOGO_RENDER_SCALE;
+        try {
+            var pixbuf = new Gdk.Pixbuf.from_file(file_path);
+            var circular = scale_and_circularize(pixbuf, render_size, LOGO_RENDER_SCALE);
+            if (circular == null) return;
+            image.set_from_paintable(Gdk.Texture.for_pixbuf(circular));
+        } catch (GLib.Error e) {
+            // Leave the placeholder showing.
+        }
     }
 }

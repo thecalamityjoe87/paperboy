@@ -227,6 +227,13 @@ if [ -d "$ICON_SRC_DIR" ]; then
     mkdir -p "$APPDIR/usr/share/icons/hicolor/scalable/apps"
     cp "$ICON_SRC_DIR/scalable/paperboy.svg" "$APPDIR/usr/share/icons/hicolor/scalable/apps/paperboy.svg" 2>/dev/null || true
   fi
+  # Copy the app-id-prefixed symbolic action icons (open-menu, sidebar-show,
+  # view-refresh) so the header bar uses our vendored glyphs instead of
+  # falling back to the system icon theme's own versions of those names.
+  if [ -d "$ICON_SRC_DIR/hicolor/scalable/actions" ]; then
+    mkdir -p "$APPDIR/usr/share/icons/hicolor/scalable/actions"
+    cp "$ICON_SRC_DIR/hicolor/scalable/actions/"*.svg "$APPDIR/usr/share/icons/hicolor/scalable/actions/" 2>/dev/null || true
+  fi
 else
   echo "Warning: icons not found in $ICON_SRC_DIR"
 fi

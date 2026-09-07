@@ -17,21 +17,22 @@
 
 public class FetchNewsController {
 
-    // Buffering for multi-source fetches (see FetchContext.is_multi_source):
-    // instead of handing each article straight to ArticleManager as its
-    // source's network request completes - which orders the view by
-    // "whichever source answered first" rather than by how recent the
-    // articles actually are - we hold items in a short-lived per-fetch
-    // buffer, keyed by FetchContext.seq, and flush them newest-first once
-    // things go quiet (or a max wait elapses, so one slow source can't stall
-    // the whole view indefinitely). Any articles arriving after a seq has
-    // already flushed stream straight through unbuffered, same as before.
+    // Multi-source fetches buffer incoming articles per FetchContext.seq and flush
+    // newest-first once things go quiet (or MULTI_SOURCE_MAX_WAIT_MS elapses), instead
+    // of ordering by whichever source responds first. Late arrivals after a flush stream
+    // straight through unbuffered.
     private const uint MULTI_SOURCE_DEBOUNCE_MS = 350;
     private const uint MULTI_SOURCE_MAX_WAIT_MS = 2500;
-    // NOTE: Static Gee collections must be initialized lazily in Vala - a
-    // field initializer here never runs since FetchNewsController is never
-    // instantiated (only called through static methods), which left these
-    // null and crashed the first Gee call against them.
+    // Per-Idle-callback time budget in flush_multi_source_buffer(), in microseconds.
+    // Budgeting by wall-clock time (not item count) keeps each callback about one
+    // frame's worth of work even though per-item build cost varies a lot.
+    private const int64 DISPATCH_BATCH_BUDGET_US = 8000;
+    // Hard cap on articles buffered/sorted/dispatched per flush. My Feed's source x
+    // category fan-out can return 1000+ raw candidates with no display cap to fall
+    // back on, so this is the only thing bounding per-flush cost.
+    private const int MULTI_SOURCE_BUFFER_CAP = 400;
+    // static Gee fields need lazy init in Vala - a field initializer here never runs
+    // since this class is never instantiated
     private static Gee.HashMap<uint, Gee.ArrayList<ArticleItem>>? _multi_source_buffers = null;
     private static Gee.HashMap<uint, uint>? _multi_source_timeouts = null;
     private static Gee.HashMap<uint, int64?>? _multi_source_started_at = null;
@@ -54,10 +55,7 @@ public class FetchNewsController {
         return _multi_source_flushed;
     }
 
-    // Shared tail of global_add_item(): track this article for adaptive
-    // layout, then hand it to ArticleManager. Split out so the buffered
-    // (multi-source) and direct (single-source) paths can both funnel
-    // through the same logic.
+    // shared tail of global_add_item(): both buffered and direct paths funnel through here
     private static void dispatch_item(NewsWindow w, FetchContext cur, string title, string url, string? thumbnail, string category_id, string? source_name, string? published, string? snippet) {
         var cat_mgr = w.category_manager;
         var layout_mgr = w.layout_manager;
@@ -88,7 +86,9 @@ public class FetchNewsController {
         }
         var item = new ArticleItem(title, url, thumbnail, category_id, source_name, published);
         item.snippet = snippet;
-        multi_source_buffers().get(seq).add(item);
+        var buffered = multi_source_buffers().get(seq);
+        buffered.add(item);
+        if (buffered.size > MULTI_SOURCE_BUFFER_CAP) evict_oldest_buffered_item(buffered);
 
         if (multi_source_timeouts().has_key(seq)) {
             GLib.Source.remove(multi_source_timeouts().get(seq));
@@ -107,9 +107,30 @@ public class FetchNewsController {
         multi_source_timeouts().set(seq, tid);
     }
 
-    // Sort the buffered batch newest-first (articles with no recognizable
-    // published date sort last, keeping their arrival order among
-    // themselves) and hand each one to dispatch_item() in that order.
+    // Evict the oldest item from whichever pool (myfeed vs. built-in) currently holds
+    // more than its fair share, so a large custom-feed pool can't push built-in
+    // articles out of the buffer entirely (or vice versa).
+    private static void evict_oldest_buffered_item(Gee.ArrayList<ArticleItem> items) {
+        int myfeed_count = 0;
+        foreach (var it in items) if (it.category_id == "myfeed") myfeed_count++;
+        bool evict_myfeed = myfeed_count > (items.size - myfeed_count);
+
+        int oldest_index = -1;
+        GLib.DateTime? oldest_dt = null;
+        for (int i = 0; i < items.size; i++) {
+            if ((items.get(i).category_id == "myfeed") != evict_myfeed) continue;
+            var dt = DateUtils.parse_published_datetime(items.get(i).published);
+            bool this_is_older = (oldest_index == -1) || (dt == null) ? (oldest_index == -1 || oldest_dt != null) : (oldest_dt != null && dt.compare(oldest_dt) < 0);
+            if (this_is_older) {
+                oldest_index = i;
+                oldest_dt = dt;
+            }
+        }
+        if (oldest_index == -1) return;
+        items.remove_at(oldest_index);
+    }
+
+    // sort newest-first (undated articles sort last, keeping arrival order among themselves)
     private static void flush_multi_source_buffer(uint seq) {
         if (!multi_source_buffers().has_key(seq)) return;
         var items = multi_source_buffers().get(seq);
@@ -133,17 +154,27 @@ public class FetchNewsController {
             return db.compare(da);
         });
 
-        foreach (var item in items) {
-            if (w.prefs != null && cur.expected_category != null && w.prefs.category != cur.expected_category) break;
-            dispatch_item(w, cur, item.title, item.url, item.thumbnail_url, item.category_id, item.source_name, item.published, item.snippet);
-        }
+        // dispatch in small batches via Idle so building many cards doesn't block the main loop
+        int index = 0;
+        Idle.add(() => {
+            if (!FetchContext.is_current(seq)) return false;
+            var cur2 = FetchContext.current_context();
+            if (cur2 == null || !cur2.is_valid() || cur2.seq != seq) return false;
+            var w2 = cur2.window;
+            if (w2 == null) return false;
+            if (w2.prefs != null && cur2.expected_category != null && w2.prefs.category != cur2.expected_category) return false;
+
+            int64 batch_start = GLib.get_monotonic_time();
+            while (index < items.size && (GLib.get_monotonic_time() - batch_start) < DISPATCH_BATCH_BUDGET_US) {
+                var item = items.get(index);
+                dispatch_item(w2, cur2, item.title, item.url, item.thumbnail_url, item.category_id, item.source_name, item.published, item.snippet);
+                index++;
+            }
+            return index < items.size;
+        });
     }
 
-    // Non-capturing label forwarder used for passing a stable callback
-    // into worker fetchers. It does not close over any stack state so
-    // it is safe to pass across thread boundaries. It uses
-    // Global label forwarder: looks up the current FetchContext and the
-    // active window and update the header accordingly.
+    // non-capturing so it's safe to pass across thread boundaries into worker fetchers
     public static void global_forward_label(string? text) {
         Idle.add(() => {
             var ctx = FetchContext.current_context();
@@ -151,15 +182,12 @@ public class FetchNewsController {
             var win = ctx.window;
             if (win == null) return false;
 
-            // Detect errors in the label text and immediately show error message
             if (text != null) {
                 string lower = text.down();
                 if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
                     if (win.loading_state != null) win.loading_state.network_failure_detected = true;
-                    // Immediately show error message and hide spinner to prevent UI dead-end
                     win.hide_loading_spinner();
                     win.show_error_message(text);
-                    // Cancel the timeout since we're showing error now (defensive check)
                     if (win.loading_state != null) {
                         var timeout_id = win.loading_state.initial_reveal_timeout_id;
                         if (timeout_id > 0) {
@@ -179,10 +207,11 @@ public class FetchNewsController {
         });
     }
 
-    // Non-capturing global add_item used for background fetchers to
-    // safely post article additions to the main loop. This avoids
-    // passing per-fetch capturing delegates into worker threads which
-    // can be freed while the worker still holds a reference.
+    // Non-capturing so it's safe to post from background-fetcher threads onto the main
+    // loop. Don't replace this with a per-request closure carrying captured state (e.g.
+    // My Feed row identity) - closures captured on one thread and invoked later from a
+    // fetch's worker thread can arrive with garbage memory. Resolve such state from
+    // source_name/category_id in ArticleManager.add_item() instead.
     public static void global_add_item(string title, string url, string? thumbnail, string category_id, string? source_name, string? published = null, string? snippet = null) {
         Idle.add(() => {
             var cur = FetchContext.current_context();
@@ -190,21 +219,13 @@ public class FetchNewsController {
             var w = cur.window;
             if (w == null) return false;
 
-            // CRITICAL: Validate that we're still viewing the same category
-            // This prevents articles from a previous fetch appearing in a new category
-            // when the user switches categories before the fetch completes
+            // discard if the user switched categories before this fetch completed
             if (w.prefs != null && cur.expected_category != null) {
                 if (w.prefs.category != cur.expected_category) {
-                    // User switched categories - discard this article
                     return false;
                 }
             }
 
-            // When this fetch is racing multiple sources for the same view,
-            // briefly buffer articles so they can be flushed newest-first
-            // instead of in "whichever source answered first" order - unless
-            // this seq's buffer has already flushed once, in which case a
-            // late straggler just streams straight through.
             if (cur.is_multi_source && !multi_source_flushed().contains(cur.seq)) {
                 buffer_multi_source_item(cur.seq, title, url, thumbnail, category_id, source_name, published, snippet);
                 return false;
@@ -215,26 +236,19 @@ public class FetchNewsController {
         });
     }
 
-    // Non-capturing no-op clear used when we already cleared UI before
-    // scheduling individual fetches. This avoids passing per-fetch
-    // capturing clear callbacks into worker threads.
     public static void global_no_op_clear() {
-        // intentionally empty
     }
 
 
     public static void fetch_news(NewsWindow win) {
         if (win == null) return;
 
-        // === PHASE 1: Cleanup and preparation ===
         if (win.image_manager != null) win.image_manager.cleanup_stale_downloads();
 
-        // Reset article manager state (clears articles, stops carousel, cancels pending timeouts)
         if (win.article_manager != null) win.article_manager.reset_for_new_fetch();
 
-        // Clear old article tracking before fetching to prevent count accumulation
-        // Skip clearing during initial_phase (startup) so unreadFetchService counts are preserved
-        // Also skip for myfeed, local_news, and saved (which aggregate from multiple sources)
+        // skip during startup (preserves unreadFetchService counts) and for categories
+        // that aggregate from multiple sources
         bool is_initial = (win.loading_state != null && win.loading_state.initial_phase);
         if (!is_initial && win.article_state_store != null && win.prefs.category != null && win.prefs.category.length > 0) {
             string cat = win.prefs.category;
@@ -244,18 +258,13 @@ public class FetchNewsController {
             }
         }
 
-        // Prepare layout (clears hero/featured containers, rebuilds columns)
-        // NOTE: Sidebar rebuild removed - it's wasteful to rebuild on every fetch
-        // The sidebar only needs to rebuild when news sources change (in prefs), not on every category switch
-        // win.update_sidebar_for_source();
+        // sidebar rebuild only needed when sources change in prefs, not on every fetch
         bool is_topten = win.category_manager.is_topten_view();
         win.layout_manager.prepare_for_new_fetch(is_topten);
 
-        // Reset adaptive layout tracking for new fetch
         win.layout_manager.reset_adaptive_tracking();
 
-        // For regular categories that may use adaptive layout, mark that we're awaiting
-        // the adaptive layout check so the spinner stays visible until layout is finalized
+        // keep spinner visible until adaptive layout finalizes for regular categories
         bool is_regular_category = !win.category_manager.is_frontpage_view() &&
         !win.category_manager.is_topten_view() &&
         !win.category_manager.is_myfeed_category() &&
@@ -294,14 +303,10 @@ public class FetchNewsController {
         }
         win.update_content_header_now();
 
-        // Create a new FetchContext early so early timeouts can use it.
-        // This invalidates any previous context and holds a weak reference
-        // to the window for safe async access. All window access must go
-        // through FetchContext validation to avoid use-after-free.
+        // all window access below must go through FetchContext validation to avoid use-after-free
         var ctx = FetchContext.begin_new(win);
         uint my_seq = ctx.seq;
 
-        // Safety timeout: reveal after a reasonable maximum to avoid blocking forever
         if (loading_state != null) {
             loading_state.initial_reveal_timeout_id = Timeout.add(NewsWindow.INITIAL_MAX_WAIT_MS, () => {
                 if (!FetchContext.is_current(my_seq)) return false;
@@ -310,7 +315,6 @@ public class FetchNewsController {
                 var w = cur.window;
                 if (w == null) return false;
 
-                // Safely access loading_state through local variable
                 var ls = w.loading_state;
                 if (ls == null) return false;
 
@@ -322,8 +326,7 @@ public class FetchNewsController {
                         w.show_error_message();
                     }
                 } else {
-                    // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
-                    // After RSS timeout, initial_phase is already false, so directly show the container
+                    // don't use reveal_initial_content() here - it exits early once initial_phase is false
                     if (w.loading_state != null) {
                         w.loading_state.initial_phase = false;
                         w.loading_state.hero_image_loaded = false;
@@ -333,7 +336,6 @@ public class FetchNewsController {
                         w.main_content_container.set_visible(true);
                     }
 
-                    // If offline but we have cached content, show offline toast instead of error
                     var network_monitor = GLib.NetworkMonitor.get_default();
                     if (!network_monitor.get_network_available()) {
                         w.show_toast("Offline - showing cached articles");
@@ -344,21 +346,13 @@ public class FetchNewsController {
             });
         }
         
-        // Wrapped set_label: only update if this fetch is still current
         SetLabelFunc wrapped_set_label = (text) => {
-            // Schedule UI updates on the main loop to avoid touching
-            // window fields from worker threads. The Idle callback will
-            // check the context validity before applying changes.
             Idle.add(() => {
                 if (!FetchContext.is_current(my_seq)) return false;
                 var cur = FetchContext.current_context();
                 if (cur == null) return false;
                 var w = cur.window;
                 if (w == null) return false;
-                // Detect error-like labels emitted by fetchers and mark a
-                // network failure flag so the timeout can present a more
-                // specific offline message. Many fetchers call set_label
-                // with "... Error loading ..." when network issues occur.
                 if (text != null) {
                     string lower = text.down();
                     if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
@@ -369,42 +363,33 @@ public class FetchNewsController {
                     }
                 }
 
-                // Use the centralized header updater which enforces the exact
-                // UI contract (icon + category, or Search Results when active).
                 w.update_content_header();
                 return false;
             });
         };
 
-        // Wrapped clear_items: only clear if this fetch is still current
-        // Ensure we only clear once per fetch: some fetchers may call the
-        // provided clear callback multiple times during retries/fallbacks.
+        // some fetchers call the clear callback multiple times during retries/fallbacks;
+        // keep this idempotent per fetch
         bool wrapped_clear_ran = false;
         ClearItemsFunc wrapped_clear = () => {
-            // Schedule the clear on the main loop to avoid worker-thread UI access
             Idle.add(() => {
                 if (!FetchContext.is_current(my_seq)) return false;
                 var cur = FetchContext.current_context();
                 if (cur == null) return false;
                 var w = cur.window;
                 if (w == null) return false;
-                // Guard: make this clear idempotent per-fetch
                 if (wrapped_clear_ran) {
                     return false;
                 }
                 wrapped_clear_ran = true;
 
-                // Log execution of wrapped_clear so we can correlate clears with fetch sequences and view
                 long _ts = (long) GLib.get_monotonic_time();
-                
-                // Clear UI via delegated managers
-                // Safely access all managers through local variables to avoid TOCTOU
+
                 var layout_mgr = w.layout_manager;
                 var article_mgr = w.article_manager;
                 var view_state_mgr = w.view_state;
                 var image_mgr = w.image_manager;
 
-                // 1. Clear Featured/Hero content
                 if (layout_mgr != null) {
                     layout_mgr.clear_featured_box();
                 }
@@ -412,27 +397,22 @@ public class FetchNewsController {
                     article_mgr.reset_featured_state();
                 }
 
-                // 2. Clear Article Columns
                 if (layout_mgr != null) {
                     layout_mgr.clear_columns();
                 }
 
-                // 3. Reset Load More state
                 if (article_mgr != null) {
                     article_mgr.clear_article_buffer();
                 }
 
-                // 4. Remove "No more articles" message
                 if (layout_mgr != null) {
                     layout_mgr.remove_end_feed_message();
                 }
 
-                // 5. Ensure any load-more button managed by ArticleManager is removed
                 if (article_mgr != null) {
                     article_mgr.clear_load_more_button();
                 }
 
-                // 6. Clear image bookkeeping
                 if (view_state_mgr != null && view_state_mgr.url_to_picture != null) {
                     view_state_mgr.url_to_picture.clear();
                 }
@@ -440,7 +420,6 @@ public class FetchNewsController {
                     image_mgr.hero_requests.clear();
                 }
 
-                // 7. Reset remaining articles state
                 if (article_mgr != null) {
                     if (article_mgr.remaining_articles != null) {
                         article_mgr.remaining_articles.clear();
@@ -452,16 +431,10 @@ public class FetchNewsController {
             });
         };
 
-        // Wrapped add_item: ignore items from stale fetches
-        // Throttled add for Local News: queue incoming items and process in small batches
         var local_news_queue = new Gee.ArrayList<ArticleItem>();
         bool local_news_flush_scheduled = false;
         int local_news_items_enqueued = 0; // debug counter
         bool local_news_stats_scheduled = false;
-        // General UI add queue to batch worker->main-thread article additions.
-        // Using a single Idle to drain this queue avoids per-item refs on the
-        // window/object and reduces thread churn that previously caused races
-        // during heavy fetches.
         var ui_add_queue = new Gee.ArrayList<ArticleItem>();
         bool ui_add_idle_scheduled = false;
 
@@ -471,16 +444,13 @@ public class FetchNewsController {
             var w = cur_start.window;
             if (w == null) return;
 
-            // CRITICAL: Validate that we're still viewing the same category
-            // This prevents articles from a previous fetch appearing in a new category
             if (w.prefs != null && cur_start.expected_category != null) {
                 if (w.prefs.category != cur_start.expected_category) {
-                    // User switched categories - discard this article
                     return;
                 }
             }
 
-            // Check article limit ONLY for limited categories, NOT frontpage/topten/all
+            // limited categories only, not frontpage/topten/all
             bool viewing_limited_category = (
                 w.prefs.category == "general" ||
                 w.prefs.category == "us" ||
@@ -498,38 +468,32 @@ public class FetchNewsController {
                 || w.prefs.category == "local_news"
                 || w.prefs.category == "myfeed"
             );
-                        
-            // Don't check limit here - let add_item_immediate_to_column() handle it after filtering
-            
-            // If we're in Local News mode, enqueue and process in small batches to avoid UI lockups
+
+            // limit is enforced later by add_item_immediate_to_column() after filtering
+
             var prefs_local = NewsPreferences.get_instance();
             if (prefs_local != null && prefs_local.category == "local_news") {
                     local_news_queue.add(new ArticleItem(title, url, thumbnail, category_id, source_name, published));
                     local_news_items_enqueued++;
                     if (!local_news_flush_scheduled) {
                         local_news_flush_scheduled = true;
-                        // Process up to 6 items per tick to keep UI responsive
                         Timeout.add(60, () => {
                             int processed = 0;
                             int batch = 6;
                             while (local_news_queue.size > 0 && processed < batch) {
                                 var ai = local_news_queue.get(0);
                                 local_news_queue.remove_at(0);
-                                // Ensure still current before adding
                                 if (!FetchContext.is_current(my_seq)) {
                                     // stale fetch; drop item
                                 } else {
                                     var cur2 = FetchContext.current_context();
                                     if (cur2 != null) {
                                         var w2 = cur2.window;
-                                        // CRITICAL: Also validate category hasn't changed
                                         if (w2 != null && w2.prefs != null && cur2.expected_category != null) {
                                             if (w2.prefs.category == cur2.expected_category) {
                                                 w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
                                             }
-                                            // else: user switched categories, drop this article
                                         } else if (w2 != null) {
-                                            // Fallback if expected_category is not set
                                             w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
                                         }
                                     }
@@ -537,12 +501,10 @@ public class FetchNewsController {
                                 processed++;
                             }
                             if (local_news_queue.size > 0) {
-                                // Keep the timeout running until the queue is drained
                                 return true;
                             } else {
                                 local_news_flush_scheduled = false;
 
-                                // Local News queue fully drained: refresh its badge now
                                 if (w.sidebar_manager != null) {
                                     w.sidebar_manager.update_badge_for_category("local_news");
                                 }
@@ -554,87 +516,59 @@ public class FetchNewsController {
                     return;
                 }
             
-            // Add the article (handles deduplication)
             w.article_manager.add_item(title, url, thumbnail, category_id, source_name, published);
         };
 
-        // Support fetching from multiple preferred sources when the user
-        // has enabled more than one in preferences. The preferences store
-        // string ids (e.g. "guardian", "reddit"). Map those to the
-        // NewsSource enum and invoke NewsService.fetch for each. Ensure
-        // we only clear the UI once (for the first fetch) so subsequent
-        // fetches append their results.
         bool used_multi = false;
-        // Use CategoryManager for My Feed logic
         bool is_myfeed_mode = win.category_manager.is_myfeed_view();
         string[] myfeed_cats = new string[0];
 
-        // Load custom RSS sources if in My Feed mode
+        // a source needs both its own "enabled" switch and the separate My Feed opt-in to be fetched here
         Gee.ArrayList<Paperboy.RssSource>? custom_rss_sources = null;
         if (is_myfeed_mode) {
             var rss_store = Paperboy.RssSourceStore.get_instance();
             var all_custom = rss_store.get_all_sources();
             custom_rss_sources = new Gee.ArrayList<Paperboy.RssSource>();
 
-            // Filter to only enabled custom sources
             foreach (var src in all_custom) {
-                if (win.prefs.preferred_source_enabled("custom:" + src.url)) {
+                if (win.prefs.preferred_source_enabled("custom:" + src.url) && win.prefs.myfeed_feed_enabled(src.url)) {
                     custom_rss_sources.add(src);
                 }
             }
         }
         
-        // Grab search query via getter
         string current_search_query = win.get_current_search_query();
 
-        // Determine up front whether this fetch will race more than one
-        // source concurrently for the same view, so FetchContext can flag it
-        // before ANY fetch starts streaming articles back - including the
-        // always-on Sports supplement immediately below, which itself races
-        // against Sports' normal per-source fetch. See the buffering block
-        // in global_add_item()/buffer_multi_source_item() for why this
-        // matters: without it, whichever source's HTTP response happens to
-        // land first wins the hero slot, even if its article is the oldest
-        // of the bunch.
+        // must be set before any fetch starts streaming back, or whichever source's HTTP
+        // response lands first wins the hero slot even if its article is oldest
         bool is_saved_view = (win.prefs.category == "saved");
         int total_sources = (win.prefs.preferred_sources != null ? win.prefs.preferred_sources.size : 0);
         if (is_myfeed_mode && custom_rss_sources != null) {
             total_sources += custom_rss_sources.size;
         }
-        // Front Page/Top Ten always issue a single backend request no matter
-        // how many sources are in preferred_sources, so they never actually
-        // race sources against each other and should not be buffered.
+        // frontpage/topten always issue one backend request regardless of source count
         bool is_frontpage_or_topten = win.category_manager.is_frontpage_view() || win.category_manager.is_topten_view();
         ctx.is_multi_source = !is_frontpage_or_topten && ((win.prefs.category == "sports") ||
             (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))));
 
-        // Persistent Sports supplement: always additionally query the
-        // backend's dedicated sports endpoint when viewing Sports, so the
-        // category isn't empty for users whose enabled built-in sources
-        // have no sports desk (e.g. PBS). This runs alongside - not instead
-        // of - the normal per-source Sports fetch below, uses a no-op clear
-        // so it never wipes articles already added, and is intentionally
-        // not gated by preferred_sources: there is no user-facing toggle
-        // for it.
+        // always query the sports endpoint too, so users whose enabled sources have no
+        // sports desk (e.g. PBS) still see content; runs alongside the normal fetch below
         if (win.prefs.category == "sports") {
             var paperboy_sports_fetcher = new PaperboyFetcher(FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
             paperboy_sports_fetcher.fetch("sports", current_search_query, win.session);
         }
 
         if (is_myfeed_mode) {
-            // Load personalized categories if configured (applies only to built-in sources)
             if (win.category_manager.is_myfeed_configured()) {
                 var cats = win.category_manager.get_myfeed_categories();
                 myfeed_cats = new string[cats.size];
                 for (int i = 0; i < cats.size; i++) myfeed_cats[i] = cats.get(i);
             }
 
-            // Check if we have ANY content to show (personalized categories OR custom RSS sources)
             bool has_personalized_cats = (myfeed_cats != null && myfeed_cats.length > 0);
             bool has_custom_rss = (custom_rss_sources != null && custom_rss_sources.size > 0);
 
             if (!has_personalized_cats && !has_custom_rss) {
-                // No personalized categories AND no custom RSS sources - nothing to show
                 wrapped_clear();
                 wrapped_set_label("My Feed — No personalized categories or custom RSS feeds configured");
                 win.hide_loading_spinner();
@@ -642,7 +576,6 @@ public class FetchNewsController {
             }
         }
 
-        // Saved Articles: delegate to FetchNewsController helper
         if (win.prefs.category == "saved") {
             if (FetchNewsController.handle_saved_articles(win, ctx, current_search_query, wrapped_set_label, wrapped_clear, wrapped_add)) return;
         }
@@ -651,25 +584,18 @@ public class FetchNewsController {
             if (FetchNewsController.handle_local_news(win, ctx, wrapped_set_label, wrapped_clear, wrapped_add, win.session, current_search_query)) return;
         }
 
-        // RSS Feed: if the user selected an individual RSS feed from the sidebar,
-        // fetch articles from that specific feed URL using the RSS parser.
         if (win.category_manager.is_rssfeed_view()) {
             if (FetchNewsController.handle_rss_feed(win, wrapped_set_label, wrapped_clear, wrapped_add, win.session, current_search_query, my_seq))
                 return;
         }
-        // If the user selected "Front Page", always request the backend
-        // frontpage endpoint regardless of preferred_sources. Place this
-        // before the multi-source branch so frontpage works even when the
-        // user has zero or one preferred source selected.
+        // handled before the multi-source branch so it works with zero/one preferred sources
         if (win.category_manager.is_frontpage_view()) {
             used_multi = true;
 
                 wrapped_clear();
-                // Debug marker: set a distinct label so we can confirm this branch runs
                 wrapped_set_label("Frontpage — Loading from backend (branch 1)");
             NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
 
-            // Schedule badge refresh for frontpage
             var sidebar_mgr = win.sidebar_manager;
             if (sidebar_mgr != null) {
                 sidebar_mgr.schedule_badge_refresh("frontpage", my_seq);
@@ -677,8 +603,6 @@ public class FetchNewsController {
             return;
         }
 
-        // If the user selected "Top Ten", request the backend headlines endpoint
-        // regardless of preferred_sources. Same early-return logic as frontpage.
         if (win.category_manager.is_topten_view()) {
             used_multi = true;
 
@@ -686,7 +610,6 @@ public class FetchNewsController {
                 wrapped_set_label("Top Ten — Loading from backend");
             NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
 
-            // Schedule badge refresh for topten
             var sidebar_mgr = win.sidebar_manager;
             if (sidebar_mgr != null) {
                 sidebar_mgr.schedule_badge_refresh("topten", my_seq);
@@ -694,15 +617,10 @@ public class FetchNewsController {
             return;
         }
 
-        // Check if we should use multi-source mode (multiple built-in sources OR custom RSS sources in My Feed)
-        // Skip multi-source mode for saved articles, local news, and individual RSS feeds - they have their own header setup
-        // (is_saved_view/total_sources computed earlier, alongside ctx.is_multi_source)
+        // saved articles, local news, and individual RSS feeds have their own header setup above
         if (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))) {
-            // Treat The Frontpage as a multi-source view visually, but do NOT
-            // let the user's preferred_sources list influence which providers
-            // are queried. Instead, when viewing the special "frontpage"
-            // category, simply request the backend frontpage once and present
-            // the combined/multi-source UI.
+            // frontpage is visually a multi-source view, but preferred_sources shouldn't
+            // influence which providers get queried - just hit the backend frontpage endpoint once
             if (win.category_manager.is_frontpage_view()) {
                 used_multi = true;
 
@@ -720,14 +638,12 @@ public class FetchNewsController {
                 return;
             }
 
-            // Same logic for Top Ten: request backend headlines endpoint
             if (win.category_manager.is_topten_view()) {
                 used_multi = true;
 
                 wrapped_clear();
                 NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
-                
-                // Schedule badge refresh for topten
+
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
                     sidebar_mgr.schedule_badge_refresh("topten", my_seq);
@@ -737,10 +653,8 @@ public class FetchNewsController {
 
             used_multi = true;
 
-            //Use SourceManager to get enabled sources as enums
             Gee.ArrayList<NewsSource> srcs = win.source_manager.get_enabled_source_enums();
 
-            // If mapping failed or produced no sources, fall back to single source
             if (srcs.size == 0) {
                 NewsService.fetch(
                     win.prefs.news_source,
@@ -752,19 +666,12 @@ public class FetchNewsController {
                     FetchNewsController.global_add_item
                 );
             } else {
-                // Filter the selected sources to those that actually support
-                // the requested category. Special-case the personalized
-                // My Feed mode: prefs.category == "myfeed" is not a real
-                // provider category, so check per-personalized-category
-                // support (e.g., Bloomberg supports markets/industries but
-                // not a generic "myfeed"). This ensures Bloomberg isn't
-                // excluded from the combined fetch when the user has
-                // selected Bloomberg-specific personalized categories.
+                // "myfeed" isn't a real provider category, so check support per personalized
+                // category instead (e.g. Bloomberg supports markets/industries but not "myfeed")
                 var filtered = new Gee.ArrayList<NewsSource>();
                 foreach (var s in srcs) {
                     bool include = false;
                     if (is_myfeed_mode) {
-                        // If no personalized categories selected, be permissive
                         if (myfeed_cats == null || myfeed_cats.length == 0) {
                             include = true;
                         } else {
@@ -778,19 +685,11 @@ public class FetchNewsController {
                     if (include) filtered.add(s);
                 }
 
-                // If filtering removed all sources (unlikely), fall back to original
-                // list so we at least attempt to fetch something.
                 var use_srcs = filtered.size > 0 ? filtered : srcs;
 
-                // Clear the UI once up-front so we don't race with asynchronous
-                // fetch completions (a later-completing fetch shouldn't be able
-                // to wipe results added by an earlier one).
+                // clear once up front so a later-completing fetch can't wipe an earlier one's results
                 wrapped_clear();
 
-                // Use a no-op clear for all individual fetches since we've
-                // already cleared above. Keep a combined label while in multi
-                // source mode. If we're in My Feed personalized mode, request
-                // each personalized category separately and combine results.
                 ClearItemsFunc no_op_clear = () => { };
                 SetLabelFunc label_fn = (text) => {
                         Idle.add(() => {
@@ -804,7 +703,6 @@ public class FetchNewsController {
                         });
                 };
 
-                // Fetch from built-in sources (unless in My Feed with custom_only mode enabled)
                 bool skip_builtin = is_myfeed_mode && win.prefs.myfeed_custom_only;
                 if (!skip_builtin) {
                     foreach (var s in use_srcs) {
@@ -818,24 +716,20 @@ public class FetchNewsController {
                     }
                 }
 
-                // Schedule badge refresh for non-myfeed categories after articles register
                 if (!is_myfeed_mode) {
                     var sidebar_mgr = win.sidebar_manager;
                     if (sidebar_mgr != null) {
                         sidebar_mgr.schedule_badge_refresh(win.prefs.category, my_seq);
                     }
-                    // Adaptive layout is now handled by track_category_article() for regular categories
                 }
 
-                // Fetch from custom RSS sources if in My Feed mode and sources are enabled
                 if (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0) {
-                    // Don't set featured_used - allow first article to become hero/carousel
                     foreach (var rss_src in custom_rss_sources) {
-                        // For generated feeds (file:// URLs), use original_url as cache key for persistence across regenerations
+                        // generated feeds (file:// URLs) use original_url as cache key so it survives regeneration
                         string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
                         RssFeedProcessor.fetch_rss_url(
                             rss_src.url,
-                            rss_src.url,  // Pass URL instead of name for proper source filtering
+                            rss_src.url,  // use URL, not name, for source filtering
                             "My Feed",
                             "myfeed",
                             current_search_query,
@@ -849,17 +743,11 @@ public class FetchNewsController {
                 }
             }
         } else {
-            // Single-source path: keep existing behavior. Use the
-            // effective source so a single selected preferred_source is
-            // respected without requiring prefs.news_source to be changed.
-            // Special-case: when viewing The Frontpage in single-source
-            // mode, make sure we still request the backend frontpage API.
             if (win.category_manager.is_frontpage_view()) {
                 wrapped_clear();
                 wrapped_set_label("Frontpage — Loading from backend (single-source)");
                 NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
-                
-                // Schedule badge refresh for frontpage
+
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
                     sidebar_mgr.schedule_badge_refresh("frontpage", my_seq);
@@ -867,13 +755,11 @@ public class FetchNewsController {
                 return;
             }
 
-            // Same for Top Ten in single-source mode
             if (win.category_manager.is_topten_view()) {
                 wrapped_clear();
                 wrapped_set_label("Top Ten — Loading from backend (single-source)");
                 NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
-                
-                // Schedule badge refresh for topten
+
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
                     sidebar_mgr.schedule_badge_refresh("topten", my_seq);
@@ -882,7 +768,6 @@ public class FetchNewsController {
             }
 
             if (is_myfeed_mode) {
-                // Fetch each personalized category for the single effective source
                 wrapped_clear();
                 ClearItemsFunc no_op_clear = () => { };
                 SetLabelFunc label_fn = (text) => {
@@ -908,11 +793,10 @@ public class FetchNewsController {
                 if (custom_rss_sources != null && custom_rss_sources.size > 0) {
                     win.article_manager.featured_used = true;
                     foreach (var rss_src in custom_rss_sources) {
-                        // For generated feeds (file:// URLs), use original_url as cache key for persistence across regenerations
                         string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
                         RssFeedProcessor.fetch_rss_url(
                             rss_src.url,
-                            rss_src.url,  // Pass URL instead of name for proper source filtering
+                            rss_src.url,  // use URL, not name, for source filtering
                             "My Feed",
                             "myfeed",
                             current_search_query,
@@ -935,8 +819,6 @@ public class FetchNewsController {
                     }
                 }
 
-                // Schedule a one-shot badge refresh for My Feed after initial
-                // results have had a chance to register in ArticleStateStore.
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
                     sidebar_mgr.schedule_badge_refresh("myfeed", my_seq);
@@ -953,28 +835,22 @@ public class FetchNewsController {
                     FetchNewsController.global_add_item
                 );
 
-                // Schedule badge refresh for this category after articles register
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
                     sidebar_mgr.schedule_badge_refresh(win.prefs.category, my_seq);
                 }
-                // Adaptive layout is now handled by track_category_article() for regular categories
             }
         }
     }
 
-    // Schedule a post-fetch check for adaptive layout based on actual article count
-    // This approach works regardless of source count since it uses deduplicated ArticleStateStore data
     public static void schedule_adaptive_layout_check(NewsWindow win, uint my_seq) {
-        // Check immediately when articles are populated, then again after a delay
-        // This ensures we catch the layout decision before the spinner tries to hide
+        // check immediately, then again after a delay in case articles are still registering
         Idle.add(() => {
             if (!FetchContext.is_current(my_seq)) return false;
             perform_adaptive_check(win, my_seq);
             return false;
         });
 
-        // Also schedule a delayed check in case articles are still being registered
         Timeout.add(600, () => {
             if (!FetchContext.is_current(my_seq)) return false;
             perform_adaptive_check(win, my_seq);

@@ -30,11 +30,8 @@ public class ImageCache : GLib.Object {
     private LruCache<string, Gdk.Texture> texture_cache;
     private static ImageCache? global_instance = null;
 
-    // Hard ceiling on total decoded pixbuf memory this cache will hold.
-    // Entry-count capacity alone doesn't protect against this: a handful of
-    // oversized hero/carousel decodes can each be tens of megabytes, so a
-    // count-based cap of a couple hundred entries still allows multi-GB
-    // growth. This bounds actual memory instead.
+    // Byte cap, not just entry count: a few oversized hero/carousel decodes
+    // could otherwise blow past a count-based limit.
     private const int64 MAX_PIXBUF_CACHE_BYTES = 200 * 1024 * 1024;
 
     public ImageCache(int capacity = 256) {
@@ -44,42 +41,27 @@ public class ImageCache : GLib.Object {
         pixbuf_cache.set_byte_budget(MAX_PIXBUF_CACHE_BYTES, (key, pixbuf) => {
             return (int64) pixbuf.get_byte_length();
         });
-        // Same budget for cached textures: get_texture() below reuses a
-        // cached Gdk.Texture instead of re-uploading on every call, so this
-        // needs its own bound just like the pixbuf cache does.
         texture_cache.set_byte_budget(MAX_PIXBUF_CACHE_BYTES, (key, tex) => {
             return (int64) tex.get_width() * tex.get_height() * 4;
         });
 
-        // IMPORTANT DEPENDENCY: This implementation relies on Gee.HashMap's automatic
-        // reference counting behavior for GObject values. When Gee stores a GObject
-        // (like Gdk.Pixbuf or Gdk.Texture), it automatically calls g_object_ref() on
-        // insert and g_object_unref() on remove/clear. This means:
-        // 1. We do NOT manually ref/unref pixbufs when storing them
-        // 2. The container manages the lifecycle automatically
-        // 3. If Gee's behavior changes or we switch container libraries, this could break
-        // 4. Tests should verify this behavior doesn't regress
+        // Gee ref/unrefs GObject values automatically on insert/remove, so
+        // we don't manually ref/unref pixbufs or textures here.
 
-        // A pixbuf falling out of the cache - whether overwritten (see set()
-        // below) or LRU-evicted - must take its cached texture with it.
-        // get_texture() reuses whatever's in texture_cache, so a stale
-        // entry surviving its pixbuf's eviction would keep serving a
-        // texture whose content no longer matches what's nominally cached
-        // under that key.
+        // A pixbuf's cached texture must be dropped along with it, or
+        // get_texture() would keep serving stale content under that key.
         pixbuf_cache.set_eviction_callback((k, v) => {
             try { texture_cache.remove(k); } catch (GLib.Error e) { }
         });
 
-        // Textures are automatically freed when unreferenced
         texture_cache.set_eviction_callback((k, v) => {
             if (AppDebugger.debug_enabled()) {
             }
         });
     }
 
-    // Global singleton accessor so legacy static code can delegate to the
-    // application's ImageCache instance. The NewsWindow constructor will set
-    // the global via `set_global` when it creates its per-window cache.
+    // Legacy static code delegates to this; NewsWindow sets the real
+    // instance via set_global() when it creates its per-window cache.
     public static ImageCache get_global() {
         if (global_instance == null) global_instance = new ImageCache(256);
         return global_instance;

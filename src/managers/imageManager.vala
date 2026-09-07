@@ -16,15 +16,9 @@
  */
 
 
-// Plain data carried into the network-download worker pool. Deliberately a
-// simple GObject with value fields rather than a captured closure: the
-// project's home-grown WorkerPool stores ad-hoc per-call closures and turned
-// out to drop their captured-environment ownership (job_target_destroy_notify
-// was always cleared in the generated code), causing a use-after-free once a
-// queued job actually ran. GLib.ThreadPool<T> only ever creates one long-lived
-// closure (the processing func, over `this`) - per-job state travels as plain
-// fields on this object instead, so there is no per-call closure lifetime to
-// get wrong.
+// Plain data carried into the network-download worker pool, not a captured
+// closure - the home-grown WorkerPool drops captured-closure ownership and
+// use-after-frees once a queued job runs.
 private class ImageDownloadJob : GLib.Object {
     public string url;
     public int target_w;
@@ -47,12 +41,8 @@ private class CachedImageJob : GLib.Object {
     public ImageCache? img_cache;
 }
 
-// Outcome of the worker-thread half of a network image download. Carries
-// only plain data (never a Gtk.Picture or a Gee collection), so it is safe
-// to build entirely on a download_pool thread and hand to the main thread
-// afterwards. `ok == false` means "show the fallback placeholder" - it
-// covers network errors, decode failures, and the oversized-Reddit-image
-// bailout uniformly.
+// Worker-thread download result - plain data only, safe to build off-thread.
+// `ok == false` means "show the fallback placeholder".
 private class DownloadOutcome : GLib.Object {
     public bool ok = false;
     public string? size_key;
@@ -487,18 +477,10 @@ public class ImageManager : GLib.Object {
         if (window.meta_cache != null) {
             var disk_path = window.meta_cache.get_cached_path(url);
             if (disk_path != null) {
-                // PERFORMANCE: decoding + scale/crop of an on-disk cached
-                // thumbnail is real CPU work (JPEG/PNG decode, bilinear
-                // scale). This used to run inline on the caller's thread,
-                // which is the main thread for every card built during
-                // article insertion - on views with many already-cached
-                // thumbnails (Front Page especially, which can have far
-                // more cards than any single-source view) that added up
-                // to several seconds of main-thread work and visible
-                // churn. Do the decode/scale off the main thread instead,
-                // mirroring the pattern already used for network
-                // downloads below: only the final texture/cache write
-                // touches GTK state, via Idle.add.
+                // Decode/scale off the main thread, same as network downloads
+                // below - only the final texture/cache write touches GTK
+                // state, via Idle.add. Decoding cached thumbnails inline adds
+                // up fast on views with many cards.
                 int device_scale = 1;
                 try { device_scale = image.get_scale_factor(); if (device_scale < 1) device_scale = 1; } catch (GLib.Error e) { device_scale = 1; }
 
