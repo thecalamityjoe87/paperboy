@@ -123,7 +123,7 @@ public class PixbufUtils {
                 if (circular == null) return;
                 image.set_from_paintable(Gdk.Texture.for_pixbuf(circular));
             } catch (GLib.Error e) {
-                // Leave the placeholder showing.
+                warning("Failed to load logo %s: %s", url, e.message);
             }
         });
     }
@@ -137,7 +137,7 @@ public class PixbufUtils {
             if (circular == null) return;
             image.set_from_paintable(Gdk.Texture.for_pixbuf(circular));
         } catch (GLib.Error e) {
-            // Leave the placeholder showing.
+            warning("Failed to load logo %s: %s", file_path, e.message);
         }
     }
 }
