@@ -1393,6 +1393,14 @@ public class PrefsDialog : GLib.Object {
     // Condensed highlights for the 5 most recent GitHub releases, shown in
     // the About dialog's "What's New" page.
     private const string RELEASE_NOTES = """
+        <p><em>v0.8.1a</em> — My Feed Redesign, Memory Fixes &amp; Row Navigation</p>
+        <ul>
+        <li>Redesigned My Feed as interleaved source/category rows, mirroring Front Page's card layout, with custom RSS feeds able to opt in independently via a new Personalization subpage</li>
+        <li>Fixed a memory/freeze regression from that redesign by capping live card widgets per row and tightening HTTP concurrency</li>
+        <li>Fixed built-in sources disappearing from My Feed under load, and circular logos being stretched instead of center-cropped</li>
+        <li>Fixed Sports' hero carousel staying empty on first load, and My Feed's sidebar unread badge showing inflated counts</li>
+        <li>Added a "Go to category" button on Front Page/My Feed rows for quick navigation to the full category page</li>
+        </ul>
         <p><em>v0.8.0a</em> — Live Sports Scores, UI Redesign &amp; Major Performance Overhaul</p>
         <ul>
         <li>Added live ESPN scoreboard cards to the Sports category, covering major leagues from the NFL to Champions League, with polling that scales to game state</li>
@@ -1420,26 +1428,20 @@ public class PrefsDialog : GLib.Object {
         <li>Generated RSS feeds keep a stable cache across regenerations</li>
         <li>Centralized offline detection to avoid dead-end network actions</li>
         </ul>
-        <p><em>v0.7.2a</em> — Feature &amp; Polish Update</p>
-        <ul>
-        <li>Added back/forward/reload navigation to the in-app article viewer</li>
-        <li>Added a "mark as unread" option to the article context menu</li>
-        <li>Fixed Frontpage cards briefly appearing in the wrong section</li>
-        </ul>
         """;
 
     public static void show_about_dialog(Gtk.Window parent) {
         var about = new Adw.AboutDialog();
         about.set_application_name("Paperboy");
         about.set_application_icon("paperboy"); // Use the correct icon name
-        about.set_version("0.8.0a");
+        about.set_version("0.8.1a");
         about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
         about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
         about.set_website("https://github.com/thecalamityjoe87/paperboy");
         about.set_license_type(Gtk.License.GPL_3_0);
         about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
 
-        about.set_release_notes_version("0.8.0a");
+        about.set_release_notes_version("0.8.1a");
         about.set_release_notes(RELEASE_NOTES);
 
         about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");
