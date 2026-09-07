@@ -21,11 +21,8 @@ using Adw;
 using Soup;
 using Gdk;
 
-// Bound directly to the C symbol rather than through Gtk.DragIcon.get_for_drag
-// because different GTK4 minor versions ship vapi bindings for it in
-// incompatible shapes (a plain static method vs. a named constructor),
-// which breaks compiling the same source against multiple GTK4/vala SDKs
-// (e.g. the system toolchain vs. the flatpak runtime's).
+// Bound directly to the C symbol since GTK4 minor versions ship
+// Gtk.DragIcon.get_for_drag's vapi binding in incompatible shapes.
 [CCode (cname = "gtk_drag_icon_get_for_drag")]
 private static extern unowned Gtk.Widget prefs_dialog_drag_icon_get_for_drag(Gdk.Drag drag);
 
@@ -352,7 +349,7 @@ public class PrefsDialog : GLib.Object {
     }
 
     // Libadwaita preferences dialog using Adw.PreferencesDialog with tabs
-    public static void show_preferences_dialog(Gtk.Window parent) {
+    public static void show_preferences_dialog(Gtk.Window parent, bool open_personalization = false) {
         var win = (NewsWindow) parent;
         var prefs = NewsPreferences.get_instance();
 
@@ -809,6 +806,142 @@ public class PrefsDialog : GLib.Object {
         });
         app_group.add(personalized_row);
 
+        // Separate place (its own row, its own slide-in page) for choosing
+        // which followed custom RSS feeds show up in My Feed - deliberately
+        // not folded into the "Personalized Feed Categories" dialog above.
+        // Pushed as an Adw.NavigationPage via the PreferencesDialog's own
+        // push_subpage() rather than opened as a separate modal dialog, so
+        // it slides in/out like any other libadwaita preferences subpage.
+        //
+        // A local closure (not a static method) so it can reuse the
+        // favicon-loading helpers (create_favicon_picture/
+        // load_favicon_circular/try_load_icon_circular) already defined
+        // above in this function, the same ones the "Feeds" section below
+        // uses for its own favicons - giving these rows the same icons
+        // instead of none.
+        bool myfeed_feeds_subpage_open = false;
+        Adw.NavigationPage build_myfeed_feeds_page() {
+            var page = new Adw.PreferencesPage();
+            var group = new Adw.PreferencesGroup();
+            group.set_description("Choose which of your followed RSS feeds appear in My Feed");
+
+            var myfeed_rss_store = Paperboy.RssSourceStore.get_instance();
+            var enabled_feeds = new Gee.ArrayList<Paperboy.RssSource>();
+            foreach (var src in myfeed_rss_store.get_all_sources()) {
+                if (prefs.preferred_source_enabled("custom:" + src.url)) enabled_feeds.add(src);
+            }
+
+            if (enabled_feeds.size == 0) {
+                var empty_row = new Adw.ActionRow();
+                empty_row.set_title("No feeds followed yet");
+                empty_row.set_subtitle("Follow a custom RSS feed in Preferences -> Feeds first, then come back here to include it in My Feed.");
+                group.add(empty_row);
+            } else {
+                foreach (var src in enabled_feeds) {
+                    string feed_url = src.url;
+                    var frow = new Adw.ActionRow();
+                    // Escape before set_title(): ActionRow parses this as
+                    // Pango markup, so an unescaped "&" (e.g. "Food & Wine")
+                    // breaks the parser and the title renders blank instead
+                    // of erroring - same fix already applied to the "Feeds"
+                    // section's rows below.
+                    frow.set_title(GLib.Markup.escape_text(src.name ?? ""));
+
+                    // Same favicon priority order as the "Feeds" section:
+                    // saved local file, then SourceMetadata's logo URL,
+                    // then Google's favicon service, then the RSS source's
+                    // own favicon_url.
+                    var wrapper = create_favicon_picture("placeholder:myfeed-feed:%s".printf(feed_url), null);
+                    Gtk.Picture? picture = null;
+                    if (wrapper is Gtk.Box) {
+                        var wbox = (Gtk.Box) wrapper;
+                        var child = wbox.get_first_child();
+                        if (child is Gtk.Picture) picture = (Gtk.Picture) child;
+                    }
+                    if (picture != null) {
+                        bool icon_loaded = false;
+                        string? icon_filename = SourceMetadata.get_saved_filename_for_source(src.name);
+                        if (icon_filename != null && icon_filename.length > 0) {
+                            var data_dir = GLib.Environment.get_user_data_dir();
+                            var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", icon_filename);
+                            if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
+                                try_load_icon_circular(icon_path, picture);
+                                icon_loaded = true;
+                            }
+                        }
+                        if (!icon_loaded) {
+                            string? meta_logo_url = SourceMetadata.get_logo_url_for_source(src.name);
+                            if (meta_logo_url != null && meta_logo_url.length > 0 &&
+                                (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
+                                load_favicon_circular(picture, meta_logo_url);
+                                icon_loaded = true;
+                            }
+                        }
+                        if (!icon_loaded) {
+                            string? host = UrlUtils.extract_host_from_url(feed_url);
+                            if (host != null && host.length > 0) {
+                                load_favicon_circular(picture, "https://www.google.com/s2/favicons?domain=" + host + "&sz=128");
+                                icon_loaded = true;
+                            }
+                        }
+                        if (!icon_loaded && src.favicon_url != null && src.favicon_url.length > 0 &&
+                            (src.favicon_url.has_prefix("http://") || src.favicon_url.has_prefix("https://"))) {
+                            load_favicon_circular(picture, src.favicon_url);
+                        }
+                    }
+                    frow.add_prefix(wrapper);
+
+                    var fswitch = new Gtk.Switch();
+                    fswitch.set_active(prefs.myfeed_feed_enabled(feed_url));
+                    fswitch.set_valign(Gtk.Align.CENTER);
+
+                    string _furl = feed_url;
+                    fswitch.notify["active"].connect(() => {
+                        prefs.set_myfeed_feed_enabled(_furl, fswitch.get_active());
+                        prefs.save_config();
+                        categories_holder.changed = true;
+
+                        var myfeed_win = parent as NewsWindow;
+                        if (myfeed_win != null) {
+                            UnreadFetchService.refresh_myfeed_metadata(myfeed_win);
+                        }
+                    });
+
+                    frow.add_suffix(fswitch);
+                    frow.set_activatable(true);
+                    frow.activated.connect(() => {
+                        fswitch.set_active(!fswitch.get_active());
+                    });
+                    group.add(frow);
+                }
+            }
+
+            page.add(group);
+
+            // Adw.HeaderBar shows its own contextual back chevron once inside
+            // pushed-subpage content - wrap in one for that, but don't add a
+            // manual back button too or it doubles up.
+            var toolbar_view = new Adw.ToolbarView();
+            toolbar_view.add_top_bar(new Adw.HeaderBar());
+            toolbar_view.set_content(page);
+
+            var nav_page = new Adw.NavigationPage(toolbar_view, "Custom feeds in My Feed");
+            nav_page.hidden.connect(() => { myfeed_feeds_subpage_open = false; });
+            return nav_page;
+        }
+
+        var myfeed_feeds_row = new Adw.ActionRow();
+        myfeed_feeds_row.set_title("Custom feeds in My Feed");
+        myfeed_feeds_row.set_subtitle("Choose which followed RSS feeds appear in My Feed");
+        myfeed_feeds_row.add_suffix(new Gtk.Image.from_icon_name("go-next-symbolic"));
+        myfeed_feeds_row.set_activatable(true);
+        myfeed_feeds_row.activated.connect(() => {
+            if (myfeed_feeds_subpage_open) return;
+            myfeed_feeds_subpage_open = true;
+            dialog.push_subpage(build_myfeed_feeds_page());
+        });
+        app_group.add(myfeed_feeds_row);
+
         // Custom sources only toggle
         var custom_only_row = new Adw.SwitchRow();
         custom_only_row.set_title("Custom sources only in My Feed");
@@ -1248,6 +1381,10 @@ public class PrefsDialog : GLib.Object {
             }
         });
 
+        if (open_personalization) {
+            dialog.set_visible_page(personalization_page);
+        }
+
         // Present the dialog
         dialog.present(parent);
     }
@@ -1256,6 +1393,14 @@ public class PrefsDialog : GLib.Object {
     // Condensed highlights for the 5 most recent GitHub releases, shown in
     // the About dialog's "What's New" page.
     private const string RELEASE_NOTES = """
+        <p><em>v0.8.1a</em> — My Feed Redesign, Memory Fixes &amp; Row Navigation</p>
+        <ul>
+        <li>Redesigned My Feed as interleaved source/category rows, mirroring Front Page's card layout, with custom RSS feeds able to opt in independently via a new Personalization subpage</li>
+        <li>Fixed a memory/freeze regression from that redesign by capping live card widgets per row and tightening HTTP concurrency</li>
+        <li>Fixed built-in sources disappearing from My Feed under load, and circular logos being stretched instead of center-cropped</li>
+        <li>Fixed Sports' hero carousel staying empty on first load, and My Feed's sidebar unread badge showing inflated counts</li>
+        <li>Added a "Go to category" button on Front Page/My Feed rows for quick navigation to the full category page</li>
+        </ul>
         <p><em>v0.8.0a</em> — Live Sports Scores, UI Redesign &amp; Major Performance Overhaul</p>
         <ul>
         <li>Added live ESPN scoreboard cards to the Sports category, covering major leagues from the NFL to Champions League, with polling that scales to game state</li>
@@ -1283,26 +1428,20 @@ public class PrefsDialog : GLib.Object {
         <li>Generated RSS feeds keep a stable cache across regenerations</li>
         <li>Centralized offline detection to avoid dead-end network actions</li>
         </ul>
-        <p><em>v0.7.2a</em> — Feature &amp; Polish Update</p>
-        <ul>
-        <li>Added back/forward/reload navigation to the in-app article viewer</li>
-        <li>Added a "mark as unread" option to the article context menu</li>
-        <li>Fixed Frontpage cards briefly appearing in the wrong section</li>
-        </ul>
         """;
 
     public static void show_about_dialog(Gtk.Window parent) {
         var about = new Adw.AboutDialog();
         about.set_application_name("Paperboy");
         about.set_application_icon("paperboy"); // Use the correct icon name
-        about.set_version("0.8.0a");
+        about.set_version("0.8.1a");
         about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
         about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
         about.set_website("https://github.com/thecalamityjoe87/paperboy");
         about.set_license_type(Gtk.License.GPL_3_0);
         about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
 
-        about.set_release_notes_version("0.8.0a");
+        about.set_release_notes_version("0.8.1a");
         about.set_release_notes(RELEASE_NOTES);
 
         about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");

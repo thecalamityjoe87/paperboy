@@ -29,8 +29,7 @@ using GLib;
 namespace Paperboy {
 
 public class HttpClientUtils : Object {
-    // Singleton instance (eagerly constructed at program startup to avoid
-    // lazy-construction races across threads)
+    // Eagerly constructed to avoid lazy-init races across threads.
     private static HttpClientUtils _instance = new HttpClientUtils();
 
     // HTTP session (reused for connection pooling)
@@ -39,7 +38,9 @@ public class HttpClientUtils : Object {
     // Concurrency control
     private static GLib.Mutex _request_mutex = new GLib.Mutex();
     private static int _active_requests = 0;
-    private const int MAX_CONCURRENT_REQUESTS = 8;
+    // Balances My Feed's fan-out against glibc malloc arena contention
+    // from concurrent XML/image decoding (see mallopt in main.vala).
+    private const int MAX_CONCURRENT_REQUESTS = 16;
 
     // Thread pool for request processing (reduces thread spawning overhead)
     private ThreadPool<HttpTask>? thread_pool;
@@ -167,30 +168,16 @@ public class HttpClientUtils : Object {
     public delegate void HttpResponseCallback(HttpResponse response);
 
 
-    // Get singleton instance
     public static HttpClientUtils get_default() {
-        // Ensure the GType for HttpClientUtils is initialized so the class
-        // initializer has run and `_instance` is set. This avoids a race
-        // where worker threads call `get_default()` before the GType
-        // system has created the singleton in `class_init`.
-        // Use `typeof(HttpClientUtils)` to reference the GType and force
-        // Vala/GLib to register the type before returning the instance.
+        // Forces GType registration so class_init has run and _instance is set,
+        // even if a worker thread gets here first.
         var _type = typeof (HttpClientUtils);
-
-        // Return the static singleton instance directly. The instance is
-        // constructed by the class initializer and intentionally never
-        // finalized to avoid cross-thread initialization/finalization races.
         return _instance;
     }
 
-    // Force initialization of the singleton from the calling thread.
-    // Call this from the main thread at startup to ensure the GType
-    // class initializer runs and the singleton is created before any
-    // worker threads can call `get_default()`.
+    // Call from the main thread at startup so the singleton exists before
+    // any worker thread races to get_default().
     public static void ensure_initialized() {
-        // Force the GType to be registered and the class initializer
-        // to run. This helps ensure `_instance` is set before any
-        // worker thread can call `get_default()`.
         var _type = typeof (HttpClientUtils);
 
         if (_instance == null) {
@@ -199,35 +186,23 @@ public class HttpClientUtils : Object {
     }
 
 
-    // Private constructor (singleton pattern)
     private HttpClientUtils() {
-        // Create HTTP session with keep-alive and connection pooling
+        // Plain constructor only: setting max-conns/max-conns-per-host via
+        // GLib.Object.new() property varargs crashes libsoup under
+        // concurrent use, so we're stuck with its default per-host limits.
         session = new Soup.Session() {
             timeout = TIMEOUT_DEFAULT
         };
 
-        // Initialize request deduplication cache
         in_flight_requests = new Gee.HashMap<string, RequestState>();
 
-        // Thread pool will be created lazily on first async fetch to avoid
-        // spawning worker threads during singleton construction which can
-        // cause reentrancy and mutex initialization races.
+        // Created lazily on first async fetch to avoid spawning threads
+        // during singleton construction.
         thread_pool = null;
     }
 
 
-    // Process HTTP task in thread pool
     private void process_http_task(owned HttpTask task) {
-        // Throttle concurrent requests
-        _request_mutex.lock();
-        while (_active_requests >= MAX_CONCURRENT_REQUESTS) {
-            _request_mutex.unlock();
-            Thread.usleep(50000); // 50ms
-            _request_mutex.lock();
-        }
-        _active_requests++;
-        _request_mutex.unlock();
-
         HttpResponse response = fetch_sync_internal(task.url, task.options);
 
         if (task.callback != null) {
@@ -236,6 +211,21 @@ public class HttpClientUtils : Object {
                 return false;
             });
         }
+    }
+
+    // Block until a request slot is free, then claim it.
+    private static void acquire_request_slot() {
+        _request_mutex.lock();
+        while (_active_requests >= MAX_CONCURRENT_REQUESTS) {
+            _request_mutex.unlock();
+            Thread.usleep(50000); // 50ms
+            _request_mutex.lock();
+        }
+        _active_requests++;
+        _request_mutex.unlock();
+    }
+
+    private static void release_request_slot() {
         _request_mutex.lock();
         _active_requests--;
         _request_mutex.unlock();
@@ -297,8 +287,7 @@ public class HttpClientUtils : Object {
             state = new RequestState();
             in_flight_requests.set(url, state);
             
-            // MEMORY SAFETY: Prevent unbounded cache growth by clearing old entries
-            // if cache exceeds reasonable size (100 concurrent requests)
+            // Cap cache growth: clear the oldest completed half once we exceed this.
             const int MAX_CACHE_SIZE = 100;
             if (in_flight_requests.size > MAX_CACHE_SIZE) {
                 // Clear oldest half of entries to avoid frequent clears
@@ -320,6 +309,11 @@ public class HttpClientUtils : Object {
             cache_mutex.unlock();
         }
 
+        // Only the actual network attempt counts against the concurrency
+        // cap; dedup hits above already returned. finally covers all early
+        // returns so every caller is bounded the same way.
+        acquire_request_slot();
+        try {
         try {
             // Create request
             var msg = new Soup.Message(options.method, url);
@@ -450,6 +444,9 @@ public class HttpClientUtils : Object {
                 }
                 cache_mutex.unlock();
             }
+        }
+        } finally {
+            release_request_slot();
         }
 
         return response;

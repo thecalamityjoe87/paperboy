@@ -109,6 +109,17 @@
       <description>List of category IDs included in the personalized feed</description>
     </key>
 
+    <!-- Separate from personalized-categories on purpose: a custom RSS
+         feed's own "enabled" switch (see Preferences -> Feeds) controls
+         whether it exists/shows in the sidebar at all, independent of
+         whether its articles are merged into My Feed. This list is that
+         second, independent opt-in - which feeds actually show in My Feed. -->
+    <key name="myfeed-included-feeds" type="as">
+      <default>[]</default>
+      <summary>My Feed custom feed opt-ins</summary>
+      <description>URLs of custom RSS feeds included in My Feed, independent of whether the feed is otherwise enabled</description>
+    </key>
+
     <!-- Empty means every league SportsScoresService knows about is shown;
          a league key here is hidden from the Sports score-card sections.
          Opt-out (rather than opt-in, like personalized-categories) so a

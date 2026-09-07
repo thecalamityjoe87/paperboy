@@ -592,10 +592,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         });
     }
 
-    // My Feed overlay: wire the "Select news sources" button to open preferences
+    // My Feed overlay: wire the "Configure personalization" button to open
+    // preferences directly on the Personalization page.
     if (loading_state.personalized_message_action != null) {
         loading_state.personalized_message_action.clicked.connect(() => {
-            PrefsDialog.show_preferences_dialog(this);
+            PrefsDialog.show_preferences_dialog(this, true);
         });
     }
 

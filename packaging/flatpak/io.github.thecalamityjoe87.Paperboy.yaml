@@ -1,0 +1,66 @@
+app-id: io.github.thecalamityjoe87.Paperboy
+runtime: org.gnome.Platform
+runtime-version: '49'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: paperboy
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # GeoClue is a system D-Bus service (not portal-mediated for this API), needed
+  # for the Local News location lookup.
+  - --system-talk-name=org.freedesktop.GeoClue2
+
+modules:
+  # geocode-glib-2.0 isn't part of the org.gnome.Platform//49 runtime, so it's
+  # built from source here. libgeoclue, libsoup-3.0, json-glib, gee, sqlite,
+  # libxml2 and webkitgtk-6.0 are all already provided by the runtime.
+  - name: geocode-glib
+    buildsystem: meson
+    config-opts:
+      - -Dsoup2=false
+      - -Denable-introspection=false
+      - -Denable-gtk-doc=false
+      - -Denable-installed-tests=false
+    sources:
+      - type: archive
+        url: https://download.gnome.org/sources/geocode-glib/3.26/geocode-glib-3.26.4.tar.xz
+        sha256: 2d9a6826d158470449a173871221596da0f83ebdcff98b90c7049089056a37aa
+
+  - name: paperboy
+    buildsystem: meson
+    build-options:
+      # Needed because meson.build shells out to `cargo build --release` for
+      # tools/html2rss during configure. This is fine for a local install but
+      # is not something Flathub would accept (it forbids network access
+      # during build) - a real submission would need vendored cargo sources.
+      append-path: /usr/lib/sdk/rust-stable/bin
+      build-args:
+        - --share=network
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - build
+          - AppDir
+          - .git
+          - '*.AppImage'
+    # meson.build installs the app icons as plain "paperboy.{png,svg}", which
+    # is fine for a native/AppImage install (icon theme lookup is by name,
+    # not app id) but flatpak's icon exporter only allows exporting icons
+    # whose filename matches the app id - anything else is silently dropped,
+    # so the app would show up with no icon in a launcher. Copy them to
+    # app-id-named files and repoint the desktop file's Icon= at the copy.
+    post-install:
+      - |
+        for size in 128x128 256x256 512x512; do
+          install -Dm644 "${FLATPAK_DEST}/share/icons/hicolor/${size}/apps/paperboy.png" \
+            "${FLATPAK_DEST}/share/icons/hicolor/${size}/apps/${FLATPAK_ID}.png"
+        done
+      - install -Dm644 "${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/paperboy.svg" "${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg"
+      - sed -i "s/^Icon=paperboy$/Icon=${FLATPAK_ID}/" "${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop"

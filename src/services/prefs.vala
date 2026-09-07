@@ -181,7 +181,17 @@ public class NewsPreferences : GLib.Object {
         owned get {
             var list = new Gee.ArrayList<string>();
             string[] arr = settings.get_strv("personalized-categories");
-            foreach (var s in arr) list.add(s);
+            // Defensive: an earlier iteration of My Feed's custom-feed
+            // opt-in briefly stored "customfeed:<url>" entries in this same
+            // list before that was moved to its own dedicated
+            // myfeed_included_feeds preference. Any such entries left over
+            // from that on a real install aren't a real topic category and
+            // would otherwise build a permanently-empty, oddly-labeled row
+            // in My Feed - filter them out here so stale data can't
+            // resurface that bug.
+            foreach (var s in arr) {
+                if (!s.has_prefix("customfeed:")) list.add(s);
+            }
             return list;
         }
         set {
@@ -196,6 +206,50 @@ public class NewsPreferences : GLib.Object {
                 settings.set_strv("personalized-categories", arr);
             }
         }
+    }
+
+    // URLs of custom RSS feeds included in My Feed. Deliberately separate
+    // from preferred_sources' "custom:<url>" entries: that flag controls
+    // whether the feed exists/shows in the sidebar at all (see
+    // SidebarManager.get_sidebar_sections()), independent of whether it's
+    // merged into My Feed - this is that second, independent opt-in.
+    public Gee.ArrayList<string> myfeed_included_feeds {
+        owned get {
+            var list = new Gee.ArrayList<string>();
+            string[] arr = settings.get_strv("myfeed-included-feeds");
+            foreach (var s in arr) list.add(s);
+            return list;
+        }
+        set {
+            if (value == null) {
+                settings.set_strv("myfeed-included-feeds", new string[0]);
+            } else {
+                string[] arr = new string[value.size];
+                for (int i = 0; i < value.size; i++) arr[i] = value.get(i);
+                settings.set_strv("myfeed-included-feeds", arr);
+            }
+        }
+    }
+
+    public bool myfeed_feed_enabled(string url) {
+        foreach (var u in myfeed_included_feeds) if (u == url) return true;
+        return false;
+    }
+
+    public void set_myfeed_feed_enabled(string url, bool enabled) {
+        var current_list = myfeed_included_feeds;
+        var updated_list = new Gee.ArrayList<string>();
+        foreach (var u in current_list) updated_list.add(u);
+
+        if (enabled) {
+            if (!updated_list.contains(url)) updated_list.add(url);
+        } else {
+            var to_remove = new Gee.ArrayList<string>();
+            foreach (var u in updated_list) if (u == url) to_remove.add(u);
+            foreach (var r in to_remove) updated_list.remove(r);
+        }
+
+        myfeed_included_feeds = updated_list;
     }
 
     // Master on/off switch for the Sports category's score-card sections,
@@ -271,24 +325,11 @@ public class NewsPreferences : GLib.Object {
                 foreach (var r in to_remove) preferred_sources.remove(r);
             }
         }
-        // Keep the single-source `news_source` value (which drives regular
-        // category browsing, e.g. World News/Technology/etc.) in sync with
-        // the "Built-in News Sources" switches in Preferences.
-        //
-        // This used to require the WHOLE `preferred_sources` list - built-in
-        // switches AND every followed custom RSS feed combined - to shrink
-        // to exactly one entry before updating news_source. That's the list
-        // "My Feed" personalization also uses, so anyone with even one
-        // custom feed followed (nearly everyone, in practice) could never
-        // trigger it: switching a built-in source on in Preferences would
-        // silently do nothing to what regular category pages show, with no
-        // indication anything was wrong.
-        //
-        // Toggling a built-in source's switch ON is an unambiguous signal
-        // on its own - it doesn't need the rest of the list's state to
-        // confirm intent - so sync directly off `id`/`enabled` here instead,
-        // completely independent of how many custom feeds happen to be
-        // enabled.
+        // Keep the single-source `news_source` value (drives regular category
+        // browsing) in sync with the "Built-in News Sources" switches.
+        // Sync directly off `id`/`enabled` rather than requiring
+        // `preferred_sources` to shrink to one entry - that list also holds
+        // followed custom RSS feeds, so it rarely has just one entry.
         if (enabled) {
             switch (id) {
                 case "guardian": news_source = NewsSource.GUARDIAN; break;

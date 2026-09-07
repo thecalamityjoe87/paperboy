@@ -73,11 +73,12 @@ private const int M_ARENA_MAX = -8;
 private const int M_ARENA_TEST = -7;
 
 public static int main(string[] args) {
-    // Caps glibc's per-thread malloc arenas: the image download/decode
-    // worker pools' allocate/free churn was fragmenting memory across many
-    // arenas that never got returned to the OS, ballooning RSS past 2GB
-    // independent of actual live data (confirmed via heaptrack).
-    mallopt(M_ARENA_MAX, 2);
+    // Caps glibc's malloc arenas: uncapped, concurrent image/XML worker
+    // churn fragments memory across arenas and balloons RSS. 4 is enough
+    // for HttpClientUtils.MAX_CONCURRENT_REQUESTS worker threads to avoid
+    // serializing on too few arena locks, while staying well under
+    // glibc's default (which scales with core count).
+    mallopt(M_ARENA_MAX, 4);
     mallopt(M_ARENA_TEST, 1);
 
     var app = new PaperboyApp();

@@ -248,7 +248,7 @@ public class ContentView : GLib.Object {
         // Category-grouped sections (Front Page only): one labeled,
         // horizontally-scrollable row of cards per category, built and
         // shown/hidden by LayoutManager instead of the flat columns_row.
-        category_sections_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
+        category_sections_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 16);
         category_sections_container.set_halign(Gtk.Align.FILL);
         category_sections_container.set_hexpand(true);
         category_sections_container.set_visible(false);
@@ -316,7 +316,7 @@ public class ContentView : GLib.Object {
         personalized_message_sub_label.set_visible(false);
         inner_center.append(personalized_message_sub_label);
 
-        personalized_message_action = new Gtk.Button.with_label("Select news sources");
+        personalized_message_action = new Gtk.Button.with_label("Personalize My Feed");
         personalized_message_action.set_halign(Gtk.Align.CENTER);
         personalized_message_action.set_valign(Gtk.Align.CENTER);
         personalized_message_action.set_margin_top(8);

@@ -17,19 +17,17 @@
 
 public class UnreadFetchService {
 
-    // Weak reference to window for safe lifecycle management.
-    // DO NOT use FetchContext here - it would cancel the main content fetch!
+    // Weak so this doesn't keep the window alive. Do NOT use FetchContext here - it would
+    // cancel the main content fetch.
     private static weak NewsWindow? _unread_window = null;
 
-    // Separate session with shorter timeout for background metadata fetches
-    // This ensures background fetches fail fast and don't block the UI
+    // Shorter timeout than the main session so background fetches fail fast without blocking the UI.
     private static Soup.Session? _metadata_session = null;
 
-    // Fetch queue and throttling
-    // NOTE: Static Gee collections must be initialized lazily in Vala
+    // Static Gee collections need lazy init in Vala (inline initializers don't run).
     private static Gee.Queue<FetchTask>? _fetch_queue = null;
     private static int _active_fetches = 0;
-    private const int MAX_CONCURRENT_FETCHES = 3;  // Limit concurrent fetches to prevent resource contention
+    private const int MAX_CONCURRENT_FETCHES = 3;
 
     // Task types for the fetch queue
     private enum TaskType {
@@ -76,7 +74,7 @@ public class UnreadFetchService {
     private static Soup.Session get_metadata_session() {
         if (_metadata_session == null) {
             _metadata_session = new Soup.Session() {
-                timeout = 5  // Shorter timeout for background fetches (5 seconds)
+                timeout = 5
             };
         }
         return _metadata_session;
@@ -93,38 +91,31 @@ public class UnreadFetchService {
         var win = _unread_window;
         if (win == null) return;
 
-        // Safely access article_state_store through local variable
         var store = win.article_state_store;
         if (store == null) return;
 
         string normalized = win.normalize_article_url(url);
         store.register_article(normalized, category_id, source_name);
 
-        // Also register under myfeed if this article should appear there
         var prefs = win.prefs;
         if (prefs == null) return;
 
-        // RSS sources: check if the custom RSS source is enabled
+        // RSS sources: needs both the "enabled" switch and the separate My Feed opt-in.
         if (category_id != null && category_id.has_prefix("rssfeed:")) {
             string rss_url = category_id.substring("rssfeed:".length);
-            if (prefs.preferred_source_enabled("custom:" + rss_url)) {
+            if (prefs.preferred_source_enabled("custom:" + rss_url) && prefs.myfeed_feed_enabled(rss_url)) {
                 store.register_article(normalized, "myfeed", "rssfeed:" + rss_url);
             }
         }
-        // Built-in sources: check if source is enabled AND category is in personalized categories
-        // AND that "custom only" mode is disabled
+        // Built-in sources: needs source enabled, category personalized, and custom-only mode off.
         else if (source_name != null && category_id != null && prefs.personalized_feed_enabled && !prefs.myfeed_custom_only) {
-            // Check if this is a personalized category for myfeed
             var personalized_cats = prefs.personalized_categories;
             if (personalized_cats != null && personalized_cats.contains(category_id)) {
-                // Normalize the source display name to canonical ID
                 string? source_id = SourceManager.normalize_source_display_name_to_id(source_name);
 
                 if (source_id != null) {
-                    // Check if the source is enabled
                     bool is_enabled = prefs.preferred_source_enabled(source_id);
                     if (is_enabled) {
-                        // Register with normalized source ID for consistent filtering
                         store.register_article(normalized, "myfeed", source_id);
                     }
                 }
@@ -145,7 +136,6 @@ public class UnreadFetchService {
 
             _active_fetches++;
 
-            // Execute the fetch based on task type
             var win = _unread_window;
             if (win == null) {
                 _active_fetches--;
@@ -154,10 +144,9 @@ public class UnreadFetchService {
 
             switch (task.type) {
                 case TaskType.CATEGORY:
-                    // Always clear category before background fetch to prevent accumulation
-                    // Skip only if this is the category the user is currently viewing (main fetch handles it)
-                    // NOTE: We clear on EVERY fetch, not just once per run, because the backend
-                    // may return different articles each time and we need fresh counts
+                    // Clear before every fetch (not just once) since the backend can return different
+                    // articles each time. Skip only the category the user is currently viewing - the
+                    // main fetch already handles that one.
                     if (win != null && win.article_state_store != null && task.category != null) {
                         bool should_clear = (win.prefs == null || win.prefs.category != task.category);
 
@@ -177,7 +166,6 @@ public class UnreadFetchService {
                             global_metadata_add(title, url, thumb, cat_id, src_name);
                         }
                     );
-                    // Decrement counter after a short delay to allow fetch to start
                     GLib.Timeout.add(100, () => {
                         _active_fetches--;
                         process_fetch_queue();
@@ -234,40 +222,29 @@ public class UnreadFetchService {
         }
     }
 
-    // Fetch article metadata for all *regular* categories and RSS sources in background
-    // to populate unread counts. Special categories like myfeed, local_news, and saved
-    // are handled separately and must not be treated as normal fetchable categories here.
+    // Fetches regular categories and RSS sources in the background to populate unread counts.
+    // Special categories (myfeed, local_news, saved) are handled separately.
     public static void fetch_all_category_metadata_for_counts(NewsWindow win) {
         if (win == null) return;
 
-        // Store weak reference to window for callbacks.
-        // DO NOT use FetchContext.begin_new() here - it would cancel the main content fetch!
+        // Do NOT use FetchContext.begin_new() - it would cancel the main content fetch.
         _unread_window = win;
 
-        // Clear any existing queue
         get_fetch_queue().clear();
         _active_fetches = 0;
 
-        // DO NOT clear article tracking here - this is a background metadata fetch
-        // that should supplement the counts, not replace them. Clearing happens
-        // in the main fetch (fetchNewsController) when the user navigates to a category.
-        // Clearing here causes race conditions where:
-        // 1. User views frontpage (main fetch adds 40 articles)
-        // 2. Background fetch clears all tracking (including frontpage)
-        // 3. Background fetch re-adds frontpage articles
-        // 4. Result: duplicate counting or lost articles
+        // Don't clear article tracking here - this only supplements counts. The main fetch
+        // (fetchNewsController) clears on category navigation; clearing here too races with it
+        // and can drop or double-count articles.
 
-        // Get all enabled built-in sources for My Feed
-        // This ensures we fetch metadata from ALL enabled sources, not just the effective_news_source
         var source_mgr = win.source_manager;
         var enabled_sources = (source_mgr != null) ? source_mgr.get_enabled_source_enums() : new Gee.ArrayList<NewsSource>();
 
-        // If no built-in sources are explicitly enabled, fall back to effective_news_source
         if (enabled_sources.size == 0) {
             enabled_sources.add(win.effective_news_source());
         }
 
-        // Priority categories - fetch these first to ensure they load even if RSS feeds timeout
+        // Fetch these first so they load even if RSS feeds time out
         string[] priority_categories = {"frontpage", "topten"};
         foreach (var source in enabled_sources) {
             foreach (string cat in priority_categories) {

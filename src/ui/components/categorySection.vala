@@ -61,7 +61,12 @@ public class CategorySection : GLib.Object {
     // bordered/rounded panel so the row's cards read as one grouped unit -
     // used for the Sports score sections; article-row sections leave it off
     // and keep their plain flush layout.
-    public CategorySection(NewsWindow? window, string display_name, string query_category, bool center_nav_on_full_row = false, bool card_container = false, string? logo_url = null, bool show_live_pill = false) {
+    // nav_target_id: sidebar id to jump to (see SidebarManager.
+    // handle_item_activation) via the row's trailing "..." button, shown
+    // once the row is scrolled to its end. Null hides the button - used for
+    // rows with no matching sidebar page, like My Feed's built-in-source
+    // rows.
+    public CategorySection(NewsWindow? window, string display_name, string query_category, bool center_nav_on_full_row = false, bool card_container = false, string? logo_url = null, bool show_live_pill = false, string? logo_file_path = null, string? nav_target_id = null) {
         this.window = window;
         this.query_category = query_category;
 
@@ -75,14 +80,17 @@ public class CategorySection : GLib.Object {
         label.add_css_class("caption");
         label.set_markup("<span size='18000'><b>%s</b></span>".printf(display_name.up()));
 
-        // Only the Sports score sections pass a logo_url and/or show_live_pill -
-        // every other CategorySection caller keeps the plain text-only header.
-        if ((logo_url != null && logo_url.length > 0) || show_live_pill) {
+        // Only the Sports score sections and My Feed's source/custom-feed
+        // rows pass a logo (file path, URL, and/or show_live_pill) - every
+        // other CategorySection caller keeps the plain text-only header.
+        bool has_logo_file = logo_file_path != null && logo_file_path.length > 0;
+        bool has_logo_url = logo_url != null && logo_url.length > 0;
+        if (has_logo_file || has_logo_url || show_live_pill) {
             var header = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
             header.set_halign(Gtk.Align.START);
             header.set_valign(Gtk.Align.CENTER);
 
-            if (logo_url != null && logo_url.length > 0) {
+            if (has_logo_file || has_logo_url) {
                 // Circular logo baked into the pixel data via PixbufUtils, same
                 // technique the source-badge/source-row favicons already use
                 // elsewhere in the app - CSS-only circular clipping (a plain
@@ -92,7 +100,11 @@ public class CategorySection : GLib.Object {
                 // scope.
                 var logo = PixbufUtils.make_circular_logo_placeholder(30);
                 header.append(logo);
-                PixbufUtils.load_circular_logo_async(logo, logo_url, 30);
+                if (has_logo_file) {
+                    PixbufUtils.load_circular_logo_from_file(logo, logo_file_path, 30);
+                } else {
+                    PixbufUtils.load_circular_logo_async(logo, logo_url, 30);
+                }
             }
 
             if (show_live_pill) {
@@ -145,14 +157,21 @@ public class CategorySection : GLib.Object {
         overlay.set_child(scroller);
         overlay.set_hexpand(true);
 
+        // Own box (small, fixed spacing) for the row plus its trailing "..."
+        // button, kept separate from wrapper's own 20px header-to-content
+        // spacing so the button sits close under the row instead of
+        // inheriting that same wide gap.
+        var content_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+        content_box.append(overlay);
+
         if (card_container) {
             var container = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
             container.add_css_class("section-card-container");
             container.set_hexpand(true);
-            container.append(overlay);
+            container.append(content_box);
             wrapper.append(container);
         } else {
-            wrapper.append(overlay);
+            wrapper.append(content_box);
         }
 
         Gtk.Adjustment result_adj;
@@ -160,6 +179,17 @@ public class CategorySection : GLib.Object {
         add_nav_buttons(overlay, scroller, row, window, query_category, load_more_state, out result_adj, out result_right_button, center_nav_on_full_row);
         scroll_adjustment = result_adj;
         right_nav_button = result_right_button;
+
+        if (nav_target_id != null) {
+            add_more_button(content_box, window, nav_target_id, display_name);
+        } else {
+            // category_sections_container's spacing is sized for a section
+            // ending in this "..." button; a section with no button (ends
+            // in a full card row instead) wants a bit more breathing room
+            // before the next divider. A plain positive margin, unlike a
+            // negative one, doesn't fight GTK's layout pass.
+            wrapper.set_margin_bottom(8);
+        }
     }
 
     /**
@@ -293,6 +323,26 @@ public class CategorySection : GLib.Object {
         adj.value_changed.connect(() => update_scroll_fades(adj, left_fade, right_fade));
         adj.changed.connect(() => update_scroll_fades(adj, left_fade, right_fade));
         update_scroll_fades(adj, left_fade, right_fade);
+    }
+
+    // Plain "Go to <title>" button under the row (not overlaid on the
+    // cards), fixed in place - jumps to nav_target_id's full page via the
+    // sidebar. Names the destination directly rather than "See all", which
+    // reads as "load more into this row" - the row's own nav arrows already
+    // do that. Static for the same reason as add_nav_buttons: it hangs a
+    // closure off a signal owned by `wrapper`.
+    private static void add_more_button(Gtk.Box wrapper, NewsWindow? win, string nav_target_id, string title) {
+        var more_button = new Gtk.Button.with_label("Go to " + title + " →");
+        more_button.add_css_class("flat");
+        more_button.add_css_class("section-more-button");
+        more_button.set_halign(Gtk.Align.END);
+        wrapper.append(more_button);
+
+        more_button.clicked.connect(() => {
+            if (win != null && win.sidebar_manager != null) {
+                win.sidebar_manager.handle_item_activation(nav_target_id, title);
+            }
+        });
     }
 
     /**

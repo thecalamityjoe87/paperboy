@@ -24,10 +24,8 @@ namespace Managers {
 public class LoadingStateManager : GLib.Object {
     private weak NewsWindow window;
 
-    // Fired from show_loading_spinner()/hide_loading_spinner() - the
-    // existing start/stop pair every fetch path in FetchNewsController
-    // already calls - so header UI (the refresh button's icon<->spinner
-    // swap) can track fetch activity without its own separate plumbing.
+    // Fired from show_loading_spinner()/hide_loading_spinner() so header UI
+    // (the refresh button's icon<->spinner swap) can track fetch activity.
     public signal void fetch_started();
     public signal void fetch_finished();
 
@@ -63,12 +61,8 @@ public class LoadingStateManager : GLib.Object {
         window = w;
     }
 
-    /**
-     * Begin a new fetch - resets initial phase state and shows loading spinner.
-     * Call this at the start of fetch_news() to initialize loading state.
-     */
+    // Call at the start of fetch_news() to reset initial-phase state and show the spinner.
     public void begin_fetch() {
-        // Reset initial-phase gating state
         initial_phase = true;
         hero_image_loaded = false;
         pending_images = 0;
@@ -76,12 +70,10 @@ public class LoadingStateManager : GLib.Object {
         network_failure_detected = false;
         initial_phase_start_time = GLib.get_monotonic_time();
 
-        // Clear image cache at startup to rule out stale cache data
         if (window.image_cache != null) window.image_cache.clear();
 
-        // Don't reset awaiting_adaptive_layout - it may have been set before begin_fetch()
+        // Don't reset awaiting_adaptive_layout - it may already be set from before begin_fetch()
 
-        // Cancel any pending initial reveal timeouts
         if (initial_reveal_timeout_id > 0) {
             Source.remove(initial_reveal_timeout_id);
             initial_reveal_timeout_id = 0;
@@ -91,30 +83,22 @@ public class LoadingStateManager : GLib.Object {
             absolute_reveal_timeout_id = 0;
         }
 
-        // Set an absolute maximum timeout - but only reveal if content has actually arrived
-        // This prevents showing a blank white area when content takes longer than expected
-        // Reduced from 8s to 4s for faster perceived performance
+        // Absolute max wait before giving up on content and revealing anyway (avoids blank screen).
         absolute_reveal_timeout_id = GLib.Timeout.add(4000, () => {
-            // Only reveal if we have content; otherwise keep spinner visible
             if (initial_items_populated) {
                 reveal_initial_content();
             }
-            // Don't clear the timeout ID here - let it be cleared by reveal_initial_content
-            // or when content eventually arrives
             return false;
         });
 
-        // Hide any previous error message
         hide_error_message();
-
-        // Show loading spinner
         show_loading_spinner();
     }
 
     public void show_loading_spinner() {
         fetch_started();
         if (loading_container != null && loading_spinner != null && loading_label != null) {
-            // Remove "No more articles" message when starting a new load
+            // Remove "No more articles" message from the previous load, if any
             var children = window.content_box.observe_children();
             for (uint i = 0; i < children.get_n_items(); i++) {
                 var child = children.get_item(i) as Gtk.Widget;
@@ -128,10 +112,8 @@ public class LoadingStateManager : GLib.Object {
                 }
             }
 
-            // Hide My Feed instructions if switching away from My Feed
             update_personalization_ui();
 
-            // If we're fetching Local News, show a more specific message
             var prefs_local = NewsPreferences.get_instance();
             if (prefs_local != null && prefs_local.category == "local_news") {
                 loading_label.set_text("Loading local news...");
@@ -154,7 +136,6 @@ public class LoadingStateManager : GLib.Object {
             update_personalization_ui();
             update_local_news_ui();
 
-            // Save article tracking and refresh sidebar badges after content is loaded
             if (window.article_state_store != null) {
                 window.article_state_store.save_article_tracking_to_disk();
             }
@@ -166,8 +147,7 @@ public class LoadingStateManager : GLib.Object {
                 window.article_manager.show_load_more_button();
             } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.size == 0) {
                 Timeout.add(800, () => {
-                    // Safety check: window may have been destroyed (weak reference)
-                    if (window == null) return false;
+                    if (window == null) return false; // weak ref; window may be gone
                     if (loading_container == null || !loading_container.get_visible()) {
                         show_end_of_feed_message();
                     }
@@ -193,10 +173,7 @@ public class LoadingStateManager : GLib.Object {
     public void hide_error_message() {
         if (error_message_box != null) {
             error_message_box.set_visible(false);
-            // CRITICAL: Restore main content visibility when hiding error
-            // show_error_message() hides main_content_container, so we must restore it
-            // This fixes the dead-end issue where articles are invisible after clicking
-            // a new category following an RSS timeout error
+            // show_error_message() hides main_content_container - restore it or articles stay invisible
             if (window.main_content_container != null && !initial_phase) {
                 window.main_content_container.set_visible(true);
             }
@@ -210,12 +187,13 @@ public class LoadingStateManager : GLib.Object {
         bool is_myfeed = prefs.category == "myfeed";
         bool has_personalized = prefs.personalized_categories != null && prefs.personalized_categories.size > 0;
 
-        // Check if there are any custom RSS sources enabled
+        // Must match what fetchNewsController.vala actually fetches for My Feed
+        // (enabled AND opted into My Feed), so the message doesn't disagree with the view.
         bool has_custom_rss = false;
         var rss_store = Paperboy.RssSourceStore.get_instance();
         var all_custom = rss_store.get_all_sources();
         foreach (var src in all_custom) {
-            if (prefs.preferred_source_enabled("custom:" + src.url)) {
+            if (prefs.preferred_source_enabled("custom:" + src.url) && prefs.myfeed_feed_enabled(src.url)) {
                 has_custom_rss = true;
                 break;
             }
@@ -223,7 +201,6 @@ public class LoadingStateManager : GLib.Object {
 
         bool show_message = false;
         if (is_myfeed) {
-            // Show message if personalized feed is disabled (no content will be fetched regardless of sources)
             if (!enabled) {
                 if (personalized_message_label != null) personalized_message_label.set_text("Personalized feed is disabled.");
                 if (personalized_message_sub_label != null) {
@@ -233,7 +210,6 @@ public class LoadingStateManager : GLib.Object {
                 if (personalized_message_action != null) personalized_message_action.set_visible(true);
                 show_message = true;
             } else if (prefs.myfeed_custom_only && !has_custom_rss) {
-                // Custom sources only mode is enabled but no RSS sources are followed
                 if (personalized_message_label != null) personalized_message_label.set_text("No custom RSS sources followed.");
                 if (personalized_message_sub_label != null) {
                     personalized_message_sub_label.set_text("You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by clicking the button below or open the main menu (☰) → Preferences → 'Sources' tab.");
@@ -258,28 +234,25 @@ public class LoadingStateManager : GLib.Object {
 
         if (personalized_message_box != null) personalized_message_box.set_visible(show_message);
 
-        // Hide main content when showing the overlay (regardless of initial_phase)
-        // Also keep it hidden if we're waiting for adaptive layout to complete
-        // CRITICAL: Also keep it hidden during initial_phase to prevent blank cards
+        // Keep main content hidden while showing the overlay, or during initial_phase/adaptive layout
+        // to avoid a flash of blank cards.
         if (window.main_content_container != null) {
             if (show_message) {
                 window.main_content_container.set_visible(false);
             } else if (!awaiting_adaptive_layout && !initial_phase) {
                 window.main_content_container.set_visible(true);
             }
-            // If awaiting_adaptive_layout OR initial_phase, keep it hidden (don't change visibility)
         }
 
         if (loading_container != null && show_message) {
             loading_container.set_visible(false);
 
-            // Cancel the initial reveal timeout to prevent error overlay from showing
             if (initial_reveal_timeout_id > 0) {
                 Source.remove(initial_reveal_timeout_id);
                 initial_reveal_timeout_id = 0;
             }
 
-            // Mark as populated and exit initial phase to prevent timeout from triggering error
+            // Exit initial phase so the reveal timeout doesn't fire an error over this message
             initial_items_populated = true;
             initial_phase = false;
         }
@@ -298,7 +271,6 @@ public class LoadingStateManager : GLib.Object {
         needs_location = is_local && !has_location;
 
         if (local_news_message_box != null) local_news_message_box.set_visible(needs_location);
-        // Only show main content if not in initial phase and not awaiting adaptive layout
         if (!initial_phase && !awaiting_adaptive_layout && window.main_content_container != null) {
             window.main_content_container.set_visible(!needs_location);
         }
@@ -306,7 +278,6 @@ public class LoadingStateManager : GLib.Object {
 
     public void reveal_initial_content() {
         if (!initial_phase) return;
-        // Don't reveal if we're still waiting for adaptive layout to complete
         if (awaiting_adaptive_layout) return;
 
         initial_phase = false;
@@ -323,11 +294,9 @@ public class LoadingStateManager : GLib.Object {
         bool pvis = personalized_message_box != null ? personalized_message_box.get_visible() : false;
         bool lvis = local_news_message_box != null ? local_news_message_box.get_visible() : false;
         if (!pvis && !lvis) {
-            // Prepare and trigger animated reveal so we don't flash already-visible content.
             trigger_initial_reveals();
         }
 
-        // Small delay to run non-visual housekeeping after initial reveal
         Timeout.add(180, () => {
             if (window.image_manager != null) window.image_manager.upgrade_images_after_initial();
             if (window.article_state_store != null) {
@@ -340,12 +309,8 @@ public class LoadingStateManager : GLib.Object {
         });
     }
 
-    /**
-     * Prepare initial visual state for the first visible cards and play
-     * libadwaita-powered entrance animations. This applies an invisible/offset
-     * starting state before making the main content visible so there is no
-     * flash, and then runs the staggered animations.
-     */
+    // Applies an invisible/offset starting state to the first visible cards before making
+    // main content visible, then plays the staggered entrance animations - avoids a flash.
     private void trigger_initial_reveals() {
         if (window == null || window.layout_manager == null || window.animation_manager == null) return;
 
@@ -365,8 +330,6 @@ public class LoadingStateManager : GLib.Object {
             }
         }
 
-        // Apply the invisible/offset starting state so when the container
-        // becomes visible there is no intermediate flash.
         int initial_margin = 18;
         for (uint i = 0; i < cards.size; i++) {
             var w = cards.get((int)i) as Gtk.Widget;
@@ -378,13 +341,12 @@ public class LoadingStateManager : GLib.Object {
 
         if (window.main_content_container != null) window.main_content_container.set_visible(true);
 
-        // Use Idle so GTK has applied the initial state before animations start
+        // Idle so GTK has applied the initial state before animations start
         GLib.Idle.add(() => {
             int limit = Managers.ArticleManager.INITIAL_ARTICLE_LIMIT;
             uint per_item_ms = 32;
             uint animate_index = 0;
 
-            // First animate featured area (keep as primary top items)
             if (window.layout_manager != null && window.layout_manager.featured_box != null) {
                 var f = window.layout_manager.featured_box;
                 var fc = f.get_first_child();
@@ -395,8 +357,7 @@ public class LoadingStateManager : GLib.Object {
                 }
             }
 
-            // Then animate the grid in row-major order (left-to-right, top-to-bottom).
-            // The grid is a real Gtk.FlowBox, so insertion order already is row-major order.
+            // The grid is a Gtk.FlowBox, so insertion order is already row-major.
             if (window.layout_manager != null && window.layout_manager.columns_row != null) {
                 var child = window.layout_manager.columns_row.get_first_child();
                 while (child != null && (int) animate_index < limit) {
@@ -413,28 +374,26 @@ public class LoadingStateManager : GLib.Object {
     public void mark_initial_items_populated() {
         initial_items_populated = true;
 
-        // Reset timeout every time a new article is added during initial phase
-        // Use a short timeout (500ms) after each article - if no more articles arrive
-        // within that window, we reveal. This ensures we wait for the batch to complete.
+        // Reset the timeout on each new article so we wait for the whole batch to land
+        // before revealing, instead of revealing after the very first one.
         if (initial_phase) {
             if (initial_reveal_timeout_id > 0) {
                 Source.remove(initial_reveal_timeout_id);
             }
-            // Short delay after last article to allow any remaining articles in the batch
-            // Reduced from 500ms to 300ms for faster reveal
             initial_reveal_timeout_id = GLib.Timeout.add(300, () => {
-                // Clear the timeout ID since we're now executing
                 initial_reveal_timeout_id = 0;
 
-                // Don't reveal if we're waiting for adaptive layout check to complete
                 if (awaiting_adaptive_layout) {
                     return false;
                 }
 
-                // Only reveal if we have a reasonable number of articles
-                // This prevents revealing with just 1-2 articles when more are expected
+                // Front Page/My Feed route cards through category_sections_ rows, not
+                // columns_row, so both need counting or this always undercounts those views.
                 int article_count = 0;
-                    if (window.layout_manager != null && window.layout_manager.columns_row != null) {
+                    if (window.layout_manager != null && window.layout_manager.is_using_category_sections()) {
+                        var model = window.layout_manager.get_cards_for_iteration();
+                        if (model != null) article_count += (int) model.get_n_items();
+                    } else if (window.layout_manager != null && window.layout_manager.columns_row != null) {
                         var child = window.layout_manager.columns_row.get_first_child();
                         while (child != null) {
                             article_count++;
@@ -450,10 +409,9 @@ public class LoadingStateManager : GLib.Object {
                         }
                     }
 
-                // Reveal if we have at least 3 articles, or if we've been waiting a while
                 if (article_count >= 3) {
-                    // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
-                    // After RSS timeout, initial_phase is already false, so directly show the container
+                    // Not reveal_initial_content() - it exits early once initial_phase is
+                    // already false, which it can be here after an RSS timeout.
                         initial_phase = false;
                         hero_image_loaded = false;
                         if (initial_reveal_timeout_id > 0) {
@@ -465,18 +423,14 @@ public class LoadingStateManager : GLib.Object {
                             absolute_reveal_timeout_id = 0;
                         }
                         hide_loading_spinner();
-                        // Use the reveal helper so animations start without flashing
                         trigger_initial_reveals();
                 } else {
-                    // Not enough articles yet - set a longer timeout
-                    // Reduced from 2000ms to 1200ms for faster reveal with few articles
+                    // Too few articles yet; give it more time before revealing anyway.
                     initial_reveal_timeout_id = GLib.Timeout.add(1200, () => {
                         initial_reveal_timeout_id = 0;
-                        // Don't reveal if waiting for adaptive layout
                         if (awaiting_adaptive_layout) {
                             return false;
                         }
-                        // CRITICAL: Same fix here
                             initial_phase = false;
                             hero_image_loaded = false;
                             hide_loading_spinner();
@@ -489,11 +443,6 @@ public class LoadingStateManager : GLib.Object {
         }
     }
 
-    /**
-     * Called when an image finished being set (success or fallback). During the
-     * initial phase we decrement the pending counter and reveal the UI when all
-     * initial items are populated and no pending image loads remain.
-     */
     public void on_image_loaded(Gtk.Picture image) {
         if (!initial_phase) return;
         if (window.image_manager != null && window.image_manager.hero_requests.get(image) != null) {
@@ -502,7 +451,6 @@ public class LoadingStateManager : GLib.Object {
         if (pending_images > 0) pending_images--;
 
         if (initial_items_populated && pending_images == 0) {
-            // Don't reveal if waiting for adaptive layout
             if (!awaiting_adaptive_layout) {
                 reveal_initial_content();
             }
@@ -529,16 +477,13 @@ public class LoadingStateManager : GLib.Object {
                 }
             }
 
-            // Note: load_more_button is now managed by ArticleManager, so we don't need to remove it here
             var end_label = new Gtk.Label("<b>No more articles</b>");
             end_label.set_use_markup(true);
             end_label.add_css_class("dim-label");
             end_label.set_margin_top(20);
             end_label.set_margin_bottom(20);
             end_label.set_halign(Gtk.Align.CENTER);
-            // Don't show the end-of-feed label if the ArticleManager
-            // has (or is about to show) a Load More button to avoid
-            // the visual overlap where both appear together.
+            // Avoid showing this alongside a Load More button
             if (window.article_manager != null && window.article_manager.has_load_more_button()) {
                 return;
             }

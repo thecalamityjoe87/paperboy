@@ -20,28 +20,23 @@ using Soup;
 using Xml;
 using Gee;
 
-// Removed xmlDisableEntityLoader binding: global state, not thread-safe, and unused.
-
-// Bind xmlFreeDoc so we can reliably free parser allocations for Xml.Doc*
 [CCode (cname = "xmlFreeDoc")]
 private static extern void xml_free_doc (Xml.Doc* doc);
 
 public class RssFeedProcessor {
-    // Maximum items to parse from local news RSS feeds (prevents memory bloat from large feeds)
-    // TODO: Make this configurable via preferences to allow power users to increase the limit
-    // Currently hardcoded to prevent UI slowdowns, but users may want more items for archival feeds
+    // TODO: make configurable via preferences
     private const int LOCAL_FEED_MAX_ITEMS = 30;
 
-    // Sanitize XML by removing invalid control characters and fixing encoding issues
     private static string sanitize_xml(string input) {
         var result = new StringBuilder();
         unowned string str = input;
 
-        for (int i = 0; i < input.length; ) {
+        // string.length is a full strlen() scan; cache it instead of rescanning every iteration (was O(n^2))
+        int input_length = input.length;
+        for (int i = 0; i < input_length; ) {
             unichar c;
             int prev_i = i;
             if (!input.get_next_char(ref i, out c)) {
-                // Invalid UTF-8 sequence - skip this byte
                 i = prev_i + 1;
                 continue;
             }
@@ -50,7 +45,7 @@ public class RssFeedProcessor {
                 continue;
             }
 
-            // Allow valid XML characters: Tab, LF, CR, printable chars
+            // valid XML chars: Tab, LF, CR, printable
             if (c == 0x09 || c == 0x0A || c == 0x0D || c >= 0x20) {
                 result.append_unichar(c);
             }
@@ -71,16 +66,10 @@ public class RssFeedProcessor {
         string? feed_url = null,
         string? cache_key_override = null
     ) {
-        // SECURITY FIX: Do NOT use NOENT (it substitutes entities and can enable XXE/Billion-laughs).
-        // Use NONET to forbid network access and disable entity substitution/DTD processing by
-        // avoiding NOENT and enabling safe options instead.
-        // NOCDATA: merge CDATA sections to text nodes
-        // NOBLANKS: remove ignorable whitespace
-        // RECOVER: try to recover from malformed XML where possible
+        // NONET avoids NOENT so entities/DTDs can't be used for XXE or billion-laughs attacks
         var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER;
         Xml.Doc* doc = null;
         try {
-            // Sanitize the body to remove invalid control characters and bad UTF-8
             string sanitized_body = sanitize_xml(body);
             doc = Xml.Parser.read_memory(
                 sanitized_body,
@@ -95,7 +84,6 @@ public class RssFeedProcessor {
             }
 
             var items = new Gee.ArrayList<Gee.ArrayList<string?>>();
-            // Respect runtime feature flag to enable/disable BBC-specific extraction/normalization.
             bool bbc_enabled = false;
             try { string? env = GLib.Environment.get_variable("PAPERBOY_ENABLE_BBC_EXTRACT"); if (env == null) bbc_enabled = true; else bbc_enabled = env != "0"; } catch (GLib.Error e) { bbc_enabled = true; }
 
@@ -131,10 +119,7 @@ public class RssFeedProcessor {
                             string? thumb = null;
                             string? pub_date = null;
                             string? updated_date = null; // Atom fallback, only used if no pubDate/published found
-                            // The feed's own <description>/<summary> text, stripped to plain
-                            // text - stored on the resulting ArticleItem as a fallback snippet
-                            // for when live-fetching the article's own page fails (paywalls,
-                            // bot-blocking, transient errors). See ArticleSnippetService.
+                            // fallback snippet if live-fetching the article page later fails
                             string? desc_text = null;
                             int thumb_width = -1;
                             bool thumb_is_thumbnail_tag = false;
@@ -176,10 +161,7 @@ public class RssFeedProcessor {
                                         }
                                     }
                                 } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                    // Skip media:thumbnail if we already have media:content (higher quality).
-                                    // Some feeds (e.g. ABC News) emit several media:thumbnail entries per
-                                    // item at different resolutions, in no guaranteed order, so keep the
-                                    // widest one seen instead of just the first.
+                                    // some feeds emit multiple media:thumbnail entries at different resolutions; keep the widest
                                     if (thumb == null || thumb_is_thumbnail_tag) {
                                         Xml.Attr* a2 = c->properties;
                                         string? cand_url = null;
@@ -376,10 +358,7 @@ public class RssFeedProcessor {
                                             }
                                         }
                                     } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
-                                        // Skip media:thumbnail if we already have media:content (higher quality).
-                                        // Some feeds (e.g. ABC News) emit several media:thumbnail entries per
-                                        // item at different resolutions, in no guaranteed order, so keep the
-                                        // widest one seen instead of just the first.
+                                        // some feeds emit multiple media:thumbnail entries at different resolutions; keep the widest
                                         if (thumb == null || thumb_is_thumbnail_tag) {
                                             Xml.Attr* a2 = c->properties;
                                             string? cand_url = null;
@@ -499,7 +478,6 @@ public class RssFeedProcessor {
                 }
             }
 
-            // Update UI on main thread
             Idle.add(() => {
                 if (current_search_query.length > 0) {
                     set_label(@"Search Results: \"$(current_search_query)\" in $(category_name) — $(source_name)");
@@ -513,7 +491,6 @@ public class RssFeedProcessor {
                     string url = row[1] ?? "";
                     string? pub_date = row.size > 3 ? row[3] : null;
 
-                    // Filter by search query if provided (case-insensitive substring match)
                     if (current_search_query.length > 0) {
                         string query_lower = current_search_query.down();
                         string title_lower = title.down();
@@ -524,13 +501,12 @@ public class RssFeedProcessor {
                         }
                     }
 
-                    // Cache article for offline access and faster feed switching
-                    // Use cache_key_override (original_url) for generated feeds to ensure cache persistence across regenerations
+                    // cache_key_override lets generated feeds keep cache continuity across regenerations
                     if (feed_url != null && feed_url.length > 0) {
                         var cache = Paperboy.RssArticleCache.get_instance();
                         string cache_key = (cache_key_override != null && cache_key_override.length > 0) ? cache_key_override : feed_url;
 
-                        // Extract source metadata from source_name (format: "Name||logo_url##category::cat")
+                        // source_name format: "Name||logo_url##category::cat"
                         string? extracted_source_name = null;
                         string? extracted_logo_url = null;
                         string? extracted_category_id = null;
@@ -538,7 +514,6 @@ public class RssFeedProcessor {
                         if (source_name != null && source_name.length > 0) {
                             extracted_source_name = source_name;
 
-                            // Remove category suffix first
                             int cat_idx = source_name.index_of("##category::");
                             if (cat_idx >= 0) {
                                 extracted_source_name = source_name.substring(0, cat_idx);
@@ -547,7 +522,6 @@ public class RssFeedProcessor {
                                 }
                             }
 
-                            // Extract logo URL
                             int pipe_idx = extracted_source_name.index_of("||");
                             if (pipe_idx >= 0) {
                                 if (extracted_source_name.length > pipe_idx + 2) {
@@ -567,8 +541,7 @@ public class RssFeedProcessor {
                 return false;
             });
 
-            // Update favicon asynchronously in background thread to avoid SQLite lock contention
-            // Don't block the main thread or article display for favicon updates
+            // update favicon off the main thread to avoid SQLite lock contention
             if (category_id == "myfeed" && favicon_url != null && favicon_url.length > 0) {
                 string captured_source_name = source_name;
                 string captured_favicon = favicon_url;
@@ -589,7 +562,6 @@ public class RssFeedProcessor {
                 });
             }
 
-            // Background: for BBC links, try to fetch higher-resolution images
             if (bbc_enabled) {
                 AddItemFunc safe_add = (title, url, thumbnail, cid, sname, published) => {
                     Idle.add(() => { add_item(title, url, thumbnail, cid, sname, published); return false; });
@@ -638,47 +610,33 @@ public class RssFeedProcessor {
         string? cache_key_override = null
     ) {
         new Thread<void*>("fetch-rss", () => {
-            // Keep references to the provided callbacks for the lifetime
-            // of this worker thread. Vala's generated closure refcounting
-            // sometimes frees caller-side temporary delegates when the
-            // caller's scope returns; holding explicit local references
-            // in the thread ensures the delegates remain alive until the
-            // thread completes and avoids use-after-free when the
-            // callbacks are invoked later on the main loop.
+            // hold local refs so the closures survive after the caller's scope returns
             var _set_label_ref = set_label;
             var _clear_items_ref = clear_items;
             var _add_item_ref = add_item;
             try {
 
-                // Basic validation: ensure the URL is a non-empty, sane string
-                // (avoid passing malformed URLs into HttpClient which may return
-                // errors or a null body that propagate back into FetchContext).
                 string trimmed = url.strip();
                 if (trimmed.length == 0) {
                     warning("RSS fetch called with empty URL for source '%s'", source_name);
                     try { set_label("Error loading feed — invalid (empty) URL"); } catch (GLib.Error e) { }
                     return null;
                 }
-                // Disallow obvious invalid schemes or whitespace in the URL.
                 if (trimmed.contains(" ") || !(trimmed.has_prefix("http://") || trimmed.has_prefix("https://") || trimmed.has_prefix("file://"))) {
                     warning("RSS fetch called with malformed/unsupported URL for source '%s': %s", source_name, url);
                     try { set_label("Error loading feed — invalid URL"); } catch (GLib.Error e) { }
                     return null;
                 }
-                // Support local file:// feeds by reading the file directly
                 if (url.has_prefix("file://")) {
                     try {
                         string path = url.substring(7);
                         var f = GLib.File.new_for_path(path);
                         if (!f.query_exists(null)) {
-                            // File doesn't exist - trigger background regeneration
+                            // regeneration is handled by FeedUpdateManager, not here
                             warning("Local RSS file not found, will need regeneration: %s", path);
                             try { set_label("Generating feed... (this may take 30-40 seconds)"); } catch (GLib.Error e) { }
-                            // TODO: Trigger async regeneration here
-                            // For now, just show an error since regeneration is handled by FeedUpdateManager
                             return null;
                         }
-                        // Use FileUtils.get_contents to safely read the whole file into memory
                         string body = "";
                         bool ok = GLib.FileUtils.get_contents(path, out body);
                         if (!ok || body.length == 0) {
@@ -695,25 +653,15 @@ public class RssFeedProcessor {
                 }
 
                 var client = Paperboy.HttpClientUtils.get_default();
-                // Reddit's RSS/Atom feeds are very aggressive about
-                // rejecting/rate-limiting the generic default User-Agent
-                // (confirmed: it gets blocked almost immediately, while a
-                // real-browser-looking one is treated normally) - so use
-                // browser-style headers specifically for reddit.com feed
-                // URLs, same as RedditFetcher does for the built-in Reddit
-                // category. Left as the plain default for every other feed
-                // to avoid touching behavior for sources that already work.
+                // reddit rate-limits the default User-Agent, so use browser-style headers for it (like RedditFetcher does)
                 Paperboy.HttpClientUtils.RequestOptions? fetch_options = null;
                 if (url.down().contains("reddit.com")) {
                     fetch_options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
                 }
                 var http_response = client.fetch_sync(url, fetch_options);
 
-                // Defensive handling for network-level failures (status_code == 0)
                 if (http_response.status_code == 0) {
-                    // Prefer the error message provided by the HttpClient (GLib.Error.message)
                     if (http_response.error_message != null && http_response.error_message.length > 0) {
-                        // Surface DNS resolution failures more clearly
                         if (http_response.error_message.contains("Name or service not known") ||
                             http_response.error_message.contains("Temporary failure in name resolution") ||
                             http_response.error_message.contains("No address associated with hostname")) {
@@ -746,7 +694,6 @@ public class RssFeedProcessor {
                 warning("RSS fetch error: %s", e.message);
                 try { set_label("Error loading feed"); } catch (GLib.Error _) { }
             }
-            // Drop our explicit references so they can be freed.
             _set_label_ref = null;
             _clear_items_ref = null;
             _add_item_ref = null;

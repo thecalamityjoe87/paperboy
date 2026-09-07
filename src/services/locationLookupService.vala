@@ -49,13 +49,37 @@ public class LocationLookupService : GLib.Object {
         });
     }
 
+    // How many forward-search candidates to request from Nominatim so we
+    // have something to filter by country (see resolve_text below). Note:
+    // geocode-glib's set_bounded()/set_search_area() do NOT reliably
+    // restrict geocode-glib's default backend for a free-text query (the
+    // resulting "viewbox" parameter is silently dropped), so this class
+    // doesn't rely on them.
+    private const uint CANDIDATE_COUNT = 10;
+
     private static async ResolvedLocation resolve_text(string query) {
         try {
             var forward = new Geocode.Forward.for_string(query);
-            forward.set_answer_count(1);
+            forward.set_answer_count(CANDIDATE_COUNT);
             var results = yield forward.search_async();
             if (results == null || results.length() == 0) return ResolvedLocation.empty();
-            return resolve_place(results.nth_data(0));
+
+            // A bare ZIP/postal code is genuinely ambiguous worldwide (e.g.
+            // US ZIP "10001" also matches real postal codes in Ukraine,
+            // Iraq, Taiwan, Peru, ...), and Nominatim's top-ranked global
+            // match is frequently not the US one. Since Paperboy is a
+            // US-focused app, prefer the first result actually in the US
+            // over whatever ranks highest globally.
+            unowned Geocode.Place chosen = results.nth_data(0);
+            foreach (unowned Geocode.Place place in results) {
+                var country_code = place.get_country_code();
+                if (country_code != null && country_code.ascii_down() == "us") {
+                    chosen = place;
+                    break;
+                }
+            }
+
+            return resolve_place(chosen, double.NAN, double.NAN, query);
         } catch (GLib.Error e) {
             return ResolvedLocation.empty();
         }
@@ -81,7 +105,14 @@ public class LocationLookupService : GLib.Object {
             var geocode_loc = new Geocode.Location(loc.latitude, loc.longitude);
             var reverse = new Geocode.Reverse.for_location(geocode_loc);
             var place = yield reverse.resolve_async();
-            return resolve_place(place);
+            // Use GeoClue's own coordinates for the nearest-major-city
+            // lookup rather than place.get_location(): geocode-glib's
+            // reverse resolution has been observed to come back with a
+            // Place whose location has a garbage latitude (e.g. 0.0)
+            // even though the place's name/town/state are resolved
+            // correctly, which would otherwise send MajorCitiesUtils.nearest()
+            // wildly off course.
+            return resolve_place(place, loc.latitude, loc.longitude);
         } catch (GLib.Error e) {
             return ResolvedLocation.empty();
         }
@@ -96,34 +127,89 @@ public class LocationLookupService : GLib.Object {
         }
     }
 
-    private static ResolvedLocation resolve_place(Geocode.Place? place) {
-        string display = format_place(place);
+    // `known_lat`/`known_lon` let a caller that already has an
+    // authoritative coordinate (e.g. GeoClue's GPS fix) use it for the
+    // nearest-major-city lookup instead of place.get_location(), which
+    // for some resolved places is unreliable (see detect_current_location).
+    // Pass NAN for both when no such coordinate is available. `query_text`
+    // is the user's original typed search text (null when there wasn't
+    // one, e.g. GPS detection); see format_place for how it's used.
+    private static ResolvedLocation resolve_place(Geocode.Place? place, double known_lat = double.NAN, double known_lon = double.NAN, string? query_text = null) {
+        string display = format_place(place, query_text);
         if (display.length == 0) return ResolvedLocation.empty();
 
         string news_query = display;
-        if (place != null) {
-            var loc = place.get_location();
-            if (loc != null) {
-                double distance_km;
-                string nearest = MajorCitiesUtils.nearest(loc.latitude, loc.longitude, out distance_km);
-                if (nearest.length > 0) {
-                    news_query = nearest;
+        double lat = known_lat;
+        double lon = known_lon;
+        if (lat.is_nan() || lon.is_nan()) {
+            if (place != null) {
+                var loc = place.get_location();
+                if (loc != null) {
+                    lat = loc.latitude;
+                    lon = loc.longitude;
                 }
+            }
+        }
+
+        if (!lat.is_nan() && !lon.is_nan()) {
+            double distance_km;
+            string nearest = MajorCitiesUtils.nearest(lat, lon, out distance_km);
+            if (nearest.length > 0) {
+                news_query = nearest;
             }
         }
 
         return ResolvedLocation() { display = display, news_query = news_query };
     }
 
-    private static string format_place(Geocode.Place? place) {
+    // `query_text` is the raw text the user typed (e.g. "Chicago"), used
+    // as a fallback display city when the resolved place has no usable
+    // town/city detail; pass null when there was no typed query (GPS
+    // detection).
+    private static string format_place(Geocode.Place? place, string? query_text = null) {
         if (place == null) return "";
 
+        // Reject matches too coarse to be a meaningful "City, State"
+        // result (e.g. a bare country or continent) rather than falling
+        // back to place.get_name(), which for these is just the country
+        // name and would otherwise duplicate against get_state() as
+        // "United States, United States".
+        switch (place.get_place_type()) {
+        case Geocode.PlaceType.COUNTRY:
+        case Geocode.PlaceType.CONTINENT:
+        case Geocode.PlaceType.STATE:
+        case Geocode.PlaceType.HISTORICAL_STATE:
+        case Geocode.PlaceType.OCEAN:
+        case Geocode.PlaceType.SEA:
+        case Geocode.PlaceType.TIME_ZONE:
+            return "";
+        default:
+            break;
+        }
+
         string city = place.get_town();
-        if (city == null || city.length == 0) city = place.get_name();
         if (city == null) city = "";
 
+        // When there's no town detail, prefer the user's own typed text
+        // (normally the real city name) over place.get_name(): for a
+        // match that only resolved down to country-level detail,
+        // get_name() is unreliable — it can come back as just the
+        // country's own name, or even doubled as literally "United
+        // States, United States" — which would otherwise print twice
+        // once concatenated with the state below.
+        if (city.length == 0) {
+            if (query_text != null && query_text.length > 0) {
+                city = query_text;
+            } else {
+                string name = place.get_name() ?? "";
+                string country = place.get_country() ?? "";
+                city = (country.length > 0 && name.contains(country)) ? "" : name;
+            }
+        }
+        if (city.length == 0) return "";
+
         string state = place.get_state();
-        if (state != null && state.length > 0) {
+        if (state != null && state.length > 0 && state != city) {
             return city + ", " + state;
         }
         return city;

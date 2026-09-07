@@ -24,13 +24,13 @@ namespace Managers {
     public class ViewStateManager : GLib.Object {
         private weak NewsWindow window;
 
-        // Article viewing state
         public Gee.HashSet<string> viewed_articles;
-        // Suppress marking an article viewed when a preview closes if the user
-        // explicitly requested to mark it unread from the preview pane.
+        // Skip the auto-mark-viewed-on-close when the user explicitly marked it unread from the preview pane.
         public Gee.HashSet<string> suppress_preview_mark;
         public Gee.HashMap<string, Gtk.Picture> url_to_picture;
-        public Gee.HashMap<string, Gtk.Widget> url_to_card;
+        // A URL can back more than one card (My Feed shows it in both its source row and category row),
+        // so lookups need every copy, not just the last one registered.
+        public Gee.HashMap<string, Gee.ArrayList<Gtk.Widget>> url_to_card;
         public Gee.HashMap<string, string> normalized_to_url;
         public string? last_previewed_url;
         public double last_scroll_value = -1.0;
@@ -43,7 +43,7 @@ namespace Managers {
             viewed_articles = new Gee.HashSet<string>();
             suppress_preview_mark = new Gee.HashSet<string>();
             url_to_picture = new Gee.HashMap<string, Gtk.Picture>();
-            url_to_card = new Gee.HashMap<string, Gtk.Widget>();
+            url_to_card = new Gee.HashMap<string, Gee.ArrayList<Gtk.Widget>>();
             normalized_to_url = new Gee.HashMap<string, string>();
         }
 
@@ -56,7 +56,12 @@ namespace Managers {
         }
 
         public void register_card_for_url(string normalized, Gtk.Widget card) {
-            url_to_card.set(normalized, card);
+            var list = url_to_card.get(normalized);
+            if (list == null) {
+                list = new Gee.ArrayList<Gtk.Widget>();
+                url_to_card.set(normalized, list);
+            }
+            if (!list.contains(card)) list.add(card);
         }
 
         public void unregister_card_for_url(string normalized) {
@@ -65,17 +70,18 @@ namespace Managers {
             url_to_card.remove(normalized);
         }
 
-        // ArticleCard's overlay is its root's direct first child, but
-        // HeroCard's overlay is nested inside a Grid (the text/picture
-        // split), so the same "first child is an Overlay" check that works
-        // for article cards silently finds nothing on a hero card. Check
-        // the hero shape's viewed-badge-slot data first, then fall back to
-        // the article-card shape.
-        // The "Viewed" badge lives in the title area's bottom-right slot,
-        // opposite the time caption (see ArticleCard/HeroCard's
-        // viewed_badge_slot, populated in build_viewed_badge) - not the
-        // image overlay, and not the top-right corner row the save ribbon
-        // occupies.
+        // For single-placement views (Saved, Front Page). My Feed callers should use get_cards_for_url() instead.
+        public Gtk.Widget? get_card_for_url(string normalized) {
+            var list = url_to_card.get(normalized);
+            return (list != null && list.size > 0) ? list.get(0) : null;
+        }
+
+        public Gee.ArrayList<Gtk.Widget>? get_cards_for_url(string normalized) {
+            return url_to_card.get(normalized);
+        }
+
+        // HeroCard nests its overlay inside a Grid, so it needs its own badge-slot lookup
+        // rather than ArticleCard's "first child is an Overlay" check.
         private Gtk.Widget? resolve_badge_container_for_card(Gtk.Widget card) {
             var hero_badge_slot = card.get_data<Gtk.Box>("hero-viewed-badge-slot");
             if (hero_badge_slot != null) return hero_badge_slot;
@@ -116,16 +122,16 @@ namespace Managers {
             if (viewed_articles == null) viewed_articles = new Gee.HashSet<string>();
             viewed_articles.add(n);
 
-            // Mark as viewed in article state store (persists to disk)
             if (window.article_state_store != null) {
                 window.article_state_store.mark_viewed(n);
             }
 
             Timeout.add(50, () => {
-                Gtk.Widget? card = url_to_card.get(n);
-                if (card != null) {
-                    var container = resolve_badge_container_for_card(card);
-                    if (container != null) {
+                var cards = url_to_card.get(n);
+                if (cards != null) {
+                    foreach (var card in cards) {
+                        var container = resolve_badge_container_for_card(card);
+                        if (container == null) continue;
                         bool already = false;
                         Gtk.Widget? c = container.get_first_child();
                         while (c != null) {
@@ -141,7 +147,6 @@ namespace Managers {
                 return false;
             });
 
-            // Emit signal for unread count updates
             article_viewed(n);
         }
 
@@ -172,8 +177,6 @@ namespace Managers {
             }
 
             if (url_copy != null) {
-                // If the preview requested suppression (user marked unread from the
-                // preview), honor that and do not mark viewed again.
                 string n = normalize_article_url(url_copy);
                 bool suppressed = (suppress_preview_mark != null && suppress_preview_mark.contains(n));
                 if (suppressed) {
@@ -212,10 +215,6 @@ namespace Managers {
             last_scroll_value = -1.0;
         }
 
-        /**
-        * Refresh viewed badges for all articles from a specific source
-        * Used after marking all as read/unread
-        */
         public void refresh_viewed_badges_for_source(string source_name) {
             if (window.article_state_store == null) return;
             
@@ -226,26 +225,20 @@ namespace Managers {
                 string normalized = normalize_article_url(url);
                 if (normalized == null || normalized.length == 0) continue;
                 
-                Gtk.Widget? card = null;
-                card = url_to_card.get(normalized);
-                if (card == null) continue;
-                
+                var cards = url_to_card.get(normalized);
+                if (cards == null) continue;
+
                 bool is_viewed = window.article_state_store.is_viewed(normalized);
 
-                var container = resolve_badge_container_for_card(card);
-                if (container != null) {
+                foreach (var card in cards) {
+                    var container = resolve_badge_container_for_card(card);
+                    if (container == null) continue;
                     remove_viewed_badges_from(container);
                     if (is_viewed) add_viewed_badge_to(container);
                 }
             }
         }
 
-        /**
-        * Suppress marking the given article as viewed when a preview closes.
-        * This is used when the user explicitly marks the article unread from
-        * the preview pane so the automatic "mark viewed on close" does not
-        * re-mark it.
-        */
         public void suppress_mark_on_preview_close(string url) {
             if (url == null) return;
             string n = normalize_article_url(url);
@@ -254,24 +247,21 @@ namespace Managers {
             suppress_preview_mark.add(n);
         }
 
-        /**
-        * Refresh the viewed badge for a single article URL (if a card exists).
-        */
         public void refresh_viewed_badge_for_url(string url) {
             if (url == null) return;
             string n = normalize_article_url(url);
             if (n == null || n.length == 0) return;
             if (window == null || window.article_state_store == null) return;
 
-            Gtk.Widget? card = null;
-            card = url_to_card.get(n); // return null if n is not in map
-            if (card == null) return;
+            var cards = url_to_card.get(n);
+            if (cards == null) return;
 
             bool is_viewed = false;
             is_viewed = window.article_state_store.is_viewed(n);
 
-            var container = resolve_badge_container_for_card(card);
-            if (container != null) {
+            foreach (var card in cards) {
+                var container = resolve_badge_container_for_card(card);
+                if (container == null) continue;
                 remove_viewed_badges_from(container);
                 if (is_viewed) {
                     add_viewed_badge_to(container);

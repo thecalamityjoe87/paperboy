@@ -1,3 +1,20 @@
+paperboy (0.8.1a-1) unstable; urgency=low
+
+  * My Feed redesigned as interleaved source/category rows, with custom
+    RSS feeds able to opt in independently via a new Personalization
+    subpage.
+  * Fixed a memory/freeze regression from the My Feed redesign by capping
+    live card widgets per row and tightening HTTP concurrency.
+  * Fixed built-in sources disappearing from My Feed under load, and
+    circular logos being stretched instead of center-cropped.
+  * Fixed Sports' hero carousel staying empty on first load, and My
+    Feed's sidebar unread badge showing inflated counts.
+  * Added a "Go to category" button on Front Page/My Feed rows for quick
+    navigation to the full category page.
+  * Added a flatpak build file.
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 07 Sep 2026 00:00:00 +0000
+
 paperboy (0.8.0a-1) unstable; urgency=low
 
   * Release 0.8.0a.
