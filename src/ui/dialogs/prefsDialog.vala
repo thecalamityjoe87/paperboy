@@ -944,8 +944,8 @@ public class PrefsDialog : GLib.Object {
 
         // Custom sources only toggle
         var custom_only_row = new Adw.SwitchRow();
-        custom_only_row.set_title("Custom sources only in My Feed");
-        custom_only_row.set_subtitle("Show only followed RSS sources in My Feed, hide built-in sources");
+        custom_only_row.set_title("Custom feeds only in My Feed");
+        custom_only_row.set_subtitle("Only show followed RSS feeds in My Feed, hide built-in sources");
         custom_only_row.set_active(prefs.myfeed_custom_only);
         custom_only_row.notify["active"].connect(() => {
             prefs.myfeed_custom_only = custom_only_row.get_active();
@@ -1041,7 +1041,7 @@ public class PrefsDialog : GLib.Object {
         sports_list_box.set_margin_top(18);
 
         var sports_master_row = new Adw.SwitchRow();
-        sports_master_row.set_title("Show Score Cards");
+        sports_master_row.set_title("Show score cards");
         sports_master_row.set_subtitle("Turn off to hide all live score cards from the Sports category");
         sports_master_row.set_active(prefs.sports_scores_enabled);
         sports_list_box.set_sensitive(prefs.sports_scores_enabled);
@@ -1055,7 +1055,7 @@ public class PrefsDialog : GLib.Object {
         });
 
         var sports_live_indicator_row = new Adw.SwitchRow();
-        sports_live_indicator_row.set_title("Show Live Indicator");
+        sports_live_indicator_row.set_title("Show live indicator");
         sports_live_indicator_row.set_subtitle("Show a \"Live\" pill next to the Sports sidebar count while a game is in progress");
         sports_live_indicator_row.set_active(prefs.sports_live_indicator_enabled);
         sports_live_indicator_row.set_sensitive(prefs.sports_scores_enabled);

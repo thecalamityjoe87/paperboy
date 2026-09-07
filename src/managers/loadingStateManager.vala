@@ -204,15 +204,15 @@ public class LoadingStateManager : GLib.Object {
             if (!enabled) {
                 if (personalized_message_label != null) personalized_message_label.set_text("Personalized feed is disabled.");
                 if (personalized_message_sub_label != null) {
-                    personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Sources' tab → 'Enable Personalized Feed' toggle to see content from your sources.");
+                    personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable prsonalized feed' toggle to see content from your feeds.");
                     personalized_message_sub_label.set_visible(true);
                 }
                 if (personalized_message_action != null) personalized_message_action.set_visible(true);
                 show_message = true;
             } else if (prefs.myfeed_custom_only && !has_custom_rss) {
-                if (personalized_message_label != null) personalized_message_label.set_text("No custom RSS sources followed.");
+                if (personalized_message_label != null) personalized_message_label.set_text("No custom RSS feeds followed.");
                 if (personalized_message_sub_label != null) {
-                    personalized_message_sub_label.set_text("You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by clicking the button below or open the main menu (☰) → Preferences → 'Sources' tab.");
+                    personalized_message_sub_label.set_text("You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by clicking the button below or open the main menu (☰) → Preferences → 'Personalization' tab.");
                     personalized_message_sub_label.set_visible(true);
                 }
                 if (personalized_message_action != null) personalized_message_action.set_visible(true);
@@ -220,7 +220,7 @@ public class LoadingStateManager : GLib.Object {
             } else if (enabled && !has_personalized && !has_custom_rss) {
                 if (personalized_message_label != null) personalized_message_label.set_text("Personalized Feed is enabled but no categories are selected.");
                 if (personalized_message_sub_label != null) {
-                    personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Sources' tab → 'Enable Personalized Feed' toggle and click its settings icon to select categories, or follow custom RSS sources.");
+                    personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle and click its settings icon to select categories, or follow custom RSS feeds.");
                     personalized_message_sub_label.set_visible(true);
                 }
                 if (personalized_message_action != null) personalized_message_action.set_visible(true);
