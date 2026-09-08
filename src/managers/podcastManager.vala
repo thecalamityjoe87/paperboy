@@ -262,6 +262,21 @@ namespace Managers {
                 content_view.podcast_search_flow.append(card.root);
             }
 
+            if (window != null && window.animation_manager != null) {
+                var anim_mgr = window.animation_manager;
+                var flow = content_view.podcast_search_flow;
+                GLib.Idle.add(() => {
+                    uint index = 0;
+                    Gtk.Widget? cell = flow.get_first_child();
+                    while (cell != null) {
+                        anim_mgr.animate_card_entrance_stagger(cell, index, 24);
+                        index++;
+                        cell = cell.get_next_sibling();
+                    }
+                    return false;
+                });
+            }
+
             if (content_view.category_subtitle != null) {
                 string label_text = shows.size == 0
                     ? "No podcasts found matching \"%s\"".printf(query)
@@ -408,6 +423,23 @@ namespace Managers {
                 }, (feed_id) => { play_latest_episode(show); });
                 content_view.hero_container.append(hero.root);
             }
+
+            // Same fade/slide-up stagger ArticleCard grids use (see
+            // AnimationManager.animate_card_entrance_stagger) - deferred
+            // to an idle callback so widgets are realized before animating.
+            if (window != null && window.animation_manager != null) {
+                var anim_mgr = window.animation_manager;
+                GLib.Idle.add(() => {
+                    uint index = 0;
+                    Gtk.Widget? child = content_view.hero_container.get_first_child();
+                    while (child != null) {
+                        anim_mgr.animate_card_entrance_stagger(child, index, 40);
+                        index++;
+                        child = child.get_next_sibling();
+                    }
+                    return false;
+                });
+            }
         }
 
         private void load_discovery_rows() {
@@ -548,6 +580,21 @@ namespace Managers {
             content_view.category_sections_container.append(section.wrapper);
 
             foreach (var show in cached_shows) add_show_card(section, show);
+
+            if (window != null && window.animation_manager != null) {
+                var anim_mgr = window.animation_manager;
+                var row = section.row;
+                GLib.Idle.add(() => {
+                    uint index = 0;
+                    Gtk.Widget? child = row.get_first_child();
+                    while (child != null) {
+                        anim_mgr.animate_card_entrance_stagger(child, index, 30);
+                        index++;
+                        child = child.get_next_sibling();
+                    }
+                    return false;
+                });
+            }
         }
 
         private void add_show_card(CategorySection section, Paperboy.PodcastShow show) {
