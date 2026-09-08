@@ -36,11 +36,6 @@
  * pipeline and may have been repopulated with news content since the
  * last Podcasts visit.
  *
- * Clicking a hero or show card opens PodcastPane (a bottom sheet with the
- * show's full info, a subscribe toggle, and its episode list) rather than
- * playing anything directly - the pane itself resolves episodes via
- * PodcastIndexService.episodes_for_feed() and starts playback when the
- * user taps a specific one.
  */
 namespace Managers {
     public class PodcastManager : GLib.Object {
@@ -257,7 +252,7 @@ namespace Managers {
                     Paperboy.PodcastImageUtils.load_trimmed_async(card.image, show.image_url, PodcastCard.IMAGE_WIDTH, PodcastCard.IMAGE_HEIGHT);
                 }
                 PodcastCard.wire_interactions(card.root, card, false, show.feed_id, 0, playback, (feed_id) => {
-                    if (podcast_pane != null) podcast_pane.open_for_show(show);
+                    if (window != null) PodcastDetailDialog.show(window, playback, show, window);
                 }, null, (feed_id) => { play_latest_episode(show); });
                 content_view.podcast_search_flow.append(card.root);
             }
@@ -419,7 +414,7 @@ namespace Managers {
                     window.image_manager.load_image_async(hero.image, show.image_url, hero_size, hero_size);
                 }
                 PodcastHeroCard.wire_interactions(hero.root, hero, show.feed_id, playback, (feed_id) => {
-                    if (podcast_pane != null) podcast_pane.open_for_show(show);
+                    if (window != null) PodcastDetailDialog.show(window, playback, show, window);
                 }, (feed_id) => { play_latest_episode(show); });
                 content_view.hero_container.append(hero.root);
             }
@@ -606,7 +601,7 @@ namespace Managers {
                 window.image_manager.load_image_async(card.image, show.image_url, PodcastCard.IMAGE_WIDTH, PodcastCard.IMAGE_HEIGHT);
             }
             PodcastCard.wire_interactions(card.root, card, false, show.feed_id, 0, playback, (feed_id) => {
-                if (podcast_pane != null) podcast_pane.open_for_show(show);
+                if (window != null) PodcastDetailDialog.show(window, playback, show, window);
             }, null, (feed_id) => { play_latest_episode(show); });
             section.add_card(card.root);
         }

@@ -58,6 +58,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',
     'src/ui/dialogs/onboardingDialog.vala',
+    'src/ui/dialogs/podcastDetailDialog.vala',
     'src/ui/menus/articleMenu.vala',
     'src/ui/menus/sidebarMenu.vala',
     'src/ui/menus/podcastMenu.vala',
