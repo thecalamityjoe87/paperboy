@@ -162,6 +162,79 @@
     color: alpha(currentColor, 0.60);
 }
 
+/* Podcasts hero card: cover art fills the whole card, so unlike .hero-card
+   above there's no split edge to round - round every corner. */
+.hero-card-podcast picture {
+    border-radius: 12px;
+}
+
+/* Bottom-pinned title/author scrim on a full-bleed podcast hero card - a
+   dark gradient so light text stays legible over arbitrary cover art
+   regardless of the app's own light/dark theme. */
+.hero-podcast-scrim {
+    background: linear-gradient(to top, alpha(black, 0.85), alpha(black, 0));
+    border-radius: 0 0 12px 12px;
+}
+
+.hero-podcast-scrim .hero-title {
+    color: white;
+    font-weight: 900;
+}
+
+.hero-podcast-author {
+    color: alpha(white, 0.75);
+    font-size: 1em;
+    font-weight: 500;
+}
+
+/* Persistent mini-player pinned to the sidebar's bottom edge (see
+   PodcastPlayerBar), slid up via Gtk.Revealer while a podcast is playing. */
+.podcast-player-bar {
+    border-top: 1px solid alpha(@borders, 0.7);
+    /* Same top-edge shadow idea as .podcast-pane/.article-preview-panel,
+       just lighter since this bar is much smaller. */
+    box-shadow: 0 -2px 8px alpha(black, 0.18);
+}
+
+.podcast-player-cover {
+    border-radius: 4px;
+}
+
+
+.podcast-player-title {
+    font-weight: 600;
+    font-size: 0.95em;
+}
+
+.podcast-player-time {
+    font-size: 0.75em;
+    color: alpha(currentColor, 0.60);
+}
+
+/* Podcast show detail pane (see PodcastPane) - slides up from the bottom,
+   styled flat like .article-preview-panel. @window_bg_color (an opaque
+   base color), not @card_bg_color (a tinted layer that needs something
+   solid already behind it) - this pane has nothing behind it, so
+   @card_bg_color rendered as visibly transparent in dark mode. Border +
+   shadow match .podcast-player-bar's own recipe above. */
+.podcast-pane {
+    background-color: @window_bg_color;
+    border-top: 1px solid alpha(@borders, 0.7);
+    box-shadow: 0 -9px 25px alpha(black, 0.5);
+}
+
+.podcast-pane-cover {
+    border-radius: 8px;
+}
+
+/* Hover highlight for an episode row in the pane's episode list - reuses
+   the shared .card-hover toggle convention, but as a background tint
+   rather than the .card box-shadow rule (these rows aren't .card). */
+.podcast-episode-row.card-hover {
+    background-color: alpha(@borders, 0.15);
+    border-radius: 8px;
+}
+
 /* Small pill category chip overlaid on images */
 .category-chip {
     background-color: alpha(black, 0.6);
@@ -186,6 +259,45 @@
     font-weight: 600;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
     min-height: 20px;
+}
+
+/* Play/subscribe icon buttons on PodcastCard/PodcastHeroCard cover art -
+   same dark pill language as .source-badge/.category-chip, but circular
+   and interactive. */
+.podcast-card-badge-btn {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 999px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0;
+    box-shadow: 0 2px 6px alpha(black, 0.25);
+}
+
+.podcast-card-badge-btn:hover {
+    background-color: alpha(black, 0.75);
+}
+
+/* Subscribed state reuses the theme's own accent color, same as other
+   "this is active/on" indicators in the app, instead of a bespoke color. */
+.podcast-card-badge-btn.subscribed {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+/* Hover-only "click for info" hint - fades in via .card-hover. */
+.podcast-card-info-hint {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 999px;
+    padding: 6px;
+    box-shadow: 0 2px 6px alpha(black, 0.25);
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.card-hover .podcast-card-info-hint {
+    opacity: 1;
 }
 
 /* Shown bottom-right of the title area, opposite the time caption, once
@@ -647,7 +759,7 @@ navigation-split-view>widget.sidebar-pane {
 /* Article preview panel that slides in from the right */
 .article-preview-panel {
     background-color: @card_bg_color;
-    box-shadow: -4px 0 16px alpha(@shade_color, 0.25);
+    box-shadow: -9px 0 25px alpha(black, 0.5);
 }
 
 

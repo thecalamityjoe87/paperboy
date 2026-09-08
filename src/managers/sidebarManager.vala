@@ -66,6 +66,7 @@ public class SidebarManager : GLib.Object {
     // Expandable sections state tracking (logic only)
     private bool followed_sources_expanded = true;
     private bool popular_categories_expanded = true;
+    private bool podcasts_expanded = true;
 
     // Track currently selected item ID (data only)
     private string? currently_selected_id = null;
@@ -87,6 +88,12 @@ public class SidebarManager : GLib.Object {
     public signal void rss_source_added(RssSourceItemData source);
     public signal void rss_source_removed(string url);
     public signal void rss_source_updated(RssSourceItemData source);
+    // Targeted single-row add/remove for the Podcasts section - unlike RSS
+    // sources (which still trigger a full rebuild_sidebar() on add/remove),
+    // subscribing/unsubscribing shouldn't visibly rebuild the whole sidebar
+    // for one row.
+    public signal void podcast_subscription_added(SidebarItemData item);
+    public signal void podcast_subscription_removed(string item_id);
     public signal void badge_updated(string item_id, int count, bool is_source);
     public signal void badge_updated_force(string item_id, int count, bool is_source);
     public signal void badge_placeholder_set(string item_id, bool is_source);
@@ -136,6 +143,25 @@ public class SidebarManager : GLib.Object {
             });
         });
 
+        // Listen for podcast subscription changes so the Podcasts section's
+        // sub-item list stays in sync - no lighter-weight targeted-update
+        // path exists yet for these rows (unlike RSS sources' icon-only
+        // update), so mirror source_added/source_removed's own
+        // full-rebuild behavior here too.
+        var podcast_store = Paperboy.PodcastSubscriptionStore.get_instance();
+        podcast_store.subscription_added.connect((sub) => {
+            Idle.add(() => {
+                podcast_subscription_added(create_podcast_subscription_item_data(sub));
+                return false;
+            });
+        });
+        podcast_store.subscription_removed.connect((feed_id) => {
+            Idle.add(() => {
+                podcast_subscription_removed("podcastshow:" + feed_id.to_string());
+                return false;
+            });
+        });
+
         // Listen for article viewed/unviewed changes so badges update immediately
         if (window.article_state_store != null) {
             window.article_state_store.viewed_status_changed.connect((url, viewed) => {
@@ -167,6 +193,7 @@ public class SidebarManager : GLib.Object {
         var prefs = NewsPreferences.get_instance();
         followed_sources_expanded = prefs.sidebar_followed_sources_expanded;
         popular_categories_expanded = prefs.sidebar_popular_categories_expanded;
+        podcasts_expanded = prefs.sidebar_podcasts_expanded;
     }
 
     private void save_followed_sources_state() {
@@ -178,6 +205,12 @@ public class SidebarManager : GLib.Object {
     private void save_popular_categories_state() {
         var prefs = NewsPreferences.get_instance();
         prefs.sidebar_popular_categories_expanded = popular_categories_expanded;
+        prefs.save_config();
+    }
+
+    private void save_podcasts_expanded_state() {
+        var prefs = NewsPreferences.get_instance();
+        prefs.sidebar_podcasts_expanded = podcasts_expanded;
         prefs.save_config();
     }
 
@@ -193,6 +226,10 @@ public class SidebarManager : GLib.Object {
             popular_categories_expanded = !popular_categories_expanded;
             save_popular_categories_state();
             expanded_state_changed(section_id, popular_categories_expanded);
+        } else if (section_id == "podcasts_entry") {
+            podcasts_expanded = !podcasts_expanded;
+            save_podcasts_expanded_state();
+            expanded_state_changed(section_id, podcasts_expanded);
         }
     }
 
@@ -247,6 +284,28 @@ public class SidebarManager : GLib.Object {
         }
 
         sections.add(followed_section);
+
+        // Section 4: Podcasts - "Discover" (the main browse/hero page,
+        // same destination the old flat "Podcasts" item pointed to) plus
+        // one row per subscribed show. Expandable like Feeds, since it can
+        // grow the same way as the user subscribes to more shows.
+        var podcasts_section = SidebarSectionData();
+        podcasts_section.section_id = "podcasts_entry";
+        podcasts_section.title = "Podcasts";
+        podcasts_section.is_expandable = true;
+        podcasts_section.is_expanded = podcasts_expanded;
+        podcasts_section.items = new Gee.ArrayList<SidebarItemData?>();
+        // id stays "podcasts" (the routing key) - only title/icon change.
+        var discover_item = create_item_data("Find Podcasts", "podcasts", SidebarItemType.SPECIAL);
+        discover_item.icon_key = "podcasts_discover";
+        podcasts_section.items.add(discover_item);
+
+        var podcast_store = Paperboy.PodcastSubscriptionStore.get_instance();
+        foreach (var sub in podcast_store.get_all_subscriptions()) {
+            podcasts_section.items.add(create_podcast_subscription_item_data(sub));
+        }
+
+        sections.add(podcasts_section);
 
         return sections;
     }
@@ -352,6 +411,35 @@ public class SidebarManager : GLib.Object {
         item.is_selected = (currently_selected_id == item.id);
         item.unread_count = get_unread_count_for_source(source.name);
         return item;
+    }
+
+    // A subscribed show's sidebar row. icon_key is the fixed "podcasts"
+    // glyph (not per-show artwork - keeps this simple/consistent with the
+    // rest of the sidebar rather than replicating RSS rows' per-favicon
+    // loading), item_type SPECIAL since it's not a real news category and
+    // doesn't participate in category-badge logic (see get_unread_count_
+    // for_item, which only handles CATEGORY/RSS_SOURCE).
+    private SidebarItemData create_podcast_subscription_item_data(Paperboy.PodcastSubscription sub) {
+        var item = SidebarItemData();
+        // Keyed by feed_id, not feed_url: PodcastSubscriptionStore.
+        // subscription_removed only hands back a feed_id, so this id
+        // scheme lets that signal map straight to a sidebar item id with
+        // no lookup needed (see the constructor's wiring above).
+        item.id = "podcastshow:" + sub.feed_id.to_string();
+        item.title = sub.title;
+        item.icon_key = "podcasts";
+        item.item_type = SidebarItemType.SPECIAL;
+        item.is_selected = (currently_selected_id == item.id);
+        item.unread_count = 0;
+        return item;
+    }
+
+    private Paperboy.PodcastSubscription? find_subscription_by_feed_id(int64 feed_id) {
+        var store = Paperboy.PodcastSubscriptionStore.get_instance();
+        foreach (var sub in store.get_all_subscriptions()) {
+            if (sub.feed_id == feed_id) return sub;
+        }
+        return null;
     }
 
     private int get_unread_count_for_item(string id, SidebarItemType type) {
@@ -464,6 +552,22 @@ public class SidebarManager : GLib.Object {
      * Handle category/item activation
      */
     public void handle_item_activation(string id, string title) {
+        // A subscribed show's row just opens its detail pane - PodcastPane
+        // is a floating overlay (Gtk.Revealer on root_overlay, independent
+        // of whichever page is showing underneath), not something tied to
+        // being on the Podcasts page. So this deliberately does NOT
+        // navigate there or touch prefs.category/selection state - if
+        // you're reading a news article and click a subscription, you stay
+        // exactly where you are and the pane just slides up over it.
+        if (id.has_prefix("podcastshow:")) {
+            int64 feed_id = int64.parse(id.substring("podcastshow:".length));
+            var subscription = find_subscription_by_feed_id(feed_id);
+            if (subscription != null && window.podcast_pane != null) {
+                window.podcast_pane.open_for_show(subscription.to_show());
+            }
+            return;
+        }
+
         string validated = validate_category_for_sources(id);
 
         window.prefs.category = validated;
@@ -497,8 +601,9 @@ public class SidebarManager : GLib.Object {
 
     private string validate_category_for_sources(string requested_cat) {
         // App-level categories that don't depend on news sources
-        if (requested_cat == "saved" || requested_cat == "topten" || 
-            requested_cat == "myfeed" || requested_cat == "local_news" || 
+        if (requested_cat == "saved" || requested_cat == "topten" ||
+            requested_cat == "myfeed" || requested_cat == "local_news" ||
+            requested_cat == "podcasts" ||
             requested_cat.has_prefix("rssfeed:")) {
             return requested_cat;
         }
@@ -606,9 +711,9 @@ public class SidebarManager : GLib.Object {
      */
     private bool is_popular_category(string category_id) {
         // Special categories always show their count
-        if (category_id == "frontpage" || category_id == "topten" || 
-            category_id == "myfeed" || category_id == "local_news" || 
-            category_id == "saved") {
+        if (category_id == "frontpage" || category_id == "topten" ||
+            category_id == "myfeed" || category_id == "local_news" ||
+            category_id == "saved" || category_id == "podcasts") {
             return false;
         }
         // RSS feeds are not popular categories

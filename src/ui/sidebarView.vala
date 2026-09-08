@@ -37,12 +37,25 @@ public class SidebarView : GLib.Object {
     
     // Widget tracking for updates
     private Gee.HashMap<string, Gtk.Box> icon_holders;
+    // id -> icon_key side table: icon_holders is keyed by item.id (several
+    // rows can share one icon_key), but update_icons_for_theme() needs the
+    // actual icon_key to look the icon back up.
+    private Gee.HashMap<string, string> icon_keys_by_id;
     private Gee.HashMap<string, Gtk.Widget> badge_widgets;
     private Gee.HashMap<string, Gtk.Widget> live_pill_widgets;
     private Gee.HashMap<string, Gtk.Widget> section_containers;
     private Gtk.Widget? currently_selected_widget = null;
     private string? currently_selected_item_id = null;
     private Gtk.Button? add_rss_button = null;
+    private Gtk.Button? add_podcast_button = null;
+    // The "Add a Podcast" row itself (not just its button), so it can be
+    // removed and re-appended after inserting a new subscription row before
+    // it - Adw.ExpanderRow.add_row() only appends, it has no insert-before.
+    private Gtk.ListBoxRow? add_podcast_row = null;
+    // Tracks each subscription's own row widget for targeted removal on
+    // unsubscribe (see on_podcast_subscription_removed) - keyed by the
+    // same "podcastshow:<feed_id>" item id used elsewhere.
+    private Gee.HashMap<string, Gtk.ListBoxRow> podcast_subscription_rows = new Gee.HashMap<string, Gtk.ListBoxRow>();
     
     // Context menu
     private SidebarMenu sidebar_menu;
@@ -51,6 +64,7 @@ public class SidebarView : GLib.Object {
         this.window = window;
         this.manager = manager;
         this.icon_holders = new Gee.HashMap<string, Gtk.Box>();
+        this.icon_keys_by_id = new Gee.HashMap<string, string>();
         this.badge_widgets = new Gee.HashMap<string, Gtk.Widget>();
         this.live_pill_widgets = new Gee.HashMap<string, Gtk.Widget>();
         this.section_containers = new Gee.HashMap<string, Gtk.Widget>();
@@ -84,6 +98,8 @@ public class SidebarView : GLib.Object {
         manager.rss_source_added.connect(on_rss_source_added);
         manager.rss_source_removed.connect(on_rss_source_removed);
         manager.rss_source_updated.connect(on_rss_source_updated);
+        manager.podcast_subscription_added.connect(on_podcast_subscription_added);
+        manager.podcast_subscription_removed.connect(on_podcast_subscription_removed);
         manager.badge_updated.connect(on_badge_updated);
         manager.badge_updated_force.connect(on_badge_updated_force);
         manager.badge_placeholder_set.connect(on_badge_placeholder_set);
@@ -200,6 +216,13 @@ public class SidebarView : GLib.Object {
                 row.set_selectable(false);
                 row.add_css_class("sidebar-expander-item");
                 expander.add_row(row);
+
+                // Track podcast subscription rows individually so a later
+                // unsubscribe can remove just this one row (see
+                // on_podcast_subscription_removed) instead of a full rebuild.
+                if (section.section_id == "podcasts_entry" && item.id.has_prefix("podcastshow:")) {
+                    podcast_subscription_rows.set(item.id, row);
+                }
             }
 
             // Optional "Add RSS Feed" button
@@ -212,6 +235,21 @@ public class SidebarView : GLib.Object {
                 add_row.add_css_class("sidebar-expander-item");
                 expander.add_row(add_row);
                 add_rss_button = add_button;
+            }
+
+            // Optional "Add a Podcast" button - same idea, but resolves
+            // directly from the podcast's own feed URL (see
+            // PodcastFeedResolver) rather than paperboyBackend/PodcastIndex.
+            if (section.section_id == "podcasts_entry") {
+                var add_button = create_add_podcast_button();
+                var add_row = new Gtk.ListBoxRow();
+                add_row.set_child(add_button);
+                add_row.set_activatable(false);
+                add_row.set_selectable(false);
+                add_row.add_css_class("sidebar-expander-item");
+                expander.add_row(add_row);
+                add_podcast_button = add_button;
+                add_podcast_row = add_row;
             }
 
             // Track expansion state changes and notify manager
@@ -285,7 +323,39 @@ public class SidebarView : GLib.Object {
             manager.handle_item_activation(item.id, item.title);
         });
 
+        // Right-click menu, podcast subscription rows only.
+        if (item.id.has_prefix("podcastshow:")) {
+            string item_id = item.id;
+            string item_title = item.title;
+            var right_click = new Gtk.GestureClick();
+            right_click.set_button(3);
+            right_click.pressed.connect((n_press, x, y) => {
+                show_podcast_sidebar_menu(btn, item_id, item_title, x, y);
+            });
+            btn.add_controller(right_click);
+        }
+
         return btn;
+    }
+
+    // Right-click menu for a podcast subscription row - always
+    // "subscribed", so just Play + Remove podcast. Popped up with
+    // has_arrow=true, no pointing_to, matching SidebarMenu's own style.
+    private void show_podcast_sidebar_menu(Gtk.Widget row_widget, string item_id, string item_title, double x, double y) {
+        int64 feed_id = int64.parse(item_id.substring("podcastshow:".length));
+        var menu = new PodcastMenu(true);
+
+        menu.play_requested.connect(() => {
+            manager.handle_item_activation(item_id, item_title);
+        });
+        menu.unsubscribe_requested.connect(() => {
+            Paperboy.PodcastSubscriptionStore.get_instance().unsubscribe(feed_id);
+        });
+
+        var popover = menu.create_popover(row_widget, -1, -1, true);
+        row_widget.set_data("podcast-current-menu", menu);
+        row_widget.set_data("podcast-current-popover", popover);
+        popover.popup();
     }
 
     // Special items (Top Ten, Front Page, etc). Same Box layout as
@@ -304,10 +374,17 @@ public class SidebarView : GLib.Object {
         }
         row_box.append(icon_holder);
         icon_holders.set(item.id, icon_holder);
+        icon_keys_by_id.set(item.id, item.icon_key);
 
         var label = new Gtk.Label(item.title);
         label.set_xalign(0);
         label.set_hexpand(true);
+        // Every existing category title has always been a short fixed
+        // string, so this was never needed before - but podcast
+        // subscription rows (also SPECIAL type, see build_category_button)
+        // use an arbitrary, potentially long show title here, which without
+        // this would grow the sidebar's width instead of truncating.
+        label.set_ellipsize(Pango.EllipsizeMode.END);
         row_box.append(label);
 
         var badge = build_badge_widget(item.unread_count,
@@ -332,10 +409,17 @@ public class SidebarView : GLib.Object {
         }
         row_box.append(icon_holder);
         icon_holders.set(item.id, icon_holder);
+        icon_keys_by_id.set(item.id, item.icon_key);
 
         var label = new Gtk.Label(item.title);
         label.set_xalign(0);
         label.set_hexpand(true);
+        // Every existing category title has always been a short fixed
+        // string, so this was never needed before - but podcast
+        // subscription rows (also SPECIAL type, see build_category_button)
+        // use an arbitrary, potentially long show title here, which without
+        // this would grow the sidebar's width instead of truncating.
+        label.set_ellipsize(Pango.EllipsizeMode.END);
         row_box.append(label);
 
         if (item.id == "sports") {
@@ -563,6 +647,88 @@ public class SidebarView : GLib.Object {
         });
     }
     
+    private Gtk.Button create_add_podcast_button() {
+        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        button_box.add_css_class("sidebar-row-vspace");
+        button_box.set_margin_start(8);
+        button_box.set_margin_end(8);
+
+        var icon_holder = build_icon_slot();
+        var icon = new Gtk.Image.from_icon_name("list-add-symbolic");
+        icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
+        icon_holder.append(icon);
+        button_box.append(icon_holder);
+
+        var label = new Gtk.Label("Add a Podcast");
+        label.set_xalign(0);
+        label.set_hexpand(true);
+        button_box.append(label);
+
+        var add_button = new Gtk.Button();
+        add_button.set_can_focus(false);
+        add_button.set_child(button_box);
+        add_button.add_css_class("flat");
+        add_button.add_css_class("sidebar-item-row");
+
+        add_button.clicked.connect(() => {
+            show_add_podcast_dialog();
+        });
+
+        return add_button;
+    }
+
+    private void show_add_podcast_dialog() {
+        var dialog = new Adw.MessageDialog((Gtk.Window)window, "Add a Podcast", null);
+        dialog.set_body("Enter the podcast's RSS feed URL:");
+
+        var entry_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+        entry_box.set_margin_top(12);
+        entry_box.set_margin_bottom(12);
+
+        var url_entry = new Gtk.Entry();
+        url_entry.set_placeholder_text("https://example.com/podcast/feed.xml");
+        entry_box.append(url_entry);
+
+        dialog.set_extra_child(entry_box);
+        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("add", "Add Podcast");
+        dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
+
+        dialog.response.connect((response) => {
+            if (response == "add") {
+                string url = url_entry.get_text().strip();
+                if (url.length > 0) {
+                    add_podcast_by_url(url);
+                }
+            }
+            dialog.close();
+        });
+
+        dialog.present();
+    }
+
+    private void add_podcast_by_url(string url) {
+        if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Resolving podcast feed...");
+
+        var resolver = Paperboy.PodcastFeedResolver.get_instance();
+        resolver.resolve_show(url, window.session, (success, show, error_message) => {
+            if (window.toast_manager == null) return;
+            window.toast_manager.clear_persistent_toast();
+
+            if (success && show != null) {
+                Paperboy.PodcastSubscriptionStore.get_instance().subscribe(show);
+                // No extra rebuild_sidebar() needed here (unlike
+                // add_rss_feed()'s two-step enable dance) - subscribing is
+                // the terminal state change, and SidebarManager already
+                // listens to PodcastSubscriptionStore.subscription_added
+                // and rebuilds on its own.
+                window.toast_manager.show_toast("Podcast added: " + show.title);
+            } else {
+                window.toast_manager.show_toast(error_message ?? "Failed to add podcast");
+            }
+        });
+    }
+
     private void set_badge_selected(string item_id, bool selected) {
         if (!badge_widgets.has_key(item_id)) return;
         var badge = badge_widgets.get(item_id);
@@ -657,7 +823,52 @@ public class SidebarView : GLib.Object {
         // Rebuild entire sidebar
         manager.rebuild_sidebar();
     }
-    
+
+    // Targeted single-row insert - subscribing to a podcast shouldn't
+    // visibly rebuild the whole sidebar for one row (see
+    // SidebarManager.podcast_subscription_added's doc comment). Falls back
+    // to a full rebuild only if the Podcasts expander somehow isn't built
+    // yet, which shouldn't normally happen.
+    private void on_podcast_subscription_added(SidebarItemData item) {
+        var expander = section_containers.get("podcasts_entry") as Adw.ExpanderRow;
+        if (expander == null) {
+            manager.rebuild_sidebar();
+            return;
+        }
+
+        var item_widget = build_category_button(item);
+        var row = new Gtk.ListBoxRow();
+        row.set_child(item_widget);
+        row.set_activatable(false);
+        row.set_selectable(false);
+        row.add_css_class("sidebar-expander-item");
+
+        // Adw.ExpanderRow.add_row() only appends - remove-then-re-append
+        // the "Add a Podcast" row so it stays last after inserting this one
+        // before it.
+        if (add_podcast_row != null) {
+            expander.remove(add_podcast_row);
+        }
+        expander.add_row(row);
+        if (add_podcast_row != null) {
+            expander.add_row(add_podcast_row);
+        }
+
+        podcast_subscription_rows.set(item.id, row);
+    }
+
+    private void on_podcast_subscription_removed(string item_id) {
+        var expander = section_containers.get("podcasts_entry") as Adw.ExpanderRow;
+        var row = podcast_subscription_rows.get(item_id);
+        if (expander != null && row != null) {
+            expander.remove(row);
+        }
+        podcast_subscription_rows.unset(item_id);
+        icon_holders.unset(item_id);
+        icon_keys_by_id.unset(item_id);
+        badge_widgets.unset(item_id);
+    }
+
     // Removes every child of `container`. Has to go through the
     // container's own remove() rather than child.unparent() - unparent()
     // skips Box/ListBox's internal bookkeeping and corrupts later
@@ -819,11 +1030,15 @@ public class SidebarView : GLib.Object {
         }
     }
     
-    public Adw.NavigationPage build_navigation_page(Adw.HeaderBar header) {
+    public Adw.NavigationPage build_navigation_page(Adw.HeaderBar header, Gtk.Widget? podcast_player_bar = null) {
         var toolbar = new Adw.ToolbarView();
         toolbar.add_top_bar(header);
         toolbar.set_content(sidebar_scrolled);
-        
+        // Pinned to the sidebar's own bottom edge (same width as the
+        // sidebar column, independent of the scrollable content above it) -
+        // see PodcastPlayerBar, revealed only while a podcast is playing.
+        if (podcast_player_bar != null) toolbar.add_bottom_bar(podcast_player_bar);
+
         sidebar_revealer.set_child(toolbar);
         sidebar_page = new Adw.NavigationPage(sidebar_revealer, "Categories");
         return sidebar_page;
@@ -856,10 +1071,15 @@ public class SidebarView : GLib.Object {
     public void update_icons_for_theme() {
         // Rebuild icons for all tracked icon holders
         foreach (var entry in icon_holders.entries) {
-            string key = entry.key;
+            string id_key = entry.key;
             Gtk.Box holder = entry.value;
-            
+
             clear_children(holder);
+
+            // id != icon_key for podcast subscription rows and "Find
+            // Podcasts" - without this lookup their icons vanished on
+            // every theme change (resolved against an unknown id instead).
+            string key = icon_keys_by_id.has_key(id_key) ? icon_keys_by_id.get(id_key) : id_key;
 
             // Recreate icon
             if (key.has_prefix("rss:")) {
@@ -882,9 +1102,13 @@ public class SidebarView : GLib.Object {
         clear_children(sidebar_list);
 
         icon_holders.clear();
+        icon_keys_by_id.clear();
         badge_widgets.clear();
         section_containers.clear();
         currently_selected_widget = null;
         add_rss_button = null;
+        add_podcast_button = null;
+        add_podcast_row = null;
+        podcast_subscription_rows.clear();
     }
 }

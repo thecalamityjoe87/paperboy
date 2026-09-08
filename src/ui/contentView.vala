@@ -33,9 +33,11 @@ public class ContentView : GLib.Object {
     public Gtk.Box content_area;
     public Gtk.Box content_box;
     public Gtk.Box main_content_container;
+    public Gtk.Label podcasts_hero_title;
     public Gtk.Box hero_container;
     public Gtk.Box featured_box;
     public Gtk.FlowBox columns_row;
+    public Gtk.FlowBox podcast_search_flow;
     public Gtk.Box category_sections_container;
     public Gtk.Box sports_scores_container;
     public Gtk.Separator hero_scores_separator;
@@ -158,10 +160,30 @@ public class ContentView : GLib.Object {
         main_content_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         main_content_container.set_halign(Gtk.Align.FILL);
         main_content_container.set_hexpand(true);
+        // Explicit top-anchor: without it, sparse content shorter than the
+        // viewport (e.g. one podcast search result) ended up centered.
+        main_content_container.set_valign(Gtk.Align.START);
         main_content_container.set_margin_start(Managers.LayoutManager.H_MARGIN);
         main_content_container.set_margin_end(Managers.LayoutManager.H_MARGIN);
         main_content_container.set_margin_top(6);
         main_content_container.set_margin_bottom(12);
+
+        // Section title shown above hero_container only for the Podcasts
+        // page (see Managers.PodcastManager.prepare_containers()) - same
+        // "caption" + .top-stories-title styling as HeroCarousel's own
+        // "FEATURED" label, so it reads as the same kind of section header.
+        // Permanent sibling of hero_container (hidden by default), toggled
+        // the same way hero_scores_separator/hero_frontpage_separator are:
+        // LayoutManager.prepare_for_new_fetch() hides it again whenever any
+        // news category is fetched, so it never lingers over Top Ten/Front
+        // Page's own hero rows after leaving Podcasts.
+        podcasts_hero_title = new Gtk.Label("");
+        podcasts_hero_title.set_xalign(0);
+        podcasts_hero_title.add_css_class("caption");
+        podcasts_hero_title.add_css_class("top-stories-title");
+        podcasts_hero_title.set_markup("<span size='26000'><b>START LISTENING</b></span>");
+        podcasts_hero_title.set_visible(false);
+        main_content_container.append(podcasts_hero_title);
 
         // Hero container - fill the main container width
         // 12px spacing for Top Ten side-by-side heroes, 0 for carousel
@@ -234,6 +256,35 @@ public class ContentView : GLib.Object {
         // Do not call rebuild_columns here; caller will arrange columns
         main_content_container.append(columns_row);
 
+        // Dedicated grid for podcast search results, deliberately separate
+        // from columns_row above (shared with the news-article grid and
+        // reconfigured elsewhere by LayoutManager.rebuild_columns()).
+        // Fixed at exactly 4 columns, homogeneous, FILL - no dynamic
+        // column count, so padding stays even on both sides.
+        podcast_search_flow = new Gtk.FlowBox();
+        podcast_search_flow.set_halign(Gtk.Align.FILL);
+        podcast_search_flow.set_valign(Gtk.Align.START);
+        podcast_search_flow.set_hexpand(true);
+        // vexpand false: with true, a sparse result set ended up vertically
+        // centered in the claimed space instead of staying pinned to top.
+        podcast_search_flow.set_vexpand(false);
+        podcast_search_flow.set_homogeneous(true);
+        podcast_search_flow.set_row_spacing(16);
+        podcast_search_flow.set_column_spacing(16);
+        podcast_search_flow.set_selection_mode(Gtk.SelectionMode.NONE);
+        podcast_search_flow.set_min_children_per_line(4);
+        podcast_search_flow.set_max_children_per_line(4);
+        // Explicit, equal, fixed margins on the FlowBox itself - not
+        // relying on FILL's internal distribution to be symmetric on its
+        // own. main_content_container's own H_MARGIN already applies
+        // equally on both sides around this box, so 0/0 here just makes
+        // that explicit rather than assumed.
+        podcast_search_flow.set_margin_start(0);
+        podcast_search_flow.set_margin_end(0);
+        podcast_search_flow.set_visible(false);
+
+        main_content_container.append(podcast_search_flow);
+
         // Same faint divider as hero_scores_separator/scores_articles_separator,
         // shown only alongside category_sections_container (see LayoutManager's
         // prepare_category_sections/teardown_category_sections) so it never
@@ -270,7 +321,12 @@ public class ContentView : GLib.Object {
         loading_spinner.set_size_request(48, 48);
         loading_container.append(loading_spinner);
 
-        loading_label = new Gtk.Label("Loading news...");
+        // Constructed empty - loading_container is only ever made visible
+        // from LoadingStateManager.show_loading_spinner(), which always
+        // sets this label's real text right before showing it, so a
+        // default here would never actually be seen. That's the one place
+        // this text is set now - see it for the actual wording.
+        loading_label = new Gtk.Label("");
         loading_label.add_css_class("dim-label");
         loading_label.add_css_class("title-4");
         loading_container.append(loading_label);

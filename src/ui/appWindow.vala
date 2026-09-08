@@ -72,6 +72,13 @@ public class NewsWindow : Adw.ApplicationWindow {
     public ArticleSheet article_sheet;
     public Gtk.Overlay root_overlay;
     public ToastManager? toast_manager;
+    // Podcasts: owned once for the whole app session (not per-page) so
+    // playback and the mini-player bar persist across navigating away from
+    // the Podcasts page - see Managers.PodcastPlaybackManager's doc comment.
+    public Managers.PodcastPlaybackManager podcast_playback;
+    public PodcastPlayerBar podcast_player_bar;
+    public PodcastPane podcast_pane;
+    public Managers.PodcastManager podcast_manager;
     private Gtk.Widget? current_toast_widget;
     public Gtk.Widget dim_overlay;
     public Gtk.Box main_content_container;
@@ -336,8 +343,15 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     content_header.set_title_widget(search_container);
 
-    // Connect search entry to search manager (with debouncing)
+    // Connect search entry to search manager (with debouncing) - or, while
+    // on the Podcasts page, to PodcastManager's own debounced live
+    // PodcastIndex search instead (see PodcastManager.search()'s doc
+    // comment for why this can't just be client-side filtering like news).
     search_entry.search_changed.connect(() => {
+        if (prefs.category == "podcasts") {
+            if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
+            return;
+        }
         if (search_manager != null) {
             search_manager.update_query(search_entry.get_text());
         }
@@ -370,8 +384,36 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Create SidebarView (UI only)
     sidebar_view = new SidebarView(this, sidebar_manager);
 
+    // Podcast playback: constructed once for the app's whole lifetime,
+    // before the sidebar/mini-player are built, so the bar can bind to its
+    // signals unconditionally with no null-checks.
+    podcast_playback = new Managers.PodcastPlaybackManager();
+    podcast_player_bar = new PodcastPlayerBar(podcast_playback, prefs, this);
+    podcast_pane = new PodcastPane(this, podcast_playback);
+
     // Listen for category selections and trigger fetch/update from the window
     sidebar_manager.category_selected.connect((category) => {
+        if (category == "podcasts") {
+            // Podcasts renders into ContentView's own hero_container/
+            // category_sections_container - the exact containers Top
+            // Ten/Front Page already use - instead of a separate page, so
+            // it inherits the same header, margins, scroll-fade chrome,
+            // and hero-card layout. See PodcastManager.show(). Leaving
+            // podcasts back to any news category runs through fetch_news()
+            // below as normal, whose LayoutManager.prepare_for_new_fetch()
+            // already clears these same containers unconditionally, so no
+            // podcast-specific teardown is needed here.
+            search_entry.set_placeholder_text("Search Podcasts...");
+            search_entry.set_text("");
+            if (podcast_manager != null) podcast_manager.show();
+            return;
+        }
+        // Leaving Podcasts for a news category - the detail pane is an
+        // overlay independent of ContentView's containers, so it wouldn't
+        // otherwise close itself when the underlying page changes.
+        if (podcast_pane != null) podcast_pane.close();
+        search_entry.set_placeholder_text("Search News for Keywords...");
+        search_entry.set_text("");
         if (category == "frontpage") {
             fetch_news();
             return;
@@ -392,8 +434,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     sidebar_manager.all_badges_refresh_requested();
 
     // Request the completed navigation page from the view (use the
-    // `sidebar_header` built earlier above)
-    Adw.NavigationPage sidebar_page = sidebar_view.build_navigation_page(sidebar_header);
+    // `sidebar_header` built earlier above), with the podcast mini-player
+    // pinned to the sidebar's bottom edge.
+    Adw.NavigationPage sidebar_page = sidebar_view.build_navigation_page(sidebar_header, podcast_player_bar.revealer);
 
     // Wrap content in a NavigationPage for NavigationSplitView
     // We need to create the content page after setting up root_overlay
@@ -416,6 +459,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // `window.main_content_container` continue to work during refactor.
     this.main_content_container = content_view.main_content_container;
     layout_manager.hero_container = content_view.hero_container;
+    layout_manager.podcasts_hero_title = content_view.podcasts_hero_title;
     layout_manager.featured_box = content_view.featured_box;
     layout_manager.columns_row = content_view.columns_row;
     layout_manager.category_sections_container = content_view.category_sections_container;
@@ -477,6 +521,18 @@ public class NewsWindow : Adw.ApplicationWindow {
     split_view.set_max_sidebar_width(265);
     split_view.set_sidebar_position(Gtk.PackType.START);
     split_view.show_sidebar = true; // Start with sidebar shown
+    // Podcasts renders directly into ContentView's own containers
+    // (hero_container, category_sections_container - the same ones Top
+    // Ten/Front Page use) rather than a separate page, so it shares the
+    // exact same header/margins/scroll-fade chrome and hero-card layout.
+    // See PodcastManager.show(). Not routed through
+    // FetchNewsController/ArticleManager/LayoutManager themselves, but
+    // deliberately reuses fetch_news()'s existing LayoutManager cleanup
+    // (prepare_for_new_fetch clears these same containers unconditionally)
+    // to tear down podcast content when the user navigates to a news
+    // category - see the category_selected handler above.
+    podcast_manager = new Managers.PodcastManager(this, content_view, podcast_playback, podcast_pane);
+
     // Wrap content in a NavigationView so we can slide in a preview page
     nav_view = new Adw.NavigationView();
     var main_page = new Adw.NavigationPage(content_view.main_scroll_overlay, "Main");
@@ -614,6 +670,15 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Create the in-app article sheet overlay (WebKit-based) and add it
     this.article_sheet = new ArticleSheet(this);
     root_overlay.add_overlay(this.article_sheet.get_widget());
+
+    // Podcast detail pane: slides up from the bottom edge of the content
+    // view specifically (full width of this column, not the whole window
+    // or the sidebar) - added as a root_overlay overlay the same way
+    // article_sheet is above, so it's scoped to exactly the same content
+    // area article_preview_split's right-side preview covers. See
+    // PodcastPane's doc comment for why this is a plain Gtk.Revealer
+    // rather than Adw.BottomSheet.
+    root_overlay.add_overlay(podcast_pane.revealer);
 
     // Wrap root_overlay with article preview split
     article_preview_split.set_content(root_overlay);
@@ -781,7 +846,16 @@ public class NewsWindow : Adw.ApplicationWindow {
             // If viewing "saved" category, check if saved articles are already loaded
             // (they load synchronously in ArticleStateStore constructor, so signal may have
             // already fired before we connected the handler at line 333)
-            if (prefs_local != null && prefs_local.category == "saved") {
+            if (prefs_local != null && prefs_local.category == "podcasts") {
+                // Podcasts isn't a FetchNewsController category - it renders
+                // directly into ContentView's containers via PodcastManager
+                // (see the sidebar's category_selected handler above).
+                // Calling fetch_news() here instead would leave the loading
+                // spinner stuck forever, since nothing in that pipeline
+                // recognizes "podcasts" or ever calls fetch_finished().
+                search_entry.set_placeholder_text("Search Podcasts...");
+                if (podcast_manager != null) podcast_manager.show();
+            } else if (prefs_local != null && prefs_local.category == "saved") {
                 // Check if saved articles are already loaded (get_saved_count() always works)
                 if (article_state_store != null && article_state_store.get_saved_count() >= 0) {
                     // Articles already loaded, fetch immediately
@@ -1090,6 +1164,19 @@ public class NewsWindow : Adw.ApplicationWindow {
     // while the heavy implementation lives in `fetch_news_impl` for easier
     // staged extraction.
     public void fetch_news() {
+        // Podcasts isn't a FetchNewsController category - it renders
+        // directly into ContentView's containers via PodcastManager (see
+        // the sidebar's category_selected handler). Guarded centrally here
+        // (rather than at each of fetch_news()'s several call sites -
+        // refresh button, retry button, startup, etc.) so nothing can call
+        // into FetchNewsController while on Podcasts and get stuck on the
+        // loading spinner, since that pipeline has no notion of this
+        // category and never resolves it.
+        if (prefs.category == "podcasts") {
+            if (podcast_manager != null) podcast_manager.show();
+            return;
+        }
+
         FetchNewsController.fetch_news(this);
 
         // Additive only: live scores render underneath whatever the Sports

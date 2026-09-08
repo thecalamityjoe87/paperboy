@@ -15,6 +15,12 @@
       <description>Whether the Popular Categories section in the sidebar is expanded</description>
     </key>
 
+    <key name="sidebar-podcasts-expanded" type="b">
+      <default>true</default>
+      <summary>Podcasts section expanded state</summary>
+      <description>Whether the Podcasts section in the sidebar is expanded</description>
+    </key>
+
     <!-- Window State -->
     <key name="window-width" type="i">
       <default>1400</default>
@@ -170,6 +176,19 @@
       <default>'system'</default>
       <summary>Color scheme</summary>
       <description>Preferred app color scheme ('system', 'light', or 'dark')</description>
+    </key>
+
+    <!-- Podcasts -->
+    <key name="podcast-playback-speed" type="d">
+      <default>1.0</default>
+      <summary>Last used podcast playback speed</summary>
+      <description>Playback rate (1.0, 1.25, 1.5, 2.0) applied to the next episode played</description>
+    </key>
+
+    <key name="podcast-skip-seconds" type="i">
+      <default>30</default>
+      <summary>Podcast skip interval in seconds</summary>
+      <description>Seconds to jump forward/back with the mini-player's skip buttons (e.g. 15 or 30)</description>
     </key>
 
   </schema>

@@ -52,6 +52,7 @@ namespace Managers {
         // laid out into fixed-width rows/columns with uniform gutters, so row and
         // column alignment is enforced structurally instead of by manual bookkeeping.
         public Gtk.FlowBox? columns_row;
+        public Gtk.Label? podcasts_hero_title;
         public Gtk.Box? hero_container;
         public Gtk.Box? featured_box;
         public Gtk.Box? main_content_container;
@@ -285,6 +286,12 @@ namespace Managers {
         // Clears hero/featured containers and rebuilds columns. Call at the
         // start of fetch_news(). is_topten: Top Ten uses 4 columns, others 3.
         public void prepare_for_new_fetch(bool is_topten) {
+            // Only the Podcasts page shows this - see
+            // Managers.PodcastManager.prepare_containers(). Hide it here so
+            // it never lingers over a news category's own hero row after
+            // leaving Podcasts.
+            if (podcasts_hero_title != null) podcasts_hero_title.set_visible(false);
+
             if (featured_box != null) {
                 Gtk.Widget? fchild = featured_box.get_first_child();
                 while (fchild != null) {

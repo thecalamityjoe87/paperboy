@@ -241,6 +241,7 @@ public class HeaderManager : GLib.Object {
             case "economics": return "Economics";
             case "myfeed": return "My Feed";
             case "local_news": return "Local News";
+            case "podcasts": return "Find Podcasts";
             default: break;
         }
         if (cat == null || cat.length == 0) return "News";
