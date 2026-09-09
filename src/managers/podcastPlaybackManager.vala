@@ -79,6 +79,10 @@ namespace Managers {
             player.play();
             player.set_rate(rate);
             episode_changed(episode);
+            // Marked played as soon as playback starts (not on completion) -
+            // same "opened it, counts as read" convention ArticleStateStore
+            // uses for articles.
+            Paperboy.PodcastPlaybackStateStore.get_instance().mark_episode_played(episode.episode_id);
         }
 
         public void play() { player.play(); }

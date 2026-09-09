@@ -347,6 +347,13 @@ namespace Managers {
             // above), and its click handler does nothing meaningful
             // outside the news pipeline anyway.
             content_view.hide_load_more_button();
+            // Same leak, same fix: "No more articles" (see
+            // LoadingStateManager.show_end_of_feed_message()) is also
+            // appended straight into content_box rather than into either
+            // container this controller clears above, and "no more
+            // articles" makes no sense as a message on the Podcasts page
+            // anyway.
+            content_view.remove_end_of_feed_message();
             // The widget itself already got removed by clear_children()
             // above (it's a child of category_sections_container); drop
             // the stale reference too so render_show_more_button() always

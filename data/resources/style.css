@@ -235,6 +235,25 @@
     border-radius: 8px;
 }
 
+/* Already-listened episode: dim the whole row rather than picking out
+   individual labels, so it reads as "done" at a glance the same way a
+   disabled row would. */
+.podcast-episode-row.podcast-episode-played {
+    opacity: 0.55;
+}
+
+/* Small inline "New" pill next to an unplayed episode published since the
+   show was last opened - same accent-pill convention as a selected
+   sidebar row's unread-count-badge. */
+.podcast-episode-new-badge {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    font-size: 0.7em;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 8px;
+}
+
 /* Small pill category chip overlaid on images */
 .category-chip {
     background-color: alpha(black, 0.6);

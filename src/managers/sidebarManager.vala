@@ -74,6 +74,16 @@ public class SidebarManager : GLib.Object {
     // Track unread counts (data only - no widgets)
     private Gee.HashMap<string, int> category_unread_counts;
     private Gee.HashMap<string, int> source_unread_counts;
+    // New (unplayed, published since the show was last opened) episode
+    // counts per subscribed show, keyed by feed_id - filled in lazily by
+    // refresh_podcast_new_count() below since it needs a network fetch,
+    // unlike article unread counts which are already known locally.
+    // Explicit hash/equal funcs: Gee.HashMap<int64?, V> without them
+    // defaults to pointer identity on the boxed key, not value equality,
+    // so has_key()/get() would never match a freshly-boxed int64 with the
+    // same value as an existing key.
+    private Gee.HashMap<int64?, int> podcast_new_counts =
+        new Gee.HashMap<int64?, int>((v) => { return (uint) v; }, (a, b) => { return a == b; });
     
     // Track which categories have been visited by the user
     // Popular categories show "--" until visited, then show actual count
@@ -152,15 +162,37 @@ public class SidebarManager : GLib.Object {
         podcast_store.subscription_added.connect((sub) => {
             Idle.add(() => {
                 podcast_subscription_added(create_podcast_subscription_item_data(sub));
+                refresh_podcast_new_count(sub);
                 return false;
             });
         });
         podcast_store.subscription_removed.connect((feed_id) => {
             Idle.add(() => {
                 podcast_subscription_removed("podcastshow:" + feed_id.to_string());
+                podcast_new_counts.unset(feed_id);
                 return false;
             });
         });
+
+        // Opening a show's episode list (PodcastPane/PodcastDetailDialog)
+        // already accounts for whatever was new - clear its badge
+        // immediately rather than waiting for the next periodic refetch.
+        var playback_state_store = Paperboy.PodcastPlaybackStateStore.get_instance();
+        playback_state_store.show_viewed.connect((feed_id) => {
+            Idle.add(() => {
+                podcast_new_counts.set(feed_id, 0);
+                badge_updated("podcastshow:" + feed_id.to_string(), 0, false);
+                return false;
+            });
+        });
+
+        // Kick off an initial fetch for every subscribed show so badges
+        // populate shortly after startup, same "fetch in the background,
+        // update the badge when it lands" idea as ArticleStateStore's
+        // initial metadata fetch.
+        foreach (var sub in podcast_store.get_all_subscriptions()) {
+            refresh_podcast_new_count(sub);
+        }
 
         // Listen for article viewed/unviewed changes so badges update immediately
         if (window.article_state_store != null) {
@@ -430,8 +462,49 @@ public class SidebarManager : GLib.Object {
         item.icon_key = "podcasts";
         item.item_type = SidebarItemType.SPECIAL;
         item.is_selected = (currently_selected_id == item.id);
-        item.unread_count = 0;
+        item.unread_count = podcast_new_counts.has_key(sub.feed_id) ? podcast_new_counts.get(sub.feed_id) : 0;
         return item;
+    }
+
+    // Fetches this show's most recent episodes and counts how many are
+    // both unplayed and published after the show was last opened, then
+    // updates the sidebar badge once the count is known. A synthetic
+    // (negative) feed_id means the show was added by direct feed URL
+    // rather than discovered via PodcastIndex, so it has no real
+    // PodcastIndex id to query episodes_for_feed() with - re-parse its own
+    // feed directly instead (PodcastFeedResolver.fetch_episodes), same as
+    // PodcastPane/PodcastDetailDialog already do for these shows. Needs a
+    // Soup.Session, so this path is skipped (badge stays 0) if `window` or
+    // its session isn't available yet.
+    private void refresh_podcast_new_count(Paperboy.PodcastSubscription sub) {
+        int64 feed_id = sub.feed_id;
+        var playback_state_store = Paperboy.PodcastPlaybackStateStore.get_instance();
+        int64 last_viewed = playback_state_store.get_last_viewed(feed_id);
+
+        if (feed_id > 0) {
+            var service = Paperboy.PodcastIndexService.get_instance();
+            service.episodes_for_feed(feed_id, 10, (episodes) => {
+                apply_new_count(feed_id, episodes, last_viewed, playback_state_store);
+            });
+        } else if (window != null && window.session != null) {
+            var resolver = Paperboy.PodcastFeedResolver.get_instance();
+            resolver.fetch_episodes(sub.feed_url, sub.title, sub.image_url, window.session, (episodes) => {
+                apply_new_count(feed_id, episodes, last_viewed, playback_state_store);
+            });
+        }
+    }
+
+    private void apply_new_count(int64 feed_id, Gee.ArrayList<Paperboy.PodcastEpisode> episodes, int64 last_viewed,
+            Paperboy.PodcastPlaybackStateStore playback_state_store) {
+        int count = 0;
+        foreach (var episode in episodes) {
+            if (playback_state_store.is_episode_played(episode.episode_id)) continue;
+            var dt = DateUtils.parse_published_datetime(episode.published);
+            if (dt == null || dt.to_unix() <= last_viewed) continue;
+            count++;
+        }
+        podcast_new_counts.set(feed_id, count);
+        badge_updated("podcastshow:" + feed_id.to_string(), count, false);
     }
 
     private Paperboy.PodcastSubscription? find_subscription_by_feed_id(int64 feed_id) {

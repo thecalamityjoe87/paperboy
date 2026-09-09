@@ -41,6 +41,12 @@ public class PodcastDetailDialog : GLib.Object {
         var nav_view = new Adw.NavigationView();
 
         var episode_play_buttons = new Gee.HashMap<int64?, Gtk.Button>();
+        // Explicit hash/equal funcs: Gee.HashMap<int64?, V> without them
+        // defaults to pointer identity on the boxed key, not value
+        // equality, so has_key()/get() would never match a freshly-boxed
+        // int64 with the same value as an existing key.
+        var episode_rows = new Gee.HashMap<int64?, Gtk.Widget>((v) => { return (uint) v; }, (a, b) => { return a == b; });
+        var episode_new_badges = new Gee.HashMap<int64?, Gtk.Widget>((v) => { return (uint) v; }, (a, b) => { return a == b; });
 
         // Cover/title/author/description/subscribe stay fixed at the top -
         // only the episode list below scrolls. The description is capped
@@ -52,15 +58,20 @@ public class PodcastDetailDialog : GLib.Object {
         root.set_margin_top(20);
         root.set_margin_bottom(16);
 
-        var header_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 14);
+        var header_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 16);
 
         var cover_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-        cover_box.set_size_request(96, 96);
         cover_box.set_hexpand(false);
         cover_box.set_vexpand(false);
         cover_box.set_halign(Gtk.Align.START);
         cover_box.set_valign(Gtk.Align.START);
         cover_box.add_css_class("podcast-pane-cover");
+        cover_box.set_overflow(Gtk.Overflow.HIDDEN);
+        // Pins cover_box at exactly 96x96 regardless of what the loaded
+        // cover image's own natural size turns out to be - see
+        // FixedSizeLayoutUtils for why set_size_request() alone isn't
+        // enough.
+        Paperboy.FixedSizeLayoutUtils.apply(cover_box, 96, 96);
 
         var cover_image = new Gtk.Picture();
         cover_image.set_hexpand(true);
@@ -91,8 +102,15 @@ public class PodcastDetailDialog : GLib.Object {
         // Without max_width_chars, a wrapped label's natural size is its
         // *unwrapped* width, which would push the dialog wider instead of
         // actually wrapping - this forces it to wrap to whatever width
-        // title_box's hexpand actually gives it.
+        // title_box's hexpand actually gives it. hexpand+halign(FILL) on
+        // the label itself (not just title_box) keeps that width from
+        // being recomputed from the label's own text - without it, the
+        // gap next to the cover art visibly shifted depending on the
+        // title/description text since each label's own natural-size
+        // request could pull title_box's allocated width around.
         title_label.set_max_width_chars(1);
+        title_label.set_hexpand(true);
+        title_label.set_halign(Gtk.Align.FILL);
         title_box.append(title_label);
 
         var author_label = new Gtk.Label(show.author ?? "");
@@ -100,6 +118,8 @@ public class PodcastDetailDialog : GLib.Object {
         author_label.set_xalign(0);
         author_label.set_wrap(true);
         author_label.set_max_width_chars(1);
+        author_label.set_hexpand(true);
+        author_label.set_halign(Gtk.Align.FILL);
         author_label.set_visible(show.author != null && show.author.length > 0);
         title_box.append(author_label);
 
@@ -111,6 +131,8 @@ public class PodcastDetailDialog : GLib.Object {
         description_label.set_wrap(true);
         description_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
         description_label.set_max_width_chars(1);
+        description_label.set_hexpand(true);
+        description_label.set_halign(Gtk.Align.FILL);
         description_label.set_lines(4);
         description_label.set_ellipsize(Pango.EllipsizeMode.END);
         description_label.set_margin_top(4);
@@ -146,6 +168,20 @@ public class PodcastDetailDialog : GLib.Object {
                 subscribe_button.add_css_class("suggested-action");
             }
         };
+        header_row.append(subscribe_button);
+
+        // "Subscribed" is wider than "Subscribe" - without a locked width,
+        // toggling subscription state changes the button's own width,
+        // which (since it's a non-expanding sibling of title_box in
+        // header_row) eats into title_box's available width and reflows
+        // the description text next to the cover art, even though the
+        // button isn't anywhere near that text visually. Lock the width
+        // to whichever label is widest so toggling never reflows the row.
+        subscribe_button.set_label("Subscribed");
+        int subscribe_min_w, subscribe_nat_w;
+        subscribe_button.measure(Gtk.Orientation.HORIZONTAL, -1, out subscribe_min_w, out subscribe_nat_w, null, null);
+        subscribe_button.set_size_request(subscribe_nat_w, -1);
+
         update_subscribe_state();
 
         subscribe_button.clicked.connect(() => {
@@ -157,7 +193,6 @@ public class PodcastDetailDialog : GLib.Object {
             }
             update_subscribe_state();
         });
-        header_row.append(subscribe_button);
 
         var close_button = new Gtk.Button.from_icon_name("window-close-symbolic");
         close_button.add_css_class("flat");
@@ -219,19 +254,28 @@ public class PodcastDetailDialog : GLib.Object {
 
         ulong state_handler = playback.playback_state_changed.connect(() => { update_episode_play_buttons(); });
         ulong changed_handler = playback.episode_changed.connect(() => { update_episode_play_buttons(); });
+
+        var playback_state_store = Paperboy.PodcastPlaybackStateStore.get_instance();
+        ulong played_handler = playback_state_store.episode_played_changed.connect((episode_id) => {
+            mark_row_played(episode_id, episode_rows, episode_new_badges);
+        });
+
         dialog.closed.connect(() => {
             playback.disconnect(state_handler);
             playback.disconnect(changed_handler);
+            playback_state_store.disconnect(played_handler);
         });
 
         render_episodes.begin(window, playback, show, episode_list_box, episode_spinner,
-            episode_empty_label, episode_play_buttons, update_episode_play_buttons);
+            episode_empty_label, episode_play_buttons, episode_rows, episode_new_badges, update_episode_play_buttons);
     }
 
     private static async void render_episodes(NewsWindow? window, Managers.PodcastPlaybackManager playback,
             Paperboy.PodcastShow show, Gtk.Box episode_list_box,
             Gtk.Spinner episode_spinner, Gtk.Label episode_empty_label,
-            Gee.HashMap<int64?, Gtk.Button> episode_play_buttons, owned VoidFunc update_episode_play_buttons) {
+            Gee.HashMap<int64?, Gtk.Button> episode_play_buttons,
+            Gee.HashMap<int64?, Gtk.Widget> episode_rows, Gee.HashMap<int64?, Gtk.Widget> episode_new_badges,
+            owned VoidFunc update_episode_play_buttons) {
         Gee.ArrayList<Paperboy.PodcastEpisode> episodes;
 
         if (show.from_direct_feed && window != null) {
@@ -268,29 +312,62 @@ public class PodcastDetailDialog : GLib.Object {
 
         playback.set_episode_queue(episodes);
 
+        var state_store = Paperboy.PodcastPlaybackStateStore.get_instance();
+        // Read the *previous* last-viewed time before this open overwrites
+        // it below - that's what decides which episodes are "new".
+        int64 previous_last_viewed = state_store.get_last_viewed(show.feed_id);
+
         foreach (var episode in episodes) {
-            episode_list_box.append(build_episode_row(episode, show, playback, episode_play_buttons));
+            bool is_new = !state_store.is_episode_played(episode.episode_id) && episode_is_after(episode, previous_last_viewed);
+            episode_list_box.append(build_episode_row(episode, show, playback, episode_play_buttons, episode_rows, episode_new_badges, is_new));
         }
         update_episode_play_buttons();
+
+        state_store.mark_show_viewed(show.feed_id);
+    }
+
+    // Best-effort: episodes with an unparseable/missing published date are
+    // never flagged "new" rather than guessed at.
+    private static bool episode_is_after(Paperboy.PodcastEpisode episode, int64 unix_seconds) {
+        var dt = DateUtils.parse_published_datetime(episode.published);
+        if (dt == null) return false;
+        return dt.to_unix() > unix_seconds;
     }
 
     private static Gtk.Widget build_episode_row(Paperboy.PodcastEpisode episode, Paperboy.PodcastShow show,
-            Managers.PodcastPlaybackManager playback, Gee.HashMap<int64?, Gtk.Button> episode_play_buttons) {
+            Managers.PodcastPlaybackManager playback, Gee.HashMap<int64?, Gtk.Button> episode_play_buttons,
+            Gee.HashMap<int64?, Gtk.Widget> episode_rows, Gee.HashMap<int64?, Gtk.Widget> episode_new_badges,
+            bool is_new) {
         var row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
         row.add_css_class("podcast-episode-row");
         row.set_margin_top(8);
         row.set_margin_bottom(8);
         row.set_margin_end(8);
 
+        bool is_played = Paperboy.PodcastPlaybackStateStore.get_instance().is_episode_played(episode.episode_id);
+        if (is_played) row.add_css_class("podcast-episode-played");
+
         var text_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 2);
         text_box.set_hexpand(true);
         text_box.set_valign(Gtk.Align.CENTER);
+
+        var title_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
 
         var episode_title_label = new Gtk.Label(episode.title);
         episode_title_label.add_css_class("article-card-title");
         episode_title_label.set_xalign(0);
         episode_title_label.set_ellipsize(Pango.EllipsizeMode.END);
-        text_box.append(episode_title_label);
+        title_row.append(episode_title_label);
+
+        Gtk.Widget? new_badge = null;
+        if (is_new) {
+            var badge = new Gtk.Label("New");
+            badge.add_css_class("podcast-episode-new-badge");
+            badge.set_valign(Gtk.Align.CENTER);
+            title_row.append(badge);
+            new_badge = badge;
+        }
+        text_box.append(title_row);
 
         string duration_text = format_duration(episode.duration_seconds);
         string when_text = DateUtils.time_ago(episode.published);
@@ -318,8 +395,22 @@ public class PodcastDetailDialog : GLib.Object {
         });
         row.append(play_button);
         episode_play_buttons.set(episode.episode_id, play_button);
+        episode_rows.set(episode.episode_id, row);
+        if (new_badge != null) episode_new_badges.set(episode.episode_id, new_badge);
 
         return row;
+    }
+
+    // Live-updates one already-built row when its episode gets marked
+    // played elsewhere (e.g. its own play button was just clicked) -
+    // avoids re-rendering the whole episode list for a single row change.
+    private static void mark_row_played(int64 episode_id, Gee.HashMap<int64?, Gtk.Widget> episode_rows,
+            Gee.HashMap<int64?, Gtk.Widget> episode_new_badges) {
+        Gtk.Widget? row = episode_rows.has_key(episode_id) ? episode_rows.get(episode_id) : null;
+        if (row != null) row.add_css_class("podcast-episode-played");
+
+        Gtk.Widget? badge = episode_new_badges.has_key(episode_id) ? episode_new_badges.get(episode_id) : null;
+        if (badge != null) badge.set_visible(false);
     }
 
     private static Adw.NavigationPage build_description_page(string title, string full_text) {

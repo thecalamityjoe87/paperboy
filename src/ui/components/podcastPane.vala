@@ -76,6 +76,16 @@ public class PodcastPane : GLib.Object {
     // playback-manager signal instead of each row holding its own
     // long-lived (leaky) connection.
     private Gee.HashMap<int64?, Gtk.Button> episode_play_buttons = new Gee.HashMap<int64?, Gtk.Button>();
+    // Mirror maps for the "played" dimming / "New" badge on each row - see
+    // PodcastDetailDialog's identical setup for why (live per-row updates
+    // without rebuilding the whole list). Explicit hash/equal funcs:
+    // Gee.HashMap<int64?, V> without them defaults to pointer identity on
+    // the boxed key, not value equality, so has_key()/get() would never
+    // match a freshly-boxed int64 with the same value as an existing key.
+    private Gee.HashMap<int64?, Gtk.Widget> episode_rows =
+        new Gee.HashMap<int64?, Gtk.Widget>((v) => { return (uint) v; }, (a, b) => { return a == b; });
+    private Gee.HashMap<int64?, Gtk.Widget> episode_new_badges =
+        new Gee.HashMap<int64?, Gtk.Widget>((v) => { return (uint) v; }, (a, b) => { return a == b; });
 
     public PodcastPane(NewsWindow? window, Managers.PodcastPlaybackManager playback) {
         this.window = window;
@@ -84,6 +94,21 @@ public class PodcastPane : GLib.Object {
 
         playback.playback_state_changed.connect(() => { update_episode_play_buttons(); });
         playback.episode_changed.connect(() => { update_episode_play_buttons(); });
+
+        Paperboy.PodcastPlaybackStateStore.get_instance().episode_played_changed.connect((episode_id) => {
+            mark_row_played(episode_id);
+        });
+    }
+
+    // Live-updates one already-built row when its episode gets marked
+    // played elsewhere (e.g. its own play button was just clicked) -
+    // avoids re-rendering the whole episode list for a single row change.
+    private void mark_row_played(int64 episode_id) {
+        Gtk.Widget? row = episode_rows.has_key(episode_id) ? episode_rows.get(episode_id) : null;
+        if (row != null) row.add_css_class("podcast-episode-played");
+
+        Gtk.Widget? badge = episode_new_badges.has_key(episode_id) ? episode_new_badges.get(episode_id) : null;
+        if (badge != null) badge.set_visible(false);
     }
 
     // Reflects the playback manager's current episode/play-state on every
@@ -164,13 +189,29 @@ public class PodcastPane : GLib.Object {
         // from this show.
         playback.set_episode_queue(episodes);
 
+        var state_store = Paperboy.PodcastPlaybackStateStore.get_instance();
+        // Read the *previous* last-viewed time before this open overwrites
+        // it below - that's what decides which episodes are "new".
+        int64 previous_last_viewed = current_show != null ? state_store.get_last_viewed(current_show.feed_id) : 0;
+
         foreach (var episode in episodes) {
-            episode_list_box.append(build_episode_row(episode));
+            bool is_new = !state_store.is_episode_played(episode.episode_id) && episode_is_after(episode, previous_last_viewed);
+            episode_list_box.append(build_episode_row(episode, is_new));
         }
         // Sync icons immediately - e.g. reopening a show whose episode is
         // already playing in the background shouldn't show every row as
         // "play" until the next playback signal happens to fire.
         update_episode_play_buttons();
+
+        if (current_show != null) state_store.mark_show_viewed(current_show.feed_id);
+    }
+
+    // Best-effort: episodes with an unparseable/missing published date are
+    // never flagged "new" rather than guessed at.
+    private static bool episode_is_after(Paperboy.PodcastEpisode episode, int64 unix_seconds) {
+        var dt = DateUtils.parse_published_datetime(episode.published);
+        if (dt == null) return false;
+        return dt.to_unix() > unix_seconds;
     }
 
     public void close() {
@@ -216,18 +257,17 @@ public class PodcastPane : GLib.Object {
         // doesn't cap its *natural* size, which for a Gtk.Picture is driven
         // by whatever texture is actually loaded. A loaded cover image
         // could still request (and be allocated) far more than 96x96
-        // despite the size_request below. PodcastCard/PodcastHeroCard avoid
-        // this by wrapping the picture in a fixed-size container that's
-        // what the parent actually measures - mirror that here: this Box
-        // is the thing header_row measures (pinned to exactly 96x96, no
-        // content of its own to grow from), and cover_image just fills it.
+        // despite a size_request, shoving the title text over with it.
+        // FixedSizeLayoutUtils pins this box's reported size at exactly
+        // 96x96 regardless of cover_image's own natural size.
         var cover_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-        cover_box.set_size_request(96, 96);
         cover_box.set_hexpand(false);
         cover_box.set_vexpand(false);
         cover_box.set_halign(Gtk.Align.START);
         cover_box.set_valign(Gtk.Align.START);
         cover_box.add_css_class("podcast-pane-cover");
+        cover_box.set_overflow(Gtk.Overflow.HIDDEN);
+        Paperboy.FixedSizeLayoutUtils.apply(cover_box, 96, 96);
 
         cover_image = new Gtk.Picture();
         cover_image.set_hexpand(true);
@@ -251,7 +291,7 @@ public class PodcastPane : GLib.Object {
 
         var title_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
         title_box.set_hexpand(true);
-        title_box.set_valign(Gtk.Align.CENTER);
+        title_box.set_valign(Gtk.Align.START);
 
         title_label = new Gtk.Label("");
         title_label.add_css_class("title-2");
@@ -279,7 +319,7 @@ public class PodcastPane : GLib.Object {
         header_row.append(title_box);
 
         subscribe_button = new Gtk.Button();
-        subscribe_button.set_valign(Gtk.Align.CENTER);
+        subscribe_button.set_valign(Gtk.Align.START);
         subscribe_button.add_css_class("pill");
         subscribe_button.clicked.connect(() => {
             if (current_show == null) return;
@@ -352,24 +392,41 @@ public class PodcastPane : GLib.Object {
             child = next;
         }
         episode_play_buttons.clear();
+        episode_rows.clear();
+        episode_new_badges.clear();
     }
 
-    private Gtk.Widget build_episode_row(Paperboy.PodcastEpisode episode) {
+    private Gtk.Widget build_episode_row(Paperboy.PodcastEpisode episode, bool is_new) {
         var row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
         row.add_css_class("podcast-episode-row");
         row.set_margin_top(8);
         row.set_margin_bottom(8);
         row.set_margin_end(8);
 
+        bool is_played = Paperboy.PodcastPlaybackStateStore.get_instance().is_episode_played(episode.episode_id);
+        if (is_played) row.add_css_class("podcast-episode-played");
+
         var text_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 2);
         text_box.set_hexpand(true);
         text_box.set_valign(Gtk.Align.CENTER);
+
+        var title_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
 
         var episode_title_label = new Gtk.Label(episode.title);
         episode_title_label.add_css_class("article-card-title");
         episode_title_label.set_xalign(0);
         episode_title_label.set_ellipsize(Pango.EllipsizeMode.END);
-        text_box.append(episode_title_label);
+        title_row.append(episode_title_label);
+
+        Gtk.Widget? new_badge = null;
+        if (is_new) {
+            var badge = new Gtk.Label("New");
+            badge.add_css_class("podcast-episode-new-badge");
+            badge.set_valign(Gtk.Align.CENTER);
+            title_row.append(badge);
+            new_badge = badge;
+        }
+        text_box.append(title_row);
 
         string duration_text = format_duration(episode.duration_seconds);
         string when_text = DateUtils.time_ago(episode.published);
@@ -396,6 +453,8 @@ public class PodcastPane : GLib.Object {
         });
         row.append(play_button);
         episode_play_buttons.set(episode.episode_id, play_button);
+        episode_rows.set(episode.episode_id, row);
+        if (new_badge != null) episode_new_badges.set(episode.episode_id, new_badge);
 
         // Only play_button is clickable, not the whole row.
 
