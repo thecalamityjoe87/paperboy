@@ -101,6 +101,25 @@ namespace Managers {
         // restored discover view - same guard shape as PodcastPane's
         // open_request_id.
         private int64 search_request_id = 0;
+        // Last query passed to search() - see the de-dup check at its top,
+        // which exists for the same reason as SearchManager.update_query()'s:
+        // Gtk.SearchEntry's clear (X) icon can fire both search-changed and
+        // stop-search for one click (both wired to this method - see
+        // appWindow.vala), which without this would run show_discover_view()
+        // (a full container rebuild) twice back to back for one click.
+        private string last_search_query = "";
+
+        // Set in show(), which is always called on entering (or returning
+        // to) the Podcasts page. Every async callback below captures this
+        // (or re-reads it, for calls chained off an already-guarded one)
+        // and checks FetchContext.still_owns_view() before rendering, so a
+        // hero/discovery/category-row/search fetch that resolves after the
+        // user has since left Podcasts (or a new visit superseded it) is
+        // dropped instead of appending stray cards into hero_container/
+        // category_sections_container - shared with the news pipeline and,
+        // via the same FetchContext, arbitrated by the same single "who
+        // owns the shared containers right now" mechanism it uses.
+        private FetchContext? podcast_ctx = null;
 
         public PodcastManager(NewsWindow? window, ContentView content_view, Managers.PodcastPlaybackManager playback, PodcastPane? podcast_pane) {
             this.window = window;
@@ -139,6 +158,13 @@ namespace Managers {
         }
 
         public void show() {
+            // Mint a fresh context now - window.prefs.category is already
+            // "podcasts" by the time this runs (SidebarManager sets it
+            // before emitting category_selected). This also invalidates
+            // whatever the news pipeline (or a previous Podcasts visit) had
+            // in flight, via FetchContext's shared global sequence.
+            podcast_ctx = FetchContext.begin_new(window);
+
             prepare_containers();
             if (window != null) window.update_content_header_now();
 
@@ -166,6 +192,8 @@ namespace Managers {
         // later.
         public void search(string query) {
             string trimmed = query.strip();
+            if (trimmed == last_search_query) return;
+            last_search_query = trimmed;
 
             if (search_timeout_id != 0) {
                 GLib.Source.remove(search_timeout_id);
@@ -189,6 +217,7 @@ namespace Managers {
             if (content_view == null) return;
             search_request_id++;
             int64 this_request = search_request_id;
+            var ctx = podcast_ctx;
 
             // Enter "search mode": hide the hero row and discovery rows,
             // show podcast_search_flow (its own dedicated grid, not the
@@ -225,17 +254,18 @@ namespace Managers {
 
             if (matched_category != null) {
                 service.trending_podcasts(TRENDING_MAX, matched_category, (shows) => {
-                    render_search_results(this_request, query, shows);
+                    render_search_results(ctx, this_request, query, shows);
                 });
             } else {
                 service.search_podcasts(query, (shows) => {
-                    render_search_results(this_request, query, shows);
+                    render_search_results(ctx, this_request, query, shows);
                 });
             }
         }
 
-        private void render_search_results(int64 request_id, string query, Gee.ArrayList<Paperboy.PodcastShow> shows) {
+        private void render_search_results(FetchContext? ctx, int64 request_id, string query, Gee.ArrayList<Paperboy.PodcastShow> shows) {
             if (request_id != search_request_id) return; // superseded by a newer search or a clear
+            if (ctx == null || !ctx.still_owns_view()) return; // user has since left Podcasts entirely
             if (content_view == null || content_view.podcast_search_flow == null) return;
 
             clear_flowbox_children(content_view.podcast_search_flow);
@@ -385,9 +415,11 @@ namespace Managers {
         }
 
         private void load_hero_row() {
+            var ctx = podcast_ctx;
             var service = Paperboy.PodcastIndexService.get_instance();
             service.trending_podcasts(4, null, (shows) => {
                 cached_hero_shows = shows;
+                if (ctx == null || !ctx.still_owns_view()) return;
                 render_hero_cards(shows);
             });
         }
@@ -445,6 +477,7 @@ namespace Managers {
         }
 
         private void load_discovery_rows() {
+            var ctx = podcast_ctx;
             var service = Paperboy.PodcastIndexService.get_instance();
             service.get_categories((available_categories) => {
                 cached_available_categories = available_categories;
@@ -460,6 +493,8 @@ namespace Managers {
                     shown_category_names.add(matched);
                 }
                 cached_rows = rows;
+
+                if (ctx == null || !ctx.still_owns_view()) return;
 
                 foreach (var row in rows) {
                     build_category_row(row.name, row.shows);
@@ -540,9 +575,11 @@ namespace Managers {
         }
 
         private void fetch_category_shows(CategoryRowCache row) {
+            var ctx = podcast_ctx;
             var service = Paperboy.PodcastIndexService.get_instance();
             service.trending_podcasts(CATEGORY_ROW_MAX, row.name, (shows) => {
                 row.shows = shows;
+                if (ctx == null || !ctx.still_owns_view()) return;
                 // The section for this row may already have been torn down
                 // (user navigated away before this fetch resolved, or came
                 // back and prepare_containers() rebuilt a fresh one) -

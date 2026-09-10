@@ -72,6 +72,22 @@ public class AppDebugger : GLib.Object {
         if (debug_enabled()) append_debug_log(path, line);
     }
 
+    // Log current process RSS (from /proc/self/status) with a label, to
+    // /tmp/paperboy_mem_trace.log, only when PAPERBOY_DEBUG is set.
+    public static void log_rss(string label) {
+        if (!debug_enabled()) return;
+        try {
+            string contents;
+            FileUtils.get_contents("/proc/self/status", out contents);
+            foreach (var line in contents.split("\n")) {
+                if (line.has_prefix("VmRSS:")) {
+                    append_debug_log("/tmp/paperboy_mem_trace.log", "%s: %s".printf(label, line.substring(6).strip()));
+                    break;
+                }
+            }
+        } catch (GLib.Error e) { }
+    }
+
     // Small helper to join a Gee.ArrayList<string> for debug output
     public static string array_join(Gee.ArrayList<string>? list) {
         if (list == null) return "(null)";

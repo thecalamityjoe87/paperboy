@@ -584,48 +584,66 @@ public class ContentView : GLib.Object {
      * @param query The search query (case-insensitive). Empty string shows all cards.
      */
     public void filter_by_query(string query) {
-        if (window == null || window.layout_manager == null) return;
+        if (window == null || window.layout_manager == null || window.search_manager == null) return;
 
         string query_lower = query.strip().down();
 
-        // RESTORE MODE: Query is empty - restore original layout
+        // RESTORE MODE: query cleared - rebuild the real view via fetch_news()
+        // below, so just drop the search snapshot rather than replaying it.
         if (query_lower.length == 0) {
-            // Delegate layout restoration to LayoutManager
-            window.layout_manager.restore_original_layout();
-
-            // UI presentation updates only
+            window.layout_manager.discard_search_snapshot();
+            window.search_manager.forget_result_urls();
+            malloc_trim(0);
             hero_container.set_visible(true);
 
-            // Restore category subtitle based on category type
-            if (window.prefs != null && window.prefs.category == "topten") {
+            if (window.header_manager != null) {
+                window.header_manager.update_content_header_now();
+            } else if (window.prefs != null && window.prefs.category == "topten") {
                 category_subtitle.set_markup("<span size='22000'><b>TOP STORIES RIGHT NOW</b></span>");
                 category_subtitle.set_visible(true);
                 category_subtitle.queue_resize();
             } else {
                 category_subtitle.set_visible(false);
             }
+
+            window.fetch_news();
             return;
         }
 
         // SEARCH MODE: Prepare for filtering
-        // Delegate to LayoutManager to store original positions
         window.layout_manager.prepare_for_search_filter();
 
         // UI presentation: hide hero
         hero_container.set_visible(false);
 
+        // Sports' live-score sections (SportsScoresController) render
+        // underneath the hero independently of everything else here -
+        // search results shouldn't show live scores from whatever category
+        // was on screen before searching.
+        if (sports_scores_container != null) sports_scores_container.set_visible(false);
+        if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
+        if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
+
+        // Search spans every category, not just the one on screen (e.g.
+        // "Top Ten") - keeping that category's name/icon while showing
+        // unrelated global results was confusing, so swap both for a clear
+        // search-mode title. Restored in RESTORE MODE above. Only touch the
+        // icon on the transition into search mode (not every debounced
+        // keystroke) - update_category_icon() rebuilds/rasterizes it, and
+        // it's already correct for every keystroke after the first.
+        if (category_label.get_text() != "Search results") {
+            category_label.set_text("Search results");
+            if (window.header_manager != null) window.header_manager.update_category_icon();
+        }
+
         // Delegate card dimension calculation to LayoutManager
         int col_w, img_h;
         window.layout_manager.get_card_dimensions(out col_w, out img_h);
 
-        // Get column data from LayoutManager (abstracts internal structure)
-        var columns_children = window.layout_manager.get_cards_for_iteration();
-        if (columns_children == null) return;
-
-        // Use SearchController to filter cards and create ArticleCards from matching heroes
-        var matching_cards = SearchController.filter_cards_from_columns(
-            columns_children,
-            hero_container,
+        // Global search: query every cached category/feed, not just what's
+        // currently rendered, and build fresh cards from the ranked matches.
+        var matching_cards = SearchController.build_global_search_cards(
+            window.search_manager,
             query,
             col_w,
             img_h,
@@ -635,6 +653,7 @@ public class ContentView : GLib.Object {
 
         // Delegate layout manipulation to LayoutManager
         window.layout_manager.apply_search_filter(matching_cards);
+        malloc_trim(0);
 
         // UI presentation: update label
         update_search_label(matching_cards.size, query);

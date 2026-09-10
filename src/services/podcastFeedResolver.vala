@@ -102,6 +102,14 @@ namespace Paperboy {
             return -((int64) h);
         }
 
+        // Same idea as compute_synthetic_feed_id, for one episode within a
+        // direct feed - deterministic and negative so it can't collide with
+        // a real PodcastIndex episode id.
+        private int64 compute_synthetic_episode_id(string seed) {
+            uint h = str_hash(seed);
+            return -((int64) h);
+        }
+
         private Xml.Node* find_channel(Xml.Doc* doc) {
             Xml.Node* root = doc->get_root_element();
             if (root == null) return null;
@@ -187,11 +195,11 @@ namespace Paperboy {
                 if (it->type != Xml.ElementType.ELEMENT_NODE || it->name != "item") continue;
 
                 var episode = new Paperboy.PodcastEpisode();
-                episode.episode_id = 0;
                 episode.feed_id = 0;
                 episode.show_title = show_title;
                 episode.image_url = show_image_url;
                 episode.title = "";
+                string? guid = null;
 
                 for (Xml.Node* c = it->children; c != null; c = c->next) {
                     if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
@@ -214,10 +222,17 @@ namespace Paperboy {
                     } else if (c->name == "image" && c->ns != null && c->ns->prefix == "itunes") {
                         string? href = attr(c, "href");
                         if (href != null && href.length > 0) episode.image_url = href;
+                    } else if (c->name == "guid" && guid == null) {
+                        string? content = c->get_content();
+                        if (content != null && content.strip().length > 0) guid = content.strip();
                     }
                 }
 
                 if (episode.title.length > 0 && episode.audio_url != null && episode.audio_url.length > 0) {
+                    // guid is the canonical per-episode id; fall back to the
+                    // audio url (still unique per episode) if a feed omits it.
+                    string id_seed = guid ?? episode.audio_url;
+                    episode.episode_id = compute_synthetic_episode_id(id_seed);
                     episodes.add(episode);
                 }
             }

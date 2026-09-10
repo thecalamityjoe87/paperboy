@@ -337,7 +337,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     var search_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
 
     var search_entry = new Gtk.SearchEntry();
-    search_entry.set_placeholder_text("Search News for Keywords...");
+    search_entry.set_placeholder_text("Search news for keywords…");
     search_entry.set_max_width_chars(60);
     search_container.append(search_entry);
 
@@ -347,7 +347,20 @@ public class NewsWindow : Adw.ApplicationWindow {
     // on the Podcasts page, to PodcastManager's own debounced live
     // PodcastIndex search instead (see PodcastManager.search()'s doc
     // comment for why this can't just be client-side filtering like news).
-    search_entry.search_changed.connect(() => {
+    ulong search_changed_handler_id = search_entry.search_changed.connect(() => {
+        if (prefs.category == "podcasts") {
+            if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
+            return;
+        }
+        if (search_manager != null) {
+            search_manager.update_query(search_entry.get_text());
+        }
+    });
+
+    // GtkSearchEntry's built-in clear (X) icon emits "stop-search" instead
+    // of "search-changed", so clearing the box that way would otherwise
+    // never reach the handler above and leave the search results showing.
+    ulong stop_search_handler_id = search_entry.stop_search.connect(() => {
         if (prefs.category == "podcasts") {
             if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
             return;
@@ -393,6 +406,18 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Listen for category selections and trigger fetch/update from the window
     sidebar_manager.category_selected.connect((category) => {
+        // Clearing the search box here is just resetting UI/state before
+        // this handler does its own rebuild (podcast_manager.show() or
+        // fetch_news() below) - letting search_entry.set_text("") fire the
+        // normal search-changed/stop-search handlers would run the search
+        // pipeline's OWN restore path (which itself now calls fetch_news(),
+        // see ContentView.filter_by_query's RESTORE MODE) right before this
+        // handler's rebuild, i.e. two full fetch_news() calls back to back
+        // for one navigation. Block those signals around the programmatic
+        // clear and reset SearchManager's state directly instead, so only
+        // this handler's own rebuild actually runs.
+        GLib.SignalHandler.block(search_entry, search_changed_handler_id);
+        GLib.SignalHandler.block(search_entry, stop_search_handler_id);
         if (category == "podcasts") {
             // Podcasts renders into ContentView's own hero_container/
             // category_sections_container - the exact containers Top
@@ -403,8 +428,11 @@ public class NewsWindow : Adw.ApplicationWindow {
             // below as normal, whose LayoutManager.prepare_for_new_fetch()
             // already clears these same containers unconditionally, so no
             // podcast-specific teardown is needed here.
-            search_entry.set_placeholder_text("Search Podcasts...");
+            search_entry.set_placeholder_text("Search podcasts…");
             search_entry.set_text("");
+            if (search_manager != null) search_manager.reset_query_state();
+            GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
+            GLib.SignalHandler.unblock(search_entry, stop_search_handler_id);
             if (podcast_manager != null) podcast_manager.show();
             return;
         }
@@ -412,8 +440,11 @@ public class NewsWindow : Adw.ApplicationWindow {
         // overlay independent of ContentView's containers, so it wouldn't
         // otherwise close itself when the underlying page changes.
         if (podcast_pane != null) podcast_pane.close();
-        search_entry.set_placeholder_text("Search News for Keywords...");
+        search_entry.set_placeholder_text("Search news for keywords…");
         search_entry.set_text("");
+        if (search_manager != null) search_manager.reset_query_state();
+        GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
+        GLib.SignalHandler.unblock(search_entry, stop_search_handler_id);
         if (category == "frontpage") {
             fetch_news();
             return;
@@ -460,6 +491,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     this.main_content_container = content_view.main_content_container;
     layout_manager.hero_container = content_view.hero_container;
     layout_manager.podcasts_hero_title = content_view.podcasts_hero_title;
+    layout_manager.podcast_search_flow = content_view.podcast_search_flow;
     layout_manager.featured_box = content_view.featured_box;
     layout_manager.columns_row = content_view.columns_row;
     layout_manager.category_sections_container = content_view.category_sections_container;
@@ -853,7 +885,7 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // Calling fetch_news() here instead would leave the loading
                 // spinner stuck forever, since nothing in that pipeline
                 // recognizes "podcasts" or ever calls fetch_finished().
-                search_entry.set_placeholder_text("Search Podcasts...");
+                search_entry.set_placeholder_text("Search podcasts…");
                 if (podcast_manager != null) podcast_manager.show();
             } else if (prefs_local != null && prefs_local.category == "saved") {
                 // Check if saved articles are already loaded (get_saved_count() always works)
@@ -871,11 +903,19 @@ public class NewsWindow : Adw.ApplicationWindow {
             }
         }
 
+        // Debug-only: PAPERBOY_LEAK_TEST=1 headlessly drives repeated
+        // search->clear cycles and logs RSS, for reproducing memory issues
+        // without a rendered window - see run_leak_test().
+        if (GLib.Environment.get_variable("PAPERBOY_LEAK_TEST") != null) {
+            run_leak_test();
+        }
+
         // Start recurring feed updates with initial delay
         // Wait 45 seconds after launch so initial content loads smoothly
         // This allows time for user to view initial content and for background
         // metadata fetch to complete before heavy feed regeneration starts
-        if (feed_updater != null) {
+        // Skipped during PAPERBOY_LEAK_TEST - unrelated background work.
+        if (feed_updater != null && GLib.Environment.get_variable("PAPERBOY_LEAK_TEST") == null) {
             GLib.Timeout.add_seconds(45, () => {
                 feed_updater.start_recurring_updates();
                 return false; // One-shot
@@ -1158,6 +1198,41 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Suppress clearing here to avoid excessive eviction when switching
         // categories; rely on the LRU policy instead. Window-close still
         // frees widget-held textures elsewhere.
+    }
+
+    // Debug-only headless leak repro - see PAPERBOY_LEAK_TEST above.
+    private void run_leak_test() {
+        // Force Front Page specifically - a fresh/isolated profile may
+        // default to a different category (e.g. Top Ten), which doesn't
+        // reproduce this bug (different code path - is_topten_view(), not
+        // is_frontpage_view()).
+        prefs.category = "frontpage";
+        fetch_news();
+
+        int cycles_left = 25;
+        Timeout.add(5000, () => {
+            AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log", "leak_test: initial load settled, category=%s".printf(prefs.category));
+            do_leak_cycle(cycles_left);
+            return false;
+        });
+    }
+
+    private void do_leak_cycle(int cycles_left) {
+        if (cycles_left <= 0) {
+            AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log", "leak_test: done, quitting");
+            Timeout.add(500, () => { this.close(); return false; });
+            return;
+        }
+        AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log", "leak_test: cycle start, %d left".printf(cycles_left));
+        if (search_manager != null) search_manager.update_query("trump");
+        Timeout.add(1200, () => {
+            if (search_manager != null) search_manager.update_query("");
+            Timeout.add(3500, () => {
+                do_leak_cycle(cycles_left - 1);
+                return false;
+            });
+            return false;
+        });
     }
 
     // Thin wrapper delegating to FetchNewsController. Keeps public API stable

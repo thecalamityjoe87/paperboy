@@ -197,6 +197,11 @@ public class CategoryIconsUtils : GLib.Object {
     public static Gtk.Widget? create_category_header_icon(string cat, int size) {
         string? filename = null;
         switch (cat) {
+            // Not a real category - HeaderManager.update_category_icon()
+            // passes this synthetic id while a global search is active, so
+            // the header icon matches the "Search results" title instead of
+            // whichever category was on screen before searching.
+            case "search": filename = "search-mono.svg"; break;
             case "topten": filename = "topten-mono.svg"; break;
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;

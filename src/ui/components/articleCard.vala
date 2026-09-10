@@ -204,16 +204,27 @@ public class ArticleCard : GLib.Object {
         });
         root_widget.add_controller(gesture);
 
+        // get_widget() avoids capturing root_widget directly - same cycle
+        // as the class comment above describes for `self`, since these
+        // attach to controllers root_widget itself owns.
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        motion.enter.connect(() => {
+            var w = motion.get_widget();
+            if (w != null) w.add_css_class("card-hover");
+        });
+        motion.leave.connect(() => {
+            var w = motion.get_widget();
+            if (w != null) w.remove_css_class("card-hover");
+        });
         root_widget.add_controller(motion);
 
         var right_click = new Gtk.GestureClick();
         right_click.set_button(3);
         right_click.pressed.connect((n_press, x, y) => {
+            var w = right_click.get_widget() as Gtk.Box;
+            if (w == null) return;
             show_context_menu(
-                root_widget, card_url, article_state_store, parent_window, source_name, x, y,
+                w, card_url, article_state_store, parent_window, source_name, x, y,
                 on_open_in_app, on_open_in_browser, on_follow_source, on_save_for_later, on_share
             );
         });

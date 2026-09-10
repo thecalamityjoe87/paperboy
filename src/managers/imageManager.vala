@@ -362,13 +362,14 @@ public class ImageManager : GLib.Object {
             foreach (var pic in list) {
                 if (pixbuf != null && size_key != null) {
                     try {
-                        var tex = window.image_cache != null ? window.image_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
-                        if (tex != null) {
-                            pic.set_paintable(tex);
-                            try { pending_local_placeholder.remove(pic); } catch (GLib.Error e) { }
-                        } else {
-                            try { pic.set_paintable(Gdk.Texture.for_pixbuf(pixbuf)); } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
+                        var cache = window.image_cache != null ? window.image_cache : ImageCache.get_global();
+                        var tex = cache.get_texture(size_key);
+                        if (tex == null) {
+                            tex = Gdk.Texture.for_pixbuf(pixbuf);
+                            cache.set_texture(size_key, tex);
                         }
+                        pic.set_paintable(tex);
+                        try { pending_local_placeholder.remove(pic); } catch (GLib.Error e) { }
                     } catch (GLib.Error e) { set_fallback_placeholder_for(pic, target_w, target_h, url); }
                 } else {
                     set_fallback_placeholder_for(pic, target_w, target_h, url);
@@ -508,12 +509,15 @@ public class ImageManager : GLib.Object {
     // MAIN THREAD ONLY. Paints an already-cached pixbuf onto `image`
     // immediately (synchronous cache-hit path - no worker pool involved).
     private void paint_synchronously(Gtk.Picture image, string key, Gdk.Pixbuf pixbuf) {
-        var tex = window.image_cache != null ? window.image_cache.get_texture(key) : ImageCache.get_global().get_texture(key);
-        if (tex != null) {
+        var cache = window.image_cache != null ? window.image_cache : ImageCache.get_global();
+        var tex = cache.get_texture(key);
+        try {
+            if (tex == null) {
+                tex = Gdk.Texture.for_pixbuf(pixbuf);
+                cache.set_texture(key, tex);
+            }
             image.set_paintable(tex);
-        } else {
-            try { image.set_paintable(Gdk.Texture.for_pixbuf(pixbuf)); } catch (GLib.Error e) { }
-        }
+        } catch (GLib.Error e) { }
         if (window.loading_state != null) window.loading_state.on_image_loaded(image);
         try { pending_local_placeholder.remove(image); } catch (GLib.Error e) { }
     }
@@ -596,12 +600,16 @@ public class ImageManager : GLib.Object {
                     } catch (GLib.Error e) { }
                 }
                 try {
-                    var tex = img_cache != null ? img_cache.get_texture(size_key) : ImageCache.get_global().get_texture(size_key);
-                    if (tex != null) {
-                        image.set_paintable(tex);
-                    } else {
-                        try { image.set_paintable(Gdk.Texture.for_pixbuf(pix_for_idle)); } catch (GLib.Error e) { }
+                    var cache = img_cache != null ? img_cache : ImageCache.get_global();
+                    var tex = cache.get_texture(size_key);
+                    if (tex == null) {
+                        // Build from the pixbuf already in hand and register
+                        // it directly, so a concurrent eviction of size_key
+                        // can't leave this texture untracked.
+                        tex = Gdk.Texture.for_pixbuf(pix_for_idle);
+                        cache.set_texture(size_key, tex);
                     }
+                    image.set_paintable(tex);
                 } catch (GLib.Error e) { }
                 if (window.loading_state != null) window.loading_state.on_image_loaded(image);
                 return false;
