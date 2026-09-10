@@ -132,6 +132,11 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("sidebar-popular-categories-expanded", value); }
     }
 
+    public bool sidebar_podcasts_expanded {
+        get { return settings.get_boolean("sidebar-podcasts-expanded"); }
+        set { settings.set_boolean("sidebar-podcasts-expanded", value); }
+    }
+
     public string user_location {
         owned get { return settings.get_string("user-location"); }
         set { settings.set_string("user-location", value); }
@@ -175,6 +180,16 @@ public class NewsPreferences : GLib.Object {
     public string update_interval {
         owned get { return settings.get_string("update-interval"); }
         set { settings.set_string("update-interval", value); }
+    }
+
+    public double podcast_playback_speed {
+        get { return settings.get_double("podcast-playback-speed"); }
+        set { settings.set_double("podcast-playback-speed", value); }
+    }
+
+    public int podcast_skip_seconds {
+        get { return settings.get_int("podcast-skip-seconds"); }
+        set { settings.set_int("podcast-skip-seconds", value); }
     }
 
     public Gee.ArrayList<string> personalized_categories {

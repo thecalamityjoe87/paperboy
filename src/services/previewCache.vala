@@ -51,9 +51,10 @@ public class PreviewCacheManager : GLib.Object {
         }
     }
 
-    public static void set_capacity(int c) {
-        ImageCache.get_global().set_capacity(c); 
-    }
+    // No-op, same reasoning as clear_cache(): this used to shrink the
+    // *shared* global ImageCache to a tiny preview-sized capacity (6-12)
+    // on every fetch, crippling caching for every other image in the app.
+    public static void set_capacity(int c) { }
 
     // Compatibility accessor used by older callsites. Returns the global
     // ImageCache so callers can still invoke `.get()`/`.set()` as before.

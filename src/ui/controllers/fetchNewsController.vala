@@ -57,6 +57,13 @@ public class FetchNewsController {
 
     // shared tail of global_add_item(): both buffered and direct paths funnel through here
     private static void dispatch_item(NewsWindow w, FetchContext cur, string title, string url, string? thumbnail, string category_id, string? source_name, string? published, string? snippet) {
+        // Single shared check (see FetchContext.still_owns_view): the
+        // category this fetch started for may no longer be on screen, or a
+        // global search may since have taken over the shared containers
+        // this would render into (ContentView.filter_by_query) - either way
+        // this item no longer belongs to the view currently on screen.
+        if (!cur.still_owns_view()) return;
+
         var cat_mgr = w.category_manager;
         var layout_mgr = w.layout_manager;
         var article_mgr = w.article_manager;
@@ -280,9 +287,6 @@ public class FetchNewsController {
         win.article_manager.article_buffer.clear();
         win.article_manager.articles_shown = 0;
 
-        // Adjust preview cache size for Local News
-        int cache_size = win.category_manager.is_local_news_view() ? 6 : 12;
-        PreviewCacheManager.get_cache().set_capacity(cache_size);
 
         // === PHASE 2: Early exit checks ===
         bool is_myfeed_category = win.category_manager.is_myfeed_category();
@@ -594,6 +598,7 @@ public class FetchNewsController {
 
                 wrapped_clear();
                 wrapped_set_label("Frontpage — Loading from backend (branch 1)");
+            AppDebugger.log_rss("fetch_news: frontpage floor");
             NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
 
             var sidebar_mgr = win.sidebar_manager;

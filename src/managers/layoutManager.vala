@@ -52,6 +52,8 @@ namespace Managers {
         // laid out into fixed-width rows/columns with uniform gutters, so row and
         // column alignment is enforced structurally instead of by manual bookkeeping.
         public Gtk.FlowBox? columns_row;
+        public Gtk.Label? podcasts_hero_title;
+        public Gtk.FlowBox? podcast_search_flow;
         public Gtk.Box? hero_container;
         public Gtk.Box? featured_box;
         public Gtk.Box? main_content_container;
@@ -285,6 +287,29 @@ namespace Managers {
         // Clears hero/featured containers and rebuilds columns. Call at the
         // start of fetch_news(). is_topten: Top Ten uses 4 columns, others 3.
         public void prepare_for_new_fetch(bool is_topten) {
+            // Only the Podcasts page shows this - see
+            // Managers.PodcastManager.prepare_containers(). Hide it here so
+            // it never lingers over a news category's own hero row after
+            // leaving Podcasts.
+            if (podcasts_hero_title != null) podcasts_hero_title.set_visible(false);
+
+            // Podcasts' own search results grid (see PodcastManager.
+            // run_search()) is a separate widget the news pipeline
+            // otherwise never touches - only PodcastManager itself ever
+            // cleared/hid it, so leaving Podcasts mid-search (cleared or
+            // not) for a news category left its stale result cards showing
+            // alongside the new category's articles. Tear it down here too,
+            // the same way podcasts_hero_title is above.
+            if (podcast_search_flow != null) {
+                Gtk.Widget? pchild = podcast_search_flow.get_first_child();
+                while (pchild != null) {
+                    Gtk.Widget? next = pchild.get_next_sibling();
+                    podcast_search_flow.remove(pchild);
+                    pchild = next;
+                }
+                podcast_search_flow.set_visible(false);
+            }
+
             if (featured_box != null) {
                 Gtk.Widget? fchild = featured_box.get_first_child();
                 while (fchild != null) {
@@ -510,13 +535,23 @@ namespace Managers {
                 category_sections_container.remove(child);
                 child = next;
             }
-            malloc_trim(0);
 
+            // Reassigning category_sections/card_home_section below drops
+            // the *only* remaining references to the previous visit's
+            // CategorySection objects and card widgets - including, after a
+            // search, every pre-search card that discard_search_snapshot()/
+            // restore_original_layout() already detached from the widget
+            // tree but couldn't free on their own, since card_home_section
+            // still held each of them as a map key. That's a much bigger
+            // deallocation burst than the plain container-clear above, so
+            // trim after dropping these old maps, not before - trimming
+            // only here (once, after both) covers both bursts in one call.
             category_sections = new Gee.HashMap<string, CategorySection>();
             card_home_section = new Gee.HashMap<Gtk.Widget, CategorySection>();
             section_target_depth = new Gee.HashMap<string, int>();
             active_section_order = new Gee.ArrayList<string>();
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) active_section_order.add(cat);
+            malloc_trim(0);
 
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) {
                 // Written as if/else rather than a nested ternary: mixing an
@@ -595,12 +630,17 @@ namespace Managers {
                 category_sections_container.remove(child);
                 child = next;
             }
-            malloc_trim(0);
 
+            // See the matching comment in prepare_category_sections() -
+            // trim after dropping the old maps below, not before, since
+            // that's what actually releases a search's worth of detached
+            // pre-search cards that only card_home_section was still
+            // referencing.
             category_sections = new Gee.HashMap<string, CategorySection>();
             card_home_section = new Gee.HashMap<Gtk.Widget, CategorySection>();
             section_target_depth = new Gee.HashMap<string, int>();
             active_section_order = new Gee.ArrayList<string>();
+            malloc_trim(0);
 
             // Source-like rows: built-in enabled sources first, then any
             // custom RSS feeds opted into My Feed - unified into one
@@ -796,61 +836,19 @@ namespace Managers {
                 : category_sections.get(MISC_SECTION_KEY);
         }
 
-        /**
-        * A category whose initial-load cards all got squeezed out by the
-        * Front Page's 25-article cap ends up with an empty, still-hidden
-        * section - CategorySection only reveals itself on its first
-        * add_card() call. Since the global "Load more articles" button was
-        * removed for Front Page in favor of each section's own nav-button
-        * "load more", an empty section had no way back: nothing to show it,
-        * and its load-more button lives inside the very wrapper nobody ever
-        * reveals. Call this whenever an article is queued to the overflow
-        * pool so a category's section appears (still empty, but with its
-        * nav button already offering "load more") instead of vanishing
-        * outright. Also covers a section that already has some visible
-        * cards but whose last one exactly filled the row before the cap
-        * was hit: its adjustment never changes again on its own once no
-        * more cards are appended, so its button would otherwise stay stuck
-        * showing "nothing more" even after overflow exists for it. Cheap
-        * enough to call per-queued-article: a fixed ~18 sections against a
-        * queue that only ever holds a few dozen items.
-        *
-        * Auto-loading was originally gated on the hidden->visible
-        * transition alone, so a category that squeaked one single card
-        * into the initial 25-article cap (rather than zero) never got
-        * topped up automatically - "headlines" and "world" sit first in
-        * FRONTPAGE_SECTION_CATEGORIES, so raw fetch order landing them only
-        * one initial card was the most visible version of this, sitting
-        * sparse right at the top of the page. Gating on a minimum card
-        * count instead covers both cases the same way, for every section,
-        * without needing to special-case any specific category.
-        *
-        * The floor is kept low (rescuing only genuinely sparse sections)
-        * and each top-up requests only the shortfall rather than a full
-        * batch: the natural variance from raw fetch order - one section
-        * landing 3 cards, another 4 - is a feature, not a bug to smooth
-        * away. To lean into that rather than merely tolerate it, the floor
-        * itself is randomized per section (see section_target_depth)
-        * instead of one flat number, so top-ups create their own variety
-        * too rather than converging every rescued section on the same
-        * count.
-        */
-        // Kept low and narrow on purpose: a section only reads as visibly
-        // different from its neighbors when it's short enough to NOT fill
-        // the visible row width - once a row has enough cards to overflow
-        // the viewport, every such section looks identical at a glance
-        // ("full width, more via scroll/reload") regardless of how much
-        // higher its actual total is. A wider range (originally 3-7)
-        // mostly landed sections past that overflow point, which is why it
-        // looked like everything converged on the same visible count.
+        // Reveals a section that got squeezed to zero cards by the 25-article
+        // cap (otherwise stuck hidden forever) and refreshes a section whose
+        // load-more button got stuck once its row stopped changing on its
+        // own. Gated on a minimum card count rather than hidden->visible so
+        // a section with just 1 card also gets topped up.
+        // Depth is kept low/randomized per section so a topped-up section
+        // still reads as short (doesn't fill the row) instead of every
+        // section converging on the same visible count.
         private const int MIN_TARGET_DEPTH = 2;
         private const int MAX_TARGET_DEPTH = 5;
 
-        // Roll (once per section per fetch) the card count this section
-        // should be topped up to if it's short. Cached so repeated calls
-        // for the same category - one per queued overflow article - keep
-        // topping up toward the same target instead of a fresh random
-        // number each time.
+        // Rolled once per section per fetch, cached so repeated top-ups
+        // converge on the same target.
         private int get_or_roll_target_depth(string cat) {
             if (section_target_depth == null) section_target_depth = new Gee.HashMap<string, int>();
             if (!section_target_depth.has_key(cat)) {
@@ -1060,9 +1058,28 @@ namespace Managers {
                         section.wrapper.set_visible(false);
                     }
                 }
+                // Global search cards have no home section (they're built
+                // fresh from cross-category results, not from any section's
+                // original cards) and land in columns_row's fallback below -
+                // clear it too so repeated searches don't pile up stale
+                // cards from the previous keystroke's results.
+                clear_columns();
+                // Same reasoning as prepare_category_sections()/
+                // teardown_category_sections() below: search rebuilds up to
+                // MAX_RESULTS cards (with their own decoded thumbnails) on
+                // every debounced keystroke while typing, and freeing that
+                // many widgets in one burst is exactly the glibc
+                // fragmentation pattern malloc_trim() exists to clean up
+                // here - the widgets themselves are already correctly freed
+                // (SearchManager.adopt_result_urls() drops the previous
+                // batch's ViewStateManager entries first), this just
+                // returns that freed heap to the OS instead of leaving it
+                // sitting in glibc's arena looking like growing RSS.
+                malloc_trim(0);
                 return;
             }
             clear_columns();
+            malloc_trim(0);
         }
 
         /**
@@ -1071,13 +1088,21 @@ namespace Managers {
         */
         public void redistribute_cards_across_columns(Gee.ArrayList<Gtk.Widget> card_roots) {
             if (using_category_sections) {
+                bool used_columns_row_fallback = false;
                 foreach (var card_root in card_roots) {
                     CategorySection? home = card_home_section != null ? card_home_section.get(card_root) : null;
                     if (home != null) {
                         home.add_card(card_root);
                     } else if (columns_row != null) {
                         columns_row.append(card_root);
+                        used_columns_row_fallback = true;
                     }
+                }
+                // columns_row is hidden while using category sections (see
+                // switch_to_category_sections) - cards with no home section
+                // (global search results) need it shown to actually appear.
+                if (used_columns_row_fallback && columns_row != null) {
+                    columns_row.set_visible(true);
                 }
                 return;
             }
@@ -1090,6 +1115,23 @@ namespace Managers {
         }
 
         /**
+        * Drop the pre-search card snapshot (see prepare_for_search_filter())
+        * without replaying it - the widgets it references are about to be
+        * torn down and rebuilt from scratch by a fresh fetch anyway (see
+        * SearchManager.reset_query_state(), used when a search is cleared
+        * as a side effect of switching category rather than by the user
+        * clearing the search box directly). Without this, all_original_cards
+        * only ever gets nulled inside restore_original_layout() below - skip
+        * that call even once and it holds every pre-search card widget
+        * (with their decoded thumbnails) alive indefinitely, since its
+        * capture guard (prepare_for_search_filter()) never fires again once
+        * it's non-null.
+        */
+        public void discard_search_snapshot() {
+            all_original_cards = null;
+        }
+
+        /**
         * Restore cards to their original positions after search is cleared
         */
         public void restore_original_layout() {
@@ -1097,12 +1139,24 @@ namespace Managers {
 
             if (using_category_sections) {
                 clear_all_columns_for_filter();
+                bool used_columns_row_fallback = false;
                 foreach (var card_root in all_original_cards) {
                     CategorySection? home = card_home_section != null ? card_home_section.get(card_root) : null;
-                    if (home == null) continue;
-                    home.add_card(card_root);
-                    card_root.set_visible(true);
+                    if (home != null) {
+                        home.add_card(card_root);
+                        card_root.set_visible(true);
+                    } else if (columns_row != null) {
+                        // Shouldn't normally happen for genuinely original
+                        // cards, but better to still show a card with no
+                        // recorded home section than silently drop it.
+                        columns_row.append(card_root);
+                        card_root.set_visible(true);
+                        used_columns_row_fallback = true;
+                    }
                 }
+                // Re-hide columns_row unless it's actually holding restored
+                // cards via the fallback above.
+                if (columns_row != null) columns_row.set_visible(used_columns_row_fallback);
                 all_original_cards = null;
                 return;
             }

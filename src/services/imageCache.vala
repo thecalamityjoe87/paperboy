@@ -219,4 +219,13 @@ public class ImageCache : GLib.Object {
         texture_cache.set(key, tex);
         return tex;
     }
+
+    // Register an already-created texture directly, bypassing get_texture()'s
+    // get-or-create lookup - needed when the caller already has the source
+    // pixbuf in hand and doesn't want an untracked texture (Gdk.Texture.
+    // for_pixbuf() keeps its source pixbuf alive for the texture's whole
+    // lifetime, so a texture built outside this cache never gets evicted).
+    public void set_texture(string key, Gdk.Texture tex) {
+        texture_cache.set(key, tex);
+    }
 }

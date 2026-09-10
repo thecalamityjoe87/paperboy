@@ -261,6 +261,62 @@ namespace Paperboy {
         }
 
         /**
+         * Get cached articles across every feed/category, most recent first.
+         * Backs global search, which needs to look beyond whichever single
+         * feed is currently on screen.
+         */
+        public Gee.ArrayList<CachedArticle?> get_all_cached_articles(int limit = 4000) {
+            var articles = new Gee.ArrayList<CachedArticle?>();
+
+            if (db == null) {
+                GLib.warning("RssArticleCache: Database not initialized");
+                return articles;
+            }
+
+            string sql = """
+                SELECT url, title, thumbnail_url, published_date, feed_url, cached_at, source_name, logo_url, category_id
+                FROM rss_articles
+                ORDER BY cached_at DESC
+                LIMIT ?;
+            """;
+
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                GLib.warning("RssArticleCache: Failed to prepare statement: %s", db.errmsg());
+                return articles;
+            }
+
+            stmt.bind_int(1, limit);
+
+            while ((rc = stmt.step()) == Sqlite.ROW) {
+                CachedArticle article = CachedArticle();
+                article.url = stmt.column_text(0);
+                article.title = stmt.column_text(1);
+                string? thumb = stmt.column_text(2);
+                article.thumbnail_url = (thumb != null && thumb.length > 0) ? thumb : null;
+                string? pub = stmt.column_text(3);
+                article.published_date = (pub != null && pub.length > 0) ? pub : null;
+                article.feed_url = stmt.column_text(4);
+                article.cached_at = stmt.column_int64(5);
+                string? src_name = stmt.column_text(6);
+                article.source_name = (src_name != null && src_name.length > 0) ? src_name : null;
+                string? logo = stmt.column_text(7);
+                article.logo_url = (logo != null && logo.length > 0) ? logo : null;
+                string? cat_id = stmt.column_text(8);
+                article.category_id = (cat_id != null && cat_id.length > 0) ? cat_id : null;
+
+                articles.add(article);
+            }
+
+            if (rc != Sqlite.DONE) {
+                GLib.warning("RssArticleCache: Error reading all cached articles: %s", db.errmsg());
+            }
+
+            return articles;
+        }
+
+        /**
          * Clean up old articles and enforce per-feed limits
          */
         public void cleanup() {

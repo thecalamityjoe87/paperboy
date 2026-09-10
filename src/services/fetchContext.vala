@@ -111,6 +111,32 @@ public class FetchContext : GLib.Object {
     public bool is_valid() {
         return !cancelled && window != null;
     }
+
+    /**
+     * The single check every async render into a shared ContentView
+     * container (hero_container, columns_row, category_sections_container,
+     * sports_scores_container, ...) should make right before touching that
+     * container: is this context still valid, is the window still the one
+     * that started it, is its category still what's on screen, and - since
+     * a global text search takes over those same containers - is no search
+     * currently active? Any "no" means the view this fetch was for isn't
+     * the one currently owning the screen, so the caller should drop the
+     * result instead of rendering it.
+     *
+     * Centralizing this (rather than each caller re-deriving its own
+     * mix of these checks) is what lets every writer into the shared
+     * containers - the news pipeline, Podcasts, Sports Scores, and
+     * anything added later - agree on exactly one definition of "do I
+     * still own this view".
+     */
+    public bool still_owns_view() {
+        if (!is_valid()) return false;
+        var w = window;
+        if (w == null) return false;
+        if (w.prefs != null && expected_category != null && w.prefs.category != expected_category) return false;
+        if (w.search_manager != null && w.search_manager.get_query().strip().length > 0) return false;
+        return true;
+    }
     
     /**
      * Check if this context's sequence matches the current sequence.

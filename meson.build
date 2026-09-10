@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.8.1a',
+  version : '0.9.0a',
   meson_version : '>=0.59.0'
 )
 
@@ -15,6 +15,9 @@ sqlite = dependency('sqlite3')
 webkit = dependency('webkitgtk-6.0')
 geoclue = dependency('libgeoclue-2.0')
 geocode = dependency('geocode-glib-2.0')
+gst = dependency('gstreamer-1.0')
+gst_player = dependency('gstreamer-player-1.0')
+gst_audio = dependency('gstreamer-audio-1.0')
 
 # Generate build-time constants so the application knows where meson
 # installed internal binaries. This avoids hardcoding candidate paths
@@ -44,6 +47,10 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/categorySection.vala',
     'src/ui/components/scoreCard.vala',
     'src/ui/components/toastWidget.vala',
+    'src/ui/components/podcastHeroCard.vala',
+    'src/ui/components/podcastCard.vala',
+    'src/ui/components/podcastPlayerBar.vala',
+    'src/ui/components/podcastPane.vala',
     'src/ui/controllers/fetchNewsController.vala',
     'src/ui/controllers/searchController.vala',
     'src/ui/controllers/sportsScoresController.vala',
@@ -51,8 +58,10 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',
     'src/ui/dialogs/onboardingDialog.vala',
+    'src/ui/dialogs/podcastDetailDialog.vala',
     'src/ui/menus/articleMenu.vala',
     'src/ui/menus/sidebarMenu.vala',
+    'src/ui/menus/podcastMenu.vala',
 
     # Builders
     'src/builders/cardBuilder.vala',
@@ -73,6 +82,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/sportsLiveIndicatorManager.vala',
     'src/managers/searchManager.vala',
     'src/managers/animationManager.vala',
+    'src/managers/podcastManager.vala',
+    'src/managers/podcastPlaybackManager.vala',
 
     # Services / models / resolvers
     'src/services/unreadFetchService.vala',
@@ -91,12 +102,17 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/rssArticleCache.vala',
     'src/services/locationLookupService.vala',
     'src/services/sportsScoresService.vala',
+    'src/services/podcastIndexService.vala',
+    'src/services/podcastFeedResolver.vala',
+    'src/services/podcastSubscriptionStore.vala',
+    'src/services/podcastPlaybackStateStore.vala',
     'src/services/resolvers/articleSourceResolver.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
     'src/models/articleItem.vala',
     'src/models/imageModels.vala',
     'src/models/gameScore.vala',
+    'src/models/podcastModels.vala',
 
     # Fetchers
     'src/services/fetchers/baseFetcher.vala',
@@ -122,9 +138,11 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/dataPathsUtils.vala',
     'src/utils/categoryIconsUtils.vala',
     'src/utils/pixbufUtils.vala',
+    'src/utils/fixedSizeLayoutUtils.vala',
     'src/utils/workerPool.vala',
     'src/utils/httpClientUtils.vala',
     'src/utils/rssValidatorUtils.vala',
+    'src/utils/podcastImageUtils.vala',
     'src/utils/stripHtmlUtils.vala',
     'src/utils/majorCitiesUtils.vala',
 
@@ -133,7 +151,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/processors/imageProcessor.vala',
     'tools/articleScraper.vala',
   ],
-  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, geocode],
+  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, geocode, gst, gst_player, gst_audio],
   install : true,
   link_args : ['-lm']
 )

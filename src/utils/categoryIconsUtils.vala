@@ -48,6 +48,11 @@ public class CategoryIconsUtils : GLib.Object {
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
             case "saved": filename = "saved-mono.svg"; break;
+            case "podcasts": filename = "podcast-mono.svg"; break;
+            // Sidebar's "Find Podcasts" row only - distinct from "podcasts"
+            // above (used by subscription rows) so this icon swap doesn't
+            // affect them.
+            case "podcasts_discover": filename = "antenna-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
             case "markets": filename = "markets-mono.svg"; break;
             case "industries": filename = "industries-mono.svg"; break;
@@ -67,6 +72,13 @@ public class CategoryIconsUtils : GLib.Object {
 
         if (filename != null) {
             string[] candidates = {
+                // 24x24 is the closest match to SIDEBAR_ICON_SIZE (22px) -
+                // checked first since it's crisper than scaling a
+                // differently-sized bare file, but only podcast-mono.svg
+                // actually ships a 24x24 variant today; every other
+                // category here just falls through to the bare symbolic/
+                // file below exactly as before.
+                GLib.Path.build_filename("icons", "symbolic", "24x24", filename),
                 GLib.Path.build_filename("icons", "symbolic", filename),
                 GLib.Path.build_filename("icons", filename)
             };
@@ -89,7 +101,8 @@ public class CategoryIconsUtils : GLib.Object {
                         alt_name = filename + "-white.svg";
 
                     string? white_candidate = null;
-                    white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
+                    white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "24x24", alt_name));
+                    if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
                     if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", alt_name));
                     if (white_candidate != null) use_path = white_candidate;
                 }
@@ -162,6 +175,9 @@ public class CategoryIconsUtils : GLib.Object {
             case "lifestyle":
                 candidates = { "org.gnome.Software-symbolic", "shopping-bag-symbolic", "emblem-favorite-symbolic", "preferences-desktop-personal-symbolic" };
                 break;
+            case "podcasts":
+                candidates = { "podcast-symbolic", "folder-podcast-symbolic", "audio-x-generic-symbolic", "media-optical-symbolic" };
+                break;
             default:
                 candidates = {};
                 break;
@@ -181,10 +197,18 @@ public class CategoryIconsUtils : GLib.Object {
     public static Gtk.Widget? create_category_header_icon(string cat, int size) {
         string? filename = null;
         switch (cat) {
+            // Not a real category - HeaderManager.update_category_icon()
+            // passes this synthetic id while a global search is active, so
+            // the header icon matches the "Search results" title instead of
+            // whichever category was on screen before searching.
+            case "search": filename = "search-mono.svg"; break;
             case "topten": filename = "topten-mono.svg"; break;
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
             case "saved": filename = "saved-mono.svg"; break;
+            // Header only - subscription rows keep the mic icon (see
+            // create_category_icon above).
+            case "podcasts": filename = "antenna-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
             case "markets": filename = "markets-mono.svg"; break;
             case "industries": filename = "industries-mono.svg"; break;

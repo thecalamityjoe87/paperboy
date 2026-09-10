@@ -1,3 +1,19 @@
+paperboy (0.9.0a-1) unstable; urgency=low
+
+  * Added a full podcast experience: discovery, GStreamer-backed playback
+    with a persistent mini-player, SQLite-backed subscriptions, and
+    played/new episode tracking.
+  * Replaced category-scoped search with a fuzzy global search across
+    every cached article's title, source, and URL.
+  * Generalized stale-fetch protection into a shared view-ownership guard
+    applied across news, Podcasts, and Sports Scores.
+  * Fixed several Podcasts memory/rendering issues, including a shared
+    image cache being crushed on every fetch and cover art growing past
+    its fixed size.
+  * New app icon, credited to @hyprlab.
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Wed, 10 Sep 2026 00:00:00 +0000
+
 paperboy (0.8.1a-1) unstable; urgency=low
 
   * My Feed redesigned as interleaved source/category rows, with custom

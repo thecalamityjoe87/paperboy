@@ -33,9 +33,11 @@ public class ContentView : GLib.Object {
     public Gtk.Box content_area;
     public Gtk.Box content_box;
     public Gtk.Box main_content_container;
+    public Gtk.Label podcasts_hero_title;
     public Gtk.Box hero_container;
     public Gtk.Box featured_box;
     public Gtk.FlowBox columns_row;
+    public Gtk.FlowBox podcast_search_flow;
     public Gtk.Box category_sections_container;
     public Gtk.Box sports_scores_container;
     public Gtk.Separator hero_scores_separator;
@@ -158,10 +160,30 @@ public class ContentView : GLib.Object {
         main_content_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         main_content_container.set_halign(Gtk.Align.FILL);
         main_content_container.set_hexpand(true);
+        // Explicit top-anchor: without it, sparse content shorter than the
+        // viewport (e.g. one podcast search result) ended up centered.
+        main_content_container.set_valign(Gtk.Align.START);
         main_content_container.set_margin_start(Managers.LayoutManager.H_MARGIN);
         main_content_container.set_margin_end(Managers.LayoutManager.H_MARGIN);
         main_content_container.set_margin_top(6);
         main_content_container.set_margin_bottom(12);
+
+        // Section title shown above hero_container only for the Podcasts
+        // page (see Managers.PodcastManager.prepare_containers()) - same
+        // "caption" + .top-stories-title styling as HeroCarousel's own
+        // "FEATURED" label, so it reads as the same kind of section header.
+        // Permanent sibling of hero_container (hidden by default), toggled
+        // the same way hero_scores_separator/hero_frontpage_separator are:
+        // LayoutManager.prepare_for_new_fetch() hides it again whenever any
+        // news category is fetched, so it never lingers over Top Ten/Front
+        // Page's own hero rows after leaving Podcasts.
+        podcasts_hero_title = new Gtk.Label("");
+        podcasts_hero_title.set_xalign(0);
+        podcasts_hero_title.add_css_class("caption");
+        podcasts_hero_title.add_css_class("top-stories-title");
+        podcasts_hero_title.set_markup("<span size='26000'><b>START LISTENING</b></span>");
+        podcasts_hero_title.set_visible(false);
+        main_content_container.append(podcasts_hero_title);
 
         // Hero container - fill the main container width
         // 12px spacing for Top Ten side-by-side heroes, 0 for carousel
@@ -234,6 +256,35 @@ public class ContentView : GLib.Object {
         // Do not call rebuild_columns here; caller will arrange columns
         main_content_container.append(columns_row);
 
+        // Dedicated grid for podcast search results, deliberately separate
+        // from columns_row above (shared with the news-article grid and
+        // reconfigured elsewhere by LayoutManager.rebuild_columns()).
+        // Fixed at exactly 4 columns, homogeneous, FILL - no dynamic
+        // column count, so padding stays even on both sides.
+        podcast_search_flow = new Gtk.FlowBox();
+        podcast_search_flow.set_halign(Gtk.Align.FILL);
+        podcast_search_flow.set_valign(Gtk.Align.START);
+        podcast_search_flow.set_hexpand(true);
+        // vexpand false: with true, a sparse result set ended up vertically
+        // centered in the claimed space instead of staying pinned to top.
+        podcast_search_flow.set_vexpand(false);
+        podcast_search_flow.set_homogeneous(true);
+        podcast_search_flow.set_row_spacing(16);
+        podcast_search_flow.set_column_spacing(16);
+        podcast_search_flow.set_selection_mode(Gtk.SelectionMode.NONE);
+        podcast_search_flow.set_min_children_per_line(4);
+        podcast_search_flow.set_max_children_per_line(4);
+        // Explicit, equal, fixed margins on the FlowBox itself - not
+        // relying on FILL's internal distribution to be symmetric on its
+        // own. main_content_container's own H_MARGIN already applies
+        // equally on both sides around this box, so 0/0 here just makes
+        // that explicit rather than assumed.
+        podcast_search_flow.set_margin_start(0);
+        podcast_search_flow.set_margin_end(0);
+        podcast_search_flow.set_visible(false);
+
+        main_content_container.append(podcast_search_flow);
+
         // Same faint divider as hero_scores_separator/scores_articles_separator,
         // shown only alongside category_sections_container (see LayoutManager's
         // prepare_category_sections/teardown_category_sections) so it never
@@ -270,7 +321,12 @@ public class ContentView : GLib.Object {
         loading_spinner.set_size_request(48, 48);
         loading_container.append(loading_spinner);
 
-        loading_label = new Gtk.Label("Loading news...");
+        // Constructed empty - loading_container is only ever made visible
+        // from LoadingStateManager.show_loading_spinner(), which always
+        // sets this label's real text right before showing it, so a
+        // default here would never actually be seen. That's the one place
+        // this text is set now - see it for the actual wording.
+        loading_label = new Gtk.Label("");
         loading_label.add_css_class("dim-label");
         loading_label.add_css_class("title-4");
         loading_container.append(loading_label);
@@ -528,48 +584,66 @@ public class ContentView : GLib.Object {
      * @param query The search query (case-insensitive). Empty string shows all cards.
      */
     public void filter_by_query(string query) {
-        if (window == null || window.layout_manager == null) return;
+        if (window == null || window.layout_manager == null || window.search_manager == null) return;
 
         string query_lower = query.strip().down();
 
-        // RESTORE MODE: Query is empty - restore original layout
+        // RESTORE MODE: query cleared - rebuild the real view via fetch_news()
+        // below, so just drop the search snapshot rather than replaying it.
         if (query_lower.length == 0) {
-            // Delegate layout restoration to LayoutManager
-            window.layout_manager.restore_original_layout();
-
-            // UI presentation updates only
+            window.layout_manager.discard_search_snapshot();
+            window.search_manager.forget_result_urls();
+            malloc_trim(0);
             hero_container.set_visible(true);
 
-            // Restore category subtitle based on category type
-            if (window.prefs != null && window.prefs.category == "topten") {
+            if (window.header_manager != null) {
+                window.header_manager.update_content_header_now();
+            } else if (window.prefs != null && window.prefs.category == "topten") {
                 category_subtitle.set_markup("<span size='22000'><b>TOP STORIES RIGHT NOW</b></span>");
                 category_subtitle.set_visible(true);
                 category_subtitle.queue_resize();
             } else {
                 category_subtitle.set_visible(false);
             }
+
+            window.fetch_news();
             return;
         }
 
         // SEARCH MODE: Prepare for filtering
-        // Delegate to LayoutManager to store original positions
         window.layout_manager.prepare_for_search_filter();
 
         // UI presentation: hide hero
         hero_container.set_visible(false);
 
+        // Sports' live-score sections (SportsScoresController) render
+        // underneath the hero independently of everything else here -
+        // search results shouldn't show live scores from whatever category
+        // was on screen before searching.
+        if (sports_scores_container != null) sports_scores_container.set_visible(false);
+        if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
+        if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
+
+        // Search spans every category, not just the one on screen (e.g.
+        // "Top Ten") - keeping that category's name/icon while showing
+        // unrelated global results was confusing, so swap both for a clear
+        // search-mode title. Restored in RESTORE MODE above. Only touch the
+        // icon on the transition into search mode (not every debounced
+        // keystroke) - update_category_icon() rebuilds/rasterizes it, and
+        // it's already correct for every keystroke after the first.
+        if (category_label.get_text() != "Search results") {
+            category_label.set_text("Search results");
+            if (window.header_manager != null) window.header_manager.update_category_icon();
+        }
+
         // Delegate card dimension calculation to LayoutManager
         int col_w, img_h;
         window.layout_manager.get_card_dimensions(out col_w, out img_h);
 
-        // Get column data from LayoutManager (abstracts internal structure)
-        var columns_children = window.layout_manager.get_cards_for_iteration();
-        if (columns_children == null) return;
-
-        // Use SearchController to filter cards and create ArticleCards from matching heroes
-        var matching_cards = SearchController.filter_cards_from_columns(
-            columns_children,
-            hero_container,
+        // Global search: query every cached category/feed, not just what's
+        // currently rendered, and build fresh cards from the ranked matches.
+        var matching_cards = SearchController.build_global_search_cards(
+            window.search_manager,
             query,
             col_w,
             img_h,
@@ -579,6 +653,7 @@ public class ContentView : GLib.Object {
 
         // Delegate layout manipulation to LayoutManager
         window.layout_manager.apply_search_filter(matching_cards);
+        malloc_trim(0);
 
         // UI presentation: update label
         update_search_label(matching_cards.size, query);

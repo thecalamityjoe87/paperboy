@@ -29,6 +29,7 @@ A simple news app written in Vala, built with GTK4 and Libadwaita. My motivation
 - 📖 **In-app article viewing** – read articles without leaving the app, with a built-in ad blocker for a cleaner reading experience.
 - 🌍 **Local news support** – uses your location (via GeoClue) to surface news for your area.
 - 🏆 **Live sports scores** – track live and recent game scores from a dedicated sports view.
+- 🎙️ **Podcasts** – discover and subscribe to podcasts, with built-in playback, a persistent mini-player, and played/new episode tracking.
 - 🔗 **Share articles** – quickly share articles you find to other apps.
 
 ### WARNING

@@ -78,6 +78,17 @@ public class HeaderManager : GLib.Object {
         // Clear existing icon
         clear_category_icon_holder();
 
+        // A global search takes over the header title (see
+        // ContentView.filter_by_query, which sets category_label to
+        // "Search results") independently of window.prefs.category, which
+        // stays whatever category was selected before searching - so the
+        // icon needs the same override, not the category switch below.
+        if (window.search_manager != null && window.search_manager.get_query().strip().length > 0) {
+            var search_icon = CategoryIconsUtils.create_category_header_icon("search", 36);
+            if (search_icon != null) category_icon_holder.append(search_icon);
+            return;
+        }
+
         // Handle RSS feed icons
         if (window.prefs.category != null && window.prefs.category.has_prefix("rssfeed:")) {
             set_rss_feed_icon();
@@ -241,6 +252,7 @@ public class HeaderManager : GLib.Object {
             case "economics": return "Economics";
             case "myfeed": return "My Feed";
             case "local_news": return "Local News";
+            case "podcasts": return "Find Podcasts";
             default: break;
         }
         if (cat == null || cat.length == 0) return "News";

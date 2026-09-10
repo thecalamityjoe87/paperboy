@@ -1257,6 +1257,10 @@ namespace Managers {
         // Capture plain widget locals - see ArticleCard.wire_interactions().
         var card_root = article_card.root;
         var card_save_ribbon = article_card.save_ribbon;
+        // Tagged here so on_save_for_later below can look it up by URL
+        // instead of capturing card_root directly (would cycle with its own
+        // gesture controller - see wire_interactions()).
+        card_root.set_data("card-save-ribbon", card_save_ribbon);
         ArticleCard.wire_interactions(
             card_root,
             url,
@@ -1278,17 +1282,23 @@ namespace Managers {
             },
             (article_url) => {
                 if (window.article_state_store != null) {
+                    // Look up the card by URL rather than capturing it -
+                    // see the comment above card_root.set_data() a few
+                    // lines up.
+                    string looked_up_norm = window.normalize_article_url(article_url);
+                    Gtk.Widget? live_root = window.view_state != null ? window.view_state.get_card_for_url(looked_up_norm) : null;
+                    Gtk.Widget? live_ribbon = live_root != null ? live_root.get_data<Gtk.Widget>("card-save-ribbon") : null;
+
                     bool is_saved = window.article_state_store.is_saved(article_url);
                     if (is_saved) {
                         window.article_state_store.unsave_article(article_url);
-                        if (window.animation_manager != null) {
-                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, title, false);
+                        if (window.animation_manager != null && live_root != null && live_ribbon != null) {
+                            window.animation_manager.animate_save_toggle(live_root, live_ribbon, title, false);
                         }
                         if (window.prefs.category == "saved") {
-                            if (window.animation_manager != null) {
-                                var w = card_root;
-                                string normalized = norm;
-                                if (window.view_state != null) window.view_state.unregister_card_for_url(normalized);
+                            if (window.animation_manager != null && live_root != null) {
+                                var w = live_root;
+                                if (window.view_state != null) window.view_state.unregister_card_for_url(looked_up_norm);
                                 window.animation_manager.animate_card_exit_and_remove(w, 0);
                             } else {
                                 window.fetch_news();
@@ -1298,8 +1308,8 @@ namespace Managers {
                     } else {
                         window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
                         request_show_toast("Added article to saved");
-                        if (window.animation_manager != null) {
-                            window.animation_manager.animate_save_toggle(card_root, card_save_ribbon, title, true);
+                        if (window.animation_manager != null && live_root != null && live_ribbon != null) {
+                            window.animation_manager.animate_save_toggle(live_root, live_ribbon, title, true);
                         }
                     }
                 }

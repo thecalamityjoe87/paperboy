@@ -81,6 +81,8 @@ public static int main(string[] args) {
     mallopt(M_ARENA_MAX, 4);
     mallopt(M_ARENA_TEST, 1);
 
+    Gst.init(ref args);
+
     var app = new PaperboyApp();
     return app.run(args);
 }

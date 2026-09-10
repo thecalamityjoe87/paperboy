@@ -43,6 +43,13 @@ public class SportsScoresController : GLib.Object {
 
     private static uint timeout_id = 0;
     private static weak NewsWindow? active_window = null;
+    // Captured in load(), which always runs right after the fetch_news()
+    // call that mints it (see appWindow.vala) - reusing that same
+    // FetchContext, rather than a separate ad hoc guard, means Sports
+    // Scores is arbitrated by the exact same "who owns the shared
+    // containers right now" mechanism as the news pipeline, Podcasts, and
+    // search (see FetchContext.still_owns_view()).
+    private static FetchContext? active_ctx = null;
 
     // Last successfully fetched games per league, served on a transient
     // per-poll failure so a section doesn't flicker away just because one
@@ -68,6 +75,7 @@ public class SportsScoresController : GLib.Object {
         }
 
         active_window = win;
+        active_ctx = FetchContext.current_context();
         fetch_and_populate(win);
     }
 
@@ -101,7 +109,7 @@ public class SportsScoresController : GLib.Object {
         }
         timeout_id = Timeout.add_seconds(seconds, () => {
             timeout_id = 0;
-            if (active_window == null || active_window.prefs.category != "sports") {
+            if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
                 return false;
             }
             fetch_and_populate(active_window);
@@ -153,12 +161,13 @@ public class SportsScoresController : GLib.Object {
         // closure right here rather than going through a helper that fans
         // out internally - see the comment on SportsScoresService.fetch_league
         // for why (a use-after-free hit during manual testing otherwise).
+        var ctx = active_ctx;
         foreach (var league_key in league_keys) {
             SportsScoresService.fetch_league(league_key, (returned_key, games) => {
-                // The user may have navigated away while this request was
-                // in flight; drop the result rather than populate a
-                // hidden/stale view.
-                if (win.prefs.category != "sports") return;
+                // The user may have navigated away (or started a search)
+                // while this request was in flight; drop the result rather
+                // than populate a hidden/stale/search-owned view.
+                if (ctx == null || !ctx.still_owns_view()) return;
 
                 if (games != null) {
                     last_good().set(returned_key, games);
@@ -180,7 +189,7 @@ public class SportsScoresController : GLib.Object {
 
     private static void render(NewsWindow win, Gee.ArrayList<string> league_keys, Gee.HashMap<string, Gee.ArrayList<GameScore>> results) {
         if (win.content_view == null || win.content_view.sports_scores_container == null) return;
-        if (win.prefs.category != "sports") return;
+        if (active_ctx == null || !active_ctx.still_owns_view()) return;
 
         var container = win.content_view.sports_scores_container;
 

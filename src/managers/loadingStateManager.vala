@@ -118,7 +118,7 @@ public class LoadingStateManager : GLib.Object {
             if (prefs_local != null && prefs_local.category == "local_news") {
                 loading_label.set_text("Loading local news...");
             } else {
-                loading_label.set_text("Loading news...");
+                loading_label.set_text("Loading content...");
             }
 
             loading_container.set_visible(true);
@@ -130,7 +130,6 @@ public class LoadingStateManager : GLib.Object {
     public void hide_loading_spinner() {
         fetch_finished();
         if (loading_container != null && loading_spinner != null && loading_label != null) {
-            loading_label.set_text("Loading news...");
             loading_container.set_visible(false);
             loading_spinner.stop();
             update_personalization_ui();
