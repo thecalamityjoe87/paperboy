@@ -15,6 +15,10 @@
 ![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot8.png "Optional Title")
 ![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot9.png "Optional Title")
 ![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot10.png "Optional Title")
+![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot11.png "Optional Title")
+![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot12.png "Optional Title")
+![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot13.png "Optional Title")
+![Alt text](https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot14.png "Optional Title")
 
 ## About
 A simple news app written in Vala, built with GTK4 and Libadwaita. My motivation for building this app because I wanted to have a simple, but beautiful native GTK4 news application similar to Apple News. Feel free to test, change, and contribute back to this project.
