@@ -55,7 +55,8 @@ Summary of required toolchain and libraries:
 - Gee collection library: `libgee-0.8-dev`
 - SQLite (runtime and headers): `libsqlite3-dev`
 - GeoClue (used for the local-news location lookup): `libgeoclue-2-dev`
-- geocode-glib (reverse geocoding for location lookup): `libgeocode-glib-2-dev`
+- geocode-glib (reverse geocoding for location lookup): `libgeocode-glib-dev`
+- GStreamer (podcast audio playback: core, base, and "bad" plugins): `libgstreamer1.0-dev`, `libgstreamer-plugins-base1.0-dev`, `libgstreamer-plugins-bad1.0-dev`
 - Rust toolchain (Cargo) for building `tools/html2rss` (recommended install via `rustup`)
 - `appimagetool` (optional, to create AppImages)
 
@@ -70,9 +71,10 @@ Debian / Ubuntu:
 sudo apt update
 sudo apt install build-essential valac meson ninja-build pkg-config \
 	libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev \
-	libsoup3.0-dev libjson-glib-dev libgdk-pixbuf-2.0-dev \
+	libsoup-3.0-dev libjson-glib-dev libgdk-pixbuf-2.0-dev \
 	libxml2-dev libgee-0.8-dev libsqlite3-dev \
-	libgeoclue-2-dev libgeocode-glib-2-dev
+	libgeoclue-2-dev libgeocode-glib-dev \
+  libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev
 
 # Rust (recommended via rustup) and appimagetool (optional):
 sudo apt install curl
