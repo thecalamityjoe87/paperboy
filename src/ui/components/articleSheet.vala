@@ -180,6 +180,7 @@ public class ArticleSheet : GLib.Object {
                 // once the article is closed, instead of accumulating for
                 // the lifetime of this long-lived, reused ArticleSheet.
                 setup_webview();
+                if (reader_view != null) reader_view.reset();
                 closed();
             }
         });

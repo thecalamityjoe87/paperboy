@@ -70,6 +70,11 @@ namespace Paperboy {
         // Denormalized so episode cards (e.g. "Your Shows" row) can render
         // the show's title without a separate lookup against PodcastShow.
         public string show_title;
+        // Only set by PodcastPlaybackStateStore.get_last_session() - a
+        // dedicated on-disk copy of this episode's cover art, saved
+        // whenever the last-session row is, so the mini player can restore
+        // it on startup with no network dependency.
+        public string? cover_local_path;
 
         public PodcastEpisode() {
             episode_id = 0;

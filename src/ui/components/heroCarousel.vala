@@ -267,7 +267,8 @@ public class HeroCarousel : GLib.Object {
     public SlideComponents create_article_slide(string title, string url, string? thumbnail_url,
                                                   string category_id, string? source_name,
                                                   Gtk.Widget? category_chip, owned SlideActivatedCallback on_slide_activated,
-                                                  string? published = null) {
+                                                  string? published = null,
+                                                  owned HeroCard.UrlCallback? on_quick_reader = null) {
         var hero = new HeroCard(title, url, SLIDE_MAX_HEIGHT, SLIDE_IMAGE_HEIGHT, category_chip, false, null, null, published);
         hero.source_name = source_name;
         hero.category_id = category_id;
@@ -276,7 +277,7 @@ public class HeroCarousel : GLib.Object {
             hero.root, hero.url, false, null, null, source_name, category_id, thumbnail_url,
             hero.title_label, hero.image, hero.viewed_badge_slot, hero.footer_box, hero.overlay,
             build_slide_activation_adapter(title, thumbnail_url, category_id, source_name, (owned) on_slide_activated),
-            null, null, null, null, null
+            null, null, null, null, null, (owned) on_quick_reader
         );
 
         if (state.widgets.size == 0) {

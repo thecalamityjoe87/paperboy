@@ -264,7 +264,12 @@ public class ArticleCard : GLib.Object {
         var quick_reader_btn = root_widget.get_data<Gtk.Button>("quick-reader-btn");
         if (quick_reader_btn != null) {
             quick_reader_btn.clicked.connect(() => {
-                if (on_quick_reader != null) on_quick_reader(card_url);
+                // Deferred - opening the sheet synchronously mid-click can
+                // leave the button's own gesture unable to fire again.
+                GLib.Idle.add(() => {
+                    if (on_quick_reader != null) on_quick_reader(card_url);
+                    return false;
+                });
             });
         }
 

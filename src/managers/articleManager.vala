@@ -592,7 +592,8 @@ namespace Managers {
                             }
                         }
                     },
-                    (article_url) => { window.show_share_dialog(article_url); }
+                    (article_url) => { window.show_share_dialog(article_url); },
+                    (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
                 );
 
                 if (window.prefs.category == "topten") {
@@ -660,7 +661,8 @@ namespace Managers {
             var components = hero_carousel.create_article_slide(
                 decoded_title, url, thumbnail_url, category_id, source_name, slide_chip,
                 (t, u, thumb, cat, src) => { window.article_pane.show_article_preview(t, u, thumb, cat, src); },
-                published
+                published,
+                (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
             );
 
             var slide_hero = components.hero;
@@ -896,12 +898,12 @@ namespace Managers {
             source_name,
             (s) => {
                 if (window.prefs != null && window.prefs.article_click_opens_reader) {
-                    open_article_in_app_if_online(s, true);
+                    open_article_in_app_if_online(s, true, source_name);
                 } else if (window.article_pane != null) {
                     window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name);
                 }
             },
-            (article_url) => { open_article_in_app_if_online(article_url); },
+            (article_url) => { open_article_in_app_if_online(article_url, null, source_name); },
             (article_url) => { open_article_in_browser_if_online(article_url); },
             (article_url, src_name) => {
                 request_show_toast("Searching for feed...", true);

@@ -364,6 +364,12 @@
     background-color: alpha(black, 0.8);
 }
 
+/* Hero cards are bigger than grid cards, so their hover buttons are too. */
+.hero-card-hover-action-btn {
+    min-width: 62px;
+    min-height: 62px;
+}
+
 /* Shown bottom-right of the title area, opposite the time caption, once
    an article has been read. Plain icon + text, no background pill - it
    sits on the card's own background now, not over an image, so it's
@@ -481,11 +487,42 @@
 .reader-view .reader-hero-image {
     border-radius: 12px;
     margin-bottom: 4px;
+    border: 1px solid alpha(currentColor, 0.12);
 }
 
 .reader-view .reader-source-name {
     font-weight: 700;
     font-size: 1.4em;
+}
+
+.reader-view .reader-video-embed {
+    border-radius: 12px;
+    margin-bottom: 4px;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+.reader-view .reader-video-poster {
+    -gtk-icon-size: 64px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.reader-view .reader-video-play-button {
+    min-width: 64px;
+    min-height: 64px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+    -gtk-icon-size: 28px;
+}
+
+.reader-view .reader-video-watch-label {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #ffffff;
+    font-size: 0.8em;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin: 10px;
 }
 
 .reader-view .circular-logo,

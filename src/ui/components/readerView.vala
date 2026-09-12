@@ -25,6 +25,7 @@ using GLib;
 public class ReaderView : GLib.Object {
     private Gtk.Stack stack;
     private Gtk.Box content_box;
+    private Gtk.ScrolledWindow scroller;
     private Gtk.Spinner spinner;
     private NewsWindow? parent_window;
     private Gtk.MenuButton settings_btn;
@@ -82,7 +83,7 @@ public class ReaderView : GLib.Object {
         error_box.append(error_label);
         stack.add_named(error_box, "error");
 
-        var scroller = new Gtk.ScrolledWindow();
+        scroller = new Gtk.ScrolledWindow();
         scroller.set_hexpand(true);
         scroller.set_vexpand(true);
         // Same class as content_box, so a custom color scheme's background
@@ -354,64 +355,35 @@ public class ReaderView : GLib.Object {
         stack.set_visible_child_name("error");
     }
 
-    public void show_article(ExtractedArticle article, string article_url, string? source_name_encoded = null) {
-        spinner.stop();
+    // Stops any playing video, clears the article out, and scrolls back to
+    // the top - called on close and before loading a new article so state
+    // never leaks from one article into the next.
+    public void reset() {
+        clear_content();
+        show_loading();
+    }
 
+    private void clear_content() {
         Gtk.Widget? child = content_box.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
+            if (child is ReaderVideoEmbed) ((ReaderVideoEmbed) child).stop_playback();
             content_box.remove(child);
             child = next;
         }
+        scroller.get_vadjustment().set_value(0);
+    }
 
-        string? src_display_name = null;
-        string? src_logo_url = null;
-        string? src_filename = null;
+    public void show_article(ExtractedArticle article, string article_url, string? source_name_encoded = null) {
+        spinner.stop();
 
-        // Front Page/Top Ten (paperboy-API-backed) articles carry their
-        // source's display name and logo URL encoded straight into the
-        // card's source_name string - they're never indexed by SourceMetadata
-        // at all (see CardBuilder.parse_encoded_source_name), so try
-        // decoding that first.
-        if (source_name_encoded != null) {
-            CardBuilder.parse_encoded_source_name(source_name_encoded, out src_display_name, out src_logo_url);
-        }
+        clear_content();
 
-        // Regular followed-feed articles: resolve via SourceMetadata, keyed
-        // by the article URL's domain, then (if that fails) by whatever
-        // display name we have.
-        if (src_logo_url == null || src_logo_url.length == 0) {
-            string? url_display_name = null;
-            string? url_logo_url = null;
-            string? url_filename = null;
-            SourceMetadata.get_source_info_by_url(article_url, out url_display_name, out url_logo_url, out url_filename);
-            if (src_display_name == null || src_display_name.length == 0) src_display_name = url_display_name;
-            if (url_logo_url != null && url_logo_url.length > 0) src_logo_url = url_logo_url;
-            if (url_filename != null && url_filename.length > 0) src_filename = url_filename;
-        }
-
-        if (src_logo_url == null || src_logo_url.length == 0) {
-            string? name_key = (src_display_name != null && src_display_name.length > 0) ? src_display_name : article.site_name;
-            if (name_key != null && name_key.length > 0) {
-                string? by_name_logo = SourceMetadata.get_logo_url_for_source(name_key);
-                string? by_name_filename = SourceMetadata.get_saved_filename_for_source(name_key);
-                string? by_name_display = SourceMetadata.get_display_name_for_source(name_key);
-                if (by_name_logo != null && by_name_logo.length > 0) src_logo_url = by_name_logo;
-                if (by_name_filename != null && by_name_filename.length > 0) src_filename = by_name_filename;
-                if (by_name_display != null && by_name_display.length > 0) src_display_name = by_name_display;
-            }
-        }
-
+        string? src_display_name;
+        string? src_logo_url;
+        string? local_logo_path;
+        SourceMetadata.resolve_source_icon(source_name_encoded, article_url, null, out src_display_name, out src_logo_url, out local_logo_path);
         if (src_display_name == null || src_display_name.length == 0) src_display_name = article.site_name;
-
-        // Prefer an already-downloaded local copy over a fresh network
-        // fetch when we have one.
-        string? local_logo_path = null;
-        if (src_filename != null && src_filename.length > 0) {
-            string data_dir = GLib.Environment.get_user_data_dir();
-            string candidate = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", src_filename);
-            if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS)) local_logo_path = candidate;
-        }
 
         if ((src_display_name != null && src_display_name.length > 0) || local_logo_path != null || (src_logo_url != null && src_logo_url.length > 0)) {
             var source_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
@@ -477,12 +449,47 @@ public class ReaderView : GLib.Object {
         sep.set_margin_bottom(6);
         content_box.append(sep);
 
-        // A single TextView (not one Gtk.Label per paragraph) so a mouse
-        // drag can select continuously across paragraph boundaries -
-        // GTK has no way to select text spanning separate label widgets,
-        // which is why dragging used to only ever grab one paragraph at a
-        // time. Blank lines between paragraphs stand in for the vertical
-        // spacing/wrap-mode the labels used to provide.
+        // Blocks are walked in document order; runs of consecutive TEXT
+        // blocks are batched into one Gtk.TextView (not one Gtk.Label per
+        // paragraph) so a mouse drag can select continuously within a run -
+        // GTK has no way to select text spanning separate widgets, which is
+        // why each run still gets its own TextView rather than one shared
+        // across an inline image/video. Blank lines between paragraphs
+        // stand in for the vertical spacing/wrap-mode labels used to
+        // provide.
+        var text_run = new Gee.ArrayList<string>();
+        foreach (var block in article.blocks) {
+            if (block.kind == ArticleBlockKind.TEXT) {
+                text_run.add(block.text);
+                continue;
+            }
+
+            flush_text_run(text_run);
+
+            if (block.kind == ArticleBlockKind.IMAGE && block.image_url != null) {
+                var body_image = new Gtk.Picture();
+                body_image.set_content_fit(Gtk.ContentFit.COVER);
+                body_image.set_size_request(-1, 320);
+                body_image.add_css_class("reader-hero-image");
+                content_box.append(body_image);
+                if (parent_window != null && parent_window.image_manager != null) {
+                    parent_window.image_manager.load_image_async(body_image, block.image_url, 720, 320);
+                }
+            } else if (block.kind == ArticleBlockKind.VIDEO_FILE || block.kind == ArticleBlockKind.VIDEO_EMBED || block.kind == ArticleBlockKind.VIDEO_LINK) {
+                if (block.video_url != null) {
+                    var embed = new ReaderVideoEmbed(block.kind, block.video_url, block.image_url, parent_window);
+                    content_box.append(embed);
+                }
+            }
+        }
+        flush_text_run(text_run);
+
+        stack.set_visible_child_name("content");
+    }
+
+    private void flush_text_run(Gee.ArrayList<string> text_run) {
+        if (text_run.size == 0) return;
+
         var body_view = new Gtk.TextView();
         body_view.add_css_class("reader-paragraph");
         body_view.set_editable(false);
@@ -492,10 +499,10 @@ public class ReaderView : GLib.Object {
         body_view.set_left_margin(0);
         body_view.set_right_margin(0);
         var body_buffer = body_view.get_buffer();
-        body_buffer.set_text(string.joinv("\n\n", article.paragraphs.to_array()));
+        body_buffer.set_text(string.joinv("\n\n", text_run.to_array()));
         content_box.append(body_view);
 
-        stack.set_visible_child_name("content");
+        text_run.clear();
     }
 
     private string build_byline(ExtractedArticle article) {

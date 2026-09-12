@@ -369,11 +369,7 @@ public class ImageManager : GLib.Object {
         if (pixbuf != null && size_key != null) {
             try { if (window.image_cache != null) window.image_cache.set(size_key, pixbuf); else ImageCache.get_global().set(size_key, pixbuf); } catch (GLib.Error e) { }
             if (target_w <= 64 && target_h <= 64) {
-                try {
-                    string any_key = make_cache_key(url, 0, 0);
-                    if (window.image_cache != null) window.image_cache.set(any_key, pixbuf);
-                    else ImageCache.get_global().set(any_key, pixbuf);
-                } catch (GLib.Error e) { }
+                set_any_key_thumb_if_larger(url, pixbuf);
             }
         }
 
@@ -485,7 +481,7 @@ public class ImageManager : GLib.Object {
         if (target_w <= 64 && target_h <= 64) {
             var any_key_thumb = make_cache_key(url, 0, 0);
             var thumb_pb = window.image_cache != null ? window.image_cache.get(any_key_thumb) : ImageCache.get_global().get(any_key_thumb);
-            if (thumb_pb != null) {
+            if (thumb_pb != null && thumb_pb.get_width() >= target_w && thumb_pb.get_height() >= target_h) {
                 paint_synchronously(image, any_key_thumb, thumb_pb);
                 return;
             }
@@ -500,7 +496,7 @@ public class ImageManager : GLib.Object {
 
         var any_key = make_cache_key(url, 0, 0);
         var cached_any_pb = window.image_cache != null ? window.image_cache.get(any_key) : ImageCache.get_global().get(any_key);
-        if (cached_any_pb != null && target_w <= 64 && target_h <= 64) {
+        if (cached_any_pb != null && target_w <= 64 && target_h <= 64 && cached_any_pb.get_width() >= target_w && cached_any_pb.get_height() >= target_h) {
             paint_synchronously(image, any_key, cached_any_pb);
             return;
         }
@@ -625,11 +621,7 @@ public class ImageManager : GLib.Object {
             Idle.add(() => {
                 try { if (img_cache != null) img_cache.set(size_key, pix_for_idle); else ImageCache.get_global().set(size_key, pix_for_idle); } catch (GLib.Error e) { }
                 if (target_w <= 64 && target_h <= 64) {
-                    try {
-                        string any_key = make_cache_key(url, 0, 0);
-                        if (img_cache != null) img_cache.set(any_key, pix_for_idle);
-                        else ImageCache.get_global().set(any_key, pix_for_idle);
-                    } catch (GLib.Error e) { }
+                    set_any_key_thumb_if_larger(url, pix_for_idle);
                 }
                 try {
                     var cache = img_cache != null ? img_cache : ImageCache.get_global();
@@ -725,6 +717,19 @@ public class ImageManager : GLib.Object {
     // Helper to form memory cache keys that include requested size
     public string make_cache_key(string url, int w, int h) {
         return "pixbuf::url:%s::%dx%d".printf(url, w, h);
+    }
+
+    // The size-agnostic "any" thumbnail slot (see load_image_async) must
+    // never end up holding a decode smaller than one it already had, or a
+    // later small request (e.g. a 20x20 card badge) would silently
+    // downgrade it for an earlier, larger requester (e.g. reader view's
+    // 44x44 logo) still to come for the same URL.
+    private void set_any_key_thumb_if_larger(string url, Gdk.Pixbuf pixbuf) {
+        var cache = window.image_cache != null ? window.image_cache : ImageCache.get_global();
+        string any_key = make_cache_key(url, 0, 0);
+        var existing = cache.get(any_key);
+        if (existing != null && existing.get_width() >= pixbuf.get_width() && existing.get_height() >= pixbuf.get_height()) return;
+        try { cache.set(any_key, pixbuf); } catch (GLib.Error e) { }
     }
 
     // Cleanup stale downloads to prevent unbounded HashMap growth and memory leaks

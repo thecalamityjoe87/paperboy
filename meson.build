@@ -42,6 +42,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/articleCard.vala',
     'src/ui/components/articleSheet.vala',
     'src/ui/components/readerView.vala',
+    'src/ui/components/readerVideoEmbed.vala',
     'src/ui/components/heroCard.vala',
     'src/ui/components/heroCarousel.vala',
     'src/ui/components/scrollNavButtons.vala',
@@ -95,6 +96,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/articleStateStore.vala',
     'src/services/articleSnippetService.vala',
     'src/services/articleExtractorService.vala',
+    'src/services/renderedPageFetcher.vala',
     'src/services/imageCache.vala',
     'src/services/newsService.vala',
     'src/services/prefs.vala',
@@ -201,6 +203,10 @@ install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'pap
 # runtime lookups like DataPaths.find_data_file("resources/adblock.css")
 # can locate it both in development and when the app is installed.
 install_data('data/resources/adblock.css', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))
+
+# Mozilla's Readability.js (Apache-2.0), used by RenderedPageFetcher as the
+# reader-view fallback's extraction engine - same install pattern as above.
+install_data('data/resources/readability.js', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))
 
 # Build and install the html2rss helper via Cargo so it is available
 # when running `ninja` / `ninja install`. We use a custom_target that

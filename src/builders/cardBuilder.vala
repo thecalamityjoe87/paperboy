@@ -59,7 +59,26 @@ public class CardBuilder : GLib.Object {
         }
     }
 
-    private static string? source_icon_filename(NewsSource source) {
+    // Shared with SourceMetadata.resolve_source_icon() so other UI (hero
+    // cards, reader view) can find the same bundled logo this badge uses.
+    public static NewsSource? resolve_builtin_news_source(string? display_name) {
+        if (display_name == null || display_name.length == 0) return null;
+        string low = display_name.down();
+        if (low.index_of("guardian") >= 0) return NewsSource.GUARDIAN;
+        if (low.index_of("bbc") >= 0) return NewsSource.BBC;
+        if (low.index_of("reddit") >= 0) return NewsSource.REDDIT;
+        if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
+            (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) return NewsSource.NEW_YORK_TIMES;
+        if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) return NewsSource.WALL_STREET_JOURNAL;
+        if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
+        if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) return NewsSource.ABC_NEWS;
+        if (low.index_of("npr") >= 0) return NewsSource.NPR;
+        if (low.index_of("fox") >= 0) return NewsSource.FOX;
+        if (low.index_of("pbs") >= 0) return NewsSource.PBS;
+        return null;
+    }
+
+    public static string? source_icon_filename(NewsSource source) {
         switch (source) {
             case NewsSource.GUARDIAN: return "guardian-logo.png";
             case NewsSource.BBC: return "bbc-logo.png";
@@ -474,23 +493,7 @@ public class CardBuilder : GLib.Object {
         // If the API did not provide an explicit logo URL and the name maps to a known source,
         // reuse the bundled badge.
         if (provided_logo_url == null && display_name != null && display_name.length > 0) {
-            // Try to resolve to built-in sources by simple substring matching
-            string low = display_name.down();
-            NewsSource? resolved = null; // Don't fallback to user preference
-            if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
-            else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
-            else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
-            // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
-            else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 || 
-                     (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
-            else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
-            else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
-            else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
-            else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
-            else if (low.index_of("pbs") >= 0) resolved = NewsSource.PBS;
-
-            // Only use bundled badge if we have a positive match
+            NewsSource? resolved = resolve_builtin_news_source(display_name);
             if (resolved != null) {
                 string? icon_path = null;
                 string? fname = source_icon_filename(resolved);

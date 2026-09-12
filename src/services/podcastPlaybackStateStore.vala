@@ -62,6 +62,11 @@ namespace Paperboy {
 
         private Gee.HashSet<int64?>? played_cache = null;
         private Gee.HashMap<int64?, int64?>? last_viewed_cache = null;
+        // save_last_session() runs every ~5s while playing (see
+        // PodcastPlaybackManager.maybe_save_progress) - avoid re-copying the
+        // same episode's cover on every one of those ticks.
+        private int64 cover_saved_for_episode_id = -1;
+        private string? cover_saved_path = null;
 
         private PodcastPlaybackStateStore() {
             db_path = get_database_path();
@@ -124,6 +129,9 @@ namespace Paperboy {
             if (rc2 != Sqlite.OK) {
                 GLib.critical("Failed to create podcast playback state tables: %s", errmsg);
             }
+
+            // Older databases predate this column; add it, ignoring the error if it exists.
+            db.exec("ALTER TABLE podcast_last_session ADD COLUMN image_local_path TEXT;", null, null);
         }
 
         public bool is_episode_played(int64 episode_id) {
@@ -264,10 +272,19 @@ namespace Paperboy {
         public void save_last_session(Paperboy.PodcastEpisode episode, uint64 position_ns, double rate) {
             if (db == null) return;
 
+            if (episode.episode_id != cover_saved_for_episode_id) {
+                string? copied = save_cover_locally(episode.image_url);
+                if (copied != null) {
+                    cover_saved_path = copied;
+                    cover_saved_for_episode_id = episode.episode_id;
+                }
+            }
+            string? local_cover_path = episode.episode_id == cover_saved_for_episode_id ? cover_saved_path : null;
+
             string sql = """
                 INSERT OR REPLACE INTO podcast_last_session
-                    (id, episode_id, feed_id, title, audio_url, image_url, show_title, duration_seconds, position_ns, rate)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    (id, episode_id, feed_id, title, audio_url, image_url, show_title, duration_seconds, position_ns, rate, image_local_path)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """;
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
@@ -284,15 +301,47 @@ namespace Paperboy {
             stmt.bind_int64(7, episode.duration_seconds);
             stmt.bind_int64(8, (int64) position_ns);
             stmt.bind_double(9, rate);
+            if (local_cover_path != null) stmt.bind_text(10, local_cover_path); else stmt.bind_null(10);
             if (stmt.step() != Sqlite.DONE) {
                 GLib.warning("Failed to save last playback session: %s", db.errmsg());
+            }
+        }
+
+        // Copies whatever MetaCache already has on disk for this cover into
+        // a dedicated, non-evictable file - MetaCache is a shared, capped
+        // cache other browsing can push this exact file out of, so it's not
+        // safe to just point the saved session at a MetaCache path directly.
+        private string? save_cover_locally(string? image_url) {
+            if (image_url == null || image_url.length == 0) return null;
+
+            string? cached_path = MetaCache.get_instance().get_cached_path(image_url);
+            if (cached_path == null) return null;
+
+            string? data_dir = DataPathsUtils.get_user_data_dir();
+            if (data_dir == null) return null;
+            string dir = GLib.Path.build_filename(data_dir, "paperboy");
+            try {
+                if (!GLib.FileUtils.test(dir, GLib.FileTest.EXISTS)) GLib.DirUtils.create_with_parents(dir, 0755);
+            } catch (GLib.Error e) { return null; }
+
+            string basename = GLib.Path.get_basename(cached_path);
+            int dot = basename.last_index_of(".");
+            string ext = dot >= 0 ? basename.substring(dot) : "";
+            string dest = GLib.Path.build_filename(dir, "last_session_cover" + ext);
+            try {
+                var src_file = GLib.File.new_for_path(cached_path);
+                var dest_file = GLib.File.new_for_path(dest);
+                src_file.copy(dest_file, GLib.FileCopyFlags.OVERWRITE, null, null);
+                return dest;
+            } catch (GLib.Error e) {
+                return null;
             }
         }
 
         public Paperboy.PodcastLastSession? get_last_session() {
             if (db == null) return null;
 
-            string sql = "SELECT episode_id, feed_id, title, audio_url, image_url, show_title, duration_seconds, position_ns, rate FROM podcast_last_session WHERE id = 1;";
+            string sql = "SELECT episode_id, feed_id, title, audio_url, image_url, show_title, duration_seconds, position_ns, rate, image_local_path FROM podcast_last_session WHERE id = 1;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) return null;
@@ -306,6 +355,8 @@ namespace Paperboy {
             episode.image_url = stmt.column_text(4);
             episode.show_title = stmt.column_text(5);
             episode.duration_seconds = stmt.column_int64(6);
+            string? local_path = stmt.column_text(9);
+            episode.cover_local_path = (local_path != null && GLib.FileUtils.test(local_path, GLib.FileTest.EXISTS)) ? local_path : null;
 
             var session = new Paperboy.PodcastLastSession();
             session.episode = episode;

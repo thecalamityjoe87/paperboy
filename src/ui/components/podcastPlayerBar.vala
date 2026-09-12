@@ -171,6 +171,21 @@ public class PodcastPlayerBar : GLib.Object {
             window.animation_manager.stop_title_marquee(title_label);
         }
         if (window != null) {
+            // set_size_request(36,36) is only a minimum, not a cap - loading
+            // the local cover file directly (full resolution) made Picture
+            // report that huge intrinsic size as its natural size, blowing
+            // up the whole bar's height. Scale it down first instead, same
+            // as the network path's pre-scaled texture already does.
+            if (episode.cover_local_path != null) {
+                try {
+                    var pixbuf = new Gdk.Pixbuf.from_file_at_scale(episode.cover_local_path, 36, 36, false);
+                    cover.set_paintable(Gdk.Texture.for_pixbuf(pixbuf));
+                    revealer.set_reveal_child(true);
+                    return;
+                } catch (GLib.Error e) {
+                    // Fall through to the network path below.
+                }
+            }
             string? art_url = episode.image_url;
             if (art_url != null && art_url.length > 0) {
                 // ignore_fetch_context: true - this cover isn't tied to any

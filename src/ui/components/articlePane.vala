@@ -259,7 +259,7 @@ public class ArticlePane : GLib.Object {
         // Connect to menu signals
         current_article_menu.open_in_app_requested.connect((article_url) => {
             if (parent_window.article_manager != null) {
-                parent_window.article_manager.open_article_in_app_if_online(article_url);
+                parent_window.article_manager.open_article_in_app_if_online(article_url, null, article_source_name);
             }
             if (preview_split != null) preview_split.set_show_sidebar(false);
         });

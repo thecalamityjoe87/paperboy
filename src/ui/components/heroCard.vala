@@ -172,6 +172,40 @@ public class HeroCard : GLib.Object {
         save_ribbon = CardBuilder.build_save_ribbon(already_saved);
         corner_badges.append(save_ribbon);
 
+        // Same quick-open buttons ArticleCard shows on hover, centered over
+        // the image - see ArticleCard's constructor for the full reasoning.
+        bool hover_actions_enabled = parent_window == null || parent_window.prefs == null || parent_window.prefs.card_hover_actions_enabled;
+        var hover_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
+        hover_actions.add_css_class("card-hover-actions");
+        hover_actions.set_halign(Gtk.Align.CENTER);
+        hover_actions.set_valign(Gtk.Align.CENTER);
+        hover_actions.set_hexpand(true);
+        hover_actions.set_vexpand(true);
+        hover_actions.set_visible(hover_actions_enabled);
+
+        var quick_reader_btn = new Gtk.Button();
+        quick_reader_btn.add_css_class("card-hover-action-btn");
+        quick_reader_btn.add_css_class("hero-card-hover-action-btn");
+        quick_reader_btn.set_tooltip_text("Open in reader view");
+        var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
+        quick_reader_icon.set_pixel_size(28);
+        quick_reader_btn.set_child(quick_reader_icon);
+        hover_actions.append(quick_reader_btn);
+
+        var quick_pane_btn = new Gtk.Button();
+        quick_pane_btn.add_css_class("card-hover-action-btn");
+        quick_pane_btn.add_css_class("hero-card-hover-action-btn");
+        quick_pane_btn.set_tooltip_text("Preview article");
+        var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
+        quick_pane_icon.set_pixel_size(28);
+        quick_pane_btn.set_child(quick_pane_icon);
+        hover_actions.append(quick_pane_btn);
+
+        overlay.add_overlay(hover_actions);
+        root.set_data("hero-quick-reader-btn", quick_reader_btn);
+        root.set_data("hero-quick-pane-btn", quick_pane_btn);
+        root.set_data("hero-hover-actions-box", hover_actions);
+
         title_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 10);
         title_box.set_margin_start(20);
         title_box.set_margin_end(16);
@@ -298,7 +332,8 @@ public class HeroCard : GLib.Object {
         owned UrlCallback? on_open_in_browser,
         owned FollowSourceCallback? on_follow_source,
         owned UrlCallback? on_save_for_later,
-        owned UrlCallback? on_share
+        owned UrlCallback? on_share,
+        owned UrlCallback? on_quick_reader = null
     ) {
         // Expose just the pieces external code needs to look up via the
         // widget (search, carousel title/dots updates, viewed-badge
@@ -320,6 +355,25 @@ public class HeroCard : GLib.Object {
             if (on_activated != null) on_activated(card_url);
         });
         root_widget.add_controller(gesture);
+
+        var quick_reader_btn = root_widget.get_data<Gtk.Button>("hero-quick-reader-btn");
+        if (quick_reader_btn != null) {
+            quick_reader_btn.clicked.connect(() => {
+                // Deferred - opening the sheet synchronously mid-click left
+                // the button's gesture unable to fire again after rotation.
+                GLib.Idle.add(() => {
+                    if (on_quick_reader != null) on_quick_reader(card_url);
+                    return false;
+                });
+            });
+        }
+
+        var quick_pane_btn = root_widget.get_data<Gtk.Button>("hero-quick-pane-btn");
+        if (quick_pane_btn != null) {
+            quick_pane_btn.clicked.connect(() => {
+                if (on_activated != null) on_activated(card_url);
+            });
+        }
 
         var motion = new Gtk.EventControllerMotion();
         motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });

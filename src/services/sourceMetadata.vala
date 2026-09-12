@@ -53,6 +53,50 @@ public class SourceMetadata : GLib.Object {
         return path;
     }
 
+    // Single source of truth for "how do we find this article's source
+    // icon" - used by card badges, hero cards, and reader view so they all
+    // resolve the same way instead of each reimplementing this chain.
+    public static void resolve_source_icon(string? source_name_encoded, string? article_url, string? favicon_url, out string? display_name, out string? logo_url, out string? local_path) {
+        logo_url = null;
+        local_path = null;
+        CardBuilder.parse_encoded_source_name(source_name_encoded, out display_name, out logo_url);
+
+        if (logo_url == null && display_name != null && display_name.length > 0) {
+            string? by_name_display = get_display_name_for_source(display_name);
+            if (by_name_display != null && by_name_display.length > 0) display_name = by_name_display;
+
+            string? fname = get_valid_saved_filename_for_source(display_name, 88, 88);
+            string? dir = get_user_logos_dir();
+            if (fname != null && dir != null) local_path = GLib.Path.build_filename(dir, fname);
+            else logo_url = get_logo_url_for_source(display_name);
+        }
+
+        if (logo_url == null && local_path == null && article_url != null && article_url.length > 0) {
+            string? url_display_name = null, url_logo_url = null, url_filename = null;
+            get_source_info_by_url(article_url, out url_display_name, out url_logo_url, out url_filename);
+            if ((display_name == null || display_name.length == 0) && url_display_name != null) display_name = url_display_name;
+            string? dir = get_user_logos_dir();
+            if (url_filename != null && dir != null) {
+                string candidate = GLib.Path.build_filename(dir, url_filename);
+                if (GLib.FileUtils.test(candidate, GLib.FileTest.EXISTS)) local_path = candidate;
+            }
+            if (local_path == null) logo_url = url_logo_url;
+        }
+
+        if (logo_url == null && local_path == null && display_name != null && display_name.length > 0) {
+            var builtin = CardBuilder.resolve_builtin_news_source(display_name);
+            if (builtin != null) {
+                string? fname = CardBuilder.source_icon_filename(builtin);
+                if (fname != null) local_path = DataPathsUtils.find_data_file("icons/" + fname);
+            }
+        }
+
+        if (logo_url == null && local_path == null && favicon_url != null &&
+            (favicon_url.has_prefix("http://") || favicon_url.has_prefix("https://"))) {
+            logo_url = favicon_url;
+        }
+    }
+
     // Per-provider metadata files are stored in the user's data dir under
     // paperboy/source_info (so metadata is separated from the image files).
     // This keeps metadata in a single place and makes it easier to inspect
