@@ -25,6 +25,20 @@ namespace Paperboy {
         public string? original_url { get; set; }
         public int64 created_at { get; set; }
         public int64 last_fetched_at { get; set; }
+        // null = no separate podcast feed found for this site (or not yet
+        // checked); non-null = the discovered podcast feed's own URL,
+        // distinct from `url` (the followed article feed) - see
+        // FeedUpdateManager.maybe_check_for_podcast_feed().
+        public string? podcast_feed_url { get; set; }
+        // Last time the homepage was crawled for a podcast link - rate-
+        // limits maybe_check_for_podcast_feed() separately from the much
+        // more frequent article-feed refresh (last_fetched_at).
+        public int64 podcast_checked_at { get; set; }
+        // How many candidate podcasts were found in total for this site
+        // (see FeedUpdateManager.try_podcastindex_name_search()) - lets
+        // HeaderManager label the button "Browse Podcasts" instead of
+        // "Add podcast" when there's more than one.
+        public int podcast_candidate_count { get; set; }
 
         public RssSource() {
             id = -1;
@@ -34,6 +48,9 @@ namespace Paperboy {
             favicon_url = null;
             created_at = 0;
             last_fetched_at = 0;
+            podcast_feed_url = null;
+            podcast_checked_at = 0;
+            podcast_candidate_count = 1;
         }
 
         public RssSource.with_data(int64 id, string name, string url, string? icon_filename, int64 created_at, int64 last_fetched_at) {
@@ -44,6 +61,7 @@ namespace Paperboy {
             this.favicon_url = null;
             this.created_at = created_at;
             this.last_fetched_at = last_fetched_at;
+            this.podcast_candidate_count = 1;
         }
     }
 }

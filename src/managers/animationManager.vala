@@ -128,6 +128,37 @@ namespace Managers {
         public Adw.TimedAnimation? ribbon_anim;
     }
 
+    // Per-MarqueeLabel marquee bookkeeping - `generation` invalidates any
+    // in-flight Timeout/animation `done` callback left over from a cycle
+    // that stop_title_marquee() already cut short.
+    private class MarqueeState : GLib.Object {
+        public uint generation = 0;
+        public Adw.TimedAnimation? scroll_anim;
+        public uint pause_timeout_id = 0;
+        // Kept alive here for as long as scroll_anim is running - see
+        // animate_card_entrance's identical concern: a MarqueeOffsetAdapter
+        // referenced only by a local variable in run_marquee_cycle() gets
+        // freed by Vala as soon as that function returns, leaving the
+        // animation driving a disposed object (silently a no-op).
+        public MarqueeOffsetAdapter? adapter;
+    }
+
+    // Drives a MarqueeLabel's scroll offset - MarqueeLabel.set_offset() isn't
+    // itself a GObject property Adw.TimedAnimation can bind to directly, so
+    // this adapter forwards an animatable "offset" property to it.
+    private class MarqueeOffsetAdapter : GLib.Object {
+        public double offset { get; set; }
+        private weak MarqueeLabel? label;
+
+        public MarqueeOffsetAdapter(MarqueeLabel label) {
+            GLib.Object();
+            this.label = label;
+            this.notify.connect((o, pspec) => {
+                if (pspec.get_name() == "offset" && label != null) label.set_offset(this.offset);
+            });
+        }
+    }
+
     /* PopScaleAdapter keeps the widget centered at a fixed overlay coordinate
      * while its size_request is animated. This prevents lateral movement when
      * scaling the widget by adjusting margins to keep the visual center fixed.
@@ -189,6 +220,9 @@ namespace Managers {
         // ribbon/ghost/arrival-pulse animations below.
         private Gee.ArrayList<GLib.Object> active_save_animations = new Gee.ArrayList<GLib.Object>();
 
+        // Keyed by the MarqueeLabel it drives - see start_title_marquee().
+        private Gee.HashMap<Gtk.Widget, MarqueeState> marquee_states = new Gee.HashMap<Gtk.Widget, MarqueeState>();
+
         public AnimationManager(NewsWindow win) {
             GLib.Object();
             this.window = win;
@@ -201,6 +235,101 @@ namespace Managers {
                 save_anim_states.set(key, s);
             }
             return s;
+        }
+
+        private MarqueeState get_marquee_state(Gtk.Widget key) {
+            var s = marquee_states.get(key);
+            if (s == null) {
+                s = new MarqueeState();
+                marquee_states.set(key, s);
+            }
+            return s;
+        }
+
+        // Scrolls `label`'s text left-to-right at a slow, readable pace,
+        // holds 5s once it reaches the end, then jumps back to the start
+        // and repeats. A no-op once already running; does nothing (and
+        // briefly recheck-polls) if the text currently fits without
+        // overflowing, e.g. right after the row is realized/resized.
+        public void start_title_marquee(MarqueeLabel label) {
+            if (label == null) return;
+            var state = get_marquee_state(label);
+            if (state.scroll_anim != null || state.pause_timeout_id != 0) return;
+            run_marquee_cycle(label, state, ++state.generation);
+        }
+
+        public void stop_title_marquee(MarqueeLabel label) {
+            if (label == null) return;
+            var state = marquee_states.get(label);
+            if (state == null) return;
+            state.generation++; // invalidates any in-flight done/Timeout callback below
+            if (state.scroll_anim != null) {
+                state.scroll_anim.skip();
+                state.scroll_anim = null;
+            }
+            state.adapter = null;
+            if (state.pause_timeout_id != 0) {
+                GLib.Source.remove(state.pause_timeout_id);
+                state.pause_timeout_id = 0;
+            }
+            label.set_offset(0);
+        }
+
+        private const double MARQUEE_PX_PER_SEC = 30.0;
+        private const uint MARQUEE_PAUSE_MS = 5000;
+
+        private void run_marquee_cycle(MarqueeLabel label, MarqueeState state, uint my_gen) {
+            if (state.generation != my_gen) return; // stopped/restarted since this was scheduled
+
+            int viewport_width = label.get_width();
+            if (viewport_width <= 0) {
+                // Not laid out yet (e.g. the bar was just revealed) - recheck
+                // shortly rather than computing bogus values against a
+                // zero-width row.
+                state.pause_timeout_id = GLib.Timeout.add(100, () => {
+                    state.pause_timeout_id = 0;
+                    run_marquee_cycle(label, state, my_gen);
+                    return false;
+                });
+                return;
+            }
+
+            double max_scroll = label.text_pixel_width() - viewport_width;
+
+            if (max_scroll <= 0) {
+                // Text fits - nothing to scroll yet, but the row may still be
+                // mid-layout (e.g. just realized), so recheck shortly rather
+                // than giving up permanently.
+                label.set_offset(0);
+                state.pause_timeout_id = GLib.Timeout.add(500, () => {
+                    state.pause_timeout_id = 0;
+                    run_marquee_cycle(label, state, my_gen);
+                    return false;
+                });
+                return;
+            }
+
+            var adapter = new MarqueeOffsetAdapter(label);
+            state.adapter = adapter;
+            uint duration_ms = (uint) Math.round(max_scroll / MARQUEE_PX_PER_SEC * 1000.0);
+            var target = new Adw.PropertyAnimationTarget((GLib.Object) adapter, "offset");
+            var anim = new Adw.TimedAnimation(label, 0.0, max_scroll, duration_ms, target);
+            anim.set_easing(Adw.Easing.LINEAR);
+            state.scroll_anim = anim;
+            anim.done.connect(() => {
+                if (state.scroll_anim == anim) state.scroll_anim = null;
+                if (state.generation != my_gen) return;
+                state.pause_timeout_id = GLib.Timeout.add(MARQUEE_PAUSE_MS, () => {
+                    state.pause_timeout_id = 0;
+                    if (state.generation == my_gen) {
+                        label.set_offset(0);
+                        run_marquee_cycle(label, state, my_gen);
+                    }
+                    return false;
+                });
+            });
+            label.set_offset(0);
+            anim.play();
         }
 
         public void animate_card_entrance(Gtk.Widget widget, uint delay_ms) {

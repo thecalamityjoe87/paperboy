@@ -30,6 +30,23 @@ using GLib;
 */
 namespace Paperboy {
 
+    // Saved position/duration for one partially-listened episode - see
+    // PodcastPlaybackStateStore.get_episode_progress().
+    public class PodcastEpisodeProgress : GLib.Object {
+        public uint64 position_ns;
+        public uint64 duration_ns;
+    }
+
+    // The most recently loaded episode plus its playback position/rate -
+    // enough to fully reconstruct a PodcastEpisode and resume it without a
+    // network fetch (audio_url is stored directly). See
+    // PodcastPlaybackStateStore.get_last_session().
+    public class PodcastLastSession : GLib.Object {
+        public Paperboy.PodcastEpisode episode;
+        public uint64 position_ns;
+        public double rate;
+    }
+
     public class PodcastPlaybackStateStore : GLib.Object {
         // Emitted whenever an episode's played state changes, so any
         // visible episode row can refresh its own styling immediately.
@@ -81,6 +98,24 @@ namespace Paperboy {
                 CREATE TABLE IF NOT EXISTS podcast_show_viewed (
                     feed_id INTEGER PRIMARY KEY,
                     last_viewed_at INTEGER NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS podcast_episode_progress (
+                    episode_id INTEGER PRIMARY KEY,
+                    position_ns INTEGER NOT NULL,
+                    duration_ns INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS podcast_last_session (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    episode_id INTEGER NOT NULL,
+                    feed_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    audio_url TEXT NOT NULL,
+                    image_url TEXT,
+                    show_title TEXT,
+                    duration_seconds INTEGER NOT NULL,
+                    position_ns INTEGER NOT NULL,
+                    rate REAL NOT NULL
                 );
             """;
 
@@ -186,6 +221,102 @@ namespace Paperboy {
             while (stmt.step() == Sqlite.ROW) {
                 last_viewed_cache.set(stmt.column_int64(0), stmt.column_int64(1));
             }
+        }
+
+        public void save_episode_progress(int64 episode_id, uint64 position_ns, uint64 duration_ns) {
+            if (db == null) return;
+
+            string sql = "INSERT OR REPLACE INTO podcast_episode_progress (episode_id, position_ns, duration_ns, updated_at) VALUES (?, ?, ?, ?);";
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                return;
+            }
+            stmt.bind_int64(1, episode_id);
+            stmt.bind_int64(2, (int64) position_ns);
+            stmt.bind_int64(3, (int64) duration_ns);
+            stmt.bind_int64(4, GLib.get_real_time() / 1000000);
+            if (stmt.step() != Sqlite.DONE) {
+                GLib.warning("Failed to save episode progress: %s", db.errmsg());
+            }
+        }
+
+        public Paperboy.PodcastEpisodeProgress? get_episode_progress(int64 episode_id) {
+            if (db == null) return null;
+
+            string sql = "SELECT position_ns, duration_ns FROM podcast_episode_progress WHERE episode_id = ?;";
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) return null;
+            stmt.bind_int64(1, episode_id);
+            if (stmt.step() != Sqlite.ROW) return null;
+
+            var progress = new Paperboy.PodcastEpisodeProgress();
+            progress.position_ns = (uint64) stmt.column_int64(0);
+            progress.duration_ns = (uint64) stmt.column_int64(1);
+            return progress;
+        }
+
+        // Records "what's currently loaded" so it can be restored, paused,
+        // on the next app launch (see NewsWindow's startup and
+        // PodcastPlaybackManager.load_paused()). One row only (id = 1).
+        public void save_last_session(Paperboy.PodcastEpisode episode, uint64 position_ns, double rate) {
+            if (db == null) return;
+
+            string sql = """
+                INSERT OR REPLACE INTO podcast_last_session
+                    (id, episode_id, feed_id, title, audio_url, image_url, show_title, duration_seconds, position_ns, rate)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """;
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                return;
+            }
+            stmt.bind_int64(1, episode.episode_id);
+            stmt.bind_int64(2, episode.feed_id);
+            stmt.bind_text(3, episode.title);
+            stmt.bind_text(4, episode.audio_url);
+            if (episode.image_url != null) stmt.bind_text(5, episode.image_url); else stmt.bind_null(5);
+            stmt.bind_text(6, episode.show_title);
+            stmt.bind_int64(7, episode.duration_seconds);
+            stmt.bind_int64(8, (int64) position_ns);
+            stmt.bind_double(9, rate);
+            if (stmt.step() != Sqlite.DONE) {
+                GLib.warning("Failed to save last playback session: %s", db.errmsg());
+            }
+        }
+
+        public Paperboy.PodcastLastSession? get_last_session() {
+            if (db == null) return null;
+
+            string sql = "SELECT episode_id, feed_id, title, audio_url, image_url, show_title, duration_seconds, position_ns, rate FROM podcast_last_session WHERE id = 1;";
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) return null;
+            if (stmt.step() != Sqlite.ROW) return null;
+
+            var episode = new Paperboy.PodcastEpisode();
+            episode.episode_id = stmt.column_int64(0);
+            episode.feed_id = stmt.column_int64(1);
+            episode.title = stmt.column_text(2);
+            episode.audio_url = stmt.column_text(3);
+            episode.image_url = stmt.column_text(4);
+            episode.show_title = stmt.column_text(5);
+            episode.duration_seconds = stmt.column_int64(6);
+
+            var session = new Paperboy.PodcastLastSession();
+            session.episode = episode;
+            session.position_ns = (uint64) stmt.column_int64(7);
+            session.rate = stmt.column_double(8);
+            return session;
+        }
+
+        public void clear_last_session() {
+            if (db == null) return;
+            db.exec("DELETE FROM podcast_last_session;", null, null);
         }
     }
 }

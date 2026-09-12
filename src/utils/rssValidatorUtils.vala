@@ -134,6 +134,19 @@ public class RssValidatorUtils : GLib.Object {
      * @param min_items Minimum number of items required (default: 1)
      * @return true if feed has at least min_items
      */
+    // Cheap heuristic for "this followed feed also carries a podcast" - an
+    // iTunes namespace declaration or an audio <enclosure> are both strong,
+    // near-universal signals of a real podcast feed, so a plain substring
+    // check (same style as get_item_count's own fast path above) is
+    // reliable enough without a full XML walk.
+    public static bool looks_like_podcast_feed(string xml_content) {
+        if (xml_content == null || xml_content.length == 0) return false;
+        string lower = xml_content.down();
+        if (lower.contains("xmlns:itunes")) return true;
+        if (lower.contains("<enclosure") && (lower.contains("type=\"audio/") || lower.contains("type='audio/"))) return true;
+        return false;
+    }
+
     public static bool has_minimum_items(string xml_content, int min_items = 1) {
         return get_item_count(xml_content) >= min_items;
     }

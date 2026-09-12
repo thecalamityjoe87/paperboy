@@ -28,7 +28,7 @@ public class HeaderManager : GLib.Object {
 
     public HeaderManager(NewsWindow w) {
         window = w;
-        
+
         // Listen for RSS source updates (logo downloads)
         var store = Paperboy.RssSourceStore.get_instance();
         store.source_updated.connect((source) => {
@@ -38,10 +38,117 @@ public class HeaderManager : GLib.Object {
                 if (feed_url == source.url) {
                     Idle.add(() => {
                         update_category_icon();
+                        update_podcast_button();
                         return false;
                     });
                 }
             }
+        });
+
+        wire_podcast_button();
+    }
+
+    // Shows/hides/relabels the "Add podcast"/"Browse podcasts" button.
+    // Toggles opacity/can_target, not set_visible() - keeps its reserved
+    // layout space so the separator below never shifts (see date_overlay).
+    private void update_podcast_button() {
+        var button = window.content_view != null ? window.content_view.rss_podcast_button : null;
+        if (button == null) return;
+
+        if (window.prefs.category == null || !window.prefs.category.has_prefix("rssfeed:")) {
+            button.set_opacity(0);
+            button.set_can_target(false);
+            return;
+        }
+
+        string feed_url = window.prefs.category.substring(8);
+        var rss_source = Paperboy.RssSourceStore.get_instance().get_source_by_url(feed_url);
+        if (rss_source == null || rss_source.podcast_feed_url == null) {
+            button.set_opacity(0);
+            button.set_can_target(false);
+            return;
+        }
+
+        button.set_opacity(1);
+        button.set_can_target(true);
+
+        // Multiple podcasts: no single "the" one to be "Subscribed" to.
+        if (rss_source.podcast_candidate_count > 1) {
+            if (window.content_view.rss_podcast_button_label != null) {
+                window.content_view.rss_podcast_button_label.set_text("Browse podcasts");
+            }
+            button.add_css_class("suggested-action");
+            return;
+        }
+
+        // One podcast: normal add/remove toggle.
+        int64 synthetic_id = Paperboy.PodcastFeedResolver.get_instance().compute_synthetic_feed_id(rss_source.podcast_feed_url);
+        bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(synthetic_id);
+        if (window.content_view.rss_podcast_button_label != null) {
+            window.content_view.rss_podcast_button_label.set_text(subscribed ? "Subscribed" : "Add podcast");
+        }
+        if (subscribed) {
+            button.remove_css_class("suggested-action");
+        } else {
+            button.add_css_class("suggested-action");
+        }
+    }
+
+    // Wired once - the button is reused for the app's whole lifetime.
+    private void wire_podcast_button() {
+        var button = window.content_view != null ? window.content_view.rss_podcast_button : null;
+        if (button == null) return;
+
+        // Picker dialog subscriptions don't otherwise notify this button.
+        var sub_store = Paperboy.PodcastSubscriptionStore.get_instance();
+        sub_store.subscription_added.connect(() => { update_podcast_button(); });
+        sub_store.subscription_removed.connect(() => { update_podcast_button(); });
+
+        button.clicked.connect(() => {
+            if (window.prefs.category == null || !window.prefs.category.has_prefix("rssfeed:")) return;
+            string feed_url = window.prefs.category.substring(8);
+            var rss_source = Paperboy.RssSourceStore.get_instance().get_source_by_url(feed_url);
+            if (rss_source == null || rss_source.podcast_feed_url == null) return;
+            string podcast_feed_url = rss_source.podcast_feed_url;
+
+            // One podcast: just toggle it, no need to search first.
+            if (rss_source.podcast_candidate_count <= 1) {
+                int64 synthetic_id = Paperboy.PodcastFeedResolver.get_instance().compute_synthetic_feed_id(podcast_feed_url);
+                if (sub_store.is_subscribed(synthetic_id)) {
+                    sub_store.unsubscribe(synthetic_id);
+                    return;
+                }
+            }
+
+            // Otherwise search fresh and let the user choose.
+            button.set_sensitive(false);
+            string domain_source = UrlUtils.extract_root_url(rss_source.original_url) != null ? rss_source.original_url : rss_source.url;
+            string site_domain = UrlUtils.extract_host_from_url(domain_source);
+            Paperboy.PodcastIndexService.get_instance().find_podcasts_by_site(rss_source.name, site_domain, rss_source.url, (shows) => {
+                button.set_sensitive(true);
+
+                if (shows.size >= 2) {
+                    var parent = window as Gtk.Window;
+                    if (parent != null) {
+                        PodcastPickerDialog.show(window, shows, podcast_feed_url, parent);
+                    }
+                    return;
+                }
+
+                // 0 or 1 result: fall back to the already-known url.
+                Paperboy.PodcastFeedResolver.get_instance().resolve_show(podcast_feed_url, window.session, (success, show, error_message) => {
+                    if (!success || show == null) {
+                        if (window.toast_manager != null) {
+                            window.toast_manager.show_toast("Couldn't add podcast: " + (error_message ?? "unknown error"));
+                        }
+                        return;
+                    }
+                    sub_store.subscribe(show);
+                    if (window.toast_manager != null) {
+                        window.toast_manager.show_toast("Podcast added: " + show.title);
+                    }
+                });
+            });
         });
     }
 
@@ -181,6 +288,7 @@ public class HeaderManager : GLib.Object {
         Idle.add(() => {
             if (category_label != null) category_label.set_text(disp_cat);
             update_category_icon();
+            update_podcast_button();
             return false;
         });
     }
@@ -208,6 +316,7 @@ public class HeaderManager : GLib.Object {
         }
 
         update_category_icon();
+        update_podcast_button();
     }
 
     public string category_display_name_for(string cat) {

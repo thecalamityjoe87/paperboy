@@ -195,6 +195,10 @@ public class FeedUpdateManager : GLib.Object {
      * @return true if successful, false otherwise
      */
     private bool update_single_feed(Paperboy.RssSource source) {
+        // Runs regardless of feed type/outcome below - has its own rate
+        // limit and resolves generated feeds via original_url itself.
+        maybe_check_for_podcast_feed(source);
+
         // Handle file:// URLs (locally generated feeds) - REGENERATE instead of just validate
         if (source.url.has_prefix("file://")) {
             // Check if we have the original_url to regenerate from
@@ -385,7 +389,7 @@ public class FeedUpdateManager : GLib.Object {
                     // Update last_fetched_at timestamp
                     var store = Paperboy.RssSourceStore.get_instance();
                     store.update_last_fetched(source.url);
-                    
+
                     GLib.print("  ✓ Updated: %s (%d items)\n", source.name, item_count);
                     return true;
                 } else {
@@ -401,7 +405,231 @@ public class FeedUpdateManager : GLib.Object {
             return false;
         }
     }
-    
+
+    // Checked far less often than the article feed itself (see
+    // PODCAST_CHECK_INTERVAL_SECONDS) - crawls the site's homepage for a
+    // separate podcast feed it advertises via a standard
+    // <link rel="alternate" type="application/rss+xml"/atom+xml"> tag, since
+    // most sites publish their podcast under a different URL than their
+    // article feed (e.g. 9to5Google's article feed vs. its podcast feed).
+    private const int64 PODCAST_CHECK_INTERVAL_SECONDS = 7 * 24 * 60 * 60; // once a week per source
+
+    // Public so both the periodic per-source refresh (update_single_feed()
+    // above) and an explicit manual "refresh this feed" action (see
+    // FetchNewsController's rssfeed-view handling, which fetches articles
+    // via RssFeedProcessor directly and never goes through
+    // update_single_feed()) can trigger this check.
+    public void maybe_check_for_podcast_feed(Paperboy.RssSource source) {
+        int64 now = GLib.get_real_time() / 1000000;
+        if (now - source.podcast_checked_at < PODCAST_CHECK_INTERVAL_SECONDS) {
+            GLib.print("  [podcast-check] %s: skipped, checked recently\n", source.name);
+            return;
+        }
+
+        string? root_url = UrlUtils.extract_root_url(source.url);
+        if (root_url == null) {
+            // source.url is a local file:// path for html2rss-generated
+            // feeds, so there's no homepage to scan - but original_url
+            // (the real site this feed was scraped from, e.g.
+            // "https://cnn.com") is exactly what try_podcastindex_name_search
+            // needs, and it doesn't require fetching anything from the site
+            // at all. Skip straight to it.
+            if (UrlUtils.extract_root_url(source.original_url) != null) {
+                GLib.print("  [podcast-check] %s: no homepage to scan (generated feed) - trying PodcastIndex name search\n", source.name);
+                try_podcastindex_name_search(source, null);
+            } else {
+                GLib.print("  [podcast-check] %s: no root url and no usable original_url, giving up\n", source.name);
+            }
+            return;
+        }
+
+        GLib.print("  [podcast-check] %s: fetching homepage %s\n", source.name, root_url);
+        var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
+        Paperboy.HttpClientUtils.get_default().fetch_async(root_url, options, (response) => {
+            if (!response.is_success()) {
+                GLib.print("  [podcast-check] %s: homepage fetch failed, status=%u error=%s - trying PodcastIndex name search instead\n",
+                    source.name, response.status_code, response.error_message ?? "none");
+                try_podcastindex_name_search(source, null);
+                return;
+            }
+            string? html = response.get_body_string();
+            if (html == null) {
+                GLib.print("  [podcast-check] %s: homepage fetch succeeded but empty body - trying PodcastIndex name search instead\n", source.name);
+                try_podcastindex_name_search(source, null);
+                return;
+            }
+
+            var candidates = extract_alternate_feed_links(html, root_url);
+            // The followed feed itself is never the "discovery" - only a
+            // genuinely separate feed counts.
+            candidates.remove(source.url);
+            int64 apple_podcast_id = extract_apple_podcast_id(html);
+            GLib.print("  [podcast-check] %s: html=%d bytes, %d <link> candidates, apple_id=%lld\n",
+                source.name, html.length, candidates.size, apple_podcast_id);
+            check_candidates_for_podcast(source, candidates, 0, apple_podcast_id);
+        });
+    }
+
+    // Many sites (e.g. 9to5Google) don't advertise their podcast via a
+    // plain <link rel="alternate"> tag at all - the podcast is hosted
+    // externally and only linked to from the page as a "Subscribe on Apple
+    // Podcasts" button. Extracts the numeric id from the first such link
+    // found, e.g. https://podcasts.apple.com/us/podcast/name/id1359922601
+    // or the older itunes.apple.com form - both use the same "id<digits>"
+    // path segment. Returns 0 if none found.
+    //
+    // Requires a literal "podcast" path segment: itunes.apple.com is a
+    // legacy domain Apple also used for iOS *app* links (e.g.
+    // itunes.apple.com/app/apple-store/id299948601 - TMZ's own iOS app,
+    // observed on tmz.com's homepage), which would otherwise false-positive
+    // as a podcast id and send an unrelated app id to PodcastIndex.
+    private int64 extract_apple_podcast_id(string html) {
+        try {
+            var regex = new GLib.Regex(
+                "(?:itunes|podcasts)\\.apple\\.com/(?:[a-z]{2}/)?podcast/[^\"'\\s]*?id(\\d+)",
+                GLib.RegexCompileFlags.CASELESS);
+            GLib.MatchInfo match_info;
+            if (regex.match(html, 0, out match_info)) {
+                string id_str = match_info.fetch(1);
+                int64 id = int64.parse(id_str);
+                if (id > 0) return id;
+            }
+        } catch (GLib.RegexError e) {
+            GLib.warning("  ✗ Failed to scan for an Apple Podcasts link: %s", e.message);
+        }
+        return 0;
+    }
+
+    // Scans <head> for <link rel="alternate" type="application/rss+xml"|
+    // "application/atom+xml" href="..."> tags - the standard way sites
+    // advertise their feeds (including, sometimes, a separate podcast feed)
+    // to feed readers. Resolves relative hrefs against base_url. Capped by
+    // the caller (check_candidates_for_podcast) to a handful of attempts.
+    private Gee.ArrayList<string> extract_alternate_feed_links(string html, string base_url) {
+        var results = new Gee.ArrayList<string>();
+        try {
+            var regex = new GLib.Regex("<link\\s+[^>]*rel=[\"']alternate[\"'][^>]*>", GLib.RegexCompileFlags.CASELESS);
+            GLib.MatchInfo match_info;
+            regex.match(html, 0, out match_info);
+            while (match_info.matches()) {
+                string tag = match_info.fetch(0);
+                if (tag.down().contains("application/rss+xml") || tag.down().contains("application/atom+xml")) {
+                    var href_regex = new GLib.Regex("href=[\"']([^\"']+)[\"']", GLib.RegexCompileFlags.CASELESS);
+                    GLib.MatchInfo href_match;
+                    if (href_regex.match(tag, 0, out href_match)) {
+                        string href = href_match.fetch(1);
+                        string resolved = resolve_relative_url(href, base_url);
+                        if (resolved.length > 0 && !results.contains(resolved)) results.add(resolved);
+                    }
+                }
+                match_info.next();
+            }
+        } catch (GLib.RegexError e) {
+            GLib.warning("  ✗ Failed to scan for alternate feed links: %s", e.message);
+        }
+        return results;
+    }
+
+    private string resolve_relative_url(string href, string base_url) {
+        if (href.has_prefix("http://") || href.has_prefix("https://")) return href;
+        if (href.has_prefix("//")) return "https:" + href;
+        if (href.has_prefix("/")) {
+            // base_url is always "scheme://host/" (see UrlUtils.extract_root_url) -
+            // strip its trailing slash before appending the absolute path.
+            return base_url.substring(0, base_url.length - 1) + href;
+        }
+        return base_url + href;
+    }
+
+    // Walks discovered <link>-tag candidate feed URLs one at a time (not in
+    // parallel - this only runs once a week per source, so there's no rush,
+    // and it keeps concurrent request pressure low), stopping at the first
+    // one RssValidatorUtils.looks_like_podcast_feed() confirms is actually a
+    // podcast. Falls back to the Apple Podcasts id (if one was found on the
+    // page) once link-tag candidates are exhausted - see
+    // try_apple_podcast_fallback().
+    private void check_candidates_for_podcast(Paperboy.RssSource source, Gee.ArrayList<string> candidates, int index, int64 apple_podcast_id) {
+        if (index >= candidates.size || index >= 5) {
+            try_apple_podcast_fallback(source, apple_podcast_id);
+            return;
+        }
+
+        string candidate_url = candidates[index];
+        var options = new Paperboy.HttpClientUtils.RequestOptions();
+        Paperboy.HttpClientUtils.get_default().fetch_async(candidate_url, options, (response) => {
+            if (response.is_success()) {
+                string? body = response.get_body_string();
+                if (body != null && RssValidatorUtils.looks_like_podcast_feed(body)) {
+                    GLib.print("  [podcast-check] %s: <link> candidate %s looks like a podcast\n", source.name, candidate_url);
+                    finalize_with_confirmed_candidate(source, candidate_url);
+                    return;
+                }
+            }
+            GLib.print("  [podcast-check] %s: <link> candidate %s is not a podcast\n", source.name, candidate_url);
+            check_candidates_for_podcast(source, candidates, index + 1, apple_podcast_id);
+        });
+    }
+
+    // Once no <link>-advertised feed panned out: resolve a "Subscribe on
+    // Apple Podcasts" link scraped off the page (see
+    // extract_apple_podcast_id()) to its real feed url via PodcastIndex's
+    // own database (PodcastIndexService.podcast_by_itunes_id() - never
+    // calls Apple's API directly). Trusts the resolved url without
+    // re-validating via looks_like_podcast_feed(): PodcastIndex's database
+    // is podcasts by definition, unlike an arbitrary homepage-discovered
+    // <link> candidate which could be any kind of feed. Falls through to
+    // try_podcastindex_name_search() as the final resort.
+    private void try_apple_podcast_fallback(Paperboy.RssSource source, int64 apple_podcast_id) {
+        if (apple_podcast_id <= 0) {
+            GLib.print("  [podcast-check] %s: no apple podcast id found\n", source.name);
+            try_podcastindex_name_search(source, null);
+            return;
+        }
+
+        GLib.print("  [podcast-check] %s: resolving apple id %lld via PodcastIndex\n", source.name, apple_podcast_id);
+        Paperboy.PodcastIndexService.get_instance().podcast_by_itunes_id(apple_podcast_id, (show) => {
+            if (show != null && show.feed_url.length > 0) {
+                GLib.print("  [podcast-check] %s: resolved to %s\n", source.name, show.feed_url);
+                finalize_with_confirmed_candidate(source, show.feed_url);
+            } else {
+                GLib.print("  [podcast-check] %s: PodcastIndex had no match for apple id %lld\n", source.name, apple_podcast_id);
+                try_podcastindex_name_search(source, null);
+            }
+        });
+    }
+
+    // Searches PodcastIndex by site name for an accurate candidate count -
+    // always run, even after a <link> tag or Apple id already confirmed one
+    // candidate, since it's the only strategy that finds multiple.
+    // already_confirmed_url (if any) survives a zero-result search.
+    private void try_podcastindex_name_search(Paperboy.RssSource source, string? already_confirmed_url) {
+        var store = Paperboy.RssSourceStore.get_instance();
+        // source.url is a local file:// path for html2rss-generated feeds -
+        // original_url (the real site, e.g. "https://cnn.com") is the one
+        // that actually has a meaningful domain to match against.
+        string domain_source = UrlUtils.extract_root_url(source.original_url) != null ? source.original_url : source.url;
+        string site_domain = UrlUtils.extract_host_from_url(domain_source);
+        GLib.print("  [podcast-check] %s: searching PodcastIndex by name for site %s\n", source.name, site_domain);
+        Paperboy.PodcastIndexService.get_instance().find_podcasts_by_site(source.name, site_domain, source.url, (shows) => {
+            if (shows.size > 0) {
+                GLib.print("  [podcast-check] %s: name search found %d candidate(s), first is %s\n", source.name, shows.size, shows[0].feed_url);
+                store.set_podcast_feed_url(source.url, shows[0].feed_url, shows.size);
+            } else if (already_confirmed_url != null) {
+                GLib.print("  [podcast-check] %s: name search found nothing, keeping already-confirmed %s\n", source.name, already_confirmed_url);
+                store.set_podcast_feed_url(source.url, already_confirmed_url, 1);
+            } else {
+                GLib.print("  [podcast-check] %s: no podcast found via name search either, giving up\n", source.name);
+                store.set_podcast_feed_url(source.url, null, 1);
+            }
+        });
+    }
+
+    // Still runs the name search for an accurate count, without losing the
+    // already-confirmed candidate if that search comes up empty.
+    private void finalize_with_confirmed_candidate(Paperboy.RssSource source, string confirmed_url) {
+        try_podcastindex_name_search(source, confirmed_url);
+    }
+
     /**
      * Extract a signature from an RSS feed based on item GUIDs/links
      * This is used to determine if feed content has changed

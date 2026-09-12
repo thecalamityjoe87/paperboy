@@ -34,7 +34,7 @@ public class PodcastPlayerBar : GLib.Object {
     public Gtk.Revealer revealer;
 
     private Gtk.Picture cover;
-    private Gtk.Label title_label;
+    private MarqueeLabel title_label;
     private Gtk.Scale scrubber;
     private Gtk.Adjustment scrubber_adjustment;
     private Gtk.Label elapsed_label;
@@ -88,10 +88,15 @@ public class PodcastPlayerBar : GLib.Object {
         cover.add_css_class("podcast-player-cover");
         title_row.append(cover);
 
-        title_label = new Gtk.Label("");
-        title_label.set_ellipsize(Pango.EllipsizeMode.END);
-        title_label.set_xalign(0);
-        title_label.set_hexpand(true);
+        // MarqueeLabel rather than a plain Gtk.Label wrapped in a scrolling
+        // container: every such container (ScrolledWindow, Viewport, even
+        // Gtk.Fixed) still reports the label's true full-text width as part
+        // of its own measured size, which either blows out the sidebar's
+        // fixed width or (if the label is ellipsized to avoid that) collapses
+        // the very text we need to scroll through. MarqueeLabel reports a
+        // fixed, tiny size regardless of text length and draws the text
+        // itself at a controllable offset - see its class doc comment.
+        title_label = new MarqueeLabel();
         title_label.add_css_class("podcast-player-title");
         title_row.append(title_label);
 
@@ -161,11 +166,25 @@ public class PodcastPlayerBar : GLib.Object {
     // Push a newly-playing episode's title/cover into the bar and reveal it.
     // Called from the manager's episode_changed handler (see wire_interactions).
     public void set_episode(Paperboy.PodcastEpisode episode) {
-        title_label.set_text(episode.title);
+        title_label.text = episode.title; // also resets the marquee's scroll offset
+        if (window != null && window.animation_manager != null) {
+            window.animation_manager.stop_title_marquee(title_label);
+        }
         if (window != null) {
             string? art_url = episode.image_url;
             if (art_url != null && art_url.length > 0) {
-                window.image_manager.load_image_async(cover, art_url, 36, 36);
+                // ignore_fetch_context: true - this cover isn't tied to any
+                // news-article fetch, but ImageManager's network-download
+                // path normally discards a result if a news fetch happens
+                // to land while it's still in flight (a staleness guard
+                // meant for cancelling a previous category/search's stale
+                // images). A resumed session's cover load starts during
+                // NewsWindow's own constructor, right before the app's
+                // first fetch_news() call - near-guaranteed to still be in
+                // flight when that lands - so without this flag the cover
+                // was getting silently dropped almost every time on restart
+                // despite the download itself succeeding.
+                window.image_manager.load_image_async(cover, art_url, 36, 36, false, true);
             }
         }
         revealer.set_reveal_child(true);
@@ -230,6 +249,12 @@ public class PodcastPlayerBar : GLib.Object {
 
         playback.playback_state_changed.connect((is_playing) => {
             play_pause_icon.set_from_icon_name(is_playing ? "media-playback-pause-symbolic" : "media-playback-start-symbolic");
+            if (window == null || window.animation_manager == null) return;
+            if (is_playing) {
+                window.animation_manager.start_title_marquee(title_label);
+            } else {
+                window.animation_manager.stop_title_marquee(title_label);
+            }
         });
 
         playback.position_updated.connect((position_ns, duration_ns) => {

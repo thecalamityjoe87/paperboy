@@ -45,6 +45,12 @@ public class ContentView : GLib.Object {
     public Gtk.Separator hero_frontpage_separator;
     public Gtk.Box category_icon_holder;
     public Gtk.Label category_label;
+    // Shown only for a followed RSS feed that also looks like a podcast
+    // feed (see HeaderManager.update_podcast_button()) - hidden otherwise.
+    public Gtk.Button rss_podcast_button;
+    // The button's child is an icon + label box (not a plain label), so
+    // HeaderManager updates this directly rather than via set_label().
+    public Gtk.Label rss_podcast_button_label;
     public Gtk.Label category_subtitle;
     public Gtk.Overlay main_overlay;
     public Gtk.Box loading_container;
@@ -118,13 +124,48 @@ public class ContentView : GLib.Object {
         header_box.append(title_row);
 
         // Add current date label - weekday + full month name/day, no year.
+        // rss_podcast_button floats over this row as a Gtk.Overlay child
+        // (same idiom as root_overlay/main_scroll_overlay elsewhere in this
+        // codebase) rather than a plain Gtk.Box sibling: an overlay child's
+        // size doesn't inflate the overlay's own measured height by default,
+        // so the button (taller than the date text, once its icon + pill
+        // padding are included) can sit bottom-aligned flush with the date
+        // text without growing this row - keeping the separator below at a
+        // constant position whether or not the current feed has a
+        // discovered podcast (see rss_podcast_button's opacity/can_target
+        // toggling below instead of set_visible(), for the same reason).
+        var date_overlay = new Gtk.Overlay();
+
         var date = new DateTime.now_local();
         var date_str = date.format("%A, %B %d");
         var date_label = new Gtk.Label(date_str);
         date_label.set_xalign(0);
         date_label.add_css_class("dim-label");
         date_label.add_css_class("header-date-label");
-        header_box.append(date_label);
+        date_overlay.set_child(date_label);
+
+        rss_podcast_button = new Gtk.Button();
+        var podcast_button_content = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var podcast_icon = CategoryIconsUtils.create_category_icon("podcasts");
+        if (podcast_icon != null) {
+            var image = podcast_icon as Gtk.Image;
+            if (image != null) image.set_pixel_size(16);
+            podcast_button_content.append(podcast_icon);
+        }
+        rss_podcast_button_label = new Gtk.Label("Add podcast");
+        podcast_button_content.append(rss_podcast_button_label);
+        rss_podcast_button.set_child(podcast_button_content);
+        rss_podcast_button.add_css_class("pill");
+        rss_podcast_button.set_halign(Gtk.Align.END);
+        rss_podcast_button.set_valign(Gtk.Align.END);
+        // Stays visible (reserving its overlay position) always - see
+        // HeaderManager.update_podcast_button(), which toggles opacity/
+        // can_target instead of visibility for the reason explained above.
+        rss_podcast_button.set_opacity(0);
+        rss_podcast_button.set_can_target(false);
+        date_overlay.add_overlay(rss_podcast_button);
+
+        header_box.append(date_overlay);
 
         // Same faint line used elsewhere (hero/scores/article-grid
         // separators) - sits between the date and whichever title comes

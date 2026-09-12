@@ -51,6 +51,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/podcastCard.vala',
     'src/ui/components/podcastPlayerBar.vala',
     'src/ui/components/podcastPane.vala',
+    'src/ui/components/marqueeLabel.vala',
     'src/ui/controllers/fetchNewsController.vala',
     'src/ui/controllers/searchController.vala',
     'src/ui/controllers/sportsScoresController.vala',
@@ -59,6 +60,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/dialogs/shareDialog.vala',
     'src/ui/dialogs/onboardingDialog.vala',
     'src/ui/dialogs/podcastDetailDialog.vala',
+    'src/ui/dialogs/podcastPickerDialog.vala',
     'src/ui/menus/articleMenu.vala',
     'src/ui/menus/sidebarMenu.vala',
     'src/ui/menus/podcastMenu.vala',
@@ -132,6 +134,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     # Utils
     'src/utils/appDebugger.vala',
     'src/utils/urlUtils.vala',
+    'src/utils/sortUtils.vala',
     'src/utils/browserUtils.vala',
     'src/utils/sourceUtils.vala',
     'src/utils/dateUtils.vala',

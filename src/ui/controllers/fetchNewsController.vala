@@ -944,6 +944,15 @@ public class FetchNewsController {
         var rss_source = rss_store.get_source_by_url(feed_url);
         string feed_name_plain = rss_source != null ? rss_source.name : "RSS Feed";
 
+        // Manually viewing/refreshing this feed never goes through
+        // FeedUpdateManager.update_single_feed() (that's only the periodic
+        // background path) - piggyback the same podcast-discovery check
+        // here too, so an explicit refresh can also surface the button
+        // without waiting for the next scheduled background pass.
+        if (rss_source != null && win.feed_updater != null) {
+            win.feed_updater.maybe_check_for_podcast_feed(rss_source);
+        }
+
         // Build display name with logo URL for article cards (format: "Name||logo_url")
         string feed_name = feed_name_plain;
         string? logo_url = SourceMetadata.get_logo_url_for_source(feed_name_plain);

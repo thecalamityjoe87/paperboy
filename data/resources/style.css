@@ -254,6 +254,23 @@
     border-radius: 8px;
 }
 
+/* Thin "how far into this episode" indicator under a partially-listened
+   episode row's meta line - deliberately understated, not a full-height
+   progress bar. */
+.podcast-episode-progress,
+.podcast-episode-progress > trough {
+    min-height: 3px;
+    /* Adwaita's default progressbar trough has a sizable min-width (meant
+       for full-width progress bars) that would otherwise force this one
+       wider than the meta line it's meant to match. */
+    min-width: 0;
+}
+
+.podcast-episode-progress > trough > progress {
+    background-color: @accent_bg_color;
+    border-radius: 3px;
+}
+
 /* Small pill category chip overlaid on images */
 .category-chip {
     background-color: alpha(black, 0.6);

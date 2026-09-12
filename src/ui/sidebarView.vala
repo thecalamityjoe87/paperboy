@@ -824,37 +824,10 @@ public class SidebarView : GLib.Object {
         manager.rebuild_sidebar();
     }
 
-    // Targeted single-row insert - subscribing to a podcast shouldn't
-    // visibly rebuild the whole sidebar for one row (see
-    // SidebarManager.podcast_subscription_added's doc comment). Falls back
-    // to a full rebuild only if the Podcasts expander somehow isn't built
-    // yet, which shouldn't normally happen.
     private void on_podcast_subscription_added(SidebarItemData item) {
-        var expander = section_containers.get("podcasts_entry") as Adw.ExpanderRow;
-        if (expander == null) {
-            manager.rebuild_sidebar();
-            return;
-        }
-
-        var item_widget = build_category_button(item);
-        var row = new Gtk.ListBoxRow();
-        row.set_child(item_widget);
-        row.set_activatable(false);
-        row.set_selectable(false);
-        row.add_css_class("sidebar-expander-item");
-
-        // Adw.ExpanderRow.add_row() only appends - remove-then-re-append
-        // the "Add a Podcast" row so it stays last after inserting this one
-        // before it.
-        if (add_podcast_row != null) {
-            expander.remove(add_podcast_row);
-        }
-        expander.add_row(row);
-        if (add_podcast_row != null) {
-            expander.add_row(add_podcast_row);
-        }
-
-        podcast_subscription_rows.set(item.id, row);
+        // Rebuild entire sidebar to maintain alphabetical ordering - a
+        // targeted append here always landed at the bottom, ignoring sort.
+        manager.rebuild_sidebar();
     }
 
     private void on_podcast_subscription_removed(string item_id) {

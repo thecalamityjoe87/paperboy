@@ -103,7 +103,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Manager instance for entrance/animation handling
     public Managers.AnimationManager? animation_manager;
     // Manager instance for RSS feed updates
-    private FeedUpdateManager? feed_updater;
+    public FeedUpdateManager? feed_updater;
     // Manager instance for search with debouncing
     public Managers.SearchManager? search_manager;
 
@@ -403,6 +403,13 @@ public class NewsWindow : Adw.ApplicationWindow {
     podcast_playback = new Managers.PodcastPlaybackManager();
     podcast_player_bar = new PodcastPlayerBar(podcast_playback, prefs, this);
     podcast_pane = new PodcastPane(this, podcast_playback);
+
+    // Restore whatever episode was loaded (playing or paused) the last time
+    // the app closed, always coming back paused rather than auto-playing.
+    var last_session = Paperboy.PodcastPlaybackStateStore.get_instance().get_last_session();
+    if (last_session != null) {
+        podcast_playback.load_paused(last_session.episode, last_session.position_ns, last_session.rate);
+    }
 
     // Listen for category selections and trigger fetch/update from the window
     sidebar_manager.category_selected.connect((category) => {
@@ -951,6 +958,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // so transient states (like maximized) don't become stored as normal sizes.
         this.close_request.connect(() => {
             SportsScoresController.stop_polling();
+            if (podcast_playback != null) podcast_playback.flush_progress();
 
             // Clean up old cached articles (frontpage and RSS feeds)
             var cache = Paperboy.RssArticleCache.get_instance();

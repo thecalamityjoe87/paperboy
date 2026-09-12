@@ -41,7 +41,15 @@ using GLib;
  *                                                     hand it straight to PodcastPlaybackManager.
  *                                                     Playback streams from the podcast's own host,
  *                                                     not through paperboyBackend.
- * All four return the PodcastIndex response body verbatim (minus auth
+ *   GET /podcasts/byitunesid?id=<itunes_id>        - resolves an Apple Podcasts numeric id (e.g.
+ *                                                     scraped from a site's own "Subscribe on Apple
+ *                                                     Podcasts" link - see FeedUpdateManager's
+ *                                                     podcast-feed discovery) to the podcast's real
+ *                                                     feed url, via PodcastIndex's own already-built
+ *                                                     database (not a live Apple API call). Response
+ *                                                     is a single "feed" object, not an array; cached
+ *                                                     24h per id on the backend.
+ * All five return the PodcastIndex response body verbatim (minus auth
  * fields) with normal status codes: 200 success, 503 podcast feature not
  * configured on the backend, 502 PodcastIndex unreachable, other 4xx/5xx
  * passed through from PodcastIndex.
@@ -53,6 +61,7 @@ namespace Paperboy {
         private const string PATH_SEARCH = "/podcasts/search";
         private const string PATH_TRENDING = "/podcasts/trending";
         private const string PATH_CATEGORIES = "/podcasts/categories";
+        private const string PATH_BY_ITUNES_ID = "/podcasts/byitunesid";
         private const int DEFAULT_EPISODES_MAX = 20;
 
         private static PodcastIndexService? instance = null;
@@ -67,10 +76,68 @@ namespace Paperboy {
         public delegate void ShowListCallback(Gee.ArrayList<Paperboy.PodcastShow> shows);
         public delegate void CategoryListCallback(Gee.ArrayList<string> categories);
         public delegate void EpisodeListCallback(Gee.ArrayList<Paperboy.PodcastEpisode> episodes);
+        public delegate void ShowCallback(Paperboy.PodcastShow? show);
 
         public void search_podcasts(string term, owned ShowListCallback callback) {
             string url = "%s%s?q=%s".printf(BASE_URL, PATH_SEARCH, GLib.Uri.escape_string(term));
             fetch_show_list(url, (owned) callback);
+        }
+
+        // Searches PodcastIndex by a followed site's own name (e.g.
+        // "Wccftech") and returns the first result whose own "link" field
+        // (the podcast's associated website, as PodcastIndex's crawler
+        // already recorded it) matches site_domain - far more reliable than
+        // scraping the site's homepage for a hint, since it works even when
+        // the site never links its podcast from its homepage at all (see
+        // FeedUpdateManager.maybe_check_for_podcast_feed()'s doc comment).
+        // exclude_url filters out a result that's actually just the site's
+        // own article feed re-indexed under a "podcast" medium by mistake -
+        // never treat the followed feed itself as its own "discovery".
+        public void find_podcast_by_site(string site_name, string site_domain, string exclude_url, owned ShowCallback callback) {
+            find_podcasts_by_site(site_name, site_domain, exclude_url, (shows) => {
+                callback(shows.size > 0 ? shows[0] : null);
+            });
+        }
+
+        // Same matching rule as find_podcast_by_site() (a search result's
+        // own "link" field, as PodcastIndex's crawler recorded it, must
+        // match site_domain) but collects every match instead of stopping
+        // at the first - a site can genuinely run several podcasts (e.g.
+        // USA Today has ~7 in PodcastIndex), and the "Add podcast" picker
+        // (see HeaderManager) needs the full list to let the user choose.
+        public void find_podcasts_by_site(string site_name, string site_domain, string exclude_url, owned ShowListCallback callback) {
+            string url = "%s%s?q=%s".printf(BASE_URL, PATH_SEARCH, GLib.Uri.escape_string(site_name));
+            var client = Paperboy.HttpClientUtils.get_default();
+            client.fetch_json(url, (response, parser, root) => {
+                var matches = new Gee.ArrayList<Paperboy.PodcastShow>();
+                if (response.is_success() && root != null) {
+                    try {
+                        Json.Array? items = extract_array(root, "feeds", "podcasts");
+                        if (items != null) {
+                            uint len = items.get_length();
+                            for (uint i = 0; i < len; i++) {
+                                var obj = items.get_element(i).get_object();
+                                if (obj == null) continue;
+
+                                string? feed_url = json_get_string(obj, "url");
+                                if (feed_url != null && feed_url == exclude_url) continue;
+
+                                string? link = json_get_string(obj, "link");
+                                if (link == null || link.length == 0) continue;
+                                if (UrlUtils.extract_host_from_url(link) != site_domain) continue;
+
+                                matches.add(parse_show(obj));
+                            }
+                        }
+                    } catch (GLib.Error e) {
+                        GLib.warning("PodcastIndexService: failed to parse site search results: %s", e.message);
+                    }
+                } else {
+                    log_http_error(url, response.status_code);
+                }
+
+                Idle.add(() => { callback(matches); return false; });
+            });
         }
 
         // category: pass null (or empty) for all categories - matches the
@@ -81,6 +148,46 @@ namespace Paperboy {
                 url += "&cat=%s".printf(GLib.Uri.escape_string(category));
             }
             fetch_show_list(url, (owned) callback);
+        }
+
+        // Resolves an Apple Podcasts numeric id to the podcast's real feed
+        // url - see FeedUpdateManager.maybe_check_for_podcast_feed(), which
+        // scrapes that id off a followed site's own "Subscribe on Apple
+        // Podcasts" link when the site doesn't advertise a podcast feed via
+        // a plain <link rel="alternate"> tag.
+        public void podcast_by_itunes_id(int64 itunes_id, owned ShowCallback callback) {
+            string url = "%s%s?id=%lld".printf(BASE_URL, PATH_BY_ITUNES_ID, itunes_id);
+            var client = Paperboy.HttpClientUtils.get_default();
+            client.fetch_json(url, (response, parser, root) => {
+                if (!response.is_success() || root == null) {
+                    log_http_error(url, response.status_code);
+                    Idle.add(() => { callback(null); return false; });
+                    return;
+                }
+
+                Paperboy.PodcastShow? show = null;
+                try {
+                    if (root.get_node_type() == Json.NodeType.OBJECT) {
+                        var obj = root.get_object();
+                        if (obj.has_member("feed")) {
+                            var feed_node = obj.get_member("feed");
+                            if (feed_node != null && feed_node.get_node_type() == Json.NodeType.OBJECT) {
+                                var feed_obj = feed_node.get_object();
+                                // A "not found" result comes back as an empty
+                                // feed object ({} - no id/url) rather than an
+                                // HTTP error - a real match always has a url.
+                                if (feed_obj.has_member("url") && json_get_string(feed_obj, "url") != null) {
+                                    show = parse_show(feed_obj);
+                                }
+                            }
+                        }
+                    }
+                } catch (GLib.Error e) {
+                    GLib.warning("PodcastIndexService: failed to parse byitunesid response: %s", e.message);
+                }
+
+                Idle.add(() => { callback(show); return false; });
+            });
         }
 
         public void get_categories(owned CategoryListCallback callback) {

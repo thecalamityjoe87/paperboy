@@ -29,6 +29,11 @@ private class ImageDownloadJob : GLib.Object {
     public Soup.Session session;
     public MetaCache? meta_cache;
     public ImageCache? img_cache;
+    // See ImageManager.load_image_async()'s ignore_fetch_context parameter -
+    // skips the FetchContext staleness check in deliver_download_outcome()
+    // for downloads that aren't tied to any particular news-article fetch
+    // (e.g. the podcast mini player's cover art).
+    public bool ignore_fetch_context = false;
 }
 
 private class CachedImageJob : GLib.Object {
@@ -39,6 +44,7 @@ private class CachedImageJob : GLib.Object {
     public int device_scale;
     public string disk_path;
     public ImageCache? img_cache;
+    public bool ignore_fetch_context = false;
 }
 
 // Worker-thread download result - plain data only, safe to build off-thread.
@@ -163,7 +169,7 @@ public class ImageManager : GLib.Object {
 
     // Start a single download for a URL and update all registered targets when done.
     // MAIN THREAD ONLY (reads Gtk.Picture.get_scale_factor and window fields).
-    public void start_image_download_for_url(string url, int target_w, int target_h) {
+    public void start_image_download_for_url(string url, int target_w, int target_h, bool ignore_fetch_context = false) {
         // Capture a snapshot of main-thread-only data we need in the worker
         // so do_image_download() never has to dereference `window` or a
         // Gtk.Picture from a background thread.
@@ -199,6 +205,7 @@ public class ImageManager : GLib.Object {
         job.session = window.session;
         job.meta_cache = window.meta_cache;
         job.img_cache = window.image_cache;
+        job.ignore_fetch_context = ignore_fetch_context;
         try {
             download_pool.add(job);
         } catch (GLib.ThreadError e) {
@@ -314,10 +321,11 @@ public class ImageManager : GLib.Object {
             int target_w = job.target_w;
             int target_h = job.target_h;
             uint gen_seq = job.gen_seq;
+            bool ignore_fetch_context = job.ignore_fetch_context;
 
             var outcome = fetch_and_decode(job);
             Idle.add(() => {
-                deliver_download_outcome(url, target_w, target_h, gen_seq, outcome);
+                deliver_download_outcome(url, target_w, target_h, gen_seq, outcome, ignore_fetch_context);
                 return false;
             });
         } finally {
@@ -328,11 +336,17 @@ public class ImageManager : GLib.Object {
 
     // MAIN THREAD ONLY. If the fetch sequence changed since this download
     // started (view/category switched), the result no longer belongs to the
-    // current view: drop it without touching any picture. Otherwise deliver
-    // it (or the fallback placeholder, if the fetch failed) to every
+    // current view: drop it without touching any picture - unless
+    // ignore_fetch_context is set, for downloads that were never tied to any
+    // particular news-article fetch in the first place (e.g. the podcast
+    // mini player's cover art), which this staleness check would otherwise
+    // wrongly catch every time an unrelated news fetch happens to land while
+    // they're still in flight (near-guaranteed at app startup). Otherwise
+    // deliver it (or the fallback placeholder, if the fetch failed) to every
     // picture waiting on this url.
-    private void deliver_download_outcome(string url, int target_w, int target_h, uint gen_seq, DownloadOutcome outcome) {
-        if (FetchContext.current != gen_seq) {
+    private void deliver_download_outcome(string url, int target_w, int target_h, uint gen_seq, DownloadOutcome outcome, bool ignore_fetch_context = false) {
+        if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] deliver_download_outcome for %s: ok=%s ignore_fetch_context=%s gen_seq=%u current=%u\n", url, outcome.ok ? "true" : "false", ignore_fetch_context ? "true" : "false", gen_seq, FetchContext.current);
+        if (!ignore_fetch_context && FetchContext.current != gen_seq) {
             pending_downloads.remove(url);
             forget_requested_size(url);
             return;
@@ -397,7 +411,7 @@ public class ImageManager : GLib.Object {
 
     // Ensure we don't start more than MAX_CONCURRENT_DOWNLOADS downloads; if we are at capacity,
     // retry shortly until a slot frees up.
-    public void ensure_start_download(string url, int target_w, int target_h) {
+    public void ensure_start_download(string url, int target_w, int target_h, bool ignore_fetch_context = false) {
         int cap = (window.loading_state != null && window.loading_state.initial_phase) ? NewsWindow.INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS : NewsWindow.MAX_CONCURRENT_DOWNLOADS;
         if (NewsWindow.active_downloads >= cap) {
             // Track retries to prevent infinite loops if active_downloads gets stuck
@@ -418,15 +432,24 @@ public class ImageManager : GLib.Object {
             }
 
             download_retry_counts.set(url, retry_count + 1);
-            Timeout.add(150, () => { ensure_start_download(url, target_w, target_h); return false; });
+            Timeout.add(150, () => { ensure_start_download(url, target_w, target_h, ignore_fetch_context); return false; });
             return;
         }
         // Clear retry count on successful start
         try { download_retry_counts.remove(url); } catch (GLib.Error e) { }
-        start_image_download_for_url(url, target_w, target_h);
+        start_image_download_for_url(url, target_w, target_h, ignore_fetch_context);
     }
 
-    public void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, bool force = false) {
+    // ignore_fetch_context: skip the FetchContext staleness check that
+    // normally discards a network image result if a news-article fetch has
+    // moved on since the download started (see deliver_download_outcome()).
+    // That check exists to stop a stale category/search fetch's images from
+    // landing after the user has navigated away - it has nothing to do with
+    // requests that aren't tied to any news fetch at all, like the podcast
+    // mini player's cover art, which was otherwise getting silently dropped
+    // whenever the app's own initial fetch_news() call happened to land
+    // while the cover was still downloading (near-guaranteed at startup).
+    public void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, bool force = false, bool ignore_fetch_context = false) {
         if (!force) {
             bool vis = false;
             try { vis = image.get_visible(); } catch (GLib.Error e) { vis = true; }
@@ -477,6 +500,7 @@ public class ImageManager : GLib.Object {
 
         if (window.meta_cache != null) {
             var disk_path = window.meta_cache.get_cached_path(url);
+            if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] disk_path for %s = %s\n", url, disk_path ?? "(null)");
             if (disk_path != null) {
                 // Decode/scale off the main thread, same as network downloads
                 // below - only the final texture/cache write touches GTK
@@ -493,17 +517,18 @@ public class ImageManager : GLib.Object {
                 job.device_scale = device_scale;
                 job.disk_path = disk_path;
                 job.img_cache = window.image_cache;
+                job.ignore_fetch_context = ignore_fetch_context;
                 try {
                     cached_load_pool.add(job);
                 } catch (GLib.ThreadError e) {
                     warning("Failed to queue cached image load: %s", e.message);
-                    network_fallback(image, url, target_w, target_h);
+                    network_fallback(image, url, target_w, target_h, ignore_fetch_context);
                 }
                 return;
             }
         }
 
-        network_fallback(image, url, target_w, target_h);
+        network_fallback(image, url, target_w, target_h, ignore_fetch_context);
     }
 
     // MAIN THREAD ONLY. Paints an already-cached pixbuf onto `image`
@@ -526,7 +551,7 @@ public class ImageManager : GLib.Object {
     // (or join) a network download for it. Used both when there's no
     // disk-cached copy at all, and when decoding a disk-cached copy fails.
     // MAIN THREAD ONLY.
-    private void network_fallback(Gtk.Picture image, string url, int target_w, int target_h) {
+    private void network_fallback(Gtk.Picture image, string url, int target_w, int target_h, bool ignore_fetch_context = false) {
         // THREAD SAFETY: Lock mutex while checking and modifying pending_downloads
         // to prevent race with background threads accessing the HashMap.
         // Wrapped in try/finally (not just a trailing unlock call) because
@@ -559,7 +584,7 @@ public class ImageManager : GLib.Object {
         // 1000px but returns 403 for larger sizes like 2000px/2400px)
         int download_w = clampi(target_w, target_w, 2400);
         int download_h = clampi(target_h, target_h, 2400);
-        ensure_start_download(url, download_w, download_h);
+        ensure_start_download(url, download_w, download_h, ignore_fetch_context);
     }
 
     // Runs on the cached_load_pool worker threads. Pure computation only
@@ -573,20 +598,23 @@ public class ImageManager : GLib.Object {
         int device_scale = job.device_scale;
         string disk_path = job.disk_path;
         var img_cache = job.img_cache;
+        bool ignore_fetch_context = job.ignore_fetch_context;
 
         Gdk.Pixbuf? pix = null;
         string size_key = make_cache_key(url, target_w, target_h);
         try {
             string file_key = "pixbuf::file:%s::%dx%d".printf(disk_path, 0, 0);
             var loaded = img_cache != null ? img_cache.get_or_load_file(file_key, disk_path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, disk_path, 0, 0);
+            if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] disk decode of %s: loaded=%s\n", disk_path, loaded != null ? "ok" : "null");
             if (loaded != null) {
                 pix = apply_cover_crop(img_cache, size_key, loaded,
                     clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
                     clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
             }
         } catch (GLib.Error e) {
-            // fall through to the network fallback below
+            if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] disk decode threw: %s\n", e.message);
         }
+        if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] final pix=%s\n", pix != null ? "ok" : "null");
 
         if (pix != null) {
             Gdk.Pixbuf pix_for_idle = pix;
@@ -610,18 +638,21 @@ public class ImageManager : GLib.Object {
                         cache.set_texture(size_key, tex);
                     }
                     image.set_paintable(tex);
-                } catch (GLib.Error e) { }
+                    if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] set_paintable succeeded for %s\n", url);
+                } catch (GLib.Error e) {
+                    if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] set_paintable threw: %s\n", e.message);
+                }
                 if (window.loading_state != null) window.loading_state.on_image_loaded(image);
                 return false;
             });
             return;
         }
 
-        // Disk cache read/decode failed - fall back to a network download,
-        // same as the original inline behavior. network_fallback() touches
-        // GTK/instance state, so it must run on the main thread.
+        // Disk cache read/decode failed - fall back to a network download.
+        // network_fallback() touches GTK/instance state, so it must run on
+        // the main thread.
         Idle.add(() => {
-            network_fallback(image, url, target_w, target_h);
+            network_fallback(image, url, target_w, target_h, ignore_fetch_context);
             return false;
         });
     }
