@@ -83,6 +83,43 @@
       <description>City name used to query local news; the nearest major city when the resolved location is a small town, otherwise the same as user-location-city</description>
     </key>
 
+    <key name="reader-view-enabled" type="b">
+      <default>false</default>
+      <summary>Reader view enabled</summary>
+      <description>Whether articles open in a distraction-free extracted reader view by default instead of the full webpage</description>
+    </key>
+
+    <key name="card-hover-actions-enabled" type="b">
+      <default>true</default>
+      <summary>Card hover quick-actions enabled</summary>
+      <description>Whether hovering an article card shows quick-open buttons (reader view / preview pane) over its image</description>
+    </key>
+
+    <key name="article-click-opens-reader" type="b">
+      <default>false</default>
+      <summary>Clicking an article opens reader view directly</summary>
+      <description>Whether clicking an article card opens it straight into reader view, skipping the preview pane</description>
+    </key>
+
+    <key name="reader-font-scale" type="d">
+      <range min="0.8" max="1.6"/>
+      <default>1.0</default>
+      <summary>Reader view text size</summary>
+      <description>Text size multiplier for the reader view, from 0.8 to 1.6</description>
+    </key>
+
+    <key name="reader-font-family" type="s">
+      <default>'sans'</default>
+      <summary>Reader view font family</summary>
+      <description>Font family used in reader view: sans, serif, or monospace</description>
+    </key>
+
+    <key name="reader-color-scheme" type="s">
+      <default>'auto'</default>
+      <summary>Reader view color scheme</summary>
+      <description>Background/text color scheme used in reader view: auto, light, sepia, gray, dark, or night</description>
+    </key>
+
     <!-- Unread Badge Preferences -->
     <key name="unread-badges-enabled" type="b">
       <default>true</default>

@@ -108,7 +108,7 @@ namespace Managers {
             seen_urls = new Gee.HashSet<string>();
         }
 
-        public void open_article_in_app_if_online(string article_url) {
+        public void open_article_in_app_if_online(string article_url, bool? force_reader_view = null, string? source_name_encoded = null) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
                 request_show_toast("You're offline. Enable internet connection to view articles");
@@ -117,7 +117,7 @@ namespace Managers {
 
             string normalized = window.normalize_article_url(article_url);
             window.mark_article_viewed(normalized);
-            if (window.article_sheet != null) window.article_sheet.open(normalized);
+            if (window.article_sheet != null) window.article_sheet.open(normalized, force_reader_view, source_name_encoded);
         }
 
         public void open_article_in_browser_if_online(string article_url) {
@@ -894,7 +894,13 @@ namespace Managers {
             window.article_state_store,
             window,
             source_name,
-            (s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); },
+            (s) => {
+                if (window.prefs != null && window.prefs.article_click_opens_reader) {
+                    open_article_in_app_if_online(s, true);
+                } else if (window.article_pane != null) {
+                    window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name);
+                }
+            },
             (article_url) => { open_article_in_app_if_online(article_url); },
             (article_url) => { open_article_in_browser_if_online(article_url); },
             (article_url, src_name) => {
@@ -931,7 +937,8 @@ namespace Managers {
                     }
                 }
             },
-            (article_url) => { window.show_share_dialog(article_url); }
+            (article_url) => { window.show_share_dialog(article_url); },
+            (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
         );
 
         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
@@ -1268,7 +1275,9 @@ namespace Managers {
             window,
             source_name,
             (s) => {
-                if (window.article_pane != null) {
+                if (window.prefs != null && window.prefs.article_click_opens_reader) {
+                    open_article_in_app_if_online(s, true);
+                } else if (window.article_pane != null) {
                     window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
                 }
             },
@@ -1318,7 +1327,8 @@ namespace Managers {
                 if (window != null) {
                     window.show_share_dialog(article_url);
                 }
-            }
+            },
+            (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
         );
     }
 }

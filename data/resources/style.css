@@ -336,6 +336,34 @@
     opacity: 1;
 }
 
+/* Quick-open buttons centered over an article card's image (reader view /
+   preview pane) - same hover-only fade convention as
+   .podcast-card-info-hint above. */
+.card-hover-actions {
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.card-hover .card-hover-actions {
+    opacity: 1;
+}
+
+/* Same dark-pill badge language as .source-badge/.category-chip, sized up
+   for a bigger, easier-to-see/click hover target. */
+.card-hover-action-btn {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 12px;
+    min-width: 56px;
+    min-height: 56px;
+    padding: 0;
+    box-shadow: 0 2px 6px alpha(black, 0.25);
+}
+
+.card-hover-action-btn:hover {
+    background-color: alpha(black, 0.8);
+}
+
 /* Shown bottom-right of the title area, opposite the time caption, once
    an article has been read. Plain icon + text, no background pill - it
    sits on the card's own background now, not over an image, so it's
@@ -425,12 +453,55 @@
     background-color: @view_bg_color;
 }
 
-.sheet .background {
+/* Targets the WebView's own internal background node inside ArticleSheet.
+   Several GTK top-level CSS nodes also carry a generic "background" class
+   (popover.background, tooltip.background, ...) - since any such node
+   opened from a widget inside .sheet is a CSS descendant of it, this plain
+   ".background" selector was also unintentionally painting them with the
+   reader's own background color while their text kept GTK's default
+   color, e.g. making tooltips render as unreadable near-blank boxes.
+   Excluding those node types keeps the WebView theming intact without
+   that side effect. */
+.sheet .background:not(popover):not(tooltip) {
     background-color: @view_bg_color;
 }
 
 .sheet {
     background-color: @view_bg_color;
+}
+
+/* .reader-title/.reader-byline/.reader-paragraph font/color rules live
+   entirely in ReaderView.apply_style()'s own CSS provider now (font size,
+   family AND color all need to change together per reader setting) -
+   having a second, static rule here for the same selectors risked a
+   cascade tie where this rule's lack of an explicit color could still win
+   over the dynamic one's, leaving text an unreadable default shade in the
+   darker color schemes. */
+
+.reader-view .reader-hero-image {
+    border-radius: 12px;
+    margin-bottom: 4px;
+}
+
+.reader-view .reader-source-name {
+    font-weight: 700;
+    font-size: 1.4em;
+}
+
+.reader-view .circular-logo,
+.reader-view .circular-logo picture,
+.reader-view .circular-logo image,
+.reader-view .circular-logo * {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 50%;
+}
+
+.reader-view .circular-logo {
+    padding: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background-clip: padding-box;
 }
 
 /* Circular logo styling for sidebar RSS feeds */
@@ -856,6 +927,16 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     transform: none;
 }
 
+/* Same fix as .card:backdrop above: the theme dims widgets by default when
+   the window loses focus (:backdrop), which was washing out reader view's
+   text to a duller gray whenever the app window wasn't the active one -
+   forcing full opacity keeps the article sheet (webview and reader view
+   alike) rendering at full brightness regardless of window focus. */
+.article-sheet:backdrop,
+.article-sheet:backdrop * {
+    opacity: 1;
+}
+
 /* Make contained image round */
 .pane-round-image-card image {
     border-radius: 50%;
@@ -876,8 +957,6 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     padding: 8px 24px;
     box-shadow: 0 2px 8px alpha(@shade_color, 0.25);
     min-height: 36px;
-    overflow: visible;
-    /* allow button shadows/outline to render fully */
 }
 
 .custom-toast-label {

@@ -29,6 +29,11 @@ public class ArticleSheet : GLib.Object {
     private Gtk.Button? back_btn;
     private Gtk.Button? forward_btn;
     private Gtk.Button? refresh_btn;
+    private Gtk.ToggleButton? reader_toggle_btn;
+    private Gtk.Stack? view_stack;
+    private ReaderView? reader_view;
+    private string? reader_loaded_url = null;
+    private string? current_source_name_encoded = null;
     private WebKit.WebView? webview;
     private string adblock_css = "";
     private string? current_url = null;
@@ -86,7 +91,26 @@ public class ArticleSheet : GLib.Object {
         refresh_btn.clicked.connect(() => {
             if (!is_destroyed && webview != null) webview.reload();
         });
-        
+
+        reader_toggle_btn = new Gtk.ToggleButton();
+        // "view-reader-symbolic" doesn't exist in Adwaita (only in some
+        // third-party themes like elementary's), so it rendered as the
+        // missing-icon glyph - "view-paged-symbolic" is a real Adwaita icon
+        // and reads reasonably as a reading/document view toggle.
+        reader_toggle_btn.set_icon_name("view-paged-symbolic");
+        reader_toggle_btn.set_tooltip_text("Reader view");
+        reader_toggle_btn.set_can_focus(false);
+        reader_toggle_btn.toggled.connect(() => {
+            if (is_destroyed) return;
+            if (reader_toggle_btn.get_active()) {
+                show_reader_view();
+            } else {
+                show_web_view();
+            }
+        });
+
+        reader_view = new ReaderView(parent_window);
+
         var spacer = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         spacer.set_hexpand(true);
 
@@ -102,9 +126,19 @@ public class ArticleSheet : GLib.Object {
         header.append(forward_btn);
         header.append(refresh_btn);
         header.append(spacer);
+        header.append(reader_toggle_btn);
+        header.append(reader_view.get_settings_button());
         header.append(close_btn);
 
         content_box.append(header);
+
+        view_stack = new Gtk.Stack();
+        view_stack.set_hexpand(true);
+        view_stack.set_vexpand(true);
+        content_box.append(view_stack);
+
+        view_stack.add_named(reader_view.get_widget(), "reader");
+
         revealer.set_child(content_box);
         container.append(revealer);
 
@@ -162,7 +196,7 @@ public class ArticleSheet : GLib.Object {
             if (user_content_manager != null && adblock_sheet != null) {
                 user_content_manager.remove_style_sheet(adblock_sheet);
             }
-            content_box.remove(webview);
+            view_stack.remove(webview);
             webview = null;
             user_content_manager = null;
             adblock_sheet = null;
@@ -231,7 +265,36 @@ public class ArticleSheet : GLib.Object {
             return false;
         });
 
-        content_box.append(webview);
+        view_stack.add_named(webview, "web");
+        if (view_stack.get_visible_child_name() == null || !(reader_toggle_btn != null && reader_toggle_btn.get_active())) {
+            view_stack.set_visible_child_name("web");
+        }
+    }
+
+    private void show_reader_view() {
+        if (view_stack == null || reader_view == null) return;
+        view_stack.set_visible_child_name("reader");
+        reader_view.get_settings_button().set_visible(true);
+
+        if (current_url != null && reader_loaded_url != current_url) {
+            reader_view.show_loading();
+            string url_snapshot = current_url;
+            ArticleExtractorService.extract_async(url_snapshot, (extracted) => {
+                if (is_destroyed || current_url != url_snapshot) return;
+                if (extracted.success) {
+                    reader_loaded_url = url_snapshot;
+                    reader_view.show_article(extracted, url_snapshot, current_source_name_encoded);
+                } else {
+                    reader_view.show_error();
+                }
+            });
+        }
+    }
+
+    private void show_web_view() {
+        if (view_stack == null) return;
+        view_stack.set_visible_child_name("web");
+        if (reader_view != null) reader_view.get_settings_button().set_visible(false);
     }
 
     public Gtk.Widget get_widget() {
@@ -242,14 +305,27 @@ public class ArticleSheet : GLib.Object {
         return revealer.get_reveal_child();
     }
 
-    public void open(string url) {
+    public void open(string url, bool? force_reader_view = null, string? source_name_encoded = null) {
         if (url == null) return;
         current_url = url;
+        reader_loaded_url = null;
+        current_source_name_encoded = source_name_encoded;
         if (webview == null) setup_webview();
         if (webview != null) webview.load_uri(url);
         container.set_visible(true);
         revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
         revealer.set_reveal_child(true);
+
+        bool want_reader = force_reader_view ?? (parent_window != null && parent_window.prefs != null && parent_window.prefs.reader_view_enabled);
+        if (reader_toggle_btn != null) {
+            if (reader_toggle_btn.get_active() == want_reader) {
+                // Toggling to the same state won't fire the `toggled` signal,
+                // so drive the view directly to still (re-)extract this article.
+                if (want_reader) show_reader_view(); else show_web_view();
+            } else {
+                reader_toggle_btn.set_active(want_reader);
+            }
+        }
 
         Idle.add(() => { update_nav_buttons(); return false; });
     }
@@ -278,7 +354,12 @@ public class ArticleSheet : GLib.Object {
         revealer = null;
         content_box = null;
         close_btn = null;
+        reader_toggle_btn = null;
+        view_stack = null;
+        reader_view = null;
         current_url = null;
+        reader_loaded_url = null;
+        current_source_name_encoded = null;
         parent_window = null;
     }
 

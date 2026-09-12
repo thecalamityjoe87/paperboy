@@ -806,7 +806,6 @@ public class SourceMetadata : GLib.Object {
                                 if (obj.has_member("saved_filename")) {
                                     saved_filename = obj.get_string_member("saved_filename");
                                 }
-                                message("SourceMetadata: found match for domain %s in %s", article_domain, filename);
                                 return;
                             }
                         }

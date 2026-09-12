@@ -149,22 +149,36 @@ public class CardBuilder : GLib.Object {
         return box;
     }
 
-    public static Gtk.Widget build_source_badge_dynamic(NewsWindow win, string? source_name, string? url, string? category_id) {
-        string? provided_logo_url = null;
-        string? display_name = source_name;
+    // Front Page/Top Ten (paperboy-API-backed) articles carry their
+    // source's display name and logo URL encoded straight into the
+    // `source_name` string as "Name||logo_url##category::category_id" (see
+    // paperboyFetcher.vala) rather than being indexable via SourceMetadata,
+    // since update_index_and_fetch() is never called for these sources.
+    // Shared here so any caller that needs a source's logo/name for one of
+    // these articles (card badges, the reader view's source banner) decodes
+    // it the same way instead of re-implementing this split/strip dance.
+    public static void parse_encoded_source_name(string? source_name, out string? display_name, out string? logo_url) {
+        logo_url = null;
+        display_name = source_name;
         if (source_name != null && source_name.index_of("||") >= 0) {
             string[] parts = source_name.split("||");
             if (parts.length >= 1) display_name = parts[0].strip();
             if (parts.length >= 2) {
-                provided_logo_url = parts[1].strip();
-                int cat_idx = provided_logo_url.index_of("##category::");
-            if (cat_idx >= 0 && provided_logo_url.length > cat_idx) provided_logo_url = provided_logo_url.substring(0, cat_idx).strip();
+                logo_url = parts[1].strip();
+                int lcat_idx = logo_url.index_of("##category::");
+                if (lcat_idx >= 0 && logo_url.length > lcat_idx) logo_url = logo_url.substring(0, lcat_idx).strip();
             }
         }
         if (display_name != null) {
             int cat_idx = display_name.index_of("##category::");
             if (cat_idx >= 0 && display_name.length > cat_idx) display_name = display_name.substring(0, cat_idx).strip();
         }
+    }
+
+    public static Gtk.Widget build_source_badge_dynamic(NewsWindow win, string? source_name, string? url, string? category_id) {
+        string? provided_logo_url = null;
+        string? display_name = null;
+        parse_encoded_source_name(source_name, out display_name, out provided_logo_url);
 
         // For My Feed articles, prioritize source_info metadata from when the article
         // was originally fetched from frontpage/topten. This ensures we use the

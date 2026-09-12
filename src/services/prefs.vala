@@ -155,6 +155,36 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_string("user-location-news-query", value); }
     }
 
+    public bool reader_view_enabled {
+        get { return settings.get_boolean("reader-view-enabled"); }
+        set { settings.set_boolean("reader-view-enabled", value); }
+    }
+
+    public double reader_font_scale {
+        get { return settings.get_double("reader-font-scale"); }
+        set { settings.set_double("reader-font-scale", value); }
+    }
+
+    public string reader_font_family {
+        owned get { return settings.get_string("reader-font-family"); }
+        set { settings.set_string("reader-font-family", value); }
+    }
+
+    public string reader_color_scheme {
+        owned get { return settings.get_string("reader-color-scheme"); }
+        set { settings.set_string("reader-color-scheme", value); }
+    }
+
+    public bool card_hover_actions_enabled {
+        get { return settings.get_boolean("card-hover-actions-enabled"); }
+        set { settings.set_boolean("card-hover-actions-enabled", value); }
+    }
+
+    public bool article_click_opens_reader {
+        get { return settings.get_boolean("article-click-opens-reader"); }
+        set { settings.set_boolean("article-click-opens-reader", value); }
+    }
+
     public bool unread_badges_enabled {
         get { return settings.get_boolean("unread-badges-enabled"); }
         set { settings.set_boolean("unread-badges-enabled", value); }

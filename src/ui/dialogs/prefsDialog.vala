@@ -1032,6 +1032,41 @@ public class PrefsDialog : GLib.Object {
 
         personalization_page.add(app_group);
 
+        // ========== READING GROUP ==========
+        var reading_group = new Adw.PreferencesGroup();
+        reading_group.set_title("Reading");
+
+        var reader_view_row = new Adw.SwitchRow();
+        reader_view_row.set_title("Open articles in reader view");
+        reader_view_row.set_subtitle("Show an extracted, distraction-free view of the article text instead of the full webpage by default. You can still switch views per article.");
+        reader_view_row.set_active(prefs.reader_view_enabled);
+        reader_view_row.notify["active"].connect(() => {
+            prefs.reader_view_enabled = reader_view_row.get_active();
+        });
+        reading_group.add(reader_view_row);
+
+        var article_click_row = new Adw.SwitchRow();
+        article_click_row.set_title("Clicking an article opens reader view directly");
+        article_click_row.set_subtitle("Skip the preview pane and jump straight into reader view when you click an article card");
+        article_click_row.set_active(prefs.article_click_opens_reader);
+        article_click_row.notify["active"].connect(() => {
+            prefs.article_click_opens_reader = article_click_row.get_active();
+        });
+        reading_group.add(article_click_row);
+
+        var hover_actions_row = new Adw.SwitchRow();
+        hover_actions_row.set_title("Show quick-open buttons on hover");
+        hover_actions_row.set_subtitle("Show reader view / preview buttons over an article card's image when you hover it");
+        hover_actions_row.set_active(prefs.card_hover_actions_enabled);
+        hover_actions_row.notify["active"].connect(() => {
+            bool enabled = hover_actions_row.get_active();
+            prefs.card_hover_actions_enabled = enabled;
+            if (win != null) ArticleCard.set_hover_actions_visible_for_all(win, enabled);
+        });
+        reading_group.add(hover_actions_row);
+
+        personalization_page.add(reading_group);
+
         // ========== SPORTS SCORE CARDS GROUP ==========
         var sports_group = new Adw.PreferencesGroup();
         sports_group.set_title("Sports Score Cards");
