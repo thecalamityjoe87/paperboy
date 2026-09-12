@@ -74,6 +74,12 @@ public class ImageManager : GLib.Object {
     public GLib.Mutex download_mutex;
     public uint deferred_check_timeout_id = 0;
 
+    // URLs registered with ignore_fetch_context=true (e.g. the podcast mini
+    // player's cover art) - cleanup_stale_downloads() must never evict these,
+    // since they aren't part of the news-fetch churn it's meant to bound and
+    // there are only ever one or two of them in flight at once.
+    private Gee.HashSet<string> protected_download_urls;
+
     // ------------------------------------------------------------------
     // THREADING CONTRACT
     //
@@ -138,6 +144,7 @@ public class ImageManager : GLib.Object {
         deferred_downloads = new Gee.HashMap<Gtk.Picture, DeferredRequest>();
         pending_local_placeholder = new Gee.HashMap<Gtk.Picture, bool>();
         hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
+        protected_download_urls = new Gee.HashSet<string>();
         download_mutex = new GLib.Mutex();
 
         try {
@@ -345,7 +352,6 @@ public class ImageManager : GLib.Object {
     // deliver it (or the fallback placeholder, if the fetch failed) to every
     // picture waiting on this url.
     private void deliver_download_outcome(string url, int target_w, int target_h, uint gen_seq, DownloadOutcome outcome, bool ignore_fetch_context = false) {
-        if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] deliver_download_outcome for %s: ok=%s ignore_fetch_context=%s gen_seq=%u current=%u\n", url, outcome.ok ? "true" : "false", ignore_fetch_context ? "true" : "false", gen_seq, FetchContext.current);
         if (!ignore_fetch_context && FetchContext.current != gen_seq) {
             pending_downloads.remove(url);
             forget_requested_size(url);
@@ -402,6 +408,7 @@ public class ImageManager : GLib.Object {
 
     // MAIN THREAD ONLY.
     private void forget_requested_size(string url) {
+        try { protected_download_urls.remove(url); } catch (GLib.Error e) { }
         try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
         try {
             string nkey = UrlUtils.normalize_article_url(url);
@@ -460,7 +467,7 @@ public class ImageManager : GLib.Object {
                     if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
                 } catch (GLib.Error e) { }
 
-                deferred_downloads.set(image, new DeferredRequest(url, target_w, target_h));
+                deferred_downloads.set(image, new DeferredRequest(url, target_w, target_h, ignore_fetch_context));
                 if (deferred_check_timeout_id == 0) {
                     deferred_check_timeout_id = Timeout.add(1000, () => {
                         try { process_deferred_downloads(); } catch (GLib.Error e) { }
@@ -500,7 +507,6 @@ public class ImageManager : GLib.Object {
 
         if (window.meta_cache != null) {
             var disk_path = window.meta_cache.get_cached_path(url);
-            if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] disk_path for %s = %s\n", url, disk_path ?? "(null)");
             if (disk_path != null) {
                 // Decode/scale off the main thread, same as network downloads
                 // below - only the final texture/cache write touches GTK
@@ -560,6 +566,8 @@ public class ImageManager : GLib.Object {
         // caller of network_fallback() on any thread.
         download_mutex.lock();
         try {
+            if (ignore_fetch_context) protected_download_urls.add(url);
+
             var existing = pending_downloads.get(url);
             if (existing != null) {
                 existing.add(image);
@@ -605,16 +613,12 @@ public class ImageManager : GLib.Object {
         try {
             string file_key = "pixbuf::file:%s::%dx%d".printf(disk_path, 0, 0);
             var loaded = img_cache != null ? img_cache.get_or_load_file(file_key, disk_path, 0, 0) : ImageCache.get_global().get_or_load_file(file_key, disk_path, 0, 0);
-            if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] disk decode of %s: loaded=%s\n", disk_path, loaded != null ? "ok" : "null");
             if (loaded != null) {
                 pix = apply_cover_crop(img_cache, size_key, loaded,
                     clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
                     clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
             }
-        } catch (GLib.Error e) {
-            if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] disk decode threw: %s\n", e.message);
-        }
-        if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] final pix=%s\n", pix != null ? "ok" : "null");
+        } catch (GLib.Error e) { }
 
         if (pix != null) {
             Gdk.Pixbuf pix_for_idle = pix;
@@ -638,10 +642,7 @@ public class ImageManager : GLib.Object {
                         cache.set_texture(size_key, tex);
                     }
                     image.set_paintable(tex);
-                    if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] set_paintable succeeded for %s\n", url);
-                } catch (GLib.Error e) {
-                    if (target_w == 36 && target_h == 36) GLib.print("  [img-debug] set_paintable threw: %s\n", e.message);
-                }
+                } catch (GLib.Error e) { }
                 if (window.loading_state != null) window.loading_state.on_image_loaded(image);
                 return false;
             });
@@ -740,6 +741,7 @@ public class ImageManager : GLib.Object {
             int count = 0;
             foreach (var entry in pending_downloads.entries) {
                 if (count >= to_remove) break;
+                if (protected_download_urls.contains(entry.key)) continue;
                 keys_to_remove.add(entry.key);
                 count++;
             }
@@ -773,7 +775,7 @@ public class ImageManager : GLib.Object {
             var req = deferred_downloads.get(pic);
             if (req == null) continue;
             try { deferred_downloads.remove(pic); } catch (GLib.Error e) { }
-            load_image_async(pic, req.url, req.w, req.h, true);
+            load_image_async(pic, req.url, req.w, req.h, true, req.ignore_fetch_context);
         }
 
         if (deferred_downloads.size > 0) {
