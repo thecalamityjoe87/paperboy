@@ -160,6 +160,11 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("reader-view-enabled", value); }
     }
 
+    public bool comments_enabled {
+        get { return settings.get_boolean("comments-enabled"); }
+        set { settings.set_boolean("comments-enabled", value); }
+    }
+
     public double reader_font_scale {
         get { return settings.get_double("reader-font-scale"); }
         set { settings.set_double("reader-font-scale", value); }

@@ -121,12 +121,19 @@ public class RssFeedProcessor {
                             string? updated_date = null; // Atom fallback, only used if no pubDate/published found
                             // fallback snippet if live-fetching the article page later fails
                             string? desc_text = null;
+                            string? comments_url = null;
                             int thumb_width = -1;
                             bool thumb_is_thumbnail_tag = false;
                             for (Xml.Node* c = it->children; c != null; c = c->next) {
                                 if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
                                 if (c->name == "title") {
                                     title = c->get_content();
+                                } else if (c->name == "commentRss" && c->ns != null && c->ns->prefix == "wfw") {
+                                    // Only wfw:commentRss is used - it's a real comment RSS feed we
+                                    // can parse natively. Plain <comments> just links to an HTML
+                                    // page, which we have no way to render as native widgets.
+                                    string? content = c->get_content();
+                                    if (content != null && content.strip().length > 0) comments_url = content.strip();
                                 } else if ((c->name == "pubDate" || c->name == "published" ||
                                             (c->name == "date" && c->ns != null && c->ns->prefix == "dc")) && pub_date == null) {
                                     string? content = c->get_content();
@@ -282,6 +289,7 @@ public class RssFeedProcessor {
                                 row.add(pub_date ?? updated_date);
                                 row.add(desc_text);
                                 items.add(row);
+                                Paperboy.CommentsUrlRegistry.register(link, comments_url);
                             }
                         }
                     }
@@ -319,12 +327,16 @@ public class RssFeedProcessor {
                                 string? pub_date = null;
                                 string? updated_date = null; // Atom fallback, only used if no pubDate/published found
                                 string? desc_text = null;
+                                string? comments_url = null;
                                 int thumb_width = -1;
                                 bool thumb_is_thumbnail_tag = false;
                                 for (Xml.Node* c = it->children; c != null; c = c->next) {
                                     if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
                                     if (c->name == "title") {
                                         title = c->get_content();
+                                    } else if (c->name == "commentRss" && c->ns != null && c->ns->prefix == "wfw") {
+                                        string? content = c->get_content();
+                                        if (content != null && content.strip().length > 0) comments_url = content.strip();
                                     } else if ((c->name == "pubDate" || c->name == "published") && pub_date == null) {
                                         string? content = c->get_content();
                                         if (content != null && content.strip().length > 0) pub_date = content.strip();
@@ -471,6 +483,7 @@ public class RssFeedProcessor {
                                     row.add(pub_date ?? updated_date);
                                     row.add(desc_text);
                                     items.add(row);
+                                    Paperboy.CommentsUrlRegistry.register(link, comments_url);
                                 }
                             }
                         }

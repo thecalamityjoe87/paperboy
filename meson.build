@@ -106,6 +106,10 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/articleShareService.vala',
     'src/services/rssSourceStore.vala',
     'src/services/rssArticleCache.vala',
+    'src/services/commentsUrlRegistry.vala',
+    'src/services/commentsFeedService.vala',
+    'src/services/hackerNewsCommentsService.vala',
+    'src/services/disqusCommentsService.vala',
     'src/services/locationLookupService.vala',
     'src/services/sportsScoresService.vala',
     'src/services/podcastIndexService.vala',
@@ -116,6 +120,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
     'src/models/articleItem.vala',
+    'src/models/feedComment.vala',
     'src/models/imageModels.vala',
     'src/models/gameScore.vala',
     'src/models/podcastModels.vala',
@@ -192,6 +197,7 @@ install_data(
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-open-menu-symbolic.svg',
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-sidebar-show-symbolic.svg',
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-view-refresh-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-comments-symbolic.svg',
   install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'actions')
 )
 

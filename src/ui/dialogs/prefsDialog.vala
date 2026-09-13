@@ -1347,6 +1347,22 @@ public class PrefsDialog : GLib.Object {
         data_group.add(rss_cache_row);
 
         app_page.add(data_group);
+
+        // ========== EXPERIMENTAL GROUP ==========
+        var experimental_group = new Adw.PreferencesGroup();
+        experimental_group.set_title("Experimental");
+
+        var comments_row = new Adw.SwitchRow();
+        comments_row.set_title("Show article comments");
+        comments_row.set_subtitle("Show a comments button on the reader page for articles with a discoverable comment source (native feed, Disqus, or Hacker News discussion). Coverage is limited - many sites don't expose comments through any of these.");
+        comments_row.set_active(prefs.comments_enabled);
+        comments_row.notify["active"].connect(() => {
+            prefs.comments_enabled = comments_row.get_active();
+        });
+        experimental_group.add(comments_row);
+
+        app_page.add(experimental_group);
+
         dialog.add(app_page);
 
         // Handle dialog close to refresh if sources or categories changed

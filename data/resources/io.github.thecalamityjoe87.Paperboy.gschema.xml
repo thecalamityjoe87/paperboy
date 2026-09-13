@@ -89,6 +89,12 @@
       <description>Whether articles open in a distraction-free extracted reader view by default instead of the full webpage</description>
     </key>
 
+    <key name="comments-enabled" type="b">
+      <default>true</default>
+      <summary>Article comments enabled (experimental)</summary>
+      <description>Whether the reader page shows the comments button and pane for articles with a discoverable comment source (native feed, Disqus, or Hacker News discussion)</description>
+    </key>
+
     <key name="card-hover-actions-enabled" type="b">
       <default>true</default>
       <summary>Card hover quick-actions enabled</summary>
