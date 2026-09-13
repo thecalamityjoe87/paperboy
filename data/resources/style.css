@@ -402,12 +402,9 @@
     line-height: 0;
 }
 
-/* Persistent "this is saved" ribbon shown in the corner row next to the
-   "Viewed" badge - the bundled save-ribbon.svg asset (see
-   CardBuilder.build_save_ribbon), draped so it hangs down over the card's
-   own top edge. Its color is baked into the SVG itself, so no rules are
-   needed here; the corner row (CardBuilder.build_corner_badge_row) needs
-   none either, its layout is set entirely in code. */
+/* Persistent "this is saved" ribbon in the card's top-right corner (see
+   CardBuilder.build_save_ribbon) - color is baked into the PNG asset and
+   layout is set entirely in code, so no rules are needed here. */
 
 /* "Flying ghost" (icon + truncated title) that travels from a saved card
    to the Saved sidebar entry (see AnimationManager.spawn_save_ghost). */

@@ -32,10 +32,8 @@ public class ArticleCard : GLib.Object {
     public Gtk.Box title_box;
     public Gtk.Label title_label;
     public Gtk.Label time_label;
-    // Top-right corner row (save ribbon, see CardBuilder) and the ribbon
-    // itself - exposed so AnimationManager can animate it when the article
-    // is saved/unsaved.
-    public Gtk.Box corner_badges;
+    // Save ribbon (see CardBuilder.build_save_ribbon) - exposed so
+    // AnimationManager can animate it when the article is saved/unsaved.
     public Gtk.Widget save_ribbon;
     // Bottom-right of the title area, opposite time_label - where
     // ViewStateManager adds/removes the "Read" badge (see build_viewed_badge).
@@ -94,24 +92,22 @@ public class ArticleCard : GLib.Object {
         // Add the provided category chip overlay (owner computes chip)
         if (chip != null) overlay.add_overlay(chip);
 
-        // Persistent save badge, top-right (see CardBuilder.build_corner_badge_row).
+        // Persistent save badge, top-right (see CardBuilder.build_save_ribbon).
         bool already_saved = false;
         if (state_store != null) {
             string norm_for_save = window != null ? window.normalize_article_url(url) : url;
             already_saved = state_store.is_saved(norm_for_save);
         }
-        corner_badges = CardBuilder.build_corner_badge_row();
-        overlay.add_overlay(corner_badges);
         save_ribbon = CardBuilder.build_save_ribbon(already_saved);
-        corner_badges.append(save_ribbon);
+        overlay.add_overlay(save_ribbon);
 
         // Quick-open buttons, centered over the image - hidden until the
         // card is hovered (see .card-hover-actions in style.css), giving a
         // one-click path straight to reader view or the preview pane
         // instead of always going through the preview pane first. Stored
         // via set_data (not public fields wire_interactions could capture
-        // directly) for the same reason save_ribbon/corner_badges are
-        // looked up that way elsewhere - see wire_interactions() below.
+        // directly) for the same reason save_ribbon is looked up that way
+        // elsewhere - see wire_interactions() below.
         // Always built (not skipped) so toggling the "hover actions" pref
         // can just flip this box's visibility live on every already-
         // rendered card (see set_hover_actions_visible_for_all below)

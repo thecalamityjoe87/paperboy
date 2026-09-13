@@ -35,10 +35,8 @@ public class HeroCard : GLib.Object {
     public string? source_name;
     public string? category_id;
     public string? thumbnail_url;
-    // Top-right corner row (save ribbon, see CardBuilder) and the ribbon
-    // itself - exposed so AnimationManager can animate it when the article
-    // is saved/unsaved.
-    public Gtk.Box corner_badges;
+    // Save ribbon (see CardBuilder.build_save_ribbon) - exposed so
+    // AnimationManager can animate it when the article is saved/unsaved.
     public Gtk.Widget save_ribbon;
     // Bottom-right of the footer row, opposite time_label - where
     // ViewStateManager adds/removes the "Read" badge (see build_viewed_badge).
@@ -161,16 +159,14 @@ public class HeroCard : GLib.Object {
             overlay.add_overlay(chip);
         }
 
-        // Persistent save badge, top-right (see CardBuilder.build_corner_badge_row).
+        // Persistent save badge, top-right (see CardBuilder.build_save_ribbon).
         bool already_saved = false;
         if (article_state_store != null) {
             string norm_for_save = parent_window != null ? parent_window.normalize_article_url(url) : url;
             already_saved = article_state_store.is_saved(norm_for_save);
         }
-        corner_badges = CardBuilder.build_corner_badge_row();
-        overlay.add_overlay(corner_badges);
         save_ribbon = CardBuilder.build_save_ribbon(already_saved);
-        corner_badges.append(save_ribbon);
+        overlay.add_overlay(save_ribbon);
 
         // Same quick-open buttons ArticleCard shows on hover, centered over
         // the image - see ArticleCard's constructor for the full reasoning.

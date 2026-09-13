@@ -1146,6 +1146,19 @@ public class FetchNewsController {
             w.article_manager.article_buffer.clear();
             w.article_manager.articles_shown = 0;
 
+            // Clear initial_phase before adding cards - otherwise
+            // add_item_immediate_to_column's mark_initial_items_populated()
+            // schedules the normal trigger_initial_reveals() path too, which
+            // snaps these already-visible cards invisible and fades them
+            // back in a moment later (the flash).
+            if (w.loading_state != null) {
+                w.loading_state.initial_phase = false;
+                if (w.loading_state.initial_reveal_timeout_id > 0) {
+                    Source.remove(w.loading_state.initial_reveal_timeout_id);
+                    w.loading_state.initial_reveal_timeout_id = 0;
+                }
+            }
+
             // Add saved articles immediately after clearing
                 foreach (var article in saved_articles) {
                 if (article != null && FetchContext.is_current(_saved_seq)) {
@@ -1159,6 +1172,21 @@ public class FetchNewsController {
                 }
             }
 
+            // Give the new cards the same hidden/offset starting state
+            // LoadingStateManager.trigger_initial_reveals() uses for every
+            // other category, since clearing initial_phase above means that
+            // path never runs for Saved - the staggered fade-in below
+            // plays instead of relying on it.
+            if (w.layout_manager != null && w.layout_manager.columns_row != null) {
+                var entrance_child = w.layout_manager.columns_row.get_first_child();
+                while (entrance_child != null) {
+                    entrance_child.set_visible(true);
+                    entrance_child.set_opacity(0.0);
+                    entrance_child.set_margin_top(18);
+                    entrance_child = entrance_child.get_next_sibling();
+                }
+            }
+
             // Force queue draw to ensure UI updates
             if (w.layout_manager != null) {
                 w.layout_manager.refresh_columns();
@@ -1169,13 +1197,34 @@ public class FetchNewsController {
                 w.sidebar_manager.update_badge_for_category("saved");
             }
 
-            // Reveal content immediately - saved articles are local, no network wait needed
-            // CRITICAL: Don't use reveal_initial_content() here because it exits early if initial_phase is false
-            // After an RSS timeout error, initial_phase is already false, so we must directly show the container
-            w.hide_loading_spinner();
-            if (w.main_content_container != null) {
-                w.main_content_container.set_visible(true);
-            }
+            // Reveal on the NEXT loop iteration, not this one - saved
+            // articles are local so there's no network wait to hide behind,
+            // and revealing in the same tick that just added all the cards
+            // let GTK's first layout guess (before it finished measuring
+            // the new widgets) become visible for a frame, seen as a quick
+            // flash/reflow right after the cards appeared.
+            Idle.add(() => {
+                if (!FetchContext.is_current(_saved_seq)) return false;
+                // CRITICAL: Don't use reveal_initial_content() here because it exits early if initial_phase is false
+                // After an RSS timeout error, initial_phase is already false, so we must directly show the container
+                w.hide_loading_spinner();
+                if (w.main_content_container != null) {
+                    w.main_content_container.set_visible(true);
+                }
+
+                // Stagger the same entrance animation other categories get.
+                if (w.animation_manager != null && w.layout_manager != null && w.layout_manager.columns_row != null) {
+                    uint per_item_ms = 28;
+                    uint animate_index = 0;
+                    var anim_child = w.layout_manager.columns_row.get_first_child();
+                    while (anim_child != null) {
+                        w.animation_manager.animate_card_entrance_stagger(anim_child, animate_index, per_item_ms);
+                        animate_index++;
+                        anim_child = anim_child.get_next_sibling();
+                    }
+                }
+                return false;
+            });
             return false;
         });
 

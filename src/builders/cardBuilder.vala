@@ -778,39 +778,20 @@ public class CardBuilder : GLib.Object {
         return box;
     }
 
-    // Top-right corner row shared by every card: holds the persistent save
-    // ribbon. The "Viewed" badge lives in the bottom-left corner instead
-    // (see build_viewed_badge) rather than sharing this row - the two used
-    // to compete for space here.
-    public static Gtk.Box build_corner_badge_row() {
-        var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
-        box.add_css_class("card-corner-badges");
-        box.set_valign(Gtk.Align.START);
-        box.set_halign(Gtk.Align.END);
-        box.set_margin_top(8);
-        box.set_margin_end(8);
-        return box;
-    }
-
-    // Rest position for the save ribbon: pokes up past the corner row's
-    // own margin_top(8), draping over the card's top edge instead of
-    // sitting inset like the row's other badges. Public so AnimationManager
-    // can animate toward/away from the same value.
+    // Rest Y (within the ribbon's own Gtk.Fixed) for the save ribbon, pokes
+    // up past the card's top edge. Public so AnimationManager can animate
+    // toward/away from the same value.
     public const int SAVE_RIBBON_HEIGHT = 50; // 10% bigger (29px icon, was 26px)
-    public const int SAVE_RIBBON_REST_MARGIN = -16; // 2px higher than before (-14)
+    public const int SAVE_RIBBON_REST_Y = -8;
     // Fully tucked away above the card, tab's bottom edge at the rest
     // tab's own top edge - i.e. rest minus its own height.
-    public const int SAVE_RIBBON_HIDDEN_MARGIN = SAVE_RIBBON_REST_MARGIN - SAVE_RIBBON_HEIGHT;
+    public const int SAVE_RIBBON_HIDDEN_Y = SAVE_RIBBON_REST_Y - SAVE_RIBBON_HEIGHT;
 
-    // Persistent "this is saved" tag shown in the corner badge row, next to
-    // the "Viewed" badge - the exact gold/orange gradient ribbon-with-star
-    // graphic the user provided, bundled as
-    // data/icons/symbolic/save-ribbon.png, not a system icon or a plain
-    // rectangle. Slides down as a single rigid piece from fully above the
-    // card to its rest position (see AnimationManager.animate_save_toggle,
-    // which animates margin_top between SAVE_RIBBON_HIDDEN_MARGIN and
-    // SAVE_RIBBON_REST_MARGIN) rather than a Gtk.Revealer-style reveal,
-    // which grows/clips the shape open instead of translating it.
+    // Persistent "this is saved" tag in the card's top-right corner (see
+    // AnimationManager.animate_save_toggle for the slide animation). A
+    // Gtk.Fixed positions it, not a margin - GTK couldn't reconcile a
+    // negative margin against the widget's own measured size, which
+    // spammed layout warnings and a visible relayout glitch on every card.
     public static Gtk.Widget build_save_ribbon(bool initially_saved) {
         var tab = new Gtk.Image();
         tab.add_css_class("save-ribbon");
@@ -832,15 +813,21 @@ public class CardBuilder : GLib.Object {
             tab.set_from_icon_name("user-bookmarks-symbolic");
         }
         tab.set_pixel_size(icon_px);
-        tab.set_size_request(20, SAVE_RIBBON_HEIGHT);
-        tab.set_valign(Gtk.Align.START);
-        tab.set_margin_top(initially_saved ? SAVE_RIBBON_REST_MARGIN : SAVE_RIBBON_HIDDEN_MARGIN);
+        tab.set_size_request(icon_px, icon_px);
         // Not just positioned off the top - removed from layout entirely
         // while unsaved, so it doesn't reserve a gap next to the "Viewed"
-        // badge in the corner row (see AnimationManager.animate_save_toggle,
-        // which flips this back to true right before sliding it in).
+        // badge (see AnimationManager.animate_save_toggle, which flips this
+        // back to true right before sliding it in).
         tab.set_visible(initially_saved);
-        return tab;
+
+        var fixed = new Gtk.Fixed();
+        fixed.set_halign(Gtk.Align.END);
+        fixed.set_valign(Gtk.Align.START);
+        fixed.set_margin_end(8);
+        fixed.set_size_request(icon_px, icon_px);
+        fixed.put(tab, 0, initially_saved ? SAVE_RIBBON_REST_Y : SAVE_RIBBON_HIDDEN_Y);
+        fixed.set_data<Gtk.Widget>("ribbon-image", tab);
+        return fixed;
     }
 
 }

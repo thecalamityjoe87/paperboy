@@ -60,6 +60,31 @@ namespace Managers {
         }
     }
 
+    // Drives the save ribbon's Y position within its own Gtk.Fixed (see
+    // CardBuilder.build_save_ribbon) - a Gtk.Fixed instead of a margin,
+    // since GTK's layout system can't reconcile a negative margin against
+    // a widget's own measured size.
+    private class FixedYAdapter : GLib.Object {
+        public double y { get; set; }
+        private weak Gtk.Fixed? fixed;
+        private weak Gtk.Widget? child;
+
+        public FixedYAdapter(Gtk.Fixed f, Gtk.Widget child, double initial) {
+            GLib.Object();
+            fixed = f;
+            this.child = child;
+            this.y = initial;
+            apply();
+            this.notify.connect((o, pspec) => {
+                if (pspec.get_name() == "y") apply();
+            });
+        }
+
+        private void apply() {
+            if (fixed != null && child != null) fixed.move(child, 0, this.y);
+        }
+    }
+
     private class ScaleAdapter : GLib.Object {
         public double scale { get; set; }
         private weak Gtk.Widget? widget;
@@ -433,44 +458,50 @@ namespace Managers {
             // Slide the whole ribbon as one rigid piece between fully
             // hidden and its resting position - driven manually since
             // Gtk.Revealer's transitions grow/clip the shape open instead
-            // of translating it.
-            int rest = CardBuilder.SAVE_RIBBON_REST_MARGIN;
-            int hidden = CardBuilder.SAVE_RIBBON_HIDDEN_MARGIN;
-            var margin_adapter = new MarginAdapter(save_ribbon, (double) save_ribbon.get_margin_top());
-            var margin_target = new Adw.PropertyAnimationTarget((GLib.Object) margin_adapter, "offset");
+            // of translating it. `save_ribbon` is the Gtk.Fixed built by
+            // CardBuilder.build_save_ribbon; the actual image moves within it.
+            int rest = CardBuilder.SAVE_RIBBON_REST_Y;
+            int hidden = CardBuilder.SAVE_RIBBON_HIDDEN_Y;
+            var ribbon_fixed = (Gtk.Fixed) save_ribbon;
+            var ribbon_image = save_ribbon.get_data<Gtk.Widget>("ribbon-image");
+            if (ribbon_image == null) return;
+            double current_y, current_x;
+            ribbon_fixed.get_child_position(ribbon_image, out current_x, out current_y);
+            var y_adapter = new FixedYAdapter(ribbon_fixed, ribbon_image, current_y);
+            var y_target = new Adw.PropertyAnimationTarget((GLib.Object) y_adapter, "y");
 
             if (is_saved) {
-                save_ribbon.set_visible(true);
-                var anim = new Adw.TimedAnimation(save_ribbon, save_ribbon.get_margin_top(), rest, 450u, margin_target);
+                ribbon_image.set_visible(true);
+                var anim = new Adw.TimedAnimation(save_ribbon, current_y, rest, 450u, y_target);
                 anim.set_easing(Adw.Easing.EASE_OUT_BACK);
                 state.ribbon_anim = anim;
-                active_save_animations.add(margin_adapter);
-                active_save_animations.add(margin_target);
+                active_save_animations.add(y_adapter);
+                active_save_animations.add(y_target);
                 active_save_animations.add(anim);
                 anim.done.connect(() => {
                     active_save_animations.remove(anim);
-                    active_save_animations.remove(margin_target);
-                    active_save_animations.remove(margin_adapter);
+                    active_save_animations.remove(y_target);
+                    active_save_animations.remove(y_adapter);
                     if (state.ribbon_anim == anim) state.ribbon_anim = null;
-                    save_ribbon.set_margin_top(rest);
+                    ribbon_fixed.move(ribbon_image, 0, rest);
                 });
                 anim.play();
             } else {
-                var anim = new Adw.TimedAnimation(save_ribbon, save_ribbon.get_margin_top(), hidden, 250u, margin_target);
+                var anim = new Adw.TimedAnimation(save_ribbon, current_y, hidden, 250u, y_target);
                 anim.set_easing(Adw.Easing.EASE_IN);
                 state.ribbon_anim = anim;
-                active_save_animations.add(margin_adapter);
-                active_save_animations.add(margin_target);
+                active_save_animations.add(y_adapter);
+                active_save_animations.add(y_target);
                 active_save_animations.add(anim);
                 anim.done.connect(() => {
                     active_save_animations.remove(anim);
-                    active_save_animations.remove(margin_target);
-                    active_save_animations.remove(margin_adapter);
+                    active_save_animations.remove(y_target);
+                    active_save_animations.remove(y_adapter);
                     if (state.ribbon_anim == anim) state.ribbon_anim = null;
-                    save_ribbon.set_margin_top(hidden);
-                    // Only now remove it from the corner row's layout, so
-                    // the "Viewed" badge doesn't jump left mid-slide.
-                    save_ribbon.set_visible(false);
+                    ribbon_fixed.move(ribbon_image, 0, hidden);
+                    // Only now hide it, so the "Viewed" badge doesn't jump
+                    // left mid-slide.
+                    ribbon_image.set_visible(false);
                 });
                 anim.play();
             }
