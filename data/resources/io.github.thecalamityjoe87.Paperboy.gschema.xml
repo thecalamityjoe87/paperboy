@@ -84,7 +84,7 @@
     </key>
 
     <key name="reader-view-enabled" type="b">
-      <default>false</default>
+      <default>true</default>
       <summary>Reader view enabled</summary>
       <description>Whether articles open in a distraction-free extracted reader view by default instead of the full webpage</description>
     </key>
