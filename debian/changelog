@@ -1,4 +1,4 @@
-paperboy (0.9.0a-1) unstable; urgency=low
+paperboy (0.10.0a-1) unstable; urgency=low
 
   * Added a full podcast experience: discovery, GStreamer-backed playback
     with a persistent mini-player, SQLite-backed subscriptions, and

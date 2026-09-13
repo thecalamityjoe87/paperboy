@@ -1444,6 +1444,13 @@ public class PrefsDialog : GLib.Object {
     // Condensed highlights for the 5 most recent GitHub releases, shown in
     // the About dialog's "What's New" page.
     private const string RELEASE_NOTES = """
+        <p><em>v0.10.0a</em> — In-App Reader View &amp; Native Article Comments</p>
+        <ul>
+        <li>Added a distraction-free reader view with title/byline/hero image/body extraction, video and embed support, and customizable text size, font, and color scheme</li>
+        <li>Added native article comments pulled from RSS, Disqus, Hacker News, and three reverse-engineered comment platforms (Coral, OpenWeb, Viafoura), shown in a slide-in comments pane</li>
+        <li>Added hover quick-action buttons on article cards to jump straight into reader view</li>
+        <li>Fixed podcast mini-player cover art missing after app restart, and several Saved Articles/reader hero image and theming glitches</li>
+        </ul>
         <p><em>v0.9.0a</em> — Podcasts, Global Search &amp; Memory Fixes</p>
         <ul>
         <li>Added a full podcast experience: discovery with hero cards and category rows, GStreamer playback with a persistent mini-player, SQLite-backed subscriptions, and played/new episode tracking</li>
@@ -1475,26 +1482,20 @@ public class PrefsDialog : GLib.Object {
         <li>Frontpage articles now cached for faster startup and navigation</li>
         <li>New staggered entrance/exit animations for article cards</li>
         </ul>
-        <p><em>v0.7.4a</em> — Native Animations, SplitView &amp; Smarter Search</p>
-        <ul>
-        <li>Sidebar rebuilt on Adw.OverlaySplitView and Adw.ExpanderRow for native, fluid transitions</li>
-        <li>Search is now tokenized, case-insensitive, and matches partial or reordered terms</li>
-        <li>Per-feed RSS article limits enforced correctly, with cleaner deduplication</li>
-        </ul>
         """;
 
     public static void show_about_dialog(Gtk.Window parent) {
         var about = new Adw.AboutDialog();
         about.set_application_name("Paperboy");
         about.set_application_icon("paperboy"); // Use the correct icon name
-        about.set_version("0.9.0a");
+        about.set_version("0.10.0a");
         about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
         about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
         about.set_website("https://github.com/thecalamityjoe87/paperboy");
         about.set_license_type(Gtk.License.GPL_3_0);
         about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
 
-        about.set_release_notes_version("0.9.0a");
+        about.set_release_notes_version("0.10.0a");
         about.set_release_notes(RELEASE_NOTES);
 
         about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");
