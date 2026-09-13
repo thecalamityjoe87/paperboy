@@ -466,6 +466,27 @@ public class ArticleSheet : GLib.Object {
             });
         }
 
+        // No feed-level wfw:commentRss (e.g. built-in fetchers like
+        // Guardian/Fox/Reddit, or Frontpage/Top Ten's GNews-backed
+        // pipeline, none of which carry that field) - check the article's
+        // own page directly for WordPress's standard per-post comments
+        // feed link before falling back to Disqus/HN.
+        void try_native_discovery() {
+            Paperboy.NativeCommentsDiscoveryService.find(url_snapshot, (discovered_url) => {
+                if (discovered_url == null) {
+                    try_disqus();
+                    return;
+                }
+                Paperboy.CommentsFeedService.fetch(discovered_url, (comments, success) => {
+                    if (comments.size > 0) {
+                        finish(comments, success);
+                        return;
+                    }
+                    try_disqus();
+                });
+            });
+        }
+
         if (wfw_url != null) {
             Paperboy.CommentsFeedService.fetch(wfw_url, (comments, success) => {
                 if (comments.size > 0) {
@@ -475,7 +496,7 @@ public class ArticleSheet : GLib.Object {
                 try_disqus();
             });
         } else {
-            try_disqus();
+            try_native_discovery();
         }
     }
 

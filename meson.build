@@ -110,6 +110,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/commentsFeedService.vala',
     'src/services/hackerNewsCommentsService.vala',
     'src/services/disqusCommentsService.vala',
+    'src/services/nativeCommentsDiscoveryService.vala',
     'src/services/locationLookupService.vala',
     'src/services/sportsScoresService.vala',
     'src/services/podcastIndexService.vala',
