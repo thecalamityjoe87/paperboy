@@ -181,13 +181,12 @@ public class ReaderVideoEmbed : Gtk.Box {
 
     public void stop_playback() {
         if (!playing || player_widget == null) return;
-        if (player_widget is Gtk.Video) {
-            ((Gtk.Video) player_widget).set_file(null);
-        } else if (player_widget is WebKit.WebView) {
+        if (player_widget is WebKit.WebView) {
             var wv = (WebKit.WebView) player_widget;
             wv.stop_loading();
-            wv.load_uri("about:blank");
+            WebViewUtils.terminate_process(wv);
         }
+        overlay.set_child(null);
         playing = false;
         player_widget = null;
     }

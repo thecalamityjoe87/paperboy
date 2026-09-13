@@ -152,6 +152,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/sourceUtils.vala',
     'src/utils/dateUtils.vala',
     'src/utils/dataPathsUtils.vala',
+    'src/utils/webViewUtils.vala',
     'src/utils/categoryIconsUtils.vala',
     'src/utils/pixbufUtils.vala',
     'src/utils/fixedSizeLayoutUtils.vala',

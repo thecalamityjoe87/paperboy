@@ -79,12 +79,21 @@ public class RenderedPageFetcher : GLib.Object {
         bool done = false;
         ReadabilityCallback? callback = (owned) on_done;
         ReadabilityResult? best_result = null;
+        ulong load_changed_id = 0;
+        ulong load_failed_id = 0;
 
+        // Signal handlers hold refs back into this closure (which holds
+        // webview), so they must be disconnected explicitly. Dropping every
+        // ref and destroying win still isn't enough to kill the underlying
+        // bwrap web process - only an explicit terminate does that.
         void finish() {
             if (done) return;
             done = true;
             callback(best_result);
             callback = null;
+            if (load_changed_id != 0) webview.disconnect(load_changed_id);
+            if (load_failed_id != 0) webview.disconnect(load_failed_id);
+            WebViewUtils.terminate_process(webview);
             win.set_child(null);
             win.destroy();
         }
@@ -156,7 +165,7 @@ public class RenderedPageFetcher : GLib.Object {
         };
 
         bool started = false;
-        webview.load_changed.connect((ev) => {
+        load_changed_id = webview.load_changed.connect((ev) => {
             if (done || started || ev != WebKit.LoadEvent.COMMITTED) return;
             started = true;
 
@@ -166,7 +175,7 @@ public class RenderedPageFetcher : GLib.Object {
             });
         });
 
-        webview.load_failed.connect((ev, failing_uri, error) => {
+        load_failed_id = webview.load_failed.connect((ev, failing_uri, error) => {
             if (!done) {
                 Source.remove(timeout_id);
                 finish();

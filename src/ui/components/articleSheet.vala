@@ -344,6 +344,9 @@ public class ArticleSheet : GLib.Object {
                 user_content_manager.remove_style_sheet(adblock_sheet);
             }
             view_stack.remove(webview);
+            // Dropping every ref alone leaks the bwrap web process - must
+            // terminate it explicitly.
+            WebViewUtils.terminate_process(webview);
             webview = null;
             user_content_manager = null;
             adblock_sheet = null;
@@ -671,6 +674,7 @@ public class ArticleSheet : GLib.Object {
             if (user_content_manager != null && adblock_sheet != null) {
                 user_content_manager.remove_style_sheet(adblock_sheet);
             }
+            WebViewUtils.terminate_process(webview);
         }
         container.destroy();
 
