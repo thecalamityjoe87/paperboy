@@ -41,6 +41,8 @@ public class ArticleSheet : GLib.Object {
 
     private Adw.OverlaySplitView? comments_split;
     private Gtk.ToggleButton? comments_toggle_btn;
+    private Gtk.Overlay? comments_fab_overlay;
+    private Gtk.Label? comments_count_badge;
     private Gtk.Stack? comments_stack;
     private Gtk.Box? comments_list_box;
     private Gtk.Spinner? comments_spinner;
@@ -169,7 +171,7 @@ public class ArticleSheet : GLib.Object {
         comments_split.notify["show-sidebar"].connect(() => {
             bool open = comments_split.get_show_sidebar();
             if (comments_toggle_btn != null) {
-                comments_toggle_btn.set_visible(!open);
+                if (comments_fab_overlay != null) comments_fab_overlay.set_visible(!open);
                 if (!open) comments_toggle_btn.set_active(false);
             }
         });
@@ -189,16 +191,35 @@ public class ArticleSheet : GLib.Object {
         comments_toggle_btn.add_css_class("osd");
         comments_toggle_btn.add_css_class("comments-fab");
         comments_toggle_btn.set_can_focus(false);
-        comments_toggle_btn.set_halign(Gtk.Align.END);
-        comments_toggle_btn.set_valign(Gtk.Align.END);
-        comments_toggle_btn.set_margin_end(20);
-        comments_toggle_btn.set_margin_bottom(20);
         comments_toggle_btn.toggled.connect(() => {
             if (is_destroyed || comments_split == null) return;
             comments_split.set_show_sidebar(comments_toggle_btn.get_active());
             if (comments_toggle_btn.get_active()) load_comments();
         });
-        view_overlay.add_overlay(comments_toggle_btn);
+
+        comments_count_badge = new Gtk.Label("");
+        comments_count_badge.add_css_class("comments-fab-badge");
+        // xalign centers the text within the label's own CSS-sized box;
+        // halign/valign below only place that box within the overlay, and
+        // don't otherwise guarantee the text itself is centered inside it.
+        comments_count_badge.set_xalign(0.5f);
+        comments_count_badge.set_yalign(0.5f);
+        comments_count_badge.set_justify(Gtk.Justification.CENTER);
+        comments_count_badge.set_halign(Gtk.Align.END);
+        comments_count_badge.set_valign(Gtk.Align.START);
+        comments_count_badge.set_visible(false);
+
+        // Small overlay so the count badge can sit on the FAB's own
+        // top-right corner, slightly overlapping it, independent of the
+        // FAB's own position within the larger view_overlay.
+        comments_fab_overlay = new Gtk.Overlay();
+        comments_fab_overlay.set_child(comments_toggle_btn);
+        comments_fab_overlay.add_overlay(comments_count_badge);
+        comments_fab_overlay.set_halign(Gtk.Align.END);
+        comments_fab_overlay.set_valign(Gtk.Align.END);
+        comments_fab_overlay.set_margin_end(32);
+        comments_fab_overlay.set_margin_bottom(20);
+        view_overlay.add_overlay(comments_fab_overlay);
 
         var comments_header = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         comments_header.set_margin_top(8);
@@ -441,12 +462,21 @@ public class ArticleSheet : GLib.Object {
         string url_snapshot = current_url;
         string? wfw_url = current_comments_url;
 
-        // Try the feed's own native comment RSS first, then Disqus, then
-        // Hacker News discussion of the URL - stopping at the first
-        // provider that actually has comments.
+        // Try the feed's own native comment RSS first, then Coral, then
+        // Viafoura, then OpenWeb, then Disqus, then Hacker News discussion
+        // of the URL - stopping at the first provider that actually has
+        // comments.
         void finish(Gee.ArrayList<FeedComment> comments, bool success) {
             if (is_destroyed || current_url != url_snapshot) return;
             if (comments_spinner != null) comments_spinner.stop();
+            if (comments_count_badge != null) {
+                if (success && comments.size > 0) {
+                    comments_count_badge.set_text(comments.size > 9 ? "9+" : comments.size.to_string());
+                    comments_count_badge.set_visible(true);
+                } else {
+                    comments_count_badge.set_visible(false);
+                }
+            }
             show_comments(comments, success);
         }
 
@@ -466,15 +496,45 @@ public class ArticleSheet : GLib.Object {
             });
         }
 
+        void try_openweb() {
+            Paperboy.OpenWebCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                if (comments.size > 0) {
+                    finish(comments, success);
+                    return;
+                }
+                try_disqus();
+            });
+        }
+
+        void try_viafoura() {
+            Paperboy.ViafouraCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                if (comments.size > 0) {
+                    finish(comments, success);
+                    return;
+                }
+                try_openweb();
+            });
+        }
+
+        void try_coral() {
+            Paperboy.CoralCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                if (comments.size > 0) {
+                    finish(comments, success);
+                    return;
+                }
+                try_viafoura();
+            });
+        }
+
         // No feed-level wfw:commentRss (e.g. built-in fetchers like
         // Guardian/Fox/Reddit, or Frontpage/Top Ten's GNews-backed
         // pipeline, none of which carry that field) - check the article's
         // own page directly for WordPress's standard per-post comments
-        // feed link before falling back to Disqus/HN.
+        // feed link before falling back to OpenWeb/Disqus/HN/generic scrape.
         void try_native_discovery() {
             Paperboy.NativeCommentsDiscoveryService.find(url_snapshot, (discovered_url) => {
                 if (discovered_url == null) {
-                    try_disqus();
+                    try_coral();
                     return;
                 }
                 Paperboy.CommentsFeedService.fetch(discovered_url, (comments, success) => {
@@ -482,7 +542,7 @@ public class ArticleSheet : GLib.Object {
                         finish(comments, success);
                         return;
                     }
-                    try_disqus();
+                    try_coral();
                 });
             });
         }
@@ -493,7 +553,7 @@ public class ArticleSheet : GLib.Object {
                     finish(comments, success);
                     return;
                 }
-                try_disqus();
+                try_coral();
             });
         } else {
             try_native_discovery();
@@ -576,9 +636,13 @@ public class ArticleSheet : GLib.Object {
         bool comments_enabled = parent_window != null && parent_window.prefs != null && parent_window.prefs.comments_enabled;
         if (comments_toggle_btn != null) {
             comments_toggle_btn.set_active(false);
-            comments_toggle_btn.set_visible(comments_enabled);
         }
+        if (comments_fab_overlay != null) comments_fab_overlay.set_visible(comments_enabled);
+        if (comments_count_badge != null) comments_count_badge.set_visible(false);
         if (comments_split != null) comments_split.set_show_sidebar(false);
+        // Fetch comments eagerly so the FAB's count badge can appear
+        // before the user ever opens the pane, not just after.
+        if (comments_enabled) load_comments();
 
         bool want_reader = force_reader_view ?? (parent_window != null && parent_window.prefs != null && parent_window.prefs.reader_view_enabled);
         if (reader_toggle_btn != null) {
@@ -626,6 +690,8 @@ public class ArticleSheet : GLib.Object {
         current_comments_url = null;
         comments_split = null;
         comments_toggle_btn = null;
+        comments_fab_overlay = null;
+        comments_count_badge = null;
         comments_stack = null;
         comments_list_box = null;
         comments_spinner = null;

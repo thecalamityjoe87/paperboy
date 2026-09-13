@@ -79,7 +79,7 @@ public class ArticleExtractorService : GLib.Object {
                 // WebKit view and running Mozilla's real Readability
                 // algorithm against the live rendered DOM.
                 RenderedPageFetcher.fetch_async(url, (readability_result) => {
-                    var rendered_result = readability_result != null ? build_article_from_readability(readability_result, url) : null;
+                    var rendered_result = readability_result != null ? build_article_from_readability(readability_result, url, result.hero_image_url) : null;
                     on_done(rendered_result != null && rendered_result.success ? rendered_result : result);
                 });
                 return false;
@@ -177,7 +177,7 @@ public class ArticleExtractorService : GLib.Object {
     // entirely and reuses extract_content_nodes directly on its cleaned
     // output - the same image/video/data-video-id handling as the normal
     // path, just fed a different (already-narrowed) piece of DOM.
-    private static ExtractedArticle build_article_from_readability(ReadabilityResult result, string url) {
+    private static ExtractedArticle build_article_from_readability(ReadabilityResult result, string url, string? fallback_hero_image_url = null) {
         var article = new ExtractedArticle();
 
         string? title = result.title;
@@ -221,6 +221,19 @@ public class ArticleExtractorService : GLib.Object {
                 article.blocks.remove_at(i);
                 break;
             }
+        }
+
+        // Readability's cleaned content sometimes has no <img> at all (e.g.
+        // Substack pages, where the hero photo is a JS-driven banner rather
+        // than part of the article body). Prefer the live rendered page's
+        // own og:image (result.lead_image_url) - it reflects whatever
+        // actually loaded in the WebView, which is the only successful
+        // fetch at all on sites whose static HTML is bot-walled (PBS
+        // NewsHour's AWS WAF challenge, for one) - falling back to
+        // fallback_hero_image_url (the plain static-HTML fetch's own
+        // og:image scrape) only when that WebView-side lookup found nothing.
+        if (article.hero_image_url == null) {
+            article.hero_image_url = result.lead_image_url ?? fallback_hero_image_url;
         }
 
         article.success = count_text_blocks(article) > 0;
@@ -526,7 +539,16 @@ public class ArticleExtractorService : GLib.Object {
         } catch (GLib.RegexError e) {
             // fall through
         }
-        return null;
+
+        // WordPress (and similar CMS) media URLs carry no UUID/hash at all -
+        // just a stable /wp-content/uploads/.../filename.jpg path with the
+        // resize/quality params (?w=1600 vs ?resize=1200,628) as the only
+        // difference between the hero image and its reappearance in the
+        // body. The full path (query string stripped) is still a reliable
+        // per-asset identifier there.
+        int query_start = url.index_of("?");
+        string path = query_start >= 0 ? url.substring(0, query_start) : url;
+        return path.down();
     }
 
     private static bool is_same_image_as_hero(string? resolved, string? hero_image_url) {

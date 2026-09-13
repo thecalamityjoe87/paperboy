@@ -481,10 +481,15 @@
    over the dynamic one's, leaving text an unreadable default shade in the
    darker color schemes. */
 
+/* border-color is set dynamically per reader color scheme in
+   ReaderView.apply_style() - same cascade-tie reasoning as
+   .reader-title/.reader-byline/.reader-paragraph above (a static color
+   here could still win over the dynamic one in some cases). */
 .reader-view .reader-hero-image {
     border-radius: 12px;
     margin-bottom: 4px;
-    border: 1px solid alpha(currentColor, 0.12);
+    border-width: 1px;
+    border-style: solid;
 }
 
 .reader-view .reader-source-name {
@@ -1156,6 +1161,10 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 .comments-fab {
     min-width: 56px;
     min-height: 56px;
+    /* .osd's own dark pill can blend into an equally-dark reader
+       background (e.g. a photo-heavy or dark-themed article) - a faint
+       light border keeps its edge visible regardless. */
+    border: 2px solid alpha(white, 0.3);
     box-shadow: 0 2px 8px alpha(@shade_color, 0.35);
 }
 
@@ -1180,4 +1189,31 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     background-color: @card_bg_color;
     border: 1.5px solid alpha(@borders, 0.9);
     opacity: 1;
+}
+
+/* Comment count badge, overlapping the top-right corner of the comments
+   FAB once a provider actually returns comments. Negative margins pull it
+   up and out over the button's own edge rather than sitting flush against
+   the corner. */
+.comments-fab-badge {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    border-radius: 9999px;
+    /* Fixed square footprint (not padding-driven) keeps this a true
+       circle at any count - text is capped at "9+" so it never needs
+       more room than that. Negative letter-spacing isn't used to fit
+       "9+" - it shifts single-digit text off-center instead, since it
+       trims trailing space asymmetrically. The bigger circle alone gives
+       "9+" enough room. */
+    margin-top: -6px;
+    margin-right: 1px;
+    /* Same reasoning as .comments-fab's border - the accent color alone
+       can still read as low-contrast against a dark reader background. */
+    border: 1px solid alpha(white, 0.3);
+    box-shadow: 0 1px 3px alpha(black, 0.4);
 }

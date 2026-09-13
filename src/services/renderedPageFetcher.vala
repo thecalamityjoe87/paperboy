@@ -26,6 +26,13 @@ public class ReadabilityResult : GLib.Object {
     public string? published;
     public string content_html;
     public int text_length;
+    // Readability strips a page down to just its readable text, which
+    // often drops a hero/banner image that lives outside the article body
+    // in the real DOM (common on sites that only reach this WebView
+    // fallback in the first place because their static HTML fails a bot
+    // check) - grabbed straight from the live rendered page's own meta
+    // tags rather than relying on Readability finding an inline <img>.
+    public string? lead_image_url;
 }
 
 public delegate void ReadabilityCallback(ReadabilityResult? result);
@@ -95,7 +102,9 @@ public class RenderedPageFetcher : GLib.Object {
         take_snapshot = (index) => {
             string js = js_source +
                 "\n;JSON.stringify((function(){ try { var a = new Readability(document.cloneNode(true)).parse(); " +
-                "return a ? {title:a.title, byline:a.byline, siteName:a.siteName, publishedTime:a.publishedTime, content:a.content, textLength:a.length} : null; " +
+                "if (!a) return null; " +
+                "var m = document.querySelector('meta[property=\"og:image\"]') || document.querySelector('meta[name=\"twitter:image\"]'); " +
+                "return {title:a.title, byline:a.byline, siteName:a.siteName, publishedTime:a.publishedTime, content:a.content, textLength:a.length, leadImage: m ? m.content : null}; " +
                 "} catch(e) { return null; } })())";
 
             webview.evaluate_javascript.begin(js, -1, null, null, null, (obj, res) => {
@@ -118,6 +127,9 @@ public class RenderedPageFetcher : GLib.Object {
                             result.published = obj_node.get_string_member("publishedTime");
                             result.content_html = obj_node.get_string_member("content") ?? "";
                             result.text_length = text_length;
+                            if (obj_node.has_member("leadImage")) {
+                                result.lead_image_url = obj_node.get_string_member("leadImage");
+                            }
                             best_result = result;
                         }
                     }

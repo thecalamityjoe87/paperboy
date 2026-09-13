@@ -283,7 +283,13 @@ public class RssFeedProcessor {
                                     }
                                 }
 
-                                row.add(title);
+                                // Titles never go through strip_html() below like
+                                // desc/summary do, but still need HTML-entity
+                                // decoding - some feeds embed a stray named entity
+                                // (e.g. "El Ni&ntilde;o") in <title> that isn't a
+                                // real XML entity, so libxml2 leaves it as literal
+                                // text.
+                                row.add(stripHtmlUtils.strip_html(title));
                                 row.add(link);
                                 row.add(thumb);
                                 row.add(pub_date ?? updated_date);
@@ -477,7 +483,10 @@ public class RssFeedProcessor {
                                         }
                                     }
 
-                                    row.add(title);
+                                    // See the RSS-branch comment above - same
+                                    // stray-named-entity issue applies to Atom
+                                    // <title> content.
+                                    row.add(stripHtmlUtils.strip_html(title));
                                     row.add(link);
                                     row.add(thumb);
                                     row.add(pub_date ?? updated_date);

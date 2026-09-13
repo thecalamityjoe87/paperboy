@@ -55,6 +55,16 @@ public class stripHtmlUtils {
         out_str = out_str.replace("&lsquo;", "'");
         out_str = out_str.replace("&rdquo;", "\"");
         out_str = out_str.replace("&ldquo;", "\"");
+        out_str = out_str.replace("&tilde;", "~");
+        // Letter+tilde entities (Spanish/Portuguese names like "El Niño") -
+        // some feeds embed these as stray named entities inside <title> that
+        // aren't valid XML entities, so libxml2 leaves them as literal text.
+        out_str = out_str.replace("&ntilde;", "ñ");
+        out_str = out_str.replace("&Ntilde;", "Ñ");
+        out_str = out_str.replace("&atilde;", "ã");
+        out_str = out_str.replace("&Atilde;", "Ã");
+        out_str = out_str.replace("&otilde;", "õ");
+        out_str = out_str.replace("&Otilde;", "Õ");
 
         // Second pass for double-encoded entities (e.g., &amp;mdash; → &mdash; → —)
         out_str = out_str.replace("&mdash;", "—");
@@ -65,6 +75,7 @@ public class stripHtmlUtils {
         out_str = out_str.replace("&rdquo;", "\"");
         out_str = out_str.replace("&ldquo;", "\"");
         out_str = out_str.replace("&nbsp;", " ");
+        out_str = out_str.replace("&tilde;", "~");
 
         // Convert &amp;#123; → &#123;
         while (out_str.index_of("&amp;#") >= 0)

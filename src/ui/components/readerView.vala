@@ -341,6 +341,19 @@ public class ReaderView : GLib.Object {
             ".reader-view .reader-source-name { %s }\n",
             fg.length > 0 ? ("color: " + fg + ";") : ""
         );
+        // The hero image border and the byline separator otherwise fall
+        // back to the ambient system-theme color rather than the reader's
+        // own chosen scheme - invisible whenever that ambient color is too
+        // close to this scheme's own background (e.g. a light system theme
+        // behind the "dark"/"night" reader schemes).
+        sb.append_printf(
+            ".reader-view .reader-hero-image { border-color: %s; }\n",
+            fg.length > 0 ? ("alpha(" + fg + ", 0.18)") : "alpha(currentColor, 0.12)"
+        );
+        sb.append_printf(
+            ".reader-view .reader-separator { background-color: %s; }\n",
+            fg.length > 0 ? ("alpha(" + fg + ", 0.15)") : "alpha(currentColor, 0.15)"
+        );
 
         style_provider.load_from_string(sb.str);
     }
@@ -445,6 +458,7 @@ public class ReaderView : GLib.Object {
         }
 
         var sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        sep.add_css_class("reader-separator");
         sep.set_margin_top(6);
         sep.set_margin_bottom(6);
         content_box.append(sep);
