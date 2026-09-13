@@ -1,3 +1,16 @@
+paperboy (0.10.1a-1) unstable; urgency=medium
+
+  * Hotfix for a memory leak introduced in 0.10.0a's reader view: WebKit
+    web processes were never terminating. Dropping every reference to a
+    WebKit.WebView doesn't kill its sandboxed bwrap web process under
+    this WebKitGTK setup - only an explicit
+    webkit_web_view_terminate_web_process() call does. Every discarded
+    WebView now calls it: the hidden extraction view used for
+    JS-rendered articles, the main article-sheet webview swap and
+    popup-sheet teardown, and reader-view video embeds.
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Sun, 13 Sep 2026 00:00:00 +0000
+
 paperboy (0.10.0a-1) unstable; urgency=low
 
   * Added a full podcast experience: discovery, GStreamer-backed playback
