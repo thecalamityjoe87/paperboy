@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.9.0a',
+  version : '0.10.1a',
   meson_version : '>=0.59.0'
 )
 
@@ -41,6 +41,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/articlePane.vala',
     'src/ui/components/articleCard.vala',
     'src/ui/components/articleSheet.vala',
+    'src/ui/components/readerView.vala',
+    'src/ui/components/readerVideoEmbed.vala',
     'src/ui/components/heroCard.vala',
     'src/ui/components/heroCarousel.vala',
     'src/ui/components/scrollNavButtons.vala',
@@ -51,6 +53,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/podcastCard.vala',
     'src/ui/components/podcastPlayerBar.vala',
     'src/ui/components/podcastPane.vala',
+    'src/ui/components/marqueeLabel.vala',
     'src/ui/controllers/fetchNewsController.vala',
     'src/ui/controllers/searchController.vala',
     'src/ui/controllers/sportsScoresController.vala',
@@ -59,6 +62,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/dialogs/shareDialog.vala',
     'src/ui/dialogs/onboardingDialog.vala',
     'src/ui/dialogs/podcastDetailDialog.vala',
+    'src/ui/dialogs/podcastPickerDialog.vala',
     'src/ui/menus/articleMenu.vala',
     'src/ui/menus/sidebarMenu.vala',
     'src/ui/menus/podcastMenu.vala',
@@ -91,6 +95,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/metaCache.vala',
     'src/services/articleStateStore.vala',
     'src/services/articleSnippetService.vala',
+    'src/services/articleExtractorService.vala',
+    'src/services/renderedPageFetcher.vala',
     'src/services/imageCache.vala',
     'src/services/newsService.vala',
     'src/services/prefs.vala',
@@ -100,6 +106,14 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/articleShareService.vala',
     'src/services/rssSourceStore.vala',
     'src/services/rssArticleCache.vala',
+    'src/services/commentsUrlRegistry.vala',
+    'src/services/commentsFeedService.vala',
+    'src/services/hackerNewsCommentsService.vala',
+    'src/services/disqusCommentsService.vala',
+    'src/services/openWebCommentsService.vala',
+    'src/services/coralCommentsService.vala',
+    'src/services/viafouraCommentsService.vala',
+    'src/services/nativeCommentsDiscoveryService.vala',
     'src/services/locationLookupService.vala',
     'src/services/sportsScoresService.vala',
     'src/services/podcastIndexService.vala',
@@ -110,6 +124,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
     'src/models/articleItem.vala',
+    'src/models/feedComment.vala',
     'src/models/imageModels.vala',
     'src/models/gameScore.vala',
     'src/models/podcastModels.vala',
@@ -132,10 +147,12 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     # Utils
     'src/utils/appDebugger.vala',
     'src/utils/urlUtils.vala',
+    'src/utils/sortUtils.vala',
     'src/utils/browserUtils.vala',
     'src/utils/sourceUtils.vala',
     'src/utils/dateUtils.vala',
     'src/utils/dataPathsUtils.vala',
+    'src/utils/webViewUtils.vala',
     'src/utils/categoryIconsUtils.vala',
     'src/utils/pixbufUtils.vala',
     'src/utils/fixedSizeLayoutUtils.vala',
@@ -185,6 +202,7 @@ install_data(
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-open-menu-symbolic.svg',
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-sidebar-show-symbolic.svg',
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-view-refresh-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-comments-symbolic.svg',
   install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'actions')
 )
 
@@ -196,6 +214,10 @@ install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'pap
 # runtime lookups like DataPaths.find_data_file("resources/adblock.css")
 # can locate it both in development and when the app is installed.
 install_data('data/resources/adblock.css', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))
+
+# Mozilla's Readability.js (Apache-2.0), used by RenderedPageFetcher as the
+# reader-view fallback's extraction engine - same install pattern as above.
+install_data('data/resources/readability.js', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))
 
 # Build and install the html2rss helper via Cargo so it is available
 # when running `ninja` / `ninja install`. We use a custom_target that

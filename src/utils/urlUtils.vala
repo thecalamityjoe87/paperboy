@@ -65,6 +65,33 @@ public class UrlUtils {
         return u;
     }
 
+    // Reconstruct a fetchable "scheme://host[:port]/" root URL from a feed
+    // URL (e.g. "https://9to5google.com/feed/" -> "https://9to5google.com/"),
+    // for homepage feed-autodiscovery (see FeedUpdateManager.
+    // maybe_check_for_podcast_feed()). Unlike extract_host_from_url(), this
+    // deliberately keeps the original scheme/host/port/case rather than
+    // normalizing them, since the result needs to actually be fetched.
+    // Returns null for non-http(s) URLs (e.g. file:// generated feeds).
+    public static string? extract_root_url(string? url) {
+        if (url == null) return null;
+        string u = url.strip();
+        if (u.length == 0) return null;
+
+        string scheme = "https";
+        int scheme_end = u.index_of("://");
+        if (scheme_end >= 0) {
+            scheme = u.substring(0, scheme_end).down();
+            u = u.substring(scheme_end + 3);
+        }
+        if (scheme != "http" && scheme != "https") return null;
+
+        int slash = u.index_of("/");
+        string host_and_port = slash >= 0 ? u.substring(0, slash) : u;
+        if (host_and_port.length == 0) return null;
+
+        return "%s://%s/".printf(scheme, host_and_port);
+    }
+
     // Turn a host like "example-news.co.uk" into a friendly display string
     // such as "Example News". This is intentionally simple and is only
     // used as a fallback when no explicit source name is available.

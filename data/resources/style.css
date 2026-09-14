@@ -254,6 +254,23 @@
     border-radius: 8px;
 }
 
+/* Thin "how far into this episode" indicator under a partially-listened
+   episode row's meta line - deliberately understated, not a full-height
+   progress bar. */
+.podcast-episode-progress,
+.podcast-episode-progress > trough {
+    min-height: 3px;
+    /* Adwaita's default progressbar trough has a sizable min-width (meant
+       for full-width progress bars) that would otherwise force this one
+       wider than the meta line it's meant to match. */
+    min-width: 0;
+}
+
+.podcast-episode-progress > trough > progress {
+    background-color: @accent_bg_color;
+    border-radius: 3px;
+}
+
 /* Small pill category chip overlaid on images */
 .category-chip {
     background-color: alpha(black, 0.6);
@@ -319,6 +336,40 @@
     opacity: 1;
 }
 
+/* Quick-open buttons centered over an article card's image (reader view /
+   preview pane) - same hover-only fade convention as
+   .podcast-card-info-hint above. */
+.card-hover-actions {
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.card-hover .card-hover-actions {
+    opacity: 1;
+}
+
+/* Same dark-pill badge language as .source-badge/.category-chip, sized up
+   for a bigger, easier-to-see/click hover target. */
+.card-hover-action-btn {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 12px;
+    min-width: 56px;
+    min-height: 56px;
+    padding: 0;
+    box-shadow: 0 2px 6px alpha(black, 0.25);
+}
+
+.card-hover-action-btn:hover {
+    background-color: alpha(black, 0.8);
+}
+
+/* Hero cards are bigger than grid cards, so their hover buttons are too. */
+.hero-card-hover-action-btn {
+    min-width: 62px;
+    min-height: 62px;
+}
+
 /* Shown bottom-right of the title area, opposite the time caption, once
    an article has been read. Plain icon + text, no background pill - it
    sits on the card's own background now, not over an image, so it's
@@ -351,12 +402,9 @@
     line-height: 0;
 }
 
-/* Persistent "this is saved" ribbon shown in the corner row next to the
-   "Viewed" badge - the bundled save-ribbon.svg asset (see
-   CardBuilder.build_save_ribbon), draped so it hangs down over the card's
-   own top edge. Its color is baked into the SVG itself, so no rules are
-   needed here; the corner row (CardBuilder.build_corner_badge_row) needs
-   none either, its layout is set entirely in code. */
+/* Persistent "this is saved" ribbon in the card's top-right corner (see
+   CardBuilder.build_save_ribbon) - color is baked into the PNG asset and
+   layout is set entirely in code, so no rules are needed here. */
 
 /* "Flying ghost" (icon + truncated title) that travels from a saved card
    to the Saved sidebar entry (see AnimationManager.spawn_save_ghost). */
@@ -408,12 +456,91 @@
     background-color: @view_bg_color;
 }
 
-.sheet .background {
+/* Targets the WebView's own internal background node inside ArticleSheet.
+   Several GTK top-level CSS nodes also carry a generic "background" class
+   (popover.background, tooltip.background, ...) - since any such node
+   opened from a widget inside .sheet is a CSS descendant of it, this plain
+   ".background" selector was also unintentionally painting them with the
+   reader's own background color while their text kept GTK's default
+   color, e.g. making tooltips render as unreadable near-blank boxes.
+   Excluding those node types keeps the WebView theming intact without
+   that side effect. */
+.sheet .background:not(popover):not(tooltip) {
     background-color: @view_bg_color;
 }
 
 .sheet {
     background-color: @view_bg_color;
+}
+
+/* .reader-title/.reader-byline/.reader-paragraph font/color rules live
+   entirely in ReaderView.apply_style()'s own CSS provider now (font size,
+   family AND color all need to change together per reader setting) -
+   having a second, static rule here for the same selectors risked a
+   cascade tie where this rule's lack of an explicit color could still win
+   over the dynamic one's, leaving text an unreadable default shade in the
+   darker color schemes. */
+
+/* border-color is set dynamically per reader color scheme in
+   ReaderView.apply_style() - same cascade-tie reasoning as
+   .reader-title/.reader-byline/.reader-paragraph above (a static color
+   here could still win over the dynamic one in some cases). */
+.reader-view .reader-hero-image {
+    border-radius: 12px;
+    margin-bottom: 4px;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.reader-view .reader-source-name {
+    font-weight: 700;
+    font-size: 1.4em;
+}
+
+.reader-view .reader-video-embed {
+    border-radius: 12px;
+    margin-bottom: 4px;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+.reader-view .reader-video-poster {
+    -gtk-icon-size: 64px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.reader-view .reader-video-play-button {
+    min-width: 64px;
+    min-height: 64px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+    -gtk-icon-size: 28px;
+}
+
+.reader-view .reader-video-watch-label {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #ffffff;
+    font-size: 0.8em;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin: 10px;
+}
+
+.reader-view .circular-logo,
+.reader-view .circular-logo picture,
+.reader-view .circular-logo image,
+.reader-view .circular-logo * {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 50%;
+}
+
+.reader-view .circular-logo {
+    padding: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background-clip: padding-box;
 }
 
 /* Circular logo styling for sidebar RSS feeds */
@@ -839,6 +966,16 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     transform: none;
 }
 
+/* Same fix as .card:backdrop above: the theme dims widgets by default when
+   the window loses focus (:backdrop), which was washing out reader view's
+   text to a duller gray whenever the app window wasn't the active one -
+   forcing full opacity keeps the article sheet (webview and reader view
+   alike) rendering at full brightness regardless of window focus. */
+.article-sheet:backdrop,
+.article-sheet:backdrop * {
+    opacity: 1;
+}
+
 /* Make contained image round */
 .pane-round-image-card image {
     border-radius: 50%;
@@ -859,8 +996,6 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     padding: 8px 24px;
     box-shadow: 0 2px 8px alpha(@shade_color, 0.25);
     min-height: 36px;
-    overflow: visible;
-    /* allow button shadows/outline to render fully */
 }
 
 .custom-toast-label {
@@ -1018,4 +1153,67 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .carousel-nav.carousel-nav-active {
     background-color: alpha(@window_fg_color, 0.85);
+}
+
+/* Floating "view comments" button on the reader page - bigger than a
+   standard osd/circular button so it reads as a distinct action, not just
+   another toolbar icon. */
+.comments-fab {
+    min-width: 56px;
+    min-height: 56px;
+    /* .osd's own dark pill can blend into an equally-dark reader
+       background (e.g. a photo-heavy or dark-themed article) - a faint
+       light border keeps its edge visible regardless. */
+    border: 2px solid alpha(white, 0.3);
+    box-shadow: 0 2px 8px alpha(@shade_color, 0.35);
+}
+
+/* Comments pane slides in from the right - shadow cast toward its left
+   edge (negative x-offset) separates it from the article behind it. */
+.comments-pane {
+    /* Same shadow as .article-preview-panel (appWindow.vala's other
+       right-side sliding panel) for visual consistency. */
+    box-shadow: -9px 0 25px alpha(black, 0.5);
+}
+
+/* Each comment rendered as its own card, matching the rest of the app's
+   article/podcast card look instead of a plain divided list. */
+.comment-card {
+    background-color: @card_bg_color;
+    border-radius: 12px;
+    border: 1.5px solid alpha(@borders, 0.9);
+    padding: 10px 12px;
+}
+
+.comment-card:backdrop {
+    background-color: @card_bg_color;
+    border: 1.5px solid alpha(@borders, 0.9);
+    opacity: 1;
+}
+
+/* Comment count badge, overlapping the top-right corner of the comments
+   FAB once a provider actually returns comments. Negative margins pull it
+   up and out over the button's own edge rather than sitting flush against
+   the corner. */
+.comments-fab-badge {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    border-radius: 9999px;
+    /* Fixed square footprint (not padding-driven) keeps this a true
+       circle at any count - text is capped at "9+" so it never needs
+       more room than that. Negative letter-spacing isn't used to fit
+       "9+" - it shifts single-digit text off-center instead, since it
+       trims trailing space asymmetrically. The bigger circle alone gives
+       "9+" enough room. */
+    margin-top: -6px;
+    margin-right: 1px;
+    /* Same reasoning as .comments-fab's border - the accent color alone
+       can still read as low-contrast against a dark reader background. */
+    border: 1px solid alpha(white, 0.3);
+    box-shadow: 0 1px 3px alpha(black, 0.4);
 }

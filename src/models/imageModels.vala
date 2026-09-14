@@ -41,10 +41,12 @@ public class DeferredRequest : GLib.Object {
     public string url { get; set; }
     public int w { get; set; }
     public int h { get; set; }
+    public bool ignore_fetch_context { get; set; }
 
-    public DeferredRequest(string url, int w, int h) {
+    public DeferredRequest(string url, int w, int h, bool ignore_fetch_context = false) {
         this.url = url;
         this.w = w;
         this.h = h;
+        this.ignore_fetch_context = ignore_fetch_context;
     }
 }

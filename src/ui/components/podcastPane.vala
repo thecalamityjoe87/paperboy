@@ -47,6 +47,18 @@ using Gtk;
  * or to PodcastPlaybackManager/PodcastSubscriptionStore, neither of which
  * this object holds a reference into a widget tree it also owns.
  */
+// Holds what update_playing_episode_progress() needs to live-refresh one
+// episode row - the meta label's non-duration portion (when_text) so it can
+// rebuild the full "<when> · <time left>" string, and the episode's own
+// listed duration as a fallback for when the live GStreamer duration isn't
+// known yet.
+private class EpisodeProgressRow : GLib.Object {
+    public Gtk.ProgressBar bar;
+    public Gtk.Label meta_label;
+    public string when_text;
+    public int64 fallback_duration_seconds;
+}
+
 public class PodcastPane : GLib.Object {
     // The revealer is what appWindow.vala adds as a root_overlay child -
     // root itself is just its content.
@@ -86,6 +98,13 @@ public class PodcastPane : GLib.Object {
         new Gee.HashMap<int64?, Gtk.Widget>((v) => { return (uint) v; }, (a, b) => { return a == b; });
     private Gee.HashMap<int64?, Gtk.Widget> episode_new_badges =
         new Gee.HashMap<int64?, Gtk.Widget>((v) => { return (uint) v; }, (a, b) => { return a == b; });
+    // Tracks each row's progress bar + meta label so
+    // update_playing_episode_progress() can live-update whichever row is
+    // currently playing on every position_updated tick, instead of the
+    // progress display only ever reflecting whatever was persisted the last
+    // time the pane was opened.
+    private Gee.HashMap<int64?, EpisodeProgressRow> episode_progress_rows =
+        new Gee.HashMap<int64?, EpisodeProgressRow>((v) => { return (uint) v; }, (a, b) => { return a == b; });
 
     public PodcastPane(NewsWindow? window, Managers.PodcastPlaybackManager playback) {
         this.window = window;
@@ -94,6 +113,9 @@ public class PodcastPane : GLib.Object {
 
         playback.playback_state_changed.connect(() => { update_episode_play_buttons(); });
         playback.episode_changed.connect(() => { update_episode_play_buttons(); });
+        playback.position_updated.connect((position_ns, duration_ns) => {
+            update_playing_episode_progress(position_ns, duration_ns);
+        });
 
         Paperboy.PodcastPlaybackStateStore.get_instance().episode_played_changed.connect((episode_id) => {
             mark_row_played(episode_id);
@@ -109,6 +131,36 @@ public class PodcastPane : GLib.Object {
 
         Gtk.Widget? badge = episode_new_badges.has_key(episode_id) ? episode_new_badges.get(episode_id) : null;
         if (badge != null) badge.set_visible(false);
+    }
+
+    // Live-refreshes whichever episode row is currently playing on every
+    // PodcastPlaybackManager.position_updated tick - unlike the rest of a
+    // row's contents (built once from persisted state when the pane opens),
+    // this needs to move continuously while playing, the same way the mini
+    // player's own scrubber does. Only the actively-playing row updates;
+    // every other row keeps showing whatever was true when the list was
+    // built, consistent with this pane's existing "static except where a
+    // signal explicitly says otherwise" approach (mark_row_played, etc.).
+    private void update_playing_episode_progress(uint64 position_ns, uint64 duration_ns) {
+        var current = playback.get_current_episode();
+        if (current == null) return;
+
+        EpisodeProgressRow? row = episode_progress_rows.has_key(current.episode_id) ? episode_progress_rows.get(current.episode_id) : null;
+        if (row == null) return; // not in the currently-open show's list
+
+        uint64 effective_duration_ns = duration_ns > 0 ? duration_ns : (uint64) row.fallback_duration_seconds * 1000000000;
+        if (effective_duration_ns == 0) return; // duration not known yet
+
+        double fraction = (double) position_ns / (double) effective_duration_ns;
+        if (fraction < 0) fraction = 0;
+        if (fraction > 1) fraction = 1;
+        row.bar.set_fraction(fraction);
+        row.bar.set_visible(true);
+
+        int64 remaining_seconds = (int64) ((effective_duration_ns - position_ns) / 1000000000);
+        if (remaining_seconds < 0) remaining_seconds = 0;
+        string duration_text = format_duration(remaining_seconds) + " left";
+        row.meta_label.set_text(duration_text.length > 0 ? "%s · %s".printf(row.when_text, duration_text) : row.when_text);
     }
 
     // Reflects the playback manager's current episode/play-state on every
@@ -136,6 +188,32 @@ public class PodcastPane : GLib.Object {
         string? desc = show.description != null ? stripHtmlUtils.strip_html(show.description).strip() : null;
         description_label.set_text(desc ?? "");
         description_label.set_visible(desc != null && desc.length > 0);
+
+        // Shows opened from a stored subscription (see
+        // PodcastSubscription.to_show()) never carry a description for
+        // subscriptions made before descriptions were persisted, or ones
+        // subscribed from a source that never had one at hand. Backfill by
+        // re-parsing the feed directly - works the same way for both
+        // PodcastIndex-discovered and direct-feed-added shows, since both
+        // kinds always have a real feed_url.
+        if ((desc == null || desc.length == 0) && window != null && show.feed_url != null && show.feed_url.length > 0) {
+            var resolver = Paperboy.PodcastFeedResolver.get_instance();
+            resolver.resolve_show(show.feed_url, window.session, (success, resolved_show, error_message) => {
+                if (this_request != open_request_id) return; // superseded by a newer open
+                if (!success || resolved_show == null || resolved_show.description == null) return;
+
+                string fresh_desc = stripHtmlUtils.strip_html(resolved_show.description).strip();
+                if (fresh_desc.length == 0) return;
+
+                show.description = resolved_show.description;
+                description_label.set_text(fresh_desc);
+                description_label.set_visible(true);
+
+                if (Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(show.feed_id)) {
+                    Paperboy.PodcastSubscriptionStore.get_instance().update_description(show.feed_id, resolved_show.description);
+                }
+            });
+        }
 
         if (window != null && show.image_url != null && show.image_url.length > 0) {
             window.image_manager.load_image_async(cover_image, show.image_url, 96, 96);
@@ -394,6 +472,7 @@ public class PodcastPane : GLib.Object {
         episode_play_buttons.clear();
         episode_rows.clear();
         episode_new_badges.clear();
+        episode_progress_rows.clear();
     }
 
     private Gtk.Widget build_episode_row(Paperboy.PodcastEpisode episode, bool is_new) {
@@ -428,12 +507,48 @@ public class PodcastPane : GLib.Object {
         }
         text_box.append(title_row);
 
-        string duration_text = format_duration(episode.duration_seconds);
+        var progress = Paperboy.PodcastPlaybackStateStore.get_instance().get_episode_progress(episode.episode_id);
+        bool has_progress = progress != null && progress.duration_ns > 0
+            && progress.position_ns > 5000000000
+            && progress.position_ns < progress.duration_ns - 10000000000;
+
+        string duration_text = has_progress
+            ? format_duration((int64) ((progress.duration_ns - progress.position_ns) / 1000000000)) + " left"
+            : format_duration(episode.duration_seconds);
         string when_text = DateUtils.time_ago(episode.published);
         var meta_label = new Gtk.Label(duration_text.length > 0 ? "%s · %s".printf(when_text, duration_text) : when_text);
         meta_label.add_css_class("article-card-time");
         meta_label.set_xalign(0);
-        text_box.append(meta_label);
+
+        // meta_box (not text_box directly) so the progress bar below can be
+        // hexpand=true within a container sized to meta_label's own natural
+        // width, rather than stretching to text_box's full (whole-row) width.
+        var meta_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
+        meta_box.set_halign(Gtk.Align.START);
+        meta_box.append(meta_label);
+
+        // Always created (not just when has_progress) so
+        // update_playing_episode_progress() has a widget ready to reveal
+        // the moment this episode starts playing, even if it had no prior
+        // persisted progress at all - initial visibility still reflects
+        // has_progress, same as before.
+        var progress_bar = new Gtk.ProgressBar();
+        progress_bar.add_css_class("podcast-episode-progress");
+        progress_bar.set_hexpand(true);
+        progress_bar.set_visible(has_progress);
+        if (has_progress) {
+            progress_bar.set_fraction((double) progress.position_ns / (double) progress.duration_ns);
+        }
+        meta_box.append(progress_bar);
+
+        var progress_row = new EpisodeProgressRow();
+        progress_row.bar = progress_bar;
+        progress_row.meta_label = meta_label;
+        progress_row.when_text = when_text;
+        progress_row.fallback_duration_seconds = episode.duration_seconds;
+        episode_progress_rows.set(episode.episode_id, progress_row);
+
+        text_box.append(meta_box);
 
         row.append(text_box);
 

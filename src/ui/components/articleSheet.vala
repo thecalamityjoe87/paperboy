@@ -29,9 +29,25 @@ public class ArticleSheet : GLib.Object {
     private Gtk.Button? back_btn;
     private Gtk.Button? forward_btn;
     private Gtk.Button? refresh_btn;
+    private Gtk.ToggleButton? reader_toggle_btn;
+    private Gtk.Stack? view_stack;
+    private ReaderView? reader_view;
+    private string? reader_loaded_url = null;
+    private string? current_source_name_encoded = null;
     private WebKit.WebView? webview;
     private string adblock_css = "";
     private string? current_url = null;
+    private string? current_comments_url = null;
+
+    private Adw.OverlaySplitView? comments_split;
+    private Gtk.ToggleButton? comments_toggle_btn;
+    private Gtk.Overlay? comments_fab_overlay;
+    private Gtk.Label? comments_count_badge;
+    private Gtk.Stack? comments_stack;
+    private Gtk.Box? comments_list_box;
+    private Gtk.Spinner? comments_spinner;
+    private Gtk.Label? comments_status_label;
+    private string? comments_loaded_url = null;
 
     private WebKit.UserContentManager? user_content_manager;
     private WebKit.UserStyleSheet? adblock_sheet;
@@ -86,7 +102,26 @@ public class ArticleSheet : GLib.Object {
         refresh_btn.clicked.connect(() => {
             if (!is_destroyed && webview != null) webview.reload();
         });
-        
+
+        reader_toggle_btn = new Gtk.ToggleButton();
+        // "view-reader-symbolic" doesn't exist in Adwaita (only in some
+        // third-party themes like elementary's), so it rendered as the
+        // missing-icon glyph - "view-paged-symbolic" is a real Adwaita icon
+        // and reads reasonably as a reading/document view toggle.
+        reader_toggle_btn.set_icon_name("view-paged-symbolic");
+        reader_toggle_btn.set_tooltip_text("Reader view");
+        reader_toggle_btn.set_can_focus(false);
+        reader_toggle_btn.toggled.connect(() => {
+            if (is_destroyed) return;
+            if (reader_toggle_btn.get_active()) {
+                show_reader_view();
+            } else {
+                show_web_view();
+            }
+        });
+
+        reader_view = new ReaderView(parent_window);
+
         var spacer = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         spacer.set_hexpand(true);
 
@@ -102,9 +137,154 @@ public class ArticleSheet : GLib.Object {
         header.append(forward_btn);
         header.append(refresh_btn);
         header.append(spacer);
+        header.append(reader_toggle_btn);
+        header.append(reader_view.get_settings_button());
         header.append(close_btn);
 
         content_box.append(header);
+
+        view_stack = new Gtk.Stack();
+        view_stack.set_hexpand(true);
+        view_stack.set_vexpand(true);
+
+        view_stack.add_named(reader_view.get_widget(), "reader");
+
+        comments_split = new Adw.OverlaySplitView();
+        comments_split.set_hexpand(true);
+        comments_split.set_vexpand(true);
+        comments_split.set_show_sidebar(false);
+        comments_split.set_sidebar_position(Gtk.PackType.END);
+        comments_split.set_max_sidebar_width(420);
+        comments_split.set_min_sidebar_width(294);
+        comments_split.set_sidebar_width_fraction(0.29);
+        comments_split.set_collapsed(true); // Always overlay, never push content
+        comments_split.set_enable_show_gesture(false); // Disable swipe to prevent accidental opens
+        comments_split.set_enable_hide_gesture(true);  // Allow swipe to close
+        comments_split.set_content(view_stack);
+
+        // Keep the floating toggle button in sync with the sidebar's actual
+        // state - hidden while the pane is open (it would otherwise render
+        // on top of the pane's edge, since it's a plain overlay child of
+        // the whole split view, not scoped to just the content side), and
+        // resynced if the sidebar closes via a gesture rather than the
+        // button itself (e.g. built-in Escape handling).
+        comments_split.notify["show-sidebar"].connect(() => {
+            bool open = comments_split.get_show_sidebar();
+            if (comments_toggle_btn != null) {
+                if (comments_fab_overlay != null) comments_fab_overlay.set_visible(!open);
+                if (!open) comments_toggle_btn.set_active(false);
+            }
+        });
+
+        var view_overlay = new Gtk.Overlay();
+        view_overlay.set_hexpand(true);
+        view_overlay.set_vexpand(true);
+        view_overlay.set_child(comments_split);
+        content_box.append(view_overlay);
+
+        comments_toggle_btn = new Gtk.ToggleButton();
+        var comments_toggle_icon = new Gtk.Image.from_icon_name(bundled_comments_icon_name());
+        comments_toggle_icon.set_pixel_size(24);
+        comments_toggle_btn.set_child(comments_toggle_icon);
+        comments_toggle_btn.set_tooltip_text("View comments");
+        comments_toggle_btn.add_css_class("circular");
+        comments_toggle_btn.add_css_class("osd");
+        comments_toggle_btn.add_css_class("comments-fab");
+        comments_toggle_btn.set_can_focus(false);
+        comments_toggle_btn.toggled.connect(() => {
+            if (is_destroyed || comments_split == null) return;
+            comments_split.set_show_sidebar(comments_toggle_btn.get_active());
+            if (comments_toggle_btn.get_active()) load_comments();
+        });
+
+        comments_count_badge = new Gtk.Label("");
+        comments_count_badge.add_css_class("comments-fab-badge");
+        // xalign centers the text within the label's own CSS-sized box;
+        // halign/valign below only place that box within the overlay, and
+        // don't otherwise guarantee the text itself is centered inside it.
+        comments_count_badge.set_xalign(0.5f);
+        comments_count_badge.set_yalign(0.5f);
+        comments_count_badge.set_justify(Gtk.Justification.CENTER);
+        comments_count_badge.set_halign(Gtk.Align.END);
+        comments_count_badge.set_valign(Gtk.Align.START);
+        comments_count_badge.set_visible(false);
+
+        // Small overlay so the count badge can sit on the FAB's own
+        // top-right corner, slightly overlapping it, independent of the
+        // FAB's own position within the larger view_overlay.
+        comments_fab_overlay = new Gtk.Overlay();
+        comments_fab_overlay.set_child(comments_toggle_btn);
+        comments_fab_overlay.add_overlay(comments_count_badge);
+        comments_fab_overlay.set_halign(Gtk.Align.END);
+        comments_fab_overlay.set_valign(Gtk.Align.END);
+        comments_fab_overlay.set_margin_end(32);
+        comments_fab_overlay.set_margin_bottom(20);
+        view_overlay.add_overlay(comments_fab_overlay);
+
+        var comments_header = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        comments_header.set_margin_top(8);
+        comments_header.set_margin_bottom(8);
+        comments_header.set_margin_start(12);
+        comments_header.set_margin_end(12);
+        var comments_title = new Gtk.Label("Comments");
+        comments_title.add_css_class("title-4");
+        comments_title.set_hexpand(true);
+        comments_title.set_halign(Gtk.Align.START);
+        var comments_close_btn = new Gtk.Button.from_icon_name("window-close-symbolic");
+        comments_close_btn.set_tooltip_text("Close comments");
+        comments_close_btn.set_can_focus(false);
+        comments_close_btn.clicked.connect(() => {
+            if (!is_destroyed && comments_toggle_btn != null) comments_toggle_btn.set_active(false);
+        });
+        comments_header.append(comments_title);
+        comments_header.append(comments_close_btn);
+
+        comments_list_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        comments_list_box.set_margin_start(12);
+        comments_list_box.set_margin_end(12);
+        comments_list_box.set_margin_top(12);
+        comments_list_box.set_margin_bottom(12);
+
+        var comments_scroller = new Gtk.ScrolledWindow();
+        comments_scroller.set_hexpand(true);
+        comments_scroller.set_vexpand(true);
+        comments_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        comments_scroller.set_child(comments_list_box);
+
+        comments_spinner = new Gtk.Spinner();
+        comments_spinner.set_size_request(32, 32);
+        comments_spinner.set_halign(Gtk.Align.CENTER);
+        comments_spinner.set_valign(Gtk.Align.CENTER);
+        comments_spinner.set_vexpand(true);
+
+        comments_status_label = new Gtk.Label("");
+        comments_status_label.add_css_class("dim-label");
+        comments_status_label.set_halign(Gtk.Align.CENTER);
+        comments_status_label.set_valign(Gtk.Align.CENTER);
+        comments_status_label.set_vexpand(true);
+        comments_status_label.set_wrap(true);
+        comments_status_label.set_justify(Gtk.Justification.CENTER);
+        comments_status_label.set_margin_start(24);
+        comments_status_label.set_margin_end(24);
+
+        comments_stack = new Gtk.Stack();
+        comments_stack.set_hexpand(true);
+        comments_stack.set_vexpand(true);
+        comments_stack.add_named(comments_spinner, "loading");
+        comments_stack.add_named(comments_status_label, "status");
+        comments_stack.add_named(comments_scroller, "list");
+
+        var comments_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        comments_box.set_vexpand(true);
+        comments_box.set_hexpand(false);
+        comments_box.add_css_class("sheet");
+        comments_box.add_css_class("comments-pane");
+        comments_box.append(comments_header);
+        comments_box.append(new Gtk.Separator(Gtk.Orientation.HORIZONTAL));
+        comments_box.append(comments_stack);
+
+        comments_split.set_sidebar(comments_box);
+
         revealer.set_child(content_box);
         container.append(revealer);
 
@@ -146,6 +326,7 @@ public class ArticleSheet : GLib.Object {
                 // once the article is closed, instead of accumulating for
                 // the lifetime of this long-lived, reused ArticleSheet.
                 setup_webview();
+                if (reader_view != null) reader_view.reset();
                 closed();
             }
         });
@@ -162,7 +343,10 @@ public class ArticleSheet : GLib.Object {
             if (user_content_manager != null && adblock_sheet != null) {
                 user_content_manager.remove_style_sheet(adblock_sheet);
             }
-            content_box.remove(webview);
+            view_stack.remove(webview);
+            // Dropping every ref alone leaks the bwrap web process - must
+            // terminate it explicitly.
+            WebViewUtils.terminate_process(webview);
             webview = null;
             user_content_manager = null;
             adblock_sheet = null;
@@ -231,7 +415,204 @@ public class ArticleSheet : GLib.Object {
             return false;
         });
 
-        content_box.append(webview);
+        view_stack.add_named(webview, "web");
+        if (view_stack.get_visible_child_name() == null || !(reader_toggle_btn != null && reader_toggle_btn.get_active())) {
+            view_stack.set_visible_child_name("web");
+        }
+    }
+
+    private void show_reader_view() {
+        if (view_stack == null || reader_view == null) return;
+        view_stack.set_visible_child_name("reader");
+        reader_view.get_settings_button().set_visible(true);
+
+        if (current_url != null && reader_loaded_url != current_url) {
+            reader_view.show_loading();
+            string url_snapshot = current_url;
+            ArticleExtractorService.extract_async(url_snapshot, (extracted) => {
+                if (is_destroyed || current_url != url_snapshot) return;
+                if (extracted.success) {
+                    reader_loaded_url = url_snapshot;
+                    reader_view.show_article(extracted, url_snapshot, current_source_name_encoded);
+                } else {
+                    reader_view.show_error();
+                }
+            });
+        }
+    }
+
+    private string bundled_comments_icon_name() {
+        string prefixed = "io.github.thecalamityjoe87.Paperboy-comments-symbolic";
+        var theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+        if (theme != null && theme.has_icon(prefixed)) return prefixed;
+        return "chat-message-new-symbolic";
+    }
+
+    private void show_web_view() {
+        if (view_stack == null) return;
+        view_stack.set_visible_child_name("web");
+        if (reader_view != null) reader_view.get_settings_button().set_visible(false);
+    }
+
+    private void load_comments() {
+        if (comments_stack == null || current_url == null) return;
+        if (comments_loaded_url == current_url) return;
+        comments_loaded_url = current_url;
+
+        comments_stack.set_visible_child_name("loading");
+        if (comments_spinner != null) comments_spinner.start();
+
+        string url_snapshot = current_url;
+        string? wfw_url = current_comments_url;
+
+        // Try the feed's own native comment RSS first, then Coral, then
+        // Viafoura, then OpenWeb, then Disqus, then Hacker News discussion
+        // of the URL - stopping at the first provider that actually has
+        // comments.
+        void finish(Gee.ArrayList<FeedComment> comments, bool success) {
+            if (is_destroyed || current_url != url_snapshot) return;
+            if (comments_spinner != null) comments_spinner.stop();
+            if (comments_count_badge != null) {
+                if (success && comments.size > 0) {
+                    comments_count_badge.set_text(comments.size > 9 ? "9+" : comments.size.to_string());
+                    comments_count_badge.set_visible(true);
+                } else {
+                    comments_count_badge.set_visible(false);
+                }
+            }
+            show_comments(comments, success);
+        }
+
+        void try_hn() {
+            Paperboy.HackerNewsCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                finish(comments, success);
+            });
+        }
+
+        void try_disqus() {
+            Paperboy.DisqusCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                if (comments.size > 0) {
+                    finish(comments, success);
+                    return;
+                }
+                try_hn();
+            });
+        }
+
+        void try_openweb() {
+            Paperboy.OpenWebCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                if (comments.size > 0) {
+                    finish(comments, success);
+                    return;
+                }
+                try_disqus();
+            });
+        }
+
+        void try_viafoura() {
+            Paperboy.ViafouraCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                if (comments.size > 0) {
+                    finish(comments, success);
+                    return;
+                }
+                try_openweb();
+            });
+        }
+
+        void try_coral() {
+            Paperboy.CoralCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                if (comments.size > 0) {
+                    finish(comments, success);
+                    return;
+                }
+                try_viafoura();
+            });
+        }
+
+        // No feed-level wfw:commentRss (e.g. built-in fetchers like
+        // Guardian/Fox/Reddit, or Frontpage/Top Ten's GNews-backed
+        // pipeline, none of which carry that field) - check the article's
+        // own page directly for WordPress's standard per-post comments
+        // feed link before falling back to OpenWeb/Disqus/HN/generic scrape.
+        void try_native_discovery() {
+            Paperboy.NativeCommentsDiscoveryService.find(url_snapshot, (discovered_url) => {
+                if (discovered_url == null) {
+                    try_coral();
+                    return;
+                }
+                Paperboy.CommentsFeedService.fetch(discovered_url, (comments, success) => {
+                    if (comments.size > 0) {
+                        finish(comments, success);
+                        return;
+                    }
+                    try_coral();
+                });
+            });
+        }
+
+        if (wfw_url != null) {
+            Paperboy.CommentsFeedService.fetch(wfw_url, (comments, success) => {
+                if (comments.size > 0) {
+                    finish(comments, success);
+                    return;
+                }
+                try_coral();
+            });
+        } else {
+            try_native_discovery();
+        }
+    }
+
+    private void show_comments(Gee.ArrayList<FeedComment> comments, bool success) {
+        if (comments_stack == null || comments_list_box == null || comments_status_label == null) return;
+
+        if (comments.size == 0) {
+            comments_status_label.set_text(success ? "No comments yet." : "Couldn't load comments.");
+            comments_stack.set_visible_child_name("status");
+            return;
+        }
+
+        Gtk.Widget? child = comments_list_box.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            comments_list_box.remove(child);
+            child = next;
+        }
+
+        foreach (var comment in comments) {
+            var row = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
+            row.add_css_class("comment-card");
+            row.set_margin_bottom(10);
+
+            var meta_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+            var author_label = new Gtk.Label(comment.author);
+            author_label.add_css_class("heading");
+            author_label.set_halign(Gtk.Align.START);
+            author_label.set_hexpand(true);
+            author_label.set_ellipsize(Pango.EllipsizeMode.END);
+            meta_row.append(author_label);
+
+            if (comment.published != null) {
+                var date_label = new Gtk.Label(DateUtils.time_ago(comment.published));
+                date_label.add_css_class("dim-label");
+                date_label.add_css_class("caption");
+                date_label.set_halign(Gtk.Align.END);
+                meta_row.append(date_label);
+            }
+            row.append(meta_row);
+
+            var body_label = new Gtk.Label(comment.body);
+            body_label.set_wrap(true);
+            body_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
+            body_label.set_halign(Gtk.Align.START);
+            body_label.set_justify(Gtk.Justification.LEFT);
+            body_label.set_selectable(true);
+            row.append(body_label);
+
+            comments_list_box.append(row);
+        }
+
+        comments_stack.set_visible_child_name("list");
     }
 
     public Gtk.Widget get_widget() {
@@ -242,14 +623,40 @@ public class ArticleSheet : GLib.Object {
         return revealer.get_reveal_child();
     }
 
-    public void open(string url) {
+    public void open(string url, bool? force_reader_view = null, string? source_name_encoded = null) {
         if (url == null) return;
         current_url = url;
+        reader_loaded_url = null;
+        current_source_name_encoded = source_name_encoded;
         if (webview == null) setup_webview();
         if (webview != null) webview.load_uri(url);
         container.set_visible(true);
         revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
         revealer.set_reveal_child(true);
+
+        current_comments_url = Paperboy.CommentsUrlRegistry.lookup(url);
+        comments_loaded_url = null;
+        bool comments_enabled = parent_window != null && parent_window.prefs != null && parent_window.prefs.comments_enabled;
+        if (comments_toggle_btn != null) {
+            comments_toggle_btn.set_active(false);
+        }
+        if (comments_fab_overlay != null) comments_fab_overlay.set_visible(comments_enabled);
+        if (comments_count_badge != null) comments_count_badge.set_visible(false);
+        if (comments_split != null) comments_split.set_show_sidebar(false);
+        // Fetch comments eagerly so the FAB's count badge can appear
+        // before the user ever opens the pane, not just after.
+        if (comments_enabled) load_comments();
+
+        bool want_reader = force_reader_view ?? (parent_window != null && parent_window.prefs != null && parent_window.prefs.reader_view_enabled);
+        if (reader_toggle_btn != null) {
+            if (reader_toggle_btn.get_active() == want_reader) {
+                // Toggling to the same state won't fire the `toggled` signal,
+                // so drive the view directly to still (re-)extract this article.
+                if (want_reader) show_reader_view(); else show_web_view();
+            } else {
+                reader_toggle_btn.set_active(want_reader);
+            }
+        }
 
         Idle.add(() => { update_nav_buttons(); return false; });
     }
@@ -267,8 +674,8 @@ public class ArticleSheet : GLib.Object {
             if (user_content_manager != null && adblock_sheet != null) {
                 user_content_manager.remove_style_sheet(adblock_sheet);
             }
+            WebViewUtils.terminate_process(webview);
         }
-
         container.destroy();
 
         webview = null;
@@ -278,7 +685,22 @@ public class ArticleSheet : GLib.Object {
         revealer = null;
         content_box = null;
         close_btn = null;
+        reader_toggle_btn = null;
+        view_stack = null;
+        reader_view = null;
         current_url = null;
+        reader_loaded_url = null;
+        current_source_name_encoded = null;
+        current_comments_url = null;
+        comments_split = null;
+        comments_toggle_btn = null;
+        comments_fab_overlay = null;
+        comments_count_badge = null;
+        comments_stack = null;
+        comments_list_box = null;
+        comments_spinner = null;
+        comments_status_label = null;
+        comments_loaded_url = null;
         parent_window = null;
     }
 

@@ -59,7 +59,26 @@ public class CardBuilder : GLib.Object {
         }
     }
 
-    private static string? source_icon_filename(NewsSource source) {
+    // Shared with SourceMetadata.resolve_source_icon() so other UI (hero
+    // cards, reader view) can find the same bundled logo this badge uses.
+    public static NewsSource? resolve_builtin_news_source(string? display_name) {
+        if (display_name == null || display_name.length == 0) return null;
+        string low = display_name.down();
+        if (low.index_of("guardian") >= 0) return NewsSource.GUARDIAN;
+        if (low.index_of("bbc") >= 0) return NewsSource.BBC;
+        if (low.index_of("reddit") >= 0) return NewsSource.REDDIT;
+        if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
+            (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) return NewsSource.NEW_YORK_TIMES;
+        if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) return NewsSource.WALL_STREET_JOURNAL;
+        if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
+        if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) return NewsSource.ABC_NEWS;
+        if (low.index_of("npr") >= 0) return NewsSource.NPR;
+        if (low.index_of("fox") >= 0) return NewsSource.FOX;
+        if (low.index_of("pbs") >= 0) return NewsSource.PBS;
+        return null;
+    }
+
+    public static string? source_icon_filename(NewsSource source) {
         switch (source) {
             case NewsSource.GUARDIAN: return "guardian-logo.png";
             case NewsSource.BBC: return "bbc-logo.png";
@@ -149,22 +168,36 @@ public class CardBuilder : GLib.Object {
         return box;
     }
 
-    public static Gtk.Widget build_source_badge_dynamic(NewsWindow win, string? source_name, string? url, string? category_id) {
-        string? provided_logo_url = null;
-        string? display_name = source_name;
+    // Front Page/Top Ten (paperboy-API-backed) articles carry their
+    // source's display name and logo URL encoded straight into the
+    // `source_name` string as "Name||logo_url##category::category_id" (see
+    // paperboyFetcher.vala) rather than being indexable via SourceMetadata,
+    // since update_index_and_fetch() is never called for these sources.
+    // Shared here so any caller that needs a source's logo/name for one of
+    // these articles (card badges, the reader view's source banner) decodes
+    // it the same way instead of re-implementing this split/strip dance.
+    public static void parse_encoded_source_name(string? source_name, out string? display_name, out string? logo_url) {
+        logo_url = null;
+        display_name = source_name;
         if (source_name != null && source_name.index_of("||") >= 0) {
             string[] parts = source_name.split("||");
             if (parts.length >= 1) display_name = parts[0].strip();
             if (parts.length >= 2) {
-                provided_logo_url = parts[1].strip();
-                int cat_idx = provided_logo_url.index_of("##category::");
-            if (cat_idx >= 0 && provided_logo_url.length > cat_idx) provided_logo_url = provided_logo_url.substring(0, cat_idx).strip();
+                logo_url = parts[1].strip();
+                int lcat_idx = logo_url.index_of("##category::");
+                if (lcat_idx >= 0 && logo_url.length > lcat_idx) logo_url = logo_url.substring(0, lcat_idx).strip();
             }
         }
         if (display_name != null) {
             int cat_idx = display_name.index_of("##category::");
             if (cat_idx >= 0 && display_name.length > cat_idx) display_name = display_name.substring(0, cat_idx).strip();
         }
+    }
+
+    public static Gtk.Widget build_source_badge_dynamic(NewsWindow win, string? source_name, string? url, string? category_id) {
+        string? provided_logo_url = null;
+        string? display_name = null;
+        parse_encoded_source_name(source_name, out display_name, out provided_logo_url);
 
         // For My Feed articles, prioritize source_info metadata from when the article
         // was originally fetched from frontpage/topten. This ensures we use the
@@ -460,23 +493,7 @@ public class CardBuilder : GLib.Object {
         // If the API did not provide an explicit logo URL and the name maps to a known source,
         // reuse the bundled badge.
         if (provided_logo_url == null && display_name != null && display_name.length > 0) {
-            // Try to resolve to built-in sources by simple substring matching
-            string low = display_name.down();
-            NewsSource? resolved = null; // Don't fallback to user preference
-            if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
-            else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
-            else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
-            // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
-            else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 || 
-                     (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
-            else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
-            else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
-            else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
-            else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
-            else if (low.index_of("pbs") >= 0) resolved = NewsSource.PBS;
-
-            // Only use bundled badge if we have a positive match
+            NewsSource? resolved = resolve_builtin_news_source(display_name);
             if (resolved != null) {
                 string? icon_path = null;
                 string? fname = source_icon_filename(resolved);
@@ -761,39 +778,20 @@ public class CardBuilder : GLib.Object {
         return box;
     }
 
-    // Top-right corner row shared by every card: holds the persistent save
-    // ribbon. The "Viewed" badge lives in the bottom-left corner instead
-    // (see build_viewed_badge) rather than sharing this row - the two used
-    // to compete for space here.
-    public static Gtk.Box build_corner_badge_row() {
-        var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
-        box.add_css_class("card-corner-badges");
-        box.set_valign(Gtk.Align.START);
-        box.set_halign(Gtk.Align.END);
-        box.set_margin_top(8);
-        box.set_margin_end(8);
-        return box;
-    }
-
-    // Rest position for the save ribbon: pokes up past the corner row's
-    // own margin_top(8), draping over the card's top edge instead of
-    // sitting inset like the row's other badges. Public so AnimationManager
-    // can animate toward/away from the same value.
+    // Rest Y (within the ribbon's own Gtk.Fixed) for the save ribbon, pokes
+    // up past the card's top edge. Public so AnimationManager can animate
+    // toward/away from the same value.
     public const int SAVE_RIBBON_HEIGHT = 50; // 10% bigger (29px icon, was 26px)
-    public const int SAVE_RIBBON_REST_MARGIN = -16; // 2px higher than before (-14)
+    public const int SAVE_RIBBON_REST_Y = -8;
     // Fully tucked away above the card, tab's bottom edge at the rest
     // tab's own top edge - i.e. rest minus its own height.
-    public const int SAVE_RIBBON_HIDDEN_MARGIN = SAVE_RIBBON_REST_MARGIN - SAVE_RIBBON_HEIGHT;
+    public const int SAVE_RIBBON_HIDDEN_Y = SAVE_RIBBON_REST_Y - SAVE_RIBBON_HEIGHT;
 
-    // Persistent "this is saved" tag shown in the corner badge row, next to
-    // the "Viewed" badge - the exact gold/orange gradient ribbon-with-star
-    // graphic the user provided, bundled as
-    // data/icons/symbolic/save-ribbon.png, not a system icon or a plain
-    // rectangle. Slides down as a single rigid piece from fully above the
-    // card to its rest position (see AnimationManager.animate_save_toggle,
-    // which animates margin_top between SAVE_RIBBON_HIDDEN_MARGIN and
-    // SAVE_RIBBON_REST_MARGIN) rather than a Gtk.Revealer-style reveal,
-    // which grows/clips the shape open instead of translating it.
+    // Persistent "this is saved" tag in the card's top-right corner (see
+    // AnimationManager.animate_save_toggle for the slide animation). A
+    // Gtk.Fixed positions it, not a margin - GTK couldn't reconcile a
+    // negative margin against the widget's own measured size, which
+    // spammed layout warnings and a visible relayout glitch on every card.
     public static Gtk.Widget build_save_ribbon(bool initially_saved) {
         var tab = new Gtk.Image();
         tab.add_css_class("save-ribbon");
@@ -815,15 +813,21 @@ public class CardBuilder : GLib.Object {
             tab.set_from_icon_name("user-bookmarks-symbolic");
         }
         tab.set_pixel_size(icon_px);
-        tab.set_size_request(20, SAVE_RIBBON_HEIGHT);
-        tab.set_valign(Gtk.Align.START);
-        tab.set_margin_top(initially_saved ? SAVE_RIBBON_REST_MARGIN : SAVE_RIBBON_HIDDEN_MARGIN);
+        tab.set_size_request(icon_px, icon_px);
         // Not just positioned off the top - removed from layout entirely
         // while unsaved, so it doesn't reserve a gap next to the "Viewed"
-        // badge in the corner row (see AnimationManager.animate_save_toggle,
-        // which flips this back to true right before sliding it in).
+        // badge (see AnimationManager.animate_save_toggle, which flips this
+        // back to true right before sliding it in).
         tab.set_visible(initially_saved);
-        return tab;
+
+        var fixed = new Gtk.Fixed();
+        fixed.set_halign(Gtk.Align.END);
+        fixed.set_valign(Gtk.Align.START);
+        fixed.set_margin_end(8);
+        fixed.set_size_request(icon_px, icon_px);
+        fixed.put(tab, 0, initially_saved ? SAVE_RIBBON_REST_Y : SAVE_RIBBON_HIDDEN_Y);
+        fixed.set_data<Gtk.Widget>("ribbon-image", tab);
+        return fixed;
     }
 
 }

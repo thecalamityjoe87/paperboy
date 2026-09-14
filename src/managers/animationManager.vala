@@ -60,6 +60,31 @@ namespace Managers {
         }
     }
 
+    // Drives the save ribbon's Y position within its own Gtk.Fixed (see
+    // CardBuilder.build_save_ribbon) - a Gtk.Fixed instead of a margin,
+    // since GTK's layout system can't reconcile a negative margin against
+    // a widget's own measured size.
+    private class FixedYAdapter : GLib.Object {
+        public double y { get; set; }
+        private weak Gtk.Fixed? fixed;
+        private weak Gtk.Widget? child;
+
+        public FixedYAdapter(Gtk.Fixed f, Gtk.Widget child, double initial) {
+            GLib.Object();
+            fixed = f;
+            this.child = child;
+            this.y = initial;
+            apply();
+            this.notify.connect((o, pspec) => {
+                if (pspec.get_name() == "y") apply();
+            });
+        }
+
+        private void apply() {
+            if (fixed != null && child != null) fixed.move(child, 0, this.y);
+        }
+    }
+
     private class ScaleAdapter : GLib.Object {
         public double scale { get; set; }
         private weak Gtk.Widget? widget;
@@ -128,6 +153,37 @@ namespace Managers {
         public Adw.TimedAnimation? ribbon_anim;
     }
 
+    // Per-MarqueeLabel marquee bookkeeping - `generation` invalidates any
+    // in-flight Timeout/animation `done` callback left over from a cycle
+    // that stop_title_marquee() already cut short.
+    private class MarqueeState : GLib.Object {
+        public uint generation = 0;
+        public Adw.TimedAnimation? scroll_anim;
+        public uint pause_timeout_id = 0;
+        // Kept alive here for as long as scroll_anim is running - see
+        // animate_card_entrance's identical concern: a MarqueeOffsetAdapter
+        // referenced only by a local variable in run_marquee_cycle() gets
+        // freed by Vala as soon as that function returns, leaving the
+        // animation driving a disposed object (silently a no-op).
+        public MarqueeOffsetAdapter? adapter;
+    }
+
+    // Drives a MarqueeLabel's scroll offset - MarqueeLabel.set_offset() isn't
+    // itself a GObject property Adw.TimedAnimation can bind to directly, so
+    // this adapter forwards an animatable "offset" property to it.
+    private class MarqueeOffsetAdapter : GLib.Object {
+        public double offset { get; set; }
+        private weak MarqueeLabel? label;
+
+        public MarqueeOffsetAdapter(MarqueeLabel label) {
+            GLib.Object();
+            this.label = label;
+            this.notify.connect((o, pspec) => {
+                if (pspec.get_name() == "offset" && label != null) label.set_offset(this.offset);
+            });
+        }
+    }
+
     /* PopScaleAdapter keeps the widget centered at a fixed overlay coordinate
      * while its size_request is animated. This prevents lateral movement when
      * scaling the widget by adjusting margins to keep the visual center fixed.
@@ -189,6 +245,9 @@ namespace Managers {
         // ribbon/ghost/arrival-pulse animations below.
         private Gee.ArrayList<GLib.Object> active_save_animations = new Gee.ArrayList<GLib.Object>();
 
+        // Keyed by the MarqueeLabel it drives - see start_title_marquee().
+        private Gee.HashMap<Gtk.Widget, MarqueeState> marquee_states = new Gee.HashMap<Gtk.Widget, MarqueeState>();
+
         public AnimationManager(NewsWindow win) {
             GLib.Object();
             this.window = win;
@@ -201,6 +260,101 @@ namespace Managers {
                 save_anim_states.set(key, s);
             }
             return s;
+        }
+
+        private MarqueeState get_marquee_state(Gtk.Widget key) {
+            var s = marquee_states.get(key);
+            if (s == null) {
+                s = new MarqueeState();
+                marquee_states.set(key, s);
+            }
+            return s;
+        }
+
+        // Scrolls `label`'s text left-to-right at a slow, readable pace,
+        // holds 5s once it reaches the end, then jumps back to the start
+        // and repeats. A no-op once already running; does nothing (and
+        // briefly recheck-polls) if the text currently fits without
+        // overflowing, e.g. right after the row is realized/resized.
+        public void start_title_marquee(MarqueeLabel label) {
+            if (label == null) return;
+            var state = get_marquee_state(label);
+            if (state.scroll_anim != null || state.pause_timeout_id != 0) return;
+            run_marquee_cycle(label, state, ++state.generation);
+        }
+
+        public void stop_title_marquee(MarqueeLabel label) {
+            if (label == null) return;
+            var state = marquee_states.get(label);
+            if (state == null) return;
+            state.generation++; // invalidates any in-flight done/Timeout callback below
+            if (state.scroll_anim != null) {
+                state.scroll_anim.skip();
+                state.scroll_anim = null;
+            }
+            state.adapter = null;
+            if (state.pause_timeout_id != 0) {
+                GLib.Source.remove(state.pause_timeout_id);
+                state.pause_timeout_id = 0;
+            }
+            label.set_offset(0);
+        }
+
+        private const double MARQUEE_PX_PER_SEC = 30.0;
+        private const uint MARQUEE_PAUSE_MS = 5000;
+
+        private void run_marquee_cycle(MarqueeLabel label, MarqueeState state, uint my_gen) {
+            if (state.generation != my_gen) return; // stopped/restarted since this was scheduled
+
+            int viewport_width = label.get_width();
+            if (viewport_width <= 0) {
+                // Not laid out yet (e.g. the bar was just revealed) - recheck
+                // shortly rather than computing bogus values against a
+                // zero-width row.
+                state.pause_timeout_id = GLib.Timeout.add(100, () => {
+                    state.pause_timeout_id = 0;
+                    run_marquee_cycle(label, state, my_gen);
+                    return false;
+                });
+                return;
+            }
+
+            double max_scroll = label.text_pixel_width() - viewport_width;
+
+            if (max_scroll <= 0) {
+                // Text fits - nothing to scroll yet, but the row may still be
+                // mid-layout (e.g. just realized), so recheck shortly rather
+                // than giving up permanently.
+                label.set_offset(0);
+                state.pause_timeout_id = GLib.Timeout.add(500, () => {
+                    state.pause_timeout_id = 0;
+                    run_marquee_cycle(label, state, my_gen);
+                    return false;
+                });
+                return;
+            }
+
+            var adapter = new MarqueeOffsetAdapter(label);
+            state.adapter = adapter;
+            uint duration_ms = (uint) Math.round(max_scroll / MARQUEE_PX_PER_SEC * 1000.0);
+            var target = new Adw.PropertyAnimationTarget((GLib.Object) adapter, "offset");
+            var anim = new Adw.TimedAnimation(label, 0.0, max_scroll, duration_ms, target);
+            anim.set_easing(Adw.Easing.LINEAR);
+            state.scroll_anim = anim;
+            anim.done.connect(() => {
+                if (state.scroll_anim == anim) state.scroll_anim = null;
+                if (state.generation != my_gen) return;
+                state.pause_timeout_id = GLib.Timeout.add(MARQUEE_PAUSE_MS, () => {
+                    state.pause_timeout_id = 0;
+                    if (state.generation == my_gen) {
+                        label.set_offset(0);
+                        run_marquee_cycle(label, state, my_gen);
+                    }
+                    return false;
+                });
+            });
+            label.set_offset(0);
+            anim.play();
         }
 
         public void animate_card_entrance(Gtk.Widget widget, uint delay_ms) {
@@ -304,44 +458,50 @@ namespace Managers {
             // Slide the whole ribbon as one rigid piece between fully
             // hidden and its resting position - driven manually since
             // Gtk.Revealer's transitions grow/clip the shape open instead
-            // of translating it.
-            int rest = CardBuilder.SAVE_RIBBON_REST_MARGIN;
-            int hidden = CardBuilder.SAVE_RIBBON_HIDDEN_MARGIN;
-            var margin_adapter = new MarginAdapter(save_ribbon, (double) save_ribbon.get_margin_top());
-            var margin_target = new Adw.PropertyAnimationTarget((GLib.Object) margin_adapter, "offset");
+            // of translating it. `save_ribbon` is the Gtk.Fixed built by
+            // CardBuilder.build_save_ribbon; the actual image moves within it.
+            int rest = CardBuilder.SAVE_RIBBON_REST_Y;
+            int hidden = CardBuilder.SAVE_RIBBON_HIDDEN_Y;
+            var ribbon_fixed = (Gtk.Fixed) save_ribbon;
+            var ribbon_image = save_ribbon.get_data<Gtk.Widget>("ribbon-image");
+            if (ribbon_image == null) return;
+            double current_y, current_x;
+            ribbon_fixed.get_child_position(ribbon_image, out current_x, out current_y);
+            var y_adapter = new FixedYAdapter(ribbon_fixed, ribbon_image, current_y);
+            var y_target = new Adw.PropertyAnimationTarget((GLib.Object) y_adapter, "y");
 
             if (is_saved) {
-                save_ribbon.set_visible(true);
-                var anim = new Adw.TimedAnimation(save_ribbon, save_ribbon.get_margin_top(), rest, 450u, margin_target);
+                ribbon_image.set_visible(true);
+                var anim = new Adw.TimedAnimation(save_ribbon, current_y, rest, 450u, y_target);
                 anim.set_easing(Adw.Easing.EASE_OUT_BACK);
                 state.ribbon_anim = anim;
-                active_save_animations.add(margin_adapter);
-                active_save_animations.add(margin_target);
+                active_save_animations.add(y_adapter);
+                active_save_animations.add(y_target);
                 active_save_animations.add(anim);
                 anim.done.connect(() => {
                     active_save_animations.remove(anim);
-                    active_save_animations.remove(margin_target);
-                    active_save_animations.remove(margin_adapter);
+                    active_save_animations.remove(y_target);
+                    active_save_animations.remove(y_adapter);
                     if (state.ribbon_anim == anim) state.ribbon_anim = null;
-                    save_ribbon.set_margin_top(rest);
+                    ribbon_fixed.move(ribbon_image, 0, rest);
                 });
                 anim.play();
             } else {
-                var anim = new Adw.TimedAnimation(save_ribbon, save_ribbon.get_margin_top(), hidden, 250u, margin_target);
+                var anim = new Adw.TimedAnimation(save_ribbon, current_y, hidden, 250u, y_target);
                 anim.set_easing(Adw.Easing.EASE_IN);
                 state.ribbon_anim = anim;
-                active_save_animations.add(margin_adapter);
-                active_save_animations.add(margin_target);
+                active_save_animations.add(y_adapter);
+                active_save_animations.add(y_target);
                 active_save_animations.add(anim);
                 anim.done.connect(() => {
                     active_save_animations.remove(anim);
-                    active_save_animations.remove(margin_target);
-                    active_save_animations.remove(margin_adapter);
+                    active_save_animations.remove(y_target);
+                    active_save_animations.remove(y_adapter);
                     if (state.ribbon_anim == anim) state.ribbon_anim = null;
-                    save_ribbon.set_margin_top(hidden);
-                    // Only now remove it from the corner row's layout, so
-                    // the "Viewed" badge doesn't jump left mid-slide.
-                    save_ribbon.set_visible(false);
+                    ribbon_fixed.move(ribbon_image, 0, hidden);
+                    // Only now hide it, so the "Viewed" badge doesn't jump
+                    // left mid-slide.
+                    ribbon_image.set_visible(false);
                 });
                 anim.play();
             }

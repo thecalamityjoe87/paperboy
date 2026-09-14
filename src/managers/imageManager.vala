@@ -29,6 +29,11 @@ private class ImageDownloadJob : GLib.Object {
     public Soup.Session session;
     public MetaCache? meta_cache;
     public ImageCache? img_cache;
+    // See ImageManager.load_image_async()'s ignore_fetch_context parameter -
+    // skips the FetchContext staleness check in deliver_download_outcome()
+    // for downloads that aren't tied to any particular news-article fetch
+    // (e.g. the podcast mini player's cover art).
+    public bool ignore_fetch_context = false;
 }
 
 private class CachedImageJob : GLib.Object {
@@ -39,6 +44,7 @@ private class CachedImageJob : GLib.Object {
     public int device_scale;
     public string disk_path;
     public ImageCache? img_cache;
+    public bool ignore_fetch_context = false;
 }
 
 // Worker-thread download result - plain data only, safe to build off-thread.
@@ -67,6 +73,12 @@ public class ImageManager : GLib.Object {
     public Gee.HashMap<Gtk.Picture, HeroRequest> hero_requests;
     public GLib.Mutex download_mutex;
     public uint deferred_check_timeout_id = 0;
+
+    // URLs registered with ignore_fetch_context=true (e.g. the podcast mini
+    // player's cover art) - cleanup_stale_downloads() must never evict these,
+    // since they aren't part of the news-fetch churn it's meant to bound and
+    // there are only ever one or two of them in flight at once.
+    private Gee.HashSet<string> protected_download_urls;
 
     // ------------------------------------------------------------------
     // THREADING CONTRACT
@@ -132,6 +144,7 @@ public class ImageManager : GLib.Object {
         deferred_downloads = new Gee.HashMap<Gtk.Picture, DeferredRequest>();
         pending_local_placeholder = new Gee.HashMap<Gtk.Picture, bool>();
         hero_requests = new Gee.HashMap<Gtk.Picture, HeroRequest>();
+        protected_download_urls = new Gee.HashSet<string>();
         download_mutex = new GLib.Mutex();
 
         try {
@@ -163,7 +176,7 @@ public class ImageManager : GLib.Object {
 
     // Start a single download for a URL and update all registered targets when done.
     // MAIN THREAD ONLY (reads Gtk.Picture.get_scale_factor and window fields).
-    public void start_image_download_for_url(string url, int target_w, int target_h) {
+    public void start_image_download_for_url(string url, int target_w, int target_h, bool ignore_fetch_context = false) {
         // Capture a snapshot of main-thread-only data we need in the worker
         // so do_image_download() never has to dereference `window` or a
         // Gtk.Picture from a background thread.
@@ -199,6 +212,7 @@ public class ImageManager : GLib.Object {
         job.session = window.session;
         job.meta_cache = window.meta_cache;
         job.img_cache = window.image_cache;
+        job.ignore_fetch_context = ignore_fetch_context;
         try {
             download_pool.add(job);
         } catch (GLib.ThreadError e) {
@@ -314,10 +328,11 @@ public class ImageManager : GLib.Object {
             int target_w = job.target_w;
             int target_h = job.target_h;
             uint gen_seq = job.gen_seq;
+            bool ignore_fetch_context = job.ignore_fetch_context;
 
             var outcome = fetch_and_decode(job);
             Idle.add(() => {
-                deliver_download_outcome(url, target_w, target_h, gen_seq, outcome);
+                deliver_download_outcome(url, target_w, target_h, gen_seq, outcome, ignore_fetch_context);
                 return false;
             });
         } finally {
@@ -328,11 +343,16 @@ public class ImageManager : GLib.Object {
 
     // MAIN THREAD ONLY. If the fetch sequence changed since this download
     // started (view/category switched), the result no longer belongs to the
-    // current view: drop it without touching any picture. Otherwise deliver
-    // it (or the fallback placeholder, if the fetch failed) to every
+    // current view: drop it without touching any picture - unless
+    // ignore_fetch_context is set, for downloads that were never tied to any
+    // particular news-article fetch in the first place (e.g. the podcast
+    // mini player's cover art), which this staleness check would otherwise
+    // wrongly catch every time an unrelated news fetch happens to land while
+    // they're still in flight (near-guaranteed at app startup). Otherwise
+    // deliver it (or the fallback placeholder, if the fetch failed) to every
     // picture waiting on this url.
-    private void deliver_download_outcome(string url, int target_w, int target_h, uint gen_seq, DownloadOutcome outcome) {
-        if (FetchContext.current != gen_seq) {
+    private void deliver_download_outcome(string url, int target_w, int target_h, uint gen_seq, DownloadOutcome outcome, bool ignore_fetch_context = false) {
+        if (!ignore_fetch_context && FetchContext.current != gen_seq) {
             pending_downloads.remove(url);
             forget_requested_size(url);
             return;
@@ -349,11 +369,7 @@ public class ImageManager : GLib.Object {
         if (pixbuf != null && size_key != null) {
             try { if (window.image_cache != null) window.image_cache.set(size_key, pixbuf); else ImageCache.get_global().set(size_key, pixbuf); } catch (GLib.Error e) { }
             if (target_w <= 64 && target_h <= 64) {
-                try {
-                    string any_key = make_cache_key(url, 0, 0);
-                    if (window.image_cache != null) window.image_cache.set(any_key, pixbuf);
-                    else ImageCache.get_global().set(any_key, pixbuf);
-                } catch (GLib.Error e) { }
+                set_any_key_thumb_if_larger(url, pixbuf);
             }
         }
 
@@ -388,6 +404,7 @@ public class ImageManager : GLib.Object {
 
     // MAIN THREAD ONLY.
     private void forget_requested_size(string url) {
+        try { protected_download_urls.remove(url); } catch (GLib.Error e) { }
         try { requested_image_sizes.remove(url); } catch (GLib.Error e) { }
         try {
             string nkey = UrlUtils.normalize_article_url(url);
@@ -397,7 +414,7 @@ public class ImageManager : GLib.Object {
 
     // Ensure we don't start more than MAX_CONCURRENT_DOWNLOADS downloads; if we are at capacity,
     // retry shortly until a slot frees up.
-    public void ensure_start_download(string url, int target_w, int target_h) {
+    public void ensure_start_download(string url, int target_w, int target_h, bool ignore_fetch_context = false) {
         int cap = (window.loading_state != null && window.loading_state.initial_phase) ? NewsWindow.INITIAL_PHASE_MAX_CONCURRENT_DOWNLOADS : NewsWindow.MAX_CONCURRENT_DOWNLOADS;
         if (NewsWindow.active_downloads >= cap) {
             // Track retries to prevent infinite loops if active_downloads gets stuck
@@ -418,15 +435,24 @@ public class ImageManager : GLib.Object {
             }
 
             download_retry_counts.set(url, retry_count + 1);
-            Timeout.add(150, () => { ensure_start_download(url, target_w, target_h); return false; });
+            Timeout.add(150, () => { ensure_start_download(url, target_w, target_h, ignore_fetch_context); return false; });
             return;
         }
         // Clear retry count on successful start
         try { download_retry_counts.remove(url); } catch (GLib.Error e) { }
-        start_image_download_for_url(url, target_w, target_h);
+        start_image_download_for_url(url, target_w, target_h, ignore_fetch_context);
     }
 
-    public void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, bool force = false) {
+    // ignore_fetch_context: skip the FetchContext staleness check that
+    // normally discards a network image result if a news-article fetch has
+    // moved on since the download started (see deliver_download_outcome()).
+    // That check exists to stop a stale category/search fetch's images from
+    // landing after the user has navigated away - it has nothing to do with
+    // requests that aren't tied to any news fetch at all, like the podcast
+    // mini player's cover art, which was otherwise getting silently dropped
+    // whenever the app's own initial fetch_news() call happened to land
+    // while the cover was still downloading (near-guaranteed at startup).
+    public void load_image_async(Gtk.Picture image, string url, int target_w, int target_h, bool force = false, bool ignore_fetch_context = false) {
         if (!force) {
             bool vis = false;
             try { vis = image.get_visible(); } catch (GLib.Error e) { vis = true; }
@@ -437,7 +463,7 @@ public class ImageManager : GLib.Object {
                     if (nkey != null && nkey.length > 0) requested_image_sizes.set(nkey, "%dx%d".printf(target_w, target_h));
                 } catch (GLib.Error e) { }
 
-                deferred_downloads.set(image, new DeferredRequest(url, target_w, target_h));
+                deferred_downloads.set(image, new DeferredRequest(url, target_w, target_h, ignore_fetch_context));
                 if (deferred_check_timeout_id == 0) {
                     deferred_check_timeout_id = Timeout.add(1000, () => {
                         try { process_deferred_downloads(); } catch (GLib.Error e) { }
@@ -455,7 +481,7 @@ public class ImageManager : GLib.Object {
         if (target_w <= 64 && target_h <= 64) {
             var any_key_thumb = make_cache_key(url, 0, 0);
             var thumb_pb = window.image_cache != null ? window.image_cache.get(any_key_thumb) : ImageCache.get_global().get(any_key_thumb);
-            if (thumb_pb != null) {
+            if (thumb_pb != null && thumb_pb.get_width() >= target_w && thumb_pb.get_height() >= target_h) {
                 paint_synchronously(image, any_key_thumb, thumb_pb);
                 return;
             }
@@ -470,7 +496,7 @@ public class ImageManager : GLib.Object {
 
         var any_key = make_cache_key(url, 0, 0);
         var cached_any_pb = window.image_cache != null ? window.image_cache.get(any_key) : ImageCache.get_global().get(any_key);
-        if (cached_any_pb != null && target_w <= 64 && target_h <= 64) {
+        if (cached_any_pb != null && target_w <= 64 && target_h <= 64 && cached_any_pb.get_width() >= target_w && cached_any_pb.get_height() >= target_h) {
             paint_synchronously(image, any_key, cached_any_pb);
             return;
         }
@@ -493,17 +519,18 @@ public class ImageManager : GLib.Object {
                 job.device_scale = device_scale;
                 job.disk_path = disk_path;
                 job.img_cache = window.image_cache;
+                job.ignore_fetch_context = ignore_fetch_context;
                 try {
                     cached_load_pool.add(job);
                 } catch (GLib.ThreadError e) {
                     warning("Failed to queue cached image load: %s", e.message);
-                    network_fallback(image, url, target_w, target_h);
+                    network_fallback(image, url, target_w, target_h, ignore_fetch_context);
                 }
                 return;
             }
         }
 
-        network_fallback(image, url, target_w, target_h);
+        network_fallback(image, url, target_w, target_h, ignore_fetch_context);
     }
 
     // MAIN THREAD ONLY. Paints an already-cached pixbuf onto `image`
@@ -526,7 +553,7 @@ public class ImageManager : GLib.Object {
     // (or join) a network download for it. Used both when there's no
     // disk-cached copy at all, and when decoding a disk-cached copy fails.
     // MAIN THREAD ONLY.
-    private void network_fallback(Gtk.Picture image, string url, int target_w, int target_h) {
+    private void network_fallback(Gtk.Picture image, string url, int target_w, int target_h, bool ignore_fetch_context = false) {
         // THREAD SAFETY: Lock mutex while checking and modifying pending_downloads
         // to prevent race with background threads accessing the HashMap.
         // Wrapped in try/finally (not just a trailing unlock call) because
@@ -535,6 +562,8 @@ public class ImageManager : GLib.Object {
         // caller of network_fallback() on any thread.
         download_mutex.lock();
         try {
+            if (ignore_fetch_context) protected_download_urls.add(url);
+
             var existing = pending_downloads.get(url);
             if (existing != null) {
                 existing.add(image);
@@ -559,7 +588,7 @@ public class ImageManager : GLib.Object {
         // 1000px but returns 403 for larger sizes like 2000px/2400px)
         int download_w = clampi(target_w, target_w, 2400);
         int download_h = clampi(target_h, target_h, 2400);
-        ensure_start_download(url, download_w, download_h);
+        ensure_start_download(url, download_w, download_h, ignore_fetch_context);
     }
 
     // Runs on the cached_load_pool worker threads. Pure computation only
@@ -573,6 +602,7 @@ public class ImageManager : GLib.Object {
         int device_scale = job.device_scale;
         string disk_path = job.disk_path;
         var img_cache = job.img_cache;
+        bool ignore_fetch_context = job.ignore_fetch_context;
 
         Gdk.Pixbuf? pix = null;
         string size_key = make_cache_key(url, target_w, target_h);
@@ -584,20 +614,14 @@ public class ImageManager : GLib.Object {
                     clampi(target_w * device_scale, 1, MAX_DECODE_DIM),
                     clampi(target_h * device_scale, 1, MAX_DECODE_DIM));
             }
-        } catch (GLib.Error e) {
-            // fall through to the network fallback below
-        }
+        } catch (GLib.Error e) { }
 
         if (pix != null) {
             Gdk.Pixbuf pix_for_idle = pix;
             Idle.add(() => {
                 try { if (img_cache != null) img_cache.set(size_key, pix_for_idle); else ImageCache.get_global().set(size_key, pix_for_idle); } catch (GLib.Error e) { }
                 if (target_w <= 64 && target_h <= 64) {
-                    try {
-                        string any_key = make_cache_key(url, 0, 0);
-                        if (img_cache != null) img_cache.set(any_key, pix_for_idle);
-                        else ImageCache.get_global().set(any_key, pix_for_idle);
-                    } catch (GLib.Error e) { }
+                    set_any_key_thumb_if_larger(url, pix_for_idle);
                 }
                 try {
                     var cache = img_cache != null ? img_cache : ImageCache.get_global();
@@ -617,11 +641,11 @@ public class ImageManager : GLib.Object {
             return;
         }
 
-        // Disk cache read/decode failed - fall back to a network download,
-        // same as the original inline behavior. network_fallback() touches
-        // GTK/instance state, so it must run on the main thread.
+        // Disk cache read/decode failed - fall back to a network download.
+        // network_fallback() touches GTK/instance state, so it must run on
+        // the main thread.
         Idle.add(() => {
-            network_fallback(image, url, target_w, target_h);
+            network_fallback(image, url, target_w, target_h, ignore_fetch_context);
             return false;
         });
     }
@@ -695,6 +719,19 @@ public class ImageManager : GLib.Object {
         return "pixbuf::url:%s::%dx%d".printf(url, w, h);
     }
 
+    // The size-agnostic "any" thumbnail slot (see load_image_async) must
+    // never end up holding a decode smaller than one it already had, or a
+    // later small request (e.g. a 20x20 card badge) would silently
+    // downgrade it for an earlier, larger requester (e.g. reader view's
+    // 44x44 logo) still to come for the same URL.
+    private void set_any_key_thumb_if_larger(string url, Gdk.Pixbuf pixbuf) {
+        var cache = window.image_cache != null ? window.image_cache : ImageCache.get_global();
+        string any_key = make_cache_key(url, 0, 0);
+        var existing = cache.get(any_key);
+        if (existing != null && existing.get_width() >= pixbuf.get_width() && existing.get_height() >= pixbuf.get_height()) return;
+        try { cache.set(any_key, pixbuf); } catch (GLib.Error e) { }
+    }
+
     // Cleanup stale downloads to prevent unbounded HashMap growth and memory leaks
     public void cleanup_stale_downloads() {
         download_mutex.lock();
@@ -709,6 +746,7 @@ public class ImageManager : GLib.Object {
             int count = 0;
             foreach (var entry in pending_downloads.entries) {
                 if (count >= to_remove) break;
+                if (protected_download_urls.contains(entry.key)) continue;
                 keys_to_remove.add(entry.key);
                 count++;
             }
@@ -742,7 +780,7 @@ public class ImageManager : GLib.Object {
             var req = deferred_downloads.get(pic);
             if (req == null) continue;
             try { deferred_downloads.remove(pic); } catch (GLib.Error e) { }
-            load_image_async(pic, req.url, req.w, req.h, true);
+            load_image_async(pic, req.url, req.w, req.h, true, req.ignore_fetch_context);
         }
 
         if (deferred_downloads.size > 0) {

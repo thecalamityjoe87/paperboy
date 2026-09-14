@@ -107,6 +107,69 @@ namespace Paperboy {
             if (rc != Sqlite.OK && errmsg != null && !errmsg.down().contains("duplicate column")) {
                 GLib.warning("Failed to add original_url column: %s", errmsg);
             }
+
+            // Add podcast_feed_url/podcast_checked_at columns if they don't
+            // exist (for existing databases) - podcast_feed_url NULL means
+            // "no separate podcast feed found (or not yet checked)" (see
+            // set_podcast_feed_url()/FeedUpdateManager).
+            string add_podcast_feed_url = "ALTER TABLE rss_sources ADD COLUMN podcast_feed_url TEXT;";
+            rc = db.exec(add_podcast_feed_url, null, out errmsg);
+            if (rc != Sqlite.OK && errmsg != null && !errmsg.down().contains("duplicate column")) {
+                GLib.warning("Failed to add podcast_feed_url column: %s", errmsg);
+            }
+
+            string add_podcast_checked_at = "ALTER TABLE rss_sources ADD COLUMN podcast_checked_at INTEGER DEFAULT 0;";
+            rc = db.exec(add_podcast_checked_at, null, out errmsg);
+            if (rc != Sqlite.OK && errmsg != null && !errmsg.down().contains("duplicate column")) {
+                GLib.warning("Failed to add podcast_checked_at column: %s", errmsg);
+            }
+
+            // How many candidate podcasts were found for this site (see
+            // FeedUpdateManager.try_podcastindex_name_search()) - lets
+            // HeaderManager label the button "Browse Podcasts" when there's
+            // more than one, without a live PodcastIndex search on every
+            // header refresh.
+            string add_podcast_candidate_count = "ALTER TABLE rss_sources ADD COLUMN podcast_candidate_count INTEGER DEFAULT 1;";
+            rc = db.exec(add_podcast_candidate_count, null, out errmsg);
+            if (rc != Sqlite.OK && errmsg != null && !errmsg.down().contains("duplicate column")) {
+                GLib.warning("Failed to add podcast_candidate_count column: %s", errmsg);
+            }
+        }
+
+        // Records the result of a homepage feed-autodiscovery pass (see
+        // FeedUpdateManager.maybe_check_for_podcast_feed()) - always stamps
+        // podcast_checked_at (even when nothing was found), so that
+        // rate-limit actually skips re-checking every refresh cycle.
+        // candidate_count is how many real matches were found in total (the
+        // <link>-tag and Apple Podcasts id strategies only ever find one, so
+        // they always pass 1; only the PodcastIndex name-search fallback can
+        // find more).
+        public void set_podcast_feed_url(string source_url, string? podcast_feed_url, int candidate_count = 1) {
+            if (db == null) return;
+
+            string sql = "UPDATE rss_sources SET podcast_feed_url = ?, podcast_checked_at = ?, podcast_candidate_count = ? WHERE url = ?;";
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                return;
+            }
+            if (podcast_feed_url != null) stmt.bind_text(1, podcast_feed_url); else stmt.bind_null(1);
+            stmt.bind_int64(2, GLib.get_real_time() / 1000000);
+            stmt.bind_int(3, candidate_count);
+            stmt.bind_text(4, source_url);
+            if (stmt.step() != Sqlite.DONE) {
+                GLib.warning("Failed to update podcast_feed_url: %s", db.errmsg());
+                return;
+            }
+            cached_sources = null;
+
+            // Called from a background thread (FeedUpdateManager's fetch
+            // thread pool) - safe to emit directly since HeaderManager's
+            // listener only schedules an Idle.add() from here, same as
+            // update_last_fetched()'s identical emission below.
+            var updated = get_source_by_url(source_url);
+            if (updated != null) source_updated(updated);
         }
 
         public bool add_source(string name, string url, string? icon_filename = null) {
@@ -503,7 +566,7 @@ namespace Paperboy {
                 return sources;
             }
 
-            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at FROM rss_sources ORDER BY name ASC;";
+            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at, podcast_feed_url, podcast_checked_at, podcast_candidate_count FROM rss_sources;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -524,8 +587,15 @@ namespace Paperboy {
                 var source = new RssSource.with_data(id, name, url, icon_filename, created_at, last_fetched_at);
                 source.favicon_url = favicon_url;
                 source.original_url = original_url;
+                source.podcast_feed_url = stmt.column_text(8);
+                source.podcast_checked_at = stmt.column_int64(9);
+                source.podcast_candidate_count = stmt.column_int(10);
                 sources.add(source);
             }
+
+            // SQL's ORDER BY name ASC would put "The Verge" under "T" -
+            // sort here instead so it lands under "V".
+            sources.sort((a, b) => { return SortUtils.compare_titles(a.name, b.name); });
 
             // Cache the results
             cached_sources = sources;
@@ -538,7 +608,7 @@ namespace Paperboy {
                 return null;
             }
 
-            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at FROM rss_sources WHERE url = ?;";
+            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at, podcast_feed_url, podcast_checked_at, podcast_candidate_count FROM rss_sources WHERE url = ?;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -561,6 +631,9 @@ namespace Paperboy {
                 var source = new RssSource.with_data(id, name, url_val, icon_filename, created_at, last_fetched_at);
                 source.favicon_url = favicon_url;
                 source.original_url = original_url;
+                source.podcast_feed_url = stmt.column_text(8);
+                source.podcast_checked_at = stmt.column_int64(9);
+                source.podcast_candidate_count = stmt.column_int(10);
                 return source;
             }
 

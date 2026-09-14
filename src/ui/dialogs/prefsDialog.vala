@@ -1032,6 +1032,41 @@ public class PrefsDialog : GLib.Object {
 
         personalization_page.add(app_group);
 
+        // ========== READING GROUP ==========
+        var reading_group = new Adw.PreferencesGroup();
+        reading_group.set_title("Reading");
+
+        var reader_view_row = new Adw.SwitchRow();
+        reader_view_row.set_title("Open articles in reader view");
+        reader_view_row.set_subtitle("Show an extracted, distraction-free view of the article text instead of the full webpage by default. You can still switch views per article.");
+        reader_view_row.set_active(prefs.reader_view_enabled);
+        reader_view_row.notify["active"].connect(() => {
+            prefs.reader_view_enabled = reader_view_row.get_active();
+        });
+        reading_group.add(reader_view_row);
+
+        var article_click_row = new Adw.SwitchRow();
+        article_click_row.set_title("Clicking an article opens reader view directly");
+        article_click_row.set_subtitle("Skip the preview pane and jump straight into reader view when you click an article card");
+        article_click_row.set_active(prefs.article_click_opens_reader);
+        article_click_row.notify["active"].connect(() => {
+            prefs.article_click_opens_reader = article_click_row.get_active();
+        });
+        reading_group.add(article_click_row);
+
+        var hover_actions_row = new Adw.SwitchRow();
+        hover_actions_row.set_title("Show quick-open buttons on hover");
+        hover_actions_row.set_subtitle("Show reader view / preview buttons over an article card's image when you hover it");
+        hover_actions_row.set_active(prefs.card_hover_actions_enabled);
+        hover_actions_row.notify["active"].connect(() => {
+            bool enabled = hover_actions_row.get_active();
+            prefs.card_hover_actions_enabled = enabled;
+            if (win != null) ArticleCard.set_hover_actions_visible_for_all(win, enabled);
+        });
+        reading_group.add(hover_actions_row);
+
+        personalization_page.add(reading_group);
+
         // ========== SPORTS SCORE CARDS GROUP ==========
         var sports_group = new Adw.PreferencesGroup();
         sports_group.set_title("Sports Score Cards");
@@ -1312,6 +1347,22 @@ public class PrefsDialog : GLib.Object {
         data_group.add(rss_cache_row);
 
         app_page.add(data_group);
+
+        // ========== EXPERIMENTAL GROUP ==========
+        var experimental_group = new Adw.PreferencesGroup();
+        experimental_group.set_title("Experimental");
+
+        var comments_row = new Adw.SwitchRow();
+        comments_row.set_title("Show article comments");
+        comments_row.set_subtitle("Show a comments button on the reader page for articles with a discoverable comment source (native feed, Disqus, or Hacker News discussion). Coverage is limited - many sites don't expose comments through any of these.");
+        comments_row.set_active(prefs.comments_enabled);
+        comments_row.notify["active"].connect(() => {
+            prefs.comments_enabled = comments_row.get_active();
+        });
+        experimental_group.add(comments_row);
+
+        app_page.add(experimental_group);
+
         dialog.add(app_page);
 
         // Handle dialog close to refresh if sources or categories changed
@@ -1393,6 +1444,18 @@ public class PrefsDialog : GLib.Object {
     // Condensed highlights for the 5 most recent GitHub releases, shown in
     // the About dialog's "What's New" page.
     private const string RELEASE_NOTES = """
+        <p><em>v0.10.1a</em> — Hotfix: Reader View Memory Leak</p>
+        <ul>
+        <li>Fixed WebKit reader web processes never terminating, leaking a sandboxed process every time reader view was used</li>
+        </ul>
+        <p><em>v0.10.0a</em> — In-App Reader View &amp; Native Article Comments</p>
+        <ul>
+        <li>Added a distraction-free reader view with title/byline/hero image/body extraction, video and embed support, and customizable text size, font, and color scheme</li>
+        <li>Added native article comments pulled from RSS, Disqus, Hacker News, and three reverse-engineered comment platforms (Coral, OpenWeb, Viafoura), shown in a slide-in comments pane</li>
+        <li>Added hover quick-action buttons on article cards to jump straight into reader view</li>
+        <li>Added podcast discovery for followed RSS feeds, letting you find and subscribe to a site's podcast directly from its feed</li>
+        <li>Fixed podcast mini-player cover art missing after app restart, and several Saved Articles/reader hero image and theming glitches</li>
+        </ul>
         <p><em>v0.9.0a</em> — Podcasts, Global Search &amp; Memory Fixes</p>
         <ul>
         <li>Added a full podcast experience: discovery with hero cards and category rows, GStreamer playback with a persistent mini-player, SQLite-backed subscriptions, and played/new episode tracking</li>
@@ -1424,26 +1487,20 @@ public class PrefsDialog : GLib.Object {
         <li>Frontpage articles now cached for faster startup and navigation</li>
         <li>New staggered entrance/exit animations for article cards</li>
         </ul>
-        <p><em>v0.7.4a</em> — Native Animations, SplitView &amp; Smarter Search</p>
-        <ul>
-        <li>Sidebar rebuilt on Adw.OverlaySplitView and Adw.ExpanderRow for native, fluid transitions</li>
-        <li>Search is now tokenized, case-insensitive, and matches partial or reordered terms</li>
-        <li>Per-feed RSS article limits enforced correctly, with cleaner deduplication</li>
-        </ul>
         """;
 
     public static void show_about_dialog(Gtk.Window parent) {
         var about = new Adw.AboutDialog();
         about.set_application_name("Paperboy");
         about.set_application_icon("paperboy"); // Use the correct icon name
-        about.set_version("0.9.0a");
+        about.set_version("0.10.1a");
         about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
         about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
         about.set_website("https://github.com/thecalamityjoe87/paperboy");
         about.set_license_type(Gtk.License.GPL_3_0);
         about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
 
-        about.set_release_notes_version("0.9.0a");
+        about.set_release_notes_version("0.10.1a");
         about.set_release_notes(RELEASE_NOTES);
 
         about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");

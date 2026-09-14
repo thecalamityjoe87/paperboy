@@ -32,10 +32,8 @@ public class ArticleCard : GLib.Object {
     public Gtk.Box title_box;
     public Gtk.Label title_label;
     public Gtk.Label time_label;
-    // Top-right corner row (save ribbon, see CardBuilder) and the ribbon
-    // itself - exposed so AnimationManager can animate it when the article
-    // is saved/unsaved.
-    public Gtk.Box corner_badges;
+    // Save ribbon (see CardBuilder.build_save_ribbon) - exposed so
+    // AnimationManager can animate it when the article is saved/unsaved.
     public Gtk.Widget save_ribbon;
     // Bottom-right of the title area, opposite time_label - where
     // ViewStateManager adds/removes the "Read" badge (see build_viewed_badge).
@@ -94,16 +92,55 @@ public class ArticleCard : GLib.Object {
         // Add the provided category chip overlay (owner computes chip)
         if (chip != null) overlay.add_overlay(chip);
 
-        // Persistent save badge, top-right (see CardBuilder.build_corner_badge_row).
+        // Persistent save badge, top-right (see CardBuilder.build_save_ribbon).
         bool already_saved = false;
         if (state_store != null) {
             string norm_for_save = window != null ? window.normalize_article_url(url) : url;
             already_saved = state_store.is_saved(norm_for_save);
         }
-        corner_badges = CardBuilder.build_corner_badge_row();
-        overlay.add_overlay(corner_badges);
         save_ribbon = CardBuilder.build_save_ribbon(already_saved);
-        corner_badges.append(save_ribbon);
+        overlay.add_overlay(save_ribbon);
+
+        // Quick-open buttons, centered over the image - hidden until the
+        // card is hovered (see .card-hover-actions in style.css), giving a
+        // one-click path straight to reader view or the preview pane
+        // instead of always going through the preview pane first. Stored
+        // via set_data (not public fields wire_interactions could capture
+        // directly) for the same reason save_ribbon is looked up that way
+        // elsewhere - see wire_interactions() below.
+        // Always built (not skipped) so toggling the "hover actions" pref
+        // can just flip this box's visibility live on every already-
+        // rendered card (see set_hover_actions_visible_for_all below)
+        // instead of requiring a full view rebuild.
+        bool hover_actions_enabled = window == null || window.prefs == null || window.prefs.card_hover_actions_enabled;
+        var hover_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
+        hover_actions.add_css_class("card-hover-actions");
+        hover_actions.set_halign(Gtk.Align.CENTER);
+        hover_actions.set_valign(Gtk.Align.CENTER);
+        hover_actions.set_hexpand(true);
+        hover_actions.set_vexpand(true);
+        hover_actions.set_visible(hover_actions_enabled);
+
+        var quick_reader_btn = new Gtk.Button();
+        quick_reader_btn.add_css_class("card-hover-action-btn");
+        quick_reader_btn.set_tooltip_text("Open in reader view");
+        var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
+        quick_reader_icon.set_pixel_size(26);
+        quick_reader_btn.set_child(quick_reader_icon);
+        hover_actions.append(quick_reader_btn);
+
+        var quick_pane_btn = new Gtk.Button();
+        quick_pane_btn.add_css_class("card-hover-action-btn");
+        quick_pane_btn.set_tooltip_text("Preview article");
+        var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
+        quick_pane_icon.set_pixel_size(26);
+        quick_pane_btn.set_child(quick_pane_icon);
+        hover_actions.append(quick_pane_btn);
+
+        overlay.add_overlay(hover_actions);
+        root.set_data("quick-reader-btn", quick_reader_btn);
+        root.set_data("quick-pane-btn", quick_pane_btn);
+        root.set_data("hover-actions-box", hover_actions);
 
         root.append(overlay);
 
@@ -172,6 +209,21 @@ public class ArticleCard : GLib.Object {
         root.set_data("article-viewed-badge-slot", viewed_badge_slot);
     }
 
+    // Lets the "show hover quick-actions" preference take effect immediately
+    // on every currently-rendered card, without rebuilding/re-fetching the
+    // view - each card's hover_actions box always exists (see the
+    // constructor above) and is just hidden/shown here via the same
+    // url_to_card registry used for viewed-badge updates.
+    public static void set_hover_actions_visible_for_all(NewsWindow window, bool visible) {
+        if (window == null || window.view_state == null || window.view_state.url_to_card == null) return;
+        foreach (var cards in window.view_state.url_to_card.values) {
+            foreach (var card in cards) {
+                var hover_actions = card.get_data<Gtk.Box>("hover-actions-box");
+                if (hover_actions != null) hover_actions.set_visible(visible);
+            }
+        }
+    }
+
     // Called explicitly by the caller once source_name/category_id/
     // thumbnail_url are set, instead of the old
     // `article_card.activated.connect(...)` pattern.
@@ -195,7 +247,8 @@ public class ArticleCard : GLib.Object {
         owned UrlCallback? on_open_in_browser,
         owned FollowSourceCallback? on_follow_source,
         owned UrlCallback? on_save_for_later,
-        owned UrlCallback? on_share
+        owned UrlCallback? on_share,
+        owned UrlCallback? on_quick_reader = null
     ) {
         var gesture = new Gtk.GestureClick();
         gesture.set_button(1);
@@ -203,6 +256,25 @@ public class ArticleCard : GLib.Object {
             if (on_activated != null) on_activated(card_url);
         });
         root_widget.add_controller(gesture);
+
+        var quick_reader_btn = root_widget.get_data<Gtk.Button>("quick-reader-btn");
+        if (quick_reader_btn != null) {
+            quick_reader_btn.clicked.connect(() => {
+                // Deferred - opening the sheet synchronously mid-click can
+                // leave the button's own gesture unable to fire again.
+                GLib.Idle.add(() => {
+                    if (on_quick_reader != null) on_quick_reader(card_url);
+                    return false;
+                });
+            });
+        }
+
+        var quick_pane_btn = root_widget.get_data<Gtk.Button>("quick-pane-btn");
+        if (quick_pane_btn != null) {
+            quick_pane_btn.clicked.connect(() => {
+                if (on_activated != null) on_activated(card_url);
+            });
+        }
 
         // get_widget() avoids capturing root_widget directly - same cycle
         // as the class comment above describes for `self`, since these

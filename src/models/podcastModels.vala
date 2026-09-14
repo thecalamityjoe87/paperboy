@@ -70,6 +70,11 @@ namespace Paperboy {
         // Denormalized so episode cards (e.g. "Your Shows" row) can render
         // the show's title without a separate lookup against PodcastShow.
         public string show_title;
+        // Only set by PodcastPlaybackStateStore.get_last_session() - a
+        // dedicated on-disk copy of this episode's cover art, saved
+        // whenever the last-session row is, so the mini player can restore
+        // it on startup with no network dependency.
+        public string? cover_local_path;
 
         public PodcastEpisode() {
             episode_id = 0;
@@ -90,6 +95,7 @@ namespace Paperboy {
         public int64 feed_id;
         public string title;
         public string? author;
+        public string? description;
         public string? image_url;
         public string feed_url;
         public int64 subscribed_at;
@@ -98,6 +104,7 @@ namespace Paperboy {
             feed_id = 0;
             title = "";
             author = null;
+            description = null;
             image_url = null;
             feed_url = "";
             subscribed_at = 0;
@@ -107,6 +114,7 @@ namespace Paperboy {
             feed_id = show.feed_id;
             title = show.title;
             author = show.author;
+            description = show.description;
             image_url = show.image_url;
             feed_url = show.feed_url;
             subscribed_at = GLib.get_real_time() / 1000000;
@@ -114,8 +122,8 @@ namespace Paperboy {
 
         // Reconstructs enough of a PodcastShow to open PodcastPane from a
         // stored subscription (e.g. clicking it in the sidebar) - no
-        // description/category/episode_count since those aren't persisted
-        // here. feed_id < 0 reliably means "added by direct feed URL" (see
+        // category/episode_count since those aren't persisted here.
+        // feed_id < 0 reliably means "added by direct feed URL" (see
         // PodcastShow.from_direct_feed): real PodcastIndex feed_ids are
         // always positive, synthetic ones are always negative.
         public Paperboy.PodcastShow to_show() {
@@ -123,6 +131,7 @@ namespace Paperboy {
             show.feed_id = feed_id;
             show.title = title;
             show.author = author;
+            show.description = description;
             show.image_url = image_url;
             show.feed_url = feed_url;
             show.from_direct_feed = feed_id < 0;

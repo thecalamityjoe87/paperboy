@@ -94,8 +94,17 @@ public class HttpClientUtils : Object {
         public uint timeout = TIMEOUT_DEFAULT;
         public bool enable_cache = true;
         public bool enable_deduplication = true;
+        public string? body = null;
+        public string body_content_type = "application/json";
 
         public RequestOptions() {}
+
+        public RequestOptions with_body(string body, string content_type = "application/json") {
+            method = "POST";
+            this.body = body;
+            body_content_type = content_type;
+            return this;
+        }
 
         public RequestOptions with_browser_headers() {
             user_agent = USER_AGENT_BROWSER;
@@ -334,6 +343,10 @@ public class HttpClientUtils : Object {
                 }
             }
 
+            if (options.body != null) {
+                msg.set_request_body_from_bytes(options.body_content_type, new GLib.Bytes(options.body.data));
+            }
+
             // Temporarily set timeout for this request
             uint old_timeout = session.timeout;
             session.timeout = options.timeout;
@@ -377,7 +390,18 @@ public class HttpClientUtils : Object {
             // Check if this is an HTTP/2 error (or an INTERNAL_ERROR) - retry
             // with HTTP/1.1 and also attempt a retry without Brotli (br)
             // in Accept-Encoding which some servers mishandle over HTTP/2.
-            if (e.message != null && (e.message.contains("HTTP/2")) && !(e.message.contains("INTERNAL_ERROR"))) {
+            // "TLS connection was non-properly terminated" is a known
+            // symptom of the same underlying failure class under a
+            // different name - some CDNs (e.g. Cloudflare) can drop an
+            // HTTP/2 connection mid-stream in a way libsoup/GnuTLS surfaces
+            // as a TLS-layer error rather than an explicit HTTP/2 one
+            // (observed fetching 9to5google.com's homepage). Worth the same
+            // forced-HTTP/1.1 retry as the HTTP/2 case above.
+            bool is_http2_style_error = e.message != null && (
+                (e.message.contains("HTTP/2") && !e.message.contains("INTERNAL_ERROR")) ||
+                e.message.contains("non-properly terminated")
+            );
+            if (is_http2_style_error) {
                 try {
                     // Create a new session for the retry
                     var http1_session = new Soup.Session() {
@@ -396,6 +420,10 @@ public class HttpClientUtils : Object {
                             foreach (var entry in options.headers.entries) {
                                 retry_headers.append(entry.key, entry.value);
                             }
+                        }
+
+                        if (options.body != null) {
+                            retry_msg.set_request_body_from_bytes(options.body_content_type, new GLib.Bytes(options.body.data));
                         }
 
                         GLib.Bytes? retry_body = http1_session.send_and_read(retry_msg, null);

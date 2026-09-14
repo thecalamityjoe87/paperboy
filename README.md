@@ -1,37 +1,37 @@
 <p align="center">
-  <img src="https://github.com/thecalamityjoe87/paperboy/blob/main/data/icons/256x256/paperboy.png?raw=true"/>
+  <img src="https://github.com/thecalamityjoe87/paperboy/blob/main/data/icons/256x256/paperboy.png"/>
 </p>
 
 # **Paperboy**
 
 <table align="center">
   <tr>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot.png?raw=true" width="380" alt="Screenshot"/></td>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot1.png?raw=true" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot.png" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot1.png" width="380" alt="Screenshot"/></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot2.png?raw=true" width="380" alt="Screenshot"/></td>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot3.png?raw=true" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot2.png" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot3.png" width="380" alt="Screenshot"/></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot4.png?raw=true" width="380" alt="Screenshot"/></td>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot5.png?raw=true" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot4.png" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot5.png" width="380" alt="Screenshot"/></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot6.png?raw=true" width="380" alt="Screenshot"/></td>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot7.png?raw=true" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot6.png" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot7.png" width="380" alt="Screenshot"/></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot8.png?raw=true" width="380" alt="Screenshot"/></td>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot9.png?raw=true" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot8.png" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot9.png" width="380" alt="Screenshot"/></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot10.png?raw=true" width="380" alt="Screenshot"/></td>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot11.png?raw=true" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot10.png" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot11.png" width="380" alt="Screenshot"/></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot12.png?raw=true" width="380" alt="Screenshot"/></td>
-    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot13.png?raw=true" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot12.png" width="380" alt="Screenshot"/></td>
+    <td><img src="https://github.com/thecalamityjoe87/paperboy/blob/main/images/screenshot13.png" width="380" alt="Screenshot"/></td>
   </tr>
 </table>
 
