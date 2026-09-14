@@ -140,8 +140,12 @@ public class CategoryIconsUtils : GLib.Object {
                     if (white_candidate != null) use_path = white_candidate;
                 }
 
-                string key = "pixbuf::file:%s::%dx%d".printf(use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
-                var cached = ImageCache.get_global().get_or_load_file(key, use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
+                // Rasterize at 3x and downsample to stay crisp up through
+                // ~300% display scaling (matches LOGO_RENDER_SCALE in
+                // pixbufUtils.vala), same as create_category_header_icon below.
+                int render_size = SIDEBAR_ICON_SIZE * 3;
+                string key = "pixbuf::file:%s::%dx%d".printf(use_path, render_size, render_size);
+                var cached = ImageCache.get_global().get_or_load_file(key, use_path, render_size, render_size);
                 if (cached != null) {
                     try {
                         // Use cached texture instead of creating new one every time
@@ -288,9 +292,8 @@ public class CategoryIconsUtils : GLib.Object {
                     try {
                         // Rasterize SVG to a higher-resolution pixbuf to avoid
                         // blur on small sizes and when running on a HiDPI
-                        // display. Rendering at 2x the requested size then
-                        // scaling down improves visual crispness for icons.
-                        int render_size = size * 2;
+                        // display, up through ~300% display scaling.
+                        int render_size = size * 3;
                         string key_hi = "pixbuf::file:%s::%dx%d".printf(use_path, render_size, render_size);
                         var cached_hi = ImageCache.get_global().get_or_load_file(key_hi, use_path, render_size, render_size);
                         if (cached_hi != null) {

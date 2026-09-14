@@ -537,12 +537,16 @@ public class SidebarView : GLib.Object {
         // Priority 1: Check for saved icon file from struct data
         if (source_data.icon_path != null && source_data.icon_path.length > 0) {
             if (GLib.FileUtils.test(source_data.icon_path, GLib.FileTest.EXISTS)) {
+                // Composite at 3x and let the Gtk.Picture downsample, same as
+                // CategoryIconsUtils.create_category_header_icon, so this
+                // stays crisp up through ~300% display scaling.
+                int render_size = size * 3;
                 var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, 0, 0), source_data.icon_path, 0, 0);
                 if (probe != null) {
                     int orig_w = probe.get_width();
                     int orig_h = probe.get_height();
                     double scale = 1.0;
-                    if (orig_w > 0 && orig_h > 0) scale = double.max((double)size / orig_w, (double)size / orig_h);
+                    if (orig_w > 0 && orig_h > 0) scale = double.max((double)render_size / orig_w, (double)render_size / orig_h);
                     int sw = (int)(orig_w * scale);
                     int sh = (int)(orig_h * scale);
                     if (sw < 1) sw = 1;
@@ -550,14 +554,14 @@ public class SidebarView : GLib.Object {
 
                     var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, sw, sh), source_data.icon_path, sw, sh);
 
-                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, size, size);
+                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, render_size, render_size);
                     var cr = new Cairo.Context(surface);
-                    int x = (size - sw) / 2;
-                    int y = (size - sh) / 2;
+                    int x = (render_size - sw) / 2;
+                    int y = (render_size - sh) / 2;
                     Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
                     cr.paint();
-                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(source_data.icon_path, size, size);
-                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, size, size);
+                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(source_data.icon_path, render_size, render_size);
+                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, render_size, render_size);
 
                     if (pb_surf != null) {
                         var pic = new Gtk.Picture();
