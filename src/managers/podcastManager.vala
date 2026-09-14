@@ -369,6 +369,18 @@ namespace Managers {
             if (content_view.hero_scores_separator != null) content_view.hero_scores_separator.set_visible(false);
             if (content_view.scores_articles_separator != null) content_view.scores_articles_separator.set_visible(false);
 
+            // Same idea as Sports' score container above - the Stocks
+            // ticker (StocksTickerController) also populates its own
+            // container outside LayoutManager's normal clearing, so leaving
+            // Business for Podcasts otherwise left it sitting visible
+            // underneath the podcasts hero row too.
+            if (content_view.stocks_ticker_container != null) {
+                clear_children(content_view.stocks_ticker_container);
+                content_view.stocks_ticker_container.set_visible(false);
+            }
+            if (content_view.hero_stocks_separator != null) content_view.hero_stocks_separator.set_visible(false);
+            if (content_view.stocks_articles_separator != null) content_view.stocks_articles_separator.set_visible(false);
+
             // "Load more articles" (see ArticleManager/ContentView) is a
             // news-pagination concept appended into content_box, a
             // container this controller otherwise never touches - if it

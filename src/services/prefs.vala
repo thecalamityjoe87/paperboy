@@ -318,6 +318,19 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("sports-live-indicator-enabled", value); }
     }
 
+    // Master on/off switch for the Business category's market index cards.
+    public bool market_cards_enabled {
+        get { return settings.get_boolean("market-cards-enabled"); }
+        set { settings.set_boolean("market-cards-enabled", value); }
+    }
+
+    // Whether the sidebar shows an "Open" pill next to the Business badge
+    // while the market is open. Independent of market_cards_enabled.
+    public bool market_pill_enabled {
+        get { return settings.get_boolean("market-pill-enabled"); }
+        set { settings.set_boolean("market-pill-enabled", value); }
+    }
+
     public Gee.ArrayList<string> disabled_sports_leagues {
         owned get {
             var list = new Gee.ArrayList<string>();
@@ -512,35 +525,6 @@ public class NewsPreferences : GLib.Object {
         }
 
         disabled_sports_leagues = updated_list;
-    }
-
-    // Return true if the provided category is valid for the given source
-    private bool category_valid_for_source(NewsSource source, string cat) {
-        switch (source) {
-            case NewsSource.BLOOMBERG:
-                string[] bb = { "markets", "industries", "economics", "politics", "technology" };
-                foreach (var b in bb) if (b == cat) return true;
-                return false;
-            case NewsSource.PBS:
-                // PBS NewsHour has no technology, sports, or lifestyle desk -
-                // see NewsService.supports_category for the matching check
-                // used when actually fetching/displaying categories.
-                string[] pbs_cats = { "general", "us", "business", "science", "health", "entertainment", "politics", "myfeed", "local_news" };
-                foreach (var p in pbs_cats) if (p == cat) return true;
-                return false;
-            default:
-                // Include "local_news" as a top-level, non-category view so
-                // users can select it even when operating in single-source
-                // mode. Treat it similarly to "myfeed" for persistence checks.
-                // Include common cross-source categories here so they are
-                // preserved when the app is operating in single-source mode.
-                // 'business' is supported by many sources (Guardian, NYTimes,
-                // Bloomberg, etc.) and must be allowed or we'll coerce the
-                // user back to 'topten' when saving preferences.
-                string[] def = { "general", "us", "technology", "business", "science", "sports", "health", "entertainment", "politics", "lifestyle", "myfeed", "local_news" };
-                foreach (var d in def) if (d == cat) return true;
-                return false;
-        }
     }
 
     private NewsPreferences() {

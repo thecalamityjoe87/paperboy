@@ -107,6 +107,56 @@
     min-width: 24px;
 }
 
+/* Stocks ticker cards (see MarketIndexCard), styled after PodcastHeroCard's
+   full-bleed-art-plus-bottom-scrim layout - a colored block stands in for
+   cover art, tinted by whether the index is up or down today. No background
+   of its own (unlike ".card") - see MarketIndexCard's comment for why. */
+.ticker-card-hero {
+    border-radius: 12px;
+    border: 1px solid alpha(@borders, 0.3);
+    transition: box-shadow 200ms ease;
+}
+
+.ticker-card-hero:hover,
+.ticker-card-hero.card-hover {
+    box-shadow: 0 4px 8px alpha(@shade_color, 0.15);
+}
+
+/* Neutral dark base with a soft directional glow radiating from the upper
+   half - a "spotlight" rather than flooding the whole card with flat color.
+   Rounded to match the card itself, since GTK4 doesn't clip a child's
+   square corners to its parent's border-radius on its own. */
+.ticker-card-art-positive {
+    background-color: rgba(24, 26, 28, 1);
+    background-image: radial-gradient(circle at 50% 35%, alpha(@success_color, 0.55), alpha(@success_color, 0) 70%);
+    border-radius: 12px;
+}
+
+.ticker-card-art-negative {
+    background-color: rgba(24, 26, 28, 1);
+    background-image: radial-gradient(circle at 50% 35%, alpha(@error_color, 0.55), alpha(@error_color, 0) 70%);
+    border-radius: 12px;
+}
+
+.ticker-card-price-badge {
+    background-color: rgba(20, 20, 22, 0.9);
+    border-radius: 10px;
+    padding: 3px 8px;
+}
+
+.ticker-card-price {
+    font-weight: 800;
+    font-size: 1em;
+    color: white;
+}
+
+
+/* Smaller than the full-size Podcasts hero title (.hero-card .hero-title's
+   2.1em) - these ticker cards are much smaller than the podcast heroes. */
+.ticker-card-hero-title {
+    font-size: 1.2em;
+}
+
 /* Article card title (grid/column cards, not the hero cards above) */
 .article-card-title {
     font-weight: 700;
@@ -185,6 +235,13 @@
     color: alpha(white, 0.75);
     font-size: 1em;
     font-weight: 500;
+}
+
+/* "Updated 7m ago" caption under a ticker card's change line. */
+.ticker-card-updated {
+    color: alpha(white, 0.55);
+    font-size: 0.8em;
+    font-weight: 450;
 }
 
 /* Persistent mini-player pinned to the sidebar's bottom edge (see

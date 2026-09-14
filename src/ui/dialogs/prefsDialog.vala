@@ -1067,6 +1067,41 @@ public class PrefsDialog : GLib.Object {
 
         personalization_page.add(reading_group);
 
+        // ========== MARKET CARDS GROUP ==========
+        var market_group = new Adw.PreferencesGroup();
+        market_group.set_title("Market Cards");
+        market_group.set_description("Choose whether the Business category shows live market index cards");
+
+        var market_master_row = new Adw.SwitchRow();
+        market_master_row.set_title("Show market cards");
+        market_master_row.set_subtitle("Turn off to hide the live market index cards from the Business category");
+        market_master_row.set_active(prefs.market_cards_enabled);
+        market_master_row.notify["active"].connect(() => {
+            bool enabled = market_master_row.get_active();
+            prefs.market_cards_enabled = enabled;
+            if (win != null && win.prefs.category == "business" && enabled) {
+                StocksTickerController.load(win);
+            } else if (win != null) {
+                StocksTickerController.stop_polling();
+                StocksTickerController.hide(win);
+            }
+        });
+
+        var market_pill_row = new Adw.SwitchRow();
+        market_pill_row.set_title("Show market status pill");
+        market_pill_row.set_subtitle("Show an \"Open\" pill next to the Business sidebar count while the market is open");
+        market_pill_row.set_active(prefs.market_pill_enabled);
+        market_pill_row.notify["active"].connect(() => {
+            prefs.market_pill_enabled = market_pill_row.get_active();
+            if (win != null && win.sidebar_manager != null) {
+                win.sidebar_manager.rebuild_sidebar();
+            }
+        });
+
+        market_group.add(market_master_row);
+        market_group.add(market_pill_row);
+        personalization_page.add(market_group);
+
         // ========== SPORTS SCORE CARDS GROUP ==========
         var sports_group = new Adw.PreferencesGroup();
         sports_group.set_title("Sports Score Cards");
@@ -1124,6 +1159,7 @@ public class PrefsDialog : GLib.Object {
         sports_group.add(sports_live_indicator_row);
         sports_group.add(sports_list_box);
         personalization_page.add(sports_group);
+
         dialog.add(personalization_page);
 
         // ========== UPDATE INTERVAL GROUP ==========

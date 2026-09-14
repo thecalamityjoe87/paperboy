@@ -23,12 +23,26 @@ using GLib;
  * ArticleCard, not a reuse of it, since scores have no article/state-store
  * concept (no save/share/mark-read, no context menu). Reuses the ".card"
  * CSS class for consistent sizing/hover/shadow with the rest of the app.
+ *
+ * SportsScoresController keeps reusing the same ScoreCard across polls for
+ * a game still on the board, calling update() rather than rebuilding -
+ * repeatedly destroying/recreating a league's whole CategorySection (Overlay
+ * + ScrolledWindow + EventControllerMotion, see ScrollNavButtons) every poll
+ * was found to leak memory, a GTK4 quirk unrelated to anything drawn here.
  */
 public class ScoreCard : GLib.Object {
     public const int CARD_WIDTH = 220;
 
     public Gtk.Box root;
     public string url;
+
+    private Gtk.Label status_label;
+    private Gtk.Picture away_logo;
+    private Gtk.Label away_name_label;
+    private Gtk.Label away_score_label;
+    private Gtk.Picture home_logo;
+    private Gtk.Label home_name_label;
+    private Gtk.Label home_score_label;
 
     public ScoreCard(GameScore game) {
         GLib.Object();
@@ -49,25 +63,54 @@ public class ScoreCard : GLib.Object {
         root.set_hexpand(false);
         root.set_size_request(CARD_WIDTH, -1);
 
-        var status_row = build_status_row(game);
-        root.append(status_row);
+        status_label = new Gtk.Label("");
+        status_label.set_xalign(0);
+        status_label.add_css_class("caption");
+        status_label.add_css_class("score-card-status");
+        root.append(status_label);
 
-        root.append(build_team_row(game.away_team, game.away_team_abbr, game.away_logo_url, game.away_score, game.status));
-        root.append(build_team_row(game.home_team, game.home_team_abbr, game.home_logo_url, game.home_score, game.status));
+        var away_row = build_team_row(out away_logo, out away_name_label, out away_score_label);
+        root.append(away_row);
+        var home_row = build_team_row(out home_logo, out home_name_label, out home_score_label);
+        root.append(home_row);
 
-        wire_interactions(root, url);
+        apply_game(game);
+
+        wire_interactions(root, this);
+    }
+
+    // Refresh this card's status/scores/logos in place - no widgets are
+    // created or destroyed, so this can be called every poll without the
+    // rebuild-from-scratch leak described in the class doc.
+    public void update(GameScore game) {
+        this.url = game.espn_link;
+        apply_game(game);
+    }
+
+    private void apply_game(GameScore game) {
+        status_label.set_text(game.status_detail);
+        if (game.status == GameStatus.LIVE) {
+            status_label.add_css_class("score-card-status-live");
+        } else {
+            status_label.remove_css_class("score-card-status-live");
+        }
+
+        apply_team(away_logo, away_name_label, away_score_label, game.away_team, game.away_team_abbr, game.away_logo_url, game.away_score, game.status);
+        apply_team(home_logo, home_name_label, home_score_label, game.home_team, game.home_team_abbr, game.home_logo_url, game.home_score, game.status);
     }
 
     // Must stay static: Vala folds a strong ref to `self` into the shared
     // closure block of any instance method that defines a lambda, even one
     // that never touches `self`. Connecting these controllers here instead
-    // of in the constructor means root -> controller -> closure never
-    // chains back to a ScoreCard -> root reference cycle.
-    private static void wire_interactions(Gtk.Box root_widget, string card_url) {
+    // of in the constructor means root -> controller -> closure -> self ->
+    // root never chains back to a ScoreCard -> root reference cycle. Reads
+    // `card.url` dynamically (rather than capturing a copy) so a link
+    // updated via update() is reflected on the next click.
+    private static void wire_interactions(Gtk.Box root_widget, ScoreCard card) {
         var gesture = new Gtk.GestureClick();
         gesture.set_button(1);
         gesture.released.connect(() => {
-            BrowserUtils.open_url_in_browser(card_url);
+            BrowserUtils.open_url_in_browser(card.url);
         });
         root_widget.add_controller(gesture);
 
@@ -77,46 +120,41 @@ public class ScoreCard : GLib.Object {
         root_widget.add_controller(motion);
     }
 
-    private Gtk.Widget build_status_row(GameScore game) {
-        var label = new Gtk.Label(game.status_detail);
-        label.set_xalign(0);
-        label.add_css_class("caption");
-        label.add_css_class("score-card-status");
-        if (game.status == GameStatus.LIVE) {
-            label.add_css_class("score-card-status-live");
-        }
-        return label;
-    }
-
-    private Gtk.Widget build_team_row(string team_name, string abbr, string? logo_url, string score, GameStatus status) {
+    private Gtk.Widget build_team_row(out Gtk.Picture logo, out Gtk.Label name_label, out Gtk.Label score_label) {
         var row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
         row.set_hexpand(true);
 
-        var logo = new Gtk.Picture();
+        logo = new Gtk.Picture();
         logo.set_size_request(24, 24);
         logo.set_content_fit(Gtk.ContentFit.CONTAIN);
         logo.set_can_shrink(true);
         row.append(logo);
 
-        if (logo_url != null && logo_url.length > 0) {
-            load_team_logo(logo, logo_url);
-        }
-
-        string display_name = team_name.length > 0 ? team_name : abbr;
-        var name_label = new Gtk.Label(display_name);
+        name_label = new Gtk.Label("");
         name_label.set_xalign(0);
         name_label.set_hexpand(true);
         name_label.set_ellipsize(Pango.EllipsizeMode.END);
         name_label.add_css_class("score-card-team");
         row.append(name_label);
 
-        string score_text = (status == GameStatus.SCHEDULED) ? "" : score;
-        var score_label = new Gtk.Label(score_text);
+        score_label = new Gtk.Label("");
         score_label.set_xalign(1);
         score_label.add_css_class("score-card-score");
         row.append(score_label);
 
         return row;
+    }
+
+    private void apply_team(Gtk.Picture logo, Gtk.Label name_label, Gtk.Label score_label, string team_name, string abbr, string? logo_url, string score, GameStatus status) {
+        string display_name = team_name.length > 0 ? team_name : abbr;
+        name_label.set_text(display_name);
+
+        string score_text = (status == GameStatus.SCHEDULED) ? "" : score;
+        score_label.set_text(score_text);
+
+        if (logo_url != null && logo_url.length > 0) {
+            load_team_logo(logo, logo_url);
+        }
     }
 
     // Team logos are small and few (max ~2 per card, ~15 cards per league

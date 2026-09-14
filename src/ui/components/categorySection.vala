@@ -28,6 +28,14 @@ using Gtk;
 public class CategorySection : GLib.Object {
     public Gtk.Box wrapper;
     public Gtk.Box row;
+    // Only set when the header has a logo/pill-capable layout (see the
+    // constructor) - null for a plain text-only section header.
+    public Gtk.Label? live_pill_widget = null;
+    // Only set when circular_logo=false and a logo_file_path was given (a
+    // plain symbolic glyph, not a circular team/source photo logo) - lets a
+    // caller re-apply a different file later (e.g. StocksTickerController
+    // swapping in the dark-mode variant on a live theme toggle).
+    public Gtk.Image? plain_icon_widget = null;
 
     private weak NewsWindow? window;
     private string query_category;
@@ -66,7 +74,7 @@ public class CategorySection : GLib.Object {
     // once the row is scrolled to its end. Null hides the button - used for
     // rows with no matching sidebar page, like My Feed's built-in-source
     // rows.
-    public CategorySection(NewsWindow? window, string display_name, string query_category, bool center_nav_on_full_row = false, bool card_container = false, string? logo_url = null, bool show_live_pill = false, string? logo_file_path = null, string? nav_target_id = null) {
+    public CategorySection(NewsWindow? window, string display_name, string query_category, bool center_nav_on_full_row = false, bool card_container = false, string? logo_url = null, bool show_live_pill = false, string? logo_file_path = null, string? nav_target_id = null, bool circular_logo = true) {
         this.window = window;
         this.query_category = query_category;
 
@@ -90,7 +98,18 @@ public class CategorySection : GLib.Object {
             header.set_halign(Gtk.Align.START);
             header.set_valign(Gtk.Align.CENTER);
 
-            if (has_logo_file || has_logo_url) {
+            if ((has_logo_file || has_logo_url) && !circular_logo) {
+                // Plain (uncropped) icon - for a symbolic glyph like the
+                // Stocks section's markets icon, the circular photo-logo
+                // treatment below (meant for team/source logos) looked odd.
+                var plain_icon = new Gtk.Image();
+                plain_icon.set_pixel_size(22);
+                if (has_logo_file) {
+                    plain_icon.set_from_file(logo_file_path);
+                }
+                header.append(plain_icon);
+                plain_icon_widget = plain_icon;
+            } else if (has_logo_file || has_logo_url) {
                 // Circular logo baked into the pixel data via PixbufUtils, same
                 // technique the source-badge/source-row favicons already use
                 // elsewhere in the app - CSS-only circular clipping (a plain
@@ -107,25 +126,29 @@ public class CategorySection : GLib.Object {
                 }
             }
 
-            if (show_live_pill) {
-                // Own box for the label+pill pair, so this gap is set by
-                // this box's own spacing rather than fighting header's 8px
-                // logo-label spacing above via CSS margins.
-                var label_pill_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
-                label_pill_box.append(label);
+            // Own box for the label+pill pair (rather than putting the pill
+            // straight in header), so this gap is set by this box's own
+            // spacing rather than fighting header's 8px logo-label spacing
+            // above via CSS margins. Built even when show_live_pill starts
+            // false - GTK doesn't allocate space/spacing for a hidden
+            // child, so this looks identical to the old label-only header,
+            // but it lets a caller flip live_pill_widget's visibility later
+            // (see SportsScoresController's update-in-place render path)
+            // without rebuilding the whole section over a live-status change.
+            var label_pill_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
+            label_pill_box.append(label);
 
-                // Styled like the content view's other card chips
-                // (.category-chip/.source-badge), not the sidebar's
-                // theme-aware .live-pill - see .live-pill-header in style.css.
-                var live_pill = new Gtk.Label("Live");
-                live_pill.add_css_class("live-pill-header");
-                live_pill.set_valign(Gtk.Align.CENTER);
-                label_pill_box.append(live_pill);
+            // Styled like the content view's other card chips
+            // (.category-chip/.source-badge), not the sidebar's
+            // theme-aware .live-pill - see .live-pill-header in style.css.
+            var live_pill = new Gtk.Label("Live");
+            live_pill.add_css_class("live-pill-header");
+            live_pill.set_valign(Gtk.Align.CENTER);
+            live_pill.set_visible(show_live_pill);
+            label_pill_box.append(live_pill);
+            live_pill_widget = live_pill;
 
-                header.append(label_pill_box);
-            } else {
-                header.append(label);
-            }
+            header.append(label_pill_box);
 
             wrapper.append(header);
         } else {

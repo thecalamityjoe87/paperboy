@@ -59,13 +59,17 @@ public delegate void ArticleExtractedCallback(ExtractedArticle article);
 
 public class ArticleExtractorService : GLib.Object {
 
-    public static void extract_async(string url, owned ArticleExtractedCallback on_done) {
+    // allow_rendered_fallback gates the WebKit/Readability fallback below -
+    // each hidden WebView it opens is expensive and uncapped, so background,
+    // best-effort callers (e.g. thumbnail backfill) should pass false and
+    // just accept whatever the plain fetch found.
+    public static void extract_async(string url, bool allow_rendered_fallback, owned ArticleExtractedCallback on_done) {
         new Thread<void*>("article-extract", () => {
             string? html = fetch_html_sync(url);
             var result = html != null ? parse_html(html, url) : new ExtractedArticle();
 
             Idle.add(() => {
-                if (result.success) {
+                if (result.success || !allow_rendered_fallback) {
                     on_done(result);
                     return false;
                 }
@@ -198,6 +202,19 @@ public class ArticleExtractorService : GLib.Object {
             return article;
         }
 
+        // Determine the real hero image up front - the live rendered page's
+        // own og:image (result.lead_image_url), reflecting whatever
+        // actually loaded in the WebView (the only successful fetch at all
+        // on sites whose static HTML is bot-walled, e.g. PBS NewsHour's AWS
+        // WAF challenge), falling back to fallback_hero_image_url (the
+        // plain static-HTML fetch's own og:image scrape). Knowing this
+        // before extracting body content lets extract_content_nodes dedupe
+        // it out of the body flow the same way the non-Readability path
+        // does, rather than blindly promoting whichever image happens to be
+        // first in document order (which isn't always the actual hero, and
+        // previously left real duplicates in the body untouched).
+        article.hero_image_url = result.lead_image_url ?? fallback_hero_image_url;
+
         int opts = Html.ParserOption.RECOVER | Html.ParserOption.NOERROR | Html.ParserOption.NOWARNING | Html.ParserOption.NONET;
         Html.Doc* doc = Html.Doc.read_memory(result.content_html.to_utf8(), (int) result.content_html.length, url, "UTF-8", opts);
         if (doc == null) {
@@ -208,32 +225,22 @@ public class ArticleExtractorService : GLib.Object {
         Xml.Node* root = doc->get_root_element();
         if (root != null && root->children != null) {
             var seen_video_urls = new Gee.HashSet<string>();
-            extract_content_nodes(root->children, article.blocks, url, null, seen_video_urls);
+            extract_content_nodes(root->children, article.blocks, url, article.hero_image_url, seen_video_urls);
         }
         delete doc;
 
-        // Promote the lead image out of the body flow into the dedicated
-        // hero slot, matching how the normal (non-Readability) path shows
-        // a hero image up top rather than as the first inline body image.
-        for (int i = 0; i < article.blocks.size; i++) {
-            if (article.blocks[i].kind == ArticleBlockKind.IMAGE) {
-                article.hero_image_url = article.blocks[i].image_url;
-                article.blocks.remove_at(i);
-                break;
-            }
-        }
-
-        // Readability's cleaned content sometimes has no <img> at all (e.g.
-        // Substack pages, where the hero photo is a JS-driven banner rather
-        // than part of the article body). Prefer the live rendered page's
-        // own og:image (result.lead_image_url) - it reflects whatever
-        // actually loaded in the WebView, which is the only successful
-        // fetch at all on sites whose static HTML is bot-walled (PBS
-        // NewsHour's AWS WAF challenge, for one) - falling back to
-        // fallback_hero_image_url (the plain static-HTML fetch's own
-        // og:image scrape) only when that WebView-side lookup found nothing.
+        // No hero image known ahead of time (e.g. Substack pages, where the
+        // hero photo is a JS-driven banner absent from both og:image and
+        // the cleaned content) - fall back to promoting whichever image
+        // came first in the body, same as before.
         if (article.hero_image_url == null) {
-            article.hero_image_url = result.lead_image_url ?? fallback_hero_image_url;
+            for (int i = 0; i < article.blocks.size; i++) {
+                if (article.blocks[i].kind == ArticleBlockKind.IMAGE) {
+                    article.hero_image_url = article.blocks[i].image_url;
+                    article.blocks.remove_at(i);
+                    break;
+                }
+            }
         }
 
         article.success = count_text_blocks(article) > 0;
@@ -414,7 +421,11 @@ public class ArticleExtractorService : GLib.Object {
                     article.published = content;
                 }
                 if (article.hero_image_url == null && (prop_attr == "og:image" || name_attr == "twitter:image" || name_attr == "twitter:image:src")) {
-                    article.hero_image_url = content;
+                    // Entity-decode like the other meta fields above - image
+                    // resizer URLs (e.g. Daily Beast's Akamai resizer) carry
+                    // query strings, and an un-decoded "&amp;" between params
+                    // gets sent to the server literally and 400s.
+                    article.hero_image_url = stripHtmlUtils.strip_html(content);
                 }
                 if (article.site_name == null && prop_attr == "og:site_name") {
                     article.site_name = stripHtmlUtils.strip_html(content);
@@ -556,7 +567,49 @@ public class ArticleExtractorService : GLib.Object {
         if (resolved == hero_image_url) return true;
         string? id1 = extract_asset_identifier(resolved);
         string? id2 = extract_asset_identifier(hero_image_url);
-        return id1 != null && id2 != null && id1 == id2;
+        if (id1 != null && id2 != null && id1 == id2) return true;
+        return same_photo_directory_with_size_variant_filenames(resolved, hero_image_url);
+    }
+
+    // Some photo CDNs (e.g. hdnux.com, used by Hearst papers like the SF
+    // Chronicle) put a stable per-photo id in the URL's directory and only
+    // the trailing filename - itself just a size token like "80x0.jpg" or
+    // "rawImage.jpg" - differs between the hero image and the same photo
+    // reappearing at a lower resolution in the body. extract_asset_identifier
+    // alone misses this (no UUID/hash, and the filename itself differs), so
+    // compare the parent directory too - but only when both filenames look
+    // like pure size variants, so photos that happen to share a gallery
+    // folder aren't wrongly treated as duplicates.
+    private static bool same_photo_directory_with_size_variant_filenames(string a, string b) {
+        string dir_a, file_a, dir_b, file_b;
+        split_path_dir_and_file(a, out dir_a, out file_a);
+        split_path_dir_and_file(b, out dir_b, out file_b);
+        if (dir_a.length == 0 || dir_a != dir_b) return false;
+        return looks_like_size_variant_filename(file_a) && looks_like_size_variant_filename(file_b);
+    }
+
+    private static void split_path_dir_and_file(string url, out string dir, out string file) {
+        int query_start = url.index_of("?");
+        string path = query_start >= 0 ? url.substring(0, query_start) : url;
+        int last_slash = path.last_index_of("/");
+        if (last_slash <= 0) {
+            dir = "";
+            file = path.down();
+            return;
+        }
+        dir = path.substring(0, last_slash).down();
+        file = path.substring(last_slash + 1).down();
+    }
+
+    private static bool looks_like_size_variant_filename(string file) {
+        try {
+            // e.g. "80x0.jpg", "1920x0.jpg", "1200x628.png", "rawimage.jpg",
+            // "ratio3x2_1920.jpg" (hdnux's aspect-ratio-tagged variant naming).
+            var regex = new GLib.Regex("^(rawimage|original|full|\\d+x\\d+|ratio\\d+x\\d+_\\d+)\\.[a-z]+$");
+            return regex.match(file);
+        } catch (GLib.RegexError e) {
+            return false;
+        }
     }
 
     // Author photos and icons are usually declared at a small, roughly
@@ -683,9 +736,25 @@ public class ArticleExtractorService : GLib.Object {
         }
         string srcset = (n->get_prop("srcset") ?? "").strip();
         if (srcset.length > 0) {
-            string first = srcset.split(",")[0].strip();
-            string url_part = first.split(" ")[0].strip();
-            if (url_part.length > 0 && !url_part.has_prefix("data:")) return url_part;
+            // Pick the widest candidate, not the first - srcset is
+            // typically ordered smallest-first, and taking the first one
+            // blind grabs a thumbnail-sized image (e.g. an "80w" variant)
+            // instead of anything close to the real photo.
+            string? best_url = null;
+            int best_width = -1;
+            foreach (var candidate in srcset.split(",")) {
+                string[] parts = candidate.strip().split(" ");
+                if (parts.length == 0 || parts[0].length == 0 || parts[0].has_prefix("data:")) continue;
+                int width = 0;
+                if (parts.length > 1 && parts[1].has_suffix("w")) {
+                    width = int.parse(parts[1].substring(0, parts[1].length - 1));
+                }
+                if (best_url == null || width > best_width) {
+                    best_url = parts[0];
+                    best_width = width;
+                }
+            }
+            if (best_url != null) return best_url;
         }
         return null;
     }

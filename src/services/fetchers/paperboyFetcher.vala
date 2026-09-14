@@ -710,7 +710,12 @@ public class PaperboyFetcher : BaseFetcher {
             string w = words[i].strip();
             if (w.length == 0) continue;
             if (w.length < 1) continue; // Extra safety
-            string head = w.substring(0, 1);
+            // .up() was missing here, so this silently passed the raw
+            // lowercase domain word straight through instead of actually
+            // capitalizing it (e.g. "businessinsider" instead of
+            // "Businessinsider") - affects every caller of this helper
+            // (frontpage/topten/sports), not just the Stocks supplement.
+            string head = w.substring(0, 1).up();
             string tail = w.length > 1 ? w.substring(1) : "";
             if (out.length > 0) out += " ";
             out += head + tail;

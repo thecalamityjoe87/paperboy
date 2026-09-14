@@ -465,10 +465,7 @@ public class FetchNewsController {
                 w.prefs.category == "business" ||
                 w.prefs.category == "entertainment" ||
                 w.prefs.category == "politics" ||
-                w.prefs.category == "lifestyle" ||
-                w.prefs.category == "markets" ||
-                w.prefs.category == "industries" ||
-                w.prefs.category == "economics"
+                w.prefs.category == "lifestyle"
                 || w.prefs.category == "local_news"
                 || w.prefs.category == "myfeed"
             );
@@ -562,7 +559,7 @@ public class FetchNewsController {
             paperboy_sports_fetcher.fetch("sports", current_search_query, win.session);
         }
 
-        if (is_myfeed_mode) {
+if (is_myfeed_mode) {
             if (win.category_manager.is_myfeed_configured()) {
                 var cats = win.category_manager.get_myfeed_categories();
                 myfeed_cats = new string[cats.size];

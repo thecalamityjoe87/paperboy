@@ -67,6 +67,28 @@ public class SportsScoresController : GLib.Object {
         return _last_good;
     }
 
+    // The section/cards for each league are built once and reused across
+    // polls (see render()'s comment for why) rather than rebuilt every
+    // time. All lazily constructed for the same reason as last_good() above.
+    private static Gee.HashMap<string, CategorySection>? _current_sections = null;
+    private static Gee.HashMap<string, CategorySection> current_sections() {
+        if (_current_sections == null) _current_sections = new Gee.HashMap<string, CategorySection>();
+        return _current_sections;
+    }
+    private static Gee.HashMap<string, Gee.HashMap<string, ScoreCard>>? _current_cards = null;
+    private static Gee.HashMap<string, Gee.HashMap<string, ScoreCard>> current_cards() {
+        if (_current_cards == null) _current_cards = new Gee.HashMap<string, Gee.HashMap<string, ScoreCard>>();
+        return _current_cards;
+    }
+    // Which leagues were actually shown (had >=1 game), in the order they
+    // were rendered - used to detect a league appearing/disappearing/being
+    // reordered, which still needs a full rebuild.
+    private static Gee.ArrayList<string>? _last_rendered_order = null;
+    private static Gee.ArrayList<string> last_rendered_order() {
+        if (_last_rendered_order == null) _last_rendered_order = new Gee.ArrayList<string>();
+        return _last_rendered_order;
+    }
+
     public static void load(NewsWindow win) {
         if (!win.prefs.sports_scores_enabled) {
             stop_polling();
@@ -84,6 +106,19 @@ public class SportsScoresController : GLib.Object {
             Source.remove(timeout_id);
             timeout_id = 0;
         }
+    }
+
+    // Drop the reused sections/cards - called on window close so this
+    // static state doesn't hold a stray reference to a torn-down window's
+    // widgets. Navigating away from Sports (hide()) deliberately does NOT
+    // call this: keeping the built sections around is exactly the point
+    // (see render()'s comment), so coming back to Sports shows the
+    // last-known scores immediately instead of an empty container until
+    // the next poll.
+    public static void reset() {
+        current_sections().clear();
+        current_cards().clear();
+        last_rendered_order().clear();
     }
 
     // Called when navigating away from Sports: render() only ever runs
@@ -187,41 +222,105 @@ public class SportsScoresController : GLib.Object {
         }
     }
 
+    private static bool league_has_live_game(Gee.ArrayList<GameScore> games) {
+        foreach (var game in games) {
+            if (game.status == GameStatus.LIVE) return true;
+        }
+        return false;
+    }
+
+    private static bool string_lists_equal(Gee.ArrayList<string> a, Gee.ArrayList<string> b) {
+        if (a.size != b.size) return false;
+        for (int i = 0; i < a.size; i++) {
+            if (a.get(i) != b.get(i)) return false;
+        }
+        return true;
+    }
+
     private static void render(NewsWindow win, Gee.ArrayList<string> league_keys, Gee.HashMap<string, Gee.ArrayList<GameScore>> results) {
         if (win.content_view == null || win.content_view.sports_scores_container == null) return;
         if (active_ctx == null || !active_ctx.still_owns_view()) return;
 
         var container = win.content_view.sports_scores_container;
 
-        Gtk.Widget? child = container.get_first_child();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling();
-            container.remove(child);
-            child = next;
-        }
-
-        bool any_section = false;
+        var active_leagues = new Gee.ArrayList<string>();
         foreach (var league_key in league_keys) {
             var games = results.get(league_key);
-            if (games == null || games.size == 0) continue;
-
-            bool league_has_live_game = false;
-            foreach (var game in games) {
-                if (game.status == GameStatus.LIVE) {
-                    league_has_live_game = true;
-                    break;
-                }
-            }
-
-            var section = new CategorySection(win, SportsScoresService.display_name_for(league_key), "sports:" + league_key, true, true, SportsScoresService.logo_url_for(league_key), league_has_live_game);
-            foreach (var game in games) {
-                var card = new ScoreCard(game);
-                section.add_card(card.root);
-            }
-            container.append(section.wrapper);
-            any_section = true;
+            if (games != null && games.size > 0) active_leagues.add(league_key);
         }
 
+        // A full rebuild is only actually needed when the set/order of
+        // leagues shown, or a league's set of games, has changed (a game
+        // started or finished, or the user reordered/toggled leagues) -
+        // the common case (same games, just scores/status ticking) takes
+        // the fast in-place update path below instead. Repeatedly
+        // destroying/recreating a league's CategorySection (Overlay +
+        // ScrolledWindow + EventControllerMotion, see ScrollNavButtons)
+        // every poll was found to leak memory, a GTK4 quirk confirmed via
+        // an isolated repro and unrelated to anything ScoreCard itself
+        // draws or holds onto.
+        bool needs_rebuild = !string_lists_equal(active_leagues, last_rendered_order());
+        if (!needs_rebuild) {
+            foreach (var league_key in active_leagues) {
+                var games = results.get(league_key);
+                var cards_for_league = current_cards().get(league_key);
+                if (cards_for_league == null || cards_for_league.size != games.size) {
+                    needs_rebuild = true;
+                    break;
+                }
+                foreach (var game in games) {
+                    if (!cards_for_league.has_key(game.game_id)) {
+                        needs_rebuild = true;
+                        break;
+                    }
+                }
+                if (needs_rebuild) break;
+            }
+        }
+
+        if (needs_rebuild) {
+            Gtk.Widget? child = container.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                container.remove(child);
+                child = next;
+            }
+            current_sections().clear();
+            current_cards().clear();
+
+            foreach (var league_key in active_leagues) {
+                var games = results.get(league_key);
+
+                var section = new CategorySection(win, SportsScoresService.display_name_for(league_key), "sports:" + league_key, true, true, SportsScoresService.logo_url_for(league_key), league_has_live_game(games));
+                var cards_for_league = new Gee.HashMap<string, ScoreCard>();
+                foreach (var game in games) {
+                    var card = new ScoreCard(game);
+                    section.add_card(card.root);
+                    cards_for_league.set(game.game_id, card);
+                }
+                container.append(section.wrapper);
+                current_sections().set(league_key, section);
+                current_cards().set(league_key, cards_for_league);
+            }
+
+            last_rendered_order().clear();
+            last_rendered_order().add_all(active_leagues);
+        } else {
+            foreach (var league_key in active_leagues) {
+                var games = results.get(league_key);
+                var cards_for_league = current_cards().get(league_key);
+                foreach (var game in games) {
+                    cards_for_league.get(game.game_id).update(game);
+                }
+
+                var section = current_sections().get(league_key);
+                if (section != null && section.live_pill_widget != null) {
+                    section.live_pill_widget.set_visible(league_has_live_game(games));
+                }
+            }
+        }
+
+        bool any_section = active_leagues.size > 0;
         container.set_visible(any_section);
         if (win.content_view.hero_scores_separator != null) win.content_view.hero_scores_separator.set_visible(any_section);
         if (win.content_view.scores_articles_separator != null) win.content_view.scores_articles_separator.set_visible(any_section);

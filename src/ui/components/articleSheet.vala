@@ -429,16 +429,39 @@ public class ArticleSheet : GLib.Object {
         if (current_url != null && reader_loaded_url != current_url) {
             reader_view.show_loading();
             string url_snapshot = current_url;
-            ArticleExtractorService.extract_async(url_snapshot, (extracted) => {
+            ArticleExtractorService.extract_async(url_snapshot, true, (extracted) => {
                 if (is_destroyed || current_url != url_snapshot) return;
                 if (extracted.success) {
                     reader_loaded_url = url_snapshot;
                     reader_view.show_article(extracted, url_snapshot, current_source_name_encoded);
+                    backfill_card_thumbnail(url_snapshot, extracted.hero_image_url);
                 } else {
                     reader_view.show_error();
                 }
             });
         }
+    }
+
+    // If the card for this article never had a real thumbnail (only a
+    // placeholder), but reader view found a hero image on the actual page,
+    // use it as the card's thumbnail. Never touches a card that already has
+    // a real, API-provided image.
+    private void backfill_card_thumbnail(string url, string? hero_image_url) {
+        if (hero_image_url == null || hero_image_url.length == 0) return;
+        if (!hero_image_url.has_prefix("http://") && !hero_image_url.has_prefix("https://")) return;
+        if (parent_window == null || parent_window.view_state == null || parent_window.image_manager == null) return;
+
+        string norm = parent_window.normalize_article_url(url);
+        var pic = parent_window.view_state.url_to_picture.get(norm);
+        if (pic == null) return;
+        if (pic.get_data<bool>("has-real-thumbnail")) return;
+
+        int w = pic.get_width();
+        int h = pic.get_height();
+        if (w <= 0 || h <= 0) return;
+
+        parent_window.image_manager.load_image_async(pic, hero_image_url, w * 3, h * 3, true);
+        pic.set_data<bool>("has-real-thumbnail", true);
     }
 
     private string bundled_comments_icon_name() {

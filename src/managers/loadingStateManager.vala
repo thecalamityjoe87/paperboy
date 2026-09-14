@@ -57,8 +57,70 @@ public class LoadingStateManager : GLib.Object {
     public bool awaiting_adaptive_layout = false;
     public int64 initial_phase_start_time = 0;
 
+    // Extra bounded wait for background thumbnail backfill (see
+    // ThumbnailBackfillService), so placeholder cards don't visibly pop to
+    // a real image right after the view is revealed. Never delays the
+    // reveal by more than BACKFILL_GRACE_MS - backfill is best-effort.
+    private const int BACKFILL_GRACE_MS = 1500;
+    public int pending_backfills = 0;
+    private bool backfill_grace_expired = false;
+    private uint backfill_grace_timeout_id = 0;
+    private delegate void RevealAction();
+    private RevealAction? pending_reveal_action = null;
+
     public LoadingStateManager(NewsWindow w) {
         window = w;
+    }
+
+    public void on_backfill_started() {
+        if (initial_phase) pending_backfills++;
+    }
+
+    public void on_backfill_finished() {
+        if (pending_backfills > 0) pending_backfills--;
+        if (pending_backfills == 0 && pending_reveal_action != null) {
+            var action = (owned) pending_reveal_action;
+            pending_reveal_action = null;
+            action();
+        }
+    }
+
+    // Runs `retry` immediately if backfill isn't blocking reveal right now;
+    // otherwise holds it and arms a bounded grace timer, returning false so
+    // the caller defers. `retry` is called again once backfill clears or
+    // the grace period expires, whichever comes first.
+    private bool ready_or_defer(owned RevealAction retry) {
+        if (pending_backfills == 0 || backfill_grace_expired) return true;
+
+        pending_reveal_action = (owned) retry;
+        if (backfill_grace_timeout_id == 0) {
+            backfill_grace_timeout_id = GLib.Timeout.add(BACKFILL_GRACE_MS, () => {
+                backfill_grace_timeout_id = 0;
+                backfill_grace_expired = true;
+                if (pending_reveal_action != null) {
+                    var action = (owned) pending_reveal_action;
+                    pending_reveal_action = null;
+                    action();
+                }
+                return false;
+            });
+        }
+        return false;
+    }
+
+    private void force_reveal_now() {
+        initial_phase = false;
+        hero_image_loaded = false;
+        if (initial_reveal_timeout_id > 0) {
+            Source.remove(initial_reveal_timeout_id);
+            initial_reveal_timeout_id = 0;
+        }
+        if (absolute_reveal_timeout_id > 0) {
+            Source.remove(absolute_reveal_timeout_id);
+            absolute_reveal_timeout_id = 0;
+        }
+        hide_loading_spinner();
+        trigger_initial_reveals();
     }
 
     // Call at the start of fetch_news() to reset initial-phase state and show the spinner.
@@ -69,6 +131,14 @@ public class LoadingStateManager : GLib.Object {
         initial_items_populated = false;
         network_failure_detected = false;
         initial_phase_start_time = GLib.get_monotonic_time();
+
+        pending_backfills = 0;
+        backfill_grace_expired = false;
+        pending_reveal_action = null;
+        if (backfill_grace_timeout_id > 0) {
+            Source.remove(backfill_grace_timeout_id);
+            backfill_grace_timeout_id = 0;
+        }
 
         if (window.image_cache != null) window.image_cache.clear();
 
@@ -278,6 +348,7 @@ public class LoadingStateManager : GLib.Object {
     public void reveal_initial_content() {
         if (!initial_phase) return;
         if (awaiting_adaptive_layout) return;
+        if (!ready_or_defer(reveal_initial_content)) return;
 
         initial_phase = false;
         hero_image_loaded = false;
@@ -411,18 +482,7 @@ public class LoadingStateManager : GLib.Object {
                 if (article_count >= 3) {
                     // Not reveal_initial_content() - it exits early once initial_phase is
                     // already false, which it can be here after an RSS timeout.
-                        initial_phase = false;
-                        hero_image_loaded = false;
-                        if (initial_reveal_timeout_id > 0) {
-                            Source.remove(initial_reveal_timeout_id);
-                            initial_reveal_timeout_id = 0;
-                        }
-                        if (absolute_reveal_timeout_id > 0) {
-                            Source.remove(absolute_reveal_timeout_id);
-                            absolute_reveal_timeout_id = 0;
-                        }
-                        hide_loading_spinner();
-                        trigger_initial_reveals();
+                    if (ready_or_defer(force_reveal_now)) force_reveal_now();
                 } else {
                     // Too few articles yet; give it more time before revealing anyway.
                     initial_reveal_timeout_id = GLib.Timeout.add(1200, () => {
@@ -430,10 +490,7 @@ public class LoadingStateManager : GLib.Object {
                         if (awaiting_adaptive_layout) {
                             return false;
                         }
-                            initial_phase = false;
-                            hero_image_loaded = false;
-                            hide_loading_spinner();
-                            trigger_initial_reveals();
+                        if (ready_or_defer(force_reveal_now)) force_reveal_now();
                         return false;
                     });
                 }
