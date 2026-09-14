@@ -23,7 +23,8 @@ using Gdk;
 public class ArticleSheet : GLib.Object {
     private NewsWindow parent_window;
     private Gtk.Box container;
-    private Gtk.Revealer revealer;
+    private Adw.NavigationView nav_view;
+    private Adw.NavigationPage article_page;
     private Gtk.Box content_box;
     private Gtk.Button? close_btn;
     private Gtk.Button? back_btn;
@@ -64,13 +65,14 @@ public class ArticleSheet : GLib.Object {
         container.set_vexpand(true);
         container.set_visible(false);
 
-        // Revealer
-        revealer = new Gtk.Revealer();
-        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
-        revealer.set_transition_duration(800);
-        revealer.set_reveal_child(false);
-        revealer.set_valign(Gtk.Align.FILL);
-        revealer.add_css_class("article-sheet");
+        // Adw.NavigationView gives the sheet a native push/pop slide
+        // animation and the platform's own swipe-back gesture for free.
+        nav_view = new Adw.NavigationView();
+        nav_view.set_hexpand(true);
+        nav_view.set_vexpand(true);
+        nav_view.add_css_class("article-sheet");
+        var root_page = new Adw.NavigationPage(new Gtk.Box(Gtk.Orientation.VERTICAL, 0), "Root");
+        nav_view.push(root_page);
 
         // Content box
         content_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
@@ -285,8 +287,8 @@ public class ArticleSheet : GLib.Object {
 
         comments_split.set_sidebar(comments_box);
 
-        revealer.set_child(content_box);
-        container.append(revealer);
+        article_page = new Adw.NavigationPage(content_box, "Article");
+        container.append(nav_view);
 
 
         // Load adblock CSS
@@ -307,7 +309,7 @@ public class ArticleSheet : GLib.Object {
         click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
         container.add_controller(click);
         click.pressed.connect((g, n_press, x, y) => {
-            if (is_destroyed || !revealer.get_reveal_child()) return;
+            if (is_destroyed || !is_open()) return;
             double cxd = 0, cyd = 0;
             content_box.translate_coordinates(container, 0, 0, out cxd, out cyd);
             int cx = (int)cxd, cy = (int)cyd, cw = content_box.get_allocated_width(), ch = content_box.get_allocated_height();
@@ -317,18 +319,18 @@ public class ArticleSheet : GLib.Object {
         // Create initial WebView
         setup_webview();
 
-        // Hide container when revealer fully hides
-        revealer.notify["reveal-child"].connect(() => {
-            if (!revealer.get_reveal_child()) {
-                container.set_visible(false);
-                // Rebuild the webview so its back-forward list (and any
-                // WebKit-suspended processes retained for it) is dropped
-                // once the article is closed, instead of accumulating for
-                // the lifetime of this long-lived, reused ArticleSheet.
-                setup_webview();
-                if (reader_view != null) reader_view.reset();
-                closed();
-            }
+        // Fires once the article page is fully off-screen, whether closed
+        // via the close button, outside click, or the NavigationView's own
+        // native swipe-back gesture.
+        article_page.hidden.connect(() => {
+            container.set_visible(false);
+            // Rebuild the webview so its back-forward list (and any
+            // WebKit-suspended processes retained for it) is dropped
+            // once the article is closed, instead of accumulating for
+            // the lifetime of this long-lived, reused ArticleSheet.
+            setup_webview();
+            if (reader_view != null) reader_view.reset();
+            closed();
         });
     }
 
@@ -643,7 +645,7 @@ public class ArticleSheet : GLib.Object {
     }
 
     public bool is_open() {
-        return revealer.get_reveal_child();
+        return nav_view.get_visible_page() == article_page;
     }
 
     public void open(string url, bool? force_reader_view = null, string? source_name_encoded = null) {
@@ -654,8 +656,7 @@ public class ArticleSheet : GLib.Object {
         if (webview == null) setup_webview();
         if (webview != null) webview.load_uri(url);
         container.set_visible(true);
-        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
-        revealer.set_reveal_child(true);
+        if (!is_open()) nav_view.push(article_page);
 
         current_comments_url = Paperboy.CommentsUrlRegistry.lookup(url);
         comments_loaded_url = null;
@@ -663,7 +664,12 @@ public class ArticleSheet : GLib.Object {
         if (comments_toggle_btn != null) {
             comments_toggle_btn.set_active(false);
         }
-        if (comments_fab_overlay != null) comments_fab_overlay.set_visible(comments_enabled);
+        if (comments_fab_overlay != null) {
+            comments_fab_overlay.set_visible(false);
+            if (comments_enabled && parent_window != null && parent_window.animation_manager != null) {
+                parent_window.animation_manager.animate_card_entrance(comments_fab_overlay, 300u);
+            }
+        }
         if (comments_count_badge != null) comments_count_badge.set_visible(false);
         if (comments_split != null) comments_split.set_show_sidebar(false);
         // Fetch comments eagerly so the FAB's count badge can appear
@@ -685,8 +691,7 @@ public class ArticleSheet : GLib.Object {
     }
 
     public void dismiss() {
-        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN);
-        revealer.set_reveal_child(false);
+        if (is_open()) nav_view.pop();
     }
 
     public void destroy() {
@@ -705,7 +710,8 @@ public class ArticleSheet : GLib.Object {
         adblock_sheet = null;
         user_content_manager = null;
         container = null;
-        revealer = null;
+        nav_view = null;
+        article_page = null;
         content_box = null;
         close_btn = null;
         reader_toggle_btn = null;

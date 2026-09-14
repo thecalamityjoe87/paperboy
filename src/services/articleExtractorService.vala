@@ -160,6 +160,12 @@ public class ArticleExtractorService : GLib.Object {
             }
         }
 
+        // Some sites' DOM content extracts fine but don't expose author/date
+        // via <meta> tags at all (e.g. Business Insider) - schema.org
+        // JSON-LD still carries them, so backfill just those two fields
+        // regardless of how well the body content itself already extracted.
+        backfill_author_and_date_from_json_ld(html, article);
+
         if (article.title.length == 0 && text_block_count == 0) {
             article.success = false;
         } else {
@@ -391,6 +397,36 @@ public class ArticleExtractorService : GLib.Object {
         return false;
     }
 
+    // Cheap metadata-only pass over JSON-LD, run unconditionally (unlike
+    // try_extract_from_json_ld above, which only replaces content when the
+    // DOM extraction came up short) - some sites' body content extracts
+    // fine from the DOM but never expose author/date via <meta> tags at
+    // all, while still publishing them in schema.org JSON-LD.
+    private static void backfill_author_and_date_from_json_ld(string html, ExtractedArticle article) {
+        if (article.author != null && article.published != null) return;
+        foreach (var raw in find_json_ld_scripts(html)) {
+            Json.Object? candidate = null;
+            try {
+                var parser = new Json.Parser();
+                parser.load_from_data(raw);
+                candidate = find_article_object_in_node(parser.get_root());
+            } catch (GLib.Error e) {
+                continue;
+            }
+            if (candidate == null) continue;
+
+            if (article.author == null && candidate.has_member("author")) {
+                string? author_name = json_ld_author_name(candidate.get_member("author"));
+                if (author_name != null) article.author = stripHtmlUtils.strip_html(author_name);
+            }
+            if (article.published == null && candidate.has_member("datePublished")) {
+                string? published = candidate.get_string_member("datePublished");
+                if (published != null) article.published = published;
+            }
+            if (article.author != null && article.published != null) return;
+        }
+    }
+
     // ---- Meta tag extraction (title/author/date/image/site name) ----
 
     private static void extract_meta(string html, ExtractedArticle article) {
@@ -417,7 +453,7 @@ public class ArticleExtractorService : GLib.Object {
                         article.author = a.has_prefix("@") ? a.substring(1) : a;
                     }
                 }
-                if (article.published == null && (prop_attr == "article:published_time" || name_attr == "pubdate" || name_attr == "publish-date" || name_attr == "date")) {
+                if (article.published == null && (prop_attr == "article:published_time" || name_attr == "pubdate" || name_attr == "publish-date" || name_attr == "date" || name_attr == "datepublished")) {
                     article.published = content;
                 }
                 if (article.hero_image_url == null && (prop_attr == "og:image" || name_attr == "twitter:image" || name_attr == "twitter:image:src")) {
@@ -450,10 +486,20 @@ public class ArticleExtractorService : GLib.Object {
         if (article.published == null) {
             int jpos = lower.index_of("\"datepublished\"");
             if (jpos >= 0) {
-                int colon = lower.index_of(":", jpos);
-                if (colon > jpos) {
-                    int qstart = lower.index_of("\"", colon);
-                    if (qstart > colon) {
+                // Only treat this as a JSON "datePublished":"..." pair if a
+                // colon directly follows (past whitespace) - otherwise this
+                // is an unrelated match (e.g. an HTML `name="datePublished"`
+                // attribute) and index_of(":", jpos) would instead find the
+                // first colon inside some later, unrelated attribute's value
+                // (ISO date strings contain colons themselves), silently
+                // capturing raw markup between two unrelated quotes as the
+                // "date".
+                int k = jpos + "\"datepublished\"".length;
+                while (k < lower.length && (lower[k] == ' ' || lower[k] == '\t' || lower[k] == '\n' || lower[k] == '\r'))
+                    k++;
+                if (k < lower.length && lower[k] == ':') {
+                    int qstart = lower.index_of("\"", k + 1);
+                    if (qstart > k) {
                         int qend = lower.index_of("\"", qstart + 1);
                         if (qend > qstart && html.length >= qend) {
                             string val = html.substring(qstart + 1, qend - (qstart + 1)).strip();
