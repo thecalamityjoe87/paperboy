@@ -76,6 +76,20 @@ public class CategoryIconsUtils : GLib.Object {
         return icon_path;
     }
 
+    // Rasterize an SVG at exactly SIDEBAR_ICON_SIZE * scale so it never
+    // needs downscaling by GTK - a mismatched fixed render size is what
+    // caused blurry icons at 100% display scale.
+    private static void render_sidebar_icon_at_scale(Gtk.Image img, string path, int scale) {
+        int render_size = SIDEBAR_ICON_SIZE * scale;
+        string key = "pixbuf::file:%s::%dx%d".printf(path, render_size, render_size);
+        var cached = ImageCache.get_global().get_or_load_file(key, path, render_size, render_size);
+        if (cached == null) return;
+        var tex = ImageCache.get_global().get_texture(key);
+        if (tex != null) {
+            try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
+        }
+    }
+
     // Create a category icon widget for sidebar-sized use.
     public static Gtk.Widget? create_category_icon(string cat) {
         string? filename = null;
@@ -140,29 +154,17 @@ public class CategoryIconsUtils : GLib.Object {
                     if (white_candidate != null) use_path = white_candidate;
                 }
 
-                // Rasterize at 3x and downsample to stay crisp up through
-                // ~300% display scaling (matches LOGO_RENDER_SCALE in
-                // pixbufUtils.vala), same as create_category_header_icon below.
-                int render_size = SIDEBAR_ICON_SIZE * 3;
-                string key = "pixbuf::file:%s::%dx%d".printf(use_path, render_size, render_size);
-                var cached = ImageCache.get_global().get_or_load_file(key, use_path, render_size, render_size);
-                if (cached != null) {
-                    try {
-                        // Use cached texture instead of creating new one every time
-                        var tex = ImageCache.get_global().get_texture(key);
-                        if (tex != null) {
-                            var img = new Gtk.Image();
-                            try { img.set_from_paintable(tex); } catch (GLib.Error e) { }
-                            img.set_pixel_size(SIDEBAR_ICON_SIZE);
-                            return img;
-                        }
-                    } catch (GLib.Error e) { }
-                }
-                try {
-                    var img2 = new Gtk.Image.from_file(use_path);
-                    img2.set_pixel_size(SIDEBAR_ICON_SIZE);
-                    return img2;
-                } catch (GLib.Error e) { }
+                var img = new Gtk.Image();
+                render_sidebar_icon_at_scale(img, use_path, 1);
+                img.set_pixel_size(SIDEBAR_ICON_SIZE);
+                // Scale factor isn't reliable until the widget is attached to
+                // a real display surface, so re-render once that's known -
+                // fixes blurry icons on non-integer/100% scale monitors.
+                img.realize.connect(() => {
+                    int scale = img.get_scale_factor();
+                    render_sidebar_icon_at_scale(img, use_path, scale > 0 ? scale : 1);
+                });
+                return img;
             }
         }
 

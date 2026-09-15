@@ -529,6 +529,35 @@ public class SidebarView : GLib.Object {
         return feed_button;
     }
     
+    // Composite a saved favicon into a square, centered, at exactly
+    // size * scale so it matches the widget's real physical pixel size -
+    // a fixed render size caused blur on 100%/non-integer scale monitors.
+    private void render_rss_icon_at_scale(Gtk.Picture pic, string icon_path, int size, int scale) {
+        int render_size = size * scale;
+        var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
+        if (probe == null) return;
+        int orig_w = probe.get_width();
+        int orig_h = probe.get_height();
+        double fit_scale = 1.0;
+        if (orig_w > 0 && orig_h > 0) fit_scale = double.max((double)render_size / orig_w, (double)render_size / orig_h);
+        int sw = int.max(1, (int)(orig_w * fit_scale));
+        int sh = int.max(1, (int)(orig_h * fit_scale));
+
+        var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
+
+        var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, render_size, render_size);
+        var cr = new Cairo.Context(surface);
+        int x = (render_size - sw) / 2;
+        int y = (render_size - sh) / 2;
+        Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
+        cr.paint();
+        var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, render_size, render_size);
+        var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, render_size, render_size);
+        if (pb_surf != null) {
+            pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
+        }
+    }
+
     private Gtk.Widget create_rss_icon_widget(RssSourceItemData? source_data) {
         int size = CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE;
         
@@ -541,39 +570,17 @@ public class SidebarView : GLib.Object {
         // Priority 1: Check for saved icon file from struct data
         if (source_data.icon_path != null && source_data.icon_path.length > 0) {
             if (GLib.FileUtils.test(source_data.icon_path, GLib.FileTest.EXISTS)) {
-                // Composite at 3x and let the Gtk.Picture downsample, same as
-                // CategoryIconsUtils.create_category_header_icon, so this
-                // stays crisp up through ~300% display scaling.
-                int render_size = size * 3;
-                var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, 0, 0), source_data.icon_path, 0, 0);
-                if (probe != null) {
-                    int orig_w = probe.get_width();
-                    int orig_h = probe.get_height();
-                    double scale = 1.0;
-                    if (orig_w > 0 && orig_h > 0) scale = double.max((double)render_size / orig_w, (double)render_size / orig_h);
-                    int sw = (int)(orig_w * scale);
-                    int sh = (int)(orig_h * scale);
-                    if (sw < 1) sw = 1;
-                    if (sh < 1) sh = 1;
-
-                    var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, sw, sh), source_data.icon_path, sw, sh);
-
-                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, render_size, render_size);
-                    var cr = new Cairo.Context(surface);
-                    int x = (render_size - sw) / 2;
-                    int y = (render_size - sh) / 2;
-                    Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
-                    cr.paint();
-                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(source_data.icon_path, render_size, render_size);
-                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, render_size, render_size);
-
-                    if (pb_surf != null) {
-                        var pic = new Gtk.Picture();
-                        pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
-                        pic.set_size_request(size, size);
-                        return pic;
-                    }
-                }
+                var pic = new Gtk.Picture();
+                pic.set_size_request(size, size);
+                render_rss_icon_at_scale(pic, source_data.icon_path, size, 1);
+                // Scale factor isn't reliable until attached to a real
+                // display surface - re-render once known so this isn't
+                // blurry on 100%/non-integer scale monitors.
+                pic.realize.connect(() => {
+                    int s = pic.get_scale_factor();
+                    render_rss_icon_at_scale(pic, source_data.icon_path, size, s > 0 ? s : 1);
+                });
+                return pic;
             }
         }
         
