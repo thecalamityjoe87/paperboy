@@ -325,8 +325,12 @@ public class SidebarView : GLib.Object {
         }
 
         btn.clicked.connect(() => {
-            // Close article sheet if open
-            if (window.article_sheet != null) {
+            // Close the article sheet for rows that navigate elsewhere, but
+            // not for a podcast subscription row - that just slides the
+            // podcast pane up over whatever's currently showing (see
+            // SidebarManager.handle_item_activation) and shouldn't disturb
+            // an article you're in the middle of reading.
+            if (window.article_sheet != null && !item.id.has_prefix("podcastshow:")) {
                 window.article_sheet.dismiss();
             }
             manager.handle_item_activation(item.id, item.title);

@@ -144,6 +144,15 @@
     padding: 3px 8px;
 }
 
+.ticker-card-hover-label {
+    background-color: rgba(20, 20, 22, 0.9);
+    color: white;
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-size: 0.8em;
+    font-weight: 700;
+}
+
 .ticker-card-price {
     font-weight: 800;
     font-size: 1em;

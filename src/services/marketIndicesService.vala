@@ -29,6 +29,7 @@ public class MarketIndicesService : GLib.Object {
     private const string BASE_URL = "https://paperboybackend.onrender.com";
 
     public delegate void ResultCallback(Gee.ArrayList<MarketIndexQuote>? quotes);
+    public delegate void HistoryCallback(MarketIndexHistory? history);
 
     // Fixed display order for the index ticker - a quote's key is simply
     // absent from the response if nothing has ever been cached yet for it.
@@ -46,6 +47,64 @@ public class MarketIndicesService : GLib.Object {
     // backend returns them.
     public static void fetch_crypto(owned ResultCallback callback) {
         fetch_quotes(BASE_URL + "/news/markets/crypto", null, (owned) callback);
+    }
+
+    // GET /news/markets/indices/{symbol}/history - 404s for any symbol
+    // outside the five fixed index_symbols(). Returns null on any failure
+    // (network error, 404, unparseable body) so callers only need to
+    // distinguish "null" (couldn't fetch) from "empty points" (fetched
+    // fine, market just hasn't produced any intraday samples yet today).
+    public static void fetch_history(string symbol, owned HistoryCallback callback) {
+        fetch_history_from("indices", symbol, (owned) callback);
+    }
+
+    // GET /news/markets/crypto/{symbol}/history - same shape as the index
+    // history endpoint, but crypto's day resets at UTC midnight (not a
+    // market close) since it trades 24/7 - an empty or short "points" list
+    // just means little time has passed since 00:00 UTC, not missing data.
+    public static void fetch_crypto_history(string symbol, owned HistoryCallback callback) {
+        fetch_history_from("crypto", symbol, (owned) callback);
+    }
+
+    private static void fetch_history_from(string category, string symbol, owned HistoryCallback callback) {
+        var client = Paperboy.HttpClientUtils.get_default();
+        string url = "%s/news/markets/%s/%s/history".printf(BASE_URL, category, Uri.escape_string(symbol, null, false));
+
+        client.fetch_json(url, (response, parser, root) => {
+            if (!response.is_success() || root == null) {
+                callback(null);
+                return;
+            }
+
+            try {
+                var obj = root.get_object();
+                var history = new MarketIndexHistory();
+                history.symbol = json_get_string_safe(obj, "symbol") ?? symbol;
+                history.display_name = json_get_string_safe(obj, "name") ?? history.symbol;
+
+                if (obj.has_member("points")) {
+                    var points_node = obj.get_member("points");
+                    if (points_node != null && points_node.get_node_type() == Json.NodeType.ARRAY) {
+                        foreach (var el in points_node.get_array().get_elements()) {
+                            if (el.get_node_type() != Json.NodeType.OBJECT) continue;
+                            var p_obj = el.get_object();
+                            var point = new MarketIndexHistoryPoint();
+                            point.symbol = json_get_string_safe(p_obj, "symbol") ?? history.symbol;
+                            point.price = json_get_double_safe(p_obj, "price");
+                            point.change = json_get_double_safe(p_obj, "change");
+                            point.change_percent = json_get_double_safe(p_obj, "change_percent");
+                            point.last_updated = json_get_string_safe(p_obj, "last_updated");
+                            point.t = json_get_double_safe(p_obj, "t");
+                            history.points.add(point);
+                        }
+                    }
+                }
+                callback(history);
+            } catch (GLib.Error e) {
+                warning("MarketIndicesService: failed to parse history response from %s: %s", url, e.message);
+                callback(null);
+            }
+        });
     }
 
     // only_symbols must be `owned`: it's read inside fetch_json's callback

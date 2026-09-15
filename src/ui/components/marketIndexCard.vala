@@ -42,7 +42,36 @@ public class MarketIndexCard : GLib.Object {
     private Gtk.Label price_label;
     private Gtk.Label change_label;
     private Gtk.Label updated_label;
+    private Gtk.Label hover_label;
     private string symbol;
+
+    // Real intraday samples from the backend's own history endpoint, and
+    // the pixel positions draw_graph() last plotted them at - kept in sync
+    // so the hover handler can map a cursor X back to the nearest real
+    // (time, price) sample instead of guessing. Null while there isn't
+    // enough real history yet (see draw_graph()'s fallback path), or for
+    // a symbol the history endpoint doesn't cover (crypto - it only knows
+    // the five fixed indices).
+    private Gee.ArrayList<MarketIndexHistoryPoint>? history_points = null;
+    // The exact points list drawn_xs/drawn_ys were computed from - a fetch
+    // can replace history_points with a differently-sized list at any
+    // time, but drawn_xs/drawn_ys only update on the next actual
+    // draw_graph() call. on_graph_hover() must index into this snapshot,
+    // not the (possibly newer/smaller) history_points, or it can read out
+    // of bounds in the window between a fetch landing and the next redraw.
+    private Gee.ArrayList<MarketIndexHistoryPoint>? drawn_points = null;
+    private double[]? drawn_xs = null;
+    private double[]? drawn_ys = null;
+    private int graph_width = 0;
+    // Index into history_points/drawn_xs/drawn_ys currently under the
+    // cursor, or -1 - lets draw_graph() paint a dot/guide line on the
+    // curve so hovering has a visible "you are here" indicator, since the
+    // hover zone doesn't visually match the card's edges (see
+    // on_graph_hover()).
+    private int hovered_index = -1;
+    // Bumped on every fetch_history() call so a slower, older request that
+    // resolves after a newer one can't clobber it with stale data.
+    private uint history_request_id = 0;
 
     // size: matches PodcastHeroCard's own square sizing (its `max_total_height`,
     // computed by the caller from the available content width) so these read
@@ -84,15 +113,32 @@ public class MarketIndexCard : GLib.Object {
         overlay.set_vexpand(true);
         overlay.set_size_request(size, size);
 
-        // Illustrative trend line behind everything else - the backend only
-        // exposes the current quote, not a price history, so this is a
-        // stylized visual cue for the day's direction, not real historical
-        // data. Deterministic per symbol so it doesn't reshuffle every poll.
+        // Trend line behind everything else, from the backend's real
+        // intraday history endpoint - falls back to a stylized per-symbol
+        // squiggle until that fetch resolves, or for a symbol it doesn't
+        // cover (crypto). See draw_graph()'s comment.
+        if (is_chartable_symbol(symbol)) fetch_history();
         graph = new Gtk.DrawingArea();
         graph.set_hexpand(true);
         graph.set_vexpand(true);
-        graph.set_draw_func((area, cr, width, height) => draw_trend_line(cr, width, height, symbol, positive));
+        graph.set_draw_func((area, cr, width, height) => draw_graph(cr, width, height, positive));
         overlay.add_overlay(graph);
+
+        // Attached to the whole overlay, not just `graph` - the bottom
+        // scrim (title_box, added below) and other overlay siblings sit on
+        // top of the graph in z-order, and a controller on `graph` alone
+        // would go dead the moment the cursor crossed onto one of them
+        // (e.g. whenever the traced line dips into the scrim's region).
+        // A parent-level controller keeps receiving motion regardless of
+        // which child is topmost at the pointer.
+        var hover_motion = new Gtk.EventControllerMotion();
+        hover_motion.motion.connect((x, y) => on_graph_hover(x));
+        hover_motion.leave.connect(() => {
+            hovered_index = -1;
+            hover_label.set_visible(false);
+            graph.queue_draw();
+        });
+        overlay.add_controller(hover_motion);
 
         // Price + direction arrow, pinned to the top-right corner.
         var price_badge = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 4);
@@ -167,6 +213,18 @@ public class MarketIndexCard : GLib.Object {
         updated_label.set_margin_bottom(12);
         overlay.add_overlay(updated_label);
 
+        // Floating readout shown while hovering the trend line - see
+        // on_graph_hover(). Positioned via margin_start, tracking the
+        // cursor horizontally; hidden whenever there's no real history to
+        // report a value from.
+        hover_label = new Gtk.Label("");
+        hover_label.add_css_class("ticker-card-hover-label");
+        hover_label.set_halign(Gtk.Align.START);
+        hover_label.set_valign(Gtk.Align.START);
+        hover_label.set_margin_top(10);
+        hover_label.set_visible(false);
+        overlay.add_overlay(hover_label);
+
         root.append(overlay);
 
         apply_quote_text(quote);
@@ -184,8 +242,11 @@ public class MarketIndexCard : GLib.Object {
 
         // Direction can flip between polls near breakeven - reset the draw
         // funcs (cheap: just swapping the callback, not rebuilding widgets)
-        // so the trend line/arrow reflect it.
-        graph.set_draw_func((area, cr, width, height) => draw_trend_line(cr, width, height, symbol, positive));
+        // so the trend line/arrow reflect it. Re-fetch history on the same
+        // cadence this is called on (StocksTickerController's own poll) -
+        // no separate timer needed.
+        if (is_chartable_symbol(symbol)) fetch_history();
+        graph.set_draw_func((area, cr, width, height) => draw_graph(cr, width, height, positive));
         arrow.set_draw_func((area, cr, width, height) => draw_arrow_triangle(cr, width, height, positive));
         graph.queue_draw();
         arrow.queue_draw();
@@ -205,9 +266,166 @@ public class MarketIndexCard : GLib.Object {
         updated_label.set_visible(updated.length > 0);
     }
 
+    private static bool is_index_symbol(string symbol) {
+        switch (symbol) {
+            case "SPY": case "DIA": case "QQQ": case "VIXY": case "IWM": return true;
+            default: return false;
+        }
+    }
+
+    // Only the five fixed indices and BTC have real history behind them -
+    // the history endpoints 404 for anything else.
+    private static bool is_chartable_symbol(string symbol) {
+        return is_index_symbol(symbol) || symbol == "BINANCE:BTCUSDT";
+    }
+
+    private void fetch_history() {
+        uint my_id = ++history_request_id;
+        MarketIndicesService.HistoryCallback on_result = (history) => {
+            if (my_id != history_request_id) return; // superseded by a newer fetch
+            history_points = (history != null && history.points.size >= 2) ? history.points : null;
+            graph.queue_draw();
+        };
+        if (is_index_symbol(symbol)) {
+            MarketIndicesService.fetch_history(symbol, (owned) on_result);
+        } else {
+            MarketIndicesService.fetch_crypto_history(symbol, (owned) on_result);
+        }
+    }
+
+    // Draws the real trend line from the backend's intraday history once
+    // there are at least 2 points, mapping elapsed time to X and price to
+    // Y; drawn_xs/history_points are kept in sync so on_graph_hover() can
+    // map a cursor position back to a real sample. Falls back to the old
+    // decorative squiggle (draw_fallback_trend_line) when there's no real
+    // history yet - e.g. right after launch, before the fetch resolves,
+    // or before the market has produced any points yet today.
+    private void draw_graph(Cairo.Context cr, int width, int height, bool positive) {
+        if (width <= 0 || height <= 0) return;
+        graph_width = width;
+
+        if (history_points == null || history_points.size < 2) {
+            drawn_xs = null;
+            drawn_points = null;
+            draw_fallback_trend_line(cr, width, height, symbol, positive);
+            return;
+        }
+
+        int n = history_points.size;
+        double min_price = double.MAX;
+        double max_price = -double.MAX;
+        foreach (var p in history_points) {
+            if (p.price < min_price) min_price = p.price;
+            if (p.price > max_price) max_price = p.price;
+        }
+        double range = max_price - min_price;
+        if (range < 0.0001) range = 1.0;
+
+        double t0 = history_points[0].t;
+        double span = history_points[n - 1].t - t0;
+        if (span <= 0) span = 1;
+
+        double margin = height * 0.22;
+        double usable_h = height - margin * 2;
+
+        var xs = new double[n];
+        var ys = new double[n];
+        for (int i = 0; i < n; i++) {
+            var p = history_points[i];
+            double tx = (p.t - t0) / span;
+            xs[i] = tx * width;
+            double norm = (p.price - min_price) / range;
+            ys[i] = margin + (1.0 - norm) * usable_h; // higher price -> higher on screen
+        }
+        drawn_xs = xs;
+        drawn_ys = ys;
+        drawn_points = history_points;
+
+        cr.set_line_width(2.5);
+        cr.set_source_rgba(1, 1, 1, 0.55);
+        cr.move_to(xs[0], ys[0]);
+        for (int i = 1; i < n; i++) cr.line_to(xs[i], ys[i]);
+        cr.stroke();
+
+        // "You are here" indicator on the traced point - a vertical guide
+        // plus a dot on the curve itself, so hovering has clear visual
+        // feedback regardless of where on the card the cursor actually is.
+        if (hovered_index >= 0 && hovered_index < n) {
+            double hx = xs[hovered_index];
+            double hy = ys[hovered_index];
+
+            cr.set_line_width(1.0);
+            cr.set_source_rgba(1, 1, 1, 0.35);
+            cr.move_to(hx, 0);
+            cr.line_to(hx, height);
+            cr.stroke();
+
+            cr.arc(hx, hy, 4.0, 0, 2 * Math.PI);
+            cr.set_source_rgba(1, 1, 1, 1.0);
+            cr.fill();
+        }
+    }
+
+    // Called on every pointer-motion event over the card while real
+    // history is available - finds the sample nearest the cursor's X,
+    // marks it as the current hover point (draw_graph() paints the dot/
+    // guide line for it), and shows its real price/time in the floating
+    // hover label, positioned right above the dot rather than fixed in a
+    // corner. No-ops (hides the label) while only the decorative fallback
+    // line is showing, since there's no real value to report there.
+    private void on_graph_hover(double x) {
+        if (drawn_xs == null || drawn_ys == null || drawn_points == null || drawn_xs.length == 0
+            || drawn_xs.length != drawn_points.size) {
+            hovered_index = -1;
+            hover_label.set_visible(false);
+            return;
+        }
+
+        int nearest = 0;
+        double best_dist = double.MAX;
+        for (int i = 0; i < drawn_xs.length; i++) {
+            double d = Math.fabs(drawn_xs[i] - x);
+            if (d < best_dist) {
+                best_dist = d;
+                nearest = i;
+            }
+        }
+        hovered_index = nearest;
+        graph.queue_draw();
+
+        var p = drawn_points[nearest];
+        // Indices: always Eastern, regardless of the viewer's own timezone
+        // - that's the actual trading session (9:30am-4:00pm ET) this data
+        // reflects. Crypto: always UTC, since its day resets at UTC
+        // midnight (it trades 24/7, so there's no "market timezone" the
+        // way there is for the indices).
+        string zone_label;
+        GLib.DateTime dt;
+        if (is_index_symbol(symbol)) {
+            var et = new GLib.TimeZone("America/New_York");
+            dt = new GLib.DateTime.from_unix_utc((int64) p.t).to_timezone(et);
+            zone_label = "ET";
+        } else {
+            dt = new GLib.DateTime.from_unix_utc((int64) p.t);
+            zone_label = "UTC";
+        }
+        hover_label.set_text("$%.2f · %s %s".printf(p.price, dt.format("%-I:%M %p"), zone_label));
+        hover_label.set_visible(true);
+
+        int label_width = hover_label.get_allocated_width();
+        int label_height = hover_label.get_allocated_height();
+        int target_x = (int) drawn_xs[nearest] - label_width / 2;
+        int max_start_x = int.max(4, graph_width - label_width - 4);
+        hover_label.set_margin_start(int.max(4, int.min(target_x, max_start_x)));
+
+        int target_y = (int) drawn_ys[nearest] - label_height - 12;
+        hover_label.set_margin_top(int.max(4, target_y));
+    }
+
     // Deterministic per-symbol squiggle whose overall slope follows today's
-    // direction - decoration, not a real price chart (see class doc).
-    private static void draw_trend_line(Cairo.Context cr, int width, int height, string symbol, bool positive) {
+    // direction - decoration for when there's no real history yet (see
+    // draw_graph()'s comment above).
+    private static void draw_fallback_trend_line(Cairo.Context cr, int width, int height, string symbol, bool positive) {
         if (width <= 0 || height <= 0) return;
 
         uint32 seed = 0;

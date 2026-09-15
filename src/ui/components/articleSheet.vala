@@ -27,6 +27,7 @@ public class ArticleSheet : GLib.Object {
     private Adw.NavigationPage article_page;
     private Gtk.Box content_box;
     private Gtk.Button? close_btn;
+    private Gtk.Button? options_btn;
     private Gtk.Button? back_btn;
     private Gtk.Button? forward_btn;
     private Gtk.Button? refresh_btn;
@@ -135,12 +136,18 @@ public class ArticleSheet : GLib.Object {
         close_btn.set_tooltip_text("Close article");
         close_btn.clicked.connect(() => { if (!is_destroyed) dismiss(); });
 
+        options_btn = new Gtk.Button.from_icon_name("view-more-symbolic");
+        options_btn.set_tooltip_text("Article options");
+        options_btn.set_can_focus(false);
+        options_btn.clicked.connect(() => { if (!is_destroyed) show_options_menu(); });
+
         header.append(back_btn);
         header.append(forward_btn);
         header.append(refresh_btn);
         header.append(spacer);
         header.append(reader_toggle_btn);
         header.append(reader_view.get_settings_button());
+        header.append(options_btn);
         header.append(close_btn);
 
         content_box.append(header);
@@ -337,6 +344,62 @@ public class ArticleSheet : GLib.Object {
     private void update_nav_buttons() {
         if (back_btn != null) back_btn.set_sensitive(webview != null ? webview.can_go_back() : false);
         if (forward_btn != null) forward_btn.set_sensitive(webview != null ? webview.can_go_forward() : false);
+    }
+
+    // Same options as an article card's context menu (open in browser,
+    // follow source, save, mark unread, share), minus "view in app" since
+    // the sheet is already showing it.
+    private void show_options_menu() {
+        if (current_url == null || parent_window == null || options_btn == null) return;
+        string url = current_url;
+        string? source_name = current_source_name_encoded;
+        string norm_url = parent_window.normalize_article_url(url);
+
+        bool is_saved = false;
+        bool is_viewed = false;
+        if (parent_window.article_state_store != null) {
+            is_saved = parent_window.article_state_store.is_saved(norm_url);
+            is_viewed = parent_window.article_state_store.is_viewed(norm_url);
+        }
+
+        var menu = new ArticleMenu(url, source_name, is_saved, is_viewed, parent_window);
+        menu.show_view_in_app = false;
+
+        menu.open_in_browser_requested.connect((article_url) => {
+            if (parent_window.article_manager != null) parent_window.article_manager.open_article_in_browser_if_online(article_url);
+        });
+        menu.follow_source_requested.connect((article_url, src_name) => {
+            parent_window.show_toast("Searching for feed...");
+            if (parent_window.source_manager != null) parent_window.source_manager.follow_rss_source(article_url, src_name);
+        });
+        menu.save_for_later_requested.connect((article_url) => {
+            if (parent_window.article_state_store == null) return;
+            if (parent_window.article_state_store.is_saved(norm_url)) {
+                parent_window.article_state_store.unsave_article(article_url);
+                parent_window.show_toast("Removed article from saved");
+            } else {
+                string title = (webview != null ? webview.get_title() : null) ?? "";
+                if (title.length == 0) title = article_url;
+                parent_window.article_state_store.save_article(article_url, title, null, source_name, null);
+                parent_window.show_toast("Added article to saved");
+            }
+        });
+        menu.mark_unread_requested.connect((article_url) => {
+            if (parent_window.article_state_store != null) parent_window.article_state_store.mark_unviewed(norm_url);
+            if (parent_window.view_state != null) {
+                parent_window.view_state.viewed_articles.remove(norm_url);
+                if (source_name != null) parent_window.view_state.refresh_viewed_badges_for_source(source_name);
+                parent_window.view_state.refresh_viewed_badge_for_url(norm_url);
+            }
+        });
+        menu.share_requested.connect((article_url) => {
+            parent_window.show_share_dialog(article_url);
+        });
+
+        var popover = new Gtk.Popover();
+        popover.set_parent(options_btn);
+        popover.set_child(menu.create_menu_box(popover));
+        popover.popup();
     }
 
     private void setup_webview() {
@@ -714,6 +777,7 @@ public class ArticleSheet : GLib.Object {
         article_page = null;
         content_box = null;
         close_btn = null;
+        options_btn = null;
         reader_toggle_btn = null;
         view_stack = null;
         reader_view = null;

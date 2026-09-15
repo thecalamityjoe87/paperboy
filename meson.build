@@ -132,6 +132,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/models/articleItem.vala',
     'src/models/feedComment.vala',
     'src/models/imageModels.vala',
+    'src/models/marketIndexHistory.vala',
     'src/models/gameScore.vala',
     'src/models/marketIndexQuote.vala',
     'src/models/podcastModels.vala',
