@@ -55,6 +55,8 @@ public class NoteEditorDialog : GLib.Object {
         if (existing != null) {
             var delete_btn = new Gtk.Button.from_icon_name("user-trash-symbolic");
             delete_btn.set_tooltip_text("Delete note");
+            delete_btn.add_css_class("destructive-action");
+            delete_btn.add_css_class("flat");
             delete_btn.clicked.connect(() => {
                 Paperboy.NotesStore.get_instance().delete_note(existing.id);
                 dialog.close();
