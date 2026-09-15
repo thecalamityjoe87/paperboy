@@ -1,3 +1,18 @@
+paperboy (0.11.0a-1) unstable; urgency=low
+
+  * Added market index cards with live intraday price charts for major
+    indices and BTC, plus a hover readout showing price/time at any point.
+  * Added per-article notes with rich-text editing and a dedicated Notes
+    sidebar listing every note across all articles.
+  * Added automatic thumbnail backfill so articles missing a real image
+    get one extracted in the background.
+  * Replaced the reader's hand-rolled swipe-to-close gesture with a
+    native libadwaita navigation gesture.
+  * Fixed reader view scroll/selection glitches, blurry HiDPI sidebar
+    icons, and malformed author/date extraction on some sites.
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 14 Sep 2026 00:00:00 +0000
+
 paperboy (0.10.1a-1) unstable; urgency=medium
 
   * Hotfix for a memory leak introduced in 0.10.0a's reader view: WebKit
