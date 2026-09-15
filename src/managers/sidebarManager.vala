@@ -284,6 +284,7 @@ public class SidebarManager : GLib.Object {
         special_section.items.add(create_item_data("My Feed", "myfeed", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Local News", "local_news", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Saved", "saved", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Notes", "notes", SidebarItemType.SPECIAL));
 
         sections.add(special_section);
 
@@ -628,6 +629,14 @@ public class SidebarManager : GLib.Object {
             if (subscription != null && window.podcast_pane != null) {
                 window.podcast_pane.open_for_show(subscription.to_show());
             }
+            return;
+        }
+
+        // Notes browser is a modal dialog, not a category page - same
+        // reasoning as the podcastshow: case above, stay wherever the user
+        // currently is instead of navigating.
+        if (id == "notes") {
+            NotesBrowserDialog.show(window);
             return;
         }
 

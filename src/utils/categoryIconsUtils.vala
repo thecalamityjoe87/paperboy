@@ -215,6 +215,9 @@ public class CategoryIconsUtils : GLib.Object {
             case "podcasts":
                 candidates = { "podcast-symbolic", "folder-podcast-symbolic", "audio-x-generic-symbolic", "media-optical-symbolic" };
                 break;
+            case "notes":
+                candidates = { "document-edit-symbolic", "text-editor-symbolic", "accessories-text-editor-symbolic" };
+                break;
             default:
                 candidates = {};
                 break;

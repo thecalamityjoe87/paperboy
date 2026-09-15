@@ -675,9 +675,53 @@ namespace Managers {
 
             uint total_delay = delay_ms + duration + 30u;
             GLib.Timeout.add(total_delay, () => {
+                // If the removed card (or something inside it, e.g. the
+                // button that triggered this) held keyboard focus, removing
+                // it makes GTK hand focus to another widget - often near the
+                // top of the window - and the ScrolledWindow auto-scrolls to
+                // keep the newly-focused widget visible. Save/restore the
+                // scroll position around the removal so that doesn't jump
+                // the whole view back to the top.
+                Gtk.ScrolledWindow? scrolled = window != null ? window.main_scrolled : null;
+                Gtk.Adjustment? vadj = scrolled != null ? scrolled.get_vadjustment() : null;
+                double saved_value = vadj != null ? vadj.get_value() : 0;
+
                 var parent = widget.get_parent();
-                if (parent != null && parent is Gtk.Box) ((Gtk.Box) parent).remove(widget);
-                else widget.unparent();
+                // A card appended to a Gtk.FlowBox (e.g. Saved's columns_row)
+                // is auto-wrapped in a Gtk.FlowBoxChild - widget.get_parent()
+                // returns that wrapper, not the FlowBox itself. Unparenting
+                // just the card would leave the now-empty FlowBoxChild
+                // occupying a slot, showing as a gap where the card was.
+                if (parent is Gtk.FlowBoxChild) {
+                    var flow_child = (Gtk.FlowBoxChild) parent;
+                    var flow_box = flow_child.get_parent();
+                    if (flow_box is Gtk.FlowBox) ((Gtk.FlowBox) flow_box).remove(flow_child);
+                    else flow_child.unparent();
+                } else if (parent != null && parent is Gtk.Box) {
+                    ((Gtk.Box) parent).remove(widget);
+                } else {
+                    widget.unparent();
+                }
+
+                if (vadj != null) {
+                    vadj.set_value(saved_value);
+                    // A single restore isn't reliable here - GTK's own
+                    // focus/layout-driven scroll adjustments after removing
+                    // a widget can land across several later frames, not
+                    // just synchronously with the removal above. Pin the
+                    // adjustment by reverting any change for a short window
+                    // after the removal, then let it go.
+                    ulong guard_handler = 0;
+                    guard_handler = vadj.value_changed.connect(() => {
+                        if (Math.fabs(vadj.get_value() - saved_value) > 0.5) {
+                            vadj.set_value(saved_value);
+                        }
+                    });
+                    GLib.Timeout.add(400, () => {
+                        vadj.disconnect(guard_handler);
+                        return false;
+                    });
+                }
                 return false;
             });
         }
