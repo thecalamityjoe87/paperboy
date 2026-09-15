@@ -348,7 +348,8 @@ public class ArticleSheet : GLib.Object {
         new_note_btn.set_can_focus(false);
         new_note_btn.clicked.connect(() => {
             if (is_destroyed || current_url == null || parent_window == null) return;
-            NoteEditorDialog.show(parent_window, current_url, null);
+            string? selected_quote = reader_view != null ? reader_view.get_selected_text() : null;
+            NoteEditorDialog.show(parent_window, current_url, null, selected_quote);
         });
         var notes_close_btn = new Gtk.Button.from_icon_name("window-close-symbolic");
         notes_close_btn.set_tooltip_text("Close notes");
@@ -406,6 +407,7 @@ public class ArticleSheet : GLib.Object {
         });
         notes_removed_handler = notes_store.note_removed.connect((url, id) => {
             if (is_destroyed || current_url == null || url != current_url) return;
+            if (reader_view != null) reader_view.remove_note_highlight(id);
             load_notes();
         });
 
@@ -624,6 +626,7 @@ public class ArticleSheet : GLib.Object {
                 if (extracted.success) {
                     reader_loaded_url = url_snapshot;
                     reader_view.show_article(extracted, url_snapshot, current_source_name_encoded);
+                    reader_view.highlight_notes(Paperboy.NotesStore.get_instance().get_notes_for_url(url_snapshot));
                     backfill_card_thumbnail(url_snapshot, extracted.hero_image_url);
                 } else {
                     reader_view.show_error();
@@ -832,6 +835,7 @@ public class ArticleSheet : GLib.Object {
         if (notes_stack == null || notes_list_box == null || current_url == null) return;
 
         var notes = Paperboy.NotesStore.get_instance().get_notes_for_url(current_url);
+        if (reader_view != null) reader_view.highlight_notes(notes);
 
         Gtk.Widget? child = notes_list_box.get_first_child();
         while (child != null) {

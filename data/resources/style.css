@@ -85,6 +85,19 @@
     margin-left: 8px;
 }
 
+/* "Open" pill next to the Business category's sidebar badge - same shape
+   as .live-pill, but green (market open is a good-news state, unlike a
+   live sports game) instead of that class's red. */
+.market-open-pill {
+    background-color: @success_bg_color;
+    color: @success_fg_color;
+    font-size: 11.55px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+}
+
 /* "Live" chip in a Sports league's header (CategorySection), styled to
    match the content view's other card chips (.category-chip/.source-badge)
    rather than the sidebar's theme-aware .live-pill above. */
@@ -1255,6 +1268,74 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     background-color: @card_bg_color;
     border: 1.5px solid alpha(@borders, 0.9);
     opacity: 1;
+}
+
+/* One note within a threaded article group in the Notes browser - a
+   lighter inset box (not a full nested card) so each note reads as its
+   own item without the group looking like cards-inside-a-card. */
+.note-thread-item {
+    background-color: alpha(@borders, 0.2);
+    border-radius: 8px;
+    padding: 4px 8px;
+}
+
+/* Compact accent pill for the Notes browser's "Open article" action -
+   same small-badge language as .unread-count-badge-selected, not a
+   full-size/oval button. */
+.note-open-article-btn {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    font-size: 0.8em;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 5px;
+    min-height: 0;
+    min-width: 0;
+    box-shadow: none;
+    border: none;
+}
+
+.note-open-article-btn:hover {
+    background-color: alpha(@accent_bg_color, 0.85);
+}
+
+/* Tight popover + small button for the reader view's floating "add note"
+   action - the default popover padding/button size read as oversized for
+   what's meant to be a quick, unobtrusive affordance. */
+.reader-add-note-popover contents {
+    padding: 1px;
+}
+
+.reader-add-note-btn {
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.reader-add-note-btn image {
+    -gtk-icon-size: 14px;
+}
+
+/* Small numbered marker button dropped right after a highlighted quote in
+   the reader view - the deliberate click target to open that note,
+   instead of the highlighted text itself (which read as ambiguous). */
+.reader-note-marker {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    font-size: 0.68em;
+    font-weight: 700;
+    min-width: 15px;
+    min-height: 15px;
+    border-radius: 999px;
+    padding: 0 4px;
+    margin: 0 1px;
+    box-shadow: none;
+    border: none;
+}
+
+.reader-note-marker:hover {
+    background-color: alpha(@accent_bg_color, 0.85);
 }
 
 /* Comment count badge, overlapping the top-right corner of the comments

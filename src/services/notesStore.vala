@@ -76,15 +76,20 @@ namespace Paperboy {
             }
 
             db.exec("CREATE INDEX IF NOT EXISTS idx_notes_url ON notes(url);", null, null);
+
+            // Added after the initial release - existing databases need this
+            // column added on top of their already-created table. Fails
+            // harmlessly (and is ignored) if the column already exists.
+            db.exec("ALTER TABLE notes ADD COLUMN quote TEXT;", null, null);
         }
 
-        public Paperboy.ArticleNote? add_note(string url, string title, string content_html) {
+        public Paperboy.ArticleNote? add_note(string url, string title, string content_html, string? quote = null) {
             if (db == null) return null;
 
             int64 now = GLib.get_real_time() / 1000000;
             string sql = """
-                INSERT INTO notes (url, title, content_html, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?);
+                INSERT INTO notes (url, title, content_html, created_at, updated_at, quote)
+                VALUES (?, ?, ?, ?, ?, ?);
             """;
 
             Sqlite.Statement stmt;
@@ -99,6 +104,7 @@ namespace Paperboy {
             stmt.bind_text(3, content_html);
             stmt.bind_int64(4, now);
             stmt.bind_int64(5, now);
+            if (quote != null) stmt.bind_text(6, quote); else stmt.bind_null(6);
 
             rc = stmt.step();
             if (rc != Sqlite.DONE) {
@@ -107,7 +113,7 @@ namespace Paperboy {
             }
 
             int64 id = db.last_insert_rowid();
-            var note = new Paperboy.ArticleNote(id, url, title, content_html, now, now);
+            var note = new Paperboy.ArticleNote(id, url, title, content_html, now, now, quote);
             note_added(note);
             return note;
         }
@@ -169,7 +175,7 @@ namespace Paperboy {
         public Paperboy.ArticleNote? get_note(int64 id) {
             if (db == null) return null;
 
-            string sql = "SELECT id, url, title, content_html, created_at, updated_at FROM notes WHERE id = ?;";
+            string sql = "SELECT id, url, title, content_html, created_at, updated_at, quote FROM notes WHERE id = ?;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -181,14 +187,14 @@ namespace Paperboy {
             if (stmt.step() != Sqlite.ROW) return null;
 
             return new Paperboy.ArticleNote(stmt.column_int64(0), stmt.column_text(1), stmt.column_text(2),
-                stmt.column_text(3), stmt.column_int64(4), stmt.column_int64(5));
+                stmt.column_text(3), stmt.column_int64(4), stmt.column_int64(5), stmt.column_text(6));
         }
 
         public Gee.ArrayList<Paperboy.ArticleNote> get_notes_for_url(string url) {
             var notes = new Gee.ArrayList<Paperboy.ArticleNote>();
             if (db == null) return notes;
 
-            string sql = "SELECT id, url, title, content_html, created_at, updated_at FROM notes WHERE url = ? ORDER BY updated_at DESC;";
+            string sql = "SELECT id, url, title, content_html, created_at, updated_at, quote FROM notes WHERE url = ? ORDER BY updated_at DESC;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -199,7 +205,7 @@ namespace Paperboy {
             stmt.bind_text(1, url);
             while (stmt.step() == Sqlite.ROW) {
                 notes.add(new Paperboy.ArticleNote(stmt.column_int64(0), stmt.column_text(1), stmt.column_text(2),
-                    stmt.column_text(3), stmt.column_int64(4), stmt.column_int64(5)));
+                    stmt.column_text(3), stmt.column_int64(4), stmt.column_int64(5), stmt.column_text(6)));
             }
             return notes;
         }
@@ -208,7 +214,7 @@ namespace Paperboy {
             var notes = new Gee.ArrayList<Paperboy.ArticleNote>();
             if (db == null) return notes;
 
-            string sql = "SELECT id, url, title, content_html, created_at, updated_at FROM notes ORDER BY updated_at DESC;";
+            string sql = "SELECT id, url, title, content_html, created_at, updated_at, quote FROM notes ORDER BY updated_at DESC;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -218,7 +224,7 @@ namespace Paperboy {
 
             while (stmt.step() == Sqlite.ROW) {
                 notes.add(new Paperboy.ArticleNote(stmt.column_int64(0), stmt.column_text(1), stmt.column_text(2),
-                    stmt.column_text(3), stmt.column_int64(4), stmt.column_int64(5)));
+                    stmt.column_text(3), stmt.column_int64(4), stmt.column_int64(5), stmt.column_text(6)));
             }
             return notes;
         }

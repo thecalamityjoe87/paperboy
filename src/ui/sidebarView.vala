@@ -474,11 +474,11 @@ public class SidebarView : GLib.Object {
 
     // "Open" pill shown to the left of the Business category's count badge
     // while MarketStatusManager reports the US market as in its regular
-    // trading session. Same ".live-pill" styling as Sports' pill above -
-    // just different text, not a different visual treatment.
+    // trading session. Same shape as Sports' ".live-pill" above, but its
+    // own green ".market-open-pill" class instead of that pill's red.
     private Gtk.Widget build_market_open_pill_widget() {
         var pill = new Gtk.Label("Open");
-        pill.add_css_class("live-pill");
+        pill.add_css_class("market-open-pill");
         pill.set_valign(Gtk.Align.CENTER);
         bool is_open = window.market_status != null && window.market_status.get_is_open();
         pill.set_visible(is_open && window.prefs.market_pill_enabled);

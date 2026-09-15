@@ -18,6 +18,15 @@
 using Gtk;
 using GLib;
 
+// One note's applied highlight - the tag driving its background color and
+// the marker button/anchor placed after it, plus which TextView they're in.
+// Kept so a deleted note's highlight can be undone precisely later.
+private class ReaderNoteHighlight : GLib.Object {
+    public Gtk.TextView tv;
+    public Gtk.TextTag tag;
+    public Gtk.Button marker;
+}
+
 /*
  * Distraction-free article view: renders an ExtractedArticle (title,
  * byline, hero image, body paragraphs) instead of the live webpage.
@@ -48,6 +57,30 @@ public class ReaderView : GLib.Object {
     // One provider shared by every ReaderView instance - the settings are
     // global (backed by gschema), so there's no need for per-instance CSS.
     private static Gtk.CssProvider? style_provider = null;
+
+    // Note-highlight bookkeeping, reset per article in clear_content().
+    // Highlights are applied incrementally (never re-applied from scratch)
+    // specifically so refreshing the notes panel never has to reset a
+    // TextView's buffer text - doing that would wipe out any selection the
+    // user currently has active, which is exactly how creating a note used
+    // to silently lose its anchor.
+    private Gee.HashMap<Gtk.TextView, int> anchor_shift_by_tv = new Gee.HashMap<Gtk.TextView, int>();
+    // note.id -> (tv, tag, marker) for every highlight currently applied,
+    // across every TextView - lets a deleted note's highlight be undone
+    // immediately instead of only disappearing on the next full re-render.
+    // Gee.HashMap<int64?, V> without explicit hash/equal funcs compares
+    // boxed key pointers, not values - has_key()/get() would silently
+    // fail for every lookup (even the exact same key right after insert),
+    // so a value-based pair is required here.
+    private Gee.HashMap<int64?, ReaderNoteHighlight> highlights_by_note_id = new Gee.HashMap<int64?, ReaderNoteHighlight>(
+        (a) => { int64 v = a; return (uint) (v ^ (v >> 32)); },
+        (a, b) => { int64 x = a; int64 y = b; return x == y; }
+    );
+
+    // Floating "add note" button shown near an active text selection, so
+    // creating a note doesn't require opening the notes panel first.
+    private Gtk.Popover? add_note_popover = null;
+    private string? current_article_url = null;
 
     public ReaderView(NewsWindow? window) {
         parent_window = window;
@@ -123,6 +156,11 @@ public class ReaderView : GLib.Object {
         var viewport = scroller.get_child() as Gtk.Viewport;
         if (viewport != null) viewport.set_scroll_to_focus(false);
 
+        // The "add note" popover is positioned at a fixed point computed
+        // at show-time - scrolling would leave it pointing at stale
+        // coordinates, so just hide it instead of trying to track it.
+        scroller.get_vadjustment().value_changed.connect(hide_add_note_popover);
+
         setup_drag_autoscroll();
         build_settings_button();
     }
@@ -151,6 +189,44 @@ public class ReaderView : GLib.Object {
         click.released.connect((g, n_press, x, y) => {
             pointer_down = false;
         });
+
+        // A real click-drag-to-select causes GtkTextView's own internal
+        // drag gesture to claim the button sequence, which stops the
+        // GestureClick above from ever seeing "released" for it (a plain
+        // click/double-click, with no meaningful drag, doesn't get
+        // claimed the same way, which is why that alone worked). A
+        // legacy controller observes raw events directly and isn't
+        // subject to gesture claim/deny, so it fires reliably either way.
+        var legacy = new Gtk.EventControllerLegacy();
+        legacy.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+        content_box.add_controller(legacy);
+        legacy.event.connect((event) => {
+            if (event.get_event_type() == Gdk.EventType.BUTTON_RELEASE) {
+                // The TextView's own release handling (which finalizes
+                // the drag selection) hasn't necessarily run yet either -
+                // same idle-defer reasoning as above.
+                GLib.Idle.add(() => {
+                    check_selection_for_add_note_popover();
+                    return false;
+                });
+            }
+            return false;
+        });
+    }
+
+    private void check_selection_for_add_note_popover() {
+        Gtk.Widget? child = content_box.get_first_child();
+        while (child != null) {
+            if (child is Gtk.TextView) {
+                var tv = (Gtk.TextView) child;
+                if (tv.get_buffer().has_selection) {
+                    show_add_note_popover(tv);
+                    return;
+                }
+            }
+            child = child.get_next_sibling();
+        }
+        hide_add_note_popover();
     }
 
     private bool on_autoscroll_tick() {
@@ -177,6 +253,146 @@ public class ReaderView : GLib.Object {
     public Gtk.Widget get_widget() {
         return stack;
     }
+
+    // Currently selected text in whichever body TextView has a selection,
+    // if any - used to anchor a new note to the exact passage the user
+    // meant, since the body is split across several TextViews (see
+    // flush_text_run) and selection can't span more than one of them.
+    public string? get_selected_text() {
+        Gtk.Widget? child = content_box.get_first_child();
+        while (child != null) {
+            if (child is Gtk.TextView) {
+                var tv = (Gtk.TextView) child;
+                Gtk.TextIter start, end;
+                if (tv.get_buffer().get_selection_bounds(out start, out end)) {
+                    // A selection can span across an existing note's marker
+                    // button, which is a real object-replacement character
+                    // (U+FFFC) in the buffer - strip it so the captured
+                    // quote still matches the pristine article text.
+                    string text = tv.get_buffer().get_text(start, end, false).replace("￼", "").strip();
+                    if (text.length > 0) return text;
+                }
+            }
+            child = child.get_next_sibling();
+        }
+        return null;
+    }
+
+    // Re-finds each note's saved quote in the current article's body text,
+    // highlights it, and drops a small numbered button right after it -
+    // clicking the number (not the highlight itself, which was confusing)
+    // opens that note. Notes whose quote no longer appears (article
+    // re-scraped, content changed) are simply skipped, not treated as an
+    // error.
+    //
+    // This only ever adds new highlights, never resets or re-derives
+    // existing ones: this method gets called on every notes-panel refresh
+    // (open the panel, add/edit/remove any note), and a destructive
+    // buffer.set_text() reset-then-reapply used to wipe out whatever
+    // selection the user currently had active - which is exactly how
+    // creating a note from a fresh selection lost its anchor, since simply
+    // opening the notes panel to reach "New note" already cleared it.
+    public void highlight_notes(Gee.Collection<Paperboy.ArticleNote> notes) {
+        var textviews = new Gee.ArrayList<Gtk.TextView>();
+        Gtk.Widget? child = content_box.get_first_child();
+        while (child != null) {
+            if (child is Gtk.TextView) textviews.add((Gtk.TextView) child);
+            child = child.get_next_sibling();
+        }
+
+        // Stable order so numbering is consistent regardless of call order.
+        var sorted_notes = new Gee.ArrayList<Paperboy.ArticleNote>();
+        sorted_notes.add_all(notes);
+        sorted_notes.sort((a, b) => (int) (a.id - b.id));
+
+        foreach (var tv in textviews) {
+            string? pristine = tv.get_data<string>("reader-plain-text");
+            if (pristine == null) continue;
+
+            int shift = anchor_shift_by_tv.has_key(tv) ? anchor_shift_by_tv.get(tv) : 0;
+
+            foreach (var note in sorted_notes) {
+                if (note.quote == null || note.quote.strip().length == 0) continue;
+                if (highlights_by_note_id.has_key(note.id)) continue;
+
+                int byte_idx = pristine.index_of(note.quote);
+                if (byte_idx < 0) continue;
+
+                int start_offset = pristine.substring(0, byte_idx).char_count() + shift;
+                int end_offset = start_offset + note.quote.char_count();
+
+                highlights_by_note_id.set(note.id, apply_single_highlight(tv, note, start_offset, end_offset));
+                shift += 1;
+            }
+
+            anchor_shift_by_tv.set(tv, shift);
+        }
+
+        // Renumber every currently-highlighted note to stay contiguous
+        // 1..N - just a label update on the existing marker buttons, not a
+        // buffer change, so it's safe to do on every call. Without this,
+        // numbers would only ever grow (a deleted or never-matched note
+        // leaves a permanent gap).
+        int display_number = 1;
+        foreach (var note in sorted_notes) {
+            var entry = highlights_by_note_id.get(note.id);
+            if (entry == null) continue;
+            entry.marker.set_label(display_number.to_string());
+            display_number++;
+        }
+    }
+
+    // Undoes one note's highlight/marker immediately (e.g. on delete),
+    // rather than waiting for the next highlight_notes() call - which
+    // wouldn't remove it anyway, since that only ever adds highlights.
+    public void remove_note_highlight(int64 note_id) {
+        var entry = highlights_by_note_id.get(note_id);
+        if (entry == null) return;
+
+        var buffer = entry.tv.get_buffer();
+        Gtk.TextIter buf_start, buf_end;
+        buffer.get_bounds(out buf_start, out buf_end);
+        buffer.remove_tag(entry.tag, buf_start, buf_end);
+        entry.marker.set_visible(false);
+
+        highlights_by_note_id.unset(note_id);
+    }
+
+    private ReaderNoteHighlight apply_single_highlight(Gtk.TextView tv, Paperboy.ArticleNote note, int start_offset, int end_offset) {
+        var buffer = tv.get_buffer();
+
+        Gtk.TextIter start_iter, end_iter;
+        buffer.get_iter_at_offset(out start_iter, start_offset);
+        buffer.get_iter_at_offset(out end_iter, end_offset);
+        var tag = buffer.create_tag(null, "background", "rgba(255,213,79,0.35)");
+        buffer.apply_tag(tag, start_iter, end_iter);
+
+        Gtk.TextIter anchor_iter;
+        buffer.get_iter_at_offset(out anchor_iter, end_offset);
+        var anchor = buffer.create_child_anchor(anchor_iter);
+
+        // Label is a placeholder - highlight_notes() renumbers every
+        // marker (including this one) right after this call returns.
+        var marker_btn = new Gtk.Button.with_label("");
+        marker_btn.add_css_class("reader-note-marker");
+        marker_btn.set_tooltip_text("Open note");
+        marker_btn.set_valign(Gtk.Align.BASELINE);
+        marker_btn.clicked.connect(() => {
+            if (parent_window == null) return;
+            // Re-fetch by id rather than closing over `note` - it may have
+            // been edited since this highlight was first applied.
+            var latest = Paperboy.NotesStore.get_instance().get_note(note.id);
+            NoteEditorDialog.show(parent_window, note.url, latest ?? note);
+        });
+        tv.add_child_at_anchor(marker_btn, anchor);
+
+        var entry = new ReaderNoteHighlight();
+        entry.tv = tv;
+        entry.tag = tag;
+        entry.marker = marker_btn;
+        return entry;
+    }
+
 
     // Placed in ArticleSheet's header, next to the reader-view toggle -
     // only meaningful while reader view is showing, so ArticleSheet toggles
@@ -450,12 +666,16 @@ public class ReaderView : GLib.Object {
             child = next;
         }
         scroller.get_vadjustment().set_value(0);
+        anchor_shift_by_tv.clear();
+        highlights_by_note_id.clear();
+        hide_add_note_popover();
     }
 
     public void show_article(ExtractedArticle article, string article_url, string? source_name_encoded = null) {
         spinner.stop();
 
         clear_content();
+        current_article_url = article_url;
 
         string? src_display_name;
         string? src_logo_url;
@@ -588,10 +808,123 @@ public class ReaderView : GLib.Object {
         body_view.set_left_margin(0);
         body_view.set_right_margin(0);
         var body_buffer = body_view.get_buffer();
-        body_buffer.set_text(string.joinv("\n\n", text_run.to_array()));
+        string joined_text = string.joinv("\n\n", text_run.to_array());
+        body_buffer.set_text(joined_text);
+        body_view.set_data<string>("reader-plain-text", joined_text);
         content_box.append(body_view);
 
+        // Only reacts to the selection clearing (e.g. clicking elsewhere) -
+        // showing the popover is handled on gesture release instead, so it
+        // doesn't pop up mid-drag before the user's finished selecting.
+        body_buffer.notify["has-selection"].connect(() => {
+            if (!body_buffer.has_selection) hide_add_note_popover();
+        });
+
         text_run.clear();
+    }
+
+    // Shown near an active text selection so creating a note anchored to
+    // it doesn't require opening the notes panel first (select -> one
+    // click, instead of select -> open panel -> "New note").
+    // (tv, start_offset, end_offset) of whichever selection the popover is
+    // currently shown for - lets show_add_note_popover() skip a redundant
+    // popup() call when nothing actually changed (see below).
+    private Gtk.TextView? shown_for_tv = null;
+    private int shown_for_start = -1;
+    private int shown_for_end = -1;
+
+    private void show_add_note_popover(Gtk.TextView tv) {
+        if (current_article_url == null) return;
+
+        Gtk.TextIter sel_start, sel_end;
+        if (!tv.get_buffer().get_selection_bounds(out sel_start, out sel_end)) return;
+
+        int start_offset = sel_start.get_offset();
+        int end_offset = sel_end.get_offset();
+
+        // Every click anywhere in the reader body ends up here (via the
+        // release listener below), including clicks meant to dismiss an
+        // already-open popover - re-popping it every time would fight its
+        // own autohide and make it undismissable. Only (re)show when the
+        // selection actually changed.
+        if (add_note_popover != null && add_note_popover.get_visible()
+            && shown_for_tv == tv && shown_for_start == start_offset && shown_for_end == end_offset) {
+            return;
+        }
+
+        Gdk.Rectangle rect;
+        tv.get_iter_location(sel_end, out rect);
+        int wx, wy;
+        tv.buffer_to_window_coords(Gtk.TextWindowType.WIDGET, rect.x, rect.y, out wx, out wy);
+        double cx, cy;
+        if (!tv.translate_coordinates(content_box, wx, wy, out cx, out cy)) return;
+
+        if (add_note_popover == null) {
+            var btn = new Gtk.Button.from_icon_name("list-add-symbolic");
+            btn.add_css_class("reader-add-note-btn");
+            btn.set_size_request(22, 22);
+            // Default halign/valign is FILL, so without this the button
+            // stretches to whatever size the popover's content area
+            // allocates (not necessarily square) instead of staying at
+            // its own natural size - that's what was distorting it.
+            btn.set_halign(Gtk.Align.CENTER);
+            btn.set_valign(Gtk.Align.CENTER);
+            btn.set_tooltip_text("Add note");
+            // Without this, the button (and popover) grabs keyboard focus
+            // away from the TextView, which then renders its selection in
+            // the dimmed "unfocused" style instead of the normal highlight
+            // - same fix as the toolbar buttons in NoteEditorDialog.
+            btn.set_can_focus(false);
+            btn.clicked.connect(() => {
+                if (parent_window == null || current_article_url == null) return;
+                string? quote = get_selected_text();
+                hide_add_note_popover();
+                NoteEditorDialog.show(parent_window, current_article_url, null, quote);
+            });
+            add_note_popover = new Gtk.Popover();
+            add_note_popover.add_css_class("reader-add-note-popover");
+            add_note_popover.set_child(btn);
+            add_note_popover.set_can_focus(false);
+            add_note_popover.set_autohide(true);
+            // The arrow decoration reserves extra horizontal space around
+            // its content node without a matching vertical amount -
+            // that's what was actually stretching this into an oval
+            // around a small circular button (measured via an isolated
+            // Gtk.Popover repro: content node was 36x24 with the arrow on,
+            // a clean 24x24 square with it off).
+            add_note_popover.set_has_arrow(false);
+            add_note_popover.set_parent(content_box);
+            // Dismissing a popover via an outside click only closes the
+            // popover - that click never reaches the TextView underneath,
+            // so its selection would otherwise stay highlighted until a
+            // second, separate click actually lands inside it. Clear it
+            // here instead, so one click off the selection removes both.
+            add_note_popover.closed.connect(() => {
+                if (shown_for_tv != null) {
+                    Gtk.TextIter cursor_iter;
+                    var buf = shown_for_tv.get_buffer();
+                    buf.get_iter_at_offset(out cursor_iter, shown_for_end);
+                    buf.place_cursor(cursor_iter);
+                }
+                shown_for_tv = null;
+                shown_for_start = -1;
+                shown_for_end = -1;
+            });
+        }
+
+        Gdk.Rectangle point_to = { (int) cx, (int) cy, 1, rect.height };
+        add_note_popover.set_pointing_to(point_to);
+        add_note_popover.popup();
+        shown_for_tv = tv;
+        shown_for_start = start_offset;
+        shown_for_end = end_offset;
+    }
+
+    private void hide_add_note_popover() {
+        if (add_note_popover != null) add_note_popover.popdown();
+        shown_for_tv = null;
+        shown_for_start = -1;
+        shown_for_end = -1;
     }
 
     private string build_byline(ExtractedArticle article) {
