@@ -463,7 +463,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Check if a category is a Bloomberg category (including overlaps with standard categories)
     public static bool is_bloomberg_category(string category) {
         return is_bloomberg_exclusive_category(category) ||
-               category == "politics" || category == "technology";
+               category == "politics" || category == "technology" || category == "business";
     }
 
 
@@ -500,59 +500,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     }
 
 
-    // Get all categories supported by currently enabled sources
-    public ArrayList<string> get_supported_categories() {
-        var enabled = get_enabled_sources();
-
-        // If only Bloomberg is enabled, return only Bloomberg categories
-        if (enabled.size == 1 && enabled.get(0) == "bloomberg") {
-            return get_bloomberg_categories();
-        }
-
-        // If Bloomberg is one of multiple sources, include both Bloomberg and standard categories
-        if (enabled.size > 1 && is_source_enabled("bloomberg")) {
-            var result = get_standard_categories();
-            // Add Bloomberg-exclusive categories
-            result.add("markets");
-            result.add("industries");
-            result.add("economics");
-            return result;
-        }
-
-        // Otherwise, return standard categories
-        return get_standard_categories();
-    }
-
-
-    // Get standard categories
-    public static ArrayList<string> get_standard_categories() {
-        var result = new ArrayList<string>();
-        result.add("general");
-        result.add("us");
-        result.add("technology");
-        result.add("business");
-        result.add("science");
-        result.add("sports");
-        result.add("health");
-        result.add("entertainment");
-        result.add("politics");
-        result.add("lifestyle");
-        return result;
-    }
-
-
-    // Get Bloomberg categories
-    public static ArrayList<string> get_bloomberg_categories() {
-        var result = new ArrayList<string>();
-        result.add("markets");
-        result.add("industries");
-        result.add("economics");
-        result.add("politics");
-        result.add("technology");
-        return result;
-    }
-
-
     // Filter enabled sources to only those that support the given category
     public ArrayList<string> get_sources_for_category(string category) {
         var result = new ArrayList<string>();
@@ -579,6 +526,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         // Sports articles come from the Paperboy backend's sports supplement, which pulls from
         // third-party sites that don't map to any built-in source id, so skip the enabled-source check.
         if (category == "sports") {
+            return true;
+        }
+
+        // Business is supplemented with stock market news from the Paperboy
+        // backend's Finnhub-backed endpoint, from third-party sites that don't
+        // map to any built-in source id, so skip the enabled-source check here too.
+        if (category == "business") {
             return true;
         }
 

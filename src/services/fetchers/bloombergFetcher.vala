@@ -29,6 +29,23 @@ public class BloombergFetcher : BaseFetcher {
             fetch_google_domain(category, search_query, session, "bloomberg.com", "Bloomberg");
             return;
         }
+        if (category == "business") {
+            // Bloomberg has no single "business" feed - Business pulls its
+            // industries/markets/economics desks together instead. Additive
+            // calls (clear_items is a no-op in every real caller - see
+            // FetchNewsController.global_no_op_clear), so these three don't
+            // clobber each other or other sources' articles.
+            string[] business_feeds = {
+                "https://feeds.bloomberg.com/industries/news.rss",
+                "https://feeds.bloomberg.com/markets/news.rss",
+                "https://feeds.bloomberg.com/economics/news.rss"
+            };
+            foreach (var feed_url in business_feeds) {
+                RssFeedProcessor.fetch_rss_url(feed_url, "Bloomberg", FetcherUtils.category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
+            }
+            return;
+        }
+
         string url = "https://feeds.bloomberg.com/markets/news.rss";
         switch (category) {
             case "technology":

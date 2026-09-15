@@ -40,6 +40,42 @@ public class CategoryIconsUtils : GLib.Object {
         return sm != null ? sm.dark : false;
     }
 
+    // Resolves a bundled "<name>-mono.svg" icon to its dark-mode "-white"
+    // variant when appropriate, checking the same 24x24/symbolic/bare
+    // candidate locations create_category_icon() does. `filename` is the
+    // plain basename (e.g. "markets-mono.svg"), not a full path. Exposed
+    // publicly so a one-off icon built outside this class's own
+    // switch-per-category functions (e.g. StocksTickerController's
+    // "Markets Today" section header) can still resolve/refresh the
+    // correct themed path on a light/dark toggle.
+    public static string? resolve_themed_icon_path(string filename) {
+        string[] candidates = {
+            GLib.Path.build_filename("icons", "symbolic", "24x24", filename),
+            GLib.Path.build_filename("icons", "symbolic", filename),
+            GLib.Path.build_filename("icons", filename)
+        };
+        string? icon_path = null;
+        foreach (var c in candidates) {
+            icon_path = DataPathsUtils.find_data_file(c);
+            if (icon_path != null) break;
+        }
+        if (icon_path == null) return null;
+
+        if (is_dark_mode()) {
+            string alt_name;
+            if (filename.has_suffix(".svg") && filename.length > 4) {
+                alt_name = filename.substring(0, filename.length - 4) + "-white.svg";
+            } else {
+                alt_name = filename + "-white.svg";
+            }
+            string? white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "24x24", alt_name));
+            if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
+            if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", alt_name));
+            if (white_candidate != null) return white_candidate;
+        }
+        return icon_path;
+    }
+
     // Create a category icon widget for sidebar-sized use.
     public static Gtk.Widget? create_category_icon(string cat) {
         string? filename = null;
@@ -54,9 +90,6 @@ public class CategoryIconsUtils : GLib.Object {
             // affect them.
             case "podcasts_discover": filename = "antenna-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
-            case "markets": filename = "markets-mono.svg"; break;
-            case "industries": filename = "industries-mono.svg"; break;
-            case "economics": filename = "economics-mono.svg"; break;
             case "us": filename = "us-mono.svg"; break;
             case "local_news": filename = "local-mono.svg"; break;
             case "technology": filename = "technology-mono.svg"; break;
@@ -107,8 +140,12 @@ public class CategoryIconsUtils : GLib.Object {
                     if (white_candidate != null) use_path = white_candidate;
                 }
 
-                string key = "pixbuf::file:%s::%dx%d".printf(use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
-                var cached = ImageCache.get_global().get_or_load_file(key, use_path, SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE);
+                // Rasterize at 3x and downsample to stay crisp up through
+                // ~300% display scaling (matches LOGO_RENDER_SCALE in
+                // pixbufUtils.vala), same as create_category_header_icon below.
+                int render_size = SIDEBAR_ICON_SIZE * 3;
+                string key = "pixbuf::file:%s::%dx%d".printf(use_path, render_size, render_size);
+                var cached = ImageCache.get_global().get_or_load_file(key, use_path, render_size, render_size);
                 if (cached != null) {
                     try {
                         // Use cached texture instead of creating new one every time
@@ -178,6 +215,9 @@ public class CategoryIconsUtils : GLib.Object {
             case "podcasts":
                 candidates = { "podcast-symbolic", "folder-podcast-symbolic", "audio-x-generic-symbolic", "media-optical-symbolic" };
                 break;
+            case "notes":
+                candidates = { "document-edit-symbolic", "text-editor-symbolic", "accessories-text-editor-symbolic" };
+                break;
             default:
                 candidates = {};
                 break;
@@ -210,9 +250,6 @@ public class CategoryIconsUtils : GLib.Object {
             // create_category_icon above).
             case "podcasts": filename = "antenna-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
-            case "markets": filename = "markets-mono.svg"; break;
-            case "industries": filename = "industries-mono.svg"; break;
-            case "economics": filename = "economics-mono.svg"; break;
             case "us": filename = "us-mono.svg"; break;
             case "local_news": filename = "local-mono.svg"; break;
             case "technology": filename = "technology-mono.svg"; break;
@@ -258,9 +295,8 @@ public class CategoryIconsUtils : GLib.Object {
                     try {
                         // Rasterize SVG to a higher-resolution pixbuf to avoid
                         // blur on small sizes and when running on a HiDPI
-                        // display. Rendering at 2x the requested size then
-                        // scaling down improves visual crispness for icons.
-                        int render_size = size * 2;
+                        // display, up through ~300% display scaling.
+                        int render_size = size * 3;
                         string key_hi = "pixbuf::file:%s::%dx%d".printf(use_path, render_size, render_size);
                         var cached_hi = ImageCache.get_global().get_or_load_file(key_hi, use_path, render_size, render_size);
                         if (cached_hi != null) {

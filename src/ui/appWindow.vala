@@ -64,6 +64,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     // time; must exist before sidebar_view is constructed below since it
     // connects to this manager's live_state_changed signal at construction.
     public SportsLiveIndicatorManager? sports_live_indicator;
+    // Same "any time, not just while viewing the category" idea as
+    // sports_live_indicator above, for a Business sidebar "Open" pill.
+    public MarketStatusManager? market_status;
     public Adw.OverlaySplitView split_view;
     public Adw.NavigationView nav_view;
     public Adw.OverlaySplitView article_preview_split;
@@ -169,6 +172,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Must exist before SidebarView is constructed below, since it connects
         // to live_state_changed at construction time.
         sports_live_indicator = new SportsLiveIndicatorManager(this);
+        market_status = new MarketStatusManager(this);
         // Initialize source and category managers early (needed for all source/category logic)
         source_manager = new SourceManager(prefs);
         source_manager.set_window(this);
@@ -872,6 +876,11 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // mono icons can swap to their white variants in dark
                 // mode as well.
                 update_category_icon();
+                // Same idea for the Stocks ticker's "Markets Today" header
+                // icon - it's built once and reused across polls (see
+                // StocksTickerController), so it's never otherwise
+                // re-resolved after the theme changes.
+                StocksTickerController.refresh_icon_for_theme();
             });
         }
 
@@ -940,6 +949,12 @@ public class NewsWindow : Adw.ApplicationWindow {
             });
         }
 
+        // Market status is a pure clock check (no network call), so it can
+        // just start immediately rather than waiting like the pollers above.
+        if (market_status != null) {
+            market_status.start();
+        }
+
     // Ensure the personalized message visibility is correct at startup
     update_personalization_ui();
 
@@ -958,6 +973,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // so transient states (like maximized) don't become stored as normal sizes.
         this.close_request.connect(() => {
             SportsScoresController.stop_polling();
+            SportsScoresController.reset();
+            StocksTickerController.stop_polling();
+            StocksTickerController.reset();
+            if (market_status != null) market_status.stop();
             if (podcast_playback != null) podcast_playback.flush_progress();
 
             // Clean up old cached articles (frontpage and RSS feeds)
@@ -1270,6 +1289,15 @@ public class NewsWindow : Adw.ApplicationWindow {
         } else {
             SportsScoresController.stop_polling();
             SportsScoresController.hide(this);
+        }
+
+        // Additive only: the Stocks ticker renders underneath whatever the
+        // Business category already shows above. See StocksTickerController.
+        if (prefs.category == "business" && prefs.market_cards_enabled) {
+            StocksTickerController.load(this);
+        } else {
+            StocksTickerController.stop_polling();
+            StocksTickerController.hide(this);
         }
     }
 

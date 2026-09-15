@@ -226,6 +226,12 @@ namespace Managers {
                 var c = row.get_first_child();
                 while (c != null) { prev_count++; c = c.get_next_sibling(); }
             }
+            // Hold this batch's entrance animation until any backfill
+            // extractions triggered by placing it have resolved (or a
+            // bounded grace period passes) - see BackfillBatchGate.
+            var backfill_gate = new BackfillBatchGate();
+            ThumbnailBackfillService.current_batch = backfill_gate;
+
             int loaded = 0;
             int i = 0;
             while (i < remaining_articles.size && loaded < max_to_load) {
@@ -241,25 +247,44 @@ namespace Managers {
                 }
             }
 
+            ThumbnailBackfillService.current_batch = null;
+
+            // Hide the newly placed cards immediately (rather than letting
+            // them sit at full opacity until animate_card_entrance_stagger
+            // gets around to them) so the hold above actually keeps
+            // placeholders off-screen instead of just delaying their fade-in.
+            if (row != null && window != null && window.animation_manager != null) {
+                int idx0 = 0;
+                var c0 = row.get_first_child();
+                while (c0 != null) {
+                    if (idx0 >= prev_count) c0.set_visible(false);
+                    idx0++;
+                    c0 = c0.get_next_sibling();
+                }
+            }
+
             if (row != null && window != null && window.animation_manager != null) {
                 var anim_mgr = window.animation_manager;
-                // Delay until idle so widgets are realized/parented.
-                GLib.Idle.add(() => {
-                    uint animate_index = 0;
-                    uint per_item_ms = 28;
-                    int idx = 0;
-                    var child = row.get_first_child();
-                    while (child != null) {
-                        if (idx >= prev_count) {
-                            anim_mgr.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                            animate_index++;
+                backfill_gate.ready.connect(() => {
+                    // Delay until idle so widgets are realized/parented.
+                    GLib.Idle.add(() => {
+                        uint animate_index = 0;
+                        uint per_item_ms = 28;
+                        int idx = 0;
+                        var child = row.get_first_child();
+                        while (child != null) {
+                            if (idx >= prev_count) {
+                                anim_mgr.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                                animate_index++;
+                            }
+                            idx++;
+                            child = child.get_next_sibling();
                         }
-                        idx++;
-                        child = child.get_next_sibling();
-                    }
-                    return false;
+                        return false;
+                    });
                 });
             }
+            backfill_gate.begin();
         }
 
         private bool debug_enabled() {
@@ -514,17 +539,24 @@ namespace Managers {
                     if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(hero_card.image, category_id == "local_news");
                     window.image_manager.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, true);
                     window.image_manager.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
-                    if (window.view_state != null) {
-                        window.view_state.register_picture_for_url(_norm, hero_card.image);
-                        window.view_state.normalized_to_url.set(_norm, url);
-                        window.view_state.register_card_for_url(_norm, hero_card.root);
-                    }
                     if (window.article_state_store != null) {
                         bool was = window.article_state_store.is_viewed(_norm);
                         window.append_debug_log("meta_check: hero url=" + _norm + " was=" + (was ? "true" : "false"));
                         if (was) window.mark_article_viewed(_norm);
                     }
                     Timeout.add(300, () => { var info = window.image_manager.hero_requests.get(hero_card.image); if (info != null) window.maybe_refetch_hero_for(hero_card.image, info); return false; });
+                }
+
+                hero_card.image.set_data<bool>("has-real-thumbnail", hero_will_load);
+                // hero_card.image is sized (-1, height) - its width is
+                // "natural", so get_size_request() alone can't be trusted as
+                // a fallback size (see the article-pane fix earlier this
+                // session); pass the intended width explicitly.
+                if (!hero_will_load) ThumbnailBackfillService.enqueue(window, url, hero_card.image, default_hero_w, default_hero_h);
+                if (window.view_state != null) {
+                    window.view_state.register_picture_for_url(_norm, hero_card.image);
+                    window.view_state.normalized_to_url.set(_norm, url);
+                    window.view_state.register_card_for_url(_norm, hero_card.root);
                 }
 
                 hero_card.source_name = source_name;
@@ -680,7 +712,8 @@ namespace Managers {
             int default_h = HeroCarousel.SLIDE_IMAGE_HEIGHT;
             bool slide_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
                 (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
-            
+            string _norm = window.normalize_article_url(url);
+
             if (!slide_will_load) {
                 if (category_id == "local_news") {
                     window.set_local_placeholder_image(slide_image, default_w, default_h);
@@ -693,16 +726,20 @@ namespace Managers {
                 if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(slide_image, category_id == "local_news");
                 window.image_manager.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier, true);
                 window.image_manager.hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));
-                string _norm = window.normalize_article_url(url);
-                if (window.view_state != null) {
-                    window.view_state.register_picture_for_url(_norm, slide_image);
-                    window.view_state.normalized_to_url.set(_norm, url);
-                    window.view_state.register_card_for_url(_norm, slide);
-                }
                 if (window.article_state_store != null) {
                     bool was = window.article_state_store.is_viewed(_norm);
                     if (was) window.mark_article_viewed(_norm);
                 }
+            }
+
+            slide_image.set_data<bool>("has-real-thumbnail", slide_will_load);
+            // Same -1-width sizing issue as the hero card above - pass the
+            // intended size explicitly rather than relying on get_size_request().
+            if (!slide_will_load) ThumbnailBackfillService.enqueue(window, url, slide_image, default_w, default_h);
+            if (window.view_state != null) {
+                window.view_state.register_picture_for_url(_norm, slide_image);
+                window.view_state.normalized_to_url.set(_norm, url);
+                window.view_state.register_card_for_url(_norm, slide);
             }
 
             featured_carousel_items.add(new ArticleItem(decoded_title, url, thumbnail_url, category_id, source_name));
@@ -848,11 +885,11 @@ namespace Managers {
 
         string _norm = window.normalize_article_url(url);
 
+        bool has_real_thumbnail = card_will_load;
             if (card_will_load) {
             if (category_id == "local_news" && !bypass_limit) {
                 if (articles_shown >= LOCAL_NEWS_IMAGE_LOAD_LIMIT) {
                         window.set_local_placeholder_image(article_card.image, img_w, img_h);
-                        if (window.view_state != null) window.view_state.register_picture_for_url(_norm, article_card.image);
                         card_will_load = false;
                     }
 
@@ -863,7 +900,6 @@ namespace Managers {
             if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(article_card.image, category_id == "local_news");
             bool force_load = true;
             window.image_manager.load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier, force_load);
-            if (window.view_state != null) window.view_state.register_picture_for_url(_norm, article_card.image);
         } else {
             if (category_id == "local_news") {
                 window.set_local_placeholder_image(article_card.image, img_w, img_h);
@@ -872,6 +908,12 @@ namespace Managers {
             }
         }
 
+        // Tracks whether this card is showing a real thumbnail vs. a
+        // placeholder, so a backfilled hero image never overwrites a
+        // thumbnail that's already real.
+        article_card.image.set_data<bool>("has-real-thumbnail", has_real_thumbnail);
+        if (!has_real_thumbnail) ThumbnailBackfillService.enqueue(window, url, article_card.image);
+        if (window.view_state != null) window.view_state.register_picture_for_url(_norm, article_card.image);
         if (window.view_state != null) window.view_state.normalized_to_url.set(_norm, url);
         if (window.view_state != null) window.view_state.register_card_for_url(_norm, article_card.root);
         if (window.article_state_store != null) {
@@ -980,6 +1022,12 @@ namespace Managers {
                 }
             }
 
+            // Hold this batch's entrance animation until any backfill
+            // extractions triggered by placing it have resolved (or a
+            // bounded grace period passes) - see BackfillBatchGate.
+            var backfill_gate = new BackfillBatchGate();
+            ThumbnailBackfillService.current_batch = backfill_gate;
+
             for (int i = 0; i < articles_to_load; i++) {
                 // Remove from the front rather than indexing in place: this
                 // queue is a shared pool that load_more_for_category() also
@@ -993,47 +1041,78 @@ namespace Managers {
                 add_item_immediate_to_column(article.title, article.url, article.thumbnail_url, article.category_id, null, article.source_name, true, article.published);
             }
 
+            ThumbnailBackfillService.current_batch = null;
+
+            // Hide the newly placed cards immediately (rather than letting
+            // them sit at full opacity until animate_card_entrance_stagger
+            // gets around to them) so the hold above actually keeps
+            // placeholders off-screen instead of just delaying their fade-in.
+            if (window != null && window.animation_manager != null && window.layout_manager != null) {
+                var lm0 = window.layout_manager;
+                if (lm0.featured_box != null) {
+                    int idx = 0;
+                    var c = lm0.featured_box.get_first_child();
+                    while (c != null) {
+                        if (idx >= featured_count) c.set_visible(false);
+                        idx++;
+                        c = c.get_next_sibling();
+                    }
+                }
+                if (lm0.columns_row != null) {
+                    int idx = 0;
+                    var c = lm0.columns_row.get_first_child();
+                    while (c != null) {
+                        if (idx >= prev_card_count) c.set_visible(false);
+                        idx++;
+                        c = c.get_next_sibling();
+                    }
+                }
+            }
+
             // Animate any newly appended cards after they have been inserted
             if (window != null && window.animation_manager != null && window.layout_manager != null) {
                 var lm2 = window.layout_manager;
-                // Delay until idle so widgets are realized/parented
-                GLib.Idle.add(() => {
-                    uint animate_index = 0;
-                    uint per_item_ms = 28;
+                backfill_gate.ready.connect(() => {
+                    // Delay until idle so widgets are realized/parented
+                    GLib.Idle.add(() => {
+                        uint animate_index = 0;
+                        uint per_item_ms = 28;
 
-                    // Featured box new children
-                    if (lm2.featured_box != null) {
-                        int idx = 0;
-                        var child = lm2.featured_box.get_first_child();
-                        while (child != null) {
-                            if (idx >= featured_count) {
-                                window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                                animate_index++;
+                        // Featured box new children
+                        if (lm2.featured_box != null) {
+                            int idx = 0;
+                            var child = lm2.featured_box.get_first_child();
+                            while (child != null) {
+                                if (idx >= featured_count) {
+                                    window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                                    animate_index++;
+                                }
+                                idx++;
+                                child = child.get_next_sibling();
                             }
-                            idx++;
-                            child = child.get_next_sibling();
                         }
-                    }
 
-                    // New cards in the grid — animate in row-major order (left-to-right,
-                    // top-to-bottom), which is simply insertion order for a Gtk.FlowBox.
-                    if (lm2.columns_row != null) {
-                        var child = lm2.columns_row.get_first_child();
-                        int idx = 0;
-                        while (child != null) {
-                            if (idx >= prev_card_count) {
-                                window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                                animate_index++;
+                        // New cards in the grid — animate in row-major order (left-to-right,
+                        // top-to-bottom), which is simply insertion order for a Gtk.FlowBox.
+                        if (lm2.columns_row != null) {
+                            var child = lm2.columns_row.get_first_child();
+                            int idx = 0;
+                            while (child != null) {
+                                if (idx >= prev_card_count) {
+                                    window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
+                                    animate_index++;
+                                }
+                                idx++;
+                                child = child.get_next_sibling();
                             }
-                            idx++;
-                            child = child.get_next_sibling();
                         }
-                    }
 
-                    return false;
+                        return false;
+                    });
                 });
             }
-            
+            backfill_gate.begin();
+
             if (load_more_button_visible) {
                 request_hide_load_more_button();
                 load_more_button_visible = false;
@@ -1252,6 +1331,11 @@ namespace Managers {
         string? source_name
     ) {
         string norm = window.normalize_article_url(url);
+
+        bool has_real_thumbnail = thumbnail_url != null && thumbnail_url.length > 0 &&
+            (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+        article_card.image.set_data<bool>("has-real-thumbnail", has_real_thumbnail);
+        if (!has_real_thumbnail) ThumbnailBackfillService.enqueue(window, url, article_card.image);
 
         if (window.view_state != null) {
             window.view_state.register_picture_for_url(norm, article_card.image);

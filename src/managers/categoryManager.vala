@@ -213,30 +213,6 @@ using Gee;
         }
     }
 
-    // Get icon name for a category
-    public static string get_category_icon(string category) {
-        switch (category) {
-            case "general": return "view-grid-symbolic";
-            case "us": return "flag-outline-thick-symbolic";
-            case "technology": return "computer-symbolic";
-            case "business": return "briefcase-symbolic";
-            case "science": return "flask-symbolic";
-            case "sports": return "trophy-symbolic";
-            case "health": return "heart-symbolic";
-            case "entertainment": return "music-note-symbolic";
-            case "politics": return "emblem-system-symbolic";
-            case "lifestyle": return "home-symbolic";
-            case "markets": return "stock-market-symbolic";
-            case "industries": return "factory-symbolic";
-            case "economics": return "currency-dollar-symbolic";
-            case "frontpage": return "star-symbolic";
-            case "topten": return "trophy-symbolic";
-            case "myfeed": return "user-bookmarks-symbolic";
-            case "local_news": return "mark-location-symbolic";
-            default: return "view-grid-symbolic";
-        }
-    }
-
     // Check if a category has article limits applied (most categories do).
     // Used by ArticleManager to determine when to queue overflow articles.
     public static bool is_limited_category(string category) {

@@ -168,6 +168,9 @@ public class ArticlePane : GLib.Object {
         pic.add_css_class("pane-card");
         pic.add_css_class("pane-round-image-card");  // optional new class for no-hover
         pic.set_overflow(Gtk.Overflow.HIDDEN);
+        bool has_real_thumbnail = thumbnail_url != null && thumbnail_url.length > 0 &&
+            (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+
         // Delegate preview image work to ImageManager when available so the
         // pane focuses on layout only.
         if (image_manager != null) {
@@ -197,6 +200,11 @@ public class ArticlePane : GLib.Object {
                 if (!loaded_from_cache) load_image_async(pic, thumbnail_url, target_w, target_h, article_src, category_id, source_mapped);
             }
         }
+
+        // Same backfill as article cards: if there's no real thumbnail,
+        // try a cached/extracted hero image instead of leaving a placeholder.
+        if (!has_real_thumbnail) ThumbnailBackfillService.enqueue(parent_window, url, pic, img_w, img_h);
+
         pic_box.append(pic);
         outer.append(pic_box);
 

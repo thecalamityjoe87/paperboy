@@ -284,6 +284,7 @@ public class SidebarManager : GLib.Object {
         special_section.items.add(create_item_data("My Feed", "myfeed", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Local News", "local_news", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Saved", "saved", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Notes", "notes", SidebarItemType.SPECIAL));
 
         sections.add(special_section);
 
@@ -382,15 +383,7 @@ public class SidebarManager : GLib.Object {
                 allowed.unset("lifestyle");
             }
 
-            foreach (var id in window.prefs.preferred_sources) {
-                if (id == "bloomberg") {
-                    allowed.set("markets", true);
-                    allowed.set("industries", true);
-                    allowed.set("economics", true);
-                }
-            }
-
-            string[] priority = { "general", "us", "technology", "business", "markets", "industries", "economics", "sports", "science", "health", "entertainment", "politics", "lifestyle" };
+            string[] priority = { "general", "us", "technology", "business", "sports", "science", "health", "entertainment", "politics", "lifestyle" };
             foreach (var cat in priority) {
                 if (allowed.has_key(cat) && allowed.get(cat)) {
                     items.add(create_item_data(window.category_display_name_for(cat), cat, SidebarItemType.CATEGORY));
@@ -400,9 +393,7 @@ public class SidebarManager : GLib.Object {
             // Single-source path: show categories appropriate to the selected source
             NewsSource sidebar_eff = effective_news_source();
             if (sidebar_eff == NewsSource.BLOOMBERG) {
-                items.add(create_item_data("Markets", "markets", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Industries", "industries", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Economics", "economics", SidebarItemType.CATEGORY));
+                items.add(create_item_data("Business", "business", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Technology", "technology", SidebarItemType.CATEGORY));
                 items.add(create_item_data("Politics", "politics", SidebarItemType.CATEGORY));
             } else {
@@ -638,6 +629,14 @@ public class SidebarManager : GLib.Object {
             if (subscription != null && window.podcast_pane != null) {
                 window.podcast_pane.open_for_show(subscription.to_show());
             }
+            return;
+        }
+
+        // Notes browser is a modal dialog, not a category page - same
+        // reasoning as the podcastshow: case above, stay wherever the user
+        // currently is instead of navigating.
+        if (id == "notes") {
+            NotesBrowserDialog.show(window);
             return;
         }
 

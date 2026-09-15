@@ -32,6 +32,9 @@ public class ArticleMenu : GLib.Object {
     private bool is_viewed;
     private NewsWindow? parent_window;
     private Gtk.Button? save_btn;
+    // Skippable for callers already showing the article in app (e.g. the
+    // reader sheet's own options menu), where the option is a no-op.
+    public bool show_view_in_app = true;
     public ArticleMenu(string url, string? source_name, bool saved, bool viewed, NewsWindow? window) {
         article_url = url;
         article_source_name = source_name;
@@ -45,12 +48,14 @@ public class ArticleMenu : GLib.Object {
         menu_box.add_css_class("menu");
 
         // View in app
-        var view_btn = create_menu_item("view-reveal-symbolic", "View article in app");
-        view_btn.clicked.connect(() => {
-            open_in_app_requested(article_url);
-            if (popover != null) popover.popdown();
-        });
-        menu_box.append(view_btn);
+        if (show_view_in_app) {
+            var view_btn = create_menu_item("view-reveal-symbolic", "View article in app");
+            view_btn.clicked.connect(() => {
+                open_in_app_requested(article_url);
+                if (popover != null) popover.popdown();
+            });
+            menu_box.append(view_btn);
+        }
 
         // Open in browser
         var browser_btn = create_menu_item("web-browser-symbolic", "Open article in browser");

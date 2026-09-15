@@ -22,7 +22,10 @@ namespace ArticleShareService {
         EMAIL,
         REDDIT,
         TWITTER,
-        FACEBOOK
+        FACEBOOK,
+        TELEGRAM,
+        WHATSAPP,
+        SIGNAL
     }
 
     // Build a platform-neutral share URI for the given target.
@@ -42,6 +45,18 @@ namespace ArticleShareService {
                 return "https://twitter.com/intent/tweet?text=%s&url=%s".printf(text, encoded_url);
             case ShareTarget.FACEBOOK:
                 return "https://www.facebook.com/sharer/sharer.php?u=%s".printf(encoded_url);
+            case ShareTarget.TELEGRAM:
+                string tg_text = title != null ? Uri.escape_string(title, null, false) : "";
+                return "https://t.me/share/url?url=%s&text=%s".printf(encoded_url, tg_text);
+            case ShareTarget.WHATSAPP:
+                string wa_message = title != null ? "%s %s".printf(title, url) : url;
+                return "https://wa.me/?text=%s".printf(Uri.escape_string(wa_message, null, false));
+            case ShareTarget.SIGNAL:
+                // No public web-share URL for Signal - this only works if
+                // Signal Desktop is installed and registered as a handler
+                // for its own unofficial sgnl:// scheme.
+                string sig_message = title != null ? "%s %s".printf(title, url) : url;
+                return "sgnl://send?text=%s".printf(Uri.escape_string(sig_message, null, false));
             default:
                 return "";
         }

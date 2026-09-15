@@ -34,6 +34,17 @@ public class ReaderView : GLib.Object {
     private string font_family = "sans";
     private string color_scheme = "auto";
 
+    // Drag-to-select autoscroll: the body text is a series of TextViews,
+    // each with its own internal (disconnected) scroll adjustment, so their
+    // built-in "scroll into view while selecting" never reaches the real
+    // outer scroller. Tracked here from content_box, at capture phase, so
+    // it still sees the pointer even once a TextView claims the drag for
+    // its own text selection.
+    private double pointer_x = 0;
+    private double pointer_y = 0;
+    private bool pointer_down = false;
+    private uint autoscroll_source_id = 0;
+
     // One provider shared by every ReaderView instance - the settings are
     // global (backed by gschema), so there's no need for per-instance CSS.
     private static Gtk.CssProvider? style_provider = null;
@@ -106,7 +117,61 @@ public class ReaderView : GLib.Object {
         scroller.set_child(clamp);
         stack.add_named(scroller, "content");
 
+        // Prevent the auto-created Viewport from jumping the scroll
+        // position to whichever TextView regains focus (e.g. when a
+        // context-menu action like Copy closes the popover).
+        var viewport = scroller.get_child() as Gtk.Viewport;
+        if (viewport != null) viewport.set_scroll_to_focus(false);
+
+        setup_drag_autoscroll();
         build_settings_button();
+    }
+
+    private void setup_drag_autoscroll() {
+        var motion = new Gtk.EventControllerMotion();
+        motion.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+        content_box.add_controller(motion);
+        motion.motion.connect((x, y) => {
+            pointer_x = x;
+            pointer_y = y;
+        });
+
+        var click = new Gtk.GestureClick();
+        click.set_button(0);
+        click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+        content_box.add_controller(click);
+        click.pressed.connect((g, n_press, x, y) => {
+            pointer_x = x;
+            pointer_y = y;
+            pointer_down = true;
+            if (autoscroll_source_id == 0) {
+                autoscroll_source_id = Timeout.add(30, on_autoscroll_tick);
+            }
+        });
+        click.released.connect((g, n_press, x, y) => {
+            pointer_down = false;
+        });
+    }
+
+    private bool on_autoscroll_tick() {
+        if (!pointer_down) {
+            autoscroll_source_id = 0;
+            return false;
+        }
+
+        double sx, sy;
+        content_box.translate_coordinates(scroller, pointer_x, pointer_y, out sx, out sy);
+        int visible_h = scroller.get_allocated_height();
+        int margin = 32;
+        var adj = scroller.get_vadjustment();
+
+        if (sy < margin) {
+            adj.set_value(double.max(adj.get_lower(), adj.get_value() - 14));
+        } else if (sy > visible_h - margin) {
+            adj.set_value(double.min(adj.get_upper() - adj.get_page_size(), adj.get_value() + 14));
+        }
+
+        return true;
     }
 
     public Gtk.Widget get_widget() {
@@ -499,6 +564,16 @@ public class ReaderView : GLib.Object {
         flush_text_run(text_run);
 
         stack.set_visible_child_name("content");
+
+        // The TextViews' wrapped-text height isn't settled yet on the
+        // frame they're built, so the scroller's adjustment.upper comes
+        // out far too small (matching the viewport, not the real content
+        // height) until something forces a relayout - queue it once the
+        // main loop is idle, after the first layout pass has run.
+        GLib.Idle.add(() => {
+            content_box.queue_resize();
+            return false;
+        });
     }
 
     private void flush_text_run(Gee.ArrayList<string> text_run) {

@@ -23,9 +23,11 @@ using Gdk;
 public class ArticleSheet : GLib.Object {
     private NewsWindow parent_window;
     private Gtk.Box container;
-    private Gtk.Revealer revealer;
+    private Adw.NavigationView nav_view;
+    private Adw.NavigationPage article_page;
     private Gtk.Box content_box;
     private Gtk.Button? close_btn;
+    private Gtk.Button? options_btn;
     private Gtk.Button? back_btn;
     private Gtk.Button? forward_btn;
     private Gtk.Button? refresh_btn;
@@ -49,6 +51,15 @@ public class ArticleSheet : GLib.Object {
     private Gtk.Label? comments_status_label;
     private string? comments_loaded_url = null;
 
+    private Adw.OverlaySplitView? notes_split;
+    private Gtk.ToggleButton? notes_toggle_btn;
+    private Gtk.Stack? notes_stack;
+    private Gtk.Box? notes_list_box;
+    private Gtk.Label? notes_status_label;
+    private ulong notes_added_handler = 0;
+    private ulong notes_updated_handler = 0;
+    private ulong notes_removed_handler = 0;
+
     private WebKit.UserContentManager? user_content_manager;
     private WebKit.UserStyleSheet? adblock_sheet;
 
@@ -64,13 +75,14 @@ public class ArticleSheet : GLib.Object {
         container.set_vexpand(true);
         container.set_visible(false);
 
-        // Revealer
-        revealer = new Gtk.Revealer();
-        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
-        revealer.set_transition_duration(800);
-        revealer.set_reveal_child(false);
-        revealer.set_valign(Gtk.Align.FILL);
-        revealer.add_css_class("article-sheet");
+        // Adw.NavigationView gives the sheet a native push/pop slide
+        // animation and the platform's own swipe-back gesture for free.
+        nav_view = new Adw.NavigationView();
+        nav_view.set_hexpand(true);
+        nav_view.set_vexpand(true);
+        nav_view.add_css_class("article-sheet");
+        var root_page = new Adw.NavigationPage(new Gtk.Box(Gtk.Orientation.VERTICAL, 0), "Root");
+        nav_view.push(root_page);
 
         // Content box
         content_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
@@ -133,12 +145,29 @@ public class ArticleSheet : GLib.Object {
         close_btn.set_tooltip_text("Close article");
         close_btn.clicked.connect(() => { if (!is_destroyed) dismiss(); });
 
+        options_btn = new Gtk.Button.from_icon_name("view-more-symbolic");
+        options_btn.set_tooltip_text("Article options");
+        options_btn.set_can_focus(false);
+        options_btn.clicked.connect(() => { if (!is_destroyed) show_options_menu(); });
+
+        notes_toggle_btn = new Gtk.ToggleButton();
+        notes_toggle_btn.set_icon_name("document-edit-symbolic");
+        notes_toggle_btn.set_tooltip_text("Notes");
+        notes_toggle_btn.set_can_focus(false);
+        notes_toggle_btn.toggled.connect(() => {
+            if (is_destroyed || notes_split == null) return;
+            notes_split.set_show_sidebar(notes_toggle_btn.get_active());
+            if (notes_toggle_btn.get_active()) load_notes();
+        });
+
         header.append(back_btn);
         header.append(forward_btn);
         header.append(refresh_btn);
         header.append(spacer);
         header.append(reader_toggle_btn);
         header.append(reader_view.get_settings_button());
+        header.append(notes_toggle_btn);
+        header.append(options_btn);
         header.append(close_btn);
 
         content_box.append(header);
@@ -170,16 +199,36 @@ public class ArticleSheet : GLib.Object {
         // button itself (e.g. built-in Escape handling).
         comments_split.notify["show-sidebar"].connect(() => {
             bool open = comments_split.get_show_sidebar();
-            if (comments_toggle_btn != null) {
-                if (comments_fab_overlay != null) comments_fab_overlay.set_visible(!open);
-                if (!open) comments_toggle_btn.set_active(false);
-            }
+            if (comments_toggle_btn != null && !open) comments_toggle_btn.set_active(false);
+            update_comments_fab_visibility();
+        });
+
+        // Notes gets its own OverlaySplitView, nested outside comments_split,
+        // so the two panes toggle independently instead of sharing one
+        // sidebar's content.
+        notes_split = new Adw.OverlaySplitView();
+        notes_split.set_hexpand(true);
+        notes_split.set_vexpand(true);
+        notes_split.set_show_sidebar(false);
+        notes_split.set_sidebar_position(Gtk.PackType.END);
+        notes_split.set_max_sidebar_width(420);
+        notes_split.set_min_sidebar_width(294);
+        notes_split.set_sidebar_width_fraction(0.29);
+        notes_split.set_collapsed(true);
+        notes_split.set_enable_show_gesture(false);
+        notes_split.set_enable_hide_gesture(true);
+        notes_split.set_content(comments_split);
+
+        notes_split.notify["show-sidebar"].connect(() => {
+            bool open = notes_split.get_show_sidebar();
+            if (notes_toggle_btn != null && !open) notes_toggle_btn.set_active(false);
+            update_comments_fab_visibility();
         });
 
         var view_overlay = new Gtk.Overlay();
         view_overlay.set_hexpand(true);
         view_overlay.set_vexpand(true);
-        view_overlay.set_child(comments_split);
+        view_overlay.set_child(notes_split);
         content_box.append(view_overlay);
 
         comments_toggle_btn = new Gtk.ToggleButton();
@@ -285,8 +334,83 @@ public class ArticleSheet : GLib.Object {
 
         comments_split.set_sidebar(comments_box);
 
-        revealer.set_child(content_box);
-        container.append(revealer);
+        var notes_header = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        notes_header.set_margin_top(8);
+        notes_header.set_margin_bottom(8);
+        notes_header.set_margin_start(12);
+        notes_header.set_margin_end(12);
+        var notes_title = new Gtk.Label("Notes");
+        notes_title.add_css_class("title-4");
+        notes_title.set_hexpand(true);
+        notes_title.set_halign(Gtk.Align.START);
+        var new_note_btn = new Gtk.Button.from_icon_name("list-add-symbolic");
+        new_note_btn.set_tooltip_text("New note");
+        new_note_btn.set_can_focus(false);
+        new_note_btn.clicked.connect(() => {
+            if (is_destroyed || current_url == null || parent_window == null) return;
+            NoteEditorDialog.show(parent_window, current_url, null);
+        });
+        var notes_close_btn = new Gtk.Button.from_icon_name("window-close-symbolic");
+        notes_close_btn.set_tooltip_text("Close notes");
+        notes_close_btn.set_can_focus(false);
+        notes_close_btn.clicked.connect(() => {
+            if (!is_destroyed && notes_toggle_btn != null) notes_toggle_btn.set_active(false);
+        });
+        notes_header.append(notes_title);
+        notes_header.append(new_note_btn);
+        notes_header.append(notes_close_btn);
+
+        notes_list_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        notes_list_box.set_margin_start(12);
+        notes_list_box.set_margin_end(12);
+        notes_list_box.set_margin_top(12);
+        notes_list_box.set_margin_bottom(12);
+
+        var notes_scroller = new Gtk.ScrolledWindow();
+        notes_scroller.set_hexpand(true);
+        notes_scroller.set_vexpand(true);
+        notes_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        notes_scroller.set_child(notes_list_box);
+
+        notes_status_label = new Gtk.Label("No notes yet.");
+        notes_status_label.add_css_class("dim-label");
+        notes_status_label.set_halign(Gtk.Align.CENTER);
+        notes_status_label.set_valign(Gtk.Align.CENTER);
+        notes_status_label.set_vexpand(true);
+
+        notes_stack = new Gtk.Stack();
+        notes_stack.set_hexpand(true);
+        notes_stack.set_vexpand(true);
+        notes_stack.add_named(notes_status_label, "status");
+        notes_stack.add_named(notes_scroller, "list");
+
+        var notes_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        notes_box.set_vexpand(true);
+        notes_box.set_hexpand(false);
+        notes_box.add_css_class("sheet");
+        notes_box.add_css_class("comments-pane");
+        notes_box.append(notes_header);
+        notes_box.append(new Gtk.Separator(Gtk.Orientation.HORIZONTAL));
+        notes_box.append(notes_stack);
+
+        notes_split.set_sidebar(notes_box);
+
+        var notes_store = Paperboy.NotesStore.get_instance();
+        notes_added_handler = notes_store.note_added.connect((note) => {
+            if (is_destroyed || current_url == null || note.url != current_url) return;
+            load_notes();
+        });
+        notes_updated_handler = notes_store.note_updated.connect((note) => {
+            if (is_destroyed || current_url == null || note.url != current_url) return;
+            load_notes();
+        });
+        notes_removed_handler = notes_store.note_removed.connect((url, id) => {
+            if (is_destroyed || current_url == null || url != current_url) return;
+            load_notes();
+        });
+
+        article_page = new Adw.NavigationPage(content_box, "Article");
+        container.append(nav_view);
 
 
         // Load adblock CSS
@@ -307,7 +431,7 @@ public class ArticleSheet : GLib.Object {
         click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
         container.add_controller(click);
         click.pressed.connect((g, n_press, x, y) => {
-            if (is_destroyed || !revealer.get_reveal_child()) return;
+            if (is_destroyed || !is_open()) return;
             double cxd = 0, cyd = 0;
             content_box.translate_coordinates(container, 0, 0, out cxd, out cyd);
             int cx = (int)cxd, cy = (int)cyd, cw = content_box.get_allocated_width(), ch = content_box.get_allocated_height();
@@ -317,24 +441,90 @@ public class ArticleSheet : GLib.Object {
         // Create initial WebView
         setup_webview();
 
-        // Hide container when revealer fully hides
-        revealer.notify["reveal-child"].connect(() => {
-            if (!revealer.get_reveal_child()) {
-                container.set_visible(false);
-                // Rebuild the webview so its back-forward list (and any
-                // WebKit-suspended processes retained for it) is dropped
-                // once the article is closed, instead of accumulating for
-                // the lifetime of this long-lived, reused ArticleSheet.
-                setup_webview();
-                if (reader_view != null) reader_view.reset();
-                closed();
-            }
+        // Fires once the article page is fully off-screen, whether closed
+        // via the close button, outside click, or the NavigationView's own
+        // native swipe-back gesture.
+        article_page.hidden.connect(() => {
+            container.set_visible(false);
+            // Rebuild the webview so its back-forward list (and any
+            // WebKit-suspended processes retained for it) is dropped
+            // once the article is closed, instead of accumulating for
+            // the lifetime of this long-lived, reused ArticleSheet.
+            setup_webview();
+            if (reader_view != null) reader_view.reset();
+            closed();
         });
     }
 
     private void update_nav_buttons() {
         if (back_btn != null) back_btn.set_sensitive(webview != null ? webview.can_go_back() : false);
         if (forward_btn != null) forward_btn.set_sensitive(webview != null ? webview.can_go_forward() : false);
+    }
+
+    // The comments FAB is a plain overlay child of view_overlay, drawn on
+    // top of both split views regardless of their own sidebar state - hide
+    // it whenever either pane is open so it doesn't float over the pane.
+    private void update_comments_fab_visibility() {
+        if (comments_fab_overlay == null) return;
+        bool comments_open = comments_split != null && comments_split.get_show_sidebar();
+        bool notes_open = notes_split != null && notes_split.get_show_sidebar();
+        comments_fab_overlay.set_visible(!comments_open && !notes_open);
+    }
+
+    // Same options as an article card's context menu (open in browser,
+    // follow source, save, mark unread, share), minus "view in app" since
+    // the sheet is already showing it.
+    private void show_options_menu() {
+        if (current_url == null || parent_window == null || options_btn == null) return;
+        string url = current_url;
+        string? source_name = current_source_name_encoded;
+        string norm_url = parent_window.normalize_article_url(url);
+
+        bool is_saved = false;
+        bool is_viewed = false;
+        if (parent_window.article_state_store != null) {
+            is_saved = parent_window.article_state_store.is_saved(norm_url);
+            is_viewed = parent_window.article_state_store.is_viewed(norm_url);
+        }
+
+        var menu = new ArticleMenu(url, source_name, is_saved, is_viewed, parent_window);
+        menu.show_view_in_app = false;
+
+        menu.open_in_browser_requested.connect((article_url) => {
+            if (parent_window.article_manager != null) parent_window.article_manager.open_article_in_browser_if_online(article_url);
+        });
+        menu.follow_source_requested.connect((article_url, src_name) => {
+            parent_window.show_toast("Searching for feed...");
+            if (parent_window.source_manager != null) parent_window.source_manager.follow_rss_source(article_url, src_name);
+        });
+        menu.save_for_later_requested.connect((article_url) => {
+            if (parent_window.article_state_store == null) return;
+            if (parent_window.article_state_store.is_saved(norm_url)) {
+                parent_window.article_state_store.unsave_article(article_url);
+                parent_window.show_toast("Removed article from saved");
+            } else {
+                string title = (webview != null ? webview.get_title() : null) ?? "";
+                if (title.length == 0) title = article_url;
+                parent_window.article_state_store.save_article(article_url, title, null, source_name, null);
+                parent_window.show_toast("Added article to saved");
+            }
+        });
+        menu.mark_unread_requested.connect((article_url) => {
+            if (parent_window.article_state_store != null) parent_window.article_state_store.mark_unviewed(norm_url);
+            if (parent_window.view_state != null) {
+                parent_window.view_state.viewed_articles.remove(norm_url);
+                if (source_name != null) parent_window.view_state.refresh_viewed_badges_for_source(source_name);
+                parent_window.view_state.refresh_viewed_badge_for_url(norm_url);
+            }
+        });
+        menu.share_requested.connect((article_url) => {
+            parent_window.show_share_dialog(article_url);
+        });
+
+        var popover = new Gtk.Popover();
+        popover.set_parent(options_btn);
+        popover.set_child(menu.create_menu_box(popover));
+        popover.popup();
     }
 
     private void setup_webview() {
@@ -429,16 +619,39 @@ public class ArticleSheet : GLib.Object {
         if (current_url != null && reader_loaded_url != current_url) {
             reader_view.show_loading();
             string url_snapshot = current_url;
-            ArticleExtractorService.extract_async(url_snapshot, (extracted) => {
+            ArticleExtractorService.extract_async(url_snapshot, true, (extracted) => {
                 if (is_destroyed || current_url != url_snapshot) return;
                 if (extracted.success) {
                     reader_loaded_url = url_snapshot;
                     reader_view.show_article(extracted, url_snapshot, current_source_name_encoded);
+                    backfill_card_thumbnail(url_snapshot, extracted.hero_image_url);
                 } else {
                     reader_view.show_error();
                 }
             });
         }
+    }
+
+    // If the card for this article never had a real thumbnail (only a
+    // placeholder), but reader view found a hero image on the actual page,
+    // use it as the card's thumbnail. Never touches a card that already has
+    // a real, API-provided image.
+    private void backfill_card_thumbnail(string url, string? hero_image_url) {
+        if (hero_image_url == null || hero_image_url.length == 0) return;
+        if (!hero_image_url.has_prefix("http://") && !hero_image_url.has_prefix("https://")) return;
+        if (parent_window == null || parent_window.view_state == null || parent_window.image_manager == null) return;
+
+        string norm = parent_window.normalize_article_url(url);
+        var pic = parent_window.view_state.url_to_picture.get(norm);
+        if (pic == null) return;
+        if (pic.get_data<bool>("has-real-thumbnail")) return;
+
+        int w = pic.get_width();
+        int h = pic.get_height();
+        if (w <= 0 || h <= 0) return;
+
+        parent_window.image_manager.load_image_async(pic, hero_image_url, w * 3, h * 3, true);
+        pic.set_data<bool>("has-real-thumbnail", true);
     }
 
     private string bundled_comments_icon_name() {
@@ -615,12 +828,76 @@ public class ArticleSheet : GLib.Object {
         comments_stack.set_visible_child_name("list");
     }
 
+    private void load_notes() {
+        if (notes_stack == null || notes_list_box == null || current_url == null) return;
+
+        var notes = Paperboy.NotesStore.get_instance().get_notes_for_url(current_url);
+
+        Gtk.Widget? child = notes_list_box.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            notes_list_box.remove(child);
+            child = next;
+        }
+
+        if (notes.size == 0) {
+            notes_stack.set_visible_child_name("status");
+            return;
+        }
+
+        foreach (var note in notes) {
+            notes_list_box.append(build_note_row(note));
+        }
+        notes_stack.set_visible_child_name("list");
+    }
+
+    private Gtk.Widget build_note_row(Paperboy.ArticleNote note) {
+        var row = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
+        row.add_css_class("comment-card");
+        row.set_margin_bottom(10);
+
+        var meta_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var title_label = new Gtk.Label(note.title);
+        title_label.add_css_class("heading");
+        title_label.set_halign(Gtk.Align.START);
+        title_label.set_hexpand(true);
+        title_label.set_ellipsize(Pango.EllipsizeMode.END);
+        meta_row.append(title_label);
+
+        var date_label = new Gtk.Label(DateUtils.time_ago(note.updated_at.to_string()));
+        date_label.add_css_class("dim-label");
+        date_label.add_css_class("caption");
+        date_label.set_halign(Gtk.Align.END);
+        meta_row.append(date_label);
+        row.append(meta_row);
+
+        string snippet = stripHtmlUtils.strip_html(note.content_html).strip();
+        var body_label = new Gtk.Label(snippet);
+        body_label.set_wrap(true);
+        body_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
+        body_label.set_halign(Gtk.Align.START);
+        body_label.set_justify(Gtk.Justification.LEFT);
+        body_label.set_lines(3);
+        body_label.set_ellipsize(Pango.EllipsizeMode.END);
+        row.append(body_label);
+
+        var click = new Gtk.GestureClick();
+        row.add_controller(click);
+        click.pressed.connect((g, n_press, x, y) => {
+            if (n_press == 2 && !is_destroyed && parent_window != null) {
+                NoteEditorDialog.show(parent_window, note.url, note);
+            }
+        });
+
+        return row;
+    }
+
     public Gtk.Widget get_widget() {
         return container;
     }
 
     public bool is_open() {
-        return revealer.get_reveal_child();
+        return nav_view.get_visible_page() == article_page;
     }
 
     public void open(string url, bool? force_reader_view = null, string? source_name_encoded = null) {
@@ -631,8 +908,7 @@ public class ArticleSheet : GLib.Object {
         if (webview == null) setup_webview();
         if (webview != null) webview.load_uri(url);
         container.set_visible(true);
-        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
-        revealer.set_reveal_child(true);
+        if (!is_open()) nav_view.push(article_page);
 
         current_comments_url = Paperboy.CommentsUrlRegistry.lookup(url);
         comments_loaded_url = null;
@@ -640,12 +916,20 @@ public class ArticleSheet : GLib.Object {
         if (comments_toggle_btn != null) {
             comments_toggle_btn.set_active(false);
         }
-        if (comments_fab_overlay != null) comments_fab_overlay.set_visible(comments_enabled);
+        if (comments_fab_overlay != null) {
+            comments_fab_overlay.set_visible(false);
+            if (comments_enabled && parent_window != null && parent_window.animation_manager != null) {
+                parent_window.animation_manager.animate_card_entrance(comments_fab_overlay, 300u);
+            }
+        }
         if (comments_count_badge != null) comments_count_badge.set_visible(false);
         if (comments_split != null) comments_split.set_show_sidebar(false);
         // Fetch comments eagerly so the FAB's count badge can appear
         // before the user ever opens the pane, not just after.
         if (comments_enabled) load_comments();
+
+        if (notes_toggle_btn != null) notes_toggle_btn.set_active(false);
+        if (notes_split != null) notes_split.set_show_sidebar(false);
 
         bool want_reader = force_reader_view ?? (parent_window != null && parent_window.prefs != null && parent_window.prefs.reader_view_enabled);
         if (reader_toggle_btn != null) {
@@ -662,12 +946,16 @@ public class ArticleSheet : GLib.Object {
     }
 
     public void dismiss() {
-        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN);
-        revealer.set_reveal_child(false);
+        if (is_open()) nav_view.pop();
     }
 
     public void destroy() {
         is_destroyed = true;
+
+        var notes_store = Paperboy.NotesStore.get_instance();
+        if (notes_added_handler != 0) notes_store.disconnect(notes_added_handler);
+        if (notes_updated_handler != 0) notes_store.disconnect(notes_updated_handler);
+        if (notes_removed_handler != 0) notes_store.disconnect(notes_removed_handler);
 
         if (webview != null) {
             webview.stop_loading();
@@ -682,9 +970,11 @@ public class ArticleSheet : GLib.Object {
         adblock_sheet = null;
         user_content_manager = null;
         container = null;
-        revealer = null;
+        nav_view = null;
+        article_page = null;
         content_box = null;
         close_btn = null;
+        options_btn = null;
         reader_toggle_btn = null;
         view_stack = null;
         reader_view = null;
@@ -701,6 +991,11 @@ public class ArticleSheet : GLib.Object {
         comments_spinner = null;
         comments_status_label = null;
         comments_loaded_url = null;
+        notes_split = null;
+        notes_toggle_btn = null;
+        notes_stack = null;
+        notes_list_box = null;
+        notes_status_label = null;
         parent_window = null;
     }
 

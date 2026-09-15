@@ -137,6 +137,9 @@ public class NewsService {
                 case "economics":
                 case "politics":
                 case "technology":
+                // Business pulls from Bloomberg's industries/markets/economics
+                // feeds together - see BloombergFetcher.fetch()'s "business" case.
+                case "business":
                     return true;
                 default:
                     return false;

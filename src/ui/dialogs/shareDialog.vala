@@ -126,6 +126,70 @@ public class ShareDialog : GLib.Object {
         );
         content_box.append(facebook_btn);
 
+        // Messaging apps section
+        var messaging_label = new Gtk.Label("Share via messaging app");
+        messaging_label.add_css_class("dim-label");
+        messaging_label.set_halign(Gtk.Align.START);
+        messaging_label.set_margin_top(6);
+        content_box.append(messaging_label);
+
+        // Telegram
+        var telegram_btn = create_menu_button(
+            "telegram-mono",
+            "Telegram",
+            () => {
+                try {
+                    string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.TELEGRAM, url, title);
+                    var launcher = new Gtk.UriLauncher(uri);
+                    launcher.launch.begin(parent_window, null);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to Telegram");
+                    dialog.close();
+                } catch (GLib.Error e) {
+                    warning("shareDialog: failed to open Telegram: %s", e.message);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on Telegram");
+                }
+            }
+        );
+        content_box.append(telegram_btn);
+
+        // WhatsApp
+        var whatsapp_btn = create_menu_button(
+            "whatsapp-mono",
+            "WhatsApp",
+            () => {
+                try {
+                    string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.WHATSAPP, url, title);
+                    var launcher = new Gtk.UriLauncher(uri);
+                    launcher.launch.begin(parent_window, null);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to WhatsApp");
+                    dialog.close();
+                } catch (GLib.Error e) {
+                    warning("shareDialog: failed to open WhatsApp: %s", e.message);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on WhatsApp");
+                }
+            }
+        );
+        content_box.append(whatsapp_btn);
+
+        // Signal - unofficial sgnl:// deep link, only works if Signal
+        // Desktop is installed and registered as a URI handler.
+        var signal_btn = create_menu_button(
+            "signal-mono",
+            "Signal",
+            () => {
+                try {
+                    string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.SIGNAL, url, title);
+                    var launcher = new Gtk.UriLauncher(uri);
+                    launcher.launch.begin(parent_window, null);
+                    dialog.close();
+                } catch (GLib.Error e) {
+                    warning("shareDialog: failed to open Signal: %s", e.message);
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Signal isn't installed");
+                }
+            }
+        );
+        content_box.append(signal_btn);
+
         // Copy link section
         var copy_label = new Gtk.Label("Share via copied link");
         copy_label.add_css_class("dim-label");
@@ -172,7 +236,7 @@ public class ShareDialog : GLib.Object {
         
         // Try to load custom icon from file first (for social media icons)
         Gtk.Image? icon = null;
-        string[] custom_icons = {"reddit-mono", "x-mono", "facebook-mono"};
+        string[] custom_icons = {"reddit-mono", "x-mono", "facebook-mono", "telegram-mono", "whatsapp-mono", "signal-mono"};
         bool is_custom = false;
         foreach (var custom in custom_icons) {
             if (icon_name == custom) {
@@ -182,19 +246,9 @@ public class ShareDialog : GLib.Object {
         }
         
         if (is_custom) {
-            // Load from file using DataPaths
-            string filename = icon_name + ".svg";
-            string[] candidates = {
-                GLib.Path.build_filename("icons", "symbolic", "24x24", filename),
-                GLib.Path.build_filename("icons", "symbolic", filename),
-                GLib.Path.build_filename("icons", filename)
-            };
-            string? icon_path = null;
-            foreach (var c in candidates) {
-                icon_path = DataPathsUtils.find_data_file(c);
-                if (icon_path != null) break;
-            }
-            
+            // Resolves to the -white.svg variant in dark mode, same as the
+            // sidebar's category icons.
+            string? icon_path = CategoryIconsUtils.resolve_themed_icon_path(icon_name + ".svg");
             if (icon_path != null) {
                 icon = new Gtk.Image.from_file(icon_path);
                 icon.set_pixel_size(16);

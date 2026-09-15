@@ -42,6 +42,9 @@ public class ContentView : GLib.Object {
     public Gtk.Box sports_scores_container;
     public Gtk.Separator hero_scores_separator;
     public Gtk.Separator scores_articles_separator;
+    public Gtk.Box stocks_ticker_container;
+    public Gtk.Separator hero_stocks_separator;
+    public Gtk.Separator stocks_articles_separator;
     public Gtk.Separator hero_frontpage_separator;
     public Gtk.Box category_icon_holder;
     public Gtk.Label category_label;
@@ -275,6 +278,29 @@ public class ContentView : GLib.Object {
         scores_articles_separator.set_margin_bottom(14);
         scores_articles_separator.set_visible(false);
         main_content_container.append(scores_articles_separator);
+
+        // Stocks ticker (Business category only): same additive pattern as
+        // the Sports scores container above, owned entirely by
+        // StocksTickerController - see its class doc for details.
+        hero_stocks_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        hero_stocks_separator.add_css_class("section-divider");
+        hero_stocks_separator.set_margin_top(14);
+        hero_stocks_separator.set_margin_bottom(14);
+        hero_stocks_separator.set_visible(false);
+        main_content_container.append(hero_stocks_separator);
+
+        stocks_ticker_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
+        stocks_ticker_container.set_halign(Gtk.Align.FILL);
+        stocks_ticker_container.set_hexpand(true);
+        stocks_ticker_container.set_visible(false);
+        main_content_container.append(stocks_ticker_container);
+
+        stocks_articles_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        stocks_articles_separator.add_css_class("section-divider");
+        stocks_articles_separator.set_margin_top(14);
+        stocks_articles_separator.set_margin_bottom(14);
+        stocks_articles_separator.set_visible(false);
+        main_content_container.append(stocks_articles_separator);
 
         // Article grid - a real grid (FlowBox) so cards line up into even rows
         // and columns with consistent gutters, instead of independently
@@ -640,7 +666,7 @@ public class ContentView : GLib.Object {
             if (window.header_manager != null) {
                 window.header_manager.update_content_header_now();
             } else if (window.prefs != null && window.prefs.category == "topten") {
-                category_subtitle.set_markup("<span size='22000'><b>TOP STORIES RIGHT NOW</b></span>");
+                category_subtitle.set_markup("<span size='22000'><b>TRENDING NOW</b></span>");
                 category_subtitle.set_visible(true);
                 category_subtitle.queue_resize();
             } else {
@@ -664,6 +690,9 @@ public class ContentView : GLib.Object {
         if (sports_scores_container != null) sports_scores_container.set_visible(false);
         if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
         if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
+        if (stocks_ticker_container != null) stocks_ticker_container.set_visible(false);
+        if (hero_stocks_separator != null) hero_stocks_separator.set_visible(false);
+        if (stocks_articles_separator != null) stocks_articles_separator.set_visible(false);
 
         // Search spans every category, not just the one on screen (e.g.
         // "Top Ten") - keeping that category's name/icon while showing

@@ -1067,6 +1067,41 @@ public class PrefsDialog : GLib.Object {
 
         personalization_page.add(reading_group);
 
+        // ========== MARKET CARDS GROUP ==========
+        var market_group = new Adw.PreferencesGroup();
+        market_group.set_title("Market Cards");
+        market_group.set_description("Choose whether the Business category shows live market index cards");
+
+        var market_master_row = new Adw.SwitchRow();
+        market_master_row.set_title("Show market cards");
+        market_master_row.set_subtitle("Turn off to hide the live market index cards from the Business category");
+        market_master_row.set_active(prefs.market_cards_enabled);
+        market_master_row.notify["active"].connect(() => {
+            bool enabled = market_master_row.get_active();
+            prefs.market_cards_enabled = enabled;
+            if (win != null && win.prefs.category == "business" && enabled) {
+                StocksTickerController.load(win);
+            } else if (win != null) {
+                StocksTickerController.stop_polling();
+                StocksTickerController.hide(win);
+            }
+        });
+
+        var market_pill_row = new Adw.SwitchRow();
+        market_pill_row.set_title("Show market status pill");
+        market_pill_row.set_subtitle("Show an \"Open\" pill next to the Business sidebar count while the market is open");
+        market_pill_row.set_active(prefs.market_pill_enabled);
+        market_pill_row.notify["active"].connect(() => {
+            prefs.market_pill_enabled = market_pill_row.get_active();
+            if (win != null && win.sidebar_manager != null) {
+                win.sidebar_manager.rebuild_sidebar();
+            }
+        });
+
+        market_group.add(market_master_row);
+        market_group.add(market_pill_row);
+        personalization_page.add(market_group);
+
         // ========== SPORTS SCORE CARDS GROUP ==========
         var sports_group = new Adw.PreferencesGroup();
         sports_group.set_title("Sports Score Cards");
@@ -1124,6 +1159,7 @@ public class PrefsDialog : GLib.Object {
         sports_group.add(sports_live_indicator_row);
         sports_group.add(sports_list_box);
         personalization_page.add(sports_group);
+
         dialog.add(personalization_page);
 
         // ========== UPDATE INTERVAL GROUP ==========
@@ -1444,6 +1480,14 @@ public class PrefsDialog : GLib.Object {
     // Condensed highlights for the 5 most recent GitHub releases, shown in
     // the About dialog's "What's New" page.
     private const string RELEASE_NOTES = """
+        <p><em>v0.11.0a</em> — Market Index Cards, Article Notes, Gestures &amp; Thumbnail Backfill</p>
+        <ul>
+        <li>Added market index cards with live intraday price charts for major indices and BTC, plus a hover readout showing price/time at any point</li>
+        <li>Added per-article notes with rich-text editing (bold, italic, highlights, lists) and a dedicated Notes sidebar listing every note</li>
+        <li>Added automatic thumbnail backfill so articles missing a real image get one extracted in the background</li>
+        <li>Replaced the reader's hand-rolled swipe-to-close gesture with a native libadwaita navigation gesture</li>
+        <li>Fixed reader view scroll/selection glitches, blurry HiDPI sidebar icons, and malformed author/date extraction on some sites</li>
+        </ul>
         <p><em>v0.10.1a</em> — Hotfix: Reader View Memory Leak</p>
         <ul>
         <li>Fixed WebKit reader web processes never terminating, leaking a sandboxed process every time reader view was used</li>
@@ -1472,35 +1516,20 @@ public class PrefsDialog : GLib.Object {
         <li>Fixed Sports' hero carousel staying empty on first load, and My Feed's sidebar unread badge showing inflated counts</li>
         <li>Added a "Go to category" button on Front Page/My Feed rows for quick navigation to the full category page</li>
         </ul>
-        <p><em>v0.8.0a</em> — Live Sports Scores, UI Redesign &amp; Major Performance Overhaul</p>
-        <ul>
-        <li>Added live ESPN scoreboard cards to the Sports category, covering major leagues from the NFL to Champions League, with polling that scales to game state</li>
-        <li>Redesigned the Front Page: a fixed grid layout, refreshed hero cards, per-category scrollable sections, and relative-time captions on cards</li>
-        <li>Added first-run onboarding, a light/dark/system theme picker, and release notes/issue links in the About dialog</li>
-        <li>Replaced Reddit and Reuters as builtin sources with PBS NewsHour and ABC News, and improved Local News with GeoClue-based location lookup</li>
-        <li>Fixed severe startup/Front Page freezes and memory leaks; capped image cache growth with an LRU eviction budget</li>
-        </ul>
-        <p><em>v0.7.5a</em> — Performance, Persistence &amp; UI Polish</p>
-        <ul>
-        <li>Faster, incremental sidebar and badge updates with on-disk caching</li>
-        <li>Saved articles migrated from JSON to a SQLite database</li>
-        <li>Frontpage articles now cached for faster startup and navigation</li>
-        <li>New staggered entrance/exit animations for article cards</li>
-        </ul>
         """;
 
     public static void show_about_dialog(Gtk.Window parent) {
         var about = new Adw.AboutDialog();
         about.set_application_name("Paperboy");
         about.set_application_icon("paperboy"); // Use the correct icon name
-        about.set_version("0.10.1a");
+        about.set_version("0.11.0a");
         about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
         about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
         about.set_website("https://github.com/thecalamityjoe87/paperboy");
         about.set_license_type(Gtk.License.GPL_3_0);
         about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
 
-        about.set_release_notes_version("0.10.1a");
+        about.set_release_notes_version("0.11.0a");
         about.set_release_notes(RELEASE_NOTES);
 
         about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");

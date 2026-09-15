@@ -110,12 +110,21 @@ public class SidebarView : GLib.Object {
         if (window.sports_live_indicator != null) {
             window.sports_live_indicator.live_state_changed.connect(on_live_state_changed);
         }
+
+        if (window.market_status != null) {
+            window.market_status.market_open_changed.connect(on_market_open_changed);
+        }
     }
 
     private void on_live_state_changed(bool is_live) {
         if (!live_pill_widgets.has_key("sports")) return;
         live_pill_widgets.get("sports").set_visible(
             is_live && window.prefs.sports_live_indicator_enabled && window.prefs.sports_scores_enabled);
+    }
+
+    private void on_market_open_changed(bool is_open) {
+        if (!live_pill_widgets.has_key("business")) return;
+        live_pill_widgets.get("business").set_visible(is_open && window.prefs.market_pill_enabled);
     }
 
     // Expose badge widget lookup for animation helpers (e.g., vacuum save effect)
@@ -316,8 +325,12 @@ public class SidebarView : GLib.Object {
         }
 
         btn.clicked.connect(() => {
-            // Close article sheet if open
-            if (window.article_sheet != null) {
+            // Close the article sheet for rows that navigate elsewhere, but
+            // not for a podcast subscription row - that just slides the
+            // podcast pane up over whatever's currently showing (see
+            // SidebarManager.handle_item_activation) and shouldn't disturb
+            // an article you're in the middle of reading.
+            if (window.article_sheet != null && !item.id.has_prefix("podcastshow:")) {
                 window.article_sheet.dismiss();
             }
             manager.handle_item_activation(item.id, item.title);
@@ -422,8 +435,8 @@ public class SidebarView : GLib.Object {
         label.set_ellipsize(Pango.EllipsizeMode.END);
         row_box.append(label);
 
-        if (item.id == "sports") {
-            var live_pill = build_live_pill_widget();
+        if (item.id == "sports" || item.id == "business") {
+            var live_pill = item.id == "sports" ? build_live_pill_widget() : build_market_open_pill_widget();
             live_pill_widgets.set(item.id, live_pill);
 
             var badge = build_badge_widget(item.unread_count, false, item.id);
@@ -456,6 +469,19 @@ public class SidebarView : GLib.Object {
         pill.set_valign(Gtk.Align.CENTER);
         bool is_live = window.sports_live_indicator != null && window.sports_live_indicator.get_is_live();
         pill.set_visible(is_live && window.prefs.sports_live_indicator_enabled && window.prefs.sports_scores_enabled);
+        return pill;
+    }
+
+    // "Open" pill shown to the left of the Business category's count badge
+    // while MarketStatusManager reports the US market as in its regular
+    // trading session. Same ".live-pill" styling as Sports' pill above -
+    // just different text, not a different visual treatment.
+    private Gtk.Widget build_market_open_pill_widget() {
+        var pill = new Gtk.Label("Open");
+        pill.add_css_class("live-pill");
+        pill.set_valign(Gtk.Align.CENTER);
+        bool is_open = window.market_status != null && window.market_status.get_is_open();
+        pill.set_visible(is_open && window.prefs.market_pill_enabled);
         return pill;
     }
 
@@ -515,12 +541,16 @@ public class SidebarView : GLib.Object {
         // Priority 1: Check for saved icon file from struct data
         if (source_data.icon_path != null && source_data.icon_path.length > 0) {
             if (GLib.FileUtils.test(source_data.icon_path, GLib.FileTest.EXISTS)) {
+                // Composite at 3x and let the Gtk.Picture downsample, same as
+                // CategoryIconsUtils.create_category_header_icon, so this
+                // stays crisp up through ~300% display scaling.
+                int render_size = size * 3;
                 var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, 0, 0), source_data.icon_path, 0, 0);
                 if (probe != null) {
                     int orig_w = probe.get_width();
                     int orig_h = probe.get_height();
                     double scale = 1.0;
-                    if (orig_w > 0 && orig_h > 0) scale = double.max((double)size / orig_w, (double)size / orig_h);
+                    if (orig_w > 0 && orig_h > 0) scale = double.max((double)render_size / orig_w, (double)render_size / orig_h);
                     int sw = (int)(orig_w * scale);
                     int sh = (int)(orig_h * scale);
                     if (sw < 1) sw = 1;
@@ -528,14 +558,14 @@ public class SidebarView : GLib.Object {
 
                     var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(source_data.icon_path, sw, sh), source_data.icon_path, sw, sh);
 
-                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, size, size);
+                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, render_size, render_size);
                     var cr = new Cairo.Context(surface);
-                    int x = (size - sw) / 2;
-                    int y = (size - sh) / 2;
+                    int x = (render_size - sw) / 2;
+                    int y = (render_size - sh) / 2;
                     Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
                     cr.paint();
-                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(source_data.icon_path, size, size);
-                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, size, size);
+                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(source_data.icon_path, render_size, render_size);
+                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, render_size, render_size);
 
                     if (pb_surf != null) {
                         var pic = new Gtk.Picture();
