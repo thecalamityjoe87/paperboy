@@ -599,12 +599,18 @@ public class ArticleExtractorService : GLib.Object {
 
         // WordPress (and similar CMS) media URLs carry no UUID/hash at all -
         // just a stable /wp-content/uploads/.../filename.jpg path with the
-        // resize/quality params (?w=1600 vs ?resize=1200,628) as the only
-        // difference between the hero image and its reappearance in the
-        // body. The full path (query string stripped) is still a reliable
-        // per-asset identifier there.
+        // resize/quality params (?w=1600 vs ?resize=1200,628), or a
+        // "-WIDTHxHEIGHT" suffix inserted into the filename itself (e.g.
+        // "photo.jpg" vs "photo-788x444.jpg"), as the only difference
+        // between the hero image and its reappearance in the body.
         int query_start = url.index_of("?");
         string path = query_start >= 0 ? url.substring(0, query_start) : url;
+        try {
+            var wp_resize_regex = new GLib.Regex("-\\d+x\\d+(?=\\.[a-zA-Z]+$)");
+            path = wp_resize_regex.replace(path, -1, 0, "");
+        } catch (GLib.RegexError e) {
+            // fall through
+        }
         return path.down();
     }
 

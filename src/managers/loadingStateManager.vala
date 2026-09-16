@@ -61,7 +61,7 @@ public class LoadingStateManager : GLib.Object {
     // ThumbnailBackfillService), so placeholder cards don't visibly pop to
     // a real image right after the view is revealed. Never delays the
     // reveal by more than BACKFILL_GRACE_MS - backfill is best-effort.
-    private const int BACKFILL_GRACE_MS = 1500;
+    private const int BACKFILL_GRACE_MS = 3000;
     public int pending_backfills = 0;
     private bool backfill_grace_expired = false;
     private uint backfill_grace_timeout_id = 0;

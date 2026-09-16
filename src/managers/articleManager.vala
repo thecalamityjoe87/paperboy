@@ -74,7 +74,7 @@ namespace Managers {
 
         // Track URLs seen in current view to prevent duplicate cards
         private Gee.HashSet<string> seen_urls;
-        
+
         // Category distribution
         public Gee.HashMap<string, int> category_column_counts;
         public Gee.ArrayList<string> recent_categories;
@@ -336,9 +336,11 @@ namespace Managers {
             if (normalized == null) normalized = "";
 
             // Skip if already seen this view session, to avoid duplicate cards
-            // when multiple async fetches race on the same URL. Top Ten allows
-            // duplicates intentionally (same headline from multiple providers).
-            if (window.prefs.category != "topten" && normalized.length > 0 && seen_urls != null) {
+            // when multiple async fetches race on the same URL. Different
+            // providers covering the same headline naturally have different
+            // URLs, so this never blocked that case - it was only letting
+            // exact same-provider duplicates through in Top Ten.
+            if (normalized.length > 0 && seen_urls != null) {
                 lock (seen_urls) {
                     if (seen_urls.contains(normalized)) {
                         // Backfill the already-rendered card's time label if this
