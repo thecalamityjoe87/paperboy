@@ -174,13 +174,20 @@ public class NotesBrowserDialog : GLib.Object {
         meta_row.append(open_article_btn);
         group.append(meta_row);
 
+        // Matches ReaderView.highlight_notes()'s ordering (ascending by
+        // note.id) so a note's badge number here is the same one shown on
+        // its in-text marker and in the per-article notes panel.
+        var numbered_notes = new Gee.ArrayList<Paperboy.ArticleNote>();
+        numbered_notes.add_all(notes);
+        numbered_notes.sort((a, b) => (int) (a.id - b.id));
+
         var notes_list = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         notes_list.set_margin_top(2);
         notes_list.append(build_thread_stem());
         for (int i = 0; i < notes.size; i++) {
             var thread_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
             thread_row.append(build_thread_connector(i == notes.size - 1));
-            var note_row = build_note_row(window, notes.get(i));
+            var note_row = build_note_row(window, notes.get(i), numbered_notes.index_of(notes.get(i)) + 1);
             note_row.set_hexpand(true);
             // No box spacing between rows - the connector has no margin
             // of its own, so it fills this gap too and the line stays
@@ -236,7 +243,7 @@ public class NotesBrowserDialog : GLib.Object {
         return da;
     }
 
-    private static Gtk.Widget build_note_row(NewsWindow window, Paperboy.ArticleNote note) {
+    private static Gtk.Widget build_note_row(NewsWindow window, Paperboy.ArticleNote note, int display_number) {
         var row = new Gtk.Box(Gtk.Orientation.VERTICAL, 2);
         row.add_css_class("note-thread-item");
 
@@ -265,6 +272,15 @@ public class NotesBrowserDialog : GLib.Object {
         body_label.set_lines(1);
         body_label.set_ellipsize(Pango.EllipsizeMode.END);
         row.append(body_label);
+
+        if (display_number > 0) {
+            var badge_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+            badge_row.set_halign(Gtk.Align.END);
+            var badge_label = new Gtk.Label(display_number.to_string());
+            badge_label.add_css_class("note-list-badge");
+            badge_row.append(badge_label);
+            row.append(badge_row);
+        }
 
         var click = new Gtk.GestureClick();
         row.add_controller(click);

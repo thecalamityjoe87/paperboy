@@ -1338,6 +1338,20 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     background-color: alpha(@accent_bg_color, 0.85);
 }
 
+/* Same numbering badge as .reader-note-marker, but on a plain label (notes
+   panel/dialog cards) instead of a button - fixed equal width/height and
+   centered text keep it a circle instead of stretching into a pill. */
+.note-list-badge {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    font-size: 0.68em;
+    font-weight: 700;
+    min-width: 18px;
+    min-height: 18px;
+    border-radius: 999px;
+    padding: 0;
+}
+
 /* Comment count badge, overlapping the top-right corner of the comments
    FAB once a provider actually returns comments. Negative margins pull it
    up and out over the button's own edge rather than sitting flush against

@@ -428,12 +428,22 @@ public class ArticleSheet : GLib.Object {
             adblock_css = "";
         }
 
-        // Clicking outside content dismisses the sheet
+        // Clicking outside content dismisses the sheet. Primary button
+        // only - unrestricted here (a capture-phase gesture on an ancestor
+        // of the reader view) was seeing every right-click inside the
+        // article body before the TextView's own context-menu handling
+        // got a chance, blocking the native right-click menu entirely.
         var click = new Gtk.GestureClick();
+        click.set_button(Gdk.BUTTON_PRIMARY);
         click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
         container.add_controller(click);
         click.pressed.connect((g, n_press, x, y) => {
             if (is_destroyed || !is_open()) return;
+            // Any primary click in the sheet dismisses an active text
+            // selection's "add note" popover, not just one landing back
+            // inside the reader body - previously only content_box's own
+            // click handling covered that.
+            if (reader_view != null) reader_view.hide_add_note_popover();
             double cxd = 0, cyd = 0;
             content_box.translate_coordinates(container, 0, 0, out cxd, out cyd);
             int cx = (int)cxd, cy = (int)cyd, cw = content_box.get_allocated_width(), ch = content_box.get_allocated_height();
@@ -850,17 +860,19 @@ public class ArticleSheet : GLib.Object {
         }
 
         foreach (var note in notes) {
-            notes_list_box.append(build_note_row(note));
+            int display_number = reader_view != null ? reader_view.get_note_display_number(note.id) : 0;
+            notes_list_box.append(build_note_row(note, display_number));
         }
         notes_stack.set_visible_child_name("list");
     }
 
-    private Gtk.Widget build_note_row(Paperboy.ArticleNote note) {
+    private Gtk.Widget build_note_row(Paperboy.ArticleNote note, int display_number) {
         var row = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
         row.add_css_class("comment-card");
         row.set_margin_bottom(10);
 
         var meta_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+
         var title_label = new Gtk.Label(note.title);
         title_label.add_css_class("heading");
         title_label.set_halign(Gtk.Align.START);
@@ -884,6 +896,15 @@ public class ArticleSheet : GLib.Object {
         body_label.set_lines(3);
         body_label.set_ellipsize(Pango.EllipsizeMode.END);
         row.append(body_label);
+
+        if (display_number > 0) {
+            var badge_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+            badge_row.set_halign(Gtk.Align.END);
+            var badge_label = new Gtk.Label(display_number.to_string());
+            badge_label.add_css_class("note-list-badge");
+            badge_row.append(badge_label);
+            row.append(badge_row);
+        }
 
         var click = new Gtk.GestureClick();
         row.add_controller(click);

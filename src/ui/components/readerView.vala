@@ -174,8 +174,12 @@ public class ReaderView : GLib.Object {
             pointer_y = y;
         });
 
+        // Only the primary button drives drag-autoscroll - claiming button
+        // 0 (all buttons) here at capture phase was swallowing right-click
+        // before the TextView's own secondary-click handling could show its
+        // context menu.
         var click = new Gtk.GestureClick();
-        click.set_button(0);
+        click.set_button(Gdk.BUTTON_PRIMARY);
         click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
         content_box.add_controller(click);
         click.pressed.connect((g, n_press, x, y) => {
@@ -201,7 +205,33 @@ public class ReaderView : GLib.Object {
         legacy.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
         content_box.add_controller(legacy);
         legacy.event.connect((event) => {
-            if (event.get_event_type() == Gdk.EventType.BUTTON_RELEASE) {
+            var event_type = event.get_event_type();
+            // triggers_context_menu() is only meaningful on the press event
+            // (platform convention ties it to press, not release) - reading
+            // it off a release event was silently always false, which is
+            // why the primary-button guard below never actually filtered
+            // out a right-click release. Get the button directly instead,
+            // valid for both PRESS and RELEASE.
+            bool is_primary = true;
+            if (event_type == Gdk.EventType.BUTTON_PRESS || event_type == Gdk.EventType.BUTTON_RELEASE) {
+                is_primary = ((Gdk.ButtonEvent) event).get_button() == Gdk.BUTTON_PRIMARY;
+            }
+
+            // A primary click anywhere else in the body dismisses the
+            // popover (autohide used to cover this, but its grab was also
+            // swallowing right-clicks before they could reach the
+            // TextView's own context menu - see set_autohide(false) below).
+            if (event_type == Gdk.EventType.BUTTON_PRESS && is_primary
+                && add_note_popover != null && add_note_popover.get_visible()) {
+                add_note_popover.popdown();
+            }
+
+            // Only the primary button drives our own "add note" popover -
+            // a right-click release used to reach this too, racing our
+            // popup() against GTK's native context-menu popup for the same
+            // click and crashing (gtk_widget_realize on a widget not yet
+            // back in a toplevel).
+            if (event_type == Gdk.EventType.BUTTON_RELEASE && is_primary) {
                 // The TextView's own release handling (which finalizes
                 // the drag selection) hasn't necessarily run yet either -
                 // same idle-defer reasoning as above.
@@ -333,13 +363,26 @@ public class ReaderView : GLib.Object {
         // buffer change, so it's safe to do on every call. Without this,
         // numbers would only ever grow (a deleted or never-matched note
         // leaves a permanent gap).
+        note_display_numbers.clear();
         int display_number = 1;
         foreach (var note in sorted_notes) {
             var entry = highlights_by_note_id.get(note.id);
             if (entry == null) continue;
             entry.marker.set_label(display_number.to_string());
+            note_display_numbers.set(note.id, display_number);
             display_number++;
         }
+    }
+
+    // note.id -> in-text marker number, refreshed on every highlight_notes()
+    // call, so the notes panel can show a matching badge on each card.
+    private Gee.HashMap<int64?, int> note_display_numbers = new Gee.HashMap<int64?, int>(
+        (a) => { int64 v = a; return (uint) (v ^ (v >> 32)); },
+        (a, b) => { int64 x = a; int64 y = b; return x == y; }
+    );
+
+    public int get_note_display_number(int64 note_id) {
+        return note_display_numbers.has_key(note_id) ? note_display_numbers.get(note_id) : 0;
     }
 
     // Undoes one note's highlight/marker immediately (e.g. on delete),
@@ -859,10 +902,22 @@ public class ReaderView : GLib.Object {
         double cx, cy;
         if (!tv.translate_coordinates(content_box, wx, wy, out cx, out cy)) return;
 
+        // A popover's parent link can go stale across a reader-view
+        // close/reopen cycle (its own realize state doesn't survive that,
+        // even though content_box itself is never reassigned) - confirmed
+        // via diagnostic: get_parent() != content_box after reopening,
+        // which then crashes GTK trying to realize it. Discard and rebuild
+        // rather than reuse a popover whose parent link no longer matches.
+        if (add_note_popover != null && add_note_popover.get_parent() != content_box) {
+            add_note_popover.unparent();
+            add_note_popover = null;
+        }
+
         if (add_note_popover == null) {
-            var btn = new Gtk.Button.from_icon_name("list-add-symbolic");
+            var btn = new Gtk.Button.from_icon_name("document-edit-symbolic");
+            btn.set_tooltip_text("Add note");
             btn.add_css_class("reader-add-note-btn");
-            btn.set_size_request(22, 22);
+            btn.set_size_request(24, 24);
             // Default halign/valign is FILL, so without this the button
             // stretches to whatever size the popover's content area
             // allocates (not necessarily square) instead of staying at
@@ -885,7 +940,14 @@ public class ReaderView : GLib.Object {
             add_note_popover.add_css_class("reader-add-note-popover");
             add_note_popover.set_child(btn);
             add_note_popover.set_can_focus(false);
-            add_note_popover.set_autohide(true);
+            // Not autohide - that grabs the pointer for any outside click,
+            // including a right-click on the still-selected text, which
+            // swallowed it before the TextView's own context menu ever saw
+            // it. Dismissal is handled explicitly instead (see the primary-
+            // button press handler above and the has-selection listener
+            // below), which only reacts to real widget events and so never
+            // blocks a right-click from reaching the TextView normally.
+            add_note_popover.set_autohide(false);
             // The arrow decoration reserves extra horizontal space around
             // its content node without a matching vertical amount -
             // that's what was actually stretching this into an oval
@@ -894,11 +956,8 @@ public class ReaderView : GLib.Object {
             // a clean 24x24 square with it off).
             add_note_popover.set_has_arrow(false);
             add_note_popover.set_parent(content_box);
-            // Dismissing a popover via an outside click only closes the
-            // popover - that click never reaches the TextView underneath,
-            // so its selection would otherwise stay highlighted until a
-            // second, separate click actually lands inside it. Clear it
-            // here instead, so one click off the selection removes both.
+            // A primary click that dismisses this popover also collapses
+            // the selection it was anchored to.
             add_note_popover.closed.connect(() => {
                 if (shown_for_tv != null) {
                     Gtk.TextIter cursor_iter;
@@ -920,7 +979,7 @@ public class ReaderView : GLib.Object {
         shown_for_end = end_offset;
     }
 
-    private void hide_add_note_popover() {
+    public void hide_add_note_popover() {
         if (add_note_popover != null) add_note_popover.popdown();
         shown_for_tv = null;
         shown_for_start = -1;
