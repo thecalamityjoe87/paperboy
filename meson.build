@@ -129,6 +129,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/podcastSubscriptionStore.vala',
     'src/services/podcastPlaybackStateStore.vala',
     'src/services/notesStore.vala',
+    'src/services/opmlService.vala',
+    'src/services/notesExportService.vala',
     'src/services/resolvers/articleSourceResolver.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',

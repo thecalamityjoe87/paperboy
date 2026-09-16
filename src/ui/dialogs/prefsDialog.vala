@@ -537,8 +537,9 @@ public class PrefsDialog : GLib.Object {
         // Get and display all RSS sources
         var rss_store = Paperboy.RssSourceStore.get_instance();
         var all_sources = rss_store.get_all_sources();
+        var rendered_source_urls = new Gee.HashSet<string>();
 
-        foreach (var rss_source in all_sources) {
+        void add_rss_source_row(Paperboy.RssSource rss_source) {
                 var rss_row = new Adw.ActionRow();
 
                 // Try to get display name from SourceMetadata
@@ -711,7 +712,12 @@ public class PrefsDialog : GLib.Object {
                 });
 
                 rss_sources_group.add(rss_row);
-            }
+        }
+
+        foreach (var rss_source in all_sources) {
+            add_rss_source_row(rss_source);
+            rendered_source_urls.add(rss_source.url);
+        }
 
         sources_page.add(rss_sources_group);
 
@@ -1384,6 +1390,179 @@ public class PrefsDialog : GLib.Object {
 
         app_page.add(data_group);
 
+        // ========== IMPORT & EXPORT GROUP ==========
+        var import_export_group = new Adw.PreferencesGroup();
+        import_export_group.set_title("Backup &amp; Restore");
+
+        var opml_row = new Adw.ActionRow();
+        opml_row.set_title("Feeds");
+        opml_row.set_subtitle("Export or import your custom RSS feeds and podcast subscriptions as an OPML file.");
+
+        var opml_export_btn = new Gtk.Button.with_label("Export");
+        opml_export_btn.set_valign(Gtk.Align.CENTER);
+        opml_export_btn.clicked.connect(() => {
+            var file_dialog = new Gtk.FileDialog();
+            file_dialog.set_title("Export Feeds & Podcasts");
+            file_dialog.set_initial_name("paperboy-feeds.opml");
+            var filter = new Gtk.FileFilter();
+            filter.set_filter_name("OPML files");
+            filter.add_suffix("opml");
+            file_dialog.set_default_filter(filter);
+
+            file_dialog.save.begin(win, null, (obj, res) => {
+                try {
+                    var file = file_dialog.save.end(res);
+                    if (file == null || file.get_path() == null) return;
+                    Paperboy.OpmlService.export_to_file(file.get_path());
+                    if (win.toast_manager != null) win.toast_manager.show_toast("Exported feeds and podcasts");
+                } catch (GLib.Error e) {
+                    if (!(e is Gtk.DialogError.DISMISSED)) warning("Failed to export OPML: %s", e.message);
+                }
+            });
+        });
+
+        var opml_import_btn = new Gtk.Button.with_label("Import");
+        opml_import_btn.set_valign(Gtk.Align.CENTER);
+        opml_import_btn.clicked.connect(() => {
+            var file_dialog = new Gtk.FileDialog();
+            file_dialog.set_title("Import Feeds & Podcasts");
+            var filter = new Gtk.FileFilter();
+            filter.set_filter_name("OPML files");
+            filter.add_suffix("opml");
+            filter.add_pattern("*.xml");
+            file_dialog.set_default_filter(filter);
+
+            file_dialog.open.begin(win, null, (obj, res) => {
+                try {
+                    var file = file_dialog.open.end(res);
+                    if (file == null || file.get_path() == null) return;
+
+                    if (win.toast_manager != null) win.toast_manager.show_toast("Importing feeds and podcasts…");
+
+                    Paperboy.OpmlService.import_from_file(file.get_path(), win.source_manager, win.session, win.feed_updater, (import_result) => {
+                        sources_changed = true;
+
+                        // Add rows for the newly imported feeds immediately so
+                        // they show up (already enabled) without reopening Preferences.
+                        if (import_result.feeds_added > 0) {
+                            foreach (var rss_source in rss_store.get_all_sources()) {
+                                if (rendered_source_urls.contains(rss_source.url)) continue;
+                                add_rss_source_row(rss_source);
+                                rendered_source_urls.add(rss_source.url);
+                            }
+                        }
+
+                        if (win.sidebar_manager != null) win.sidebar_manager.rebuild_sidebar();
+
+                        if (win.toast_manager != null) {
+                            win.toast_manager.show_toast("Imported %d feed(s) and %d podcast(s)".printf(import_result.feeds_added, import_result.podcasts_added));
+                        }
+                    });
+                } catch (GLib.Error e) {
+                    if (!(e is Gtk.DialogError.DISMISSED)) warning("Failed to import OPML: %s", e.message);
+                }
+            });
+        });
+
+        var opml_btn_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        opml_btn_box.append(opml_export_btn);
+        opml_btn_box.append(opml_import_btn);
+        opml_row.add_suffix(opml_btn_box);
+        import_export_group.add(opml_row);
+
+        var notes_export_row = new Adw.ActionRow();
+        notes_export_row.set_title("Notes");
+        notes_export_row.set_subtitle("Export or import your article notes as a JSON file.");
+
+        var notes_export_btn = new Gtk.Button.with_label("Export");
+        notes_export_btn.set_valign(Gtk.Align.CENTER);
+        notes_export_btn.clicked.connect(() => {
+            var file_dialog = new Gtk.FileDialog();
+            file_dialog.set_title("Export Notes");
+            file_dialog.set_initial_name("paperboy-notes.json");
+            var filter = new Gtk.FileFilter();
+            filter.set_filter_name("JSON files");
+            filter.add_suffix("json");
+            file_dialog.set_default_filter(filter);
+
+            file_dialog.save.begin(win, null, (obj, res) => {
+                try {
+                    var file = file_dialog.save.end(res);
+                    if (file == null || file.get_path() == null) return;
+                    Paperboy.NotesExportService.export_to_file(file.get_path());
+                    if (win.toast_manager != null) win.toast_manager.show_toast("Exported notes");
+                } catch (GLib.Error e) {
+                    if (!(e is Gtk.DialogError.DISMISSED)) warning("Failed to export notes: %s", e.message);
+                }
+            });
+        });
+
+        var notes_import_btn = new Gtk.Button.with_label("Import");
+        notes_import_btn.set_valign(Gtk.Align.CENTER);
+        notes_import_btn.clicked.connect(() => {
+            var file_dialog = new Gtk.FileDialog();
+            file_dialog.set_title("Import Notes");
+            var filter = new Gtk.FileFilter();
+            filter.set_filter_name("JSON files");
+            filter.add_suffix("json");
+            file_dialog.set_default_filter(filter);
+
+            file_dialog.open.begin(win, null, (obj, res) => {
+                try {
+                    var file = file_dialog.open.end(res);
+                    if (file == null || file.get_path() == null) return;
+                    int imported = Paperboy.NotesExportService.import_from_file(file.get_path());
+                    if (win.toast_manager != null) win.toast_manager.show_toast("Imported %d note(s)".printf(imported));
+                } catch (GLib.Error e) {
+                    if (!(e is Gtk.DialogError.DISMISSED)) warning("Failed to import notes: %s", e.message);
+                }
+            });
+        });
+
+        var notes_btn_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        notes_btn_box.append(notes_export_btn);
+        notes_btn_box.append(notes_import_btn);
+        notes_export_row.add_suffix(notes_btn_box);
+        import_export_group.add(notes_export_row);
+
+        app_page.add(import_export_group);
+
+        // ========== DANGER ZONE GROUP ==========
+        var danger_group = new Adw.PreferencesGroup();
+        danger_group.set_title("Danger Zone");
+
+        var reset_row = new Adw.ActionRow();
+        reset_row.set_title("Reset app to factory settings");
+        reset_row.set_subtitle("Erases all sources, saved articles, notes, settings, and cached data, then restarts Paperboy as if freshly installed.");
+
+        var reset_btn = new Gtk.Button.with_label("Reset");
+        reset_btn.set_valign(Gtk.Align.CENTER);
+        reset_btn.add_css_class("destructive-action");
+        reset_btn.clicked.connect(() => {
+            var reset_confirm_dialog = new Adw.AlertDialog(
+                "Reset to factory settings?",
+                "This permanently deletes all sources, saved articles, notes, and settings, and cannot be undone. Paperboy will restart as if freshly installed."
+            );
+            reset_confirm_dialog.add_response("cancel", "Cancel");
+            reset_confirm_dialog.add_response("reset", "Reset App");
+            reset_confirm_dialog.set_response_appearance("reset", Adw.ResponseAppearance.DESTRUCTIVE);
+            reset_confirm_dialog.set_default_response("cancel");
+            reset_confirm_dialog.set_close_response("cancel");
+
+            reset_confirm_dialog.response.connect((response_id) => {
+                if (response_id == "reset") {
+                    prefs.factory_reset();
+                    restart_application(win);
+                }
+            });
+
+            reset_confirm_dialog.present(dialog);
+        });
+
+        reset_row.add_suffix(reset_btn);
+        danger_group.add(reset_row);
+        app_page.add(danger_group);
+
         // ========== EXPERIMENTAL GROUP ==========
         var experimental_group = new Adw.PreferencesGroup();
         experimental_group.set_title("Experimental");
@@ -1537,5 +1716,23 @@ public class PrefsDialog : GLib.Object {
         about.add_link("Releases", "https://github.com/thecalamityjoe87/paperboy/releases");
 
         about.present(parent);
+    }
+
+    // Launches a fresh Paperboy process and quits this one. Looked up by
+    // name (rather than re-exec'ing /proc/self/exe) so it works the same
+    // whether installed via .deb or Flatpak.
+    private static void restart_application(NewsWindow win) {
+        string? exe_path = GLib.Environment.find_program_in_path("paperboy");
+        if (exe_path != null) {
+            try {
+                GLib.Process.spawn_async(null, { exe_path }, null, GLib.SpawnFlags.SEARCH_PATH, null, null);
+            } catch (GLib.Error e) {
+                warning("Failed to restart Paperboy: %s", e.message);
+            }
+        } else {
+            warning("Failed to restart Paperboy: could not locate the 'paperboy' executable");
+        }
+
+        win.application.quit();
     }
 }

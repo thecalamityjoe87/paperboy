@@ -557,6 +557,43 @@ public class NewsPreferences : GLib.Object {
         return GLib.Path.build_filename(config_dir, "paperboy", "config.ini");
     }
 
+    // Wipes all persisted state back to a fresh install: every GSettings key
+    // (including onboarding-completed, so the welcome tour reappears),
+    // config.ini, and the entire cache/data directories (sources, notes,
+    // podcasts, article cache, etc). Best-effort; the app is expected to
+    // restart immediately after so no live store keeps writing to the
+    // now-deleted files.
+    public void factory_reset() {
+        foreach (string key in settings.list_keys()) {
+            settings.reset(key);
+        }
+
+        try { GLib.FileUtils.remove(config_path); } catch (GLib.Error e) { }
+
+        delete_directory_recursive(GLib.Path.build_filename(GLib.Environment.get_user_cache_dir(), "paperboy"));
+        delete_directory_recursive(GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "paperboy"));
+    }
+
+    private void delete_directory_recursive(string path) {
+        var dir = GLib.File.new_for_path(path);
+        if (!dir.query_exists()) return;
+
+        try {
+            var enumerator = dir.enumerate_children("standard::name,standard::type", GLib.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, null);
+            GLib.FileInfo? info;
+            while ((info = enumerator.next_file(null)) != null) {
+                string child_path = GLib.Path.build_filename(path, info.get_name());
+                if (info.get_file_type() == GLib.FileType.DIRECTORY) {
+                    delete_directory_recursive(child_path);
+                } else {
+                    try { GLib.FileUtils.remove(child_path); } catch (GLib.Error e) { }
+                }
+            }
+        } catch (GLib.Error e) { }
+
+        try { GLib.DirUtils.remove(path); } catch (GLib.Error e) { }
+    }
+
     public void save_config() {
         // GSettings automatically persists UI preferences, so we only need to
         // save user-generated data (preferred_sources) to KeyFile

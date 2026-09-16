@@ -188,9 +188,19 @@ public class FeedUpdateManager : GLib.Object {
         });
     }
     
+    // Regenerates one locally-generated (file://) feed right away instead of
+    // waiting for the next periodic cycle - used after OPML import adds a
+    // generated feed whose XML file doesn't exist yet in this profile.
+    public void regenerate_single_feed_async(Paperboy.RssSource source) {
+        new GLib.Thread<void*>("regenerate-single-feed", () => {
+            update_single_feed(source);
+            return null;
+        });
+    }
+
     /**
      * Update a single RSS feed
-     * 
+     *
      * @param source The RSS source to update
      * @return true if successful, false otherwise
      */
