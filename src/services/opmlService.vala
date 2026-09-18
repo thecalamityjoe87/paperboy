@@ -35,6 +35,7 @@ namespace Paperboy {
             public string name;
             public string url;
             public string? html_url;
+            public string? icon_url;
         }
 
         public delegate void ImportCallback(ImportResult result);
@@ -63,6 +64,13 @@ namespace Paperboy {
                 entry->set_prop("xmlUrl", source.url);
                 if (source.original_url != null) {
                     entry->set_prop("htmlUrl", source.original_url);
+                }
+                // Non-standard attribute (ignored by other OPML readers) so a
+                // re-import can resolve the same icon instead of guessing via
+                // a bare favicon.ico request.
+                string? icon_url = SourceMetadata.get_logo_url_for_source(source.name);
+                if (icon_url != null && icon_url.length > 0) {
+                    entry->set_prop("paperboyIconUrl", icon_url);
                 }
             }
 
@@ -146,10 +154,10 @@ namespace Paperboy {
 
             var entry = entries.get(index);
 
-            // Locally-generated feeds (html2rss output for sites with no
-            // native RSS) have no host to run favicon/title discovery
-            // against, and need `original_url` preserved so the app still
-            // knows the real site behind them - insert them directly
+            // Locally-generated feeds (output for sites with no native RSS)
+            // have no host to run favicon/title discovery against, and need
+            // `original_url` preserved so the app still knows the real site
+            // behind them - insert them directly
             // instead of routing through the network discovery pipeline.
             if (entry.url.has_prefix("file://")) {
                 var prefs = NewsPreferences.get_instance();
@@ -160,14 +168,36 @@ namespace Paperboy {
                     prefs.save_config();
                     result.feeds_added++;
 
+                    // add_source_with_original_url() only tries a bare
+                    // favicon.ico guess internally, which frequently fails -
+                    // prefer the icon URL captured at export time, falling
+                    // back to Google's favicon service like the normal
+                    // WebKit-generated-feed flow does.
+                    string? host_for_icon = entry.html_url != null ? UrlUtils.extract_host_from_url(entry.html_url) : null;
+                    if (host_for_icon != null && host_for_icon.length > 0) {
+                        string icon_url = (entry.icon_url != null && entry.icon_url.length > 0)
+                            ? entry.icon_url
+                            : "https://www.google.com/s2/favicons?domain=" + host_for_icon + "&sz=128";
+                        SourceMetadata.update_index_and_fetch(host_for_icon, entry.name, icon_url, entry.html_url, null, entry.url);
+                    }
+
                     // The imported file:// path almost certainly doesn't
-                    // exist in this profile (it's wherever html2rss wrote it
+                    // exist in this profile (it's wherever it was generated
                     // on the machine the OPML was exported from) - regenerate
                     // it now instead of waiting for the next periodic cycle.
                     if (feed_updater != null) {
                         var added_source = source_store.get_source_by_url(entry.url);
-                        if (added_source != null) feed_updater.regenerate_single_feed_async(added_source);
+                        if (added_source != null) {
+                            GLib.print("OPML import: triggering regeneration for '%s' (%s)\n", entry.name, entry.url);
+                            feed_updater.regenerate_single_feed_async(added_source);
+                        } else {
+                            GLib.warning("OPML import: added '%s' but could not look it back up by URL to regenerate", entry.name);
+                        }
+                    } else {
+                        GLib.warning("OPML import: no feed_updater available, '%s' won't be regenerated until the next periodic cycle", entry.name);
                     }
+                } else {
+                    GLib.warning("OPML import: add_source_with_original_url failed for '%s' (%s) - already exists?", entry.name, entry.url);
                 }
                 import_next_feed(entries, index + 1, source_manager, feed_updater, result, (owned) done);
                 return;
@@ -229,6 +259,7 @@ namespace Paperboy {
                 entry.name = text ?? xml_url;
                 entry.url = xml_url;
                 entry.html_url = node->get_prop("htmlUrl");
+                entry.icon_url = node->get_prop("paperboyIconUrl");
 
                 if (in_podcasts_category) {
                     podcast_entries.add(entry);

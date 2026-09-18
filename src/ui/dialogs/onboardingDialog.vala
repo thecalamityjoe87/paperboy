@@ -82,6 +82,13 @@ public class OnboardingDialog : GLib.Object {
             prefs.onboarding_completed = true;
             prefs.save_config();
             dialog.close();
+
+            // Covers both an explicit Skip and clicking through without
+            // enabling anything on the sources page - either way, Popular
+            // Categories will be empty until the user turns some sources on.
+            if (prefs.preferred_sources.size == 0) {
+                show_no_sources_dialog(parent);
+            }
         }
 
         skip_btn.clicked.connect(() => finish());
@@ -117,6 +124,29 @@ public class OnboardingDialog : GLib.Object {
             if (!prefs.onboarding_completed) {
                 prefs.onboarding_completed = true;
                 prefs.save_config();
+            }
+        });
+
+        dialog.present(parent);
+    }
+
+    // Shown after onboarding finishes with no built-in sources enabled -
+    // otherwise Popular Categories and My Feed silently render empty with
+    // no indication why, since they only pull from enabled sources.
+    private static void show_no_sources_dialog(Gtk.Window parent) {
+        var dialog = new Adw.AlertDialog(
+            "No Sources Enabled",
+            "You didn't enable any news sources, so Popular Categories (World News, Technology, Sports, and others) will appear empty until you turn some on. You can enable built-in sources or add your own RSS feeds anytime from Preferences."
+        );
+        dialog.add_response("later", "Not Now");
+        dialog.add_response("open", "Open Preferences");
+        dialog.set_default_response("open");
+        dialog.set_close_response("later");
+        dialog.set_response_appearance("open", Adw.ResponseAppearance.SUGGESTED);
+
+        dialog.response.connect((response_id) => {
+            if (response_id == "open") {
+                PrefsDialog.show_source_dialog(parent);
             }
         });
 

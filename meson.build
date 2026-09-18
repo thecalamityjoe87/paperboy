@@ -131,6 +131,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/notesStore.vala',
     'src/services/opmlService.vala',
     'src/services/notesExportService.vala',
+    'src/services/generatedFeedService.vala',
     'src/services/resolvers/articleSourceResolver.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
@@ -146,6 +147,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     # Fetchers
     'src/services/fetchers/baseFetcher.vala',
     'src/services/fetchers/fetcherUtils.vala',
+    'src/services/fetchers/articleScraper.vala',
     'src/services/fetchers/bbcFetcher.vala',
     'src/services/fetchers/guardianFetcher.vala',
     'src/services/fetchers/nytFetcher.vala',
@@ -180,7 +182,6 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     # Processors (RSS/HTML/image processing)
     'src/processors/rssFeedProcessor.vala',
     'src/processors/imageProcessor.vala',
-    'tools/articleScraper.vala',
   ],
   dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, geocode, gst, gst_player, gst_audio],
   install : true,
@@ -232,26 +233,3 @@ install_data('data/resources/adblock.css', install_dir: join_paths(get_option('d
 # Mozilla's Readability.js (Apache-2.0), used by RenderedPageFetcher as the
 # reader-view fallback's extraction engine - same install pattern as above.
 install_data('data/resources/readability.js', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))
-
-# Build and install the html2rss helper via Cargo so it is available
-# when running `ninja` / `ninja install`. We use a custom_target that
-# invokes Cargo in the tool's directory and copies the produced binary
-# into the Meson build directory as the target output. The resulting
-# target is then installed into both the namespaced datadir and the
-# bindir so the runtime can locate it either from the data dir or PATH.
-if files('tools/html2rss/Cargo.toml').length() > 0
-  message('Found html2rss Rust project; building with Cargo...')
-  # Run cargo build at configure time so the produced binary is available
-  # for installation and for runtime lookup paths used by the app.
-  run_result = run_command('bash', '-lc', 'cd ' + meson.project_source_root() + '/tools/html2rss && cargo build --release', check: true)
-  if run_result.returncode() != 0
-    message('Warning: cargo build for html2rss failed; html2rss will not be installed')
-  endif
-endif
-
-# Install the html2rss helper binary if present (built via Cargo).
-# Per FHS 4.7, internal binaries run by other programs belong in libexecdir,
-# not bindir or datadir. Use a namespaced subdirectory to avoid conflicts.
-if files('tools/html2rss/target/release/html2rss').length() > 0
-  install_data('tools/html2rss/target/release/html2rss', install_dir: join_paths(get_option('libexecdir'), 'paperboy'))
-endif

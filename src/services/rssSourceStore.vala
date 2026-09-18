@@ -257,7 +257,7 @@ namespace Paperboy {
         }
 
         /**
-         * Add a source with original_url (for html2rss-generated feeds)
+         * Add a source with original_url (for generated feeds)
          * @param name Display name for the source
          * @param url The feed URL (file:// for generated feeds)
          * @param original_url The original website URL (e.g., https://example.com)

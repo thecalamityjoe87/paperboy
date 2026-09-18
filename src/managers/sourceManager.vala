@@ -747,6 +747,44 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     }
 
     // Discover and follow an RSS source from an article URL
+    private class GeneratedFeedResult : GLib.Object {
+        public bool success = false;
+        public string? rss_xml = null;
+        public string? error_message = null;
+    }
+
+    // GeneratedFeedService.generate_async() must run on the main thread
+    // (WebKit), but follow_rss_source runs entirely on a background thread -
+    // bridge the two with a condition variable, same pattern used for feed
+    // regeneration in FeedUpdateManager.
+    private GeneratedFeedResult generate_feed_via_webkit_blocking(string url) {
+        var mutex = GLib.Mutex();
+        var cond = GLib.Cond();
+        bool done = false;
+        var result = new GeneratedFeedResult();
+
+        GLib.Idle.add(() => {
+            Paperboy.GeneratedFeedService.generate_async(url, (success, rss_xml, error_message) => {
+                mutex.lock();
+                result.success = success;
+                result.rss_xml = rss_xml;
+                result.error_message = error_message;
+                done = true;
+                cond.signal();
+                mutex.unlock();
+            });
+            return false;
+        });
+
+        mutex.lock();
+        while (!done) {
+            cond.wait(mutex);
+        }
+        mutex.unlock();
+
+        return result;
+    }
+
     public void follow_rss_source(string article_url, string? source_metadata = null) {
         // Built-in sources can't be re-added as custom RSS entries.
         if (is_article_from_builtin(article_url)) {
@@ -881,7 +919,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                                             rss_discovery_succeeded = true;
                                         } else {
-                                            GLib.warning("RSS discovery returned no feeds; will attempt local html2rss fallback");
+                                            GLib.warning("RSS discovery returned no feeds; will attempt local feed generation fallback");
                                         }
                                     }
                                 }
@@ -900,13 +938,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                 if (!rss_discovery_succeeded) {
                     if (host == null || host.length == 0) {
-                        GLib.warning("Cannot attempt html2rss fallback: host is null or empty");
+                        GLib.warning("Cannot attempt feed generation fallback: host is null or empty");
                         GLib.Idle.add(() => {
                             request_show_toast("Failed to discover RSS feed");
                             return false;
                         });
                     } else {
-                        GLib.message("Attempting local html2rss fallback for host: %s", host);
+                        GLib.message("Generating feed for host via WebKit render: %s", host);
 
                         GLib.Idle.add(() => {
                             if (window != null) window.clear_persistent_toast();
@@ -914,230 +952,108 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                             return false;
                         });
 
-                        string? script_path = null;
-                        var binary_candidates = new ArrayList<string>();
+                        var gen_result = generate_feed_via_webkit_blocking(article_url);
 
-                        // Prefer the launcher-provided libexec dir (AppRun) if set
-                        string? paperboy_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
-                        if (paperboy_libexec != null && paperboy_libexec.length > 0) {
-                            binary_candidates.add(GLib.Path.build_filename(paperboy_libexec, "paperboy", "html2rss"));
-                            binary_candidates.add(GLib.Path.build_filename(paperboy_libexec, "html2rss"));
-                        }
+                        if (gen_result.success && gen_result.rss_xml != null) {
+                            string gen_feed = gen_result.rss_xml;
 
-                        // FHS libexecdir (4.7), Flatpak/AppImage, then dev source tree locations
-                        binary_candidates.add("/usr/libexec/paperboy/html2rss");
-                        binary_candidates.add("/usr/local/libexec/paperboy/html2rss");
-                        binary_candidates.add("/app/libexec/paperboy/html2rss");
-                        binary_candidates.add("tools/html2rss/target/release/html2rss");
-                        binary_candidates.add("./tools/html2rss/target/release/html2rss");
-                        binary_candidates.add("../tools/html2rss/target/release/html2rss");
-                        string? cwd = GLib.Environment.get_variable("PWD");
-                        if (cwd != null && cwd.length > 0) {
-                            binary_candidates.add(GLib.Path.build_filename(cwd, "tools", "html2rss", "target", "release", "html2rss"));
-                        }
-
-                        foreach (var c in binary_candidates) {
-                            try {
-                                var f = GLib.File.new_for_path(c);
-                                if (f.query_exists(null)) {
-                                    try {
-                                        var info = f.query_info("standard::access", 0, null);
-                                        bool can_exec = false;
-                                        if (info != null) {
-                                            var perms = info.get_attribute_boolean("standard::access");
-                                            can_exec = true;
-                                        }
-                                    } catch (GLib.Error ee) { }
-                                    script_path = c;
-                                    GLib.message("Found html2rss binary at: %s", c);
-                                    break;
-                                }
-                            } catch (GLib.Error e) { }
-                        }
-
-                        if (script_path != null) {
-                            try {
-                                // argv element (not shell string) to avoid quoting issues
-                                string[] argv = { script_path, "--max-pages", "20", article_url };
-                                GLib.message("Running html2rss: %s %s %s %s", argv[0], argv[1], argv[2], argv[3]);
-                                
-                                string? out_stdout = null;
-                                string? out_stderr = null;
-                                int exit_status = 0;
-
-                                var proc = new GLib.Subprocess.newv(argv, GLib.SubprocessFlags.STDOUT_PIPE | GLib.SubprocessFlags.STDERR_PIPE);
-                                try {
-                                    proc.wait_check(null);
-                                } catch (GLib.Error e) { }
-
-                                try {
-                                    var stdout_stream = proc.get_stdout_pipe();
-                                    string _out_acc = "";
-                                    while (true) {
-                                        var stdout_bytes = stdout_stream.read_bytes(8192, null);
-                                        if (stdout_bytes == null) break;
-                                        size_t sz = stdout_bytes.get_size();
-                                        if (sz == 0) break;
-                                        _out_acc += (string) stdout_bytes.get_data();
-                                        if (sz < 8192) break;
-                                    }
-                                    out_stdout = _out_acc;
-                                } catch (GLib.Error e) {
-                                    out_stdout = null;
-                                }
-
-                                try {
-                                    var stderr_stream = proc.get_stderr_pipe();
-                                    string _err_acc = "";
-                                    while (true) {
-                                        var stderr_bytes = stderr_stream.read_bytes(8192, null);
-                                        if (stderr_bytes == null) break;
-                                        size_t sz2 = stderr_bytes.get_size();
-                                        if (sz2 == 0) break;
-                                        _err_acc += (string) stderr_bytes.get_data();
-                                        if (sz2 < 8192) break;
-                                    }
-                                    out_stderr = _err_acc;
-                                } catch (GLib.Error e) {
-                                    out_stderr = null;
-                                }
-
-                                exit_status = proc.get_exit_status();
-                                GLib.message("html2rss finished with exit code %d", exit_status);
-                                if (out_stderr != null && out_stderr.length > 0) GLib.message("html2rss stderr: %s", out_stderr);
-
-                                if (out_stdout != null && out_stdout.strip().length > 0 && exit_status == 0) {
-                                    string gen_feed = out_stdout.strip();
-
-                                    // Strip trailing garbage (e.g. HTML links appended by html2rss)
-                                    gen_feed = RssValidatorUtils.clean_rss_content(gen_feed);
-
-                                    string? validation_error = null;
-                                    bool is_valid = RssValidatorUtils.is_valid_rss(gen_feed, out validation_error);
-                                    
-                                    if (!is_valid) {
-                                        GLib.warning("Generated RSS is invalid: %s", validation_error);
-
-                                        GLib.Idle.add(() => {
-                                            request_show_toast("Failed to generate valid RSS feed");
-                                            return false;
-                                        });
-                                        return null;
-                                    }
-
-                                    int item_count = RssValidatorUtils.get_item_count(gen_feed);
-                                    if (item_count == 0) {
-                                        GLib.warning("Generated RSS has no items");
-                                        GLib.Idle.add(() => {
-                                            request_show_toast("Generated feed has no articles");
-                                            return false;
-                                        });
-                                        return null;
-                                    }
-                                    
-                                    GLib.print("✓ Generated valid RSS feed with %d items\n", item_count);
-
-                                    if (gen_feed.has_prefix("<?xml") || gen_feed.has_prefix("<rss") || gen_feed.has_prefix("<feed") || gen_feed.has_prefix("<\n<?xml")) {
-                                        try {
-                                            string data_dir = GLib.Environment.get_user_data_dir();
-                                            string paperboy_dir = GLib.Path.build_filename(data_dir, "paperboy");
-                                            string gen_dir = GLib.Path.build_filename(paperboy_dir, "generated_feeds");
-                                            try {
-                                                GLib.DirUtils.create_with_parents(gen_dir, 0755);
-                                            } catch (GLib.Error e) {
-                                                GLib.warning("Failed to create directory '%s': %s", gen_dir, e.message);
-                                            }
-                                            string safe_host = host.replace("/", "_").replace(":", "_");
-                                            string filename = safe_host + ".xml";
-                                            string file_path = GLib.Path.build_filename(gen_dir, filename);
-
-                                            var f = GLib.File.new_for_path(file_path);
-                                            var out_stream = f.replace(null, false, GLib.FileCreateFlags.NONE, null);
-                                            var writer = new DataOutputStream(out_stream);
-                                            // Strip illegal control chars so it's safe for XML storage
-                                            string safe_feed = RssValidatorUtils.sanitize_for_xml(gen_feed);
-                                            writer.put_string(safe_feed);
-                                            writer.close(null);
-
-                                            gen_feed = "file://" + file_path;
-                                        } catch (GLib.Error e) {
-                                            GLib.warning("Failed to save generated RSS feed: %s", e.message);
-                                        }
-                                    }
-
-                                    var store = Paperboy.RssSourceStore.get_instance();
-
-                                    // Keyed by host, not article_url, since that's how metadata is saved
-                                    string feed_name = host;
-                                    string? existing_display_name = null;
-                                    string? existing_logo_url = null;
-                                    string? existing_filename = null;
-
-                                    SourceMetadata.get_source_info_by_url(host, out existing_display_name, out existing_logo_url, out existing_filename);
-
-                                    if (existing_display_name != null && existing_display_name.length > 0) {
-                                        feed_name = existing_display_name;
-                                        GLib.print("✓ Using existing metadata: %s\n", feed_name);
-                                    } else if (article_display_name != null && article_display_name.length > 0) {
-                                        feed_name = article_display_name;
-                                        GLib.print("✓ Using article metadata: %s\n", feed_name);
-                                    } else {
-                                        GLib.print("⚠ No existing metadata found for %s, using host as name\n", host);
-                                    }
-
-                                    // Store the original website URL so the feed can be regenerated later
-                                    string original_website_url = "https://" + host;
-                                    bool success = store.add_source_with_original_url(feed_name, gen_feed, original_website_url, null);
-
-                                    if (success) {
-                                        string? logo_url_to_save = existing_logo_url;
-
-                                        if (logo_url_to_save == null || logo_url_to_save.length == 0) {
-                                            logo_url_to_save = (article_logo_url != null && article_logo_url.length > 0) ? article_logo_url : get_favicon_url(host);
-                                        }
-
-                                        SourceMetadata.update_index_and_fetch(host, feed_name, logo_url_to_save, "https://" + host, window.session, gen_feed);
-                                        GLib.print("✓ Saved metadata for %s\n", feed_name);
-                                    }
-
-                                    if (success) {
-                                        GLib.Idle.add(() => {
-                                            // Show as active without requiring the user to flip its switch in Settings.
-                                            if (window != null && window.prefs != null) {
-                                                window.prefs.set_preferred_source_enabled("custom:" + gen_feed, true);
-                                                window.prefs.save_config();
-                                            }
-                                            // add_source_with_original_url()'s source_added signal already queued a
-                                            // sidebar rebuild that can run before the source is enabled and filter it
-                                            // back out; rebuild again now that it's enabled.
-                                            if (window != null && window.sidebar_manager != null) {
-                                                window.sidebar_manager.rebuild_sidebar();
-                                            }
-                                            request_show_toast("Following %s (%d articles)".printf(feed_name, item_count));
-                                            return false;
-                                        });
-                                    } else {
-                                        GLib.Idle.add(() => {
-                                            request_show_toast("Source already followed");
-                                            return false;
-                                        });
-                                    }
-                                } else {
-                                    GLib.warning("html2rss fallback did not produce a feed (exit=%d); stderr=%s", exit_status, out_stderr != null ? out_stderr : "");
-                                    GLib.Idle.add(() => {
-                                        request_show_toast("No RSS feeds found");
-                                        return false;
-                                    });
-                                }
-                            } catch (GLib.Error e) {
-                                GLib.warning("Error running html2rss fallback: %s", e.message);
+                            int item_count = RssValidatorUtils.get_item_count(gen_feed);
+                            if (item_count == 0) {
+                                GLib.warning("Generated RSS has no items");
                                 GLib.Idle.add(() => {
-                                    request_show_toast("No RSS feeds found");
+                                    request_show_toast("Generated feed has no articles");
+                                    return false;
+                                });
+                                return null;
+                            }
+
+                            GLib.print("✓ Generated valid RSS feed with %d items\n", item_count);
+
+                            try {
+                                string data_dir = GLib.Environment.get_user_data_dir();
+                                string paperboy_dir = GLib.Path.build_filename(data_dir, "paperboy");
+                                string gen_dir = GLib.Path.build_filename(paperboy_dir, "generated_feeds");
+                                try {
+                                    GLib.DirUtils.create_with_parents(gen_dir, 0755);
+                                } catch (GLib.Error e) {
+                                    GLib.warning("Failed to create directory '%s': %s", gen_dir, e.message);
+                                }
+                                string safe_host = host.replace("/", "_").replace(":", "_");
+                                string filename = safe_host + ".xml";
+                                string file_path = GLib.Path.build_filename(gen_dir, filename);
+
+                                var f = GLib.File.new_for_path(file_path);
+                                var out_stream = f.replace(null, false, GLib.FileCreateFlags.NONE, null);
+                                var writer = new DataOutputStream(out_stream);
+                                // Strip illegal control chars so it's safe for XML storage
+                                string safe_feed = RssValidatorUtils.sanitize_for_xml(gen_feed);
+                                writer.put_string(safe_feed);
+                                writer.close(null);
+
+                                gen_feed = "file://" + file_path;
+                            } catch (GLib.Error e) {
+                                GLib.warning("Failed to save generated RSS feed: %s", e.message);
+                            }
+
+                            var store = Paperboy.RssSourceStore.get_instance();
+
+                            // Keyed by host, not article_url, since that's how metadata is saved
+                            string feed_name = host;
+                            string? existing_display_name = null;
+                            string? existing_logo_url = null;
+                            string? existing_filename = null;
+
+                            SourceMetadata.get_source_info_by_url(host, out existing_display_name, out existing_logo_url, out existing_filename);
+
+                            if (existing_display_name != null && existing_display_name.length > 0) {
+                                feed_name = existing_display_name;
+                                GLib.print("✓ Using existing metadata: %s\n", feed_name);
+                            } else if (article_display_name != null && article_display_name.length > 0) {
+                                feed_name = article_display_name;
+                                GLib.print("✓ Using article metadata: %s\n", feed_name);
+                            } else {
+                                GLib.print("⚠ No existing metadata found for %s, using host as name\n", host);
+                            }
+
+                            // Store the original website URL so the feed can be regenerated later
+                            string original_website_url = "https://" + host;
+                            bool success = store.add_source_with_original_url(feed_name, gen_feed, original_website_url, null);
+
+                            if (success) {
+                                string? logo_url_to_save = existing_logo_url;
+
+                                if (logo_url_to_save == null || logo_url_to_save.length == 0) {
+                                    logo_url_to_save = (article_logo_url != null && article_logo_url.length > 0) ? article_logo_url : get_favicon_url(host);
+                                }
+
+                                SourceMetadata.update_index_and_fetch(host, feed_name, logo_url_to_save, "https://" + host, window.session, gen_feed);
+                                GLib.print("✓ Saved metadata for %s\n", feed_name);
+                            }
+
+                            if (success) {
+                                GLib.Idle.add(() => {
+                                    // Show as active without requiring the user to flip its switch in Settings.
+                                    if (window != null && window.prefs != null) {
+                                        window.prefs.set_preferred_source_enabled("custom:" + gen_feed, true);
+                                        window.prefs.save_config();
+                                    }
+                                    // add_source_with_original_url()'s source_added signal already queued a
+                                    // sidebar rebuild that can run before the source is enabled and filter it
+                                    // back out; rebuild again now that it's enabled.
+                                    if (window != null && window.sidebar_manager != null) {
+                                        window.sidebar_manager.rebuild_sidebar();
+                                    }
+                                    request_show_toast("Following %s (%d articles)".printf(feed_name, item_count));
+                                    return false;
+                                });
+                            } else {
+                                GLib.Idle.add(() => {
+                                    request_show_toast("Source already followed");
                                     return false;
                                 });
                             }
                         } else {
-                            GLib.warning("No html2rss binary found in expected locations");
+                            GLib.warning("WebKit feed generation failed for %s: %s", host, gen_result.error_message ?? "unknown error");
                             GLib.Idle.add(() => {
                                 request_show_toast("No RSS feeds found");
                                 return false;

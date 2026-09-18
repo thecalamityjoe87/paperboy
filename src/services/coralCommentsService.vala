@@ -53,6 +53,9 @@ namespace Paperboy {
 
         // Every Coral install embeds a <script class="coral-script"
         // src="https://<tenant>.coralproject.net/assets/js/count.js"> tag.
+        // Some sites (e.g. The Verge) load this dynamically, so the tag
+        // won't be in the static HTML. Fallback: check if the page mentions
+        // "coral" anywhere, then try to guess the tenant from the domain.
         private static string? detect(string? html) {
             if (html == null) return null;
             try {
@@ -60,12 +63,51 @@ namespace Paperboy {
                 var re = new Regex("https?://([a-zA-Z0-9.-]+\\.coralproject\\.net)/assets/js/");
                 if (re.match(html, 0, out mi)) return mi.fetch(1);
             } catch (RegexError e) { }
+
+            // Fallback: if the page mentions "coral", try guessing the tenant
+            // from the domain (e.g. theverge.com -> theverge.coral.coralproject.net,
+            // www.theverge.com -> theverge.coral.coralproject.net)
+            if (html.down().contains("coral")) {
+                try {
+                    var re = new Regex("https?://(?:www\\.)?([a-zA-Z0-9-]+)\\.([a-zA-Z0-9.-]+)");
+                    MatchInfo mi;
+                    if (re.match(html, 0, out mi)) {
+                        string domain = mi.fetch(1);
+                        if (domain != null && domain.length > 0 && domain != "www") {
+                            return "%s.coral.coralproject.net".printf(domain);
+                        }
+                    }
+                } catch (RegexError e) { }
+            }
             return null;
         }
 
         private static void fetch_conversation(string tenant_host, string article_url, owned CommentsFetchedCallback callback) {
-            string variables_json = "{\"storyID\":null,\"storyURL\":\"%s\",\"commentsOrderBy\":\"CREATED_AT_DESC\",\"tag\":null,\"storyMode\":null,\"flattenReplies\":false,\"ratingFilter\":null,\"refreshStream\":false}"
-                .printf(article_url.replace("\\", "\\\\").replace("\"", "\\\""));
+            var comments = new Gee.ArrayList<FeedComment>();
+            fetch_conversation_page(tenant_host, article_url, null, comments, (success) => {
+                callback(comments, success);
+            });
+        }
+
+        private delegate void FetchPageCallback(bool success);
+
+        private static void fetch_conversation_page(string tenant_host, string article_url, string? after_cursor,
+                                                    Gee.ArrayList<FeedComment> accumulated_comments, owned FetchPageCallback callback) {
+            var variables_parts = new Gee.ArrayList<string>();
+            variables_parts.add("\"storyID\":null");
+            variables_parts.add("\"storyURL\":\"%s\"".printf(article_url.replace("\\", "\\\\").replace("\"", "\\\"")));
+            variables_parts.add("\"commentsOrderBy\":\"CREATED_AT_DESC\"");
+            variables_parts.add("\"tag\":null");
+            variables_parts.add("\"storyMode\":null");
+            variables_parts.add("\"flattenReplies\":false");
+            variables_parts.add("\"ratingFilter\":null");
+            variables_parts.add("\"refreshStream\":false");
+            variables_parts.add("\"first\":20");
+            if (after_cursor != null && after_cursor.length > 0) {
+                variables_parts.add("\"after\":\"%s\"".printf(after_cursor.replace("\\", "\\\\").replace("\"", "\\\"")));
+            }
+
+            string variables_json = "{%s}".printf(string.joinv(",", (string[])variables_parts.to_array()));
             string url = "https://%s/api/graphql?query=&id=%s&variables=%s"
                 .printf(tenant_host, QUERY_ID, GLib.Uri.escape_string(variables_json, null, true));
 
@@ -73,10 +115,9 @@ namespace Paperboy {
             options.user_agent = HttpClientUtils.USER_AGENT_BROWSER;
 
             HttpClientUtils.get_default().fetch_string(url, options, (response) => {
-                var comments = new Gee.ArrayList<FeedComment>();
                 string? body = response.is_success() ? response.get_body_string() : null;
                 if (body == null) {
-                    callback(comments, false);
+                    callback(false);
                     return;
                 }
 
@@ -85,33 +126,75 @@ namespace Paperboy {
                     parser.load_from_data(body);
                     var root = parser.get_root();
                     if (root == null || root.get_node_type() != Json.NodeType.OBJECT) {
-                        callback(comments, false);
+                        GLib.debug("Coral: root is null or not an object");
+                        callback(false);
                         return;
                     }
 
                     var top = root.get_object();
                     if (!top.has_member("data") || top.get_member("data").get_node_type() != Json.NodeType.OBJECT) {
-                        callback(comments, false);
+                        GLib.debug("Coral: no data object in response");
+                        if (top.has_member("errors")) {
+                            GLib.debug("Coral: response has errors: %s", Json.to_string(root, false));
+                        }
+                        GLib.debug("Coral: full response (first 1000 chars): %s", body.substring(0, body.length > 1000 ? 1000 : body.length));
+                        callback(false);
                         return;
                     }
                     var data = top.get_object_member("data");
                     if (!data.has_member("story") || data.get_member("story").get_node_type() != Json.NodeType.OBJECT) {
-                        callback(comments, false);
+                        GLib.debug("Coral: no story object in response");
+                        callback(false);
                         return;
                     }
                     var story = data.get_object_member("story");
+                    GLib.debug("Coral: full response: %s", Json.to_string(root, false));
                     if (story.has_member("comments") && story.get_member("comments").get_node_type() == Json.NodeType.OBJECT) {
                         var story_comments = story.get_object_member("comments");
+                        int edge_count = 0;
                         if (story_comments.has_member("edges") && story_comments.get_member("edges").get_node_type() == Json.NodeType.ARRAY) {
                             foreach (var edge in story_comments.get_array_member("edges").get_elements()) {
-                                collect(edge, comments);
+                                collect(edge, accumulated_comments);
+                                edge_count++;
+                            }
+                        } else {
+                            GLib.debug("Coral: story_comments has no edges array, edges type=%d",
+                                story_comments.has_member("edges") ? story_comments.get_member("edges").get_node_type() : -1);
+                            var members = story_comments.get_members();
+                            foreach (var key in members) {
+                                GLib.debug("Coral: story_comments key: %s", key);
                             }
                         }
-                    }
+                        GLib.debug("Coral: fetched %d edges, total accumulated=%d", edge_count, accumulated_comments.size);
 
-                    callback(comments, true);
+                        bool has_next_page = false;
+                        string? next_cursor = null;
+                        if (story_comments.has_member("pageInfo") && story_comments.get_member("pageInfo").get_node_type() == Json.NodeType.OBJECT) {
+                            var page_info = story_comments.get_object_member("pageInfo");
+                            has_next_page = page_info.has_member("hasNextPage") && page_info.get_boolean_member("hasNextPage");
+                            if (has_next_page) {
+                                next_cursor = get_str(page_info, "endCursor");
+                                GLib.debug("Coral: hasNextPage=true, endCursor=%s", next_cursor);
+                            } else {
+                                GLib.debug("Coral: hasNextPage=false, done paginating");
+                            }
+                        } else {
+                            GLib.debug("Coral: no pageInfo in response");
+                        }
+
+                        // If there are more pages, fetch the next one recursively.
+                        if (has_next_page && next_cursor != null && next_cursor.length > 0) {
+                            fetch_conversation_page(tenant_host, article_url, next_cursor, accumulated_comments, (owned) callback);
+                        } else {
+                            callback(true);
+                        }
+                    } else {
+                        GLib.debug("Coral: no comments object in story");
+                        callback(true);
+                    }
                 } catch (Error e) {
-                    callback(comments, false);
+                    GLib.debug("Coral: error parsing response: %s", e.message);
+                    callback(false);
                 }
             });
         }

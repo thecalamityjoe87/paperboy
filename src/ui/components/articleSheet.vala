@@ -710,13 +710,17 @@ public class ArticleSheet : GLib.Object {
         }
 
         void try_hn() {
+            GLib.debug("ArticleSheet: trying HackerNewsCommentsService");
             Paperboy.HackerNewsCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: HN returned %d comments", comments.size);
                 finish(comments, success);
             });
         }
 
         void try_disqus() {
+            GLib.debug("ArticleSheet: trying DisqusCommentsService");
             Paperboy.DisqusCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: Disqus returned %d comments", comments.size);
                 if (comments.size > 0) {
                     finish(comments, success);
                     return;
@@ -726,7 +730,9 @@ public class ArticleSheet : GLib.Object {
         }
 
         void try_openweb() {
+            GLib.debug("ArticleSheet: trying OpenWebCommentsService");
             Paperboy.OpenWebCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: OpenWeb returned %d comments", comments.size);
                 if (comments.size > 0) {
                     finish(comments, success);
                     return;
@@ -736,7 +742,9 @@ public class ArticleSheet : GLib.Object {
         }
 
         void try_viafoura() {
+            GLib.debug("ArticleSheet: trying ViafouraCommentsService");
             Paperboy.ViafouraCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: Viafoura returned %d comments", comments.size);
                 if (comments.size > 0) {
                     finish(comments, success);
                     return;
@@ -746,7 +754,9 @@ public class ArticleSheet : GLib.Object {
         }
 
         void try_coral() {
+            GLib.debug("ArticleSheet: trying CoralCommentsService");
             Paperboy.CoralCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: Coral returned %d comments", comments.size);
                 if (comments.size > 0) {
                     finish(comments, success);
                     return;
