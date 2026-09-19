@@ -1,3 +1,12 @@
+# v0.11.1a - Backup & Restore, WebKit Extraction Rewrite, and a Stability Pass
+
+- Fixed a reader-view crash when adding a note, plus added numbered badges linking note markers to their cards
+- Added factory reset and full backup/restore (OPML for feeds/podcasts, JSON for notes) in Preferences
+- Replaced the html2rss extraction backend with WebKit-based JavaScript extraction for JS-rendered pages
+- Reworked sports score cards to update in place instead of rebuilding each poll, fixing a GTK4 leak, and added a league badge carousel and My Teams row
+- Reader images can now pop out into a full-bleed viewer dialog
+- Fixed a FeedUpdateManager deadlock, a WebKitGTK crash on regeneration timeouts, and several Front Page/My Feed reveal-timing glitches
+
 # v0.11.0a - Market Index Cards, Article Notes, Gestures & Thumbnail Backfill
 
 - Added market index cards with live intraday price charts for major indices and BTC, plus a hover readout showing price/time at any point

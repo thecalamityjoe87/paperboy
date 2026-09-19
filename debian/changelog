@@ -1,3 +1,25 @@
+paperboy (0.11.1a-1) unstable; urgency=medium
+
+  * Fixed a reader-view crash when adding a note, caused by a stale
+    popover parent reference across a reader-view close/reopen cycle.
+  * Added factory reset and full backup/restore (OPML for feeds and
+    podcasts, JSON for notes) in Preferences.
+  * Replaced the html2rss extraction backend with WebKit-based
+    JavaScript extraction for JS-rendered content and complex layouts.
+  * Serialized feed generation behind a mutex and added malloc_trim()
+    calls to stop WebView accumulation and memory growth during bulk
+    regeneration.
+  * Reworked sports score cards to update in place instead of
+    rebuilding each poll, fixing a GTK4 leak; added a league badge
+    carousel and My Teams row.
+  * Reader images can now be popped out into a full-bleed viewer
+    dialog.
+  * Fixed several Front Page/My Feed reveal-timing bugs, a
+    FeedUpdateManager deadlock, and a WebKitGTK crash on generated-feed
+    regeneration timeouts.
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Sat, 19 Sep 2026 00:00:00 +0000
+
 paperboy (0.11.0a-1) unstable; urgency=low
 
   * Added market index cards with live intraday price charts for major
