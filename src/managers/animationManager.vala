@@ -60,6 +60,33 @@ namespace Managers {
         }
     }
 
+    // Drives one of the widget's four margins, clamped >= 0.
+    public enum BounceEdge { TOP, BOTTOM, START, END }
+    private class BounceMarginAdapter : GLib.Object {
+        public double offset { get; set; }
+        private weak Gtk.Widget? widget;
+        private BounceEdge edge;
+
+        public BounceMarginAdapter(Gtk.Widget w, BounceEdge edge) {
+            GLib.Object();
+            widget = w;
+            this.edge = edge;
+            this.notify.connect((o, pspec) => {
+                if (pspec.get_name() == "offset") {
+                    int m = (int) Math.round(double.max(0.0, this.offset));
+                    if (widget != null) {
+                        switch (this.edge) {
+                            case BounceEdge.TOP: widget.set_margin_top(m); break;
+                            case BounceEdge.BOTTOM: widget.set_margin_bottom(m); break;
+                            case BounceEdge.START: widget.set_margin_start(m); break;
+                            case BounceEdge.END: widget.set_margin_end(m); break;
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     // Drives the save ribbon's Y position within its own Gtk.Fixed (see
     // CardBuilder.build_save_ribbon) - a Gtk.Fixed instead of a margin,
     // since GTK's layout system can't reconcile a negative margin against
@@ -357,56 +384,86 @@ namespace Managers {
             anim.play();
         }
 
+        // Opacity-only fade - margin-top forced a relayout every frame.
         public void animate_card_entrance(Gtk.Widget widget, uint delay_ms) {
             if (widget == null) return;
 
             widget.set_visible(true);
+            widget.set_margin_top(0);
             widget.set_opacity(0.0);
-            int initial_margin = 18;
-            widget.set_margin_top(initial_margin);
 
             var opacity_target = new Adw.PropertyAnimationTarget((GLib.Object) widget, "opacity");
-            var margin_adapter = new MarginAdapter(widget, (double) initial_margin);
-            var margin_target = new Adw.PropertyAnimationTarget((GLib.Object) margin_adapter, "offset");
-
-            uint duration = 320u;
-            Adw.Easing easing = Adw.Easing.EASE_OUT;
-
-            var anim_opacity = new Adw.TimedAnimation(widget, 0.0, 1.0, duration, opacity_target);
-            anim_opacity.set_easing(easing);
-            var anim_margin = new Adw.TimedAnimation(widget, initial_margin, 0.0, duration, margin_target);
-            anim_margin.set_easing(easing);
+            var anim_opacity = new Adw.TimedAnimation(widget, 0.0, 1.0, 420u, opacity_target);
+            anim_opacity.set_easing(Adw.Easing.EASE_OUT_QUINT);
 
             // See active_entrance_animations above.
-            active_entrance_animations.add(margin_adapter);
             active_entrance_animations.add(opacity_target);
-            active_entrance_animations.add(margin_target);
             active_entrance_animations.add(anim_opacity);
-            active_entrance_animations.add(anim_margin);
             anim_opacity.done.connect(() => {
                 active_entrance_animations.remove(anim_opacity);
                 active_entrance_animations.remove(opacity_target);
             });
-            anim_margin.done.connect(() => {
-                active_entrance_animations.remove(anim_margin);
-                active_entrance_animations.remove(margin_target);
-                active_entrance_animations.remove(margin_adapter);
-                // Belt-and-suspenders: force the margin to its final value
-                // in case the animation was ever interrupted (widget torn
-                // down mid-flight, etc.) before reaching it on its own.
-                if (widget != null) widget.set_margin_top(0);
-            });
 
             if (delay_ms == 0) {
                 anim_opacity.play();
-                anim_margin.play();
             } else {
-                GLib.Timeout.add(delay_ms, () => { anim_opacity.play(); anim_margin.play(); return false; });
+                GLib.Timeout.add(delay_ms, () => { anim_opacity.play(); return false; });
             }
         }
 
-        public void animate_card_entrance_stagger(Gtk.Widget widget, uint index, uint per_item_ms) {
-            animate_card_entrance(widget, index * per_item_ms);
+        // One shared animation for a batch of cards, not one per card - avoids dropped frames.
+        public void animate_cards_entrance_batch(Gee.ArrayList<Gtk.Widget> widgets) {
+            var live = new Gee.ArrayList<Gtk.Widget>();
+            foreach (var w in widgets) {
+                if (w == null) continue;
+                w.set_visible(true);
+                w.set_margin_top(0);
+                w.set_opacity(0.0);
+                live.add(w);
+            }
+            if (live.size == 0) return;
+
+            var target = new Adw.CallbackAnimationTarget((v) => {
+                foreach (var w in live) w.set_opacity(v);
+            });
+            var anim = new Adw.TimedAnimation(live.get(0), 0.0, 1.0, 420u, target);
+            anim.set_easing(Adw.Easing.EASE_OUT_QUINT);
+
+            // See active_entrance_animations above.
+            active_entrance_animations.add(target);
+            active_entrance_animations.add(anim);
+            anim.done.connect(() => {
+                active_entrance_animations.remove(anim);
+                active_entrance_animations.remove(target);
+            });
+
+            anim.play();
+        }
+
+        // Rubber-band edge bounce, guarded per-widget for concurrent rows.
+        private Gee.HashSet<Gtk.Widget> bouncing_widgets = new Gee.HashSet<Gtk.Widget>();
+        public void bounce_scroll_edge(Gtk.Widget content, BounceEdge edge, double velocity) {
+            if (content == null || bouncing_widgets.contains(content)) return;
+            bouncing_widgets.add(content);
+
+            var adapter = new BounceMarginAdapter(content, edge);
+            var target = new Adw.PropertyAnimationTarget((GLib.Object) adapter, "offset");
+            var spring_params = new Adw.SpringParams(0.7, 1.0, 160.0);
+            var anim = new Adw.SpringAnimation(content, 0.0, 0.0, spring_params, target);
+            // Floor + ceiling so even a gentle tick reads as a visible bounce.
+            anim.set_initial_velocity(double.min(double.max(Math.fabs(velocity), 400.0), 900.0));
+
+            active_entrance_animations.add(adapter);
+            active_entrance_animations.add(target);
+            active_entrance_animations.add(anim);
+            anim.done.connect(() => {
+                active_entrance_animations.remove(anim);
+                active_entrance_animations.remove(target);
+                active_entrance_animations.remove(adapter);
+                bouncing_widgets.remove(content);
+            });
+
+            anim.play();
         }
 
         // Fade-in for the "Read" badge the first time it appears on a

@@ -36,10 +36,18 @@ public class ContentView : GLib.Object {
     public Gtk.Label podcasts_hero_title;
     public Gtk.Box hero_container;
     public Gtk.Box featured_box;
+    public Gtk.Separator hero_trending_separator;
+    public Gtk.Box trending_section_wrapper;
+    public Gtk.Label trending_label;
+    public Gtk.Box trending_hero_container;
     public Gtk.FlowBox columns_row;
     public Gtk.FlowBox podcast_search_flow;
     public Gtk.Box category_sections_container;
     public Gtk.Box sports_scores_container;
+    public Gtk.Separator favorite_teams_separator;
+    public Gtk.Label favorite_teams_label;
+    public Gtk.Box favorite_teams_container;
+    public LeagueBadgeCarousel league_badge_carousel;
     public Gtk.Separator hero_scores_separator;
     public Gtk.Separator scores_articles_separator;
     public Gtk.Box stocks_ticker_container;
@@ -73,6 +81,8 @@ public class ContentView : GLib.Object {
     public Gtk.Button error_retry_button;
     
     private Gtk.Button? load_more_button_widget = null;
+    private Gtk.Spinner? load_more_button_spinner = null;
+    private Gtk.Label? load_more_button_label = null;
 
     public ContentView(NewsPreferences prefs) {
         // Scrolled viewport that will be pushed into the NavigationPage by the caller
@@ -149,11 +159,21 @@ public class ContentView : GLib.Object {
 
         rss_podcast_button = new Gtk.Button();
         var podcast_button_content = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        var podcast_icon = CategoryIconsUtils.create_category_icon("podcasts");
-        if (podcast_icon != null) {
-            var image = podcast_icon as Gtk.Image;
-            if (image != null) image.set_pixel_size(16);
-            podcast_button_content.append(podcast_icon);
+        string[] podcast_candidates = {
+            "icons/symbolic/24x24/podcast-mono-white.svg",
+            "icons/symbolic/podcast-mono-white.svg",
+            "icons/podcast-mono-white.svg"
+        };
+        string? podcast_icon_path = null;
+        foreach (var c in podcast_candidates) {
+            podcast_icon_path = DataPathsUtils.find_data_file(c);
+            if (podcast_icon_path != null) break;
+        }
+        if (podcast_icon_path != null) {
+            var img = new Gtk.Image();
+            img.set_from_file(podcast_icon_path);
+            img.set_pixel_size(16);
+            podcast_button_content.append(img);
         }
         rss_podcast_button_label = new Gtk.Label("Add podcast");
         podcast_button_content.append(rss_podcast_button_label);
@@ -182,7 +202,7 @@ public class ContentView : GLib.Object {
         date_title_separator.set_margin_top(8);
         header_box.append(date_title_separator);
 
-        // Add subtitle label (for Top Ten category) - below date, bolded.
+        // Add subtitle label (used by search results) - below date, bolded.
         // Same "top-stories-title" class as HeroCarousel's "TOP STORIES"
         // label so the two match (size, weight, margin above/below).
         category_subtitle = new Gtk.Label("");
@@ -230,7 +250,6 @@ public class ContentView : GLib.Object {
         main_content_container.append(podcasts_hero_title);
 
         // Hero container - fill the main container width
-        // 12px spacing for Top Ten side-by-side heroes, 0 for carousel
         hero_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
         hero_container.set_halign(Gtk.Align.FILL);
         hero_container.set_hexpand(true);
@@ -242,6 +261,44 @@ public class ContentView : GLib.Object {
 
         hero_container.append(featured_box);
         main_content_container.append(hero_container);
+
+        // Trending section (Front Page only) - Top Ten's exact hero+grid
+        // design, transplanted between the Hero Carousel and Headlines.
+        // Label matches CategorySection's own header styling (e.g.
+        // Headlines/World) rather than the hero carousel's title. Hero row
+        // mirrors hero_container's side-by-side layout (hero cards append
+        // directly into it, same as Top Ten did). The remaining articles
+        // land in the existing columns_row below (unused by Front Page
+        // otherwise).
+        hero_trending_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        hero_trending_separator.add_css_class("section-divider");
+        hero_trending_separator.set_margin_top(14);
+        hero_trending_separator.set_margin_bottom(14);
+        hero_trending_separator.set_visible(false);
+        main_content_container.append(hero_trending_separator);
+
+        // Wrapped together (like CategorySection's own wrapper) with the
+        // same 20px label-to-row spacing CategorySection uses, rather than
+        // main_content_container's own 12px inter-child spacing - so
+        // Trending's title-to-cards gap matches Headlines/World/etc.
+        trending_section_wrapper = new Gtk.Box(Gtk.Orientation.VERTICAL, 20);
+        trending_section_wrapper.set_halign(Gtk.Align.FILL);
+        trending_section_wrapper.set_hexpand(true);
+        trending_section_wrapper.set_visible(false);
+
+        trending_label = new Gtk.Label("");
+        trending_label.set_xalign(0);
+        trending_label.add_css_class("caption");
+        trending_label.set_markup("<span size='18000'><b>%s</b></span>".printf("TRENDING"));
+        trending_section_wrapper.append(trending_label);
+
+        trending_hero_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
+        trending_hero_container.set_halign(Gtk.Align.FILL);
+        trending_hero_container.set_hexpand(true);
+        trending_hero_container.set_homogeneous(true);
+        trending_section_wrapper.append(trending_hero_container);
+
+        main_content_container.append(trending_section_wrapper);
 
         // Live sports scores (Sports category only): league-header sections
         // of score cards, shown directly under the hero and above the
@@ -266,11 +323,54 @@ public class ContentView : GLib.Object {
         hero_scores_separator.set_visible(false);
         main_content_container.append(hero_scores_separator);
 
+        // League badge carousel (Sports only) - one badge per league with
+        // any game today, filtering sports_scores_container below down to
+        // whichever league is selected. Owned by SportsScoresController,
+        // same as sports_scores_container itself.
+        league_badge_carousel = new LeagueBadgeCarousel();
+        league_badge_carousel.root.set_visible(false);
+        league_badge_carousel.root.set_margin_bottom(24);
+        main_content_container.append(league_badge_carousel.root);
+
         sports_scores_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
         sports_scores_container.set_halign(Gtk.Align.FILL);
         sports_scores_container.set_hexpand(true);
         sports_scores_container.set_visible(false);
         main_content_container.append(sports_scores_container);
+
+        // "My Teams" (Sports only) - one score-card row per favorited team
+        // (see Preferences > Sports Score Cards > Favorite Teams), always
+        // visible regardless of which league badge is selected above.
+        // Owned by SportsScoresController, same as sports_scores_container.
+        // A real divider (not just spacing) marks the boundary with the
+        // league sections above, since this is a distinct grouping, not
+        // another one of them.
+        favorite_teams_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        favorite_teams_separator.add_css_class("section-divider");
+        favorite_teams_separator.set_margin_top(10);
+        favorite_teams_separator.set_margin_bottom(20);
+        favorite_teams_separator.set_visible(false);
+        main_content_container.append(favorite_teams_separator);
+
+        // A dim, small-caps "eyebrow" rather than CategorySection's own
+        // bold header size - each favorited team already gets its own
+        // logo+name header at that weight, so using the same size here for
+        // "MY TEAMS" made the two look like competing headers stacked on
+        // top of each other instead of a group label over its contents.
+        favorite_teams_label = new Gtk.Label("");
+        favorite_teams_label.set_xalign(0);
+        favorite_teams_label.add_css_class("caption");
+        favorite_teams_label.add_css_class("dim-label");
+        favorite_teams_label.set_markup("<span size='12000' weight='bold' letter_spacing='1400'>%s</span>".printf("MY TEAMS"));
+        favorite_teams_label.set_visible(false);
+        favorite_teams_label.set_margin_bottom(10);
+        main_content_container.append(favorite_teams_label);
+
+        favorite_teams_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 32);
+        favorite_teams_container.set_halign(Gtk.Align.FILL);
+        favorite_teams_container.set_hexpand(true);
+        favorite_teams_container.set_visible(false);
+        main_content_container.append(favorite_teams_container);
 
         scores_articles_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
         scores_articles_separator.add_css_class("section-divider");
@@ -568,25 +668,73 @@ public class ContentView : GLib.Object {
     
     public void set_window(NewsWindow win) {
         window = win;
+        if (league_badge_carousel != null) league_badge_carousel.set_window(win);
+
+        // Rubber-band bounce past the top/bottom - tied to value_changed
+        // since kinetic scrolls coast to the edge over several frames.
+        var vadj = main_scrolled.get_vadjustment();
+        bool was_at_top = vadj.get_value() <= vadj.get_lower() + 0.5;
+        bool was_at_bottom = vadj.get_value() >= vadj.get_upper() - vadj.get_page_size() - 0.5;
+        vadj.value_changed.connect(() => {
+            bool at_top = vadj.get_value() <= vadj.get_lower() + 0.5;
+            bool at_bottom = vadj.get_value() >= vadj.get_upper() - vadj.get_page_size() - 0.5;
+            if (window != null && window.animation_manager != null) {
+                if (at_top && !was_at_top) {
+                    window.animation_manager.bounce_scroll_edge(content_area, Managers.BounceEdge.TOP, 500.0);
+                }
+                if (at_bottom && !was_at_bottom) {
+                    window.animation_manager.bounce_scroll_edge(content_area, Managers.BounceEdge.BOTTOM, 500.0);
+                }
+            }
+            was_at_top = at_top;
+            was_at_bottom = at_bottom;
+        });
+
+        // Catches continued overscroll once already pinned (value_changed alone can't).
+        var scroll_controller = new Gtk.EventControllerScroll(Gtk.EventControllerScrollFlags.VERTICAL);
+        scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+        main_scrolled.add_controller(scroll_controller);
+        scroll_controller.scroll.connect((dx, dy) => {
+            if (window == null || window.animation_manager == null) return false;
+            bool at_top = vadj.get_value() <= vadj.get_lower() + 0.5;
+            bool at_bottom = vadj.get_value() >= vadj.get_upper() - vadj.get_page_size() - 0.5;
+            if (dy < 0 && at_top) {
+                window.animation_manager.bounce_scroll_edge(content_area, Managers.BounceEdge.TOP, 500.0);
+            } else if (dy > 0 && at_bottom) {
+                window.animation_manager.bounce_scroll_edge(content_area, Managers.BounceEdge.BOTTOM, 500.0);
+            }
+            return false;
+        });
     }
-    
+
     // Load more button UI handlers (called by ArticleManager signals)
     public void create_and_show_load_more_button() {
         if (load_more_button_widget != null) return;
         
-        load_more_button_widget = new Gtk.Button.with_label("Load more articles");
+        load_more_button_widget = new Gtk.Button();
         load_more_button_widget.add_css_class("suggested-action");
         load_more_button_widget.add_css_class("pill");
         load_more_button_widget.set_margin_top(20);
         load_more_button_widget.set_margin_bottom(20);
         load_more_button_widget.set_halign(Gtk.Align.CENTER);
-        
+
+        var button_content = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+        button_content.set_halign(Gtk.Align.CENTER);
+        load_more_button_spinner = new Gtk.Spinner();
+        load_more_button_spinner.set_visible(false);
+        button_content.append(load_more_button_spinner);
+        load_more_button_label = new Gtk.Label("Load more articles");
+        button_content.append(load_more_button_label);
+        load_more_button_widget.set_child(button_content);
+
         load_more_button_widget.clicked.connect(() => {
-            load_more_button_widget.set_label("Loading...");
+            load_more_button_label.set_text("Loading...");
+            load_more_button_spinner.set_visible(true);
+            load_more_button_spinner.start();
             load_more_button_widget.set_sensitive(false);
             load_more_button_widget.remove_css_class("suggested-action");
             load_more_button_widget.add_css_class("loading");
-            
+
             Timeout.add(150, () => {
                 if (window != null && window.article_manager != null) {
                     window.article_manager.load_more_articles();
@@ -612,12 +760,14 @@ public class ContentView : GLib.Object {
     
     public void hide_load_more_button() {
         if (load_more_button_widget == null) return;
-        
+
         // Capture the current widget reference to avoid race conditions
         // where a new button is created before this timeout fires
         var button_to_remove = load_more_button_widget;
         load_more_button_widget = null;  // Clear immediately so new button can be shown
-        
+        load_more_button_spinner = null;
+        load_more_button_label = null;
+
         button_to_remove.add_css_class("fade-out");
         Timeout.add(300, () => {
             if (button_to_remove != null) {
@@ -628,6 +778,21 @@ public class ContentView : GLib.Object {
             }
             return false;
         });
+    }
+
+    // Restores the load-more button to its normal clickable state once the
+    // content it triggered is actually ready to show - see ArticleManager.
+    // load_more_articles()'s backfill_gate.ready handler.
+    public void reset_load_more_button() {
+        if (load_more_button_widget == null) return;
+        if (load_more_button_label != null) load_more_button_label.set_text("Load more articles");
+        if (load_more_button_spinner != null) {
+            load_more_button_spinner.stop();
+            load_more_button_spinner.set_visible(false);
+        }
+        load_more_button_widget.set_sensitive(true);
+        load_more_button_widget.remove_css_class("loading");
+        load_more_button_widget.add_css_class("suggested-action");
     }
     
     public void remove_end_of_feed_message() {
@@ -665,10 +830,6 @@ public class ContentView : GLib.Object {
 
             if (window.header_manager != null) {
                 window.header_manager.update_content_header_now();
-            } else if (window.prefs != null && window.prefs.category == "topten") {
-                category_subtitle.set_markup("<span size='22000'><b>TRENDING NOW</b></span>");
-                category_subtitle.set_visible(true);
-                category_subtitle.queue_resize();
             } else {
                 category_subtitle.set_visible(false);
             }
@@ -688,6 +849,10 @@ public class ContentView : GLib.Object {
         // search results shouldn't show live scores from whatever category
         // was on screen before searching.
         if (sports_scores_container != null) sports_scores_container.set_visible(false);
+        if (favorite_teams_container != null) favorite_teams_container.set_visible(false);
+        if (favorite_teams_label != null) favorite_teams_label.set_visible(false);
+        if (favorite_teams_separator != null) favorite_teams_separator.set_visible(false);
+        if (league_badge_carousel != null) league_badge_carousel.root.set_visible(false);
         if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
         if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
         if (stocks_ticker_container != null) stocks_ticker_container.set_visible(false);
@@ -695,7 +860,7 @@ public class ContentView : GLib.Object {
         if (stocks_articles_separator != null) stocks_articles_separator.set_visible(false);
 
         // Search spans every category, not just the one on screen (e.g.
-        // "Top Ten") - keeping that category's name/icon while showing
+        // "Sports") - keeping that category's name/icon while showing
         // unrelated global results was confusing, so swap both for a clear
         // search-mode title. Restored in RESTORE MODE above. Only touch the
         // icon on the transition into search mode (not every debounced

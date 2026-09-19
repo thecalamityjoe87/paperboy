@@ -39,11 +39,12 @@ public class NewsService {
         Soup.Session session,
         SetLabelFunc set_label,
         ClearItemsFunc clear_items,
-        AddItemFunc add_item
+        AddItemFunc add_item,
+        FetchDoneFunc? on_done = null
     ) {
         // Special handling for Paperboy API (frontpage and topten)
         if (current_category == "frontpage" || current_category == "topten") {
-            var paperboy_fetcher = new PaperboyFetcher(set_label, clear_items, add_item);
+            var paperboy_fetcher = new PaperboyFetcher(set_label, clear_items, add_item, on_done);
             paperboy_fetcher.fetch(current_category, current_search_query, session);
             return;
         }

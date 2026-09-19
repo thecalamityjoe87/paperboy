@@ -44,20 +44,15 @@ using Gee;
         return prefs.category ?? "general";
     }
 
-    // Check if we're in a special view mode (frontpage, topten, myfeed, local_news, or RSS feed)
+    // Check if we're in a special view mode (frontpage, myfeed, local_news, or RSS feed)
     public bool is_special_view() {
         string cat = get_current_category();
-        return cat == "frontpage" || cat == "topten" || cat == "myfeed" || cat == "local_news" || is_rssfeed_view();
+        return cat == "frontpage" || cat == "myfeed" || cat == "local_news" || is_rssfeed_view();
     }
 
     // Check if we're viewing Front Page
     public bool is_frontpage_view() {
         return get_current_category() == "frontpage";
-    }
-
-    // Check if we're viewing Top Ten
-    public bool is_topten_view() {
-        return get_current_category() == "topten";
     }
 
     // Check if the current category is "myfeed" (regardless of whether it's enabled)
@@ -130,10 +125,10 @@ using Gee;
         var result = new ArrayList<string>();
         string current = get_current_category();
 
-        // Front Page and Top Ten are handled by backend API
+        // Front Page is handled by backend API
         // Local News uses discovered RSS feeds per user's location
         // RSS feed views fetch from a single RSS feed
-        if (current == "frontpage" || current == "topten" || current == "local_news" || is_rssfeed_view()) {
+        if (current == "frontpage" || current == "local_news" || is_rssfeed_view()) {
             result.add(current);
             return result;
         }
@@ -158,7 +153,7 @@ using Gee;
         string view_category = get_current_category();
 
         // Special views have their own logic
-        if (view_category == "frontpage" || view_category == "topten" || view_category == "local_news") {
+        if (view_category == "frontpage" || view_category == "local_news") {
             return true; //Backend determines what to show
         }
 
@@ -206,7 +201,7 @@ using Gee;
             case "industries": return "Industries";
             case "economics": return "Economics";
             case "frontpage": return "Front Page";
-            case "topten": return "Top Ten";
+            case "topten": return "Trending";
             case "myfeed": return "My Feed";
             case "local_news": return "Local News";
             default: return category;

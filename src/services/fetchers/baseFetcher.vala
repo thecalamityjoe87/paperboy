@@ -21,16 +21,23 @@ using Soup;
 public delegate void SetLabelFunc(string text);
 public delegate void ClearItemsFunc();
 public delegate void AddItemFunc(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null);
+public delegate void FetchDoneFunc();
 
 public abstract class BaseFetcher : GLib.Object {
     protected SetLabelFunc set_label;
     protected ClearItemsFunc clear_items;
     protected AddItemFunc add_item;
+    // Optional: fires once a fetch's network request has concluded (success,
+    // failure, or empty result) - lets a caller that fired off more than one
+    // fetcher in parallel (e.g. Front Page + Trending) know when each one is
+    // actually done, instead of guessing from item-arrival timing.
+    protected FetchDoneFunc? on_done;
 
-    protected BaseFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func) {
+    protected BaseFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func, FetchDoneFunc? on_done_func = null) {
         this.set_label = set_label_func;
         this.clear_items = clear_items_func;
         this.add_item = add_item_func;
+        this.on_done = on_done_func;
     }
 
     // Abstract method that each fetcher must implement

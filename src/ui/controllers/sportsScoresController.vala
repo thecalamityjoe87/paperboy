@@ -89,6 +89,41 @@ public class SportsScoresController : GLib.Object {
         return _last_rendered_order;
     }
 
+    // Which league's score-card row is currently shown; null until the
+    // first render(), which picks a default (see render()'s doc comment).
+    private static string? selected_league = null;
+    // Guards against reconnecting to league_badge_carousel.badge_selected
+    // on every rebuild() - see the connect() call site below.
+    private static bool badge_carousel_connected = false;
+
+    // "My Teams" (favorited individual teams, see fetch_and_populate_favorite_teams())
+    // polls independently of the league sections above - own timer, own
+    // last-good cache, own built-once/updated-in-place sections, keyed by
+    // "league_key|team_id" rather than a bare league key. Kept decoupled
+    // from the league polling/rebuild logic above rather than merged into
+    // it, to avoid risking regressions in that already-tuned cadence.
+    private static uint favorite_teams_timeout_id = 0;
+    private static Gee.HashMap<string, Gee.ArrayList<GameScore>>? _favorite_teams_last_good = null;
+    private static Gee.HashMap<string, Gee.ArrayList<GameScore>> favorite_teams_last_good() {
+        if (_favorite_teams_last_good == null) _favorite_teams_last_good = new Gee.HashMap<string, Gee.ArrayList<GameScore>>();
+        return _favorite_teams_last_good;
+    }
+    private static Gee.HashMap<string, CategorySection>? _favorite_team_sections = null;
+    private static Gee.HashMap<string, CategorySection> favorite_team_sections() {
+        if (_favorite_team_sections == null) _favorite_team_sections = new Gee.HashMap<string, CategorySection>();
+        return _favorite_team_sections;
+    }
+    private static Gee.HashMap<string, Gee.HashMap<string, ScoreCard>>? _favorite_team_cards = null;
+    private static Gee.HashMap<string, Gee.HashMap<string, ScoreCard>> favorite_team_cards() {
+        if (_favorite_team_cards == null) _favorite_team_cards = new Gee.HashMap<string, Gee.HashMap<string, ScoreCard>>();
+        return _favorite_team_cards;
+    }
+    private static Gee.ArrayList<string>? _last_rendered_favorite_teams = null;
+    private static Gee.ArrayList<string> last_rendered_favorite_teams() {
+        if (_last_rendered_favorite_teams == null) _last_rendered_favorite_teams = new Gee.ArrayList<string>();
+        return _last_rendered_favorite_teams;
+    }
+
     public static void load(NewsWindow win) {
         if (!win.prefs.sports_scores_enabled) {
             stop_polling();
@@ -99,12 +134,17 @@ public class SportsScoresController : GLib.Object {
         active_window = win;
         active_ctx = FetchContext.current_context();
         fetch_and_populate(win);
+        fetch_and_populate_favorite_teams(win);
     }
 
     public static void stop_polling() {
         if (timeout_id != 0) {
             Source.remove(timeout_id);
             timeout_id = 0;
+        }
+        if (favorite_teams_timeout_id != 0) {
+            Source.remove(favorite_teams_timeout_id);
+            favorite_teams_timeout_id = 0;
         }
     }
 
@@ -119,6 +159,11 @@ public class SportsScoresController : GLib.Object {
         current_sections().clear();
         current_cards().clear();
         last_rendered_order().clear();
+        selected_league = null;
+
+        favorite_team_sections().clear();
+        favorite_team_cards().clear();
+        last_rendered_favorite_teams().clear();
     }
 
     // Called when navigating away from Sports: render() only ever runs
@@ -128,6 +173,10 @@ public class SportsScoresController : GLib.Object {
     public static void hide(NewsWindow win) {
         if (win.content_view == null || win.content_view.sports_scores_container == null) return;
         win.content_view.sports_scores_container.set_visible(false);
+        if (win.content_view.favorite_teams_container != null) win.content_view.favorite_teams_container.set_visible(false);
+        if (win.content_view.favorite_teams_label != null) win.content_view.favorite_teams_label.set_visible(false);
+        if (win.content_view.favorite_teams_separator != null) win.content_view.favorite_teams_separator.set_visible(false);
+        if (win.content_view.league_badge_carousel != null) win.content_view.league_badge_carousel.root.set_visible(false);
         if (win.content_view.hero_scores_separator != null) win.content_view.hero_scores_separator.set_visible(false);
         if (win.content_view.scores_articles_separator != null) win.content_view.scores_articles_separator.set_visible(false);
     }
@@ -291,6 +340,11 @@ public class SportsScoresController : GLib.Object {
             foreach (var league_key in active_leagues) {
                 var games = results.get(league_key);
 
+                // Every league's own score-card row is still built and kept
+                // updated (see the in-place branch below) even while hidden
+                // - the badge carousel only toggles which one is visible
+                // (see apply_selected_league()), so switching leagues is
+                // instant with no re-render.
                 var section = new CategorySection(win, SportsScoresService.display_name_for(league_key), "sports:" + league_key, true, true, SportsScoresService.logo_url_for(league_key), league_has_live_game(games));
                 var cards_for_league = new Gee.HashMap<string, ScoreCard>();
                 foreach (var game in games) {
@@ -303,6 +357,23 @@ public class SportsScoresController : GLib.Object {
                 current_cards().set(league_key, cards_for_league);
             }
 
+            win.content_view.league_badge_carousel.rebuild(active_leagues);
+            // The carousel itself is a permanent widget (never rebuilt) -
+            // only connect its selection signal once, not on every
+            // rebuild(), or repeated league changes would stack up
+            // duplicate handlers and fire selection multiple times.
+            if (!badge_carousel_connected) {
+                badge_carousel_connected = true;
+                win.content_view.league_badge_carousel.badge_selected.connect((league_key) => {
+                    selected_league = league_key;
+                    apply_selected_league();
+                });
+            }
+            foreach (var league_key in active_leagues) {
+                var games = results.get(league_key);
+                win.content_view.league_badge_carousel.set_live(league_key, league_has_live_game(games));
+            }
+
             last_rendered_order().clear();
             last_rendered_order().add_all(active_leagues);
         } else {
@@ -313,16 +384,223 @@ public class SportsScoresController : GLib.Object {
                     cards_for_league.get(game.game_id).update(game);
                 }
 
+                bool has_live = league_has_live_game(games);
                 var section = current_sections().get(league_key);
+                if (section != null && section.live_pill_widget != null) {
+                    section.live_pill_widget.set_visible(has_live);
+                }
+                win.content_view.league_badge_carousel.set_live(league_key, has_live);
+            }
+        }
+
+        // Default selection: first active league with a live game, else
+        // the first in configured order - re-picked whenever the currently
+        // selected league is gone (e.g. its games all ended and it dropped
+        // out of active_leagues).
+        if (selected_league == null || !active_leagues.contains(selected_league)) {
+            string? default_league = null;
+            foreach (var league_key in active_leagues) {
+                var games = results.get(league_key);
+                if (games != null && league_has_live_game(games)) {
+                    default_league = league_key;
+                    break;
+                }
+            }
+            if (default_league == null && active_leagues.size > 0) default_league = active_leagues.get(0);
+            selected_league = default_league;
+        }
+        apply_selected_league();
+
+        bool any_section = active_leagues.size > 0;
+        container.set_visible(any_section);
+        if (win.content_view.league_badge_carousel != null) win.content_view.league_badge_carousel.root.set_visible(any_section);
+        if (win.content_view.hero_scores_separator != null) win.content_view.hero_scores_separator.set_visible(any_section);
+        if (win.content_view.scores_articles_separator != null) win.content_view.scores_articles_separator.set_visible(any_section);
+    }
+
+    // Shows only the selected league's score-card row/badge, hiding every
+    // other already-built one - a pure visibility/state toggle over
+    // existing widgets, safe to call from a badge click as well as render().
+    // Uses active_window rather than a parameter since the badge click
+    // closure (connected once, outside any single render() call) has no
+    // NewsWindow of its own to pass in.
+    private static void apply_selected_league() {
+        foreach (var entry in current_sections().entries) {
+            entry.value.wrapper.set_visible(entry.key == selected_league);
+        }
+        if (active_window != null && active_window.content_view != null && active_window.content_view.league_badge_carousel != null) {
+            var carousel = active_window.content_view.league_badge_carousel;
+            foreach (var league_key in current_sections().keys) {
+                carousel.set_selected(league_key, league_key == selected_league);
+            }
+        }
+    }
+
+    private static string favorite_team_key(string league_key, string team_id) {
+        return "%s|%s".printf(league_key, team_id);
+    }
+
+    private static void schedule_next_favorite_teams_poll(int seconds) {
+        if (favorite_teams_timeout_id != 0) {
+            Source.remove(favorite_teams_timeout_id);
+            favorite_teams_timeout_id = 0;
+        }
+        favorite_teams_timeout_id = Timeout.add_seconds(seconds, () => {
+            favorite_teams_timeout_id = 0;
+            if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
+                return false;
+            }
+            fetch_and_populate_favorite_teams(active_window);
+            return false;
+        });
+    }
+
+    // "My Teams" - independent of the league badge/selection above, always
+    // shown when there's at least one favorited team (see NewsPreferences.
+    // favorite_teams()). Same fetch/aggregate/render-once shape as
+    // fetch_and_populate(), just keyed by "league_key|team_id" instead of a
+    // bare league key.
+    private static void fetch_and_populate_favorite_teams(NewsWindow win) {
+        var favorites = win.prefs.favorite_teams();
+        var results = new Gee.HashMap<string, Gee.ArrayList<GameScore>>();
+        int pending = favorites.size;
+
+        if (pending == 0) {
+            render_favorite_teams(win, favorites, results);
+            schedule_next_favorite_teams_poll(FAR_OUT_POLL_SECONDS);
+            return;
+        }
+
+        var ctx = active_ctx;
+        foreach (var fav in favorites) {
+            string key = favorite_team_key(fav.league_key, fav.team_id);
+            SportsScoresService.fetch_team_schedule(fav.league_key, fav.team_id, (league_key, team_id, games) => {
+                if (ctx == null || !ctx.still_owns_view()) return;
+
+                if (games != null) {
+                    favorite_teams_last_good().set(key, games);
+                    results.set(key, games);
+                } else if (favorite_teams_last_good().has_key(key)) {
+                    results.set(key, favorite_teams_last_good().get(key));
+                } else {
+                    results.set(key, new Gee.ArrayList<GameScore>());
+                }
+
+                pending--;
+                if (pending <= 0) {
+                    render_favorite_teams(win, favorites, results);
+                    schedule_next_favorite_teams_poll(next_poll_seconds(results));
+                }
+            });
+        }
+    }
+
+    // Picks out the favorited team's own display name/logo from whichever
+    // side of a game matches its team_id - a team's schedule response has
+    // no separate "this is you" field, but every game in it has the
+    // favorited team on one side or the other.
+    private static void apply_favorite_team_identity(GameScore game, string team_id, ref string? display_name, ref string? logo_url) {
+        if (display_name != null) return;
+        if (game.home_team_id == team_id) {
+            display_name = game.home_team;
+            logo_url = game.home_logo_url;
+        } else if (game.away_team_id == team_id) {
+            display_name = game.away_team;
+            logo_url = game.away_logo_url;
+        }
+    }
+
+    private static void render_favorite_teams(NewsWindow win, Gee.ArrayList<FavoriteTeamRef> favorites, Gee.HashMap<string, Gee.ArrayList<GameScore>> results) {
+        if (win.content_view == null || win.content_view.favorite_teams_container == null) return;
+        if (active_ctx == null || !active_ctx.still_owns_view()) return;
+
+        var container = win.content_view.favorite_teams_container;
+
+        // A team with no games at all (rare in-season, but possible) has no
+        // way to resolve its own display name/logo from the schedule
+        // response - skip it, same as a league with zero games not
+        // rendering a section.
+        var active_keys = new Gee.ArrayList<string>();
+        foreach (var fav in favorites) {
+            string key = favorite_team_key(fav.league_key, fav.team_id);
+            var games = results.get(key);
+            if (games != null && games.size > 0) active_keys.add(key);
+        }
+
+        bool needs_rebuild = !string_lists_equal(active_keys, last_rendered_favorite_teams());
+        if (!needs_rebuild) {
+            foreach (var key in active_keys) {
+                var games = results.get(key);
+                var cards_for_team = favorite_team_cards().get(key);
+                if (cards_for_team == null || cards_for_team.size != games.size) {
+                    needs_rebuild = true;
+                    break;
+                }
+                foreach (var game in games) {
+                    if (!cards_for_team.has_key(game.game_id)) {
+                        needs_rebuild = true;
+                        break;
+                    }
+                }
+                if (needs_rebuild) break;
+            }
+        }
+
+        if (needs_rebuild) {
+            Gtk.Widget? child = container.get_first_child();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling();
+                container.remove(child);
+                child = next;
+            }
+            favorite_team_sections().clear();
+            favorite_team_cards().clear();
+
+            foreach (var fav in favorites) {
+                string key = favorite_team_key(fav.league_key, fav.team_id);
+                if (!active_keys.contains(key)) continue;
+                var games = results.get(key);
+
+                string? display_name = null;
+                string? logo_url = null;
+                foreach (var game in games) {
+                    apply_favorite_team_identity(game, fav.team_id, ref display_name, ref logo_url);
+                    if (display_name != null) break;
+                }
+                if (display_name == null) continue;
+
+                var section = new CategorySection(win, display_name, "sports-team:" + key, true, true, logo_url, league_has_live_game(games));
+                var cards_for_team = new Gee.HashMap<string, ScoreCard>();
+                foreach (var game in games) {
+                    var card = new ScoreCard(game);
+                    section.add_card(card.root);
+                    cards_for_team.set(game.game_id, card);
+                }
+                container.append(section.wrapper);
+                favorite_team_sections().set(key, section);
+                favorite_team_cards().set(key, cards_for_team);
+            }
+
+            last_rendered_favorite_teams().clear();
+            last_rendered_favorite_teams().add_all(active_keys);
+        } else {
+            foreach (var key in active_keys) {
+                var games = results.get(key);
+                var cards_for_team = favorite_team_cards().get(key);
+                foreach (var game in games) {
+                    cards_for_team.get(game.game_id).update(game);
+                }
+
+                var section = favorite_team_sections().get(key);
                 if (section != null && section.live_pill_widget != null) {
                     section.live_pill_widget.set_visible(league_has_live_game(games));
                 }
             }
         }
 
-        bool any_section = active_leagues.size > 0;
+        bool any_section = active_keys.size > 0;
         container.set_visible(any_section);
-        if (win.content_view.hero_scores_separator != null) win.content_view.hero_scores_separator.set_visible(any_section);
-        if (win.content_view.scores_articles_separator != null) win.content_view.scores_articles_separator.set_visible(any_section);
+        if (win.content_view.favorite_teams_label != null) win.content_view.favorite_teams_label.set_visible(any_section);
+        if (win.content_view.favorite_teams_separator != null) win.content_view.favorite_teams_separator.set_visible(any_section);
     }
 }

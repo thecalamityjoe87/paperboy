@@ -195,6 +195,10 @@ public class ThumbnailBackfillService : GLib.Object {
         if (h <= 0) h = fallback_h;
         if (w <= 0 || h <= 0 || window.image_manager == null) return;
 
+        // This kicks off its own async download, separate from the backfill
+        // scrape pending_backfills already tracked - count it too, or the
+        // initial reveal can fire while this thumbnail is still loading.
+        if (window.loading_state != null) window.loading_state.track_pending_image(pic);
         window.image_manager.load_image_async(pic, thumbnail_url, w * 3, h * 3, true);
         pic.set_data<bool>("has-real-thumbnail", true);
     }

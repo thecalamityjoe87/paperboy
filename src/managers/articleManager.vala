@@ -35,8 +35,8 @@ namespace Managers {
         // placeholders size consistently.
         public const int HERO_MAX_HEIGHT = 460;
         public const int HERO_DEFAULT_HEIGHT = 460;
-        public const int TOPTEN_HERO_MAX_HEIGHT = 480;
-        public const int TOPTEN_HERO_DEFAULT_HEIGHT = 480;
+        public const int TRENDING_HERO_MAX_HEIGHT = 480;
+        public const int TRENDING_HERO_DEFAULT_HEIGHT = 480;
         public const int CARD_IMAGE_HEIGHT = 220;  // Fixed, never derived from column width
         public const int CARD_HEIGHT_ESTIMATE_OFFSET = 120;
         public const int IMAGE_QUALITY_MULTIPLIER_HIGH = 6;
@@ -75,13 +75,45 @@ namespace Managers {
         // Track URLs seen in current view to prevent duplicate cards
         private Gee.HashSet<string> seen_urls;
 
+        // Trending gets its own dedup set, separate from seen_urls - it's a
+        // second fetch layered onto the Front Page and its top stories
+        // commonly overlap URL-wise with what the primary Front Page stream
+        // (Headlines, World, etc.) already put in seen_urls; sharing that
+        // set would silently drop most of Trending's own grid cards.
+        private Gee.HashSet<string> trending_seen_urls;
+
+        // Returns true (already seen) if normalized_url is already in the
+        // relevant per-stream set, otherwise marks it seen and returns
+        // false. This only prevents the exact same URL from appearing
+        // twice within its own stream (Trending vs. everything else) - it
+        // does not try to cross-dedup Trending against Headlines, since
+        // that turned into a hard stop that could withhold real, distinct
+        // articles when URL matching wasn't reliable. Vala's lock statement
+        // requires a member access, not a local variable, hence this
+        // switches on is_trending internally rather than the caller
+        // picking a set to lock.
+        private bool already_seen_and_mark(string normalized_url, bool is_trending) {
+            if (is_trending) {
+                lock (trending_seen_urls) {
+                    if (trending_seen_urls.contains(normalized_url)) return true;
+                    trending_seen_urls.add(normalized_url);
+                }
+            } else {
+                lock (seen_urls) {
+                    if (seen_urls.contains(normalized_url)) return true;
+                    seen_urls.add(normalized_url);
+                }
+            }
+            return false;
+        }
+
         // Category distribution
         public Gee.HashMap<string, int> category_column_counts;
         public Gee.ArrayList<string> recent_categories;
         public Gee.HashMap<string, int> category_last_column;
         public Gee.ArrayList<string> recent_category_queue;
         
-        public int topten_hero_count = 0;
+        public int trending_hero_count = 0;
         public Gee.ArrayList<ArticleItem>? featured_carousel_items;
         public HeroCarousel? hero_carousel;
         public string? featured_carousel_category = null;
@@ -93,6 +125,7 @@ namespace Managers {
         // Signals for UI operations
         public signal void request_show_load_more_button();
         public signal void request_hide_load_more_button();
+        public signal void request_reset_load_more_button();
         public signal void request_remove_end_feed_message();
         public signal void request_show_toast(string message, bool persistent = false);
         
@@ -106,6 +139,7 @@ namespace Managers {
             category_last_column = new Gee.HashMap<string, int>();
             recent_category_queue = new Gee.ArrayList<string>();
             seen_urls = new Gee.HashSet<string>();
+            trending_seen_urls = new Gee.HashSet<string>();
         }
 
         public void open_article_in_app_if_online(string article_url, bool? force_reader_view = null, string? source_name_encoded = null) {
@@ -194,15 +228,19 @@ namespace Managers {
 
         // On Front Page, category_id is always "frontpage" - the real
         // category travels in source_name as a "##category::<cat>" suffix.
-        private string extract_display_category(ArticleItem item) {
-            string cat = item.category_id;
-            if (cat == "frontpage" && item.source_name != null) {
-                int idx = item.source_name.index_of("##category::");
-                if (idx >= 0 && item.source_name.length > idx + 12) {
-                    cat = item.source_name.substring(idx + 12).strip();
+        private string resolve_display_category(string category_id, string? source_name) {
+            string cat = category_id;
+            if (cat == "frontpage" && source_name != null) {
+                int idx = source_name.index_of("##category::");
+                if (idx >= 0 && source_name.length > idx + 12) {
+                    cat = source_name.substring(idx + 12).strip();
                 }
             }
             return cat;
+        }
+
+        private string extract_display_category(ArticleItem item) {
+            return resolve_display_category(item.category_id, item.source_name);
         }
 
         public int remaining_count_for_category(string cat) {
@@ -250,7 +288,7 @@ namespace Managers {
             ThumbnailBackfillService.current_batch = null;
 
             // Hide the newly placed cards immediately (rather than letting
-            // them sit at full opacity until animate_card_entrance_stagger
+            // them sit at full opacity until animate_cards_entrance_batch
             // gets around to them) so the hold above actually keeps
             // placeholders off-screen instead of just delaying their fade-in.
             if (row != null && window != null && window.animation_manager != null) {
@@ -268,18 +306,15 @@ namespace Managers {
                 backfill_gate.ready.connect(() => {
                     // Delay until idle so widgets are realized/parented.
                     GLib.Idle.add(() => {
-                        uint animate_index = 0;
-                        uint per_item_ms = 28;
+                        var cards = new Gee.ArrayList<Gtk.Widget>();
                         int idx = 0;
                         var child = row.get_first_child();
                         while (child != null) {
-                            if (idx >= prev_count) {
-                                anim_mgr.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                                animate_index++;
-                            }
+                            if (idx >= prev_count) cards.add(child);
                             idx++;
                             child = child.get_next_sibling();
                         }
+                        anim_mgr.animate_cards_entrance_batch(cards);
                         return false;
                     });
                 });
@@ -309,14 +344,17 @@ namespace Managers {
             return null;
         }
 
-        public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null) {
+        public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null, bool is_trending = false) {
             bool is_myfeed = window.category_manager.is_myfeed_view();
 
             // My Feed doesn't use the flat article-count cap: its rows are
             // independent scrolling strips, not one shared grid, and several
             // row kinds have no "load more" path to rescue overflow (see
             // LayoutManager.reveal_sections_with_pending_overflow).
-            if (!is_myfeed && is_limited_category(window.prefs.category)) {
+            // Trending is exempt too - it's a second, independently-capped
+            // fetch layered onto the Front Page and must not share (or
+            // exhaust) the Front Page's own INITIAL_ARTICLE_LIMIT counter.
+            if (!is_myfeed && !is_trending && is_limited_category(window.prefs.category)) {
                 lock (articles_shown) {
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
                         if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published, snippet)) {
@@ -339,27 +377,24 @@ namespace Managers {
             // when multiple async fetches race on the same URL. Different
             // providers covering the same headline naturally have different
             // URLs, so this never blocked that case - it was only letting
-            // exact same-provider duplicates through in Top Ten.
-            if (normalized.length > 0 && seen_urls != null) {
-                lock (seen_urls) {
-                    if (seen_urls.contains(normalized)) {
-                        // Backfill the already-rendered card's time label if this
-                        // duplicate call carries a published date it doesn't have yet.
-                        if (published != null && published.length > 0 && window.view_state != null) {
-                            var existing_widgets = window.view_state.get_cards_for_url(normalized);
-                            if (existing_widgets != null) {
-                                foreach (var existing_widget in existing_widgets) {
-                                    Gtk.Label? existing_time_label = existing_widget.get_data<Gtk.Label>("article-time-label");
-                                    if (existing_time_label != null && existing_time_label.get_text() == "") {
-                                        existing_time_label.set_text(DateUtils.time_ago(published));
-                                    }
-                                }
+            // exact same-provider duplicates through in Top Ten. Trending
+            // uses its own set (see trending_seen_urls) instead of sharing
+            // seen_urls with the Front Page's own concurrent stream.
+            if (normalized.length > 0 && already_seen_and_mark(normalized, is_trending)) {
+                // Backfill the already-rendered card's time label if this
+                // duplicate call carries a published date it doesn't have yet.
+                if (published != null && published.length > 0 && window.view_state != null) {
+                    var existing_widgets = window.view_state.get_cards_for_url(normalized);
+                    if (existing_widgets != null) {
+                        foreach (var existing_widget in existing_widgets) {
+                            Gtk.Label? existing_time_label = existing_widget.get_data<Gtk.Label>("article-time-label");
+                            if (existing_time_label != null && existing_time_label.get_text() == "") {
+                                existing_time_label.set_text(DateUtils.time_ago(published));
                             }
                         }
-                        return;
                     }
-                    seen_urls.add(normalized);
                 }
+                return;
             }
 
             Gtk.Picture? existing = null;
@@ -379,10 +414,10 @@ namespace Managers {
             }
             if (existing != null && thumbnail_url != null && thumbnail_url.length > 0) {
                     // Reuse an existing Picture mapping to avoid duplicate image
-                    // widgets for the same normalized URL. Skip on Top Ten, where
+                    // widgets for the same normalized URL. Skip for Trending, where
                     // distinct headlines can normalize to the same URL (tracking
                     // params stripped) and shouldn't collapse into one card.
-                    if (window.prefs.category != "topten") {
+                    if (!is_trending) {
                         var info = window.image_manager.hero_requests.get(existing);
                         int target_w = 400;
                         if (info != null) {
@@ -394,7 +429,7 @@ namespace Managers {
                         }
                         int target_h = info != null ? info.last_requested_h : (int)(target_w * 0.5);
                         if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(existing, category_id == "local_news");
-                        if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
+                        if (window.loading_state != null) window.loading_state.track_pending_image(existing);
                         window.image_manager.load_image_async(existing, thumbnail_url, target_w, target_h, true);
                         return;
                     } else {
@@ -418,10 +453,10 @@ namespace Managers {
                 }
             }
 
-            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published, snippet, myfeed_row_key_hint);
+            add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published, snippet, myfeed_row_key_hint, is_trending);
         }
 
-        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null, string? snippet = null, string? myfeed_row_key_hint = null) {
+        public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null, string? snippet = null, string? myfeed_row_key_hint = null, bool is_trending = false) {
             // Buffer this article's snippet/published date as a fallback for
             // ArticleSnippetService, which live-fetches the article page and
             // falls back to article_buffer when that fetch fails or is incomplete.
@@ -438,7 +473,7 @@ namespace Managers {
             string check_category = original_category ?? window.prefs.category;
 
             // My Feed is exempt here too - see add_item() above.
-            if (is_limited_category(check_category) && !bypass_limit && window.prefs.category != "myfeed") {
+            if (is_limited_category(check_category) && !bypass_limit && !is_trending && window.prefs.category != "myfeed") {
                 lock (articles_shown) {
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
                         if (title == null || url == null) {
@@ -461,8 +496,8 @@ namespace Managers {
             bool should_be_hero = false;
             if (window.prefs.category == "saved") {
                 should_be_hero = false;
-            } else if (window.prefs.category == "topten") {
-                should_be_hero = (topten_hero_count < 2);
+            } else if (is_trending) {
+                should_be_hero = (trending_hero_count < 2);
             } else if (window.prefs.category == "frontpage") {
                 should_be_hero = !featured_used;
             } else if (window.category_manager.is_rssfeed_view()) {
@@ -479,11 +514,11 @@ namespace Managers {
             }
             
             if (should_be_hero) {
-                // Top Ten uses slightly scaled hero cards
-                double hero_scale = (window.prefs.category == "topten") ? 1.30 : 1.0;
-                int max_hero_height = (window.prefs.category == "topten") ? TOPTEN_HERO_MAX_HEIGHT : HERO_MAX_HEIGHT;
+                // Trending uses slightly scaled hero cards
+                double hero_scale = is_trending ? 1.30 : 1.0;
+                int max_hero_height = is_trending ? TRENDING_HERO_MAX_HEIGHT : HERO_MAX_HEIGHT;
                 int default_hero_w = window.estimate_content_width();
-                int default_hero_h = (window.prefs.category == "topten") ? TOPTEN_HERO_DEFAULT_HEIGHT : HERO_DEFAULT_HEIGHT;
+                int default_hero_h = is_trending ? TRENDING_HERO_DEFAULT_HEIGHT : HERO_DEFAULT_HEIGHT;
 
                 string hero_display_cat = category_id;
                 if (hero_display_cat == "frontpage" && source_name != null) {
@@ -493,9 +528,9 @@ namespace Managers {
 
                 var hero_chip = window.build_category_chip(hero_display_cat);
 
-                // Enable context menu for: 1) Top Ten hero cards, 2) RSS feeds with < 15 articles
+                // Enable context menu for: 1) Trending hero cards, 2) RSS feeds with < 15 articles
                 bool enable_hero_context_menu = false;
-                if (window.prefs.category == "topten") {
+                if (is_trending) {
                     enable_hero_context_menu = true;
                 } else if (window.category_manager.is_rssfeed_view() && articles_shown < 15) {
                     enable_hero_context_menu = true;
@@ -508,12 +543,12 @@ namespace Managers {
                     default_hero_h,
                     hero_chip,
                     enable_hero_context_menu,
-                    window.prefs.category == "topten",
+                    is_trending,
                     published
                 );
 
-                // Skipped for Top Ten: its stacked layout only has room for the title.
-                if (window.prefs.category != "topten") {
+                // Skipped for Trending: its stacked layout only has room for the title.
+                if (!is_trending) {
                     ArticleSnippetService.attach_hero_snippet(hero_card, url, source_name, article_buffer);
                 }
 
@@ -537,7 +572,7 @@ namespace Managers {
                     if (hero_will_load) {
                     // Hero images are the most prominent feature - always use maximum quality
                     int multiplier = 6;
-                    if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
+                    if (window.loading_state != null) window.loading_state.track_pending_image(hero_card.image);
                     if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(hero_card.image, category_id == "local_news");
                     window.image_manager.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, true);
                     window.image_manager.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
@@ -630,9 +665,9 @@ namespace Managers {
                     (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
                 );
 
-                if (window.prefs.category == "topten") {
-                    if (topten_hero_count < 2) {
-                        topten_hero_count++;
+                if (is_trending) {
+                    if (trending_hero_count < 2) {
+                        trending_hero_count++;
                         featured_used = true;
                         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
                         return;
@@ -654,7 +689,7 @@ namespace Managers {
                 }
             }
 
-            if (window.prefs.category != "topten" && hero_carousel != null && featured_carousel_items != null &&
+            if (!is_trending && hero_carousel != null && featured_carousel_items != null &&
             featured_carousel_items.size < 5) {
             bool allow_slide = false;
             if (window.prefs.category == "myfeed" && window.prefs.personalized_feed_enabled) {
@@ -724,7 +759,7 @@ namespace Managers {
                 }
             } else {
                 int multiplier = IMAGE_QUALITY_MULTIPLIER_HIGH;
-                if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
+                if (window.loading_state != null) window.loading_state.track_pending_image(slide_image);
                 if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(slide_image, category_id == "local_news");
                 window.image_manager.load_image_async(slide_image, thumbnail_url, default_w * multiplier, default_h * multiplier, true);
                 window.image_manager.hero_requests.set(slide_image, new HeroRequest(thumbnail_url, default_w * multiplier, default_h * multiplier, multiplier));
@@ -771,7 +806,7 @@ namespace Managers {
                 int idx3 = source_name.index_of("##category::");
                 if (idx3 >= 0 && source_name.length > idx3 + 12) card_display_cat = source_name.substring(idx3 + 12).strip();
             }
-            place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, card_display_cat, false);
+            place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, card_display_cat, false, is_trending);
         }
     }
 
@@ -837,16 +872,22 @@ namespace Managers {
         bool bypass_limit,
         string? published,
         string section_key,
-        bool no_fallback_section
+        bool no_fallback_section,
+        bool is_trending = false
     ) {
         // Use the column width cached for this layout pass rather than
         // recomputing per-card, so every card gets identical dimensions even
         // if the reported content width drifts while articles stream in.
+        // Trending computes its own 4-column width directly instead, since
+        // it shares LayoutManager with Front Page's own concurrently
+        // streaming (3-column-cached) category sections.
         int col_w = 400;
         if (window.layout_manager != null) {
-            col_w = window.layout_manager.cached_col_w > 0
-                ? window.layout_manager.cached_col_w
-                : window.layout_manager.estimate_column_width(window.layout_manager.columns_count);
+            col_w = is_trending
+                ? window.layout_manager.estimate_column_width(4)
+                : (window.layout_manager.cached_col_w > 0
+                    ? window.layout_manager.cached_col_w
+                    : window.layout_manager.estimate_column_width(window.layout_manager.columns_count));
         }
         int img_w = col_w;
         // Fixed height, not derived from col_w, so every card's picture area
@@ -874,7 +915,8 @@ namespace Managers {
             chip,
             section_key,
             published,
-            no_fallback_section
+            no_fallback_section,
+            is_trending
         );
 
         if (category_id != "local_news") {
@@ -898,7 +940,7 @@ namespace Managers {
             }
             bool single_source = (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size == 1);
             int multiplier = single_source ? 3 : ((window.loading_state != null && window.loading_state.initial_phase) ? 2 : 3);
-            if (window.loading_state != null && window.loading_state.initial_phase) window.loading_state.pending_images++;
+            if (window.loading_state != null) window.loading_state.track_pending_image(article_card.image);
             if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(article_card.image, category_id == "local_news");
             bool force_load = true;
             window.image_manager.load_image_async(article_card.image, thumbnail_url, img_w * multiplier, img_h * multiplier, force_load);
@@ -1046,7 +1088,7 @@ namespace Managers {
             ThumbnailBackfillService.current_batch = null;
 
             // Hide the newly placed cards immediately (rather than letting
-            // them sit at full opacity until animate_card_entrance_stagger
+            // them sit at full opacity until animate_cards_entrance_batch
             // gets around to them) so the hold above actually keeps
             // placeholders off-screen instead of just delaying their fade-in.
             if (window != null && window.animation_manager != null && window.layout_manager != null) {
@@ -1077,18 +1119,14 @@ namespace Managers {
                 backfill_gate.ready.connect(() => {
                     // Delay until idle so widgets are realized/parented
                     GLib.Idle.add(() => {
-                        uint animate_index = 0;
-                        uint per_item_ms = 28;
+                        var cards = new Gee.ArrayList<Gtk.Widget>();
 
                         // Featured box new children
                         if (lm2.featured_box != null) {
                             int idx = 0;
                             var child = lm2.featured_box.get_first_child();
                             while (child != null) {
-                                if (idx >= featured_count) {
-                                    window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                                    animate_index++;
-                                }
+                                if (idx >= featured_count) cards.add(child);
                                 idx++;
                                 child = child.get_next_sibling();
                             }
@@ -1100,42 +1138,34 @@ namespace Managers {
                             var child = lm2.columns_row.get_first_child();
                             int idx = 0;
                             while (child != null) {
-                                if (idx >= prev_card_count) {
-                                    window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                                    animate_index++;
-                                }
+                                if (idx >= prev_card_count) cards.add(child);
                                 idx++;
                                 child = child.get_next_sibling();
                             }
                         }
 
+                        window.animation_manager.animate_cards_entrance_batch(cards);
                         return false;
                     });
                 });
             }
-            backfill_gate.begin();
 
-            if (load_more_button_visible) {
-                request_hide_load_more_button();
-                load_more_button_visible = false;
-
-                Timeout.add(300, () => {
-                    if (remaining_articles.size > 0) {
-                        Timeout.add(500, () => {
-                            show_load_more_button();
-                            return false;
-                        });
-                    } else {
-                        Timeout.add(500, () => {
-                            if (window.loading_state.loading_container == null || !window.loading_state.loading_container.get_visible()) {
-                                show_end_of_feed_message();
-                            }
-                            return false;
-                        });
+            // Resolve the button's loading state (spinner -> normal, or
+            // hidden once the feed is exhausted) once the new cards are
+            // actually about to be revealed, instead of on a fixed timer.
+            backfill_gate.ready.connect(() => {
+                if (!load_more_button_visible) return;
+                if (remaining_articles.size > 0) {
+                    request_reset_load_more_button();
+                } else {
+                    request_hide_load_more_button();
+                    load_more_button_visible = false;
+                    if (window.loading_state.loading_container == null || !window.loading_state.loading_container.get_visible()) {
+                        show_end_of_feed_message();
                     }
-                    return false;
-                });
-            }
+                }
+            });
+            backfill_gate.begin();
         }
 
         public void show_load_more_button() {
@@ -1183,6 +1213,9 @@ namespace Managers {
             if (seen_urls != null) {
                 seen_urls.clear();
             }
+            if (trending_seen_urls != null) {
+                trending_seen_urls.clear();
+            }
 
             if (category_column_counts != null) {
                 category_column_counts.clear();
@@ -1197,7 +1230,7 @@ namespace Managers {
                 recent_category_queue.clear();
             }
 
-            topten_hero_count = 0;
+            trending_hero_count = 0;
 
             if (featured_carousel_items != null) {
                 featured_carousel_items.clear();
@@ -1230,7 +1263,7 @@ namespace Managers {
             }
             featured_carousel_category = null;
             featured_used = false;
-            topten_hero_count = 0;
+            trending_hero_count = 0;
 
             if (buffer_flush_timeout_id > 0) {
                 Source.remove(buffer_flush_timeout_id);
@@ -1273,7 +1306,7 @@ namespace Managers {
 
     public void reset_featured_state() {
         featured_used = false;
-        topten_hero_count = 0;
+        trending_hero_count = 0;
         if (featured_carousel_items != null) featured_carousel_items.clear();
         // Must stop the timer before dropping the reference, or its
         // GLib.Timeout source stays registered forever.

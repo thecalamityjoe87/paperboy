@@ -18,9 +18,6 @@
 using GLib;
 using Gee;
 
-[CCode (cname = "malloc_trim")]
-private static extern int malloc_trim(size_t pad);
-
 /**
  * FeedUpdateManager - Manages automatic updates of RSS feeds
  * Updates all followed RSS feeds on app startup and tracks update timestamps
@@ -163,7 +160,7 @@ public class FeedUpdateManager : GLib.Object {
                     skipped_count++;
                     continue;
                 }
-                
+
                 // Fetch and validate feed
                 bool success = update_single_feed(source);
                 if (success) {
@@ -171,11 +168,13 @@ public class FeedUpdateManager : GLib.Object {
                 } else {
                     failed_count++;
                 }
-                
+
                 // Small delay between requests to avoid overwhelming servers
                 Thread.usleep(500000); // 500ms
             }
-            
+
+            malloc_trim(0);
+
             // Show summary toast
             GLib.Idle.add(() => {
                 if (window == null) return false; // Window destroyed
@@ -213,22 +212,27 @@ public class FeedUpdateManager : GLib.Object {
         public string? error_message = null;
     }
 
+    // Called from the background "feed-updater" thread. GeneratedFeedService
+    // needs a WebView, so the actual generation must run on the main thread -
+    // dispatched here via Idle.add. Waiting for it with a nested MainLoop on
+    // the default context would deadlock: that context is already owned by
+    // the main thread's own GTK loop, which never releases it. A condition
+    // variable lets this thread block without touching that context.
     private GeneratedFeedResult generate_feed_via_webkit_blocking(string url) {
+        var result = new GeneratedFeedResult();
         var mutex = GLib.Mutex();
         var cond = GLib.Cond();
         bool done = false;
-        var result = new GeneratedFeedResult();
 
         GLib.Idle.add(() => {
             Paperboy.GeneratedFeedService.generate_async(url, (success, rss_xml, error_message) => {
-                mutex.lock();
                 result.success = success;
                 result.rss_xml = rss_xml;
                 result.error_message = error_message;
+                mutex.lock();
                 done = true;
                 cond.signal();
                 mutex.unlock();
-                malloc_trim(0);
             });
             return false;
         });
@@ -238,8 +242,6 @@ public class FeedUpdateManager : GLib.Object {
             cond.wait(mutex);
         }
         mutex.unlock();
-
-        GLib.Thread.usleep(100000);
         return result;
     }
 
@@ -435,23 +437,27 @@ public class FeedUpdateManager : GLib.Object {
                 string? error = null;
                 if (RssValidatorUtils.is_valid_rss(body, out error)) {
                     int item_count = RssValidatorUtils.get_item_count(body);
-                    
+
                     // Update last_fetched_at timestamp
                     var store = Paperboy.RssSourceStore.get_instance();
                     store.update_last_fetched(source.url);
 
                     GLib.print("  ✓ Updated: %s (%d items)\n", source.name, item_count);
+                    malloc_trim(0);
                     return true;
                 } else {
                     GLib.warning("  ✗ Invalid RSS for %s: %s", source.name, error);
+                    malloc_trim(0);
                     return false;
                 }
             } else {
                 GLib.warning("  ✗ Failed to fetch %s: HTTP %u", source.name, status);
+                malloc_trim(0);
                 return false;
             }
         } catch (Error e) {
             GLib.warning("  ✗ Error updating %s: %s", source.name, e.message);
+            malloc_trim(0);
             return false;
         }
     }

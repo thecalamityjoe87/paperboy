@@ -161,10 +161,20 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(32);
         box.set_margin_bottom(32);
 
-        var icon = new Gtk.Image.from_icon_name("paperboy");
-        icon.set_pixel_size(96);
-        icon.set_halign(Gtk.Align.CENTER);
-        box.append(icon);
+        // Same banner as the About dialog, instead of the plain app icon.
+        string? banner_path = DataPathsUtils.find_data_file("images/paperboy-banner.png");
+        if (banner_path != null) {
+            var banner = new Gtk.Picture.for_filename(banner_path);
+            banner.set_keep_aspect_ratio(true);
+            banner.set_size_request(300, 80);
+            banner.set_halign(Gtk.Align.CENTER);
+            box.append(banner);
+        } else {
+            var icon = new Gtk.Image.from_icon_name("paperboy");
+            icon.set_pixel_size(96);
+            icon.set_halign(Gtk.Align.CENTER);
+            box.append(icon);
+        }
 
         var title = new Gtk.Label("Welcome to Paperboy");
         title.add_css_class("title-1");

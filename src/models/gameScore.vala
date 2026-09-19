@@ -40,6 +40,11 @@ public class GameScore : GLib.Object {
     public string away_score;
     public string? home_logo_url;
     public string? away_logo_url;
+    // ESPN's numeric team id (null for MMA, which has athletes, not teams) -
+    // lets a favorited-team row (see SportsScoresController) identify which
+    // side is "my" team without string-matching on display name.
+    public string? home_team_id;
+    public string? away_team_id;
     public GameStatus status;
     public string status_detail; // e.g. "Q3 7:42", "FINAL", "7:00 PM"
     public GLib.DateTime? start_time;

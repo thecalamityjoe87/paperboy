@@ -32,6 +32,7 @@ public class ReaderVideoEmbed : Gtk.Box {
     private Gtk.Button play_btn;
     private bool playing = false;
     private Gtk.Widget? player_widget;
+    private Gtk.Window? fullscreen_window = null;
 
     // Loading a YouTube/Vimeo/etc "/embed/..." URL directly as the
     // WebView's own top-level page throws YouTube's "Error 153" - its
@@ -172,6 +173,20 @@ public class ReaderVideoEmbed : Gtk.Box {
                 // load rather than showing nothing at all.
                 webview.load_uri(video_url);
             }
+
+            // Without this, WebKit's default fullscreen handling fullscreens
+            // our toplevel (the whole Paperboy window) instead of just the
+            // video - move the webview into its own fullscreen window
+            // instead, and returning true tells WebKit we've handled it.
+            webview.enter_fullscreen.connect(() => {
+                enter_video_fullscreen(webview);
+                return true;
+            });
+            webview.leave_fullscreen.connect(() => {
+                leave_video_fullscreen(webview);
+                return true;
+            });
+
             player = webview;
         }
 
@@ -179,11 +194,36 @@ public class ReaderVideoEmbed : Gtk.Box {
         player_widget = player;
     }
 
+    private void enter_video_fullscreen(WebKit.WebView webview) {
+        if (fullscreen_window != null || parent_window == null) return;
+
+        overlay.set_child(null);
+        fullscreen_window = new Gtk.Window();
+        fullscreen_window.set_transient_for(parent_window);
+        fullscreen_window.set_child(webview);
+        fullscreen_window.fullscreen();
+        fullscreen_window.present();
+    }
+
+    private void leave_video_fullscreen(WebKit.WebView webview) {
+        if (fullscreen_window == null) return;
+
+        fullscreen_window.set_child(null);
+        fullscreen_window.destroy();
+        fullscreen_window = null;
+        overlay.set_child(webview);
+    }
+
     public void stop_playback() {
         if (!playing || player_widget == null) return;
         if (player_widget is WebKit.WebView) {
             var wv = (WebKit.WebView) player_widget;
             wv.stop_loading();
+            if (fullscreen_window != null) {
+                fullscreen_window.set_child(null);
+                fullscreen_window.destroy();
+                fullscreen_window = null;
+            }
             WebViewUtils.terminate_process(wv);
         }
         overlay.set_child(null);

@@ -777,7 +777,7 @@ public class SidebarView : GLib.Object {
     }
 
     private bool is_special_category_id(string id) {
-        return id == "frontpage" || id == "topten" ||
+        return id == "frontpage" ||
                id == "myfeed" || id == "local_news" ||
                id == "saved";
     }

@@ -142,7 +142,7 @@
     <key name="unread-badges-special-categories" type="b">
       <default>true</default>
       <summary>Show badges on special categories</summary>
-      <description>Whether unread count badges are shown on special categories (Front Page, Top Ten, My Feed, Local News, Saved)</description>
+      <description>Whether unread count badges are shown on special categories (Front Page, My Feed, Local News, Saved)</description>
     </key>
 
     <key name="unread-badges-sources" type="b">
@@ -200,6 +200,12 @@
       <default>[]</default>
       <summary>Sports league display order</summary>
       <description>List of sports league keys in the order their score-card sections should appear in the Sports category</description>
+    </key>
+
+    <key name="favorite-sports-teams" type="as">
+      <default>[]</default>
+      <summary>Favorite sports teams</summary>
+      <description>List of favorited teams, each stored as "league_key|team_id", shown as their own always-visible score-card rows in the Sports category</description>
     </key>
 
     <key name="market-cards-enabled" type="b">

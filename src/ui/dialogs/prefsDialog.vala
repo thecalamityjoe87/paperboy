@@ -1113,6 +1113,117 @@ public class PrefsDialog : GLib.Object {
         sports_group.set_title("Sports Score Cards");
         sports_group.set_description("Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category");
 
+        // Two-level drill-down subpage for favoriting individual teams -
+        // same push_subpage()/Adw.NavigationPage pattern as "Custom feeds
+        // in My Feed" above. MMA has no teams (individual fighters), so
+        // it's the only league excluded from the first-level list.
+        bool favorite_teams_subpage_open = false;
+
+        Adw.NavigationPage build_favorite_team_picker_page(string league_key) {
+            var page = new Adw.PreferencesPage();
+            var group = new Adw.PreferencesGroup();
+            group.set_title(SportsScoresService.display_name_for(league_key));
+
+            var loading_row = new Adw.ActionRow();
+            loading_row.set_title("Loading teams…");
+            group.add(loading_row);
+
+            page.add(group);
+
+            var toolbar_view = new Adw.ToolbarView();
+            toolbar_view.add_top_bar(new Adw.HeaderBar());
+            toolbar_view.set_content(page);
+            var nav_page = new Adw.NavigationPage(toolbar_view, SportsScoresService.display_name_for(league_key));
+
+            SportsScoresService.fetch_teams(league_key, (returned_key, teams) => {
+                group.remove(loading_row);
+
+                if (teams == null || teams.size == 0) {
+                    var empty_row = new Adw.ActionRow();
+                    empty_row.set_title("Couldn't load teams");
+                    empty_row.set_subtitle("Check your connection and try again later.");
+                    group.add(empty_row);
+                    return;
+                }
+
+                foreach (var team in teams) {
+                    var team_row = new Adw.SwitchRow();
+                    team_row.set_title(GLib.Markup.escape_text(team.display_name));
+                    team_row.set_active(prefs.is_team_favorited(league_key, team.id));
+
+                    var team_logo = PixbufUtils.make_circular_logo_placeholder(26);
+                    if (team.logo_url != null && team.logo_url.length > 0) {
+                        PixbufUtils.load_circular_logo_async(team_logo, team.logo_url, 26);
+                    }
+                    team_row.add_prefix(team_logo);
+
+                    string _team_id = team.id;
+                    team_row.notify["active"].connect(() => {
+                        if (team_row.get_active()) {
+                            prefs.add_favorite_team(league_key, _team_id);
+                        } else {
+                            prefs.remove_favorite_team(league_key, _team_id);
+                        }
+                        if (win != null && win.prefs.category == "sports") {
+                            SportsScoresController.load(win);
+                        }
+                    });
+
+                    group.add(team_row);
+                }
+            });
+
+            return nav_page;
+        }
+
+        Adw.NavigationPage build_favorite_teams_leagues_page() {
+            var page = new Adw.PreferencesPage();
+            var group = new Adw.PreferencesGroup();
+            group.set_description("Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\"");
+
+            foreach (var league_key in SportsScoresService.league_keys()) {
+                if (league_key == "mma") continue; // individual fighters, not teams
+
+                var league_row = new Adw.ActionRow();
+                league_row.set_title(SportsScoresService.display_name_for(league_key));
+
+                var league_logo = PixbufUtils.make_circular_logo_placeholder(26);
+                string? logo_url = SportsScoresService.logo_url_for(league_key);
+                if (logo_url != null && logo_url.length > 0) {
+                    PixbufUtils.load_circular_logo_async(league_logo, logo_url, 26);
+                }
+                league_row.add_prefix(league_logo);
+                league_row.add_suffix(new Gtk.Image.from_icon_name("go-next-symbolic"));
+                league_row.set_activatable(true);
+
+                string _league_key = league_key;
+                league_row.activated.connect(() => {
+                    dialog.push_subpage(build_favorite_team_picker_page(_league_key));
+                });
+                group.add(league_row);
+            }
+
+            page.add(group);
+
+            var toolbar_view = new Adw.ToolbarView();
+            toolbar_view.add_top_bar(new Adw.HeaderBar());
+            toolbar_view.set_content(page);
+            var nav_page = new Adw.NavigationPage(toolbar_view, "Favorite Teams");
+            nav_page.hidden.connect(() => { favorite_teams_subpage_open = false; });
+            return nav_page;
+        }
+
+        var favorite_teams_row = new Adw.ActionRow();
+        favorite_teams_row.set_title("Favorite Teams");
+        favorite_teams_row.set_subtitle("Follow specific teams to show their own score cards");
+        favorite_teams_row.add_suffix(new Gtk.Image.from_icon_name("go-next-symbolic"));
+        favorite_teams_row.set_activatable(true);
+        favorite_teams_row.activated.connect(() => {
+            if (favorite_teams_subpage_open) return;
+            favorite_teams_subpage_open = true;
+            dialog.push_subpage(build_favorite_teams_leagues_page());
+        });
+
         var sports_list_box = build_sports_league_list_box(prefs, win);
         sports_list_box.set_margin_top(18);
 
@@ -1162,6 +1273,7 @@ public class PrefsDialog : GLib.Object {
         });
 
         sports_group.add(sports_master_row);
+        sports_group.add(favorite_teams_row);
         sports_group.add(sports_live_indicator_row);
         sports_group.add(sports_list_box);
         personalization_page.add(sports_group);
@@ -1653,69 +1765,6 @@ public class PrefsDialog : GLib.Object {
 
         // Present the dialog
         dialog.present(parent);
-    }
-
-    
-    // Condensed highlights for the 5 most recent GitHub releases, shown in
-    // the About dialog's "What's New" page.
-    private const string RELEASE_NOTES = """
-        <p><em>v0.11.0a</em> — Market Index Cards, Article Notes, Gestures &amp; Thumbnail Backfill</p>
-        <ul>
-        <li>Added market index cards with live intraday price charts for major indices and BTC, plus a hover readout showing price/time at any point</li>
-        <li>Added per-article notes with rich-text editing (bold, italic, highlights, lists) and a dedicated Notes sidebar listing every note</li>
-        <li>Added automatic thumbnail backfill so articles missing a real image get one extracted in the background</li>
-        <li>Replaced the reader's hand-rolled swipe-to-close gesture with a native libadwaita navigation gesture</li>
-        <li>Fixed reader view scroll/selection glitches, blurry HiDPI sidebar icons, and malformed author/date extraction on some sites</li>
-        </ul>
-        <p><em>v0.10.1a</em> — Hotfix: Reader View Memory Leak</p>
-        <ul>
-        <li>Fixed WebKit reader web processes never terminating, leaking a sandboxed process every time reader view was used</li>
-        </ul>
-        <p><em>v0.10.0a</em> — In-App Reader View &amp; Native Article Comments</p>
-        <ul>
-        <li>Added a distraction-free reader view with title/byline/hero image/body extraction, video and embed support, and customizable text size, font, and color scheme</li>
-        <li>Added native article comments pulled from RSS, Disqus, Hacker News, and three reverse-engineered comment platforms (Coral, OpenWeb, Viafoura), shown in a slide-in comments pane</li>
-        <li>Added hover quick-action buttons on article cards to jump straight into reader view</li>
-        <li>Added podcast discovery for followed RSS feeds, letting you find and subscribe to a site's podcast directly from its feed</li>
-        <li>Fixed podcast mini-player cover art missing after app restart, and several Saved Articles/reader hero image and theming glitches</li>
-        </ul>
-        <p><em>v0.9.0a</em> — Podcasts, Global Search &amp; Memory Fixes</p>
-        <ul>
-        <li>Added a full podcast experience: discovery with hero cards and category rows, GStreamer playback with a persistent mini-player, SQLite-backed subscriptions, and played/new episode tracking</li>
-        <li>Replaced category-scoped search with a fuzzy global search across every cached article's title, source, and URL</li>
-        <li>Generalized stale-fetch protection into a shared view-ownership guard applied across news, Podcasts, and Sports Scores</li>
-        <li>Fixed several Podcasts memory/rendering issues, including a shared image cache being crushed on every fetch and cover art growing past its fixed size</li>
-        <li>New app icon, credited to @hyprlab</li>
-        </ul>
-        <p><em>v0.8.1a</em> — My Feed Redesign, Memory Fixes &amp; Row Navigation</p>
-        <ul>
-        <li>Redesigned My Feed as interleaved source/category rows, mirroring Front Page's card layout, with custom RSS feeds able to opt in independently via a new Personalization subpage</li>
-        <li>Fixed a memory/freeze regression from that redesign by capping live card widgets per row and tightening HTTP concurrency</li>
-        <li>Fixed built-in sources disappearing from My Feed under load, and circular logos being stretched instead of center-cropped</li>
-        <li>Fixed Sports' hero carousel staying empty on first load, and My Feed's sidebar unread badge showing inflated counts</li>
-        <li>Added a "Go to category" button on Front Page/My Feed rows for quick navigation to the full category page</li>
-        </ul>
-        """;
-
-    public static void show_about_dialog(Gtk.Window parent) {
-        var about = new Adw.AboutDialog();
-        about.set_application_name("Paperboy");
-        about.set_application_icon("paperboy"); // Use the correct icon name
-        about.set_version("0.11.0a");
-        about.set_developer_name("thecalamityjoe87 (Isaac Joseph)");
-        about.set_comments("A simple news app written in Vala, built with GTK4 and Libadwaita.");
-        about.set_website("https://github.com/thecalamityjoe87/paperboy");
-        about.set_license_type(Gtk.License.GPL_3_0);
-        about.set_copyright("© 2025 thecalamityjoe87 (Isaac Joseph)");
-
-        about.set_release_notes_version("0.11.0a");
-        about.set_release_notes(RELEASE_NOTES);
-
-        about.set_issue_url("https://github.com/thecalamityjoe87/paperboy/issues");
-        about.add_link("GitHub Repository", "https://github.com/thecalamityjoe87/paperboy");
-        about.add_link("Releases", "https://github.com/thecalamityjoe87/paperboy/releases");
-
-        about.present(parent);
     }
 
     // Launches a fresh Paperboy process and quits this one. Looked up by

@@ -35,6 +35,8 @@ public class ReaderView : GLib.Object {
     private Gtk.Stack stack;
     private Gtk.Box content_box;
     private Gtk.ScrolledWindow scroller;
+    private Gtk.Box source_header_bar;
+    private Gtk.Box source_header_row;
     private Gtk.Spinner spinner;
     private NewsWindow? parent_window;
     private Gtk.MenuButton settings_btn;
@@ -141,13 +143,37 @@ public class ReaderView : GLib.Object {
 
         content_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 14);
         content_box.add_css_class("reader-view");
-        content_box.set_margin_top(24);
+        content_box.set_margin_top(36);
         content_box.set_margin_bottom(48);
         content_box.set_margin_start(16);
         content_box.set_margin_end(16);
 
         clamp.set_child(content_box);
-        scroller.set_child(clamp);
+
+        // The source header bar is edge-to-edge across the whole scroller
+        // (unlike content_box, which is width-limited by the clamp above),
+        // so its own row of logo/name is wrapped in a matching clamp to
+        // keep it lined up with the body text below.
+        source_header_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+        source_header_row.set_margin_top(22);
+        source_header_row.set_margin_bottom(22);
+        var source_header_clamp = new Adw.Clamp();
+        source_header_clamp.set_maximum_size(720);
+        source_header_clamp.set_tightening_threshold(600);
+        source_header_clamp.set_margin_start(16);
+        source_header_clamp.set_margin_end(16);
+        source_header_clamp.set_child(source_header_row);
+
+        source_header_bar = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        source_header_bar.add_css_class("reader-source-header");
+        source_header_bar.append(source_header_clamp);
+        source_header_bar.set_visible(false);
+
+        var content_column = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        content_column.append(source_header_bar);
+        content_column.append(clamp);
+
+        scroller.set_child(content_column);
         stack.add_named(scroller, "content");
 
         // Prevent the auto-created Viewport from jumping the scroll
@@ -160,6 +186,41 @@ public class ReaderView : GLib.Object {
         // at show-time - scrolling would leave it pointing at stale
         // coordinates, so just hide it instead of trying to track it.
         scroller.get_vadjustment().value_changed.connect(hide_add_note_popover);
+
+        // Same rubber-band bounce as the main feed (see ContentView.set_window()).
+        var reader_vadj = scroller.get_vadjustment();
+        bool reader_was_at_top = reader_vadj.get_value() <= reader_vadj.get_lower() + 0.5;
+        bool reader_was_at_bottom = reader_vadj.get_value() >= reader_vadj.get_upper() - reader_vadj.get_page_size() - 0.5;
+        reader_vadj.value_changed.connect(() => {
+            bool at_top = reader_vadj.get_value() <= reader_vadj.get_lower() + 0.5;
+            bool at_bottom = reader_vadj.get_value() >= reader_vadj.get_upper() - reader_vadj.get_page_size() - 0.5;
+            if (parent_window != null && parent_window.animation_manager != null) {
+                if (at_top && !reader_was_at_top) {
+                    parent_window.animation_manager.bounce_scroll_edge(content_column, Managers.BounceEdge.TOP, 500.0);
+                }
+                if (at_bottom && !reader_was_at_bottom) {
+                    parent_window.animation_manager.bounce_scroll_edge(content_column, Managers.BounceEdge.BOTTOM, 500.0);
+                }
+            }
+            reader_was_at_top = at_top;
+            reader_was_at_bottom = at_bottom;
+        });
+
+        // Catches continued overscroll once already pinned.
+        var reader_scroll_controller = new Gtk.EventControllerScroll(Gtk.EventControllerScrollFlags.VERTICAL);
+        reader_scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+        scroller.add_controller(reader_scroll_controller);
+        reader_scroll_controller.scroll.connect((dx, dy) => {
+            if (parent_window == null || parent_window.animation_manager == null) return false;
+            bool at_top = reader_vadj.get_value() <= reader_vadj.get_lower() + 0.5;
+            bool at_bottom = reader_vadj.get_value() >= reader_vadj.get_upper() - reader_vadj.get_page_size() - 0.5;
+            if (dy < 0 && at_top) {
+                parent_window.animation_manager.bounce_scroll_edge(content_column, Managers.BounceEdge.TOP, 500.0);
+            } else if (dy > 0 && at_bottom) {
+                parent_window.animation_manager.bounce_scroll_edge(content_column, Managers.BounceEdge.BOTTOM, 500.0);
+            }
+            return false;
+        });
 
         setup_drag_autoscroll();
         build_settings_button();
@@ -665,6 +726,10 @@ public class ReaderView : GLib.Object {
             ".reader-view .reader-source-name { %s }\n",
             fg.length > 0 ? ("color: " + fg + ";") : ""
         );
+        // The source header bar is always black regardless of reading color
+        // scheme, so its text needs to stay white rather than following
+        // the per-scheme foreground color above.
+        sb.append(".reader-source-header .reader-source-name { color: #ffffff; }\n");
         // The hero image border and the byline separator otherwise fall
         // back to the ambient system-theme color rather than the reader's
         // own chosen scheme - invisible whenever that ambient color is too
@@ -708,6 +773,15 @@ public class ReaderView : GLib.Object {
             content_box.remove(child);
             child = next;
         }
+
+        Gtk.Widget? header_child = source_header_row.get_first_child();
+        while (header_child != null) {
+            Gtk.Widget? next = header_child.get_next_sibling();
+            source_header_row.remove(header_child);
+            header_child = next;
+        }
+        source_header_bar.set_visible(false);
+
         scroller.get_vadjustment().set_value(0);
         anchor_shift_by_tv.clear();
         highlights_by_note_id.clear();
@@ -727,9 +801,6 @@ public class ReaderView : GLib.Object {
         if (src_display_name == null || src_display_name.length == 0) src_display_name = article.site_name;
 
         if ((src_display_name != null && src_display_name.length > 0) || local_logo_path != null || (src_logo_url != null && src_logo_url.length > 0)) {
-            var source_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-            source_row.set_margin_bottom(4);
-
             if (local_logo_path != null || (src_logo_url != null && src_logo_url.length > 0)) {
                 var logo_wrapper = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
                 logo_wrapper.add_css_class("circular-logo");
@@ -740,7 +811,7 @@ public class ReaderView : GLib.Object {
                 logo_pic.set_content_fit(Gtk.ContentFit.COVER);
                 logo_pic.set_size_request(44, 44);
                 logo_wrapper.append(logo_pic);
-                source_row.append(logo_wrapper);
+                source_header_row.append(logo_wrapper);
 
                 if (local_logo_path != null) {
                     logo_pic.set_filename(local_logo_path);
@@ -753,10 +824,10 @@ public class ReaderView : GLib.Object {
                 var source_label = new Gtk.Label(src_display_name);
                 source_label.add_css_class("reader-source-name");
                 source_label.set_valign(Gtk.Align.CENTER);
-                source_row.append(source_label);
+                source_header_row.append(source_label);
             }
 
-            content_box.append(source_row);
+            source_header_bar.set_visible(true);
         }
 
         if (article.hero_image_url != null && article.hero_image_url.length > 0) {
@@ -764,7 +835,7 @@ public class ReaderView : GLib.Object {
             hero_image.set_content_fit(Gtk.ContentFit.COVER);
             hero_image.set_size_request(-1, 320);
             hero_image.add_css_class("reader-hero-image");
-            content_box.append(hero_image);
+            content_box.append(wrap_expandable_image(hero_image, article.hero_image_url));
             if (parent_window != null && parent_window.image_manager != null) {
                 parent_window.image_manager.load_image_async(hero_image, article.hero_image_url, 720, 320);
             }
@@ -813,7 +884,7 @@ public class ReaderView : GLib.Object {
                 body_image.set_content_fit(Gtk.ContentFit.COVER);
                 body_image.set_size_request(-1, 320);
                 body_image.add_css_class("reader-hero-image");
-                content_box.append(body_image);
+                content_box.append(wrap_expandable_image(body_image, block.image_url));
                 if (parent_window != null && parent_window.image_manager != null) {
                     parent_window.image_manager.load_image_async(body_image, block.image_url, 720, 320);
                 }
@@ -984,6 +1055,33 @@ public class ReaderView : GLib.Object {
         shown_for_tv = null;
         shown_for_start = -1;
         shown_for_end = -1;
+    }
+
+    // Wraps a reader-view image in an Overlay with a bottom-right expand
+    // button that opens it full-size in ImageViewerDialog - same
+    // Overlay+corner-button shape PodcastCard uses for its own play/
+    // subscribe badges. Shows whatever paintable is already loaded on the
+    // Picture at click time (no re-fetch), so it does nothing if clicked
+    // before the image has finished loading.
+    private Gtk.Widget wrap_expandable_image(Gtk.Picture picture, string image_url) {
+        var overlay = new Gtk.Overlay();
+        overlay.set_child(picture);
+
+        var expand_button = new Gtk.Button.from_icon_name("view-fullscreen-symbolic");
+        expand_button.add_css_class("podcast-card-badge-btn");
+        expand_button.set_tooltip_text("View full size");
+        expand_button.set_halign(Gtk.Align.END);
+        expand_button.set_valign(Gtk.Align.END);
+        expand_button.set_margin_end(8);
+        expand_button.set_margin_bottom(8);
+        expand_button.clicked.connect(() => {
+            var paintable = picture.get_paintable();
+            if (paintable == null || parent_window == null) return;
+            ImageViewerDialog.show(parent_window, paintable, image_url);
+        });
+        overlay.add_overlay(expand_button);
+
+        return overlay;
     }
 
     private string build_byline(ExtractedArticle article) {

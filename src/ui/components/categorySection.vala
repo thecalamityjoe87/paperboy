@@ -174,7 +174,51 @@ public class CategorySection : GLib.Object {
         // without this the very bottom edge of each card (border/shadow)
         // was getting clipped by the viewport.
         row.set_margin_bottom(8);
-        scroller.set_child(row);
+
+        // Passthrough wrapper - a margin bounce on `row` itself squished its cards.
+        var bounce_host = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        bounce_host.append(row);
+        scroller.set_child(bounce_host);
+
+        // Rubber-band bounce past either end (see ContentView.set_window()).
+        var hadj = scroller.get_hadjustment();
+        bool row_was_at_start = hadj.get_value() <= hadj.get_lower() + 0.5;
+        bool row_was_at_end = hadj.get_value() >= hadj.get_upper() - hadj.get_page_size() - 0.5;
+        hadj.value_changed.connect(() => {
+            bool at_start = hadj.get_value() <= hadj.get_lower() + 0.5;
+            bool at_end = hadj.get_value() >= hadj.get_upper() - hadj.get_page_size() - 0.5;
+            // Skip if there's no real overflow (still populating).
+            bool has_overflow = hadj.get_upper() - hadj.get_lower() > hadj.get_page_size() + 0.5;
+            if (has_overflow && window != null && window.animation_manager != null) {
+                if (at_start && !row_was_at_start) {
+                    window.animation_manager.bounce_scroll_edge(bounce_host, Managers.BounceEdge.START, 500.0);
+                }
+                if (at_end && !row_was_at_end) {
+                    window.animation_manager.bounce_scroll_edge(bounce_host, Managers.BounceEdge.END, 500.0);
+                }
+            }
+            row_was_at_start = at_start;
+            row_was_at_end = at_end;
+        });
+
+        // Catches continued overscroll once already pinned.
+        var row_scroll_controller = new Gtk.EventControllerScroll(Gtk.EventControllerScrollFlags.BOTH_AXES);
+        row_scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+        scroller.add_controller(row_scroll_controller);
+        row_scroll_controller.scroll.connect((dx, dy) => {
+            if (window == null || window.animation_manager == null) return false;
+            if (hadj.get_upper() - hadj.get_lower() <= hadj.get_page_size() + 0.5) return false;
+            // Trackpads often report horizontal scroll as dy, not dx.
+            double delta = dx != 0 ? dx : dy;
+            bool at_start = hadj.get_value() <= hadj.get_lower() + 0.5;
+            bool at_end = hadj.get_value() >= hadj.get_upper() - hadj.get_page_size() - 0.5;
+            if (delta < 0 && at_start) {
+                window.animation_manager.bounce_scroll_edge(bounce_host, Managers.BounceEdge.START, 500.0);
+            } else if (delta > 0 && at_end) {
+                window.animation_manager.bounce_scroll_edge(bounce_host, Managers.BounceEdge.END, 500.0);
+            }
+            return false;
+        });
 
         var overlay = new Gtk.Overlay();
         overlay.set_child(scroller);

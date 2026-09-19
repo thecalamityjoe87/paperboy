@@ -19,6 +19,7 @@
     box-shadow: 0 4px 8px alpha(@shade_color, 0.15);
 }
 
+
 .card picture {
     background-color: @shade_color;
     border-radius: 12px 12px 0 0;
@@ -61,7 +62,7 @@
 
 /* Sports score cards (see ScoreCard) - team rows + status pill, no picture */
 .score-card {
-    padding: 12px;
+    padding: 18px 12px;
 }
 
 .score-card-status {
@@ -110,6 +111,32 @@
     font-weight: 600;
 }
 
+/* League badge in the Sports league carousel (see LeagueBadge) - background
+   color itself is set per-badge via an inline Gtk.CssProvider (league
+   colors are per-league data, not a fixed set of classes). */
+.league-badge {
+    border-radius: 999px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.65);
+    transition: min-width 200ms ease, min-height 200ms ease;
+}
+
+.league-badge-selected {
+    outline: 3px solid @accent_bg_color;
+    outline-offset: 2px;
+}
+
+/* Same dark-pill language as .live-pill-header, sized down for the small
+   corner overlay this reuses it in. */
+.league-badge-live-pill {
+    background-color: @error_bg_color;
+    color: @error_fg_color;
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 0.85em;
+    font-weight: 700;
+    margin: -3px -6px 0 0;
+}
+
 .score-card-team {
     font-weight: 500;
 }
@@ -126,13 +153,7 @@
    of its own (unlike ".card") - see MarketIndexCard's comment for why. */
 .ticker-card-hero {
     border-radius: 12px;
-    border: 1px solid alpha(@borders, 0.3);
-    transition: box-shadow 200ms ease;
-}
-
-.ticker-card-hero:hover,
-.ticker-card-hero.card-hover {
-    box-shadow: 0 4px 8px alpha(@shade_color, 0.15);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 /* Neutral dark base with a soft directional glow radiating from the upper
@@ -238,6 +259,20 @@
    above there's no split edge to round - round every corner. */
 .hero-card-podcast picture {
     border-radius: 12px;
+}
+
+/* No border, constant base shadow like the market index cards
+   (.ticker-card-hero), but a slight lift on hover - unlike those, these
+   behave like regular clickable cards. */
+.hero-card-podcast {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: box-shadow 200ms ease;
+}
+
+.hero-card-podcast:hover,
+.hero-card-podcast.card-hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
 }
 
 /* Bottom-pinned title/author scrim on a full-bleed podcast hero card - a
@@ -393,6 +428,18 @@
     background-color: alpha(black, 0.75);
 }
 
+/* Hero card badges sit over larger, busier cover art than the grid cards,
+   so they use a more transparent version of the same pill - regular
+   PodcastCard badges above are untouched. */
+.hero-card-podcast .podcast-card-badge-btn {
+    background-color: alpha(black, 0.35);
+}
+
+.hero-card-podcast .podcast-card-badge-btn:hover {
+    background-color: alpha(black, 0.6);
+    box-shadow: 0 2px 6px alpha(black, 0.4);
+}
+
 /* Subscribed state reuses the theme's own accent color, same as other
    "this is active/on" indicators in the app, instead of a bespoke color. */
 .podcast-card-badge-btn.subscribed {
@@ -531,6 +578,15 @@
     background-clip: padding-box;
 }
 
+/* Action buttons (Load more articles, Add podcast/Subscribe, Show more,
+   ...) - rounded rect matching the article card badges (.source-badge)
+   instead of libadwaita's default fully-rounded stadium pill, plus a
+   slight lift so they read as raised controls. */
+button.pill {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
 .sheet-header {
     background-color: @view_bg_color;
 }
@@ -576,6 +632,12 @@
     font-size: 1.4em;
 }
 
+.reader-source-header {
+    background-color: #000000;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
 .reader-view .reader-video-embed {
     border-radius: 12px;
     margin-bottom: 4px;
@@ -618,7 +680,7 @@
 .reader-view .circular-logo {
     padding: 0;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 2px solid rgba(255, 255, 255, 0.45);
     background-clip: padding-box;
 }
 
@@ -790,6 +852,29 @@
 /* Never appears when already at that end of the row - nothing to scroll to. */
 .section-nav:disabled {
     opacity: 0;
+}
+
+/* Same as .section-nav, sized down further for the compact league badge
+   carousel (see LeagueBadgeCarousel). */
+.league-nav {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 9999px;
+    padding: 3px;
+    min-width: 24px;
+    min-height: 24px;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+.league-nav:hover {
+    transform: scale(1.08);
+}
+
+.league-nav.league-nav-active {
+    opacity: 1;
+    background-color: alpha(black, 0.72);
 }
 
 /* Swapped in for the arrow inside .section-nav - same white so it matches. */

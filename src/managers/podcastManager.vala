@@ -15,42 +15,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Controller for the Podcasts page. Unlike a normal news category, this
- * isn't routed through FetchNewsController/ArticleManager/LayoutManager
- * (podcast shows don't fit that pipeline's article shape) - but it
- * deliberately renders into ContentView's own shared containers
- * (hero_container, category_sections_container) rather than a separate
- * page/view, so Podcasts inherits the exact same header, margins,
- * scroll-fade chrome, and 4-wide hero-card layout that Top Ten already
- * uses via those same containers (see HeroCard.for_topten,
- * ArticleManager.TOPTEN_HERO_MAX_HEIGHT, LayoutManager.create_and_place_hero_card).
- *
- * Leaving Podcasts for a news category runs the normal fetch_news() path,
- * whose LayoutManager.prepare_for_new_fetch() already clears hero_container
- * and category_sections_container unconditionally - so no podcast-specific
- * teardown is needed (see appWindow.vala's category_selected handler).
- * Conversely, returning to Podcasts always clears and rebuilds this
- * controller's own two containers itself (prepare_containers()) before
- * re-rendering from cache, since content_view is shared with the news
- * pipeline and may have been repopulated with news content since the
- * last Podcasts visit.
- *
- */
+// Controller for the Podcasts page - renders into ContentView's shared
+// hero_container/category_sections_container rather than a separate view.
 namespace Managers {
     public class PodcastManager : GLib.Object {
-        // Curated display names to look for among whatever
-        // PodcastIndexService.get_categories() actually returns - not
-        // hardcoded category IDs (the backend has no numeric category
-        // concept in this contract, only names). Any name not present in
-        // the backend's response is simply skipped, so this degrades
-        // gracefully rather than showing an empty/broken row.
+        // Curated display names matched case-insensitively against whatever get_categories() returns.
         private const string[] PREFERRED_CATEGORY_NAMES = { "Technology", "News", "Comedy", "True Crime", "Business", "Health" };
 
         private const int TRENDING_MAX = 40;
         private const int CATEGORY_ROW_MAX = 12;
-        // How many additional category rows "Show More Categories" reveals
-        // per click.
+        // Category rows revealed per "Show More Categories" click.
         private const int SHOW_MORE_BATCH = 6;
 
         private weak NewsWindow? window;
@@ -58,10 +32,7 @@ namespace Managers {
         private Managers.PodcastPlaybackManager playback;
         private weak PodcastPane? podcast_pane;
 
-        // Cached across visits so navigating away to a news category and
-        // back doesn't re-hit the backend or refetch - only re-render into
-        // the freshly-cleared shared containers. Null until the first
-        // successful fetch of each.
+        // Cached across visits so returning to Podcasts re-renders instead of refetching.
         private Gee.ArrayList<Paperboy.PodcastShow>? cached_hero_shows = null;
 
         private class CategoryRowCache : GLib.Object {
@@ -70,56 +41,30 @@ namespace Managers {
         }
         private Gee.ArrayList<CategoryRowCache>? cached_rows = null;
 
-        // Every category name the backend knows about (from
-        // PodcastIndexService.get_categories(), cached 24h server-side
-        // anyway) and which of them already have a row - both persist
-        // across prepare_containers() calls (unlike cached_rows' rendered
-        // widgets) so "Show More Categories" remembers how far the user
-        // had expanded even after navigating away and back.
+        // All known category names, and which already have a row - persists across visits.
         private Gee.ArrayList<string>? cached_available_categories = null;
         private Gee.HashSet<string> shown_category_names = new Gee.HashSet<string>();
         private Gtk.Button? show_more_button = null;
+        private Gtk.Spinner? show_more_button_spinner = null;
+        private Gtk.Label? show_more_button_label = null;
 
-        // PodcastIndex shows are commonly tagged with more than one
-        // category (e.g. a show under both "Arts" and "Books"), so trending-
-        // by-category for two related categories can return the same show
-        // in both - without this, that show's card would render twice on
-        // the same page. Reset per prepare_containers() call (see show()),
-        // not persisted across visits like shown_category_names: whichever
-        // row processes a given show first (curated rows in
-        // PREFERRED_CATEGORY_NAMES order, then "Show More" batches in
-        // whatever order the backend lists categories) keeps it, and later
-        // rows with the same show just skip it - deterministic since row
-        // build order is always the same.
+        // Dedupes shows that appear in more than one category row; reset per prepare_containers() call.
         private Gee.HashSet<int64?> displayed_feed_ids = new Gee.HashSet<int64?>();
 
         // Podcast search state (see search()/run_search()/render_search_results()).
         private const int SEARCH_DEBOUNCE_MS = 400;
         private uint search_timeout_id = 0;
-        // Incremented on every new search (and on clear) so a slow,
-        // superseded network response can't clobber a newer one or the
-        // restored discover view - same guard shape as PodcastPane's
-        // open_request_id.
+        // Guards against a slow, superseded search response clobbering a newer one.
         private int64 search_request_id = 0;
-        // Last query passed to search() - see the de-dup check at its top,
-        // which exists for the same reason as SearchManager.update_query()'s:
-        // Gtk.SearchEntry's clear (X) icon can fire both search-changed and
-        // stop-search for one click (both wired to this method - see
-        // appWindow.vala), which without this would run show_discover_view()
-        // (a full container rebuild) twice back to back for one click.
+        // De-dupes SearchEntry's clear icon firing both search-changed and stop-search for one click.
         private string last_search_query = "";
 
-        // Set in show(), which is always called on entering (or returning
-        // to) the Podcasts page. Every async callback below captures this
-        // (or re-reads it, for calls chained off an already-guarded one)
-        // and checks FetchContext.still_owns_view() before rendering, so a
-        // hero/discovery/category-row/search fetch that resolves after the
-        // user has since left Podcasts (or a new visit superseded it) is
-        // dropped instead of appending stray cards into hero_container/
-        // category_sections_container - shared with the news pipeline and,
-        // via the same FetchContext, arbitrated by the same single "who
-        // owns the shared containers right now" mechanism it uses.
+        // Set in show(); async callbacks check still_owns_view() before touching shared containers.
         private FetchContext? podcast_ctx = null;
+
+        // Whether the current show() call's hero/discovery fetch is still outstanding.
+        private bool pending_hero_load = false;
+        private bool pending_rows_load = false;
 
         public PodcastManager(NewsWindow? window, ContentView content_view, Managers.PodcastPlaybackManager playback, PodcastPane? podcast_pane) {
             this.window = window;
@@ -128,10 +73,7 @@ namespace Managers {
             this.podcast_pane = podcast_pane;
         }
 
-        // Fetches the show's episode list and plays the newest one - used
-        // by the play badge (unlike a plain card click, which just opens
-        // PodcastPane). Mirrors PodcastPane.open_for_show's fetch branching
-        // so direct-feed shows work too.
+        // Fetches the show's episode list and plays the newest one - used by the play badge.
         public void play_latest_episode(Paperboy.PodcastShow show) {
             if (show.from_direct_feed && window != null) {
                 var resolver = Paperboy.PodcastFeedResolver.get_instance();
@@ -158,15 +100,15 @@ namespace Managers {
         }
 
         public void show() {
-            // Mint a fresh context now - window.prefs.category is already
-            // "podcasts" by the time this runs (SidebarManager sets it
-            // before emitting category_selected). This also invalidates
-            // whatever the news pipeline (or a previous Podcasts visit) had
-            // in flight, via FetchContext's shared global sequence.
+            // Invalidates any fetch still in flight from the news pipeline or a previous visit.
             podcast_ctx = FetchContext.begin_new(window);
 
             prepare_containers();
             if (window != null) window.update_content_header_now();
+
+            pending_hero_load = cached_hero_shows == null;
+            pending_rows_load = cached_rows == null;
+            if (pending_hero_load || pending_rows_load) show_podcast_spinner();
 
             if (cached_hero_shows != null) {
                 render_hero_cards(cached_hero_shows);
@@ -182,14 +124,32 @@ namespace Managers {
             }
         }
 
-        // Called from appWindow.vala's search_entry.search_changed handler
-        // while the user is on the Podcasts page. Unlike news search (pure
-        // client-side filtering of already-rendered cards), this is a live
-        // PodcastIndex network query, so it's debounced and replaces the
-        // discover view entirely while active rather than filtering it in
-        // place - avoids a confusing double-behavior of local filtering
-        // immediately followed by the network results replacing it moments
-        // later.
+        private void show_podcast_spinner() {
+            if (content_view == null || content_view.loading_container == null
+                || content_view.loading_spinner == null || content_view.loading_label == null) return;
+            content_view.loading_label.set_text("Loading podcasts...");
+            content_view.loading_container.set_visible(true);
+            content_view.loading_spinner.start();
+            // Hide the podcast-specific containers directly, not just main_content_container.
+            if (content_view.podcasts_hero_title != null) content_view.podcasts_hero_title.set_visible(false);
+            content_view.hero_container.set_visible(false);
+            content_view.category_sections_container.set_visible(false);
+        }
+
+        private void hide_podcast_spinner() {
+            if (content_view == null || content_view.loading_container == null || content_view.loading_spinner == null) return;
+            content_view.loading_container.set_visible(false);
+            content_view.loading_spinner.stop();
+            if (content_view.podcasts_hero_title != null) content_view.podcasts_hero_title.set_visible(true);
+            content_view.hero_container.set_visible(true);
+            content_view.category_sections_container.set_visible(true);
+        }
+
+        private void maybe_hide_podcast_spinner() {
+            if (!pending_hero_load && !pending_rows_load) hide_podcast_spinner();
+        }
+
+        // Debounced live PodcastIndex search - replaces the discover view while active.
         public void search(string query) {
             string trimmed = query.strip();
             if (trimmed == last_search_query) return;
@@ -219,9 +179,7 @@ namespace Managers {
             int64 this_request = search_request_id;
             var ctx = podcast_ctx;
 
-            // Enter "search mode": hide the hero row and discovery rows,
-            // show podcast_search_flow (its own dedicated grid, not the
-            // shared article columns_row - see ContentView) in their place.
+            // Enter "search mode": hide hero/discovery rows, show podcast_search_flow instead.
             if (content_view.podcasts_hero_title != null) content_view.podcasts_hero_title.set_visible(false);
             clear_children(content_view.hero_container);
             content_view.hero_container.set_visible(false);
@@ -242,12 +200,7 @@ namespace Managers {
 
             var service = Paperboy.PodcastIndexService.get_instance();
 
-            // If the query exactly matches a known category name, browse
-            // that category via trending-by-category instead of the
-            // free-text title search - PodcastIndex's search endpoint
-            // matches show titles/descriptions, not category tags, so
-            // typing e.g. "Comedy" wouldn't otherwise reliably surface
-            // comedy shows.
+            // A query matching a known category name browses that category instead of text search.
             string? matched_category = cached_available_categories != null
                 ? find_matching_category(cached_available_categories, query)
                 : null;
@@ -277,8 +230,7 @@ namespace Managers {
 
                 var card = new PodcastCard.for_show(show);
                 if (show.image_url != null && show.image_url.length > 0) {
-                    // Search surfaces far more publishers than discover, so
-                    // some cover art needs trimming - see PodcastImageUtils.
+                    // Search surfaces more publishers than discover, so some cover art needs trimming.
                     Paperboy.PodcastImageUtils.load_trimmed_async(card.image, show.image_url, PodcastCard.IMAGE_WIDTH, PodcastCard.IMAGE_HEIGHT);
                 }
                 PodcastCard.wire_interactions(card.root, card, false, show.feed_id, 0, playback, (feed_id) => {
@@ -291,13 +243,13 @@ namespace Managers {
                 var anim_mgr = window.animation_manager;
                 var flow = content_view.podcast_search_flow;
                 GLib.Idle.add(() => {
-                    uint index = 0;
+                    var cards = new Gee.ArrayList<Gtk.Widget>();
                     Gtk.Widget? cell = flow.get_first_child();
                     while (cell != null) {
-                        anim_mgr.animate_card_entrance_stagger(cell, index, 24);
-                        index++;
+                        cards.add(cell);
                         cell = cell.get_next_sibling();
                     }
+                    anim_mgr.animate_cards_entrance_batch(cards);
                     return false;
                 });
             }
@@ -311,10 +263,7 @@ namespace Managers {
             }
         }
 
-        // Restores the normal discover view (hero + discovery rows) when
-        // the search box is cleared - re-renders from cache via show(), so
-        // this doesn't re-hit the network unless the very first visit's
-        // fetches never completed.
+        // Restores the discover view when the search box is cleared - re-renders from cache via show().
         private void show_discover_view() {
             if (content_view != null && content_view.podcast_search_flow != null) {
                 clear_flowbox_children(content_view.podcast_search_flow);
@@ -326,11 +275,7 @@ namespace Managers {
             show();
         }
 
-        // Clears and re-shows the two shared ContentView containers this
-        // page uses - mirrors what LayoutManager.prepare_for_new_fetch()/
-        // teardown_category_sections() do for news categories, since this
-        // controller owns rendering into the same widgets independently of
-        // that pipeline.
+        // Clears and re-shows the shared ContentView containers this page renders into.
         private void prepare_containers() {
             if (content_view == null) return;
 
@@ -347,33 +292,42 @@ namespace Managers {
             content_view.category_sections_container.set_visible(true);
             if (content_view.hero_frontpage_separator != null) content_view.hero_frontpage_separator.set_visible(true);
 
-            // columns_row is the shared flat article grid (Front Page, My
-            // Feed, Top Ten, category browsing) - this controller never
-            // populates it, so leftover articles from before switching to
-            // Podcasts stayed visible underneath if not cleared here too.
+            // columns_row is the shared article grid - clear leftover articles from before switching here.
             if (content_view.columns_row != null) {
                 clear_flowbox_children(content_view.columns_row);
                 content_view.columns_row.set_visible(false);
+                // Undo Trending's 4-column override (see LayoutManager.configure_trending_section()).
+                content_view.columns_row.set_min_children_per_line(3);
+                content_view.columns_row.set_max_children_per_line(3);
             }
 
-            // Sports populates its own container entirely outside
-            // LayoutManager's normal clearing (see SportsScoresController),
-            // so leaving Sports for Podcasts otherwise left its score cards
-            // and separators sitting visible underneath the podcasts hero
-            // row - clear/hide them the same way SportsScoresController's
-            // own hide_sports_scores() does.
+            // Front Page's Trending section populates its own hero row outside the clearing above.
+            if (content_view.trending_hero_container != null) {
+                clear_children(content_view.trending_hero_container);
+            }
+            if (content_view.trending_section_wrapper != null) {
+                content_view.trending_section_wrapper.set_visible(false);
+            }
+            if (content_view.hero_trending_separator != null) {
+                content_view.hero_trending_separator.set_visible(false);
+            }
+
+            // Sports populates its own container outside LayoutManager's normal clearing too.
             if (content_view.sports_scores_container != null) {
                 clear_children(content_view.sports_scores_container);
                 content_view.sports_scores_container.set_visible(false);
             }
+            if (content_view.favorite_teams_container != null) {
+                clear_children(content_view.favorite_teams_container);
+                content_view.favorite_teams_container.set_visible(false);
+            }
+            if (content_view.favorite_teams_label != null) content_view.favorite_teams_label.set_visible(false);
+            if (content_view.favorite_teams_separator != null) content_view.favorite_teams_separator.set_visible(false);
+            if (content_view.league_badge_carousel != null) content_view.league_badge_carousel.root.set_visible(false);
             if (content_view.hero_scores_separator != null) content_view.hero_scores_separator.set_visible(false);
             if (content_view.scores_articles_separator != null) content_view.scores_articles_separator.set_visible(false);
 
-            // Same idea as Sports' score container above - the Stocks
-            // ticker (StocksTickerController) also populates its own
-            // container outside LayoutManager's normal clearing, so leaving
-            // Business for Podcasts otherwise left it sitting visible
-            // underneath the podcasts hero row too.
+            // Same idea as Sports above - the Stocks ticker also populates its own container.
             if (content_view.stocks_ticker_container != null) {
                 clear_children(content_view.stocks_ticker_container);
                 content_view.stocks_ticker_container.set_visible(false);
@@ -381,25 +335,11 @@ namespace Managers {
             if (content_view.hero_stocks_separator != null) content_view.hero_stocks_separator.set_visible(false);
             if (content_view.stocks_articles_separator != null) content_view.stocks_articles_separator.set_visible(false);
 
-            // "Load more articles" (see ArticleManager/ContentView) is a
-            // news-pagination concept appended into content_box, a
-            // container this controller otherwise never touches - if it
-            // was showing right before the user switched to Podcasts, it
-            // leaked here too (same class of bug as the Sports leak
-            // above), and its click handler does nothing meaningful
-            // outside the news pipeline anyway.
+            // "Load more articles" is appended straight into content_box, outside this controller's clearing.
             content_view.hide_load_more_button();
-            // Same leak, same fix: "No more articles" (see
-            // LoadingStateManager.show_end_of_feed_message()) is also
-            // appended straight into content_box rather than into either
-            // container this controller clears above, and "no more
-            // articles" makes no sense as a message on the Podcasts page
-            // anyway.
+            // Same leak, same fix, for the "No more articles" message.
             content_view.remove_end_of_feed_message();
-            // The widget itself already got removed by clear_children()
-            // above (it's a child of category_sections_container); drop
-            // the stale reference too so render_show_more_button() always
-            // creates a fresh one instead of touching a destroyed widget.
+            // Widget already removed by clear_children() above - drop the stale reference too.
             show_more_button = null;
 
             displayed_feed_ids.clear();
@@ -414,9 +354,7 @@ namespace Managers {
             }
         }
 
-        // Gtk.FlowBox doesn't share a base type with Gtk.Box (and Vala
-        // doesn't support overloading), so columns_row (a FlowBox) needs
-        // its own differently-named helper.
+        // Gtk.FlowBox doesn't share a base type with Gtk.Box, so it needs its own helper.
         private void clear_flowbox_children(Gtk.FlowBox box) {
             Gtk.Widget? child = box.get_first_child();
             while (child != null) {
@@ -433,6 +371,8 @@ namespace Managers {
                 cached_hero_shows = shows;
                 if (ctx == null || !ctx.still_owns_view()) return;
                 render_hero_cards(shows);
+                pending_hero_load = false;
+                maybe_hide_podcast_spinner();
             });
         }
 
@@ -440,18 +380,8 @@ namespace Managers {
             if (content_view == null) return;
             clear_children(content_view.hero_container);
 
-            // hero_container is a homogeneous 4-wide Gtk.Box (see
-            // ContentView), so each card's actual allocated width already
-            // works out to (content_width - gaps) / 4 regardless of what we
-            // request here - only height needs to be set explicitly.
-            // Deliberately NOT using LayoutManager.estimate_column_width():
-            // its 160-280 clamp is tuned for ArticleCard's small grid
-            // thumbnails and would cap these hero cards well below their
-            // actual (wider) allocated cell on a normal-width window,
-            // making them look flatter/smaller than the row they sit in.
-            // Compute the true per-card width directly instead, with a
-            // small +10% bump so the cards read as slightly larger than a
-            // plain square, per request.
+            // hero_container is a homogeneous 4-wide box, so only height needs to be set explicitly;
+            // width computed directly (not via LayoutManager.estimate_column_width()'s tighter clamp).
             int content_w = window != null ? window.estimate_content_width() : 1200;
             int base_size = (content_w - 3 * Managers.LayoutManager.COL_SPACING) / 4;
             int hero_size = (int)(base_size * 1.1);
@@ -470,24 +400,23 @@ namespace Managers {
                 content_view.hero_container.append(hero.root);
             }
 
-            // Same fade/slide-up stagger ArticleCard grids use (see
-            // AnimationManager.animate_card_entrance_stagger) - deferred
-            // to an idle callback so widgets are realized before animating.
+            // Same fade-in ArticleCard grids use, deferred to idle so widgets are realized first.
             if (window != null && window.animation_manager != null) {
                 var anim_mgr = window.animation_manager;
                 GLib.Idle.add(() => {
-                    uint index = 0;
+                    var cards = new Gee.ArrayList<Gtk.Widget>();
                     Gtk.Widget? child = content_view.hero_container.get_first_child();
                     while (child != null) {
-                        anim_mgr.animate_card_entrance_stagger(child, index, 40);
-                        index++;
+                        cards.add(child);
                         child = child.get_next_sibling();
                     }
+                    anim_mgr.animate_cards_entrance_batch(cards);
                     return false;
                 });
             }
         }
 
+        // Waits for every preferred category's shows before building any rows, so the section reveals at once.
         private void load_discovery_rows() {
             var ctx = podcast_ctx;
             var service = Paperboy.PodcastIndexService.get_instance();
@@ -506,28 +435,34 @@ namespace Managers {
                 }
                 cached_rows = rows;
 
-                if (ctx == null || !ctx.still_owns_view()) return;
-
-                foreach (var row in rows) {
-                    build_category_row(row.name, row.shows);
-                    fetch_category_shows(row);
+                if (rows.size == 0) {
+                    if (ctx != null && ctx.still_owns_view()) render_show_more_button();
+                    pending_rows_load = false;
+                    maybe_hide_podcast_spinner();
+                    return;
                 }
 
-                render_show_more_button();
+                int pending = rows.size;
+                foreach (var row in rows) {
+                    service.trending_podcasts(CATEGORY_ROW_MAX, row.name, (shows) => {
+                        row.shows = shows;
+                        pending--;
+                        if (pending > 0) return;
+
+                        if (ctx == null || !ctx.still_owns_view()) return;
+                        foreach (var r in rows) build_category_row(r.name, r.shows);
+                        render_show_more_button();
+                        pending_rows_load = false;
+                        maybe_hide_podcast_spinner();
+                    });
+                }
             });
         }
 
-        // Adds up to SHOW_MORE_BATCH more category rows drawn from
-        // whatever PodcastIndexService.get_categories() returned that
-        // isn't already shown, then re-renders the button (hidden once
-        // nothing remains).
+        // Keeps the button spinning until every fetch in the batch resolves, then reveals all rows at once.
         private void reveal_more_categories() {
             if (content_view == null || cached_available_categories == null || cached_rows == null) return;
-
-            if (show_more_button != null) {
-                content_view.category_sections_container.remove(show_more_button);
-                show_more_button = null;
-            }
+            if (show_more_button == null) return;
 
             var next_batch = new Gee.ArrayList<string>();
             foreach (var name in cached_available_categories) {
@@ -535,18 +470,59 @@ namespace Managers {
                 next_batch.add(name);
                 if (next_batch.size >= SHOW_MORE_BATCH) break;
             }
+            if (next_batch.size == 0) return;
+
+            set_show_more_button_loading(true);
+
+            var ctx = podcast_ctx;
+            var service = Paperboy.PodcastIndexService.get_instance();
+            var pending_rows = new Gee.ArrayList<CategoryRowCache>();
+            int pending = next_batch.size;
 
             foreach (var name in next_batch) {
                 shown_category_names.add(name);
                 var row = new CategoryRowCache();
                 row.name = name;
                 row.shows = new Gee.ArrayList<Paperboy.PodcastShow>();
-                cached_rows.add(row);
-                build_category_row(row.name, row.shows);
-                fetch_category_shows(row);
-            }
+                pending_rows.add(row);
 
-            render_show_more_button();
+                service.trending_podcasts(CATEGORY_ROW_MAX, name, (shows) => {
+                    row.shows = shows;
+                    pending--;
+                    if (pending > 0) return;
+
+                    foreach (var r in pending_rows) cached_rows.add(r);
+                    if (ctx == null || !ctx.still_owns_view()) return;
+
+                    foreach (var r in pending_rows) build_category_row(r.name, r.shows);
+
+                    if (show_more_button != null) {
+                        content_view.category_sections_container.remove(show_more_button);
+                        show_more_button = null;
+                    }
+                    render_show_more_button();
+                });
+            }
+        }
+
+        // Mirrors ContentView's load-more-articles button loading state.
+        private void set_show_more_button_loading(bool loading) {
+            if (show_more_button == null || show_more_button_label == null || show_more_button_spinner == null) return;
+            if (loading) {
+                show_more_button_label.set_text("Loading...");
+                show_more_button_spinner.set_visible(true);
+                show_more_button_spinner.start();
+                show_more_button.set_sensitive(false);
+                show_more_button.remove_css_class("suggested-action");
+                show_more_button.add_css_class("loading");
+            } else {
+                show_more_button_label.set_text("Show More Categories");
+                show_more_button_spinner.stop();
+                show_more_button_spinner.set_visible(false);
+                show_more_button.set_sensitive(true);
+                show_more_button.remove_css_class("loading");
+                show_more_button.add_css_class("suggested-action");
+            }
         }
 
         private void render_show_more_button() {
@@ -558,61 +534,33 @@ namespace Managers {
             }
             if (!any_remaining) return;
 
-            // self.show_more_button -> clicked closure -> self is a real
-            // reference cycle, but PodcastManager is constructed once for
-            // the app's whole lifetime (owned by NewsWindow, mirrors
-            // PodcastPlaybackManager/PodcastPlayerBar) - same accepted
-            // reasoning as PodcastPlayerBar's own doc comment: harmless
-            // since NewsWindow keeps this object alive regardless.
-            show_more_button = new Gtk.Button.with_label("Show More Categories");
+            // Reference cycle via the clicked closure is harmless - PodcastManager lives for the app's lifetime.
+            show_more_button = new Gtk.Button();
             show_more_button.add_css_class("suggested-action");
             show_more_button.add_css_class("pill");
             show_more_button.set_margin_top(20);
             show_more_button.set_margin_bottom(20);
             show_more_button.set_halign(Gtk.Align.CENTER);
+
+            var button_content = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+            button_content.set_halign(Gtk.Align.CENTER);
+            show_more_button_spinner = new Gtk.Spinner();
+            show_more_button_spinner.set_visible(false);
+            button_content.append(show_more_button_spinner);
+            show_more_button_label = new Gtk.Label("Show More Categories");
+            button_content.append(show_more_button_label);
+            show_more_button.set_child(button_content);
+
             show_more_button.clicked.connect(() => {
                 reveal_more_categories();
             });
             content_view.category_sections_container.append(show_more_button);
         }
 
-        // Case-insensitive match against whatever casing the backend
-        // returns, since PodcastIndex's own category names aren't
-        // guaranteed to match our curated list's casing exactly.
+        // Case-insensitive match against the backend's own casing.
         private string? find_matching_category(Gee.ArrayList<string> available, string preferred_name) {
             foreach (var name in available) {
                 if (name.down() == preferred_name.down()) return name;
-            }
-            return null;
-        }
-
-        private void fetch_category_shows(CategoryRowCache row) {
-            var ctx = podcast_ctx;
-            var service = Paperboy.PodcastIndexService.get_instance();
-            service.trending_podcasts(CATEGORY_ROW_MAX, row.name, (shows) => {
-                row.shows = shows;
-                if (ctx == null || !ctx.still_owns_view()) return;
-                // The section for this row may already have been torn down
-                // (user navigated away before this fetch resolved, or came
-                // back and prepare_containers() rebuilt a fresh one) -
-                // find_category_section_by_name below re-locates it by
-                // walking category_sections_container's current children
-                // rather than holding a stale CategorySection reference.
-                var section = find_live_section(row.name);
-                if (section == null) return;
-                foreach (var show in shows) add_show_card(section, show);
-            });
-        }
-
-        private CategorySection? find_live_section(string category_name) {
-            if (content_view == null) return null;
-            Gtk.Widget? child = content_view.category_sections_container.get_first_child();
-            while (child != null) {
-                var section = child.get_data<CategorySection>("podcast-category-section");
-                if (section != null && child.get_data<string>("podcast-category-name") == category_name) {
-                    return section;
-                }
-                child = child.get_next_sibling();
             }
             return null;
         }
@@ -621,10 +569,7 @@ namespace Managers {
             if (content_view == null) return;
 
             var section = new CategorySection(window, category_name, "podcast:" + category_name.down());
-            // Faint divider between category sections, matching Front
-            // Page's own rows (see .frontpage-section-divider in
-            // style.css) - its :first-child rule skips the border on the
-            // first section automatically.
+            // Faint divider between category sections, matching Front Page's own rows.
             section.wrapper.add_css_class("frontpage-section-divider");
             section.wrapper.set_data("podcast-category-section", section);
             section.wrapper.set_data("podcast-category-name", category_name);
@@ -636,13 +581,13 @@ namespace Managers {
                 var anim_mgr = window.animation_manager;
                 var row = section.row;
                 GLib.Idle.add(() => {
-                    uint index = 0;
+                    var cards = new Gee.ArrayList<Gtk.Widget>();
                     Gtk.Widget? child = row.get_first_child();
                     while (child != null) {
-                        anim_mgr.animate_card_entrance_stagger(child, index, 30);
-                        index++;
+                        cards.add(child);
                         child = child.get_next_sibling();
                     }
+                    anim_mgr.animate_cards_entrance_batch(cards);
                     return false;
                 });
             }

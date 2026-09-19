@@ -48,6 +48,8 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/scrollNavButtons.vala',
     'src/ui/components/categorySection.vala',
     'src/ui/components/scoreCard.vala',
+    'src/ui/components/leagueBadge.vala',
+    'src/ui/components/leagueBadgeCarousel.vala',
     'src/ui/components/marketIndexCard.vala',
     'src/ui/components/toastWidget.vala',
     'src/ui/components/podcastHeroCard.vala',
@@ -60,6 +62,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/controllers/sportsScoresController.vala',
     'src/ui/controllers/stocksTickerController.vala',
     'src/ui/dialogs/prefsDialog.vala',
+    'src/ui/dialogs/aboutDialog.vala',
     'src/ui/dialogs/locationDialog.vala',
     'src/ui/dialogs/shareDialog.vala',
     'src/ui/dialogs/onboardingDialog.vala',
@@ -67,6 +70,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/dialogs/podcastPickerDialog.vala',
     'src/ui/dialogs/noteEditorDialog.vala',
     'src/ui/dialogs/notesBrowserDialog.vala',
+    'src/ui/dialogs/imageViewerDialog.vala',
     'src/ui/menus/articleMenu.vala',
     'src/ui/menus/sidebarMenu.vala',
     'src/ui/menus/podcastMenu.vala',
@@ -223,7 +227,9 @@ install_data(
 
 # Install app data (styles, icons) to a namespaced datadir for runtime lookup
 install_data('data/resources/style.css', install_dir: join_paths(get_option('datadir'), 'paperboy'))
+install_data('data/release_notes.md', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 install_subdir('data/icons', install_dir: join_paths(get_option('datadir'), 'paperboy'))
+install_subdir('data/images', install_dir: join_paths(get_option('datadir'), 'paperboy'))
 
 # Ensure adblock stylesheet is installed under the namespaced datadir so
 # runtime lookups like DataPaths.find_data_file("resources/adblock.css")

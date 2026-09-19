@@ -18,9 +18,6 @@
 [CCode (cname = "xmlFreeDoc")]
 private static extern void generated_feed_xml_free_doc(Xml.Doc* doc);
 
-[CCode (cname = "malloc_trim")]
-private static extern int malloc_trim(size_t pad);
-
 namespace Paperboy {
     public class GeneratedFeedItem : GLib.Object {
         public string title;
@@ -257,31 +254,52 @@ namespace Paperboy {
         """;
 
         public static void generate_async(string url, owned GenerateFeedCallback on_done) {
+            GLib.print("GeneratedFeedService: starting generation for %s\n", url);
             // Serialize generation to prevent WebView accumulation during bulk regen.
             // Release after finish() completes so only one WebView exists at a time.
             gen_mutex.lock();
+            GLib.print("GeneratedFeedService: mutex acquired\n");
 
+            GLib.print("GeneratedFeedService: creating window\n");
             var win = new Gtk.Window();
+            GLib.print("GeneratedFeedService: creating webview\n");
             var webview = new WebKit.WebView();
+            GLib.print("GeneratedFeedService: adding webview to window\n");
             win.set_child(webview);
+            GLib.print("GeneratedFeedService: window setup complete\n");
 
             bool done = false;
             GenerateFeedCallback? callback = (owned) on_done;
             ulong load_changed_id = 0;
             ulong load_failed_id = 0;
+            // Cancelled before the webview is torn down whenever finish() runs
+            // while call_async_javascript_function() may still be in flight -
+            // terminating the web process out from under a pending JS call
+            // (instead of letting WebKit unwind it via cancellation) is what
+            // crashed on Reuters-style timeouts.
+            var js_cancellable = new GLib.Cancellable();
 
             void finish(bool success, string? rss_xml, string? error) {
+                GLib.print("GeneratedFeedService: finish() called (success=%s, error=%s)\n", success.to_string(), error ?? "none");
                 if (done) return;
                 done = true;
+                js_cancellable.cancel();
+                GLib.print("GeneratedFeedService: invoking callback\n");
                 callback(success, rss_xml, error);
                 callback = null;
+                GLib.print("GeneratedFeedService: disconnecting signals\n");
                 if (load_changed_id != 0) webview.disconnect(load_changed_id);
                 if (load_failed_id != 0) webview.disconnect(load_failed_id);
+                GLib.print("GeneratedFeedService: terminating webview process\n");
                 WebViewUtils.terminate_process(webview);
+                GLib.print("GeneratedFeedService: removing child and destroying window\n");
                 win.set_child(null);
                 win.destroy();
+                GLib.print("GeneratedFeedService: trimming malloc\n");
                 malloc_trim(0);
+                GLib.print("GeneratedFeedService: unlocking mutex\n");
                 gen_mutex.unlock();
+                GLib.print("GeneratedFeedService: finish() complete\n");
             }
 
             uint timeout_id = Timeout.add(OVERALL_TIMEOUT_MS, () => {
@@ -301,19 +319,35 @@ namespace Paperboy {
                     // function and awaits its returned Promise itself -
                     // evaluate_javascript() does not: it hands back the Promise
                     // object as-is, which fails with "Unsupported result type".
-                    webview.call_async_javascript_function.begin(EXTRACT_JS, -1, null, null, null, null, (obj, res) => {
+                    GLib.print("GeneratedFeedService: calling JS extraction for %s\n", url);
+                    uint js_timeout_id = Timeout.add(10000, () => {
+                        if (!done) {
+                            GLib.warning("GeneratedFeedService: JS timeout for %s", url);
+                            finish(false, null, "JavaScript execution timeout");
+                        }
+                        return false;
+                    });
+
+                    webview.call_async_javascript_function.begin(EXTRACT_JS, -1, null, null, null, js_cancellable, (obj, res) => {
+                        GLib.print("GeneratedFeedService: JS extraction callback fired\n");
                         if (done) return;
 
                         string? json_str = null;
                         try {
+                            GLib.print("GeneratedFeedService: ending JS call\n");
                             var value = webview.call_async_javascript_function.end(res);
+                            GLib.print("GeneratedFeedService: converting to string\n");
                             json_str = value.to_string();
+                            GLib.print("GeneratedFeedService: JSON string obtained: %s\n", json_str.substring(0, int.min(100, json_str.length)));
                         } catch (GLib.Error e) {
                             GLib.warning("GeneratedFeedService: JS evaluation failed for %s: %s", url, e.message);
                         }
 
+                        GLib.print("GeneratedFeedService: removing timeouts\n");
                         Source.remove(timeout_id);
+                        Source.remove(js_timeout_id);
 
+                        GLib.print("GeneratedFeedService: parsing items\n");
                         var items = parse_items(json_str);
                         GLib.print("GeneratedFeedService: extracted %d item(s) from %s\n", items.size, url);
                         if (items.size == 0) {
@@ -321,7 +355,10 @@ namespace Paperboy {
                             return;
                         }
 
-                        finish(true, build_rss(url, items), null);
+                        GLib.print("GeneratedFeedService: building RSS\n");
+                        var rss = build_rss(url, items);
+                        GLib.print("GeneratedFeedService: RSS built, finishing\n");
+                        finish(true, rss, null);
                     });
                     return false;
                 });
