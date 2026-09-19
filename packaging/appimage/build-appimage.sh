@@ -83,6 +83,7 @@ mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/i
 # Create directory for shared data files
 mkdir -p "$APPDIR/usr/share/paperboy"
 mkdir -p "$APPDIR/usr/share/paperboy/icons"
+mkdir -p "$APPDIR/usr/share/paperboy/images"
 
 
 # Copy the built binary
@@ -225,6 +226,7 @@ fi
 IMAGE_SRC_DIR="$ROOT_DIR/data/images"
 if [ -d "$IMAGE_SRC_DIR" ]; then
   cp "$IMAGE_SRC_DIR/paperboy-banner.png" "$APPDIR/usr/share/paperboy/icons/paperboy-banner.png" 2>/dev/null || true
+  cp "$IMAGE_SRC_DIR/paperboy-banner.png" "$APPDIR/usr/share/paperboy/images/paperboy-banner.png" 2>/dev/null || true
 else
   echo "Warning: banner image not found in $IMAGE_SRC_DIR"
 fi
