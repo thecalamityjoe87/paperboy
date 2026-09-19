@@ -32,7 +32,7 @@ namespace Managers {
         private weak NewsWindow window;
 
         // Layout constants
-        public const int H_MARGIN = 30;
+        public const int H_MARGIN = 80;
         public const int COL_SPACING = 12;
 
         // RSS hero card dimensions (for uniform layout in small feeds)
@@ -56,6 +56,10 @@ namespace Managers {
         public Gtk.FlowBox? podcast_search_flow;
         public Gtk.Box? hero_container;
         public Gtk.Box? featured_box;
+        public Gtk.Separator? hero_trending_separator;
+        public Gtk.Box? trending_section_wrapper;
+        public Gtk.Label? trending_label;
+        public Gtk.Box? trending_hero_container;
         public Gtk.Box? main_content_container;
         public Gtk.Widget? content_area;
 
@@ -204,12 +208,13 @@ namespace Managers {
             return clampi(w - (current_margin * 2), 600, 1400);
         }
 
-        // Update main content container size based on sidebar visibility
+        // Update main content container size based on sidebar visibility.
+        // Same H_MARGIN either way - closing the sidebar reclaims width for
+        // content, but the left/right boundary itself should stay put.
         public void update_main_content_size(bool sidebar_visible) {
             if (main_content_container == null) return;
-            int margin = sidebar_visible ? H_MARGIN : 20;
-            main_content_container.set_margin_start(margin);
-            main_content_container.set_margin_end(margin);
+            main_content_container.set_margin_start(H_MARGIN);
+            main_content_container.set_margin_end(H_MARGIN);
             update_existing_hero_card_size();
         }
 
@@ -254,7 +259,7 @@ namespace Managers {
             int content_w = estimate_content_width();
             int total_spacing = (cols - 1) * COL_SPACING;
             int col_w = (content_w - total_spacing) / cols;
-            if (window.prefs.category == "topten") {
+            if (cols == 4) {
                 col_w = (int)(col_w * 0.85);
             }
             return clampi(col_w, 160, 280);
@@ -284,9 +289,26 @@ namespace Managers {
             cached_col_w = estimate_column_width(count);
         }
 
-        // Clears hero/featured containers and rebuilds columns. Call at the
-        // start of fetch_news(). is_topten: Top Ten uses 4 columns, others 3.
-        public void prepare_for_new_fetch(bool is_topten) {
+        // Shows the Front Page's Trending section and switches columns_row
+        // (idle on the Front Page otherwise) to Trending's 4-column grid,
+        // without touching columns_count/cached_col_w - those are shared
+        // with Front Page's own concurrently-streaming category sections,
+        // which must keep their own column width unaffected.
+        public void configure_trending_section() {
+            if (hero_trending_separator != null) hero_trending_separator.set_visible(true);
+            if (trending_section_wrapper != null) trending_section_wrapper.set_visible(true);
+            if (columns_row != null) {
+                columns_row.set_min_children_per_line(4);
+                columns_row.set_max_children_per_line(4);
+                columns_row.set_visible(true);
+            }
+        }
+
+        // Clears hero/featured/trending containers and rebuilds columns
+        // (3 columns by default - see configure_trending_section() for the
+        // Front Page Trending grid's own 4-column override). Call at the
+        // start of fetch_news().
+        public void prepare_for_new_fetch() {
             // Only the Podcasts page shows this - see
             // Managers.PodcastManager.prepare_containers(). Hide it here so
             // it never lingers over a news category's own hero row after
@@ -334,11 +356,23 @@ namespace Managers {
                 }
             }
 
-            if (!is_topten && hero_container != null && featured_box != null) {
+            if (hero_container != null && featured_box != null) {
                 hero_container.append(featured_box);
             }
 
-            rebuild_columns(is_topten ? 4 : 3);
+            if (trending_hero_container != null) {
+                Gtk.Widget? trchild = trending_hero_container.get_first_child();
+                while (trchild != null) {
+                    Gtk.Widget? next = trchild.get_next_sibling();
+                    trending_hero_container.remove(trchild);
+                    trchild.unparent();
+                    trchild = next;
+                }
+            }
+            if (trending_section_wrapper != null) trending_section_wrapper.set_visible(false);
+            if (hero_trending_separator != null) hero_trending_separator.set_visible(false);
+
+            rebuild_columns(3);
 
             // Front Page and My Feed both group articles into per-row
             // sections instead of the flat grid; every other view uses the
@@ -912,11 +946,11 @@ namespace Managers {
             int default_hero_h,
             Gtk.Widget hero_chip,
             bool enable_context_menu,
-            bool is_topten,
+            bool is_trending,
             string? published = null
         ) {
             HeroCard hero_card;
-            if (is_topten) {
+            if (is_trending) {
                 hero_card = new HeroCard.for_topten(
                     title,
                     url,
@@ -941,12 +975,12 @@ namespace Managers {
                 );
             }
 
-            if (is_topten) {
-                if (hero_container != null) {
+            if (is_trending) {
+                if (trending_hero_container != null) {
                     if (hero_card.root != null) {
                         hero_card.root.set_size_request(-1, max_hero_height);
                     }
-                    hero_container.append(hero_card.root);
+                    trending_hero_container.append(hero_card.root);
                 }
             }
 
@@ -965,7 +999,8 @@ namespace Managers {
             Gtk.Widget chip,
             string? section_category_id = null,
             string? published = null,
-            bool no_fallback_section = false
+            bool no_fallback_section = false,
+            bool force_flat_grid = false
         ) {
             var article_card = new ArticleCard(
                 title,
@@ -982,9 +1017,10 @@ namespace Managers {
             // card has the same total height without needing anything set here.
 
             // Front Page routes into its category section; every other view
-            // appends straight to the grid, which handles row/column placement
-            // automatically.
-            if (using_category_sections && section_category_id != null) {
+            // (and the Trending grid, forced flat even while Front Page's
+            // sections are active) appends straight to the grid, which
+            // handles row/column placement automatically.
+            if (using_category_sections && section_category_id != null && !force_flat_grid) {
                 if (no_fallback_section) {
                     add_card_to_named_section(section_category_id, article_card.root);
                 } else {

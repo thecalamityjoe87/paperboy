@@ -21,8 +21,8 @@ using Soup;
 public class PaperboyFetcher : BaseFetcher {
     private const string BASE_URL = "https://paperboybackend.onrender.com";
 
-    public PaperboyFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func) {
-        base(set_label_func, clear_items_func, add_item_func);
+    public PaperboyFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func, FetchDoneFunc? on_done_func = null) {
+        base(set_label_func, clear_items_func, add_item_func, on_done_func);
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
@@ -94,6 +94,7 @@ public class PaperboyFetcher : BaseFetcher {
                 if (cached_articles.size == 0) {
                     set_label("Paperboy: Error loading frontpage");
                 }
+                if (on_done != null) on_done();
                 return;
             }
 
@@ -113,6 +114,7 @@ public class PaperboyFetcher : BaseFetcher {
                 }
 
                 if (articles == null) {
+                    if (on_done != null) on_done();
                     return;
                 }
 
@@ -273,10 +275,12 @@ public class PaperboyFetcher : BaseFetcher {
                         // silently defeating that backfill.
                         add_item(title, article_url, thumbnail, "frontpage", display_source, published);
                     }
+                    if (on_done != null) on_done();
                     return false;
                 });
             } catch (GLib.Error e) {
                 warning("Paperboy frontpage fetch error: %s", e.message);
+                if (on_done != null) on_done();
             }
         });
     }
@@ -289,6 +293,7 @@ public class PaperboyFetcher : BaseFetcher {
             if (!response.is_success() || root == null) {
                 warning("Paperboy API HTTP error: %u", response.status_code);
                 set_label("Paperboy: Error loading Top Ten");
+                if (on_done != null) on_done();
                 return;
             }
 
@@ -308,6 +313,7 @@ public class PaperboyFetcher : BaseFetcher {
                 }
 
                 if (articles == null) {
+                    if (on_done != null) on_done();
                     return;
                 }
 
@@ -547,10 +553,12 @@ public class PaperboyFetcher : BaseFetcher {
                             }
                         } catch (GLib.Error e) { }
                     }
+                    if (on_done != null) on_done();
                     return false;
                 });
             } catch (GLib.Error e) {
                 warning("Paperboy Top Ten fetch error: %s", e.message);
+                if (on_done != null) on_done();
             }
         });
     }

@@ -55,13 +55,17 @@ public class LoadingStateManager : GLib.Object {
     public uint absolute_reveal_timeout_id = 0;
     public bool network_failure_detected = false;
     public bool awaiting_adaptive_layout = false;
+    // Front Page fires two independent backend fetches (frontpage list +
+    // Trending) - held true until both report done, so the initial reveal
+    // never fires with one section still empty.
+    public bool awaiting_frontpage_endpoints = false;
     public int64 initial_phase_start_time = 0;
 
     // Extra bounded wait for background thumbnail backfill (see
     // ThumbnailBackfillService), so placeholder cards don't visibly pop to
     // a real image right after the view is revealed. Never delays the
     // reveal by more than BACKFILL_GRACE_MS - backfill is best-effort.
-    private const int BACKFILL_GRACE_MS = 1500;
+    private const int BACKFILL_GRACE_MS = 3000;
     public int pending_backfills = 0;
     private bool backfill_grace_expired = false;
     private uint backfill_grace_timeout_id = 0;
@@ -78,19 +82,31 @@ public class LoadingStateManager : GLib.Object {
 
     public void on_backfill_finished() {
         if (pending_backfills > 0) pending_backfills--;
-        if (pending_backfills == 0 && pending_reveal_action != null) {
+        // The view may already have revealed via a different path (e.g.
+        // on_image_loaded reaching pending_images == 0 first) while this
+        // backfill was still running - a late arrival here must not
+        // re-trigger a second reveal on top of that.
+        if (!initial_phase) {
+            pending_reveal_action = null;
+            return;
+        }
+        // A backfilled thumbnail's own image download (see
+        // ThumbnailBackfillService.apply_thumbnail) starts right as this
+        // fires and is tracked via pending_images, not pending_backfills -
+        // don't fire the stashed reveal until that's clear too.
+        if (pending_backfills == 0 && pending_images == 0 && pending_reveal_action != null) {
             var action = (owned) pending_reveal_action;
             pending_reveal_action = null;
             action();
         }
     }
 
-    // Runs `retry` immediately if backfill isn't blocking reveal right now;
-    // otherwise holds it and arms a bounded grace timer, returning false so
-    // the caller defers. `retry` is called again once backfill clears or
-    // the grace period expires, whichever comes first.
+    // Runs `retry` immediately if backfill/images aren't blocking reveal
+    // right now; otherwise holds it and arms a bounded grace timer,
+    // returning false so the caller defers. `retry` is called again once
+    // both clear or the grace period expires, whichever comes first.
     private bool ready_or_defer(owned RevealAction retry) {
-        if (pending_backfills == 0 || backfill_grace_expired) return true;
+        if ((pending_backfills == 0 && pending_images == 0) || backfill_grace_expired) return true;
 
         pending_reveal_action = (owned) retry;
         if (backfill_grace_timeout_id == 0) {
@@ -111,6 +127,7 @@ public class LoadingStateManager : GLib.Object {
     private void force_reveal_now() {
         initial_phase = false;
         hero_image_loaded = false;
+        pending_reveal_action = null;
         if (initial_reveal_timeout_id > 0) {
             Source.remove(initial_reveal_timeout_id);
             initial_reveal_timeout_id = 0;
@@ -155,6 +172,9 @@ public class LoadingStateManager : GLib.Object {
 
         // Absolute max wait before giving up on content and revealing anyway (avoids blank screen).
         absolute_reveal_timeout_id = GLib.Timeout.add(4000, () => {
+            // Don't let a stuck/slow endpoint (e.g. Trending on Front Page)
+            // hold the spinner up forever - show whatever landed by now.
+            awaiting_frontpage_endpoints = false;
             if (initial_items_populated) {
                 reveal_initial_content();
             }
@@ -347,11 +367,16 @@ public class LoadingStateManager : GLib.Object {
 
     public void reveal_initial_content() {
         if (!initial_phase) return;
-        if (awaiting_adaptive_layout) return;
+        if (awaiting_adaptive_layout || awaiting_frontpage_endpoints) return;
         if (!ready_or_defer(reveal_initial_content)) return;
 
         initial_phase = false;
         hero_image_loaded = false;
+        // Revealing via this path (e.g. on_image_loaded reaching
+        // pending_images == 0) must not leave a stale action stashed by an
+        // earlier ready_or_defer() call - a later backfill/grace callback
+        // consuming it would fire a second, spurious reveal.
+        pending_reveal_action = null;
         if (initial_reveal_timeout_id > 0) {
             Source.remove(initial_reveal_timeout_id);
             initial_reveal_timeout_id = 0;
@@ -369,18 +394,21 @@ public class LoadingStateManager : GLib.Object {
 
         Timeout.add(180, () => {
             if (window.image_manager != null) window.image_manager.upgrade_images_after_initial();
-            if (window.article_state_store != null) {
-                window.article_state_store.save_article_tracking_to_disk();
-            }
             if (window.sidebar_manager != null) {
                 window.sidebar_manager.refresh_all_badge_counts();
             }
             return false;
         });
+
+        // Synchronous JSON write - scheduled past the entrance animation so it doesn't stall it.
+        Timeout.add(600, () => {
+            if (window.article_state_store != null) {
+                window.article_state_store.save_article_tracking_to_disk();
+            }
+            return false;
+        });
     }
 
-    // Applies an invisible/offset starting state to the first visible cards before making
-    // main content visible, then plays the staggered entrance animations - avoids a flash.
     private void trigger_initial_reveals() {
         if (window == null || window.layout_manager == null || window.animation_manager == null) return;
 
@@ -400,43 +428,16 @@ public class LoadingStateManager : GLib.Object {
             }
         }
 
-        int initial_margin = 18;
-        for (uint i = 0; i < cards.size; i++) {
-            var w = cards.get((int)i) as Gtk.Widget;
-            if (w == null) continue;
-            w.set_visible(true); // keep present so images load
-            w.set_opacity(0.0);
-            w.set_margin_top(initial_margin);
-        }
+        // Hide cards before the container becomes visible, or they'd flash
+        // at full opacity for a frame before animate_cards_entrance_batch
+        // gets around to hiding them.
+        foreach (var c in cards) c.set_opacity(0.0);
 
         if (window.main_content_container != null) window.main_content_container.set_visible(true);
 
-        // Idle so GTK has applied the initial state before animations start
-        GLib.Idle.add(() => {
-            int limit = Managers.ArticleManager.INITIAL_ARTICLE_LIMIT;
-            uint per_item_ms = 32;
-            uint animate_index = 0;
-
-            if (window.layout_manager != null && window.layout_manager.featured_box != null) {
-                var f = window.layout_manager.featured_box;
-                var fc = f.get_first_child();
-                while (fc != null && (int) animate_index < limit) {
-                    window.animation_manager.animate_card_entrance_stagger(fc, animate_index, per_item_ms);
-                    animate_index++;
-                    fc = fc.get_next_sibling();
-                }
-            }
-
-            // The grid is a Gtk.FlowBox, so insertion order is already row-major.
-            if (window.layout_manager != null && window.layout_manager.columns_row != null) {
-                var child = window.layout_manager.columns_row.get_first_child();
-                while (child != null && (int) animate_index < limit) {
-                    window.animation_manager.animate_card_entrance_stagger(child, animate_index, per_item_ms);
-                    animate_index++;
-                    child = child.get_next_sibling();
-                }
-            }
-
+        // Short delay so first-time layout of this subtree settles before the fade starts.
+        GLib.Timeout.add(50, () => {
+            window.animation_manager.animate_cards_entrance_batch(cards);
             return false;
         });
     }
@@ -453,7 +454,7 @@ public class LoadingStateManager : GLib.Object {
             initial_reveal_timeout_id = GLib.Timeout.add(300, () => {
                 initial_reveal_timeout_id = 0;
 
-                if (awaiting_adaptive_layout) {
+                if (awaiting_adaptive_layout || awaiting_frontpage_endpoints) {
                     return false;
                 }
 
@@ -487,7 +488,7 @@ public class LoadingStateManager : GLib.Object {
                     // Too few articles yet; give it more time before revealing anyway.
                     initial_reveal_timeout_id = GLib.Timeout.add(1200, () => {
                         initial_reveal_timeout_id = 0;
-                        if (awaiting_adaptive_layout) {
+                        if (awaiting_adaptive_layout || awaiting_frontpage_endpoints) {
                             return false;
                         }
                         if (ready_or_defer(force_reveal_now)) force_reveal_now();
@@ -499,11 +500,24 @@ public class LoadingStateManager : GLib.Object {
         }
     }
 
+    // Marks `pic` as one the initial reveal must wait on, and increments
+    // pending_images to match - on_image_loaded() only decrements for
+    // pictures marked this way, so loads it was never told to wait for
+    // (source logos, podcast art, sidebar icons, etc.) can't zero the
+    // counter out early just by finishing first.
+    public void track_pending_image(Gtk.Picture pic) {
+        if (!initial_phase) return;
+        pic.set_data<bool>("counts-toward-reveal", true);
+        pending_images++;
+    }
+
     public void on_image_loaded(Gtk.Picture image) {
         if (!initial_phase) return;
         if (window.image_manager != null && window.image_manager.hero_requests.get(image) != null) {
             hero_image_loaded = true;
         }
+        if (!image.get_data<bool>("counts-toward-reveal")) return;
+        image.set_data<bool>("counts-toward-reveal", false);
         if (pending_images > 0) pending_images--;
 
         if (initial_items_populated && pending_images == 0) {

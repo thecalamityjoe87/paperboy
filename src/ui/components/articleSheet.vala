@@ -348,7 +348,8 @@ public class ArticleSheet : GLib.Object {
         new_note_btn.set_can_focus(false);
         new_note_btn.clicked.connect(() => {
             if (is_destroyed || current_url == null || parent_window == null) return;
-            NoteEditorDialog.show(parent_window, current_url, null);
+            string? selected_quote = reader_view != null ? reader_view.get_selected_text() : null;
+            NoteEditorDialog.show(parent_window, current_url, null, selected_quote);
         });
         var notes_close_btn = new Gtk.Button.from_icon_name("window-close-symbolic");
         notes_close_btn.set_tooltip_text("Close notes");
@@ -406,6 +407,7 @@ public class ArticleSheet : GLib.Object {
         });
         notes_removed_handler = notes_store.note_removed.connect((url, id) => {
             if (is_destroyed || current_url == null || url != current_url) return;
+            if (reader_view != null) reader_view.remove_note_highlight(id);
             load_notes();
         });
 
@@ -426,12 +428,22 @@ public class ArticleSheet : GLib.Object {
             adblock_css = "";
         }
 
-        // Clicking outside content dismisses the sheet
+        // Clicking outside content dismisses the sheet. Primary button
+        // only - unrestricted here (a capture-phase gesture on an ancestor
+        // of the reader view) was seeing every right-click inside the
+        // article body before the TextView's own context-menu handling
+        // got a chance, blocking the native right-click menu entirely.
         var click = new Gtk.GestureClick();
+        click.set_button(Gdk.BUTTON_PRIMARY);
         click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
         container.add_controller(click);
         click.pressed.connect((g, n_press, x, y) => {
             if (is_destroyed || !is_open()) return;
+            // Any primary click in the sheet dismisses an active text
+            // selection's "add note" popover, not just one landing back
+            // inside the reader body - previously only content_box's own
+            // click handling covered that.
+            if (reader_view != null) reader_view.hide_add_note_popover();
             double cxd = 0, cyd = 0;
             content_box.translate_coordinates(container, 0, 0, out cxd, out cyd);
             int cx = (int)cxd, cy = (int)cyd, cw = content_box.get_allocated_width(), ch = content_box.get_allocated_height();
@@ -624,6 +636,7 @@ public class ArticleSheet : GLib.Object {
                 if (extracted.success) {
                     reader_loaded_url = url_snapshot;
                     reader_view.show_article(extracted, url_snapshot, current_source_name_encoded);
+                    reader_view.highlight_notes(Paperboy.NotesStore.get_instance().get_notes_for_url(url_snapshot));
                     backfill_card_thumbnail(url_snapshot, extracted.hero_image_url);
                 } else {
                     reader_view.show_error();
@@ -697,13 +710,17 @@ public class ArticleSheet : GLib.Object {
         }
 
         void try_hn() {
+            GLib.debug("ArticleSheet: trying HackerNewsCommentsService");
             Paperboy.HackerNewsCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: HN returned %d comments", comments.size);
                 finish(comments, success);
             });
         }
 
         void try_disqus() {
+            GLib.debug("ArticleSheet: trying DisqusCommentsService");
             Paperboy.DisqusCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: Disqus returned %d comments", comments.size);
                 if (comments.size > 0) {
                     finish(comments, success);
                     return;
@@ -713,7 +730,9 @@ public class ArticleSheet : GLib.Object {
         }
 
         void try_openweb() {
+            GLib.debug("ArticleSheet: trying OpenWebCommentsService");
             Paperboy.OpenWebCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: OpenWeb returned %d comments", comments.size);
                 if (comments.size > 0) {
                     finish(comments, success);
                     return;
@@ -723,7 +742,9 @@ public class ArticleSheet : GLib.Object {
         }
 
         void try_viafoura() {
+            GLib.debug("ArticleSheet: trying ViafouraCommentsService");
             Paperboy.ViafouraCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: Viafoura returned %d comments", comments.size);
                 if (comments.size > 0) {
                     finish(comments, success);
                     return;
@@ -733,7 +754,9 @@ public class ArticleSheet : GLib.Object {
         }
 
         void try_coral() {
+            GLib.debug("ArticleSheet: trying CoralCommentsService");
             Paperboy.CoralCommentsService.fetch_for_url(url_snapshot, (comments, success) => {
+                GLib.debug("ArticleSheet: Coral returned %d comments", comments.size);
                 if (comments.size > 0) {
                     finish(comments, success);
                     return;
@@ -832,6 +855,7 @@ public class ArticleSheet : GLib.Object {
         if (notes_stack == null || notes_list_box == null || current_url == null) return;
 
         var notes = Paperboy.NotesStore.get_instance().get_notes_for_url(current_url);
+        if (reader_view != null) reader_view.highlight_notes(notes);
 
         Gtk.Widget? child = notes_list_box.get_first_child();
         while (child != null) {
@@ -846,17 +870,19 @@ public class ArticleSheet : GLib.Object {
         }
 
         foreach (var note in notes) {
-            notes_list_box.append(build_note_row(note));
+            int display_number = reader_view != null ? reader_view.get_note_display_number(note.id) : 0;
+            notes_list_box.append(build_note_row(note, display_number));
         }
         notes_stack.set_visible_child_name("list");
     }
 
-    private Gtk.Widget build_note_row(Paperboy.ArticleNote note) {
+    private Gtk.Widget build_note_row(Paperboy.ArticleNote note, int display_number) {
         var row = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
         row.add_css_class("comment-card");
         row.set_margin_bottom(10);
 
         var meta_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+
         var title_label = new Gtk.Label(note.title);
         title_label.add_css_class("heading");
         title_label.set_halign(Gtk.Align.START);
@@ -880,6 +906,15 @@ public class ArticleSheet : GLib.Object {
         body_label.set_lines(3);
         body_label.set_ellipsize(Pango.EllipsizeMode.END);
         row.append(body_label);
+
+        if (display_number > 0) {
+            var badge_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+            badge_row.set_halign(Gtk.Align.END);
+            var badge_label = new Gtk.Label(display_number.to_string());
+            badge_label.add_css_class("note-list-badge");
+            badge_row.append(badge_label);
+            row.append(badge_row);
+        }
 
         var click = new Gtk.GestureClick();
         row.add_controller(click);

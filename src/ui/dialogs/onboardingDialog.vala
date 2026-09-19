@@ -82,6 +82,13 @@ public class OnboardingDialog : GLib.Object {
             prefs.onboarding_completed = true;
             prefs.save_config();
             dialog.close();
+
+            // Covers both an explicit Skip and clicking through without
+            // enabling anything on the sources page - either way, Popular
+            // Categories will be empty until the user turns some sources on.
+            if (prefs.preferred_sources.size == 0) {
+                show_no_sources_dialog(parent);
+            }
         }
 
         skip_btn.clicked.connect(() => finish());
@@ -123,6 +130,29 @@ public class OnboardingDialog : GLib.Object {
         dialog.present(parent);
     }
 
+    // Shown after onboarding finishes with no built-in sources enabled -
+    // otherwise Popular Categories and My Feed silently render empty with
+    // no indication why, since they only pull from enabled sources.
+    private static void show_no_sources_dialog(Gtk.Window parent) {
+        var dialog = new Adw.AlertDialog(
+            "No Sources Enabled",
+            "You didn't enable any news sources, so Popular Categories (World News, Technology, Sports, and others) will appear empty until you turn some on. You can enable built-in sources or add your own RSS feeds anytime from Preferences."
+        );
+        dialog.add_response("later", "Not Now");
+        dialog.add_response("open", "Open Preferences");
+        dialog.set_default_response("open");
+        dialog.set_close_response("later");
+        dialog.set_response_appearance("open", Adw.ResponseAppearance.SUGGESTED);
+
+        dialog.response.connect((response_id) => {
+            if (response_id == "open") {
+                PrefsDialog.show_source_dialog(parent);
+            }
+        });
+
+        dialog.present(parent);
+    }
+
     private static Gtk.Widget build_welcome_page() {
         var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         box.set_valign(Gtk.Align.CENTER);
@@ -131,10 +161,20 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(32);
         box.set_margin_bottom(32);
 
-        var icon = new Gtk.Image.from_icon_name("paperboy");
-        icon.set_pixel_size(96);
-        icon.set_halign(Gtk.Align.CENTER);
-        box.append(icon);
+        // Same banner as the About dialog, instead of the plain app icon.
+        string? banner_path = DataPathsUtils.find_data_file("images/paperboy-banner.png");
+        if (banner_path != null) {
+            var banner = new Gtk.Picture.for_filename(banner_path);
+            banner.set_keep_aspect_ratio(true);
+            banner.set_size_request(300, 80);
+            banner.set_halign(Gtk.Align.CENTER);
+            box.append(banner);
+        } else {
+            var icon = new Gtk.Image.from_icon_name("paperboy");
+            icon.set_pixel_size(96);
+            icon.set_halign(Gtk.Align.CENTER);
+            box.append(icon);
+        }
 
         var title = new Gtk.Label("Welcome to Paperboy");
         title.add_css_class("title-1");

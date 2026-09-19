@@ -2,8 +2,6 @@ app-id: io.github.thecalamityjoe87.Paperboy
 runtime: org.gnome.Platform
 runtime-version: '49'
 sdk: org.gnome.Sdk
-sdk-extensions:
-  - org.freedesktop.Sdk.Extension.rust-stable
 command: paperboy
 
 finish-args:
@@ -34,14 +32,6 @@ modules:
 
   - name: paperboy
     buildsystem: meson
-    build-options:
-      # Needed because meson.build shells out to `cargo build --release` for
-      # tools/html2rss during configure. This is fine for a local install but
-      # is not something Flathub would accept (it forbids network access
-      # during build) - a real submission would need vendored cargo sources.
-      append-path: /usr/lib/sdk/rust-stable/bin
-      build-args:
-        - --share=network
     sources:
       - type: dir
         path: ../..

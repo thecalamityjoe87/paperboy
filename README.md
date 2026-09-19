@@ -57,7 +57,7 @@ This app is very much so in an alpha state. It will definitely eat your dogs and
 ## Build dependencies
 This project declares several dependencies in `meson.build` (GTK4, Libadwaita, libsoup-3.0, JSON-GLib, GdkPixbuf, libxml2, Gee, GIO, SQLite, WebKitGTK, GeoClue, and geocode-glib) plus the Vala toolchain and the usual build tools (Meson, Ninja, a C compiler and `pkg-config`).
 
-Additionally, the repository contains a small Rust helper (`tools/html2rss`) that is built with Cargo during the Meson configure step. To produce AppImages you will also need `appimagetool` (or the AppImage bundle of `appimagetool`).
+To produce AppImages you will also need `appimagetool` (or the AppImage bundle of `appimagetool`).
 
 Summary of required toolchain and libraries:
 - Vala compiler and toolchain: `valac`
@@ -73,7 +73,6 @@ Summary of required toolchain and libraries:
 - GeoClue (used for the local-news location lookup): `libgeoclue-2-dev`
 - geocode-glib (reverse geocoding for location lookup): `libgeocode-glib-dev`
 - GStreamer (podcast audio playback: core, base, and "bad" plugins): `libgstreamer1.0-dev`, `libgstreamer-plugins-base1.0-dev`, `libgstreamer-plugins-bad1.0-dev`
-- Rust toolchain (Cargo) for building `tools/html2rss` (recommended install via `rustup`)
 - `appimagetool` (optional, to create AppImages)
 
 Package names can vary between distributions. Example install commands for a few distros follow; adjust package names if your distribution uses slightly different names for WebKitGTK or libsoup-3.0.
@@ -144,7 +143,6 @@ meson compile -C build
 ```
 
 Notes:
-- Meson will attempt to build `tools/html2rss` with Cargo during configure; ensure `cargo` is available on PATH or the html2rss helper won't be built/installed.
 - To produce an AppImage, run `./packaging/appimage/build-appimage.sh`. That script will try to use `appimagetool` from PATH or a bundled `appimagetool-x86_64.AppImage` if present.
 ## Installing system-wide (optional)
 

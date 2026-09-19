@@ -317,6 +317,24 @@ namespace Paperboy {
         }
 
         /**
+         * Look up a single article's real headline by url, most recently
+         * cached copy first. Used to label article groups (e.g. in the
+         * Notes browser) with the actual headline rather than user note text.
+         */
+        public string? get_title_for_url(string url) {
+            if (db == null) return null;
+
+            string sql = "SELECT title FROM rss_articles WHERE url = ? ORDER BY cached_at DESC LIMIT 1;";
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) return null;
+
+            stmt.bind_text(1, url);
+            if (stmt.step() == Sqlite.ROW) return stmt.column_text(0);
+            return null;
+        }
+
+        /**
          * Clean up old articles and enforce per-feed limits
          */
         public void cleanup() {

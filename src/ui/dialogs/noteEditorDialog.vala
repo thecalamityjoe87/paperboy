@@ -41,7 +41,7 @@ public class NoteEditorDialog : GLib.Object {
         #editor ul, #editor ol { padding-left: 1.4em; }
     """;
 
-    public static void show(Gtk.Window parent, string article_url, Paperboy.ArticleNote? existing) {
+    public static void show(Gtk.Window parent, string article_url, Paperboy.ArticleNote? existing, string? quote = null) {
         var dialog = new Adw.Dialog();
         dialog.set_content_width(640);
         dialog.set_content_height(560);
@@ -72,6 +72,25 @@ public class NoteEditorDialog : GLib.Object {
         title_entry.set_margin_top(4);
         title_entry.set_margin_bottom(4);
         if (existing != null) title_entry.set_text(existing.title);
+
+        // Shows what text this note is anchored to - the selection at
+        // creation time for a new note, or the note's saved anchor when
+        // editing. Not editable; a note isn't re-anchored after creation.
+        string? anchor_quote = existing != null ? existing.quote : quote;
+        Gtk.Widget? quote_label = null;
+        if (anchor_quote != null && anchor_quote.strip().length > 0) {
+            var lbl = new Gtk.Label("“" + anchor_quote.strip() + "”");
+            lbl.add_css_class("dim-label");
+            lbl.add_css_class("caption");
+            lbl.set_wrap(true);
+            lbl.set_lines(2);
+            lbl.set_ellipsize(Pango.EllipsizeMode.END);
+            lbl.set_halign(Gtk.Align.START);
+            lbl.set_margin_start(16);
+            lbl.set_margin_end(16);
+            lbl.set_margin_bottom(4);
+            quote_label = lbl;
+        }
 
         var format_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 4);
         format_row.set_margin_start(12);
@@ -208,6 +227,7 @@ public class NoteEditorDialog : GLib.Object {
         editor_frame.set_child(webview);
 
         var root = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        if (quote_label != null) root.append(quote_label);
         root.append(title_entry);
         root.append(format_row);
         root.append(editor_frame);
@@ -240,7 +260,7 @@ public class NoteEditorDialog : GLib.Object {
                 if (existing != null) {
                     store.update_note(existing.id, title, html);
                 } else {
-                    store.add_note(article_url, title, html);
+                    store.add_note(article_url, title, html, quote);
                 }
                 dialog.close();
             });

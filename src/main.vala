@@ -34,6 +34,21 @@ public class PaperboyApp : Adw.Application {
 
         var win = new NewsWindow(this);
         win.present();
+
+        // Warms up GSK's opacity-compositing path off-screen before the real entrance animation needs it.
+        var warmup = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        warmup.set_size_request(1, 1);
+        warmup.set_halign(Gtk.Align.START);
+        warmup.set_valign(Gtk.Align.START);
+        warmup.add_css_class("card");
+        win.root_overlay.add_overlay(warmup);
+        var warmup_list = new Gee.ArrayList<Gtk.Widget>();
+        warmup_list.add(warmup);
+        win.animation_manager.animate_cards_entrance_batch(warmup_list);
+        GLib.Timeout.add(400, () => {
+            win.root_overlay.remove_overlay(warmup);
+            return false;
+        });
         // On first run, show the welcome/onboarding dialog so users can
         // get an introduction and immediately pick a few sources.
         if (!prefs.onboarding_completed) OnboardingDialog.show(win);
@@ -46,7 +61,7 @@ public class PaperboyApp : Adw.Application {
         
         var about_action = new SimpleAction("about", null);
         about_action.activate.connect(() => {
-            PrefsDialog.show_about_dialog(win);
+            AboutDialog.show(win);
         });
         this.add_action(about_action);
 

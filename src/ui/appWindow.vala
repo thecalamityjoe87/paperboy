@@ -203,7 +203,13 @@ public class NewsWindow : Adw.ApplicationWindow {
                 content_view.hide_load_more_button();
             }
         });
-        
+
+        article_manager.request_reset_load_more_button.connect(() => {
+            if (content_view != null) {
+                content_view.reset_load_more_button();
+            }
+        });
+
         article_manager.request_remove_end_feed_message.connect(() => {
             if (content_view != null) {
                 content_view.remove_end_of_feed_message();
@@ -342,7 +348,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     var search_entry = new Gtk.SearchEntry();
     search_entry.set_placeholder_text("Search news for keywords…");
-    search_entry.set_max_width_chars(60);
+    search_entry.set_max_width_chars(40);
     search_container.append(search_entry);
 
     content_header.set_title_widget(search_container);
@@ -501,6 +507,10 @@ public class NewsWindow : Adw.ApplicationWindow {
     // `window.main_content_container` continue to work during refactor.
     this.main_content_container = content_view.main_content_container;
     layout_manager.hero_container = content_view.hero_container;
+    layout_manager.hero_trending_separator = content_view.hero_trending_separator;
+    layout_manager.trending_section_wrapper = content_view.trending_section_wrapper;
+    layout_manager.trending_label = content_view.trending_label;
+    layout_manager.trending_hero_container = content_view.trending_hero_container;
     layout_manager.podcasts_hero_title = content_view.podcasts_hero_title;
     layout_manager.podcast_search_flow = content_view.podcast_search_flow;
     layout_manager.featured_box = content_view.featured_box;
@@ -560,8 +570,8 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Split view: sidebar + content
     split_view = new Adw.OverlaySplitView();
-    split_view.set_min_sidebar_width(265);
-    split_view.set_max_sidebar_width(265);
+    split_view.set_min_sidebar_width(278);
+    split_view.set_max_sidebar_width(278);
     split_view.set_sidebar_position(Gtk.PackType.START);
     split_view.show_sidebar = true; // Start with sidebar shown
     // Podcasts renders directly into ContentView's own containers
@@ -1230,9 +1240,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Debug-only headless leak repro - see PAPERBOY_LEAK_TEST above.
     private void run_leak_test() {
         // Force Front Page specifically - a fresh/isolated profile may
-        // default to a different category (e.g. Top Ten), which doesn't
-        // reproduce this bug (different code path - is_topten_view(), not
-        // is_frontpage_view()).
+        // default to a different category, which may not reproduce this bug.
         prefs.category = "frontpage";
         fetch_news();
 

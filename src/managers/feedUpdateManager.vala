@@ -29,6 +29,12 @@ public class FeedUpdateManager : GLib.Object {
     private bool is_updating = false;
     private uint recurring_timer_id = 0;
 
+    // window.session's 10s timeout is tuned for fast interactive failure
+    // recovery (article previews, etc.) - background bulk updates run many
+    // fetches back-to-back alongside WebKit generation jobs, so they need
+    // more slack to avoid spurious "Socket I/O timed out" failures.
+    private Soup.Session feed_fetch_session = new Soup.Session() { timeout = 25 };
+
     // Signals for UI operations
     public signal void request_show_toast(string message);
 
@@ -154,7 +160,7 @@ public class FeedUpdateManager : GLib.Object {
                     skipped_count++;
                     continue;
                 }
-                
+
                 // Fetch and validate feed
                 bool success = update_single_feed(source);
                 if (success) {
@@ -162,11 +168,13 @@ public class FeedUpdateManager : GLib.Object {
                 } else {
                     failed_count++;
                 }
-                
+
                 // Small delay between requests to avoid overwhelming servers
                 Thread.usleep(500000); // 500ms
             }
-            
+
+            malloc_trim(0);
+
             // Show summary toast
             GLib.Idle.add(() => {
                 if (window == null) return false; // Window destroyed
@@ -188,9 +196,58 @@ public class FeedUpdateManager : GLib.Object {
         });
     }
     
+    // Regenerates one locally-generated (file://) feed right away instead of
+    // waiting for the next periodic cycle - used after OPML import adds a
+    // generated feed whose XML file doesn't exist yet in this profile.
+    public void regenerate_single_feed_async(Paperboy.RssSource source) {
+        new GLib.Thread<void*>("regenerate-single-feed", () => {
+            update_single_feed(source);
+            return null;
+        });
+    }
+
+    private class GeneratedFeedResult : GLib.Object {
+        public bool success = false;
+        public string? rss_xml = null;
+        public string? error_message = null;
+    }
+
+    // Called from the background "feed-updater" thread. GeneratedFeedService
+    // needs a WebView, so the actual generation must run on the main thread -
+    // dispatched here via Idle.add. Waiting for it with a nested MainLoop on
+    // the default context would deadlock: that context is already owned by
+    // the main thread's own GTK loop, which never releases it. A condition
+    // variable lets this thread block without touching that context.
+    private GeneratedFeedResult generate_feed_via_webkit_blocking(string url) {
+        var result = new GeneratedFeedResult();
+        var mutex = GLib.Mutex();
+        var cond = GLib.Cond();
+        bool done = false;
+
+        GLib.Idle.add(() => {
+            Paperboy.GeneratedFeedService.generate_async(url, (success, rss_xml, error_message) => {
+                result.success = success;
+                result.rss_xml = rss_xml;
+                result.error_message = error_message;
+                mutex.lock();
+                done = true;
+                cond.signal();
+                mutex.unlock();
+            });
+            return false;
+        });
+
+        mutex.lock();
+        while (!done) {
+            cond.wait(mutex);
+        }
+        mutex.unlock();
+        return result;
+    }
+
     /**
      * Update a single RSS feed
-     * 
+     *
      * @param source The RSS source to update
      * @return true if successful, false otherwise
      */
@@ -216,155 +273,138 @@ public class FeedUpdateManager : GLib.Object {
                 return false;
             }
 
-            // Find html2rss binary
-            string? html2rss_path = find_html2rss_binary();
-            if (html2rss_path == null) {
-                GLib.warning("  ✗ html2rss binary not found");
+            var gen_result = generate_feed_via_webkit_blocking(source.original_url);
+            if (!gen_result.success || gen_result.rss_xml == null) {
+                GLib.warning("  ✗ Feed generation failed for %s: %s", source.name, gen_result.error_message ?? "unknown error");
                 return false;
             }
 
             try {
-                // Run html2rss to generate fresh feed
-                // Match the argument format from sourceManager.vala
-                string[] argv = {html2rss_path, "--max-pages", "20", source.original_url};
-                var proc = new GLib.Subprocess.newv(argv, GLib.SubprocessFlags.STDOUT_PIPE | GLib.SubprocessFlags.STDERR_PIPE);
-                
-                string? stdout_str = null;
-                string? stderr_str = null;
-                proc.communicate_utf8(null, null, out stdout_str, out stderr_str);
-                proc.wait();
-                
-                int exit_status = proc.get_exit_status();
-                string gen_feed = stdout_str != null ? stdout_str : "";
+                string gen_feed = gen_result.rss_xml;
 
-                if (exit_status == 0 && gen_feed.length > 0) {
-                    // Validate the generated feed
-                    string? error = null;
-                    if (RssValidatorUtils.is_valid_rss(gen_feed, out error)) {
-                        int item_count = RssValidatorUtils.get_item_count(gen_feed);
-                        
-                        // Check if content actually changed by comparing with old feed
-                        bool content_changed = true;
-                        string old_file_path = "";
-                        if (source.url.length > 7) {
-                            old_file_path = source.url.substring(7); // Remove "file://" prefix
-                        }
+                // Validate the generated feed
+                string? error = null;
+                if (RssValidatorUtils.is_valid_rss(gen_feed, out error)) {
+                    int item_count = RssValidatorUtils.get_item_count(gen_feed);
 
-                        if (old_file_path.length > 0) {
-                            try {
-                                var old_file = GLib.File.new_for_path(old_file_path);
-                                if (old_file.query_exists()) {
+                    // Check if content actually changed by comparing with old feed
+                    bool content_changed = true;
+                    string old_file_path = "";
+                    if (source.url.length > 7) {
+                        old_file_path = source.url.substring(7); // Remove "file://" prefix
+                    }
+
+                    if (old_file_path.length > 0) {
+                        try {
+                            var old_file = GLib.File.new_for_path(old_file_path);
+                            if (old_file.query_exists()) {
                                 // Read old feed content
                                 uint8[] old_contents;
                                 old_file.load_contents(null, out old_contents, null);
                                 string old_feed = (string) old_contents;
-                                
+
                                 // Compare feeds by checking if they have the same items
                                 // We'll use a simple heuristic: compare item count and a hash of GUIDs/links
                                 if (RssValidatorUtils.is_valid_rss(old_feed, out error)) {
                                     int old_item_count = RssValidatorUtils.get_item_count(old_feed);
-                                    
+
                                     if (old_item_count == item_count) {
                                         // Same number of items - do a deeper comparison
                                         // Extract GUIDs/links from both feeds and compare
                                         string old_signature = extract_feed_signature(old_feed);
                                         string new_signature = extract_feed_signature(gen_feed);
-                                        
+
                                         if (old_signature == new_signature) {
                                             content_changed = false;
                                             GLib.print("  ⏭  Skipping %s - content unchanged (%d items)\n", source.name, item_count);
                                         }
                                     }
                                 }
-                                }
-                            } catch (Error e) {
+                            }
+                        } catch (Error e) {
                             // If we can't read old file, assume content changed
                             GLib.warning("  ⚠ Could not read old feed for comparison: %s", e.message);
                         }
-                        }
-                        
-                        // Only update if content actually changed
-                        if (content_changed) {
-                            // Merge old articles into new feed before saving
-                            if (old_file_path.length > 0) {
-                                try {
-                                    var old_file = GLib.File.new_for_path(old_file_path);
-                                    if (old_file.query_exists()) {
-                                        // Read old feed content
-                                        uint8[] old_contents;
-                                        old_file.load_contents(null, out old_contents, null);
-                                        string old_feed = (string) old_contents;
+                    }
 
-                                        if (RssValidatorUtils.is_valid_rss(old_feed, out error)) {
-                                            // Merge old articles into new feed
-                                            gen_feed = merge_rss_feeds(old_feed, gen_feed);
-                                            item_count = RssValidatorUtils.get_item_count(gen_feed);
-                                            GLib.print("  ↻ Merged with old feed (now %d total items)\n", item_count);
-                                        }
+                    // Only update if content actually changed
+                    if (content_changed) {
+                        // Merge old articles into new feed before saving
+                        if (old_file_path.length > 0) {
+                            try {
+                                var old_file = GLib.File.new_for_path(old_file_path);
+                                if (old_file.query_exists()) {
+                                    // Read old feed content
+                                    uint8[] old_contents;
+                                    old_file.load_contents(null, out old_contents, null);
+                                    string old_feed = (string) old_contents;
+
+                                    if (RssValidatorUtils.is_valid_rss(old_feed, out error)) {
+                                        // Merge old articles into new feed
+                                        gen_feed = merge_rss_feeds(old_feed, gen_feed);
+                                        item_count = RssValidatorUtils.get_item_count(gen_feed);
+                                        GLib.print("  ↻ Merged with old feed (now %d total items)\n", item_count);
                                     }
-                                } catch (Error e) {
-                                    GLib.warning("  ⚠ Failed to merge old feed: %s", e.message);
                                 }
+                            } catch (Error e) {
+                                GLib.warning("  ⚠ Failed to merge old feed: %s", e.message);
                             }
-
-                            // Delete old XML file (will be replaced by merged version)
-                            if (old_file_path.length > 0) {
-                                try {
-                                    var old_file = GLib.File.new_for_path(old_file_path);
-                                    if (old_file.query_exists()) {
-                                        old_file.delete();
-                                        GLib.print("  ✓ Deleted old feed file: %s\n", GLib.Path.get_basename(old_file_path));
-                                    }
-                                } catch (Error e) {
-                                    GLib.warning("  ⚠ Failed to delete old feed file: %s", e.message);
-                                }
-                            }
-
-                            // Save new XML file (now contains merged articles)
-                            // Use same filename (without timestamp) so we replace the old file
-                            string data_dir = GLib.Environment.get_user_data_dir();
-                            string paperboy_dir = GLib.Path.build_filename(data_dir, "paperboy");
-                            string gen_dir = GLib.Path.build_filename(paperboy_dir, "generated_feeds");
-                            GLib.DirUtils.create_with_parents(gen_dir, 0755);
-
-                            string safe_host = host.replace("/", "_").replace(":", "_");
-                            string filename = safe_host + ".xml";
-                            string new_file_path = GLib.Path.build_filename(gen_dir, filename);
-
-                            var f = GLib.File.new_for_path(new_file_path);
-                            var out_stream = f.replace(null, false, GLib.FileCreateFlags.NONE, null);
-                            var writer = new DataOutputStream(out_stream);
-                            string safe_feed = RssValidatorUtils.sanitize_for_xml(gen_feed);
-                            writer.put_string(safe_feed);
-                            writer.close(null);
-
-                            // Update database with new file path
-                            var store = Paperboy.RssSourceStore.get_instance();
-                            string new_url = "file://" + new_file_path;
-                            store.update_source_url(source.url, new_url);
-                            store.update_last_fetched(new_url);
-
-                            GLib.print("  ✓ Regenerated: %s (%d items)\n", source.name, item_count);
-                        } else {
-                            // Content unchanged, just update timestamp
-                            var store = Paperboy.RssSourceStore.get_instance();
-                            store.update_last_fetched(source.url);
                         }
-                        
-                        return true;
+
+                        // Delete old XML file (will be replaced by merged version)
+                        if (old_file_path.length > 0) {
+                            try {
+                                var old_file = GLib.File.new_for_path(old_file_path);
+                                if (old_file.query_exists()) {
+                                    old_file.delete();
+                                    GLib.print("  ✓ Deleted old feed file: %s\n", GLib.Path.get_basename(old_file_path));
+                                }
+                            } catch (Error e) {
+                                GLib.warning("  ⚠ Failed to delete old feed file: %s", e.message);
+                            }
+                        }
+
+                        // Save new XML file (now contains merged articles)
+                        // Use same filename (without timestamp) so we replace the old file
+                        string data_dir = GLib.Environment.get_user_data_dir();
+                        string paperboy_dir = GLib.Path.build_filename(data_dir, "paperboy");
+                        string gen_dir = GLib.Path.build_filename(paperboy_dir, "generated_feeds");
+                        GLib.DirUtils.create_with_parents(gen_dir, 0755);
+
+                        string safe_host = host.replace("/", "_").replace(":", "_");
+                        string filename = safe_host + ".xml";
+                        string new_file_path = GLib.Path.build_filename(gen_dir, filename);
+
+                        var f = GLib.File.new_for_path(new_file_path);
+                        var out_stream = f.replace(null, false, GLib.FileCreateFlags.NONE, null);
+                        var writer = new DataOutputStream(out_stream);
+                        string safe_feed = RssValidatorUtils.sanitize_for_xml(gen_feed);
+                        writer.put_string(safe_feed);
+                        writer.close(null);
+
+                        // Update database with new file path
+                        var store = Paperboy.RssSourceStore.get_instance();
+                        string new_url = "file://" + new_file_path;
+                        store.update_source_url(source.url, new_url);
+                        store.update_last_fetched(new_url);
+
+                        GLib.print("  ✓ Regenerated: %s (%d items)\n", source.name, item_count);
                     } else {
-                        GLib.warning("  ✗ Generated invalid RSS for %s: %s", source.name, error);
-                        return false;
+                        // Content unchanged, just update timestamp
+                        var store = Paperboy.RssSourceStore.get_instance();
+                        store.update_last_fetched(source.url);
                     }
+
+                    malloc_trim(0);
+                    return true;
                 } else {
-                    GLib.warning("  ✗ html2rss failed for %s (exit=%d)", source.name, exit_status);
-                    if (stderr_str != null && stderr_str.length > 0) {
-                        GLib.warning("  ✗ html2rss stderr: %s", stderr_str);
-                    }
+                    GLib.warning("  ✗ Generated invalid RSS for %s: %s", source.name, error);
+                    malloc_trim(0);
                     return false;
                 }
             } catch (Error e) {
                 GLib.warning("  ✗ Error regenerating feed for %s: %s", source.name, e.message);
+                malloc_trim(0);
                 return false;
             }
         }
@@ -374,34 +414,50 @@ public class FeedUpdateManager : GLib.Object {
             var msg = new Soup.Message("GET", source.url);
             msg.get_request_headers().append("User-Agent", "paperboy/0.5.1a");
             msg.get_request_headers().append("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml");
-            
-            GLib.Bytes? response = window.session.send_and_read(msg, null);
+
+            GLib.Bytes? response = feed_fetch_session.send_and_read(msg, null);
             var status = msg.get_status();
-            
-            if (status == Soup.Status.OK && response != null) {
+
+            // One retry on a fresh request/connection - a bulk update cycle
+            // runs 80+ fetches alongside WebKit generation jobs, so a single
+            // transient timeout shouldn't fail the whole source.
+            if (status != Soup.Status.OK) {
+                GLib.warning("  ⚠ First attempt failed for %s (status=%u), retrying once", source.name, status);
+                var retry_msg = new Soup.Message("GET", source.url);
+                retry_msg.get_request_headers().append("User-Agent", "paperboy/0.5.1a");
+                retry_msg.get_request_headers().append("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml");
+                response = feed_fetch_session.send_and_read(retry_msg, null);
+                status = retry_msg.get_status();
+            }
+
+            if (status == Soup.Status.OK && response != null && response.get_size() > 0) {
                 string body = (string) response.get_data();
-                
+
                 // Validate RSS
                 string? error = null;
                 if (RssValidatorUtils.is_valid_rss(body, out error)) {
                     int item_count = RssValidatorUtils.get_item_count(body);
-                    
+
                     // Update last_fetched_at timestamp
                     var store = Paperboy.RssSourceStore.get_instance();
                     store.update_last_fetched(source.url);
 
                     GLib.print("  ✓ Updated: %s (%d items)\n", source.name, item_count);
+                    malloc_trim(0);
                     return true;
                 } else {
                     GLib.warning("  ✗ Invalid RSS for %s: %s", source.name, error);
+                    malloc_trim(0);
                     return false;
                 }
             } else {
                 GLib.warning("  ✗ Failed to fetch %s: HTTP %u", source.name, status);
+                malloc_trim(0);
                 return false;
             }
         } catch (Error e) {
             GLib.warning("  ✗ Error updating %s: %s", source.name, e.message);
+            malloc_trim(0);
             return false;
         }
     }
@@ -428,7 +484,7 @@ public class FeedUpdateManager : GLib.Object {
 
         string? root_url = UrlUtils.extract_root_url(source.url);
         if (root_url == null) {
-            // source.url is a local file:// path for html2rss-generated
+            // source.url is a local file:// path for generated
             // feeds, so there's no homepage to scan - but original_url
             // (the real site this feed was scraped from, e.g.
             // "https://cnn.com") is exactly what try_podcastindex_name_search
@@ -604,7 +660,7 @@ public class FeedUpdateManager : GLib.Object {
     // already_confirmed_url (if any) survives a zero-result search.
     private void try_podcastindex_name_search(Paperboy.RssSource source, string? already_confirmed_url) {
         var store = Paperboy.RssSourceStore.get_instance();
-        // source.url is a local file:// path for html2rss-generated feeds -
+        // source.url is a local file:// path for generated feeds -
         // original_url (the real site, e.g. "https://cnn.com") is the one
         // that actually has a meaningful domain to match against.
         string domain_source = UrlUtils.extract_root_url(source.original_url) != null ? source.original_url : source.url;
@@ -807,56 +863,6 @@ public class FeedUpdateManager : GLib.Object {
         return null;
     }
 
-    /**
-     * Find the html2rss binary in various possible locations
-     * @return Path to html2rss binary or null if not found
-     */
-    private string? find_html2rss_binary() {
-        // Fallback candidates: system/AppImage locations and developer build locations
-        var candidates = new Gee.ArrayList<string>();
-
-        // Environment variable override (AppRun / AppImage)
-        string? env_libexec = GLib.Environment.get_variable("PAPERBOY_LIBEXECDIR");
-        if (env_libexec != null && env_libexec.length > 0) {
-            candidates.add(GLib.Path.build_filename(env_libexec, "paperboy", "html2rss"));
-            candidates.add(GLib.Path.build_filename(env_libexec, "html2rss"));
-        }
-
-        // Build-time libexecdir (system install)
-        string libexec = BuildConstants.LIBEXECDIR;
-        if (libexec != null && libexec.length > 0) {
-            candidates.add(GLib.Path.build_filename(libexec, "paperboy", "html2rss"));
-        }
-
-        // FHS-compliant: check libexecdir for internal binaries
-        // Standard system locations (prefix-aware)
-        candidates.add("/usr/libexec/paperboy/html2rss");
-        candidates.add("/usr/local/libexec/paperboy/html2rss");
-
-        // Flatpak/AppImage locations
-        candidates.add("/app/libexec/paperboy/html2rss");
-
-        // Development build locations (for running from source tree)
-        candidates.add("tools/html2rss/target/release/html2rss");
-        candidates.add("./tools/html2rss/target/release/html2rss");
-        candidates.add("../tools/html2rss/target/release/html2rss");
-
-        string? cwd = GLib.Environment.get_current_dir();
-        if (cwd != null) {
-            candidates.add(GLib.Path.build_filename(cwd, "tools", "html2rss", "target", "release", "html2rss"));
-        }
-
-        // Check each candidate and return the first executable match
-        foreach (string c in candidates) {
-            if (GLib.FileUtils.test(c, GLib.FileTest.EXISTS) && GLib.FileUtils.test(c, GLib.FileTest.IS_EXECUTABLE)) {
-            GLib.message("Using html2rss at: %s", c);
-            return c;
-            }
-        }
-
-        return null;
-    }
-    
     /**
      * Force update a specific feed by URL
      * 

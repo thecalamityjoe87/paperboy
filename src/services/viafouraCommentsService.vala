@@ -110,17 +110,55 @@ namespace Paperboy {
         }
 
         private static void fetch_conversation(string site_uuid, string container_id, owned CommentsFetchedCallback callback) {
-            string url = "https://livecomments.viafoura.co/v4/livecomments/%s?limit=%d&container_id=%s&reply_limit=%d&sorted_by=newest"
+            var raw_items = new Gee.ArrayList<Json.Object>();
+            var unique_actor_ids = new Gee.HashSet<string>();
+            fetch_conversation_page(site_uuid, container_id, null, raw_items, unique_actor_ids, (success) => {
+                var comments = new Gee.ArrayList<FeedComment>();
+                if (!success || raw_items.size == 0) {
+                    callback(comments, success);
+                    return;
+                }
+
+                resolve_authors(site_uuid, unique_actor_ids, (names) => {
+                    foreach (var obj in raw_items) {
+                        string? body_html = get_str(obj, "content");
+                        string plain = body_html != null ? stripHtmlUtils.strip_html(body_html).strip() : "";
+                        if (plain.length == 0) continue;
+
+                        string? actor_id = get_str(obj, "actor_uuid");
+                        string author = (actor_id != null && names.has_key(actor_id)) ? names.get(actor_id) : "Anonymous";
+
+                        string? published = null;
+                        if (obj.has_member("time") && obj.get_member("time").get_node_type() == Json.NodeType.VALUE) {
+                            published = (obj.get_int_member("time") / 1000).to_string();
+                        }
+
+                        comments.add(new FeedComment(author, published, plain));
+                    }
+                    callback(comments, true);
+                });
+            });
+        }
+
+        private delegate void FetchPageCallback(bool success);
+
+        private static void fetch_conversation_page(string site_uuid, string container_id, string? starting_from,
+                                                    Gee.ArrayList<Json.Object> accumulated_items, Gee.HashSet<string> unique_actor_ids,
+                                                    owned FetchPageCallback callback) {
+            var url_parts = "https://livecomments.viafoura.co/v4/livecomments/%s?limit=%d&container_id=%s&reply_limit=%d&sorted_by=newest"
                 .printf(site_uuid, LIMIT, GLib.Uri.escape_string(container_id, null, true), REPLY_LIMIT);
+
+            if (starting_from != null && starting_from.length > 0) {
+                url_parts += "&starting_from=" + GLib.Uri.escape_string(starting_from, null, true);
+            }
 
             var options = new HttpClientUtils.RequestOptions().without_deduplication();
             options.user_agent = HttpClientUtils.USER_AGENT_BROWSER;
 
-            HttpClientUtils.get_default().fetch_string(url, options, (response) => {
-                var comments = new Gee.ArrayList<FeedComment>();
+            HttpClientUtils.get_default().fetch_string(url_parts, options, (response) => {
                 string? body = response.is_success() ? response.get_body_string() : null;
                 if (body == null) {
-                    callback(comments, false);
+                    callback(false);
                     return;
                 }
 
@@ -129,56 +167,40 @@ namespace Paperboy {
                     parser.load_from_data(body);
                     var root = parser.get_root();
                     if (root == null || root.get_node_type() != Json.NodeType.OBJECT) {
-                        callback(comments, false);
+                        callback(false);
                         return;
                     }
                     var top = root.get_object();
                     if (!top.has_member("contents") || top.get_member("contents").get_node_type() != Json.NodeType.ARRAY) {
-                        callback(comments, true);
+                        callback(true);
                         return;
                     }
 
-                    // The flat "contents" list already mixes top-level
-                    // comments and their replies together (reply_limit just
-                    // caps how many of each get included) - no recursive
-                    // walk needed, unlike Coral's nested "replies" edges.
-                    var raw_items = new Gee.ArrayList<Json.Object>();
-                    var unique_actor_ids = new Gee.HashSet<string>();
-                    foreach (var node in top.get_array_member("contents").get_elements()) {
+                    var contents = top.get_array_member("contents");
+                    bool more_available = top.has_member("more_available") && top.get_boolean_member("more_available");
+                    string? next_cursor = null;
+
+                    // Accumulate all items from this page, track unique authors,
+                    // and extract the UUID of the last comment for pagination.
+                    foreach (var node in contents.get_elements()) {
                         if (node.get_node_type() != Json.NodeType.OBJECT) continue;
                         var obj = node.get_object();
                         string? state = get_str(obj, "simplified_state");
                         if (state != null && state != "visible") continue;
-                        raw_items.add(obj);
+                        accumulated_items.add(obj);
                         string? actor_id = get_str(obj, "actor_uuid");
                         if (actor_id != null) unique_actor_ids.add(actor_id);
+                        next_cursor = get_str(obj, "content_uuid");
                     }
 
-                    if (raw_items.size == 0) {
-                        callback(comments, true);
-                        return;
+                    // If there are more pages, fetch the next one recursively.
+                    if (more_available && next_cursor != null && next_cursor.length > 0) {
+                        fetch_conversation_page(site_uuid, container_id, next_cursor, accumulated_items, unique_actor_ids, (owned) callback);
+                    } else {
+                        callback(true);
                     }
-
-                    resolve_authors(site_uuid, unique_actor_ids, (names) => {
-                        foreach (var obj in raw_items) {
-                            string? body_html = get_str(obj, "content");
-                            string plain = body_html != null ? stripHtmlUtils.strip_html(body_html).strip() : "";
-                            if (plain.length == 0) continue;
-
-                            string? actor_id = get_str(obj, "actor_uuid");
-                            string author = (actor_id != null && names.has_key(actor_id)) ? names.get(actor_id) : "Anonymous";
-
-                            string? published = null;
-                            if (obj.has_member("time") && obj.get_member("time").get_node_type() == Json.NodeType.VALUE) {
-                                published = (obj.get_int_member("time") / 1000).to_string();
-                            }
-
-                            comments.add(new FeedComment(author, published, plain));
-                        }
-                        callback(comments, true);
-                    });
                 } catch (Error e) {
-                    callback(comments, false);
+                    callback(false);
                 }
             });
         }

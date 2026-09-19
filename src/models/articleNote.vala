@@ -24,14 +24,18 @@ namespace Paperboy {
         public string content_html;
         public int64 created_at;
         public int64 updated_at;
+        // Exact text the note was anchored to when created, if any - used
+        // to re-find and highlight that spot in the reader view later.
+        public string? quote;
 
-        public ArticleNote(int64 id, string url, string title, string content_html, int64 created_at, int64 updated_at) {
+        public ArticleNote(int64 id, string url, string title, string content_html, int64 created_at, int64 updated_at, string? quote = null) {
             this.id = id;
             this.url = url;
             this.title = title;
             this.content_html = content_html;
             this.created_at = created_at;
             this.updated_at = updated_at;
+            this.quote = quote;
         }
     }
 }

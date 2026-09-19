@@ -19,6 +19,18 @@
 using GLib;
 using Adw;
 
+// A favorited team's identity - league key + ESPN team id. See
+// NewsPreferences.favorite_teams()/add_favorite_team()/etc.
+public class FavoriteTeamRef : GLib.Object {
+    public string league_key;
+    public string team_id;
+
+    public FavoriteTeamRef(string league_key, string team_id) {
+        this.league_key = league_key;
+        this.team_id = team_id;
+    }
+}
+
 public class NewsPreferences : GLib.Object {
     private static NewsPreferences? instance = null;
     private GLib.Settings settings;
@@ -74,7 +86,13 @@ public class NewsPreferences : GLib.Object {
     }
 
     public string category {
-        owned get { return settings.get_string("category"); }
+        owned get {
+            string cat = settings.get_string("category");
+            // Top Ten no longer exists as its own page - existing users
+            // who had it selected land on the Front Page instead, where
+            // its content now lives as the Trending section.
+            return (cat == "topten") ? "frontpage" : cat;
+        }
         set { settings.set_string("category", value); }
     }
 
@@ -527,6 +545,66 @@ public class NewsPreferences : GLib.Object {
         disabled_sports_leagues = updated_list;
     }
 
+    // Favorite sports teams, stored as "league_key|team_id" strings - same
+    // plain-string-array convention as disabled_sports_leagues/
+    // sports_league_order above. Used by the "My Teams" section (see
+    // SportsScoresController) to show each favorited team's own score row.
+    public Gee.ArrayList<string> favorite_sports_teams {
+        owned get {
+            var list = new Gee.ArrayList<string>();
+            string[] arr = settings.get_strv("favorite-sports-teams");
+            foreach (var s in arr) list.add(s);
+            return list;
+        }
+        set {
+            if (value == null) {
+                settings.set_strv("favorite-sports-teams", new string[0]);
+            } else {
+                string[] arr = new string[value.size];
+                for (int i = 0; i < value.size; i++) arr[i] = value.get(i);
+                settings.set_strv("favorite-sports-teams", arr);
+            }
+        }
+    }
+
+    private static string favorite_team_key(string league_key, string team_id) {
+        return "%s|%s".printf(league_key, team_id);
+    }
+
+    public bool is_team_favorited(string league_key, string team_id) {
+        string needle = favorite_team_key(league_key, team_id);
+        foreach (var s in favorite_sports_teams) if (s == needle) return true;
+        return false;
+    }
+
+    public void add_favorite_team(string league_key, string team_id) {
+        if (is_team_favorited(league_key, team_id)) return;
+        var updated = favorite_sports_teams;
+        updated.add(favorite_team_key(league_key, team_id));
+        favorite_sports_teams = updated;
+    }
+
+    public void remove_favorite_team(string league_key, string team_id) {
+        string needle = favorite_team_key(league_key, team_id);
+        var current = favorite_sports_teams;
+        var updated = new Gee.ArrayList<string>();
+        foreach (var s in current) if (s != needle) updated.add(s);
+        favorite_sports_teams = updated;
+    }
+
+    // (league_key, team_id) pairs for every favorited team, parsed from the
+    // raw "league_key|team_id" strings - malformed entries are skipped.
+    public Gee.ArrayList<FavoriteTeamRef> favorite_teams() {
+        var result = new Gee.ArrayList<FavoriteTeamRef>();
+        foreach (var s in favorite_sports_teams) {
+            string[] parts = s.split("|", 2);
+            if (parts.length == 2 && parts[0].length > 0 && parts[1].length > 0) {
+                result.add(new FavoriteTeamRef(parts[0], parts[1]));
+            }
+        }
+        return result;
+    }
+
     private NewsPreferences() {
         // Initialize GSettings for UI preferences
         settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
@@ -555,6 +633,43 @@ public class NewsPreferences : GLib.Object {
         var config_dir = GLib.Environment.get_user_config_dir();
         GLib.DirUtils.create_with_parents(GLib.Path.build_filename(config_dir, "paperboy"), 0755);
         return GLib.Path.build_filename(config_dir, "paperboy", "config.ini");
+    }
+
+    // Wipes all persisted state back to a fresh install: every GSettings key
+    // (including onboarding-completed, so the welcome tour reappears),
+    // config.ini, and the entire cache/data directories (sources, notes,
+    // podcasts, article cache, etc). Best-effort; the app is expected to
+    // restart immediately after so no live store keeps writing to the
+    // now-deleted files.
+    public void factory_reset() {
+        foreach (string key in settings.list_keys()) {
+            settings.reset(key);
+        }
+
+        try { GLib.FileUtils.remove(config_path); } catch (GLib.Error e) { }
+
+        delete_directory_recursive(GLib.Path.build_filename(GLib.Environment.get_user_cache_dir(), "paperboy"));
+        delete_directory_recursive(GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "paperboy"));
+    }
+
+    private void delete_directory_recursive(string path) {
+        var dir = GLib.File.new_for_path(path);
+        if (!dir.query_exists()) return;
+
+        try {
+            var enumerator = dir.enumerate_children("standard::name,standard::type", GLib.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, null);
+            GLib.FileInfo? info;
+            while ((info = enumerator.next_file(null)) != null) {
+                string child_path = GLib.Path.build_filename(path, info.get_name());
+                if (info.get_file_type() == GLib.FileType.DIRECTORY) {
+                    delete_directory_recursive(child_path);
+                } else {
+                    try { GLib.FileUtils.remove(child_path); } catch (GLib.Error e) { }
+                }
+            }
+        } catch (GLib.Error e) { }
+
+        try { GLib.DirUtils.remove(path); } catch (GLib.Error e) { }
     }
 
     public void save_config() {
@@ -669,8 +784,11 @@ public class NewsPreferences : GLib.Object {
                 // Migrate category
                 if (config.has_key("preferences", "category")) {
                     string cat = config.get_string("preferences", "category");
-                    // Migration: "all categories" has been removed, default to "topten" instead
-                    if (cat == "all") cat = "topten";
+                    // Migration: "all categories" has been removed, default to "frontpage" instead
+                    if (cat == "all") cat = "frontpage";
+                    // Top Ten no longer exists as its own page - its content
+                    // moved onto the Front Page's Trending section.
+                    if (cat == "topten") cat = "frontpage";
                     settings.set_string("category", cat);
                 }
                 

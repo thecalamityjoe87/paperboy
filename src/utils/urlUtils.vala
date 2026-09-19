@@ -19,10 +19,17 @@
 using GLib;
 
 public class UrlUtils {
-    // Normalize article URLs for stable mapping (strip query params, trailing slash, lowercase host)
+    // Normalize article URLs for stable mapping (strip query params/fragment,
+    // trailing slash, lowercase host, unify www/scheme) so the same article
+    // reposted with a different www or http/https variant still dedupes.
     public static string normalize_article_url(string url) {
         if (url == null) return "";
         string u = url.strip();
+        // Remove fragment
+        int fpos = u.index_of("#");
+        if (fpos >= 0 && u.length > fpos) {
+            u = u.substring(0, fpos);
+        }
         // Remove query string entirely (utm and tracking params commonly appended)
         int qpos = u.index_of("?");
         if (qpos >= 0 && u.length > qpos) {
@@ -32,13 +39,17 @@ public class UrlUtils {
         while (u.length > 1 && u.has_suffix("/")) {
             u = u.substring(0, u.length - 1);
         }
-        // Lowercase scheme and host portion
+        // Lowercase scheme+host, strip a leading "www.", and unify the
+        // scheme to https so http/https variants of the same URL match.
         int scheme_end = u.index_of("://");
         if (scheme_end >= 0) {
             int path_start = u.index_of("/", scheme_end + 3);
             string host_part = path_start >= 0 ? u.substring(0, path_start) : u;
             string rest = path_start >= 0 ? u.substring(path_start) : "";
-            u = host_part.down() + rest;
+            string host_only = host_part.down();
+            if (host_only.has_prefix("http://")) host_only = "https://" + host_only.substring(7);
+            if (host_only.has_prefix("https://www.")) host_only = "https://" + host_only.substring(12);
+            u = host_only + rest;
         } else {
             u = u.down();
         }

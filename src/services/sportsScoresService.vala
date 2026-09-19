@@ -26,6 +26,24 @@ using Gee;
  */
 public class SportsScoresService : GLib.Object {
     public delegate void LeagueResultCallback(string league_key, Gee.ArrayList<GameScore>? games);
+    public delegate void TeamsResultCallback(string league_key, Gee.ArrayList<TeamInfo>? teams);
+    public delegate void TeamScheduleCallback(string league_key, string team_id, Gee.ArrayList<GameScore>? games);
+
+    // One entry from a league's /teams listing - used only by the
+    // Preferences "Favorite Teams" picker, not the score cards themselves.
+    public class TeamInfo : GLib.Object {
+        public string id;
+        public string display_name;
+        public string abbreviation;
+        public string? logo_url;
+
+        public TeamInfo(string id, string display_name, string abbreviation, string? logo_url) {
+            this.id = id;
+            this.display_name = display_name;
+            this.abbreviation = abbreviation;
+            this.logo_url = logo_url;
+        }
+    }
 
     // (sport_path, league_path, display_name, key, extra_query, logo_url) -
     // add a row here to support another league; nothing else needs to
@@ -43,30 +61,34 @@ public class SportsScoresService : GLib.Object {
         public string key;
         public string? extra_query;
         public string logo_url;
+        // Solid background color for this league's badge in the Sports
+        // carousel (see LeagueBadge) - no official-brand-accurate palette,
+        // just a distinct, readable color per league.
+        public string badge_color;
     }
 
     private static League[] get_leagues() {
         return {
-            { "football", "nfl", "NFL", "nfl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" },
-            { "basketball", "nba", "NBA", "nba", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png" },
-            { "baseball", "mlb", "MLB", "mlb", null, "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png" },
-            { "hockey", "nhl", "NHL", "nhl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png" },
+            { "football", "nfl", "NFL", "nfl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png", "#6b4e3e" },
+            { "basketball", "nba", "NBA", "nba", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png", "#894eef" },
+            { "baseball", "mlb", "MLB", "mlb", null, "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png", "#3460dc" },
+            { "hockey", "nhl", "NHL", "nhl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png", "#353e4b" },
             // ESPN has no single catch-all league per sport for these four -
             // each picks one representative competition. Off-season for
             // that competition just means the section doesn't appear that
             // day, same as NHL/MLB already do outside their seasons.
-            { "soccer", "eng.1", "Premier League", "epl", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png" },
-            { "soccer", "usa.1", "MLS", "mls", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/19.png" },
-            { "soccer", "uefa.champions", "Champions League", "ucl", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png" },
-            { "rugby", "270557", "Rugby (URC)", "rugby", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-rugby.png" },
-            { "cricket", "8048", "Cricket (IPL)", "cricket", null, "https://a.espncdn.com/i/leaguelogos/cricket/500/8048.png" },
-            { "mma", "ufc", "UFC", "mma", null, "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png" },
+            { "soccer", "eng.1", "Premier League", "epl", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png", "#7f50b1" },
+            { "soccer", "usa.1", "MLS", "mls", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/19.png", "#1d8668" },
+            { "soccer", "uefa.champions", "Champions League", "ucl", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png", "#263f73" },
+            { "rugby", "270557", "Rugby (URC)", "rugby", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-rugby.png", "#2d7448" },
+            { "cricket", "8048", "Cricket (IPL)", "cricket", null, "https://a.espncdn.com/i/leaguelogos/cricket/500/8048.png", "#bc6422" },
+            { "mma", "ufc", "UFC", "mma", null, "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png", "#6b0e0e" },
             // groups=80 restricts college football to FBS; without it the
             // scoreboard is flooded with FCS/D2 games most weeks.
-            { "football", "college-football", "College Football", "cfb", "groups=80", "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-football-college.png" },
-            { "basketball", "mens-college-basketball", "Men's College Basketball", "mbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png" },
-            { "basketball", "womens-college-basketball", "Women's College Basketball", "wbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png" },
-            { "baseball", "college-baseball", "College Baseball", "cbsb", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-baseball.png" }
+            { "football", "college-football", "College Football", "cfb", "groups=80", "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-football-college.png", "#962c4c" },
+            { "basketball", "mens-college-basketball", "Men's College Basketball", "mbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png", "#a4482a" },
+            { "basketball", "womens-college-basketball", "Women's College Basketball", "wbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png", "#ab33b7" },
+            { "baseball", "college-baseball", "College Baseball", "cbsb", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-baseball.png", "#1c78aa" }
         };
     }
 
@@ -88,6 +110,13 @@ public class SportsScoresService : GLib.Object {
             if (l.key == league_key) return l.logo_url;
         }
         return null;
+    }
+
+    public static string badge_color_for(string league_key) {
+        foreach (var l in get_leagues()) {
+            if (l.key == league_key) return l.badge_color;
+        }
+        return "#4b5563";
     }
 
     // Fetches a single league's scoreboard. Callers wanting all leagues
@@ -164,6 +193,174 @@ public class SportsScoresService : GLib.Object {
             } catch (GLib.Error e) {
                 warning("SportsScoresService: failed to parse %s scoreboard: %s", l.key, e.message);
                 callback(l.key, null);
+            }
+        });
+    }
+
+    private static bool find_league(string league_key, out League found_league) {
+        found_league = {};
+        foreach (var candidate in get_leagues()) {
+            if (candidate.key == league_key) { found_league = candidate; return true; }
+        }
+        return false;
+    }
+
+    // Same curl-UA-spoofing/error-handling shape as fetch_league() above -
+    // used only by the Preferences "Favorite Teams" picker (see
+    // PrefsDialog), not by the score-card render path.
+    public static void fetch_teams(string league_key, owned TeamsResultCallback callback) {
+        League l;
+        if (!find_league(league_key, out l)) {
+            callback(league_key, null);
+            return;
+        }
+
+        string url = "https://site.api.espn.com/apis/site/v2/sports/%s/%s/teams?limit=200".printf(l.sport_path, l.league_path);
+
+        var options = new Paperboy.HttpClientUtils.RequestOptions();
+        options.user_agent = "curl/8.7.1";
+
+        var client = Paperboy.HttpClientUtils.get_default();
+        client.fetch_async(url, options, (response) => {
+            if (!response.is_success()) {
+                callback(l.key, null);
+                return;
+            }
+
+            Json.Node? root = null;
+            try {
+                var parser = new Json.Parser();
+                string? body = response.get_body_string();
+                if (body == null) {
+                    callback(l.key, null);
+                    return;
+                }
+                parser.load_from_data(body);
+                root = parser.get_root();
+            } catch (GLib.Error e) {
+                warning("SportsScoresService: JSON parse error fetching %s teams: %s", l.key, e.message);
+                callback(l.key, null);
+                return;
+            }
+
+            if (root == null) {
+                callback(l.key, null);
+                return;
+            }
+
+            callback(l.key, parse_teams(root));
+        });
+    }
+
+    private static Gee.ArrayList<TeamInfo> parse_teams(Json.Node root) {
+        var teams = new Gee.ArrayList<TeamInfo>();
+        if (root.get_node_type() != Json.NodeType.OBJECT) return teams;
+        var obj = root.get_object();
+        if (!obj.has_member("sports")) return teams;
+
+        var sports_node = obj.get_member("sports");
+        if (sports_node == null || sports_node.get_node_type() != Json.NodeType.ARRAY) return teams;
+        var sports = sports_node.get_array();
+        if (sports.get_length() == 0) return teams;
+        var sport_obj = sports.get_element(0);
+        if (sport_obj.get_node_type() != Json.NodeType.OBJECT) return teams;
+        if (!sport_obj.get_object().has_member("leagues")) return teams;
+
+        var leagues_node = sport_obj.get_object().get_member("leagues");
+        if (leagues_node == null || leagues_node.get_node_type() != Json.NodeType.ARRAY) return teams;
+        var leagues = leagues_node.get_array();
+        if (leagues.get_length() == 0) return teams;
+        var league_obj = leagues.get_element(0);
+        if (league_obj.get_node_type() != Json.NodeType.OBJECT) return teams;
+        if (!league_obj.get_object().has_member("teams")) return teams;
+
+        var team_entries_node = league_obj.get_object().get_member("teams");
+        if (team_entries_node == null || team_entries_node.get_node_type() != Json.NodeType.ARRAY) return teams;
+        var team_entries = team_entries_node.get_array();
+
+        uint len = team_entries.get_length();
+        for (uint i = 0; i < len; i++) {
+            var entry = team_entries.get_element(i);
+            if (entry.get_node_type() != Json.NodeType.OBJECT) continue;
+            if (!entry.get_object().has_member("team")) continue;
+            var team_node = entry.get_object().get_member("team");
+            if (team_node == null || team_node.get_node_type() != Json.NodeType.OBJECT) continue;
+            var team_obj = team_node.get_object();
+
+            string? id = json_get_string_safe(team_obj, "id");
+            if (id == null) continue;
+            string? dn = json_get_string_safe(team_obj, "displayName");
+            if (dn == null) dn = json_get_string_safe(team_obj, "name");
+            string? abbr = json_get_string_safe(team_obj, "abbreviation");
+            string? logo = null;
+
+            if (team_obj.has_member("logos")) {
+                var logos_node = team_obj.get_member("logos");
+                if (logos_node != null && logos_node.get_node_type() == Json.NodeType.ARRAY) {
+                    var logos = logos_node.get_array();
+                    if (logos.get_length() > 0) {
+                        var first_logo = logos.get_element(0);
+                        if (first_logo.get_node_type() == Json.NodeType.OBJECT) {
+                            logo = json_get_string_safe(first_logo.get_object(), "href");
+                        }
+                    }
+                }
+            }
+
+            teams.add(new TeamInfo(id, dn ?? (abbr ?? id), abbr ?? "", logo));
+        }
+        return teams;
+    }
+
+    // A favorited team's own schedule (past + upcoming games) - same
+    // events[]/competitions[]/competitors[] shape as the scoreboard
+    // endpoint, so parse_events() is fully reusable as-is.
+    public static void fetch_team_schedule(string league_key, string team_id, owned TeamScheduleCallback callback) {
+        League l;
+        if (!find_league(league_key, out l)) {
+            callback(league_key, team_id, null);
+            return;
+        }
+
+        string url = "https://site.api.espn.com/apis/site/v2/sports/%s/%s/teams/%s/schedule".printf(l.sport_path, l.league_path, team_id);
+
+        var options = new Paperboy.HttpClientUtils.RequestOptions();
+        options.user_agent = "curl/8.7.1";
+
+        var client = Paperboy.HttpClientUtils.get_default();
+        client.fetch_async(url, options, (response) => {
+            if (!response.is_success()) {
+                callback(l.key, team_id, null);
+                return;
+            }
+
+            Json.Node? root = null;
+            try {
+                var parser = new Json.Parser();
+                string? body = response.get_body_string();
+                if (body == null) {
+                    callback(l.key, team_id, null);
+                    return;
+                }
+                parser.load_from_data(body);
+                root = parser.get_root();
+            } catch (GLib.Error e) {
+                warning("SportsScoresService: JSON parse error for %s team %s schedule: %s", l.key, team_id, e.message);
+                callback(l.key, team_id, null);
+                return;
+            }
+
+            if (root == null) {
+                callback(l.key, team_id, null);
+                return;
+            }
+
+            try {
+                var games = parse_events(root, l.key, l.display_name);
+                callback(l.key, team_id, games);
+            } catch (GLib.Error e) {
+                warning("SportsScoresService: failed to parse %s team %s schedule: %s", l.key, team_id, e.message);
+                callback(l.key, team_id, null);
             }
         });
     }
@@ -283,6 +480,7 @@ public class SportsScoresService : GLib.Object {
         string abbr = "";
         string? logo = null;
         string score = "";
+        string? team_id = null;
 
         if (competitor_type == "athlete" && c_obj.has_member("athlete")) {
             var athlete_node = c_obj.get_member("athlete");
@@ -316,7 +514,27 @@ public class SportsScoresService : GLib.Object {
                     if (dn == null) dn = json_get_string_safe(team_obj, "name");
                     name = dn ?? "";
                     abbr = json_get_string_safe(team_obj, "abbreviation") ?? "";
+                    team_id = json_get_string_safe(team_obj, "id");
+
+                    // The scoreboard endpoint gives a flat "logo" string;
+                    // the teams/schedule endpoints instead give a "logos"
+                    // array of variants (different sizes/backgrounds) with
+                    // no flat field - fall back to its first entry so team
+                    // logos still resolve regardless of which endpoint this
+                    // competitor came from.
                     logo = json_get_string_safe(team_obj, "logo");
+                    if (logo == null && team_obj.has_member("logos")) {
+                        var logos_node = team_obj.get_member("logos");
+                        if (logos_node != null && logos_node.get_node_type() == Json.NodeType.ARRAY) {
+                            var logos = logos_node.get_array();
+                            if (logos.get_length() > 0) {
+                                var first_logo = logos.get_element(0);
+                                if (first_logo.get_node_type() == Json.NodeType.OBJECT) {
+                                    logo = json_get_string_safe(first_logo.get_object(), "href");
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -326,11 +544,13 @@ public class SportsScoresService : GLib.Object {
             game.home_team_abbr = abbr;
             game.home_score = score;
             game.home_logo_url = logo;
+            game.home_team_id = team_id;
         } else if (home_away == "away") {
             game.away_team = name;
             game.away_team_abbr = abbr;
             game.away_score = score;
             game.away_logo_url = logo;
+            game.away_team_id = team_id;
         }
     }
 

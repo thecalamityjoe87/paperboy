@@ -24,7 +24,7 @@ using GLib;
 // gate for the initial category load, but scoped to an arbitrary batch
 // instead of "the current view."
 public class BackfillBatchGate : GLib.Object {
-    private const int GRACE_MS = 1500;
+    private const int GRACE_MS = 3000;
     private int pending = 0;
     private bool began = false;
     private bool settled = false;
@@ -81,11 +81,10 @@ public class BackfillBatchGate : GLib.Object {
 // normalized URL, so revisiting the same feed later reuses the stored image
 // instead of re-extracting the article every time.
 public class ThumbnailBackfillService : GLib.Object {
-    // Lower than it would need to be for plain HTTP fetches alone - a
-    // request that falls through to the WebKit fallback (see run() below)
+    // A request that falls through to the WebKit fallback (see run() below)
     // is a real hidden browser view alive for up to ~15s, not a cheap
-    // socket, so keep few of those alive at once.
-    private const int MAX_CONCURRENT = 2;
+    // socket, so this stays well short of unbounded.
+    private const int MAX_CONCURRENT = 6;
 
     private class Request : GLib.Object {
         public NewsWindow window;
@@ -196,6 +195,10 @@ public class ThumbnailBackfillService : GLib.Object {
         if (h <= 0) h = fallback_h;
         if (w <= 0 || h <= 0 || window.image_manager == null) return;
 
+        // This kicks off its own async download, separate from the backfill
+        // scrape pending_backfills already tracked - count it too, or the
+        // initial reveal can fire while this thumbnail is still loading.
+        if (window.loading_state != null) window.loading_state.track_pending_image(pic);
         window.image_manager.load_image_async(pic, thumbnail_url, w * 3, h * 3, true);
         pic.set_data<bool>("has-real-thumbnail", true);
     }

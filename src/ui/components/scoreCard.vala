@@ -48,7 +48,7 @@ public class ScoreCard : GLib.Object {
         GLib.Object();
         this.url = game.espn_link;
 
-        root = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
+        root = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         root.add_css_class("card");
         root.add_css_class("score-card");
         root.set_halign(Gtk.Align.START);
@@ -206,7 +206,9 @@ public class ScoreCard : GLib.Object {
         return _pending_logo_pictures;
     }
 
-    private static void load_team_logo(Gtk.Picture picture, string logo_url) {
+    // Public so LeagueBadge (Sports carousel) can reuse the same
+    // cached/de-duplicated logo loading for league shield logos.
+    public static void load_team_logo(Gtk.Picture picture, string logo_url) {
         var cached = logo_texture_cache().get(logo_url);
         if (cached != null) {
             picture.set_paintable(cached);

@@ -245,7 +245,7 @@ public class UnreadFetchService {
         }
 
         // Fetch these first so they load even if RSS feeds time out
-        string[] priority_categories = {"frontpage", "topten"};
+        string[] priority_categories = {"frontpage"};
         foreach (var source in enabled_sources) {
             foreach (string cat in priority_categories) {
                 enqueue_fetch(new FetchTask.for_category(cat, source));

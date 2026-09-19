@@ -271,7 +271,7 @@ public class SidebarManager : GLib.Object {
     public Gee.ArrayList<SidebarSectionData?> get_sidebar_sections() {
         var sections = new Gee.ArrayList<SidebarSectionData?>();
 
-        // Section 1: Special items (Top Ten, Front Page, My Feed, Local News, Saved)
+        // Section 1: Special items (Front Page, My Feed, Local News, Saved)
         var special_section = SidebarSectionData();
         special_section.section_id = "special";
         special_section.title = "";
@@ -279,7 +279,6 @@ public class SidebarManager : GLib.Object {
         special_section.is_expanded = true;
         special_section.items = new Gee.ArrayList<SidebarItemData?>();
 
-        special_section.items.add(create_item_data("Top Ten", "topten", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Front Page", "frontpage", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("My Feed", "myfeed", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Local News", "local_news", SidebarItemType.SPECIAL));
@@ -533,9 +532,9 @@ public class SidebarManager : GLib.Object {
             return window.article_state_store.get_unread_saved_count();
         }
 
-        // Frontpage and Top Ten: populated by startup metadata fetch and
-        // their own fetchers, so use category-based unread count
-        if (id == "frontpage" || id == "topten") {
+        // Frontpage: populated by startup metadata fetch and its own
+        // fetcher, so use category-based unread count
+        if (id == "frontpage") {
             return window.article_state_store.get_unread_count_for_category(id);
         }
 
@@ -673,7 +672,7 @@ public class SidebarManager : GLib.Object {
 
     private string validate_category_for_sources(string requested_cat) {
         // App-level categories that don't depend on news sources
-        if (requested_cat == "saved" || requested_cat == "topten" ||
+        if (requested_cat == "saved" ||
             requested_cat == "myfeed" || requested_cat == "local_news" ||
             requested_cat == "podcasts" ||
             requested_cat.has_prefix("rssfeed:")) {
@@ -783,7 +782,7 @@ public class SidebarManager : GLib.Object {
      */
     private bool is_popular_category(string category_id) {
         // Special categories always show their count
-        if (category_id == "frontpage" || category_id == "topten" ||
+        if (category_id == "frontpage" ||
             category_id == "myfeed" || category_id == "local_news" ||
             category_id == "saved" || category_id == "podcasts") {
             return false;

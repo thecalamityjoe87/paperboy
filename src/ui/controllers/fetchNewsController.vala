@@ -69,7 +69,7 @@ public class FetchNewsController {
         var article_mgr = w.article_manager;
 
         if (cat_mgr != null && layout_mgr != null && !cat_mgr.is_rssfeed_view()) {
-            bool is_regular_cat = !cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
+            bool is_regular_cat = !cat_mgr.is_frontpage_view() &&
             !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
             w.prefs != null && w.prefs.category != "saved";
             if (is_regular_cat) {
@@ -243,7 +243,76 @@ public class FetchNewsController {
         });
     }
 
+    // Front Page's Trending section (see fetch_news()'s frontpage branch) is
+    // a second, independent fetch layered onto the same view - it skips
+    // dispatch_item's category-section routing/multi-source buffering
+    // entirely and feeds ArticleManager.add_item() directly with
+    // is_trending: true, which places it into the Trending hero row/grid
+    // instead of a category section.
+    public static void global_add_trending_item(string title, string url, string? thumbnail, string category_id, string? source_name, string? published = null, string? snippet = null) {
+        Idle.add(() => {
+            var cur = FetchContext.current_context();
+            if (cur == null || !cur.is_valid()) return false;
+            var w = cur.window;
+            if (w == null) return false;
+
+            // discard if the user switched categories before this fetch completed
+            if (w.prefs != null && cur.expected_category != null) {
+                if (w.prefs.category != cur.expected_category) {
+                    return false;
+                }
+            }
+
+            if (w.article_manager != null) {
+                w.article_manager.add_item(title, url, thumbnail, category_id, source_name, published, snippet, true);
+            }
+            return false;
+        });
+    }
+
     public static void global_no_op_clear() {
+    }
+
+    // Front Page fires the frontpage list and Trending as two independent
+    // backend fetches (see the frontpage branch in fetch_news_impl below);
+    // this counts down as each one's on_done fires and only lets the
+    // initial reveal through once both have reported in, so the two
+    // sections stop popping in at visibly different times.
+    private static Gee.HashMap<uint, int>? _frontpage_endpoints_done = null;
+    private static Gee.HashMap<uint, int> frontpage_endpoints_done() {
+        if (_frontpage_endpoints_done == null) _frontpage_endpoints_done = new Gee.HashMap<uint, int>();
+        return _frontpage_endpoints_done;
+    }
+
+    private static void mark_frontpage_endpoint_done(uint seq) {
+        Idle.add(() => {
+            if (!FetchContext.is_current(seq)) {
+                frontpage_endpoints_done().unset(seq);
+                return false;
+            }
+            var cur = FetchContext.current_context();
+            if (cur == null || !cur.is_valid() || cur.seq != seq) {
+                frontpage_endpoints_done().unset(seq);
+                return false;
+            }
+            var w = cur.window;
+            if (w == null) return false;
+
+            int count = frontpage_endpoints_done().has_key(seq) ? frontpage_endpoints_done().get(seq) : 0;
+            count++;
+            frontpage_endpoints_done().set(seq, count);
+
+            if (count >= 2) {
+                frontpage_endpoints_done().unset(seq);
+                if (w.loading_state != null) {
+                    w.loading_state.awaiting_frontpage_endpoints = false;
+                    if (w.loading_state.initial_items_populated && w.loading_state.initial_phase) {
+                        w.loading_state.reveal_initial_content();
+                    }
+                }
+            }
+            return false;
+        });
     }
 
 
@@ -265,15 +334,12 @@ public class FetchNewsController {
             }
         }
 
-        // sidebar rebuild only needed when sources change in prefs, not on every fetch
-        bool is_topten = win.category_manager.is_topten_view();
-        win.layout_manager.prepare_for_new_fetch(is_topten);
+        win.layout_manager.prepare_for_new_fetch();
 
         win.layout_manager.reset_adaptive_tracking();
 
         // keep spinner visible until adaptive layout finalizes for regular categories
         bool is_regular_category = !win.category_manager.is_frontpage_view() &&
-        !win.category_manager.is_topten_view() &&
         !win.category_manager.is_myfeed_category() &&
         !win.category_manager.is_local_news_view() &&
         !win.category_manager.is_rssfeed_view() &&
@@ -547,9 +613,9 @@ public class FetchNewsController {
         if (is_myfeed_mode && custom_rss_sources != null) {
             total_sources += custom_rss_sources.size;
         }
-        // frontpage/topten always issue one backend request regardless of source count
-        bool is_frontpage_or_topten = win.category_manager.is_frontpage_view() || win.category_manager.is_topten_view();
-        ctx.is_multi_source = !is_frontpage_or_topten && ((win.prefs.category == "sports") ||
+        // frontpage always issues one backend request regardless of source count
+        bool is_frontpage = win.category_manager.is_frontpage_view();
+        ctx.is_multi_source = !is_frontpage && ((win.prefs.category == "sports") ||
             (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))));
 
         // always query the sports endpoint too, so users whose enabled sources have no
@@ -596,25 +662,24 @@ if (is_myfeed_mode) {
                 wrapped_clear();
                 wrapped_set_label("Frontpage — Loading from backend (branch 1)");
             AppDebugger.log_rss("fetch_news: frontpage floor");
-            NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
+            // Hold the initial reveal until both the frontpage list and
+            // Trending have reported in (see mark_frontpage_endpoint_done),
+            // so they always appear together instead of Trending lagging
+            // in visibly after the frontpage list.
+            if (win.loading_state != null) win.loading_state.awaiting_frontpage_endpoints = true;
+            NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item, () => { FetchNewsController.mark_frontpage_endpoint_done(my_seq); });
+
+            // Trending section: a second, independent fetch layered onto the
+            // Front Page (see global_add_trending_item's doc comment) - same
+            // backend data Top Ten used to show on its own page, now inline
+            // between the Hero Carousel and Headlines.
+            win.layout_manager.configure_trending_section();
+            var trending_fetcher = new PaperboyFetcher(FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_trending_item, () => { FetchNewsController.mark_frontpage_endpoint_done(my_seq); });
+            trending_fetcher.fetch("topten", current_search_query, win.session);
 
             var sidebar_mgr = win.sidebar_manager;
             if (sidebar_mgr != null) {
                 sidebar_mgr.schedule_badge_refresh("frontpage", my_seq);
-            }
-            return;
-        }
-
-        if (win.category_manager.is_topten_view()) {
-            used_multi = true;
-
-                wrapped_clear();
-                wrapped_set_label("Top Ten — Loading from backend");
-            NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
-
-            var sidebar_mgr = win.sidebar_manager;
-            if (sidebar_mgr != null) {
-                sidebar_mgr.schedule_badge_refresh("topten", my_seq);
             }
             return;
         }
@@ -636,19 +701,6 @@ if (is_myfeed_mode) {
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
                     sidebar_mgr.schedule_badge_refresh("frontpage", my_seq);
-                }
-                return;
-            }
-
-            if (win.category_manager.is_topten_view()) {
-                used_multi = true;
-
-                wrapped_clear();
-                NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
-
-                var sidebar_mgr = win.sidebar_manager;
-                if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh("topten", my_seq);
                 }
                 return;
             }
@@ -757,18 +809,6 @@ if (is_myfeed_mode) {
                 return;
             }
 
-            if (win.category_manager.is_topten_view()) {
-                wrapped_clear();
-                wrapped_set_label("Top Ten — Loading from backend (single-source)");
-                NewsService.fetch(win.prefs.news_source, "topten", current_search_query, win.session, FetchNewsController.global_forward_label, FetchNewsController.global_no_op_clear, FetchNewsController.global_add_item);
-
-                var sidebar_mgr = win.sidebar_manager;
-                if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh("topten", my_seq);
-                }
-                return;
-            }
-
             if (is_myfeed_mode) {
                 wrapped_clear();
                 ClearItemsFunc no_op_clear = () => { };
@@ -873,7 +913,7 @@ if (is_myfeed_mode) {
 
         // Only check for regular categories, not special ones
         if (cat_mgr != null && store != null && layout_mgr != null) {
-            if (!cat_mgr.is_frontpage_view() && !cat_mgr.is_topten_view() &&
+            if (!cat_mgr.is_frontpage_view() &&
                 !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
                 !cat_mgr.is_rssfeed_view() && w.prefs != null && w.prefs.category != "saved") {
 
@@ -1209,16 +1249,15 @@ if (is_myfeed_mode) {
                     w.main_content_container.set_visible(true);
                 }
 
-                // Stagger the same entrance animation other categories get.
+                // Same entrance animation other categories get.
                 if (w.animation_manager != null && w.layout_manager != null && w.layout_manager.columns_row != null) {
-                    uint per_item_ms = 28;
-                    uint animate_index = 0;
+                    var cards = new Gee.ArrayList<Gtk.Widget>();
                     var anim_child = w.layout_manager.columns_row.get_first_child();
                     while (anim_child != null) {
-                        w.animation_manager.animate_card_entrance_stagger(anim_child, animate_index, per_item_ms);
-                        animate_index++;
+                        cards.add(anim_child);
                         anim_child = anim_child.get_next_sibling();
                     }
+                    w.animation_manager.animate_cards_entrance_batch(cards);
                 }
                 return false;
             });
