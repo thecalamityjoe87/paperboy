@@ -225,7 +225,6 @@ fi
 # Copy banner image (fall back if not present)
 IMAGE_SRC_DIR="$ROOT_DIR/data/images"
 if [ -d "$IMAGE_SRC_DIR" ]; then
-  cp "$IMAGE_SRC_DIR/paperboy-banner.png" "$APPDIR/usr/share/paperboy/icons/paperboy-banner.png" 2>/dev/null || true
   cp "$IMAGE_SRC_DIR/paperboy-banner.png" "$APPDIR/usr/share/paperboy/images/paperboy-banner.png" 2>/dev/null || true
 else
   echo "Warning: banner image not found in $IMAGE_SRC_DIR"

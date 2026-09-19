@@ -1,3 +1,8 @@
+# v0.11.3a - Hotfix: Image Viewer Memory Leak
+
+- Fixed a memory leak when closing the full-size image viewer dialog
+- Removed a redundant duplicate banner image copy from the AppImage build
+
 # v0.11.2a - Hotfix: Fix Missing Resources Needed for About Dialog
 
 - Fixed missing resources (banner image and release notes) needed for the about dialog

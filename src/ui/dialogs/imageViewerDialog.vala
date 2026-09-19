@@ -23,6 +23,12 @@ using Gtk;
 // measures once, at present() time) sizes itself correctly from the start
 // instead of around a placeholder.
 public class ImageViewerDialog : GLib.Object {
+    // Weak field (not a `weak`/`unowned` local) so descendant closures can
+    // reference the dialog without a ref cycle keeping it alive after close().
+    private class DialogHandle : GLib.Object {
+        public weak Adw.Dialog? target;
+    }
+
     // Large enough to cover basically any screen without upscaling, capped
     // by ImageManager's own MAX_DECODE_DIM anyway.
     private const int FULL_RES_DIM = 2000;
@@ -136,6 +142,8 @@ public class ImageViewerDialog : GLib.Object {
         picture.set_valign(Gtk.Align.CENTER);
 
         var dialog = new Adw.Dialog();
+        var handle = new DialogHandle();
+        handle.target = dialog;
 
         // A plain floating close button over the image (same Overlay +
         // corner-widget shape as ReaderView's own expand button) instead of
@@ -146,25 +154,28 @@ public class ImageViewerDialog : GLib.Object {
         close_button.add_css_class("osd");
         close_button.add_css_class("circular");
         close_button.set_tooltip_text("Close");
-        close_button.set_halign(Gtk.Align.END);
-        close_button.set_valign(Gtk.Align.START);
-        close_button.set_margin_top(8);
-        close_button.set_margin_end(8);
-        close_button.clicked.connect(() => { dialog.close(); });
+        close_button.clicked.connect(() => { handle.target?.close(); });
 
-        var overlay = new Gtk.Overlay();
-        overlay.set_child(picture);
-        overlay.add_overlay(close_button);
+        // Gtk.Fixed, not Gtk.Overlay - a controller on an Overlay ancestor
+        // leaks that subtree on destroy (confirmed via isolated repro).
+        int btn_w;
+        close_button.measure(Gtk.Orientation.HORIZONTAL, -1, null, out btn_w, null, null);
+        const int BTN_MARGIN = 8;
+
+        var content = new Gtk.Fixed();
+        content.put(picture, 0, 0);
+        content.put(close_button, fitted_w - btn_w - BTN_MARGIN, BTN_MARGIN);
 
         dialog.set_follows_content_size(false);
         dialog.set_content_width(fitted_w);
         dialog.set_content_height(fitted_h);
-        dialog.set_child(overlay);
+        dialog.set_child(content);
         dialog.present(parent_window);
 
         // Close when the app window loses focus (e.g. alt-tabbing away), not just via the close button.
+        // Goes through handle too - a direct `dialog` capture here would poison the weak captures above.
         ulong focus_handler_id = parent_window.notify["is-active"].connect(() => {
-            if (!parent_window.is_active) dialog.close();
+            if (!parent_window.is_active) handle.target?.close();
         });
 
         // AdwDialog doesn't close on backdrop click by default and swallows pointer events
@@ -172,11 +183,13 @@ public class ImageViewerDialog : GLib.Object {
         var click_outside = new Gtk.GestureClick();
         click_outside.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
         click_outside.pressed.connect((n_press, x, y) => {
+            var target = handle.target;
+            if (target == null) return;
             Graphene.Rect bounds;
-            if (!overlay.compute_bounds(dialog, out bounds)) return;
+            if (!content.compute_bounds(target, out bounds)) return;
             if (x < bounds.get_x() || x > bounds.get_x() + bounds.get_width()
                 || y < bounds.get_y() || y > bounds.get_y() + bounds.get_height()) {
-                dialog.close();
+                target.close();
             }
         });
         ((Gtk.Widget) dialog).add_controller(click_outside);

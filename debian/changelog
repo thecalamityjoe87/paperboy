@@ -1,3 +1,10 @@
+paperboy (0.11.3a-1) unstable; urgency=low
+
+  * Fixed a memory leak when closing the full-size image viewer dialog
+  * Removed a redundant duplicate banner image copy from the AppImage build
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Sat, 19 Sep 2026 00:00:00 +0000
+
 paperboy (0.11.2a-1) unstable; urgency=low
 
   * Fixed missing resources from appimage build
