@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.11.2a',
+  version : '0.11.3a',
   meson_version : '>=0.59.0'
 )
 
