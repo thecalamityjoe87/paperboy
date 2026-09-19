@@ -1,3 +1,7 @@
+# v0.11.2a - Hotfix: Fix Missing Resources Needed for About Dialog
+
+- Fixed missing resources (banner image and release notes) needed for the about dialog
+
 # v0.11.1a - Backup & Restore, WebKit Extraction Rewrite, and a Stability Pass
 
 - Fixed a reader-view crash when adding a note, plus added numbered badges linking note markers to their cards

@@ -84,6 +84,7 @@ mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/i
 mkdir -p "$APPDIR/usr/share/paperboy"
 mkdir -p "$APPDIR/usr/share/paperboy/icons"
 
+
 # Copy the built binary
 if [ ! -x "$BUILD_DIR/paperboy" ]; then
   echo "Error: built binary not found at $BUILD_DIR/paperboy"
@@ -99,6 +100,13 @@ if [ -f "$ROOT_DIR/data/resources/adblock.css" ]; then
   cp "$ROOT_DIR/data/resources/adblock.css" "$APPDIR/usr/share/paperboy/resources/adblock.css"
 else
   echo "Warning: data/resources/adblock.css not found in source tree"
+fi
+
+# Copy release_notes.md into AppDir data dir so DataPaths finds it at runtime
+if [ -f "$ROOT_DIR/data/release_notes.md" ]; then
+  cp "$ROOT_DIR/data/release_notes.md" "$APPDIR/usr/share/paperboy/release_notes.md"
+else
+  echo "Warning: data/release_notes.md not found in source tree"
 fi
 
 # Copy desktop file (use reverse-domain application id filename)
@@ -212,6 +220,15 @@ if [ -d "$ICON_SRC_DIR" ]; then
 else
   echo "Warning: icons not found in $ICON_SRC_DIR"
 fi
+
+# Copy banner image (fall back if not present)
+IMAGE_SRC_DIR="$ROOT_DIR/data/images"
+if [ -d "$IMAGE_SRC_DIR" ]; then
+  cp "$IMAGE_SRC_DIR/paperboy-banner.png" "$APPDIR/usr/share/paperboy/icons/paperboy-banner.png" 2>/dev/null || true
+else
+  echo "Warning: banner image not found in $IMAGE_SRC_DIR"
+fi
+
 
 # Copy additional data files required at runtime
 # Prefer the new `data/resources` location, fall back to the legacy `data` dir.
