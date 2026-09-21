@@ -275,71 +275,19 @@ namespace Managers {
             show();
         }
 
-        // Clears and re-shows the shared ContentView containers this page renders into.
+        // Hides every other page's containers, then claims this page's own
+        // two (hero_container, category_sections_container) for Podcasts.
         private void prepare_containers() {
             if (content_view == null) return;
 
-            if (content_view.podcasts_hero_title != null) content_view.podcasts_hero_title.set_visible(true);
+            content_view.hide_all_pages();
 
-            clear_children(content_view.hero_container);
+            content_view.podcasts_hero_title.set_visible(true);
             content_view.hero_container.set_visible(true);
-            if (content_view.podcast_search_flow != null) {
-                clear_flowbox_children(content_view.podcast_search_flow);
-                content_view.podcast_search_flow.set_visible(false);
-            }
-
-            clear_children(content_view.category_sections_container);
             content_view.category_sections_container.set_visible(true);
-            if (content_view.hero_frontpage_separator != null) content_view.hero_frontpage_separator.set_visible(true);
+            content_view.hero_frontpage_separator.set_visible(true);
 
-            // columns_row is the shared article grid - clear leftover articles from before switching here.
-            if (content_view.columns_row != null) {
-                clear_flowbox_children(content_view.columns_row);
-                content_view.columns_row.set_visible(false);
-                // Undo Trending's 4-column override (see LayoutManager.configure_trending_section()).
-                content_view.columns_row.set_min_children_per_line(3);
-                content_view.columns_row.set_max_children_per_line(3);
-            }
-
-            // Front Page's Trending section populates its own hero row outside the clearing above.
-            if (content_view.trending_hero_container != null) {
-                clear_children(content_view.trending_hero_container);
-            }
-            if (content_view.trending_section_wrapper != null) {
-                content_view.trending_section_wrapper.set_visible(false);
-            }
-            if (content_view.hero_trending_separator != null) {
-                content_view.hero_trending_separator.set_visible(false);
-            }
-
-            // Sports populates its own container outside LayoutManager's normal clearing too.
-            if (content_view.sports_scores_container != null) {
-                clear_children(content_view.sports_scores_container);
-                content_view.sports_scores_container.set_visible(false);
-            }
-            if (content_view.favorite_teams_container != null) {
-                clear_children(content_view.favorite_teams_container);
-                content_view.favorite_teams_container.set_visible(false);
-            }
-            if (content_view.favorite_teams_label != null) content_view.favorite_teams_label.set_visible(false);
-            if (content_view.favorite_teams_separator != null) content_view.favorite_teams_separator.set_visible(false);
-            if (content_view.league_badge_carousel != null) content_view.league_badge_carousel.root.set_visible(false);
-            if (content_view.hero_scores_separator != null) content_view.hero_scores_separator.set_visible(false);
-            if (content_view.scores_articles_separator != null) content_view.scores_articles_separator.set_visible(false);
-
-            // Same idea as Sports above - the Stocks ticker also populates its own container.
-            if (content_view.stocks_ticker_container != null) {
-                clear_children(content_view.stocks_ticker_container);
-                content_view.stocks_ticker_container.set_visible(false);
-            }
-            if (content_view.hero_stocks_separator != null) content_view.hero_stocks_separator.set_visible(false);
-            if (content_view.stocks_articles_separator != null) content_view.stocks_articles_separator.set_visible(false);
-
-            // "Load more articles" is appended straight into content_box, outside this controller's clearing.
-            content_view.hide_load_more_button();
-            // Same leak, same fix, for the "No more articles" message.
-            content_view.remove_end_of_feed_message();
-            // Widget already removed by clear_children() above - drop the stale reference too.
+            // Widget already removed by hide_all_pages() - drop the stale reference too.
             show_more_button = null;
 
             displayed_feed_ids.clear();

@@ -349,7 +349,7 @@ public class PrefsDialog : GLib.Object {
     }
 
     // Libadwaita preferences dialog using Adw.PreferencesDialog with tabs
-    public static void show_preferences_dialog(Gtk.Window parent, bool open_personalization = false) {
+    public static void show_preferences_dialog(Gtk.Window parent, bool open_personalization = false, bool open_sports_settings = false) {
         var win = (NewsWindow) parent;
         var prefs = NewsPreferences.get_instance();
 
@@ -1759,12 +1759,22 @@ public class PrefsDialog : GLib.Object {
             }
         });
 
-        if (open_personalization) {
+        if (open_personalization || open_sports_settings) {
             dialog.set_visible_page(personalization_page);
         }
 
         // Present the dialog
         dialog.present(parent);
+
+        if (open_sports_settings) {
+            // Land on the sports score cards settings in preferences
+            // dialog after clicking the settings badge
+            ulong handler_id = 0;
+            handler_id = sports_master_row.map.connect(() => {
+                sports_master_row.grab_focus();
+                sports_master_row.disconnect(handler_id);
+            });
+        }
     }
 
     // Launches a fresh Paperboy process and quits this one. Looked up by

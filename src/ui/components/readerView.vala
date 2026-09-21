@@ -511,6 +511,7 @@ public class ReaderView : GLib.Object {
         settings_btn.set_tooltip_text("Reader view settings");
         settings_btn.set_can_focus(false);
         settings_btn.set_visible(false);
+        settings_btn.add_css_class("flat");
 
         var popover_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 16);
         popover_box.set_margin_top(12);

@@ -309,68 +309,15 @@ namespace Managers {
         // Front Page Trending grid's own 4-column override). Call at the
         // start of fetch_news().
         public void prepare_for_new_fetch() {
-            // Only the Podcasts page shows this - see
-            // Managers.PodcastManager.prepare_containers(). Hide it here so
-            // it never lingers over a news category's own hero row after
-            // leaving Podcasts.
-            if (podcasts_hero_title != null) podcasts_hero_title.set_visible(false);
-
-            // Podcasts' own search results grid (see PodcastManager.
-            // run_search()) is a separate widget the news pipeline
-            // otherwise never touches - only PodcastManager itself ever
-            // cleared/hid it, so leaving Podcasts mid-search (cleared or
-            // not) for a news category left its stale result cards showing
-            // alongside the new category's articles. Tear it down here too,
-            // the same way podcasts_hero_title is above.
-            if (podcast_search_flow != null) {
-                Gtk.Widget? pchild = podcast_search_flow.get_first_child();
-                while (pchild != null) {
-                    Gtk.Widget? next = pchild.get_next_sibling();
-                    podcast_search_flow.remove(pchild);
-                    pchild = next;
-                }
-                podcast_search_flow.set_visible(false);
-            }
-
-            if (featured_box != null) {
-                Gtk.Widget? fchild = featured_box.get_first_child();
-                while (fchild != null) {
-                    Gtk.Widget? next = fchild.get_next_sibling();
-                    featured_box.remove(fchild);
-                    fchild.unparent();
-                    fchild = next;
-                }
-            }
+            // Hides every other page's containers (Podcasts, Magazines,
+            // Sports, Stocks) so none of them can linger once a news
+            // category's own fetch starts populating hero_container/
+            // columns_row/category_sections_container below.
+            if (window != null && window.content_view != null) window.content_view.hide_all_pages();
 
             // Restore visibility in case adaptive layout hid these.
             if (hero_container != null) hero_container.set_visible(true);
             if (featured_box != null) featured_box.set_visible(true);
-
-            if (hero_container != null) {
-                Gtk.Widget? hchild = hero_container.get_first_child();
-                while (hchild != null) {
-                    Gtk.Widget? next = hchild.get_next_sibling();
-                    hero_container.remove(hchild);
-                    hchild.unparent();
-                    hchild = next;
-                }
-            }
-
-            if (hero_container != null && featured_box != null) {
-                hero_container.append(featured_box);
-            }
-
-            if (trending_hero_container != null) {
-                Gtk.Widget? trchild = trending_hero_container.get_first_child();
-                while (trchild != null) {
-                    Gtk.Widget? next = trchild.get_next_sibling();
-                    trending_hero_container.remove(trchild);
-                    trchild.unparent();
-                    trchild = next;
-                }
-            }
-            if (trending_section_wrapper != null) trending_section_wrapper.set_visible(false);
-            if (hero_trending_separator != null) hero_trending_separator.set_visible(false);
 
             rebuild_columns(3);
 

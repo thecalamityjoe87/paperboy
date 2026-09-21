@@ -100,16 +100,19 @@ public class ArticleSheet : GLib.Object {
         header.add_css_class("sheet-header");
 
         back_btn = new Gtk.Button.from_icon_name("go-previous-symbolic");
+        back_btn.add_css_class("flat");
         back_btn.set_tooltip_text("Back");
         back_btn.set_can_focus(false);
         back_btn.clicked.connect(() => { if (!is_destroyed && webview != null) webview.go_back(); });
 
         forward_btn = new Gtk.Button.from_icon_name("go-next-symbolic");
+        forward_btn.add_css_class("flat");
         forward_btn.set_tooltip_text("Forward");
         forward_btn.set_can_focus(false);
         forward_btn.clicked.connect(() => { if (!is_destroyed && webview != null) webview.go_forward(); });
 
         refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
+        refresh_btn.add_css_class("flat");
         refresh_btn.set_tooltip_text("Reload article");
         refresh_btn.clicked.connect(() => {
             if (!is_destroyed && webview != null) webview.reload();
@@ -121,6 +124,7 @@ public class ArticleSheet : GLib.Object {
         // missing-icon glyph - "view-paged-symbolic" is a real Adwaita icon
         // and reads reasonably as a reading/document view toggle.
         reader_toggle_btn.set_icon_name("view-paged-symbolic");
+        reader_toggle_btn.add_css_class("flat");
         reader_toggle_btn.set_tooltip_text("Reader view");
         reader_toggle_btn.set_can_focus(false);
         reader_toggle_btn.toggled.connect(() => {
@@ -146,12 +150,14 @@ public class ArticleSheet : GLib.Object {
         close_btn.clicked.connect(() => { if (!is_destroyed) dismiss(); });
 
         options_btn = new Gtk.Button.from_icon_name("view-more-symbolic");
+        options_btn.add_css_class("flat");
         options_btn.set_tooltip_text("Article options");
         options_btn.set_can_focus(false);
         options_btn.clicked.connect(() => { if (!is_destroyed) show_options_menu(); });
 
         notes_toggle_btn = new Gtk.ToggleButton();
         notes_toggle_btn.set_icon_name("document-edit-symbolic");
+        notes_toggle_btn.add_css_class("flat");
         notes_toggle_btn.set_tooltip_text("Notes");
         notes_toggle_btn.set_can_focus(false);
         notes_toggle_btn.toggled.connect(() => {

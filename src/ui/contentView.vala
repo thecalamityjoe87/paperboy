@@ -42,6 +42,13 @@ public class ContentView : GLib.Object {
     public Gtk.Box trending_hero_container;
     public Gtk.FlowBox columns_row;
     public Gtk.FlowBox podcast_search_flow;
+    public Gtk.Label magazine_library_empty_label;
+    public Gtk.Box magazine_library_header_actions;
+    public Gtk.Button magazine_library_add_button;
+    public Gtk.Button magazine_library_organize_button;
+    public Gtk.FlowBox magazine_library_flow;
+    public Gtk.Box magazine_library_trash_zone;
+    public Gtk.Revealer magazine_library_trash_revealer;
     public Gtk.Box category_sections_container;
     public Gtk.Box sports_scores_container;
     public Gtk.Separator favorite_teams_separator;
@@ -187,6 +194,28 @@ public class ContentView : GLib.Object {
         rss_podcast_button.set_opacity(0);
         rss_podcast_button.set_can_target(false);
         date_overlay.add_overlay(rss_podcast_button);
+
+        // Magazines page actions - same floating-corner idiom as
+        // rss_podcast_button right above, in the same date_overlay row
+        // (the page's own in-content header area, not the OS window
+        // titlebar). Plain set_visible() rather than opacity/can_target
+        // toggling: unlike rss_podcast_button (which can appear/disappear
+        // while staying on the same RSS category, and must not shift the
+        // separator below when it does), this only ever changes when
+        // navigating to or away from Magazines entirely, where the whole
+        // page underneath is being rebuilt anyway.
+        magazine_library_header_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+        magazine_library_header_actions.set_halign(Gtk.Align.END);
+        magazine_library_header_actions.set_valign(Gtk.Align.END);
+        magazine_library_organize_button = new Gtk.Button.with_label("Organize");
+        magazine_library_organize_button.add_css_class("pill");
+        magazine_library_header_actions.append(magazine_library_organize_button);
+        magazine_library_add_button = new Gtk.Button.with_label("Add Magazines");
+        magazine_library_add_button.add_css_class("suggested-action");
+        magazine_library_add_button.add_css_class("pill");
+        magazine_library_header_actions.append(magazine_library_add_button);
+        magazine_library_header_actions.set_visible(false);
+        date_overlay.add_overlay(magazine_library_header_actions);
 
         header_box.append(date_overlay);
 
@@ -452,6 +481,40 @@ public class ContentView : GLib.Object {
 
         main_content_container.append(podcast_search_flow);
 
+        // Magazine Library page - just an empty-state label; entries
+        // render as CategorySection rows into category_sections_container
+        // below (see Managers.MagazineLibraryManager), same shared
+        // containers Podcasts/Front Page use for their own category rows.
+        // "Add Magazine"/"Organize" float in the header area above (see
+        // magazine_library_header_actions, next to rss_podcast_button),
+        // not here.
+        magazine_library_empty_label = new Gtk.Label("Your library is empty. Add a magazine to get started.");
+        magazine_library_empty_label.add_css_class("dim-label");
+        magazine_library_empty_label.set_margin_top(40);
+        magazine_library_empty_label.set_margin_bottom(40);
+        magazine_library_empty_label.set_visible(false);
+        main_content_container.append(magazine_library_empty_label);
+
+        // Default view: a flat grid, same as PodcastCard/ArticleCard grids
+        // elsewhere. Managers.MagazineLibraryManager switches to rendering
+        // CategorySection rows into category_sections_container instead
+        // only once at least one magazine actually has a category assigned
+        // - a library with nothing organized yet doesn't need row
+        // structure imposed on it.
+        magazine_library_flow = new Gtk.FlowBox();
+        magazine_library_flow.set_halign(Gtk.Align.FILL);
+        magazine_library_flow.set_valign(Gtk.Align.START);
+        magazine_library_flow.set_hexpand(true);
+        magazine_library_flow.set_vexpand(false);
+        magazine_library_flow.set_homogeneous(true);
+        magazine_library_flow.set_row_spacing(16);
+        magazine_library_flow.set_column_spacing(16);
+        magazine_library_flow.set_selection_mode(Gtk.SelectionMode.NONE);
+        magazine_library_flow.set_min_children_per_line(4);
+        magazine_library_flow.set_max_children_per_line(4);
+        magazine_library_flow.set_visible(false);
+        main_content_container.append(magazine_library_flow);
+
         // Same faint divider as hero_scores_separator/scores_articles_separator,
         // shown only alongside category_sections_container (see LayoutManager's
         // prepare_category_sections/teardown_category_sections) so it never
@@ -649,6 +712,44 @@ public class ContentView : GLib.Object {
         bottom_fade.set_can_target(false);
         main_scroll_overlay.add_overlay(bottom_fade);
 
+        // Drag-a-magazine-here-to-remove-it zone for the Magazines page -
+        // an overlay of main_scroll_overlay (wraps main_scrolled itself),
+        // not a child of main_content_container, for the same reason
+        // top_fade/bottom_fade are: content inside main_scrolled scrolls
+        // away, but an overlay on the scroller's own widget stays pinned
+        // to the bottom of the viewport regardless of scroll position - so
+        // it's always reachable without scrolling all the way down. Only
+        // shown while a card is actively being dragged (see
+        // Managers.MagazineLibraryManager) - a permanently-visible bar
+        // would otherwise sit over the grid the rest of the time.
+        magazine_library_trash_zone = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        magazine_library_trash_zone.add_css_class("magazine-trash-zone");
+        var trash_icon = new Gtk.Image.from_icon_name("user-trash-symbolic");
+        trash_icon.set_pixel_size(28);
+        // A Gtk.Box centers children along its own orientation axis only
+        // via hexpand+halign - without these the icon sat flush at the
+        // box's start edge instead of the middle of the 64x64 circle.
+        trash_icon.set_hexpand(true);
+        trash_icon.set_vexpand(true);
+        trash_icon.set_halign(Gtk.Align.CENTER);
+        trash_icon.set_valign(Gtk.Align.CENTER);
+        magazine_library_trash_zone.append(trash_icon);
+        magazine_library_trash_zone.set_size_request(64, 64);
+
+        // Slides up from the bottom edge on reveal instead of just
+        // popping into view - same idiom as PodcastPane/MagazineReaderSheet.
+        // Visibility is driven by set_reveal_child(), not set_visible() on
+        // the zone itself (see Managers.MagazineLibraryManager).
+        magazine_library_trash_revealer = new Gtk.Revealer();
+        magazine_library_trash_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
+        magazine_library_trash_revealer.set_transition_duration(200);
+        magazine_library_trash_revealer.set_halign(Gtk.Align.CENTER);
+        magazine_library_trash_revealer.set_valign(Gtk.Align.END);
+        magazine_library_trash_revealer.set_margin_bottom(20);
+        magazine_library_trash_revealer.set_reveal_child(false);
+        magazine_library_trash_revealer.set_child(magazine_library_trash_zone);
+        main_scroll_overlay.add_overlay(magazine_library_trash_revealer);
+
         Gtk.Adjustment vadj = main_scrolled.get_vadjustment();
         vadj.value_changed.connect(() => update_vertical_scroll_fades(vadj, top_fade, bottom_fade));
         vadj.changed.connect(() => update_vertical_scroll_fades(vadj, top_fade, bottom_fade));
@@ -808,6 +909,69 @@ public class ContentView : GLib.Object {
                 }
             }
         }
+    }
+
+    // Single source of truth for every page-owned container (Front Page/Top
+    // Ten/My Feed, Podcasts, Magazines, Sports, Stocks). Each page's show()
+    // calls this before populating its own widgets, so leaving any page can
+    // never leave its content showing over another page's - previously each
+    // manager guarded a hand-copied, drifting subset of this list itself.
+    public void hide_all_pages() {
+        clear_and_hide_box(hero_container);
+        if (hero_container != null && featured_box != null) hero_container.append(featured_box);
+
+        if (podcasts_hero_title != null) podcasts_hero_title.set_visible(false);
+        clear_and_hide_flowbox(podcast_search_flow);
+
+        clear_and_hide_box(category_sections_container);
+        clear_and_hide_flowbox(columns_row);
+
+        clear_and_hide_flowbox(magazine_library_flow);
+        if (magazine_library_empty_label != null) magazine_library_empty_label.set_visible(false);
+        if (magazine_library_header_actions != null) magazine_library_header_actions.set_visible(false);
+        if (magazine_library_trash_revealer != null) magazine_library_trash_revealer.set_reveal_child(false);
+
+        clear_and_hide_box(trending_hero_container);
+        if (trending_section_wrapper != null) trending_section_wrapper.set_visible(false);
+        if (hero_trending_separator != null) hero_trending_separator.set_visible(false);
+        if (hero_frontpage_separator != null) hero_frontpage_separator.set_visible(false);
+
+        clear_and_hide_box(sports_scores_container);
+        clear_and_hide_box(favorite_teams_container);
+        if (favorite_teams_label != null) favorite_teams_label.set_visible(false);
+        if (favorite_teams_separator != null) favorite_teams_separator.set_visible(false);
+        if (league_badge_carousel != null) league_badge_carousel.root.set_visible(false);
+        if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
+        if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
+
+        clear_and_hide_box(stocks_ticker_container);
+        if (hero_stocks_separator != null) hero_stocks_separator.set_visible(false);
+        if (stocks_articles_separator != null) stocks_articles_separator.set_visible(false);
+
+        hide_load_more_button();
+        remove_end_of_feed_message();
+    }
+
+    private void clear_and_hide_box(Gtk.Box? box) {
+        if (box == null) return;
+        Gtk.Widget? child = box.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            box.remove(child);
+            child = next;
+        }
+        box.set_visible(false);
+    }
+
+    private void clear_and_hide_flowbox(Gtk.FlowBox? box) {
+        if (box == null) return;
+        Gtk.Widget? child = box.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            box.remove(child);
+            child = next;
+        }
+        box.set_visible(false);
     }
 
     /**

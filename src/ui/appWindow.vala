@@ -81,7 +81,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Managers.PodcastPlaybackManager podcast_playback;
     public PodcastPlayerBar podcast_player_bar;
     public PodcastPane podcast_pane;
+    public MagazineReaderSheet magazine_reader_sheet;
     public Managers.PodcastManager podcast_manager;
+    public Managers.MagazineLibraryManager magazine_manager;
     private Gtk.Widget? current_toast_widget;
     public Gtk.Widget dim_overlay;
     public Gtk.Box main_content_container;
@@ -450,6 +452,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (search_manager != null) search_manager.reset_query_state();
             GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
             GLib.SignalHandler.unblock(search_entry, stop_search_handler_id);
+            if (magazine_manager != null) magazine_manager.set_header_buttons_visible(false);
             if (podcast_manager != null) podcast_manager.show();
             return;
         }
@@ -457,11 +460,20 @@ public class NewsWindow : Adw.ApplicationWindow {
         // overlay independent of ContentView's containers, so it wouldn't
         // otherwise close itself when the underlying page changes.
         if (podcast_pane != null) podcast_pane.close();
+        if (category != "magazines" && magazine_manager != null) magazine_manager.set_header_buttons_visible(false);
         search_entry.set_placeholder_text("Search news for keywords…");
         search_entry.set_text("");
         if (search_manager != null) search_manager.reset_query_state();
         GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
         GLib.SignalHandler.unblock(search_entry, stop_search_handler_id);
+        // Magazines is the same "renders into ContentView's own containers
+        // instead of a separate page" idea as Podcasts above, just with its
+        // own dedicated magazine_library_flow grid rather than the hero/
+        // category rows.
+        if (category == "magazines") {
+            if (magazine_manager != null) magazine_manager.show();
+            return;
+        }
         if (category == "frontpage") {
             fetch_news();
             return;
@@ -585,6 +597,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // to tear down podcast content when the user navigates to a news
     // category - see the category_selected handler above.
     podcast_manager = new Managers.PodcastManager(this, content_view, podcast_playback, podcast_pane);
+    magazine_manager = new Managers.MagazineLibraryManager(this, content_view);
+    magazine_reader_sheet = new MagazineReaderSheet(this);
 
     // Wrap content in a NavigationView so we can slide in a preview page
     nav_view = new Adw.NavigationView();
@@ -732,6 +746,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // PodcastPane's doc comment for why this is a plain Gtk.Revealer
     // rather than Adw.BottomSheet.
     root_overlay.add_overlay(podcast_pane.revealer);
+    root_overlay.add_overlay(magazine_reader_sheet.revealer);
 
     // Wrap root_overlay with article preview split
     article_preview_split.set_content(root_overlay);
@@ -913,6 +928,10 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // recognizes "podcasts" or ever calls fetch_finished().
                 search_entry.set_placeholder_text("Search podcasts…");
                 if (podcast_manager != null) podcast_manager.show();
+            } else if (prefs_local != null && prefs_local.category == "magazines") {
+                // Same reasoning as the podcasts branch above - Magazines
+                // isn't a FetchNewsController category either.
+                if (magazine_manager != null) magazine_manager.show();
             } else if (prefs_local != null && prefs_local.category == "saved") {
                 // Check if saved articles are already loaded (get_saved_count() always works)
                 if (article_state_store != null && article_state_store.get_saved_count() >= 0) {
@@ -1284,6 +1303,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // category and never resolves it.
         if (prefs.category == "podcasts") {
             if (podcast_manager != null) podcast_manager.show();
+            return;
+        }
+        if (prefs.category == "magazines") {
+            if (magazine_manager != null) magazine_manager.show();
             return;
         }
 

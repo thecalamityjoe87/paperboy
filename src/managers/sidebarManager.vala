@@ -284,6 +284,7 @@ public class SidebarManager : GLib.Object {
         special_section.items.add(create_item_data("Local News", "local_news", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Saved", "saved", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Notes", "notes", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Magazines", "magazines", SidebarItemType.SPECIAL));
 
         sections.add(special_section);
 
@@ -674,7 +675,7 @@ public class SidebarManager : GLib.Object {
         // App-level categories that don't depend on news sources
         if (requested_cat == "saved" ||
             requested_cat == "myfeed" || requested_cat == "local_news" ||
-            requested_cat == "podcasts" ||
+            requested_cat == "podcasts" || requested_cat == "magazines" ||
             requested_cat.has_prefix("rssfeed:")) {
             return requested_cat;
         }
@@ -784,7 +785,7 @@ public class SidebarManager : GLib.Object {
         // Special categories always show their count
         if (category_id == "frontpage" ||
             category_id == "myfeed" || category_id == "local_news" ||
-            category_id == "saved" || category_id == "podcasts") {
+            category_id == "saved" || category_id == "podcasts" || category_id == "magazines") {
             return false;
         }
         // RSS feeds are not popular categories

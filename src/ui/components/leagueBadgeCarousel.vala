@@ -29,6 +29,9 @@ using Gtk;
 public class LeagueBadgeCarousel : GLib.Object {
     public Gtk.Widget root;
     public signal void badge_selected(string league_key);
+    // Fired by the trailing settings badge - an invitation to go add more
+    // leagues, not a real league selection.
+    public signal void settings_requested();
 
     // Needs enough spare copies each side to cover a wide viewport.
     private const int COPY_COUNT = 9;
@@ -40,6 +43,10 @@ public class LeagueBadgeCarousel : GLib.Object {
     private Gee.HashMap<string, Gee.ArrayList<LeagueBadge>> badges_by_key = new Gee.HashMap<string, Gee.ArrayList<LeagueBadge>>();
     private bool wrap_connected = false;
     private weak NewsWindow? window;
+    private ScrollNavButtons nav_buttons;
+    // True once too few leagues are chosen for looping/scrolling to make
+    // sense - see rebuild()'s doc comment.
+    private bool static_mode = false;
 
     public void set_window(NewsWindow win) {
         window = win;
@@ -87,15 +94,21 @@ public class LeagueBadgeCarousel : GLib.Object {
         // Same hover-reveal nav arrows as CategorySection's rows. Skips
         // bind_adjustment() - this carousel loops, so always has more
         // content in both directions.
-        var nav_buttons = new ScrollNavButtons(overlay, "league-nav", 4);
+        nav_buttons = new ScrollNavButtons(overlay, "league-nav", 4);
         nav_buttons.prev_requested.connect(() => { nudge_by_badges(-2); });
         nav_buttons.next_requested.connect(() => { nudge_by_badges(2); });
 
         root = overlay;
     }
 
-    // Rebuilds all copies - only called when the active league set changes.
-    public void rebuild(Gee.ArrayList<string> league_keys) {
+    // Rebuilds the carousel - only called when the active league set
+    // changes. With enough leagues chosen, this is the normal seamlessly-
+    // looping carousel (COPY_COUNT copies, nav arrows, wrap handling). Below
+    // SportsScoresController.MIN_LEAGUES_FOR_CAROUSEL, looping/scrolling a
+    // handful of badges has nothing to scroll to, so `is_static` instead
+    // builds a single non-looping copy with no nav arrows. Either way, each
+    // copy gets a trailing settings badge inviting the user to add leagues.
+    public void rebuild(Gee.ArrayList<string> league_keys, bool is_static = false) {
         Gtk.Widget? child = track.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
@@ -105,10 +118,15 @@ public class LeagueBadgeCarousel : GLib.Object {
         badges_by_key.clear();
         first_copy = null;
         wrap_connected = false;
+        static_mode = is_static;
+
+        nav_buttons.left_button.set_visible(!is_static);
+        nav_buttons.right_button.set_visible(!is_static);
 
         if (league_keys.size == 0) return;
 
-        for (int copy = 0; copy < COPY_COUNT; copy++) {
+        int copy_count = is_static ? 1 : COPY_COUNT;
+        for (int copy = 0; copy < copy_count; copy++) {
             var copy_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 32);
             foreach (var key in league_keys) {
                 var badge = new LeagueBadge(key);
@@ -121,9 +139,12 @@ public class LeagueBadgeCarousel : GLib.Object {
                 if (!badges_by_key.has_key(key)) badges_by_key.set(key, new Gee.ArrayList<LeagueBadge>());
                 badges_by_key.get(key).add(badge);
             }
+            copy_box.append(build_settings_badge());
             track.append(copy_box);
             if (copy == 0) first_copy = copy_box;
         }
+
+        if (is_static) return;
 
         // Deferred to idle - first copy's width isn't known until layout.
         GLib.Idle.add(() => {
@@ -131,6 +152,67 @@ public class LeagueBadgeCarousel : GLib.Object {
             connect_wrap_handler();
             return false;
         });
+    }
+
+    // Same wrapper/badge-circle shape as LeagueBadge, but a plain gear icon
+    // instead of a league logo and no selection/live state - just a link to
+    // Preferences' Sports Score Cards section to enable more leagues.
+    private Gtk.Widget build_settings_badge() {
+        var wrapper = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+        wrapper.set_halign(Gtk.Align.CENTER);
+        wrapper.set_valign(Gtk.Align.CENTER);
+
+        var shape = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        shape.add_css_class("league-badge");
+        shape.add_css_class("league-badge-settings");
+        shape.set_halign(Gtk.Align.CENTER);
+        shape.set_valign(Gtk.Align.CENTER);
+        shape.set_size_request(LeagueBadge.BASE_SIZE, LeagueBadge.BASE_SIZE);
+
+        // LeagueBadge's own circle sits inside a fixed SELECTED_SIZE
+        // footprint (its badge_overlay) even at BASE_SIZE, so every real
+        // badge's button is the same height regardless of selection state.
+        // Without matching that here, this button is only BASE_SIZE tall,
+        // so its caption below sits higher than the other badges' captions.
+        var footprint = new Gtk.Overlay();
+        footprint.set_halign(Gtk.Align.CENTER);
+        footprint.set_valign(Gtk.Align.CENTER);
+        footprint.set_size_request(LeagueBadge.SELECTED_SIZE, LeagueBadge.SELECTED_SIZE);
+        footprint.set_child(shape);
+
+        var icon = new Gtk.Image.from_icon_name("preferences-system-symbolic");
+        // Roughly the same visual weight as a real league logo at BASE_SIZE
+        // (LeagueBadge.LOGO_SELECTED_SIZE scaled down) - 28px read as too
+        // small/off relative to the other badges in the row.
+        icon.set_pixel_size(36);
+        icon.set_halign(Gtk.Align.CENTER);
+        icon.set_valign(Gtk.Align.CENTER);
+        // shape is a vertical Box sized to 80px via size_request but the
+        // icon's own natural height is 28px - Box packs a non-expanding
+        // child at its natural size flush to the box's start edge instead
+        // of centering it in the leftover space, so without vexpand the
+        // icon sits pinned to the top instead of the circle's center.
+        icon.set_vexpand(true);
+        shape.append(icon);
+
+        var button = new Gtk.Button();
+        button.add_css_class("flat");
+        button.add_css_class("circular");
+        button.set_halign(Gtk.Align.CENTER);
+        button.set_child(footprint);
+        button.set_tooltip_text("Add more leagues");
+        button.clicked.connect(() => {
+            GLib.debug("LeagueBadgeCarousel: settings badge clicked, emitting settings_requested");
+            settings_requested();
+        });
+        wrapper.append(button);
+
+        var caption = new Gtk.Label("Settings");
+        caption.add_css_class("caption");
+        caption.add_css_class("dim-label");
+        wrapper.append(caption);
+
+        return wrapper;
     }
 
     public void set_live(string league_key, bool live) {

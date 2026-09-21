@@ -125,6 +125,14 @@
     outline-offset: 2px;
 }
 
+/* Trailing "add more leagues" badge in the static (< 4 leagues) carousel -
+   see LeagueBadgeCarousel.build_settings_badge(). Neutral fill since it
+   isn't a real league's brand color. */
+.league-badge-settings {
+    background-color: alpha(currentColor, 0.12);
+    color: currentColor;
+}
+
 /* Same dark-pill language as .live-pill-header, sized down for the small
    corner overlay this reuses it in. */
 .league-badge-live-pill {
@@ -153,7 +161,7 @@
    of its own (unlike ".card") - see MarketIndexCard's comment for why. */
 .ticker-card-hero {
     border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
 }
 
 /* Neutral dark base with a soft directional glow radiating from the upper
@@ -266,13 +274,13 @@
    behave like regular clickable cards. */
 .hero-card-podcast {
     border: none;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
     transition: box-shadow 200ms ease;
 }
 
 .hero-card-podcast:hover,
 .hero-card-podcast.card-hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.55);
 }
 
 /* Bottom-pinned title/author scrim on a full-bleed podcast hero card - a
@@ -293,6 +301,56 @@
     font-size: 1em;
     font-weight: 500;
 }
+
+/* Magazine Library grid cards reuse the podcast hero card's full-bleed +
+   scrim look, but the card itself is much smaller than a Podcasts hero
+   (220px vs. a hero row's ~300-400px), so .hero-title's 2.1em (which only
+   applies inside .hero-card anyway, which these cards don't use) would be
+   far too large here - same reasoning as .ticker-card-hero-title's own
+   size-down for the Stocks ticker cards. */
+.magazine-hero-title {
+    color: white;
+    font-weight: 800;
+    font-size: 1.1em;
+}
+
+/* Magazine card cover art is a DrawingArea, not a Picture (see
+   MagazineCard) - so it needs its own rounded-corner rule rather than
+   the "picture" element selector .hero-card-podcast picture uses. */
+.magazine-cover-canvas {
+    border-radius: 12px;
+}
+
+/* Drag-and-drop reordering feedback - see MagazineCard.wire_interactions. */
+.magazine-dragging {
+    opacity: 0.4;
+}
+
+.magazine-drop-target {
+    outline: 3px solid @accent_color;
+    outline-offset: -3px;
+    border-radius: 12px;
+}
+
+/* Trash drop zone at the bottom of the Magazines page - see
+   MagazineLibraryManager. Same dark-pill language as .custom-toast/
+   .podcast-card-badge-btn (near-black translucent circle, white icon,
+   soft shadow) rather than a bespoke style, so it reads as consistent
+   floating chrome instead of a one-off control. */
+.magazine-trash-zone {
+    background-color: rgba(29, 29, 29, 0.9);
+    color: white;
+    border-radius: 9999px;
+    box-shadow: 0 2px 8px alpha(black, 0.25);
+    transition: all 150ms ease;
+}
+
+.magazine-trash-zone.magazine-drop-target {
+    background-color: @error_color;
+    color: white;
+    box-shadow: 0 2px 10px alpha(@error_color, 0.5);
+}
+
 
 /* "Updated 7m ago" caption under a ticker card's change line. */
 .ticker-card-updated {
@@ -852,6 +910,43 @@ button.pill {
 /* Never appears when already at that end of the row - nothing to scroll to. */
 .section-nav:disabled {
     opacity: 0;
+}
+
+/* Same look/behavior as .section-nav, for the magazine reader's page
+   edges (see MagazineReaderSheet) - slightly larger, since it's sitting
+   over a full page rather than a row of small cards. */
+.magazine-reader-nav {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 9999px;
+    padding: 6px;
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+.magazine-reader-nav:hover {
+    transform: scale(1.08);
+}
+
+.magazine-reader-nav.magazine-reader-nav-active {
+    opacity: 1;
+    background-color: alpha(black, 0.72);
+}
+
+.magazine-reader-nav:disabled {
+    opacity: 0;
+}
+
+/* Highlights whichever page(s) are on screen in the reader's left-edge
+   page-browser panel (see MagazineTocPane.set_current_page()). */
+.magazine-toc-item-current {
+    background-color: alpha(@accent_bg_color, 0.15);
+    outline: 2px solid @accent_bg_color;
+    outline-offset: -2px;
+    border-radius: 8px;
 }
 
 /* Same as .section-nav, sized down further for the compact league badge

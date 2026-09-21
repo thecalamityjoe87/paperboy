@@ -96,6 +96,17 @@ public class SportsScoresController : GLib.Object {
     // on every rebuild() - see the connect() call site below.
     private static bool badge_carousel_connected = false;
 
+    // Below this many leagues chosen in Preferences, looping/scrolling the
+    // carousel has nothing to scroll to - it switches to a static carousel
+    // (see LeagueBadgeCarousel.rebuild()) with a trailing badge inviting the
+    // user to enable more leagues, instead of the normal looping one.
+    private const int MIN_LEAGUES_FOR_LOOPING_CAROUSEL = 4;
+    // Tracks the last static/looping mode actually built, so a change in
+    // how many leagues are *chosen* (not just which are active today)
+    // still forces a rebuild even if the active league set didn't change.
+    private static bool last_static_mode = false;
+    private static bool settings_badge_connected = false;
+
     // "My Teams" (favorited individual teams, see fetch_and_populate_favorite_teams())
     // polls independently of the league sections above - own timer, own
     // last-good cache, own built-once/updated-in-place sections, keyed by
@@ -291,6 +302,7 @@ public class SportsScoresController : GLib.Object {
         if (active_ctx == null || !active_ctx.still_owns_view()) return;
 
         var container = win.content_view.sports_scores_container;
+        bool static_mode = league_keys.size < MIN_LEAGUES_FOR_LOOPING_CAROUSEL;
 
         var active_leagues = new Gee.ArrayList<string>();
         foreach (var league_key in league_keys) {
@@ -308,7 +320,7 @@ public class SportsScoresController : GLib.Object {
         // every poll was found to leak memory, a GTK4 quirk confirmed via
         // an isolated repro and unrelated to anything ScoreCard itself
         // draws or holds onto.
-        bool needs_rebuild = !string_lists_equal(active_leagues, last_rendered_order());
+        bool needs_rebuild = !string_lists_equal(active_leagues, last_rendered_order()) || static_mode != last_static_mode;
         if (!needs_rebuild) {
             foreach (var league_key in active_leagues) {
                 var games = results.get(league_key);
@@ -357,16 +369,24 @@ public class SportsScoresController : GLib.Object {
                 current_cards().set(league_key, cards_for_league);
             }
 
-            win.content_view.league_badge_carousel.rebuild(active_leagues);
+            win.content_view.league_badge_carousel.rebuild(active_leagues, static_mode);
             // The carousel itself is a permanent widget (never rebuilt) -
-            // only connect its selection signal once, not on every
-            // rebuild(), or repeated league changes would stack up
+            // only connect its selection/settings signals once, not on
+            // every rebuild(), or repeated league changes would stack up
             // duplicate handlers and fire selection multiple times.
             if (!badge_carousel_connected) {
                 badge_carousel_connected = true;
                 win.content_view.league_badge_carousel.badge_selected.connect((league_key) => {
                     selected_league = league_key;
                     apply_selected_league();
+                });
+            }
+            if (!settings_badge_connected) {
+                settings_badge_connected = true;
+                GLib.debug("LeagueBadgeCarousel: connecting settings_requested handler");
+                win.content_view.league_badge_carousel.settings_requested.connect(() => {
+                    GLib.debug("SportsScoresController: settings_requested received, active_window=%p", active_window);
+                    if (active_window != null) PrefsDialog.show_preferences_dialog(active_window, false, true);
                 });
             }
             foreach (var league_key in active_leagues) {
@@ -376,6 +396,7 @@ public class SportsScoresController : GLib.Object {
 
             last_rendered_order().clear();
             last_rendered_order().add_all(active_leagues);
+            last_static_mode = static_mode;
         } else {
             foreach (var league_key in active_leagues) {
                 var games = results.get(league_key);

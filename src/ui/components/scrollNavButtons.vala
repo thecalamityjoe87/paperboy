@@ -30,6 +30,16 @@ using Gtk;
  * Call bind_adjustment() only for a bounded scroller that should disable
  * (and hide) a button once there's nothing left in that direction; a
  * cyclic carousel that always has a next/prev slide should skip it.
+ *
+ * By default (edge_zone_width null) hovering is a plain left-half/right-
+ * half split of the whole overlay - fine for the narrow card rows this was
+ * originally built for (CategorySection/HeroCarousel/LeagueBadgeCarousel),
+ * where "which half" and "near that edge" are basically the same thing.
+ * Pass edge_zone_width (pixels) for a much wider overlay - e.g.
+ * MagazineReaderSheet's full page area - where a half-split means hovering
+ * anywhere across half the page lights up an arrow nowhere near the
+ * pointer; that switches to real edge-distance detection, with a dead
+ * zone in the middle where neither button activates.
  */
 public class ScrollNavButtons : GLib.Object {
     public Gtk.Button left_button;
@@ -38,7 +48,7 @@ public class ScrollNavButtons : GLib.Object {
     public signal void prev_requested();
     public signal void next_requested();
 
-    public ScrollNavButtons(Gtk.Overlay overlay, string css_class, int edge_margin = 8) {
+    public ScrollNavButtons(Gtk.Overlay overlay, string css_class, int edge_margin = 8, int? edge_zone_width = null) {
         // No standard GTK/Adwaita icon actually renders as a literal arrow
         // (shaft + head) - go-previous/pan-start/media-playback-start all
         // land back on a chevron or triangle. Using the plain Unicode arrow
@@ -72,13 +82,27 @@ public class ScrollNavButtons : GLib.Object {
         nav_motion.motion.connect((x, y) => {
             int w = overlay.get_width();
             if (w <= 0) return;
-            bool left_side = x < (w / 2.0);
+
+            bool left_side, right_side;
+            if (edge_zone_width != null) {
+                left_side = x < edge_zone_width;
+                right_side = x > w - edge_zone_width;
+            } else {
+                left_side = x < (w / 2.0);
+                right_side = !left_side;
+            }
+
             if (left_side) {
                 left_button.add_css_class(css_class + "-active");
                 right_button.remove_css_class(css_class + "-active");
-            } else {
+            } else if (right_side) {
                 right_button.add_css_class(css_class + "-active");
                 left_button.remove_css_class(css_class + "-active");
+            } else {
+                // Dead zone (middle of a wide edge_zone_width overlay) -
+                // neither edge is actually near the pointer.
+                left_button.remove_css_class(css_class + "-active");
+                right_button.remove_css_class(css_class + "-active");
             }
         });
         nav_motion.leave.connect(() => {

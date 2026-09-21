@@ -18,6 +18,8 @@ geocode = dependency('geocode-glib-2.0')
 gst = dependency('gstreamer-1.0')
 gst_player = dependency('gstreamer-player-1.0')
 gst_audio = dependency('gstreamer-audio-1.0')
+poppler = dependency('poppler-glib')
+cairo = dependency('cairo')
 
 # Generate build-time constants so the application knows where meson
 # installed internal binaries. This avoids hardcoding candidate paths
@@ -57,6 +59,9 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/components/podcastPlayerBar.vala',
     'src/ui/components/podcastPane.vala',
     'src/ui/components/marqueeLabel.vala',
+    'src/ui/components/magazineCard.vala',
+    'src/ui/components/magazineTocPane.vala',
+    'src/ui/components/magazineReaderSheet.vala',
     'src/ui/controllers/fetchNewsController.vala',
     'src/ui/controllers/searchController.vala',
     'src/ui/controllers/sportsScoresController.vala',
@@ -97,6 +102,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/managers/animationManager.vala',
     'src/managers/podcastManager.vala',
     'src/managers/podcastPlaybackManager.vala',
+    'src/managers/magazineLibraryManager.vala',
 
     # Services / models / resolvers
     'src/services/unreadFetchService.vala',
@@ -136,6 +142,9 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/services/opmlService.vala',
     'src/services/notesExportService.vala',
     'src/services/generatedFeedService.vala',
+    'src/services/magazineLibraryStore.vala',
+    'src/services/magazineSourceScanner.vala',
+    'src/services/magazinePdfImportService.vala',
     'src/services/resolvers/articleSourceResolver.vala',
     'src/models/newsArticle.vala',
     'src/models/rssSource.vala',
@@ -147,6 +156,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/models/gameScore.vala',
     'src/models/marketIndexQuote.vala',
     'src/models/podcastModels.vala',
+    'src/models/magazineModels.vala',
 
     # Fetchers
     'src/services/fetchers/baseFetcher.vala',
@@ -182,14 +192,28 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/utils/podcastImageUtils.vala',
     'src/utils/stripHtmlUtils.vala',
     'src/utils/majorCitiesUtils.vala',
+    'src/utils/pdfValidatorUtils.vala',
 
     # Processors (RSS/HTML/image processing)
     'src/processors/rssFeedProcessor.vala',
     'src/processors/imageProcessor.vala',
   ],
-  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, geocode, gst, gst_player, gst_audio],
+  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, geocode, gst, gst_player, gst_audio, poppler, cairo],
   install : true,
   link_args : ['-lm']
+)
+
+# Standalone helper for rendering an untrusted, just-downloaded magazine
+# PDF's first-page thumbnail out of the main process - see
+# tools/magazineThumbnailer.vala and MagazinePdfImportService. Installed to
+# libexecdir (see BuildConstants.LIBEXECDIR above) rather than bindir, since
+# it's an internal implementation detail, not something a user runs directly.
+executable('paperboy-magazine-thumbnailer', [
+    'tools/magazineThumbnailer.vala',
+  ],
+  dependencies : [gio, poppler, cairo],
+  install : true,
+  install_dir : get_option('libexecdir')
 )
 
 install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))

@@ -98,6 +98,7 @@ public class CategoryIconsUtils : GLib.Object {
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
             case "saved": filename = "saved-mono.svg"; break;
+            case "magazines": filename = "magazine-mono.svg"; break;
             case "podcasts": filename = "podcast-mono.svg"; break;
             // Sidebar's "Find Podcasts" row only - distinct from "podcasts"
             // above (used by subscription rows) so this icon swap doesn't
@@ -220,6 +221,9 @@ public class CategoryIconsUtils : GLib.Object {
             case "notes":
                 candidates = { "document-edit-symbolic", "text-editor-symbolic", "accessories-text-editor-symbolic" };
                 break;
+            case "magazines":
+                candidates = { "x-office-document-symbolic", "emblem-documents-symbolic", "folder-documents-symbolic" };
+                break;
             default:
                 candidates = {};
                 break;
@@ -248,6 +252,7 @@ public class CategoryIconsUtils : GLib.Object {
             case "frontpage": filename = "frontpage-mono.svg"; break;
             case "myfeed": filename = "myfeed-mono.svg"; break;
             case "saved": filename = "saved-mono.svg"; break;
+            case "magazines": filename = "magazine-mono.svg"; break;
             // Header only - subscription rows keep the mic icon (see
             // create_category_icon above).
             case "podcasts": filename = "antenna-mono.svg"; break;

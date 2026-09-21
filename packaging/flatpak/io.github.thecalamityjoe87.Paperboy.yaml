@@ -17,7 +17,10 @@ finish-args:
 modules:
   # geocode-glib-2.0 isn't part of the org.gnome.Platform//49 runtime, so it's
   # built from source here. libgeoclue, libsoup-3.0, json-glib, gee, sqlite,
-  # libxml2 and webkitgtk-6.0 are all already provided by the runtime.
+  # libxml2, webkitgtk-6.0, poppler-glib and cairo are all already provided
+  # by the runtime (poppler-glib backs the Magazine Library's PDF rendering
+  # and the paperboy-magazine-thumbnailer helper - add a module here the
+  # same way as geocode-glib above if a future runtime version drops it).
   - name: geocode-glib
     buildsystem: meson
     config-opts:
