@@ -88,6 +88,15 @@ private const int M_ARENA_MAX = -8;
 private const int M_ARENA_TEST = -7;
 
 public static int main(string[] args) {
+    // Re-exec'd by MagazinePdfImportService to sandbox untrusted PDF
+    // parsing in its own process (see MagazineThumbnailerTool) - handled
+    // before anything else here so that process never touches GTK/Adw/GST
+    // init or the malloc tuning below, same as a genuinely separate
+    // binary would.
+    if (args.length >= 2 && args[1] == Paperboy.MagazineThumbnailerTool.INTERNAL_FLAG) {
+        return Paperboy.MagazineThumbnailerTool.run(args[1:args.length]);
+    }
+
     // Caps glibc's malloc arenas: uncapped, concurrent image/XML worker
     // churn fragments memory across arenas and balloons RSS. 4 is enough
     // for HttpClientUtils.MAX_CONCURRENT_REQUESTS worker threads to avoid

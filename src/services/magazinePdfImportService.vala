@@ -20,9 +20,8 @@
 // already has (see import_from_url()/import_from_path()). Both paths
 // enforce the same hard size cap, check the real file bytes look like a
 // PDF, save the result under MagazineLibraryStore's pdf dir, and render a
-// first-page thumbnail via the out-of-process paperboy-magazine-thumbnailer
-// helper (see tools/magazineThumbnailer.vala) rather than parsing the
-// untrusted file with Poppler in this process.
+// first-page thumbnail out-of-process (see MagazineThumbnailerTool) rather
+// than parsing the untrusted file with Poppler in this process.
 namespace Paperboy {
     public class MagazinePdfImportService : GLib.Object {
         public delegate void ImportCallback(bool success, Paperboy.MagazineEntry? entry, string? error_message);
@@ -223,30 +222,19 @@ namespace Paperboy {
             return basename.length > 0 ? basename : "Untitled magazine";
         }
 
-        private string? find_thumbnailer_binary() {
-            string installed = GLib.Path.build_filename(BuildConstants.LIBEXECDIR, "paperboy-magazine-thumbnailer");
-            if (GLib.FileUtils.test(installed, GLib.FileTest.IS_EXECUTABLE)) return installed;
-
-            // Dev tree: built next to the main `paperboy` binary.
-            try {
-                string exe_path = GLib.FileUtils.read_link("/proc/self/exe");
-                string dev_path = GLib.Path.build_filename(GLib.Path.get_dirname(exe_path), "paperboy-magazine-thumbnailer");
-                if (GLib.FileUtils.test(dev_path, GLib.FileTest.IS_EXECUTABLE)) return dev_path;
-            } catch (GLib.Error e) { }
-
-            return null;
-        }
-
         // Also captures the sandboxed process's stdout for the PDF's
-        // embedded title (see tools/magazineThumbnailer.vala) - reading it
-        // from there means do_import never has to parse the untrusted PDF
+        // embedded title (see MagazineThumbnailerTool) - reading it from
+        // there means do_import never has to parse the untrusted PDF
         // itself to get it.
         private string? generate_thumbnail(string pdf_path, int64 entry_id, out string? extracted_title) {
             extracted_title = null;
 
-            string? binary = find_thumbnailer_binary();
-            if (binary == null) {
-                GLib.warning("Magazine thumbnailer binary not found - skipping thumbnail");
+            string? self_path = null;
+            try {
+                self_path = GLib.FileUtils.read_link("/proc/self/exe");
+            } catch (GLib.Error e) { }
+            if (self_path == null) {
+                GLib.warning("Could not resolve own executable path - skipping thumbnail");
                 return null;
             }
 
@@ -254,8 +242,13 @@ namespace Paperboy {
             string thumb_path = GLib.Path.build_filename(store.get_thumbnail_dir(), entry_id.to_string() + ".png");
 
             try {
+                // Re-execs this same binary with a hidden flag rather than
+                // spawning a separate one - main.vala dispatches straight
+                // to MagazineThumbnailerTool.run() for it, before any
+                // GTK/Adw/GST init, so it's still a genuinely separate,
+                // sandboxable, killable process.
                 var subprocess = new GLib.Subprocess(GLib.SubprocessFlags.STDOUT_PIPE,
-                    binary, pdf_path, thumb_path, THUMBNAIL_MAX_DIM.to_string());
+                    self_path, Paperboy.MagazineThumbnailerTool.INTERNAL_FLAG, pdf_path, thumb_path, THUMBNAIL_MAX_DIM.to_string());
 
                 // Force-exits a hung/pathological render so a malicious PDF
                 // can't tie up import indefinitely - a no-op once the

@@ -169,6 +169,34 @@
       <description>URLs of custom RSS feeds included in My Feed, independent of whether the feed is otherwise enabled</description>
     </key>
 
+    <!-- Opt-in preview rows shown in My Feed for other app features - see
+         MyFeedExtrasController. Each shows a handful of items plus a
+         "Go to" button to that feature's own page; off by default since
+         My Feed's own point is being a single curated article stream. -->
+    <key name="myfeed-show-sports" type="b">
+      <default>false</default>
+      <summary>Show Sports preview row in My Feed</summary>
+      <description>Whether My Feed shows a preview row of live sports scores</description>
+    </key>
+
+    <key name="myfeed-show-market" type="b">
+      <default>false</default>
+      <summary>Show Markets preview row in My Feed</summary>
+      <description>Whether My Feed shows a preview row of market index cards</description>
+    </key>
+
+    <key name="myfeed-show-podcasts" type="b">
+      <default>false</default>
+      <summary>Show Podcasts preview row in My Feed</summary>
+      <description>Whether My Feed shows a preview row of subscribed podcasts</description>
+    </key>
+
+    <key name="myfeed-show-magazines" type="b">
+      <default>false</default>
+      <summary>Show Magazines preview row in My Feed</summary>
+      <description>Whether My Feed shows a preview row of the magazine library</description>
+    </key>
+
     <!-- Empty means every league SportsScoresService knows about is shown;
          a league key here is hidden from the Sports score-card sections.
          Opt-out (rather than opt-in, like personalized-categories) so a
@@ -250,6 +278,24 @@
       <default>30</default>
       <summary>Podcast skip interval in seconds</summary>
       <description>Seconds to jump forward/back with the mini-player's skip buttons (e.g. 15 or 30)</description>
+    </key>
+
+    <!-- Magazines -->
+    <key name="magazine-uncategorized-as-grid" type="b">
+      <default>true</default>
+      <summary>Show uncategorized magazines as a grid</summary>
+      <description>When true, magazines without a category are shown in a flat grid separate from category rows; when false, they're grouped into their own "Uncategorized" row alongside other categories</description>
+    </key>
+
+    <!-- User-chosen top-to-bottom order for magazine category rows, set by
+         dragging rows in the Organize Magazines dialog. Only holds
+         categories the user has actually dragged into place; any category
+         missing from this list (including newly created ones) falls back
+         to alphabetical order after the ones that are. -->
+    <key name="magazine-category-order" type="as">
+      <default>[]</default>
+      <summary>Magazine category display order</summary>
+      <description>List of magazine category names in the order their rows should appear</description>
     </key>
 
   </schema>

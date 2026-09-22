@@ -50,6 +50,9 @@ public class ContentView : GLib.Object {
     public Gtk.Box magazine_library_trash_zone;
     public Gtk.Revealer magazine_library_trash_revealer;
     public Gtk.Box category_sections_container;
+    // Opt-in preview rows for other app features shown at the top of My
+    // Feed - see MyFeedExtrasController.
+    public Gtk.Box myfeed_extras_container;
     public Gtk.Box sports_scores_container;
     public Gtk.Separator favorite_teams_separator;
     public Gtk.Label favorite_teams_label;
@@ -207,7 +210,7 @@ public class ContentView : GLib.Object {
         magazine_library_header_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
         magazine_library_header_actions.set_halign(Gtk.Align.END);
         magazine_library_header_actions.set_valign(Gtk.Align.END);
-        magazine_library_organize_button = new Gtk.Button.with_label("Organize");
+        magazine_library_organize_button = new Gtk.Button.with_label("Organize Rack");
         magazine_library_organize_button.add_css_class("pill");
         magazine_library_header_actions.append(magazine_library_organize_button);
         magazine_library_add_button = new Gtk.Button.with_label("Add Magazines");
@@ -495,12 +498,51 @@ public class ContentView : GLib.Object {
         magazine_library_empty_label.set_visible(false);
         main_content_container.append(magazine_library_empty_label);
 
-        // Default view: a flat grid, same as PodcastCard/ArticleCard grids
-        // elsewhere. Managers.MagazineLibraryManager switches to rendering
-        // CategorySection rows into category_sections_container instead
-        // only once at least one magazine actually has a category assigned
-        // - a library with nothing organized yet doesn't need row
-        // structure imposed on it.
+        // Same faint divider as hero_scores_separator/scores_articles_separator,
+        // shown only alongside category_sections_container (see LayoutManager's
+        // prepare_category_sections/teardown_category_sections) so it never
+        // shows for the other views that use the flat columns_row instead.
+        // Placed before myfeed_extras_container below (not after), so it
+        // sits directly under the hero regardless of what the first row
+        // actually is - one of My Feed's own extra preview rows, or (with
+        // those all off) the first interleaved source/category row.
+        hero_frontpage_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        hero_frontpage_separator.add_css_class("section-divider");
+        hero_frontpage_separator.set_margin_top(14);
+        hero_frontpage_separator.set_margin_bottom(14);
+        hero_frontpage_separator.set_visible(false);
+        main_content_container.append(hero_frontpage_separator);
+
+        // Opt-in preview rows (Sports/Markets/Podcasts/Magazines) shown at
+        // the top of My Feed, above its own source/category rows below -
+        // see MyFeedExtrasController. Its own dedicated container, same
+        // pattern as sports_scores_container/stocks_ticker_container below,
+        // rather than going through category_sections_container, since
+        // these rows have no article/search/overflow-queue concept.
+        myfeed_extras_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 16);
+        myfeed_extras_container.set_halign(Gtk.Align.FILL);
+        myfeed_extras_container.set_hexpand(true);
+        myfeed_extras_container.set_margin_bottom(16);
+        myfeed_extras_container.set_visible(false);
+        main_content_container.append(myfeed_extras_container);
+
+        // Category-grouped sections (Front Page only): one labeled,
+        // horizontally-scrollable row of cards per category, built and
+        // shown/hidden by LayoutManager instead of the flat columns_row.
+        category_sections_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 16);
+        category_sections_container.set_halign(Gtk.Align.FILL);
+        category_sections_container.set_hexpand(true);
+        category_sections_container.set_visible(false);
+        main_content_container.append(category_sections_container);
+
+        // Holds uncategorized magazines as a flat grid, same as
+        // PodcastCard/ArticleCard grids elsewhere - categorized ones render
+        // as CategorySection rows into category_sections_container instead
+        // (see Managers.MagazineLibraryManager.render_library() and
+        // Prefs.magazine_uncategorized_as_grid). Appended after
+        // category_sections_container, not before, so real category rows
+        // always render above the Uncategorized grid (or its own row, in
+        // the non-grid display mode) rather than below it.
         magazine_library_flow = new Gtk.FlowBox();
         magazine_library_flow.set_halign(Gtk.Align.FILL);
         magazine_library_flow.set_valign(Gtk.Align.START);
@@ -514,26 +556,6 @@ public class ContentView : GLib.Object {
         magazine_library_flow.set_max_children_per_line(4);
         magazine_library_flow.set_visible(false);
         main_content_container.append(magazine_library_flow);
-
-        // Same faint divider as hero_scores_separator/scores_articles_separator,
-        // shown only alongside category_sections_container (see LayoutManager's
-        // prepare_category_sections/teardown_category_sections) so it never
-        // shows for the other views that use the flat columns_row instead.
-        hero_frontpage_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
-        hero_frontpage_separator.add_css_class("section-divider");
-        hero_frontpage_separator.set_margin_top(14);
-        hero_frontpage_separator.set_margin_bottom(14);
-        hero_frontpage_separator.set_visible(false);
-        main_content_container.append(hero_frontpage_separator);
-
-        // Category-grouped sections (Front Page only): one labeled,
-        // horizontally-scrollable row of cards per category, built and
-        // shown/hidden by LayoutManager instead of the flat columns_row.
-        category_sections_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 16);
-        category_sections_container.set_halign(Gtk.Align.FILL);
-        category_sections_container.set_hexpand(true);
-        category_sections_container.set_visible(false);
-        main_content_container.append(category_sections_container);
 
         // Create an overlay container for main content and loading spinner
         main_overlay = new Gtk.Overlay();

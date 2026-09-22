@@ -140,6 +140,28 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("myfeed-custom-only", value); }
     }
 
+    // Opt-in preview rows for other app features shown in My Feed - see
+    // MyFeedExtrasController.
+    public bool myfeed_show_sports {
+        get { return settings.get_boolean("myfeed-show-sports"); }
+        set { settings.set_boolean("myfeed-show-sports", value); }
+    }
+
+    public bool myfeed_show_market {
+        get { return settings.get_boolean("myfeed-show-market"); }
+        set { settings.set_boolean("myfeed-show-market", value); }
+    }
+
+    public bool myfeed_show_podcasts {
+        get { return settings.get_boolean("myfeed-show-podcasts"); }
+        set { settings.set_boolean("myfeed-show-podcasts", value); }
+    }
+
+    public bool myfeed_show_magazines {
+        get { return settings.get_boolean("myfeed-show-magazines"); }
+        set { settings.set_boolean("myfeed-show-magazines", value); }
+    }
+
     public bool sidebar_followed_sources_expanded {
         get { return settings.get_boolean("sidebar-followed-sources-expanded"); }
         set { settings.set_boolean("sidebar-followed-sources-expanded", value); }
@@ -347,6 +369,55 @@ public class NewsPreferences : GLib.Object {
     public bool market_pill_enabled {
         get { return settings.get_boolean("market-pill-enabled"); }
         set { settings.set_boolean("market-pill-enabled", value); }
+    }
+
+    // Whether uncategorized magazines render as their own flat grid
+    // (true, the default) or as an "Uncategorized" row alongside other
+    // category rows (false). See MagazineLibraryManager.render_library().
+    public bool magazine_uncategorized_as_grid {
+        get { return settings.get_boolean("magazine-uncategorized-as-grid"); }
+        set { settings.set_boolean("magazine-uncategorized-as-grid", value); }
+    }
+
+    // User-chosen top-to-bottom order for magazine category rows, set by
+    // dragging rows in the Organize Magazines dialog. Only stores
+    // categories the user has actually dragged into place.
+    public Gee.ArrayList<string> magazine_category_order {
+        owned get {
+            var list = new Gee.ArrayList<string>();
+            string[] arr = settings.get_strv("magazine-category-order");
+            foreach (var s in arr) list.add(s);
+            return list;
+        }
+        set {
+            if (value == null) {
+                settings.set_strv("magazine-category-order", new string[0]);
+            } else {
+                string[] arr = new string[value.size];
+                for (int i = 0; i < value.size; i++) arr[i] = value.get(i);
+                settings.set_strv("magazine-category-order", arr);
+            }
+        }
+    }
+
+    // available_categories in the user's preferred order: the stored order
+    // first (dropping any names no longer present), then any remaining
+    // categories appended alphabetically so a newly-created one still shows
+    // up without needing to be dragged first.
+    public Gee.ArrayList<string> ordered_magazine_categories(Gee.ArrayList<string> available_categories) {
+        var ordered = new Gee.ArrayList<string>();
+        foreach (var name in magazine_category_order) {
+            if (available_categories.contains(name) && !ordered.contains(name)) ordered.add(name);
+        }
+
+        var remaining = new Gee.ArrayList<string>();
+        foreach (var name in available_categories) {
+            if (!ordered.contains(name)) remaining.add(name);
+        }
+        remaining.sort((a, b) => { return SortUtils.compare_titles(a, b); });
+        ordered.add_all(remaining);
+
+        return ordered;
     }
 
     public Gee.ArrayList<string> disabled_sports_leagues {

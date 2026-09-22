@@ -425,6 +425,26 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Listen for category selections and trigger fetch/update from the window
     sidebar_manager.category_selected.connect((category) => {
+        // Podcasts/Magazines each return early below, before ever reaching
+        // fetch_news() - hide_additive_feature_containers() has to run
+        // here too, not just inside fetch_news(), or navigating to either
+        // (including via a CategorySection's own "Go to" button, which
+        // fires this same signal) leaves whatever additive container
+        // (Sports scores, Stocks ticker, My Feed's extra rows) was showing
+        // on the previous page stuck visible underneath it.
+        hide_additive_feature_containers();
+
+        // Every navigation starts at the top of the new page, regardless
+        // of how far down the previous one was scrolled - content just
+        // being rebuilt in place (as Podcasts/Magazines/fetch_news() all
+        // do) doesn't reset main_scrolled's own scroll position on its
+        // own. Most noticeable now that My Feed's own extra preview rows
+        // can push it tall enough to be mid-scroll when you tap a "Go to"
+        // button, but this applies to every category switch.
+        if (content_view != null && content_view.main_scrolled != null) {
+            content_view.main_scrolled.get_vadjustment().set_value(0);
+        }
+
         // Clearing the search box here is just resetting UI/state before
         // this handler does its own rebuild (podcast_manager.show() or
         // fetch_news() below) - letting search_entry.set_text("") fire the
@@ -1289,10 +1309,38 @@ public class NewsWindow : Adw.ApplicationWindow {
         });
     }
 
+    // Sports scores, the Stocks ticker, and My Feed's extra preview rows
+    // are all containers additively layered on top of whatever their own
+    // category already shows (see SportsScoresController/
+    // StocksTickerController/MyFeedExtrasController) - hiding whichever
+    // one doesn't match the *current* prefs.category has to be callable
+    // from every navigation path, not just fetch_news(), since Podcasts
+    // and Magazines both bypass fetch_news() entirely (they render via
+    // PodcastManager/MagazineLibraryManager directly - see both the
+    // category_selected handler above and fetch_news() below). Without
+    // this being called from both places, navigating to Podcasts/Magazines
+    // left whichever of these was previously showing stuck visible
+    // underneath the new page's own content.
+    private void hide_additive_feature_containers() {
+        if (prefs.category != "sports") {
+            SportsScoresController.stop_polling();
+            SportsScoresController.hide(this);
+        }
+        if (!(prefs.category == "business" && prefs.market_cards_enabled)) {
+            StocksTickerController.stop_polling();
+            StocksTickerController.hide(this);
+        }
+        if (prefs.category != "myfeed") {
+            MyFeedExtrasController.hide(this);
+        }
+    }
+
     // Thin wrapper delegating to FetchNewsController. Keeps public API stable
     // while the heavy implementation lives in `fetch_news_impl` for easier
     // staged extraction.
     public void fetch_news() {
+        hide_additive_feature_containers();
+
         // Podcasts isn't a FetchNewsController category - it renders
         // directly into ContentView's containers via PodcastManager (see
         // the sidebar's category_selected handler). Guarded centrally here
@@ -1317,18 +1365,18 @@ public class NewsWindow : Adw.ApplicationWindow {
         // by this call). See SportsScoresController for details.
         if (prefs.category == "sports") {
             SportsScoresController.load(this);
-        } else {
-            SportsScoresController.stop_polling();
-            SportsScoresController.hide(this);
         }
 
         // Additive only: the Stocks ticker renders underneath whatever the
         // Business category already shows above. See StocksTickerController.
         if (prefs.category == "business" && prefs.market_cards_enabled) {
             StocksTickerController.load(this);
-        } else {
-            StocksTickerController.stop_polling();
-            StocksTickerController.hide(this);
+        }
+
+        // Additive only: opt-in preview rows render above whatever My Feed
+        // already shows below. See MyFeedExtrasController.
+        if (prefs.category == "myfeed") {
+            MyFeedExtrasController.load(this);
         }
     }
 

@@ -21,19 +21,7 @@ gst_audio = dependency('gstreamer-audio-1.0')
 poppler = dependency('poppler-glib')
 cairo = dependency('cairo')
 
-# Generate build-time constants so the application knows where meson
-# installed internal binaries. This avoids hardcoding candidate paths
-# like /usr/local/libexec in the source; the path is templated at build
-# time and respects Meson's prefix/libexecdir settings.
-conf = configuration_data()
-conf.set('libexecdir', get_option('libexecdir'))
-build_constants = configure_file(input: 'meson-templates/build_constants.vala.in',
-                                 output: 'buildConstants.vala',
-                                 configuration: conf)
-
-  
   executable('paperboy', [
-    build_constants,
     'src/main.vala',
 
     # UI
@@ -66,6 +54,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/controllers/searchController.vala',
     'src/ui/controllers/sportsScoresController.vala',
     'src/ui/controllers/stocksTickerController.vala',
+    'src/ui/controllers/myFeedExtrasController.vala',
     'src/ui/dialogs/prefsDialog.vala',
     'src/ui/dialogs/aboutDialog.vala',
     'src/ui/dialogs/locationDialog.vala',
@@ -76,6 +65,7 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     'src/ui/dialogs/noteEditorDialog.vala',
     'src/ui/dialogs/notesBrowserDialog.vala',
     'src/ui/dialogs/imageViewerDialog.vala',
+    'src/ui/dialogs/magazineOrganizeDialog.vala',
     'src/ui/menus/articleMenu.vala',
     'src/ui/menus/sidebarMenu.vala',
     'src/ui/menus/podcastMenu.vala',
@@ -197,23 +187,15 @@ build_constants = configure_file(input: 'meson-templates/build_constants.vala.in
     # Processors (RSS/HTML/image processing)
     'src/processors/rssFeedProcessor.vala',
     'src/processors/imageProcessor.vala',
+
+    # Sandboxed magazine-PDF thumbnail renderer - not a separate binary,
+    # main.vala re-execs this same executable into it (see
+    # MagazineThumbnailerTool.INTERNAL_FLAG and MagazinePdfImportService).
+    'src/tools/magazineThumbnailerTool.vala',
   ],
   dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, geocode, gst, gst_player, gst_audio, poppler, cairo],
   install : true,
   link_args : ['-lm']
-)
-
-# Standalone helper for rendering an untrusted, just-downloaded magazine
-# PDF's first-page thumbnail out of the main process - see
-# tools/magazineThumbnailer.vala and MagazinePdfImportService. Installed to
-# libexecdir (see BuildConstants.LIBEXECDIR above) rather than bindir, since
-# it's an internal implementation detail, not something a user runs directly.
-executable('paperboy-magazine-thumbnailer', [
-    'tools/magazineThumbnailer.vala',
-  ],
-  dependencies : [gio, poppler, cairo],
-  install : true,
-  install_dir : get_option('libexecdir')
 )
 
 install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))

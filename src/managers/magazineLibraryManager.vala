@@ -127,9 +127,25 @@ namespace Managers {
             });
             if (content_view.magazine_library_organize_button != null) {
                 content_view.magazine_library_organize_button.clicked.connect(() => {
-                    show_organize_dialog();
+                    if (window == null) return;
+                    var store_entries = Paperboy.MagazineLibraryStore.get_instance().get_all_entries();
+                    if (store_entries.size == 0) {
+                        if (window.toast_manager != null) window.toast_manager.show_toast("Your library is empty");
+                        return;
+                    }
+                    MagazineOrganizeDialog.show(window, this);
                 });
             }
+        }
+
+        // Lets MagazineOrganizeDialog ask for a re-render after a change
+        // that doesn't already flow through a MagazineLibraryStore signal
+        // (grid/row display toggle, category row reorder) - a dropped
+        // magazine's own category change re-renders on its own, since
+        // update_category() fires entry_updated and the constructor above
+        // already listens for that.
+        public void request_render() {
+            schedule_render();
         }
 
         public void set_header_buttons_visible(bool visible) {
@@ -396,24 +412,31 @@ namespace Managers {
                 by_category.get(category).add(entry);
             }
 
-            // Nothing actually organized yet (every entry landed in the
-            // Uncategorized bucket) - a flat grid, not one giant row
-            // labeled "Uncategorized", is the right default. Only switch
-            // to category rows once the user has assigned at least one
-            // real category (via the Add dialog, a card's right-click
-            // menu, or the Organize tool).
-            if (by_category.size == 1 && by_category.has_key(UNCATEGORIZED)) {
-                render_flat_grid(entries);
-                return;
+            // Whether uncategorized magazines get pulled out into their own
+            // flat grid (leaving only real categories as rows below) or
+            // stay merged in as an "Uncategorized" row like any other -
+            // see Prefs.magazine_uncategorized_as_grid.
+            bool uncategorized_as_grid = window == null || window.prefs.magazine_uncategorized_as_grid;
+
+            var uncategorized_entries = by_category.has_key(UNCATEGORIZED) ? by_category.get(UNCATEGORIZED) : null;
+            by_category.unset(UNCATEGORIZED);
+
+            // Real categories render in the user's drag-ordered sequence
+            // (see Prefs.ordered_magazine_categories, set via the Organize
+            // dialog's row drag handles) - Uncategorized isn't part of that
+            // order since it's pinned last below rather than dragged.
+            var real_category_names = new Gee.ArrayList<string>();
+            real_category_names.add_all(by_category.keys);
+            var category_names = (window != null) ? window.prefs.ordered_magazine_categories(real_category_names) : real_category_names;
+
+            if (uncategorized_as_grid) {
+                if (uncategorized_entries != null) render_flat_grid(uncategorized_entries);
+            } else if (uncategorized_entries != null) {
+                category_names.add(UNCATEGORIZED);
+                by_category.set(UNCATEGORIZED, uncategorized_entries);
             }
 
-            var category_names = new Gee.ArrayList<string>();
-            category_names.add_all(by_category.keys);
-            category_names.sort((a, b) => {
-                if (a == UNCATEGORIZED && b != UNCATEGORIZED) return 1;
-                if (b == UNCATEGORIZED && a != UNCATEGORIZED) return -1;
-                return SortUtils.compare_titles(a, b);
-            });
+            if (category_names.size == 0) return;
 
             content_view.category_sections_container.set_visible(true);
             // hero_frontpage_separator belongs between a hero carousel and
@@ -539,97 +562,6 @@ namespace Managers {
             dialog.response.connect((response) => {
                 if (response == "set") {
                     Paperboy.MagazineLibraryStore.get_instance().update_category(entry_id, category_entry.get_text().strip());
-                }
-                dialog.close();
-            });
-
-            dialog.present();
-        }
-
-        // Small row-state holder for show_organize_dialog() - not a
-        // Gee.HashMap<int64?, Gtk.Entry> keyed by entry_id, since that
-        // combination has previously misbehaved in this codebase (boxed
-        // int64? keys hash/compare by pointer identity without explicit
-        // hash/equal funcs, so has_key()/get() silently never match). This
-        // only ever needs a plain list walked once on Save, so a small
-        // holder class sidesteps the whole issue.
-        private class CategoryEditRow : GLib.Object {
-            public int64 entry_id;
-            public Gtk.Entry field;
-        }
-
-        // Lets the user set every magazine's category from one screen,
-        // rather than one at a time via each card's right-click menu -
-        // useful the first time this feature is used on an existing
-        // library, since entries added before it existed have no category
-        // to show until one is assigned.
-        private void show_organize_dialog() {
-            if (window == null) return;
-            var entries = Paperboy.MagazineLibraryStore.get_instance().get_all_entries();
-            if (entries.size == 0) {
-                if (window.toast_manager != null) window.toast_manager.show_toast("Your library is empty");
-                return;
-            }
-
-            var dialog = new Adw.MessageDialog((Gtk.Window) window, "Organize Magazines",
-                "Set a category for each magazine, or leave it blank for Uncategorized.");
-
-            var scroller = new Gtk.ScrolledWindow();
-            scroller.set_min_content_height(int.min(480, 56 * entries.size));
-            scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-
-            // Grouped by current category (blank/Uncategorized first) so
-            // already-sorted magazines are easy to scan past, and the ones
-            // that actually need attention float to the top.
-            var sorted = new Gee.ArrayList<Paperboy.MagazineEntry>();
-            sorted.add_all(entries);
-            sorted.sort((a, b) => {
-                string cat_a = (a.category != null) ? a.category : "";
-                string cat_b = (b.category != null) ? b.category : "";
-                int c = SortUtils.compare_titles(cat_a, cat_b);
-                if (c != 0) return c;
-                return SortUtils.compare_titles(a.title, b.title);
-            });
-
-            var list_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
-            var rows = new Gee.ArrayList<CategoryEditRow>();
-            foreach (var entry in sorted) {
-                var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-
-                var title_label = new Gtk.Label(entry.title);
-                title_label.set_xalign(0);
-                title_label.set_ellipsize(Pango.EllipsizeMode.END);
-                title_label.set_hexpand(true);
-                title_label.set_max_width_chars(1);
-                row_box.append(title_label);
-
-                var category_field = new Gtk.Entry();
-                category_field.set_placeholder_text("Uncategorized");
-                if (entry.category != null) category_field.set_text(entry.category);
-                category_field.set_width_chars(16);
-                row_box.append(category_field);
-
-                var edit_row = new CategoryEditRow();
-                edit_row.entry_id = entry.id;
-                edit_row.field = category_field;
-                rows.add(edit_row);
-
-                list_box.append(row_box);
-            }
-            scroller.set_child(list_box);
-            dialog.set_extra_child(scroller);
-
-            dialog.add_response("cancel", "Cancel");
-            dialog.add_response("save", "Save");
-            dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED);
-
-            dialog.response.connect((response) => {
-                if (response == "save") {
-                    var store = Paperboy.MagazineLibraryStore.get_instance();
-                    foreach (var edit_row in rows) {
-                        string new_category = edit_row.field.get_text().strip();
-                        store.update_category(edit_row.entry_id, new_category.length > 0 ? new_category : null);
-                    }
                 }
                 dialog.close();
             });

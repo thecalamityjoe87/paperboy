@@ -351,6 +351,50 @@
     box-shadow: 0 2px 10px alpha(@error_color, 0.5);
 }
 
+/* Organize Magazines dialog - one column per category, magazines are
+   dragged between them (see MagazineLibraryManager.show_organize_dialog).
+   .magazine-drop-target is shared with the reordering/trash rules above. */
+.magazine-organize-bucket {
+    background-color: alpha(@borders, 0.15);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.magazine-organize-chip {
+    padding: 4px 6px;
+    border-radius: 8px;
+}
+
+.magazine-organize-chip:hover {
+    background-color: alpha(@borders, 0.3);
+}
+
+/* A category row's chips are thumbnail-only (no title label - see
+   MagazineOrganizeDialog.build_chip's show_title) - any padding at all
+   reads as dead space between covers once there's no text left to pad
+   against, so this stays flush. */
+.magazine-organize-chip-compact {
+    padding: 0;
+    border-radius: 6px;
+}
+
+.magazine-organize-chip-compact:hover {
+    background-color: alpha(@borders, 0.3);
+}
+
+/* GtkFlowBoxChild has its own theme padding/margin around every cell,
+   independent of the flowbox's own row/column spacing - overridden here
+   since MagazineOrganizeDialog.build_category_row can't reach that node
+   directly (it's created internally by GtkFlowBox.append()). */
+.magazine-organize-chips-flow flowboxchild {
+    padding: 0;
+    margin: 0;
+}
+
+.magazine-organize-chip-thumb {
+    border-radius: 4px;
+}
+
 
 /* "Updated 7m ago" caption under a ticker card's change line. */
 .ticker-card-updated {

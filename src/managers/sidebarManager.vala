@@ -284,7 +284,7 @@ public class SidebarManager : GLib.Object {
         special_section.items.add(create_item_data("Local News", "local_news", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Saved", "saved", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Notes", "notes", SidebarItemType.SPECIAL));
-        special_section.items.add(create_item_data("Magazines", "magazines", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Magazine Rack", "magazines", SidebarItemType.SPECIAL));
 
         sections.add(special_section);
 

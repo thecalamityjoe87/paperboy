@@ -1038,6 +1038,53 @@ public class PrefsDialog : GLib.Object {
 
         personalization_page.add(app_group);
 
+        // ========== MY FEED EXTRAS GROUP ==========
+        var myfeed_extras_group = new Adw.PreferencesGroup();
+        myfeed_extras_group.set_title("My Feed Extras");
+        myfeed_extras_group.set_description("Show a preview row for other features at the top of My Feed, with a button to jump to the full page");
+
+        var myfeed_sports_row = new Adw.SwitchRow();
+        myfeed_sports_row.set_title("Sports scores");
+        myfeed_sports_row.set_active(prefs.myfeed_show_sports);
+        myfeed_sports_row.notify["active"].connect(() => {
+            prefs.myfeed_show_sports = myfeed_sports_row.get_active();
+            prefs.save_config();
+            if (win != null && win.prefs.category == "myfeed") win.fetch_news();
+        });
+        myfeed_extras_group.add(myfeed_sports_row);
+
+        var myfeed_market_row = new Adw.SwitchRow();
+        myfeed_market_row.set_title("Markets");
+        myfeed_market_row.set_active(prefs.myfeed_show_market);
+        myfeed_market_row.notify["active"].connect(() => {
+            prefs.myfeed_show_market = myfeed_market_row.get_active();
+            prefs.save_config();
+            if (win != null && win.prefs.category == "myfeed") win.fetch_news();
+        });
+        myfeed_extras_group.add(myfeed_market_row);
+
+        var myfeed_podcasts_row = new Adw.SwitchRow();
+        myfeed_podcasts_row.set_title("Podcasts");
+        myfeed_podcasts_row.set_active(prefs.myfeed_show_podcasts);
+        myfeed_podcasts_row.notify["active"].connect(() => {
+            prefs.myfeed_show_podcasts = myfeed_podcasts_row.get_active();
+            prefs.save_config();
+            if (win != null && win.prefs.category == "myfeed") win.fetch_news();
+        });
+        myfeed_extras_group.add(myfeed_podcasts_row);
+
+        var myfeed_magazines_row = new Adw.SwitchRow();
+        myfeed_magazines_row.set_title("Magazine Rack");
+        myfeed_magazines_row.set_active(prefs.myfeed_show_magazines);
+        myfeed_magazines_row.notify["active"].connect(() => {
+            prefs.myfeed_show_magazines = myfeed_magazines_row.get_active();
+            prefs.save_config();
+            if (win != null && win.prefs.category == "myfeed") win.fetch_news();
+        });
+        myfeed_extras_group.add(myfeed_magazines_row);
+
+        personalization_page.add(myfeed_extras_group);
+
         // ========== READING GROUP ==========
         var reading_group = new Adw.PreferencesGroup();
         reading_group.set_title("Reading");

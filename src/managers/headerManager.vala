@@ -349,7 +349,7 @@ public class HeaderManager : GLib.Object {
             case "myfeed": return "My Feed";
             case "local_news": return "Local News";
             case "podcasts": return "Find Podcasts";
-            case "magazines": return "Magazine Library";
+            case "magazines": return "Magazine Rack";
             default: break;
         }
         if (cat == null || cat.length == 0) return "News";
