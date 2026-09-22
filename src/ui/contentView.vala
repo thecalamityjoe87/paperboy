@@ -170,7 +170,6 @@ public class ContentView : GLib.Object {
         rss_podcast_button = new Gtk.Button();
         var podcast_button_content = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         string[] podcast_candidates = {
-            "icons/symbolic/24x24/podcast-mono-white.svg",
             "icons/symbolic/podcast-mono-white.svg",
             "icons/podcast-mono-white.svg"
         };

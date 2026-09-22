@@ -41,16 +41,13 @@ public class CategoryIconsUtils : GLib.Object {
     }
 
     // Resolves a bundled "<name>-mono.svg" icon to its dark-mode "-white"
-    // variant when appropriate, checking the same 24x24/symbolic/bare
-    // candidate locations create_category_icon() does. `filename` is the
-    // plain basename (e.g. "markets-mono.svg"), not a full path. Exposed
-    // publicly so a one-off icon built outside this class's own
-    // switch-per-category functions (e.g. StocksTickerController's
-    // "Markets Today" section header) can still resolve/refresh the
-    // correct themed path on a light/dark toggle.
+    // variant when appropriate. `filename` is the plain basename (e.g.
+    // "markets-mono.svg"), not a full path. Exposed publicly so a one-off
+    // icon built outside this class's own switch-per-category functions
+    // (e.g. StocksTickerController's "Markets Today" section header) can
+    // still resolve/refresh the correct themed path on a light/dark toggle.
     public static string? resolve_themed_icon_path(string filename) {
         string[] candidates = {
-            GLib.Path.build_filename("icons", "symbolic", "24x24", filename),
             GLib.Path.build_filename("icons", "symbolic", filename),
             GLib.Path.build_filename("icons", filename)
         };
@@ -68,8 +65,7 @@ public class CategoryIconsUtils : GLib.Object {
             } else {
                 alt_name = filename + "-white.svg";
             }
-            string? white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "24x24", alt_name));
-            if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
+            string? white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
             if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", alt_name));
             if (white_candidate != null) return white_candidate;
         }
@@ -120,13 +116,6 @@ public class CategoryIconsUtils : GLib.Object {
 
         if (filename != null) {
             string[] candidates = {
-                // 24x24 is the closest match to SIDEBAR_ICON_SIZE (22px) -
-                // checked first since it's crisper than scaling a
-                // differently-sized bare file, but only podcast-mono.svg
-                // actually ships a 24x24 variant today; every other
-                // category here just falls through to the bare symbolic/
-                // file below exactly as before.
-                GLib.Path.build_filename("icons", "symbolic", "24x24", filename),
                 GLib.Path.build_filename("icons", "symbolic", filename),
                 GLib.Path.build_filename("icons", filename)
             };
@@ -149,8 +138,7 @@ public class CategoryIconsUtils : GLib.Object {
                         alt_name = filename + "-white.svg";
 
                     string? white_candidate = null;
-                    white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "24x24", alt_name));
-                    if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
+                    white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
                     if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", alt_name));
                     if (white_candidate != null) use_path = white_candidate;
                 }
@@ -272,8 +260,7 @@ public class CategoryIconsUtils : GLib.Object {
 
         if (filename != null) {
             string[] candidates = {
-                GLib.Path.build_filename("icons", "symbolic", "128x128", filename),
-                GLib.Path.build_filename("icons", "128x128", filename),
+                GLib.Path.build_filename("icons", "symbolic", filename),
                 GLib.Path.build_filename("icons", filename)
             };
             string? icon_path = null;
@@ -294,8 +281,7 @@ public class CategoryIconsUtils : GLib.Object {
                     } else
                         alt_name = filename + "-white.svg";
                     string? white_candidate = null;
-                    white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", "128x128", alt_name));
-                    if (white_candidate == null) white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "128x128", alt_name));
+                    white_candidate = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", alt_name));
                     if (white_candidate != null) use_path = white_candidate;
                 }
                 if (use_path.has_suffix(".svg")) {
