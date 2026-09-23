@@ -404,6 +404,18 @@ public class NewsWindow : Adw.ApplicationWindow {
                 });
             }
         });
+
+        // Same idea as saved_articles_loaded above, for History.
+        article_state_store.history_loaded.connect(() => {
+            var p = NewsPreferences.get_instance();
+            if (p != null && p.category == "history") {
+                Idle.add(() => {
+                    update_content_header();
+                    fetch_news();
+                    return false;
+                });
+            }
+        });
     }
 
     // Create SidebarView (UI only)
@@ -481,6 +493,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         // otherwise close itself when the underlying page changes.
         if (podcast_pane != null) podcast_pane.close();
         if (category != "magazines" && magazine_manager != null) magazine_manager.set_header_buttons_visible(false);
+        if (content_view != null && content_view.clear_history_button != null) {
+            content_view.clear_history_button.set_visible(category == "history");
+        }
         search_entry.set_placeholder_text("Search news for keywords…");
         search_entry.set_text("");
         if (search_manager != null) search_manager.reset_query_state();
@@ -1109,8 +1124,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         return CategoryManager.get_category_display_name(cat);
     }
 
-    public Gtk.Widget build_category_chip(string category_id) {
-        return CardBuilder.build_category_chip(this, category_id);
+    public string category_chip_text(string category_id) {
+        return CardBuilder.category_display_text(this, category_id);
     }
 
     public string get_source_name(NewsSource source) {
@@ -1140,8 +1155,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     // Delegate preview-opened handling to the ViewStateManager
-    public void preview_opened(string url) {
-        if (view_state != null) view_state.preview_opened(url);
+    public void preview_opened(string url, string? title = null, string? thumbnail_url = null, string? source_name = null, string? published = null, string? category_id = null) {
+        if (view_state != null) view_state.preview_opened(url, title, thumbnail_url, source_name, published, category_id);
     }
 
     // Delegate preview-closed handling to the ViewStateManager

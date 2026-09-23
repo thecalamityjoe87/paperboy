@@ -169,7 +169,7 @@ public class NotesBrowserDialog : GLib.Object {
         open_article_btn.add_css_class("note-open-article-btn");
         open_article_btn.set_valign(Gtk.Align.START);
         open_article_btn.clicked.connect(() => {
-            if (window.article_manager != null) window.article_manager.open_article_in_app_if_online(url);
+            if (window.article_manager != null) window.article_manager.open_article_in_app_if_online(url, null, null, header_title);
         });
         meta_row.append(open_article_btn);
         group.append(meta_row);

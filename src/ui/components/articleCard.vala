@@ -20,16 +20,17 @@ using Gtk;
 using GLib;
 
 public class ArticleCard : GLib.Object {
-    // Fixed height reserved for the title area (margins + up to 3 wrapped
-    // title lines + the relative-time caption below it), so total card
-    // height is a hard constant that never depends on how much text a given
-    // title has.
-    public const int TITLE_AREA_HEIGHT = 78;
+    // Fixed height reserved for the title area (margins + the category
+    // label + up to 3 wrapped title lines + the relative-time caption
+    // below it), so total card height is a hard constant that never
+    // depends on how much text a given title has.
+    public const int TITLE_AREA_HEIGHT = 96;
 
     public Gtk.Box root;
     public Gtk.Overlay overlay;
     public Gtk.Picture image;
     public Gtk.Box title_box;
+    public Gtk.Widget category_label;
     public Gtk.Label title_label;
     public Gtk.Label time_label;
     // Save ribbon (see CardBuilder.build_save_ribbon) - exposed so
@@ -49,7 +50,7 @@ public class ArticleCard : GLib.Object {
     public delegate void UrlCallback(string url);
     public delegate void FollowSourceCallback(string url, string? source_name);
 
-    public ArticleCard(string title, string url, int col_w, int img_h, Gtk.Widget chip, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
+    public ArticleCard(string title, string url, int col_w, int img_h, string? category_display_name, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
         GLib.Object();
         this.url = url;
         this.title_text = title;
@@ -88,9 +89,6 @@ public class ArticleCard : GLib.Object {
         // heights. Explicitly sizing the overlay caps it regardless of
         // what the image ends up wanting.
         overlay.set_size_request(-1, img_h);
-
-        // Add the provided category chip overlay (owner computes chip)
-        if (chip != null) overlay.add_overlay(chip);
 
         // Persistent save badge, top-right (see CardBuilder.build_save_ribbon).
         bool already_saved = false;
@@ -158,6 +156,11 @@ public class ArticleCard : GLib.Object {
         title_box.set_vexpand(false);
         title_box.set_valign(Gtk.Align.START);
         title_box.set_size_request(-1, TITLE_AREA_HEIGHT);
+
+        if (category_display_name != null && category_display_name.length > 0) {
+            category_label = CardBuilder.build_category_label(category_display_name);
+            title_box.append(category_label);
+        }
 
         title_label = new Gtk.Label(title);
         title_label.add_css_class("article-card-title");

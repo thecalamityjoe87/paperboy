@@ -255,14 +255,14 @@ namespace Managers {
         }
 
         // Estimate a single column width given the number of columns
-        public int estimate_column_width(int cols) {
+        public int estimate_column_width(int cols, int max_width = 280) {
             int content_w = estimate_content_width();
             int total_spacing = (cols - 1) * COL_SPACING;
             int col_w = (content_w - total_spacing) / cols;
             if (cols == 4) {
                 col_w = (int)(col_w * 0.85);
             }
-            return clampi(col_w, 160, 280);
+            return clampi(col_w, 160, max_width);
         }
 
         private Gtk.Widget? unwrap_flow_child(Gtk.Widget? flow_child) {
@@ -297,6 +297,7 @@ namespace Managers {
         public void configure_trending_section() {
             if (hero_trending_separator != null) hero_trending_separator.set_visible(true);
             if (trending_section_wrapper != null) trending_section_wrapper.set_visible(true);
+            if (trending_hero_container != null) trending_hero_container.set_visible(true);
             if (columns_row != null) {
                 columns_row.set_min_children_per_line(4);
                 columns_row.set_max_children_per_line(4);
@@ -891,7 +892,7 @@ namespace Managers {
             string url,
             int max_hero_height,
             int default_hero_h,
-            Gtk.Widget hero_chip,
+            string? category_display_name,
             bool enable_context_menu,
             bool is_trending,
             string? published = null
@@ -902,7 +903,7 @@ namespace Managers {
                     title,
                     url,
                     max_hero_height,
-                    hero_chip,
+                    category_display_name,
                     enable_context_menu,
                     window.article_state_store,
                     window,
@@ -914,7 +915,7 @@ namespace Managers {
                     url,
                     max_hero_height,
                     default_hero_h,
-                    hero_chip,
+                    category_display_name,
                     enable_context_menu,
                     window.article_state_store,
                     window,
@@ -943,7 +944,7 @@ namespace Managers {
             string url,
             int col_w,
             int img_h,
-            Gtk.Widget chip,
+            string? category_display_name,
             string? section_category_id = null,
             string? published = null,
             bool no_fallback_section = false,
@@ -954,7 +955,7 @@ namespace Managers {
                 url,
                 col_w,
                 img_h,
-                chip,
+                category_display_name,
                 window.article_state_store,
                 window,
                 published
@@ -978,6 +979,31 @@ namespace Managers {
             }
 
             return article_card;
+        }
+
+        // History is a flat list of already-read articles, so it appends 
+        // directly to columns_row. Use two columns to give the horizontal 
+        // cards more room while keeping the existing responsive sizing.
+        public HistoryCard create_and_place_history_card(
+            string title,
+            string url,
+            string? source_name,
+            int64 viewed_timestamp,
+            string? category_display_name
+        ) {
+            int cols = 2;
+            if (columns_row != null) {
+                columns_row.set_min_children_per_line(cols);
+                columns_row.set_max_children_per_line(cols);
+                columns_row.set_visible(true);
+            }
+            int col_w = estimate_column_width(cols);
+
+            var history_card = new HistoryCard(title, url, source_name, viewed_timestamp, category_display_name, col_w);
+            if (columns_row != null) {
+                columns_row.append(history_card.root);
+            }
+            return history_card;
         }
 
         /**

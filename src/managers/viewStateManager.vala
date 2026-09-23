@@ -33,6 +33,14 @@ namespace Managers {
         public Gee.HashMap<string, Gee.ArrayList<Gtk.Widget>> url_to_card;
         public Gee.HashMap<string, string> normalized_to_url;
         public string? last_previewed_url;
+        // Metadata for the currently open preview - recorded to History when
+        // the preview closes (see preview_closed()), since that's this app's
+        // existing definition of "the user read this article".
+        private string? last_previewed_title;
+        private string? last_previewed_thumbnail;
+        private string? last_previewed_source;
+        private string? last_previewed_published;
+        private string? last_previewed_category;
         public double last_scroll_value = -1.0;
 
         // Signal emitted when an article is marked as viewed
@@ -150,8 +158,13 @@ namespace Managers {
             article_viewed(n);
         }
 
-        public void preview_opened(string url) {
+        public void preview_opened(string url, string? title = null, string? thumbnail_url = null, string? source_name = null, string? published = null, string? category_id = null) {
             last_previewed_url = url;
+            last_previewed_title = title;
+            last_previewed_thumbnail = thumbnail_url;
+            last_previewed_source = source_name;
+            last_previewed_published = published;
+            last_previewed_category = category_id;
             if (window.dim_overlay != null) window.dim_overlay.set_visible(true);
             if (window.main_scrolled != null) {
                 var adj = window.main_scrolled.get_vadjustment();
@@ -165,7 +178,18 @@ namespace Managers {
             string? url_copy = null;
             if (url != null && url.length > 0) url_copy = url.dup();
 
+            string? closed_title = last_previewed_title;
+            string? closed_thumbnail = last_previewed_thumbnail;
+            string? closed_source = last_previewed_source;
+            string? closed_published = last_previewed_published;
+            string? closed_category = last_previewed_category;
+
             last_previewed_url = null;
+            last_previewed_title = null;
+            last_previewed_thumbnail = null;
+            last_previewed_source = null;
+            last_previewed_published = null;
+            last_previewed_category = null;
             if (window.dim_overlay != null) window.dim_overlay.set_visible(false);
 
             double saved_scroll = last_scroll_value;
@@ -183,6 +207,9 @@ namespace Managers {
                     if (suppress_preview_mark != null) suppress_preview_mark.remove(n);
                 } else {
                     mark_article_viewed(url_copy);
+                    if (window.article_state_store != null) {
+                        window.article_state_store.record_history(n, closed_title, closed_thumbnail, closed_source, closed_published, closed_category);
+                    }
                 }
             }
 

@@ -25,6 +25,22 @@
     border-radius: 12px 12px 0 0;
 }
 
+/* History's compact row cards lay the thumbnail on the left, bleeding
+   edge-to-edge, instead of on top - only the left corners round to match
+   the card's own shape. */
+.history-card picture {
+    border-radius: 12px 0 0 12px;
+}
+
+/* Plain blue category label shown above every card's title (e.g.
+   "MARKETS") - app-wide, replacing the old overlay chip on the image. */
+.card-category-label {
+    color: #3584e4;
+    font-weight: 700;
+    font-size: 0.78em;
+    letter-spacing: 0.4px;
+}
+
 /* Header date (see ContentView) - weekday + numeric month/day, larger than
    the default "body" style class it replaced. */
 .header-date-label {
@@ -485,18 +501,6 @@
 .podcast-episode-progress > trough > progress {
     background-color: @accent_bg_color;
     border-radius: 3px;
-}
-
-/* Small pill category chip overlaid on images */
-.category-chip {
-    background-color: alpha(black, 0.6);
-    color: white;
-    /* Shorter than source-badge/viewed-badge, so radius is scaled down too. */
-    border-radius: 5px;
-    padding: 2px 8px;
-    margin: 8px;
-    font-size: 0.8em;
-    font-weight: 600;
 }
 
 /* Source badge (icon + short name) shown on cards and hero slides */

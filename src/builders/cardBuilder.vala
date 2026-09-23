@@ -26,20 +26,26 @@ public class CardBuilder : GLib.Object {
         GLib.Object();
     }
 
-    public static Gtk.Widget build_category_chip(NewsWindow win, string category_id) {
-        // For RSS feed categories, show "Feeds" instead of "My Feed"
-        string label_text;
+    // Resolves a category id to its display text ("Feeds" for RSS feeds,
+    // otherwise NewsWindow's own display-name lookup) - shared by every
+    // card type's category_label (see build_category_label below).
+    public static string category_display_text(NewsWindow win, string category_id) {
         if (category_id != null && category_id.has_prefix("rssfeed:")) {
-            label_text = "Feeds";
-        } else {
-            label_text = win.category_display_name_for(category_id);
+            return "Feeds";
         }
-        
-        var chip = new Gtk.Label(label_text);
-        chip.add_css_class("category-chip");
-        chip.set_halign(Gtk.Align.START);
-        chip.set_valign(Gtk.Align.START);
-        return chip;
+        return win.category_display_name_for(category_id);
+    }
+
+    // Plain colored category label shown above a card's title (e.g.
+    // "MARKETS") - not an overlay chip on the image, matching the
+    // app-wide card design.
+    public static Gtk.Widget build_category_label(string display_text) {
+        var lbl = new Gtk.Label(display_text.up());
+        lbl.add_css_class("card-category-label");
+        lbl.set_xalign(0);
+        lbl.set_valign(Gtk.Align.START);
+        lbl.set_ellipsize(Pango.EllipsizeMode.END);
+        return lbl;
     }
 
     // Helper to map NewsSource -> display name (copied from NewsWindow.get_source_name)
@@ -821,9 +827,10 @@ public class CardBuilder : GLib.Object {
         tab.set_visible(initially_saved);
 
         var fixed = new Gtk.Fixed();
-        fixed.set_halign(Gtk.Align.END);
+        //fixed.set_halign(Gtk.Align.END);
+        fixed.set_halign(Gtk.Align.START);
         fixed.set_valign(Gtk.Align.START);
-        fixed.set_margin_end(8);
+        fixed.set_margin_start(8);
         fixed.set_size_request(icon_px, icon_px);
         fixed.put(tab, 0, initially_saved ? SAVE_RIBBON_REST_Y : SAVE_RIBBON_HIDDEN_Y);
         fixed.set_data<Gtk.Widget>("ribbon-image", tab);

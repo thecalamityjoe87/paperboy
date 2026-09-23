@@ -204,6 +204,8 @@ using Gee;
             case "topten": return "Trending";
             case "myfeed": return "My Feed";
             case "local_news": return "Local News";
+            case "saved": return "Saved";
+            case "history": return "History";
             default: return category;
         }
     }

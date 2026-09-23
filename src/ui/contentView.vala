@@ -46,6 +46,8 @@ public class ContentView : GLib.Object {
     public Gtk.Box magazine_library_header_actions;
     public Gtk.Button magazine_library_add_button;
     public Gtk.Button magazine_library_organize_button;
+    // Shown only while viewing the History page - see HeaderManager.wire_clear_history_button().
+    public Gtk.Button clear_history_button;
     public Gtk.FlowBox magazine_library_flow;
     public Gtk.Box magazine_library_trash_zone;
     public Gtk.Revealer magazine_library_trash_revealer;
@@ -218,6 +220,16 @@ public class ContentView : GLib.Object {
         magazine_library_header_actions.append(magazine_library_add_button);
         magazine_library_header_actions.set_visible(false);
         date_overlay.add_overlay(magazine_library_header_actions);
+
+        // History page action - same floating-corner idiom as the Magazines
+        // actions above, in the same date_overlay row.
+        clear_history_button = new Gtk.Button.with_label("Clear History");
+        clear_history_button.add_css_class("destructive-action");
+        clear_history_button.add_css_class("pill");
+        clear_history_button.set_halign(Gtk.Align.END);
+        clear_history_button.set_valign(Gtk.Align.END);
+        clear_history_button.set_visible(false);
+        date_overlay.add_overlay(clear_history_button);
 
         header_box.append(date_overlay);
 
@@ -950,6 +962,7 @@ public class ContentView : GLib.Object {
         clear_and_hide_flowbox(magazine_library_flow);
         if (magazine_library_empty_label != null) magazine_library_empty_label.set_visible(false);
         if (magazine_library_header_actions != null) magazine_library_header_actions.set_visible(false);
+        if (clear_history_button != null) clear_history_button.set_visible(false);
         if (magazine_library_trash_revealer != null) magazine_library_trash_revealer.set_reveal_child(false);
 
         clear_and_hide_box(trending_hero_container);

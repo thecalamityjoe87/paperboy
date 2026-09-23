@@ -266,10 +266,10 @@ public class HeroCarousel : GLib.Object {
      */
     public SlideComponents create_article_slide(string title, string url, string? thumbnail_url,
                                                   string category_id, string? source_name,
-                                                  Gtk.Widget? category_chip, owned SlideActivatedCallback on_slide_activated,
+                                                  string? category_display_name, owned SlideActivatedCallback on_slide_activated,
                                                   string? published = null,
                                                   owned HeroCard.UrlCallback? on_quick_reader = null) {
-        var hero = new HeroCard(title, url, SLIDE_MAX_HEIGHT, SLIDE_IMAGE_HEIGHT, category_chip, false, null, null, published);
+        var hero = new HeroCard(title, url, SLIDE_MAX_HEIGHT, SLIDE_IMAGE_HEIGHT, category_display_name, false, null, null, published);
         hero.source_name = source_name;
         hero.category_id = category_id;
 

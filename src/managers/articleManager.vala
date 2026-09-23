@@ -142,7 +142,7 @@ namespace Managers {
             trending_seen_urls = new Gee.HashSet<string>();
         }
 
-        public void open_article_in_app_if_online(string article_url, bool? force_reader_view = null, string? source_name_encoded = null) {
+        public void open_article_in_app_if_online(string article_url, bool? force_reader_view = null, string? source_name_encoded = null, string? title = null, string? thumbnail_url = null, string? published = null, string? category_id = null) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
                 request_show_toast("You're offline. Enable internet connection to view articles");
@@ -151,10 +151,13 @@ namespace Managers {
 
             string normalized = window.normalize_article_url(article_url);
             window.mark_article_viewed(normalized);
+            if (window.article_state_store != null) {
+                window.article_state_store.record_history(normalized, title, thumbnail_url, source_name_encoded, published, category_id);
+            }
             if (window.article_sheet != null) window.article_sheet.open(normalized, force_reader_view, source_name_encoded);
         }
 
-        public void open_article_in_browser_if_online(string article_url) {
+        public void open_article_in_browser_if_online(string article_url, string? source_name = null, string? title = null, string? thumbnail_url = null, string? published = null, string? category_id = null) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
                 request_show_toast("You're offline. Enable internet connection to view articles");
@@ -163,6 +166,9 @@ namespace Managers {
 
             string normalized = window.normalize_article_url(article_url);
             window.mark_article_viewed(normalized);
+            if (window.article_state_store != null) {
+                window.article_state_store.record_history(normalized, title, thumbnail_url, source_name, published, category_id);
+            }
             if (window.article_pane != null) window.article_pane.open_article_in_browser(normalized);
         }
 
@@ -436,8 +442,8 @@ namespace Managers {
                     }
             }
 
-            // Saved articles should always display regardless of source
-            bool is_saved_view = (window.prefs.category == "saved");
+            // Saved/History articles should always display regardless of source
+            bool is_saved_view = (window.prefs.category == "saved" || window.prefs.category == "history");
 
             if (!is_saved_view) {
                 if (!window.category_manager.should_display_article(category_id)) {
@@ -494,7 +500,7 @@ namespace Managers {
             }
             
             bool should_be_hero = false;
-            if (window.prefs.category == "saved") {
+            if (window.prefs.category == "saved" || window.prefs.category == "history") {
                 should_be_hero = false;
             } else if (is_trending) {
                 should_be_hero = (trending_hero_count < 2);
@@ -526,7 +532,7 @@ namespace Managers {
                     if (idx >= 0 && source_name.length > idx + 12) hero_display_cat = source_name.substring(idx + 12).strip();
                 }
 
-                var hero_chip = window.build_category_chip(hero_display_cat);
+                string hero_category_text = window.category_chip_text(hero_display_cat);
 
                 // Enable context menu for: 1) Trending hero cards, 2) RSS feeds with < 15 articles
                 bool enable_hero_context_menu = false;
@@ -541,7 +547,7 @@ namespace Managers {
                     url,
                     max_hero_height,
                     default_hero_h,
-                    hero_chip,
+                    hero_category_text,
                     enable_hero_context_menu,
                     is_trending,
                     published
@@ -625,8 +631,8 @@ namespace Managers {
                     hero_card.footer_box,
                     hero_card.overlay,
                     (s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); },
-                    (article_url) => { open_article_in_app_if_online(article_url); },
-                    (article_url) => { open_article_in_browser_if_online(article_url); },
+                    (article_url) => { open_article_in_app_if_online(article_url, null, source_name, decoded_title, thumbnail_url, published, category_id); },
+                    (article_url) => { open_article_in_browser_if_online(article_url, source_name, decoded_title, thumbnail_url, published, category_id); },
                     (article_url, src_name) => {
                         request_show_toast("Searching for feed...", true);
                         window.source_manager.follow_rss_source(article_url, src_name);
@@ -662,7 +668,7 @@ namespace Managers {
                         }
                     },
                     (article_url) => { window.show_share_dialog(article_url); },
-                    (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
+                    (article_url) => { open_article_in_app_if_online(article_url, true, source_name, decoded_title, thumbnail_url, published, category_id); }
                 );
 
                 if (is_trending) {
@@ -726,12 +732,12 @@ namespace Managers {
                 hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
             }
 
-            var slide_chip = window.build_category_chip(slide_display_cat);
+            string slide_category_text = window.category_chip_text(slide_display_cat);
             var components = hero_carousel.create_article_slide(
-                decoded_title, url, thumbnail_url, category_id, source_name, slide_chip,
+                decoded_title, url, thumbnail_url, category_id, source_name, slide_category_text,
                 (t, u, thumb, cat, src) => { window.article_pane.show_article_preview(t, u, thumb, cat, src); },
                 published,
-                (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
+                (article_url) => { open_article_in_app_if_online(article_url, true, source_name, decoded_title, thumbnail_url, published, category_id); }
             );
 
             var slide_hero = components.hero;
@@ -875,6 +881,13 @@ namespace Managers {
         bool no_fallback_section,
         bool is_trending = false
     ) {
+        // History gets its own compact row card, not the full image-grid
+        // card every other view uses - see HistoryCard.
+        if (category_id == "history") {
+            place_history_card(decoded_title, url, thumbnail_url, source_name, published);
+            return;
+        }
+
         // Use the column width cached for this layout pass rather than
         // recomputing per-card, so every card gets identical dimensions even
         // if the reported content width drifts while articles stream in.
@@ -900,7 +913,7 @@ namespace Managers {
             if (idx3 >= 0 && source_name.length > idx3 + 12) card_display_cat = source_name.substring(idx3 + 12).strip();
         }
 
-        var chip = window.build_category_chip(card_display_cat);
+        string category_label_text = window.category_chip_text(card_display_cat);
 
         if (window.layout_manager == null) {
             warning("ArticleManager: layout_manager not initialized, cannot place card");
@@ -912,7 +925,7 @@ namespace Managers {
             url,
             col_w,
             img_h,
-            chip,
+            category_label_text,
             section_key,
             published,
             no_fallback_section,
@@ -984,13 +997,13 @@ namespace Managers {
             source_name,
             (s) => {
                 if (window.prefs != null && window.prefs.article_click_opens_reader) {
-                    open_article_in_app_if_online(s, true, source_name);
+                    open_article_in_app_if_online(s, true, source_name, decoded_title, thumbnail_url, published, category_id);
                 } else if (window.article_pane != null) {
                     window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name);
                 }
             },
-            (article_url) => { open_article_in_app_if_online(article_url, null, source_name); },
-            (article_url) => { open_article_in_browser_if_online(article_url); },
+            (article_url) => { open_article_in_app_if_online(article_url, null, source_name, decoded_title, thumbnail_url, published, category_id); },
+            (article_url) => { open_article_in_browser_if_online(article_url, source_name, decoded_title, thumbnail_url, published, category_id); },
             (article_url, src_name) => {
                 request_show_toast("Searching for feed...", true);
                 window.source_manager.follow_rss_source(article_url, src_name);
@@ -1026,7 +1039,106 @@ namespace Managers {
                 }
             },
             (article_url) => { window.show_share_dialog(article_url); },
-            (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
+            (article_url) => { open_article_in_app_if_online(article_url, true, source_name, decoded_title, thumbnail_url, published, category_id); }
+        );
+
+        if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
+    }
+
+    // Builds and places a compact HistoryCard row - same click/context-menu
+    // wiring as a regular card, just without the hero/section/column-width
+    // machinery place_regular_article_card needs for the traditional grid.
+    private void place_history_card(string decoded_title, string url, string? thumbnail_url, string? source_name, string? published) {
+        if (window.layout_manager == null) {
+            warning("ArticleManager: layout_manager not initialized, cannot place card");
+            return;
+        }
+
+        string _norm = window.normalize_article_url(url);
+
+        // The card needs two things History alone knows that a regular
+        // article doesn't carry: when the user actually read this (not
+        // when it was published) and which real category it belongs to
+        // (shown as plain text above the title) - both come from the
+        // stored HistoryArticle rather than being threaded through
+        // AddItemFunc's fixed signature.
+        var history_entry = window.article_state_store != null ? window.article_state_store.get_history_article(_norm) : null;
+        int64 viewed_timestamp = history_entry != null ? history_entry.viewed_timestamp : (GLib.get_real_time() / 1000000);
+        string? original_category = history_entry != null ? history_entry.category_id : null;
+        string? category_display_name = (original_category != null && original_category.length > 0)
+            ? window.category_chip_text(original_category)
+            : null;
+
+        var history_card = window.layout_manager.create_and_place_history_card(decoded_title, url, source_name, viewed_timestamp, category_display_name);
+
+        var card_badge = window.build_source_badge_dynamic(source_name, url, "history");
+        // build_source_badge_dynamic() styles it to sit as an overlay
+        // (margin_bottom/margin_end 8, valign/halign END) so it hugs a
+        // card image's corner - badge_slot is a normal flow layout instead,
+        // where those same margins/aligns just add stray offset.
+        card_badge.set_margin_bottom(0);
+        card_badge.set_margin_end(0);
+        card_badge.set_valign(Gtk.Align.CENTER);
+        card_badge.set_halign(Gtk.Align.CENTER);
+        history_card.badge_slot.append(card_badge);
+
+        int img_w = history_card.image_width;
+        bool card_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
+            (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+
+        if (card_will_load) {
+            if (window.loading_state != null) window.loading_state.track_pending_image(history_card.image);
+            if (window.image_manager != null) window.image_manager.load_image_async(history_card.image, thumbnail_url, img_w * 2, img_w * 2, true);
+        } else {
+            set_smart_placeholder(history_card.image, img_w, img_w, source_name, url);
+        }
+
+        history_card.image.set_data<bool>("has-real-thumbnail", card_will_load);
+        if (!card_will_load) ThumbnailBackfillService.enqueue(window, url, history_card.image);
+        if (window.view_state != null) {
+            window.view_state.register_picture_for_url(_norm, history_card.image);
+            window.view_state.normalized_to_url.set(_norm, url);
+            window.view_state.register_card_for_url(_norm, history_card.root);
+        }
+
+        history_card.source_name = source_name;
+        history_card.category_id = original_category;
+        history_card.thumbnail_url = thumbnail_url;
+
+        var card_root = history_card.root;
+        ArticleCard.wire_interactions(
+            card_root,
+            url,
+            window.article_state_store,
+            window,
+            source_name,
+            (s) => {
+                if (window.prefs != null && window.prefs.article_click_opens_reader) {
+                    open_article_in_app_if_online(s, true, source_name, decoded_title, thumbnail_url, published, original_category);
+                } else if (window.article_pane != null) {
+                    window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, original_category, source_name);
+                }
+            },
+            (article_url) => { open_article_in_app_if_online(article_url, null, source_name, decoded_title, thumbnail_url, published, original_category); },
+            (article_url) => { open_article_in_browser_if_online(article_url, source_name, decoded_title, thumbnail_url, published, original_category); },
+            (article_url, src_name) => {
+                request_show_toast("Searching for feed...", true);
+                window.source_manager.follow_rss_source(article_url, src_name);
+            },
+            (article_url) => {
+                if (window.article_state_store != null) {
+                    bool is_saved = window.article_state_store.is_saved(article_url);
+                    if (is_saved) {
+                        window.article_state_store.unsave_article(article_url);
+                        request_show_toast("Removed article from saved");
+                    } else {
+                        window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
+                        request_show_toast("Added article to saved");
+                    }
+                }
+            },
+            (article_url) => { window.show_share_dialog(article_url); },
+            (article_url) => { open_article_in_app_if_online(article_url, true, source_name, decoded_title, thumbnail_url, published, original_category); }
         );
 
         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
@@ -1330,15 +1442,16 @@ namespace Managers {
         int img_h,
         ArticleStateStore? state_store
     ) {
-        var chip = new Gtk.Label("");
-        chip.set_visible(false);
+        string? category_label_text = (hero_category_id != null && hero_category_id.length > 0)
+            ? window.category_chip_text(hero_category_id)
+            : null;
 
         var article_card = new ArticleCard(
             hero_title,
             hero_url,
             col_w,
             img_h,
-            chip,
+            category_label_text,
             state_store,
             window
         );
@@ -1397,13 +1510,13 @@ namespace Managers {
             source_name,
             (s) => {
                 if (window.prefs != null && window.prefs.article_click_opens_reader) {
-                    open_article_in_app_if_online(s, true);
+                    open_article_in_app_if_online(s, true, source_name, title, thumbnail_url, null, category_id);
                 } else if (window.article_pane != null) {
                     window.article_pane.show_article_preview(title, url, thumbnail_url, category_id, source_name);
                 }
             },
-            (article_url) => { open_article_in_app_if_online(article_url); },
-            (article_url) => { open_article_in_browser_if_online(article_url); },
+            (article_url) => { open_article_in_app_if_online(article_url, null, source_name, title, thumbnail_url, null, category_id); },
+            (article_url) => { open_article_in_browser_if_online(article_url, source_name, title, thumbnail_url, null, category_id); },
             (article_url, src_name) => {
                 request_show_toast("Searching for feed...", true);
                 if (window.source_manager != null) {
@@ -1449,7 +1562,7 @@ namespace Managers {
                     window.show_share_dialog(article_url);
                 }
             },
-            (article_url) => { open_article_in_app_if_online(article_url, true, source_name); }
+            (article_url) => { open_article_in_app_if_online(article_url, true, source_name, title, thumbnail_url, null, category_id); }
         );
     }
 }

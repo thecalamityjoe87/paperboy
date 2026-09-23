@@ -282,9 +282,10 @@ public class SidebarManager : GLib.Object {
         special_section.items.add(create_item_data("Front Page", "frontpage", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("My Feed", "myfeed", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Local News", "local_news", SidebarItemType.SPECIAL));
-        special_section.items.add(create_item_data("Saved", "saved", SidebarItemType.SPECIAL));
-        special_section.items.add(create_item_data("Notes", "notes", SidebarItemType.SPECIAL));
         special_section.items.add(create_item_data("Magazine Rack", "magazines", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Saved", "saved", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("History", "history", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data("Notes", "notes", SidebarItemType.SPECIAL));
 
         sections.add(special_section);
 
@@ -673,7 +674,7 @@ public class SidebarManager : GLib.Object {
 
     private string validate_category_for_sources(string requested_cat) {
         // App-level categories that don't depend on news sources
-        if (requested_cat == "saved" ||
+        if (requested_cat == "saved" || requested_cat == "history" ||
             requested_cat == "myfeed" || requested_cat == "local_news" ||
             requested_cat == "podcasts" || requested_cat == "magazines" ||
             requested_cat.has_prefix("rssfeed:")) {
@@ -785,7 +786,8 @@ public class SidebarManager : GLib.Object {
         // Special categories always show their count
         if (category_id == "frontpage" ||
             category_id == "myfeed" || category_id == "local_news" ||
-            category_id == "saved" || category_id == "podcasts" || category_id == "magazines") {
+            category_id == "saved" || category_id == "history" ||
+            category_id == "podcasts" || category_id == "magazines") {
             return false;
         }
         // RSS feeds are not popular categories

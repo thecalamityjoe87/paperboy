@@ -50,10 +50,10 @@ public class HeroCard : GLib.Object {
     public delegate void UrlCallback(string url);
     public delegate void FollowSourceCallback(string url, string? source_name);
 
-    public HeroCard(string title, string url, int max_total_height, int image_h, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
+    public HeroCard(string title, string url, int max_total_height, int image_h, string? category_display_name, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
         GLib.Object();
         init_base(url, enable_context_menu, state_store, window, max_total_height);
-        build_image_overlay_and_title(title, chip, published);
+        build_image_overlay_and_title(title, category_display_name, published);
 
         // A Grid with homogeneous columns gives a proportional (not just
         // even) split that holds its ratio as the card is resized, which a
@@ -74,10 +74,10 @@ public class HeroCard : GLib.Object {
     * side, sized to an exact 70/30 pixel split of max_total_height rather
     * than a proportional grid share.
     */
-    public HeroCard.for_topten(string title, string url, int max_total_height, Gtk.Widget? chip, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
+    public HeroCard.for_topten(string title, string url, int max_total_height, string? category_display_name, bool enable_context_menu = false, ArticleStateStore? state_store = null, NewsWindow? window = null, string? published = null) {
         GLib.Object();
         init_base(url, enable_context_menu, state_store, window, max_total_height);
-        build_image_overlay_and_title(title, chip, published);
+        build_image_overlay_and_title(title, category_display_name, published);
         // .hero-card picture normally rounds only the right edge (image
         // sits on the right in the side-by-side layout) - this variant
         // needs the top edge rounded instead, since the image is now on
@@ -135,7 +135,7 @@ public class HeroCard : GLib.Object {
     * layout - only the grid/split arrangement and explicit sizing differ
     * between the constructors, so that part is factored out here.
     */
-    private void build_image_overlay_and_title(string title, Gtk.Widget? chip, string? published = null) {
+    private void build_image_overlay_and_title(string title, string? category_display_name, string? published = null) {
         image = new Gtk.Picture();
         image.set_halign(Gtk.Align.FILL);
         image.set_hexpand(true);
@@ -155,9 +155,6 @@ public class HeroCard : GLib.Object {
         overlay.set_child(image);
         overlay.set_hexpand(true);
         overlay.set_vexpand(true);
-        if (chip != null) {
-            overlay.add_overlay(chip);
-        }
 
         // Persistent save badge, top-right (see CardBuilder.build_save_ribbon).
         bool already_saved = false;
@@ -215,6 +212,10 @@ public class HeroCard : GLib.Object {
         // HeroCarousel) claim the leftover space and sit flush at the bottom
         // instead of right under the snippet.
         title_box.set_valign(Gtk.Align.FILL);
+
+        if (category_display_name != null && category_display_name.length > 0) {
+            title_box.append(CardBuilder.build_category_label(category_display_name));
+        }
 
         title_label = new Gtk.Label(title);
         title_label.add_css_class("hero-title");

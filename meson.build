@@ -30,6 +30,7 @@ cairo = dependency('cairo')
     'src/ui/sidebarView.vala',
     'src/ui/components/articlePane.vala',
     'src/ui/components/articleCard.vala',
+    'src/ui/components/historyCard.vala',
     'src/ui/components/articleSheet.vala',
     'src/ui/components/readerView.vala',
     'src/ui/components/readerVideoEmbed.vala',

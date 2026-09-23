@@ -56,6 +56,37 @@ public class ArticleStateStore : GLib.Object {
     private Gee.HashMap<string, SavedArticle> saved_articles;  // URL -> SavedArticle
     private GLib.Mutex saved_lock = new GLib.Mutex();
 
+    // Reading history: SQLite database, capped and time-expired (see trim_history())
+    private const int HISTORY_MAX_ENTRIES = 500;
+    private const int HISTORY_MAX_AGE_DAYS = 30;
+    private Sqlite.Database? history_db = null;
+    private GLib.Mutex history_db_lock = new GLib.Mutex();
+    private Gee.HashMap<string, HistoryArticle> history_articles;  // URL -> HistoryArticle
+    private GLib.Mutex history_lock = new GLib.Mutex();
+    // Emitted when history finishes loading from disk, or is cleared/updated at runtime
+    public signal void history_loaded();
+    public signal void history_changed();
+
+    public class HistoryArticle {
+        public string url;
+        public string title;
+        public string? thumbnail;
+        public string? source;
+        public int64 viewed_timestamp;
+        public string? published;
+        public string? category_id;
+
+        public HistoryArticle(string url, string title, string? thumbnail, string? source, string? published = null, string? category_id = null) {
+            this.url = url;
+            this.title = title;
+            this.thumbnail = thumbnail;
+            this.source = source;
+            this.published = published;
+            this.category_id = category_id;
+            this.viewed_timestamp = GLib.get_real_time() / 1000000; // Unix timestamp
+        }
+    }
+
     public class SavedArticle {
         public string url;
         public string title;
@@ -90,13 +121,16 @@ public class ArticleStateStore : GLib.Object {
         visited_categories = new Gee.HashSet<string>();
         visited_sources = new Gee.HashSet<string>();
         saved_articles = new Gee.HashMap<string, SavedArticle>();
+        history_articles = new Gee.HashMap<string, HistoryArticle>();
 
         init_saved_articles_db();
         migrate_saved_articles_from_json();
+        init_history_db();
 
         // Show cached badge counts immediately; the deferred background metadata fetch updates them later.
         load_article_tracking();
         load_saved_articles_from_db();
+        load_history_from_db();
 
         // Saved articles need their own category tracking entry for unread-count/badge logic on startup.
         var current_saved = get_saved_articles();
@@ -1092,6 +1126,210 @@ public class ArticleStateStore : GLib.Object {
             }
         } catch (GLib.Error e) {
             stderr.printf("Failed to migrate saved articles from JSON: %s\n", e.message);
+        }
+    }
+
+    // Initialize SQLite database for reading history
+    private void init_history_db() {
+        var cache_base = Environment.get_user_cache_dir();
+        if (cache_base == null) cache_base = "/tmp";
+        string db_path = Path.build_filename(cache_base, "paperboy", "history.db");
+
+        history_db_lock.lock();
+        try {
+            int rc = Sqlite.Database.open(db_path, out history_db);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to open history database: %d\n", rc);
+                history_db = null;
+                return;
+            }
+
+            string create_table = """
+                CREATE TABLE IF NOT EXISTS history_articles (
+                    url TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    thumbnail TEXT,
+                    source TEXT,
+                    viewed_timestamp INTEGER NOT NULL,
+                    published TEXT
+                );
+            """;
+
+            rc = history_db.exec(create_table, null, null);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to create history table: %s\n", history_db.errmsg());
+            }
+
+            // Older databases predate the "category_id" column; add it, ignoring the error if it exists.
+            history_db.exec("ALTER TABLE history_articles ADD COLUMN category_id TEXT;", null, null);
+        } finally {
+            history_db_lock.unlock();
+        }
+    }
+
+    // Deletes entries older than HISTORY_MAX_AGE_DAYS, then trims down to
+    // HISTORY_MAX_ENTRIES (oldest first) if still over the cap. Must be
+    // called with history_db_lock already held.
+    private void trim_history_locked() {
+        if (history_db == null) return;
+
+        int64 cutoff = (GLib.get_real_time() / 1000000) - ((int64)HISTORY_MAX_AGE_DAYS * 24 * 60 * 60);
+        string expire_sql = "DELETE FROM history_articles WHERE viewed_timestamp < %s;".printf(cutoff.to_string());
+        history_db.exec(expire_sql, null, null);
+
+        string trim_sql = """
+            DELETE FROM history_articles WHERE url IN (
+                SELECT url FROM history_articles ORDER BY viewed_timestamp DESC LIMIT -1 OFFSET %d
+            );
+        """.printf(HISTORY_MAX_ENTRIES);
+        history_db.exec(trim_sql, null, null);
+    }
+
+    // Record (or refresh the timestamp of) a history entry. A null/empty
+    // field keeps whatever was already recorded for this URL rather than
+    // blanking it out - callers that can't know the full metadata (e.g.
+    // the reader view's own "open in browser" menu item, or re-opening
+    // from the Notes browser) shouldn't clobber good data a previous,
+    // fully-informed card open already captured. Only falls back to the
+    // URL as a display title when this is the first record for it and no
+    // title was ever known.
+    public void record_history(string url, string? title, string? thumbnail, string? source, string? published = null, string? category_id = null) {
+        int64 now = GLib.get_real_time() / 1000000;
+
+        history_lock.lock();
+        var existing = history_articles.has_key(url) ? history_articles.get(url) : null;
+        string? resolved_title_raw = (title != null && title.length > 0) ? title : (existing != null ? existing.title : null);
+        string display_title = (resolved_title_raw != null && resolved_title_raw.length > 0) ? resolved_title_raw : url;
+        string? resolved_thumbnail = (thumbnail != null && thumbnail.length > 0) ? thumbnail : (existing != null ? existing.thumbnail : null);
+        string? resolved_source = (source != null && source.length > 0) ? source : (existing != null ? existing.source : null);
+        string? resolved_published = (published != null && published.length > 0) ? published : (existing != null ? existing.published : null);
+        string? resolved_category = (category_id != null && category_id.length > 0) ? category_id : (existing != null ? existing.category_id : null);
+
+        var article = new HistoryArticle(url, display_title, resolved_thumbnail, resolved_source, resolved_published, resolved_category);
+        article.viewed_timestamp = now;
+        history_articles.set(url, article);
+        history_lock.unlock();
+
+        history_db_lock.lock();
+        if (history_db != null) {
+            string sql = """
+                INSERT OR REPLACE INTO history_articles (url, title, thumbnail, source, viewed_timestamp, published, category_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+            """;
+            Sqlite.Statement stmt;
+            int rc = history_db.prepare_v2(sql, -1, out stmt);
+            if (rc == Sqlite.OK) {
+                stmt.bind_text(1, url);
+                stmt.bind_text(2, display_title);
+                stmt.bind_text(3, resolved_thumbnail);
+                stmt.bind_text(4, resolved_source);
+                stmt.bind_int64(5, now);
+                stmt.bind_text(6, resolved_published);
+                stmt.bind_text(7, resolved_category);
+                if (stmt.step() != Sqlite.DONE) {
+                    stderr.printf("Failed to record history entry: %s\n", history_db.errmsg());
+                }
+            }
+            trim_history_locked();
+        }
+        history_db_lock.unlock();
+
+        try { history_changed(); } catch (GLib.Error e) { }
+    }
+
+    public HistoryArticle? get_history_article(string url) {
+        history_lock.lock();
+        try {
+            if (history_articles.has_key(url)) return history_articles.get(url);
+            string norm = url;
+            try { norm = UrlUtils.normalize_article_url(url); } catch (GLib.Error e) { norm = url.strip(); }
+            foreach (var k in history_articles.keys) {
+                try {
+                    string kn = UrlUtils.normalize_article_url(k);
+                    if (kn == norm) return history_articles.get(k);
+                } catch (GLib.Error e) {
+                    if (k == url) return history_articles.get(k);
+                }
+            }
+            return null;
+        } finally {
+            history_lock.unlock();
+        }
+    }
+
+    // Clears all reading history, both the in-memory cache and the database.
+    public void clear_history() {
+        history_lock.lock();
+        history_articles.clear();
+        history_lock.unlock();
+
+        history_db_lock.lock();
+        if (history_db != null) {
+            history_db.exec("DELETE FROM history_articles;", null, null);
+        }
+        history_db_lock.unlock();
+
+        try { history_changed(); } catch (GLib.Error e) { }
+    }
+
+    public Gee.ArrayList<HistoryArticle?> get_history_articles() {
+        history_lock.lock();
+        var list = new Gee.ArrayList<HistoryArticle?>();
+        foreach (var article in history_articles.values) {
+            list.add(article);
+        }
+        list.sort((a, b) => {
+            return (int)(b.viewed_timestamp - a.viewed_timestamp);
+        });
+        history_lock.unlock();
+        return list;
+    }
+
+    public int get_history_count() {
+        history_lock.lock();
+        int result = history_articles.size;
+        history_lock.unlock();
+        return result;
+    }
+
+    private void load_history_from_db() {
+        history_db_lock.lock();
+        try {
+            if (history_db == null) return;
+
+            trim_history_locked();
+
+            string sql = "SELECT url, title, thumbnail, source, viewed_timestamp, published, category_id FROM history_articles ORDER BY viewed_timestamp DESC;";
+
+            Sqlite.Statement stmt;
+            int rc = history_db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to prepare load history statement: %s\n", history_db.errmsg());
+                return;
+            }
+
+            history_lock.lock();
+            try {
+                while (stmt.step() == Sqlite.ROW) {
+                    string url = stmt.column_text(0);
+                    string title = stmt.column_text(1);
+                    string? thumbnail = stmt.column_text(2);
+                    string? source = stmt.column_text(3);
+                    int64 timestamp = stmt.column_int64(4);
+                    string? published = stmt.column_text(5);
+                    string? category_id = stmt.column_text(6);
+
+                    var article = new HistoryArticle(url, title, thumbnail, source, published, category_id);
+                    article.viewed_timestamp = timestamp;
+                    history_articles.set(url, article);
+                }
+            } finally {
+                history_lock.unlock();
+            }
+
+            try { history_loaded(); } catch (GLib.Error e) { }
+        } finally {
+            history_db_lock.unlock();
         }
     }
 }

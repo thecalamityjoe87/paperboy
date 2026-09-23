@@ -343,7 +343,8 @@ public class FetchNewsController {
         !win.category_manager.is_myfeed_category() &&
         !win.category_manager.is_local_news_view() &&
         !win.category_manager.is_rssfeed_view() &&
-        win.prefs.category != "saved";
+        win.prefs.category != "saved" &&
+        win.prefs.category != "history";
         if (is_regular_category && win.loading_state != null) {
             win.loading_state.awaiting_adaptive_layout = true;
         }
@@ -608,7 +609,7 @@ public class FetchNewsController {
 
         // must be set before any fetch starts streaming back, or whichever source's HTTP
         // response lands first wins the hero slot even if its article is oldest
-        bool is_saved_view = (win.prefs.category == "saved");
+        bool is_saved_view = (win.prefs.category == "saved" || win.prefs.category == "history");
         int total_sources = (win.prefs.preferred_sources != null ? win.prefs.preferred_sources.size : 0);
         if (is_myfeed_mode && custom_rss_sources != null) {
             total_sources += custom_rss_sources.size;
@@ -645,6 +646,10 @@ if (is_myfeed_mode) {
 
         if (win.prefs.category == "saved") {
             if (FetchNewsController.handle_saved_articles(win, ctx, current_search_query, wrapped_set_label, wrapped_clear, wrapped_add)) return;
+        }
+
+        if (win.prefs.category == "history") {
+            if (FetchNewsController.handle_history_articles(win, ctx, current_search_query, wrapped_set_label, wrapped_clear, wrapped_add)) return;
         }
 
         if (win.category_manager.is_local_news_view()) {
@@ -1250,6 +1255,148 @@ if (is_myfeed_mode) {
                 }
 
                 // Same entrance animation other categories get.
+                if (w.animation_manager != null && w.layout_manager != null && w.layout_manager.columns_row != null) {
+                    var cards = new Gee.ArrayList<Gtk.Widget>();
+                    var anim_child = w.layout_manager.columns_row.get_first_child();
+                    while (anim_child != null) {
+                        cards.add(anim_child);
+                        anim_child = anim_child.get_next_sibling();
+                    }
+                    w.animation_manager.animate_cards_entrance_batch(cards);
+                }
+                return false;
+            });
+            return false;
+        });
+
+        return true;
+    }
+
+    // Extracted helper: handle the History branch of fetch_news. Mirrors
+    // handle_saved_articles() above, reading from ArticleStateStore's
+    // reading-history table instead of its saved-articles table.
+    // Returns true if the history branch was handled and the caller should return.
+    public static bool handle_history_articles(
+        NewsWindow win,
+        FetchContext ctx,
+        string current_search_query,
+        SetLabelFunc wrapped_set_label,
+        ClearItemsFunc wrapped_clear,
+        AddItemFunc wrapped_add
+    ) {
+        if (win == null) return false;
+        if (win.prefs == null) return false;
+
+        if (win.prefs.category != "history") return false;
+
+        // LayoutManager.prepare_for_new_fetch() (called earlier in fetch_news())
+        // hides this via ContentView.hide_all_pages() on every fetch, same as
+        // Magazines'/Podcasts' own header buttons - re-show it now that we know
+        // History is actually the page being rendered.
+        if (win.content_view != null && win.content_view.clear_history_button != null) {
+            win.content_view.clear_history_button.set_visible(true);
+        }
+
+        if (win.article_state_store == null) {
+            wrapped_set_label("History — Unable to load history");
+            win.hide_loading_spinner();
+            return true;
+        }
+
+        var history_articles = win.article_state_store.get_history_articles();
+
+        if (current_search_query.length > 0) {
+            var filtered_articles = new Gee.ArrayList<ArticleStateStore.HistoryArticle?>();
+            string query_lower = current_search_query.down();
+            foreach (var article in history_articles) {
+                if (article != null) {
+                    string title_lower = article.title != null ? article.title.down() : "";
+                    string url_lower = article.url != null ? article.url.down() : "";
+                    if (title_lower.contains(query_lower) || url_lower.contains(query_lower)) {
+                        filtered_articles.add(article);
+                    }
+                }
+            }
+            history_articles = filtered_articles;
+        }
+
+        if (history_articles.size == 0) {
+            if (current_search_query.length > 0) {
+                wrapped_set_label("History — No results for " + current_search_query);
+            } else {
+                wrapped_set_label("History — No articles read yet");
+            }
+            win.hide_loading_spinner();
+            return true;
+        }
+
+        uint _history_seq = ctx.seq;
+        Idle.add(() => {
+            if (!FetchContext.is_current(_history_seq)) return false;
+            var cur_history = FetchContext.current_context();
+            if (cur_history == null) return false;
+            var w = cur_history.window;
+            if (w == null) return false;
+
+            if (current_search_query.length > 0) {
+                wrapped_set_label("Search Results: " + current_search_query + " in History");
+            } else {
+                wrapped_set_label("History");
+            }
+
+            // History isn't a traditional feed page - clear any leftover
+            // hero carousel ("FEATURED") from whatever category was viewed
+            // before this, since it lives in featured_box (a hero_container
+            // child) which prepare_for_new_fetch() doesn't clear on its own.
+            w.layout_manager.clear_featured_box();
+            w.article_manager.reset_featured_state();
+
+            w.layout_manager.clear_columns();
+
+            w.article_manager.article_buffer.clear();
+            w.article_manager.articles_shown = 0;
+
+            if (w.loading_state != null) {
+                w.loading_state.initial_phase = false;
+                if (w.loading_state.initial_reveal_timeout_id > 0) {
+                    Source.remove(w.loading_state.initial_reveal_timeout_id);
+                    w.loading_state.initial_reveal_timeout_id = 0;
+                }
+            }
+
+            foreach (var article in history_articles) {
+                if (article != null && FetchContext.is_current(_history_seq)) {
+                    var cur4 = FetchContext.current_context();
+                    if (cur4 != null) {
+                        var w4 = cur4.window;
+                        if (w4 != null) {
+                            wrapped_add(article.title, article.url, article.thumbnail, "history", article.source, article.published);
+                        }
+                    }
+                }
+            }
+
+            if (w.layout_manager != null && w.layout_manager.columns_row != null) {
+                var entrance_child = w.layout_manager.columns_row.get_first_child();
+                while (entrance_child != null) {
+                    entrance_child.set_visible(true);
+                    entrance_child.set_opacity(0.0);
+                    entrance_child.set_margin_top(18);
+                    entrance_child = entrance_child.get_next_sibling();
+                }
+            }
+
+            if (w.layout_manager != null) {
+                w.layout_manager.refresh_columns();
+            }
+
+            Idle.add(() => {
+                if (!FetchContext.is_current(_history_seq)) return false;
+                w.hide_loading_spinner();
+                if (w.main_content_container != null) {
+                    w.main_content_container.set_visible(true);
+                }
+
                 if (w.animation_manager != null && w.layout_manager != null && w.layout_manager.columns_row != null) {
                     var cards = new Gee.ArrayList<Gtk.Widget>();
                     var anim_child = w.layout_manager.columns_row.get_first_child();

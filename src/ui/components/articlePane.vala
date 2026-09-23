@@ -29,6 +29,7 @@ public class ArticlePane : GLib.Object {
     private Gtk.Box? preview_content_box;
     // Store current article data for sharing
     private string? current_article_title = null;
+    private string? current_article_category_id = null;
     // Store current article menu to prevent garbage collection
     private ArticleMenu? current_article_menu = null;
     private static string debug_log_path = "/tmp/paperboy-debug.log";
@@ -64,11 +65,8 @@ public class ArticlePane : GLib.Object {
     public void show_article_preview(string title, string url, string? thumbnail_url, string? category_id = null, string? source_name = null) {
         // Store current article data for sharing
         current_article_title = title;
+        current_article_category_id = category_id;
 
-        // Notify parent window that a preview is opening so it can track
-        // the active preview (used to mark viewed on return).
-        parent_window.preview_opened(url);
-        
         // Clear previous preview content
         if (preview_content_box != null) {
             Gtk.Widget? child = preview_content_box.get_first_child();
@@ -113,6 +111,11 @@ public class ArticlePane : GLib.Object {
                 }
             }
         }
+
+        // Notify parent window that a preview is opening so it can track
+        // the active preview and record it to History on close (see
+        // ViewStateManager.preview_closed()).
+        parent_window.preview_opened(url, title, thumbnail_url, article_source_name, article_published, category_id);
 
 
         // Title label - AT THE TOP
@@ -267,14 +270,14 @@ public class ArticlePane : GLib.Object {
         // Connect to menu signals
         current_article_menu.open_in_app_requested.connect((article_url) => {
             if (parent_window.article_manager != null) {
-                parent_window.article_manager.open_article_in_app_if_online(article_url, null, article_source_name);
+                parent_window.article_manager.open_article_in_app_if_online(article_url, null, article_source_name, current_article_title, null, null, current_article_category_id);
             }
             if (preview_split != null) preview_split.set_show_sidebar(false);
         });
 
         current_article_menu.open_in_browser_requested.connect((article_url) => {
             if (parent_window.article_manager != null) {
-                parent_window.article_manager.open_article_in_browser_if_online(article_url);
+                parent_window.article_manager.open_article_in_browser_if_online(article_url, article_source_name, current_article_title, null, null, current_article_category_id);
             }
         });
         
