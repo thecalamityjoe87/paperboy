@@ -1,3 +1,14 @@
+# v0.12.0a - Magazine Rack & PDF Reader, Reading History, and My Feed Extras
+
+- Added Magazine Rack to import, organize, and read PDF magazines with two-page spreads, pinch/button zoom, swipe page turning with live drag-peek, and a slide-out table of contents panel
+- Added an "Organize Rack" drag-and-drop dialog to sort magazines into custom categories, reorder category rows, and toggle flat-grid or category-row views
+- Integrated a sandboxed PDF thumbnailer subprocess running via internal re-exec (--internal-magazine-thumbnailer) with crash containment and prefetch caching
+- Added a dedicated History view displaying previously read articles in a compact horizontal card layout with relative viewed timestamps, search, and a "Clear History" confirmation dialog
+- Updated article card styling to display category names as colored accent text above the title instead of floating badges
+- Added customizable preview rows at the top of My Feed for Sports scores, Markets, Podcasts, and Magazines with quick "Go to" buttons
+- Unified page container ownership and cleanup logic, preventing lingering widgets across page switches, and reset scroll position when navigating categories
+- Consolidated redundant symbolic icon size tiers into a single resolution-independent icon directory
+
 # v0.11.3a - Hotfix: Image Viewer Memory Leak
 
 - Fixed a memory leak when closing the full-size image viewer dialog
