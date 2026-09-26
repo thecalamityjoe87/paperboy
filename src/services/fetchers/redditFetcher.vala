@@ -19,8 +19,8 @@ using GLib;
 using Soup;
 
 public class RedditFetcher : BaseFetcher {
-    public RedditFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func) {
-        base(set_label_func, clear_items_func, add_item_func);
+    public RedditFetcher(FetchSink sink) {
+        base(sink);
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
@@ -81,7 +81,7 @@ public class RedditFetcher : BaseFetcher {
             url = @"https://www.reddit.com/r/$(subreddit)/search.rss?q=$(Uri.escape_string(search_query))&restrict_sr=1&limit=30";
         }
 
-        var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
+        var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers().with_cancellable(cancellable);
         client.fetch_async(url, options, (response) => {
             if (!response.is_success() || response.body == null) {
                 warning("Reddit RSS HTTP error: %u", response.status_code);

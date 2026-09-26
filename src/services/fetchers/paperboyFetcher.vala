@@ -21,8 +21,8 @@ using Soup;
 public class PaperboyFetcher : BaseFetcher {
     private const string BASE_URL = "https://paperboybackend.onrender.com";
 
-    public PaperboyFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func, FetchDoneFunc? on_done_func = null) {
-        base(set_label_func, clear_items_func, add_item_func, on_done_func);
+    public PaperboyFetcher(FetchSink sink) {
+        base(sink);
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
@@ -87,14 +87,14 @@ public class PaperboyFetcher : BaseFetcher {
         var client = Paperboy.HttpClientUtils.get_default();
         string url = BASE_URL + "/news/frontpage";
 
-        client.fetch_json(url, (response, parser, root) => {
+        client.fetch_json_with(url, cancellable, (response, parser, root) => {
             if (!response.is_success() || root == null) {
                 warning("Paperboy API HTTP error: %u", response.status_code);
                 // Don't show error if we have cached articles
                 if (cached_articles.size == 0) {
                     set_label("Paperboy: Error loading frontpage");
                 }
-                if (on_done != null) on_done();
+                done();
                 return;
             }
 
@@ -114,7 +114,7 @@ public class PaperboyFetcher : BaseFetcher {
                 }
 
                 if (articles == null) {
-                    if (on_done != null) on_done();
+                    done();
                     return;
                 }
 
@@ -275,12 +275,12 @@ public class PaperboyFetcher : BaseFetcher {
                         // silently defeating that backfill.
                         add_item(title, article_url, thumbnail, "frontpage", display_source, published);
                     }
-                    if (on_done != null) on_done();
+                    done();
                     return false;
                 });
             } catch (GLib.Error e) {
                 warning("Paperboy frontpage fetch error: %s", e.message);
-                if (on_done != null) on_done();
+                done();
             }
         });
     }
@@ -289,11 +289,11 @@ public class PaperboyFetcher : BaseFetcher {
         var client = Paperboy.HttpClientUtils.get_default();
         string url = BASE_URL + "/news/headlines";
 
-        client.fetch_json(url, (response, parser, root) => {
+        client.fetch_json_with(url, cancellable, (response, parser, root) => {
             if (!response.is_success() || root == null) {
                 warning("Paperboy API HTTP error: %u", response.status_code);
                 set_label("Paperboy: Error loading Top Ten");
-                if (on_done != null) on_done();
+                done();
                 return;
             }
 
@@ -313,7 +313,7 @@ public class PaperboyFetcher : BaseFetcher {
                 }
 
                 if (articles == null) {
-                    if (on_done != null) on_done();
+                    done();
                     return;
                 }
 
@@ -483,7 +483,7 @@ public class PaperboyFetcher : BaseFetcher {
                     if (added_count < 10) {
                         try {
                             string fp_url = BASE_URL + "/news/frontpage";
-                            var http_response = client.fetch_sync(fp_url, null);
+                            var http_response = client.fetch_sync(fp_url, new Paperboy.HttpClientUtils.RequestOptions().with_cancellable(cancellable));
                             if (http_response.is_success()) {
                                 string body2 = http_response.get_body_string();
                                 var p2 = new Json.Parser();
@@ -553,12 +553,12 @@ public class PaperboyFetcher : BaseFetcher {
                             }
                         } catch (GLib.Error e) { }
                     }
-                    if (on_done != null) on_done();
+                    done();
                     return false;
                 });
             } catch (GLib.Error e) {
                 warning("Paperboy Top Ten fetch error: %s", e.message);
-                if (on_done != null) on_done();
+                done();
             }
         });
     }
@@ -576,7 +576,7 @@ public class PaperboyFetcher : BaseFetcher {
         // request a generously high value so we always get everything it has.
         string url = BASE_URL + "/news/sports?max_results=100";
 
-        client.fetch_json(url, (response, parser, root) => {
+        client.fetch_json_with(url, cancellable, (response, parser, root) => {
             if (!response.is_success() || root == null) {
                 warning("Paperboy API HTTP error: %u", response.status_code);
                 return;

@@ -178,9 +178,9 @@ namespace Tools {
 		return null;
 	}
 
-		// Fetch Open Graph image and title from an article page and call add_item
+		// Fetch Open Graph image and title from an article page and report it through the sink
 		// to silently update the UI (same behavior previously implemented inline).
-		public static void fetch_open_graph_image(string article_url, Soup.Session session, AddItemFunc add_item, string current_category, string? source_name) {
+		public static void fetch_open_graph_image(string article_url, Soup.Session session, FetchSink sink, string current_category, string? source_name) {
 			// Simple concurrency throttle: if too many fetch threads are active, retry later
 			_fetch_mutex.lock();
 			if (_active_fetches >= MAX_CONCURRENT_FETCHES) {
@@ -188,7 +188,7 @@ namespace Tools {
 				int d = Random.int_range(200, 1000);
 				Timeout.add(d, () => {
 					// retry the same fetch later
-					ImageProcessor.fetch_open_graph_image(article_url, session, add_item, current_category, source_name);
+					if (!sink.is_closed()) ImageProcessor.fetch_open_graph_image(article_url, session, sink, current_category, source_name);
 					return false;
 				});
 				return;
@@ -199,7 +199,7 @@ namespace Tools {
 			new Thread<void*>("fetch-og-image", () => {
 				try {
 					var client = Paperboy.HttpClientUtils.get_default();
-					var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
+					var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers().with_cancellable(sink.cancellable);
 					var http_response = client.fetch_sync(article_url, options);
 
 					if (http_response.is_success() && http_response.body != null) {
@@ -223,10 +223,7 @@ namespace Tools {
 							}
 							if (title.length == 0) title = article_url;
 
-							Idle.add(() => {
-								add_item(title, article_url, image_url, current_category, source_name);
-								return false;
-							});
+							sink.add_item(title, article_url, image_url, current_category, source_name);
 						}
 					}
 				} catch (GLib.Error e) {
@@ -243,16 +240,16 @@ namespace Tools {
 		// BBC-specific best-effort high-resolution image fetcher.
 		// BBC pages commonly use srcset/data-srcset, JSON-LD and lazy-loaded data-src/data-srcset
 		// attributes rather than OG tags. This function scans those locations and picks the
-		// largest candidate it can find, then calls `add_item` on the main loop to update
+		// largest candidate it can find, then reports it through the sink to update
 		// the article entry in-place.
-		public static void fetch_bbc_highres_image(string article_url, Soup.Session session, AddItemFunc add_item, string current_category, string? source_name) {
+		public static void fetch_bbc_highres_image(string article_url, Soup.Session session, FetchSink sink, string current_category, string? source_name) {
 			// Throttle concurrent BBC fetches similarly to OG fetches
 			_fetch_mutex.lock();
 			if (_active_fetches >= MAX_CONCURRENT_FETCHES) {
 				_fetch_mutex.unlock();
 				int d = Random.int_range(200, 1000);
 				Timeout.add(d, () => {
-					ImageProcessor.fetch_bbc_highres_image(article_url, session, add_item, current_category, source_name);
+					if (!sink.is_closed()) ImageProcessor.fetch_bbc_highres_image(article_url, session, sink, current_category, source_name);
 					return false;
 				});
 				return;
@@ -263,7 +260,7 @@ namespace Tools {
 			new Thread<void*>("fetch-bbc-image", () => {
 				try {
 					var client = Paperboy.HttpClientUtils.get_default();
-					var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
+					var options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers().with_cancellable(sink.cancellable);
 					var http_response = client.fetch_sync(article_url, options);
 
 					if (!http_response.is_success() || http_response.body == null) return null;
@@ -340,10 +337,7 @@ namespace Tools {
 						if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) {
 							warning("fetch_bbc_highres_image: chosen candidate=%s for article=%s", final_url, article_url);
 						}
-						Idle.add(() => {
-							add_item(article_url, article_url, final_url, current_category, source_name);
-							return false;
-						});
+						sink.add_item(article_url, article_url, final_url, current_category, source_name);
 					}
 				} catch (GLib.Error e) {
 					// ignore

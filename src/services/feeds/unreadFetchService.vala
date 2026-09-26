@@ -162,11 +162,9 @@ public class UnreadFetchService {
                         task.category,
                         "",  // no search query
                         get_metadata_session(),
-                        (s) => {},  // no label updates
-                        () => {},   // no clear
-                        (title, url, thumb, cat_id, src_name) => {
-                            global_metadata_add(title, url, thumb, cat_id, src_name);
-                        }
+                        new FetchSink(null, (it) => {
+                            global_metadata_add(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name);
+                        })
                     );
                     GLib.Timeout.add(100, () => {
                         _active_fetches--;
@@ -183,11 +181,9 @@ public class UnreadFetchService {
                         task.category_id,
                         "",  // no search query
                         get_metadata_session(),
-                        (s) => {},  // no label updates
-                        () => {},   // no clear
-                        (title, url, thumb, cat_id, src_name) => {
-                            global_metadata_add(title, url, thumb, cat_id, src_name);
-                        },
+                        new FetchSink(null, (it) => {
+                            global_metadata_add(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name);
+                        }),
                         task.cache_key  // Pass cache_key for generated feeds
                     );
                     // Decrement counter after a short delay
@@ -208,11 +204,9 @@ public class UnreadFetchService {
                         "local_news",
                         "",  // no search query
                         get_metadata_session(),
-                        (s) => {},  // no label updates
-                        () => {},   // no clear
-                        (title, url, thumb, cat_id, src_name) => {
-                            global_metadata_add(title, url, thumb, local_tracking_id, src_name);
-                        }
+                        new FetchSink(null, (it) => {
+                            global_metadata_add(it.title, it.url, it.thumbnail_url, local_tracking_id, it.source_name);
+                        })
                     );
                     // Decrement counter after a short delay
                     GLib.Timeout.add(100, () => {

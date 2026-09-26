@@ -96,8 +96,14 @@ public class HttpClientUtils : Object {
         public bool enable_deduplication = true;
         public string? body = null;
         public string body_content_type = "application/json";
+        public GLib.Cancellable? cancellable = null;
 
         public RequestOptions() {}
+
+        public RequestOptions with_cancellable(GLib.Cancellable? c) {
+            cancellable = c;
+            return this;
+        }
 
         public RequestOptions with_body(string body, string content_type = "application/json") {
             method = "POST";
@@ -148,6 +154,8 @@ public class HttpClientUtils : Object {
         public GLib.Bytes? body;
         public string? error_message;
         public Gee.HashMap<string, string>? headers;
+        // Aborted by its view session closing - not a real failure.
+        public bool cancelled = false;
 
         public bool is_success() {
             return status_code == Soup.Status.OK;
@@ -222,16 +230,26 @@ public class HttpClientUtils : Object {
         }
     }
 
-    // Block until a request slot is free, then claim it.
-    private static void acquire_request_slot() {
+    // Block until a request slot is free, then claim it. False if cancelled while waiting.
+    private static bool acquire_request_slot(GLib.Cancellable? cancellable) {
         _request_mutex.lock();
         while (_active_requests >= MAX_CONCURRENT_REQUESTS) {
             _request_mutex.unlock();
+            if (cancellable != null && cancellable.is_cancelled()) return false;
             Thread.usleep(50000); // 50ms
             _request_mutex.lock();
         }
         _active_requests++;
         _request_mutex.unlock();
+        return true;
+    }
+
+    private static HttpResponse cancelled_response() {
+        var r = new HttpResponse();
+        r.status_code = 0;
+        r.cancelled = true;
+        r.error_message = "Operation was cancelled";
+        return r;
     }
 
     private static void release_request_slot() {
@@ -244,6 +262,7 @@ public class HttpClientUtils : Object {
     // Synchronous fetch (internal implementation)
     private HttpResponse fetch_sync_internal(string url, RequestOptions options) {
         var response = new HttpResponse();
+        if (options.cancellable != null && options.cancellable.is_cancelled()) return cancelled_response();
 
         // Check deduplication cache
         if (options.enable_deduplication) {
@@ -268,10 +287,16 @@ public class HttpClientUtils : Object {
                     while (retry_count < MAX_DEDUP_RETRIES) {
                         Thread.usleep(100000); // 100ms
                         retry_count++;
+                        if (options.cancellable != null && options.cancellable.is_cancelled()) return cancelled_response();
 
                         cache_mutex.lock();
                         RequestState? retry_state = in_flight_requests.get(url);
-                        if (retry_state != null && retry_state.completed) {
+                        // Owner was cancelled and withdrew its entry - make our own request.
+                        if (retry_state == null) {
+                            cache_mutex.unlock();
+                            break;
+                        }
+                        if (retry_state.completed) {
                             // Request completed, return cached response
                             var cached_response = new HttpResponse();
                             cached_response.status_code = retry_state.status_code;
@@ -321,7 +346,10 @@ public class HttpClientUtils : Object {
         // Only the actual network attempt counts against the concurrency
         // cap; dedup hits above already returned. finally covers all early
         // returns so every caller is bounded the same way.
-        acquire_request_slot();
+        if (!acquire_request_slot(options.cancellable)) {
+            if (options.enable_deduplication) withdraw_in_flight(url);
+            return cancelled_response();
+        }
         try {
         try {
             // Create request
@@ -352,8 +380,12 @@ public class HttpClientUtils : Object {
             session.timeout = options.timeout;
 
             // Perform request
-            GLib.Bytes? body = session.send_and_read(msg, null);
-            session.timeout = old_timeout;
+            GLib.Bytes? body = null;
+            try {
+                body = session.send_and_read(msg, options.cancellable);
+            } finally {
+                session.timeout = old_timeout;
+            }
 
             // Extract response
             response.status_code = msg.get_status();
@@ -387,6 +419,11 @@ public class HttpClientUtils : Object {
             }
 
         } catch (GLib.Error e) {
+            if (e is GLib.IOError.CANCELLED) {
+                if (options.enable_deduplication) withdraw_in_flight(url);
+                return cancelled_response();
+            }
+
             // Check if this is an HTTP/2 error (or an INTERNAL_ERROR) - retry
             // with HTTP/1.1 and also attempt a retry without Brotli (br)
             // in Accept-Encoding which some servers mishandle over HTTP/2.
@@ -426,7 +463,7 @@ public class HttpClientUtils : Object {
                             retry_msg.set_request_body_from_bytes(options.body_content_type, new GLib.Bytes(options.body.data));
                         }
 
-                        GLib.Bytes? retry_body = http1_session.send_and_read(retry_msg, null);
+                        GLib.Bytes? retry_body = http1_session.send_and_read(retry_msg, options.cancellable);
                         response.status_code = retry_msg.get_status();
                         response.body = retry_body;
 
@@ -452,6 +489,10 @@ public class HttpClientUtils : Object {
                         return response;
                     }
                 } catch (GLib.Error retry_e) {
+                    if (retry_e is GLib.IOError.CANCELLED) {
+                        if (options.enable_deduplication) withdraw_in_flight(url);
+                        return cancelled_response();
+                    }
                     // Retry also failed, fall through to normal error handling
                     response.error_message = retry_e.message;
                 }
@@ -478,6 +519,14 @@ public class HttpClientUtils : Object {
         }
 
         return response;
+    }
+
+    // Drop an in-flight entry so waiters on the same URL issue their own request.
+    private void withdraw_in_flight(string url) {
+        cache_mutex.lock();
+        var state = in_flight_requests.get(url);
+        if (state != null && !state.completed) in_flight_requests.unset(url);
+        cache_mutex.unlock();
     }
 
     //Asynchronous fetch with callback (uses thread pool)
@@ -543,7 +592,11 @@ public class HttpClientUtils : Object {
 
     // Convenience method: Fetch and parse JSON
     public void fetch_json(string url, owned JsonResponseCallback callback) {
-        var options = new RequestOptions().with_json_headers();
+        fetch_json_with(url, null, (owned) callback);
+    }
+
+    public void fetch_json_with(string url, GLib.Cancellable? cancellable, owned JsonResponseCallback callback) {
+        var options = new RequestOptions().with_json_headers().with_cancellable(cancellable);
         fetch_async(url, options, (response) => {
             Json.Parser? parser = null;
             Json.Node? root = null;

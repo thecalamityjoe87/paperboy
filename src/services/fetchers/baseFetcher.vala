@@ -24,21 +24,22 @@ public delegate void AddItemFunc(string title, string url, string? thumbnail_url
 public delegate void FetchDoneFunc();
 
 public abstract class BaseFetcher : GLib.Object {
-    protected SetLabelFunc set_label;
-    protected ClearItemsFunc clear_items;
-    protected AddItemFunc add_item;
-    // Optional: fires once a fetch's network request has concluded (success,
-    // failure, or empty result) - lets a caller that fired off more than one
-    // fetcher in parallel (e.g. Front Page + Trending) know when each one is
-    // actually done, instead of guessing from item-arrival timing.
-    protected FetchDoneFunc? on_done;
+    // Bound to the view session that started this fetch; output is dropped once it closes.
+    protected FetchSink sink;
 
-    protected BaseFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func, FetchDoneFunc? on_done_func = null) {
-        this.set_label = set_label_func;
-        this.clear_items = clear_items_func;
-        this.add_item = add_item_func;
-        this.on_done = on_done_func;
+    protected BaseFetcher(FetchSink sink) {
+        this.sink = sink;
     }
+
+    protected GLib.Cancellable? cancellable { get { return sink.cancellable; } }
+
+    protected void set_label(string text) { sink.set_label(text); }
+    protected void clear_items() { sink.clear_items(); }
+    protected void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null) {
+        sink.add_item(title, url, thumbnail_url, category_id, source_name, published, snippet);
+    }
+    // Fires once a fetch's network request has concluded, success or not.
+    protected void done() { sink.done(); }
 
     // Abstract method that each fetcher must implement
     public abstract void fetch(string category, string search_query, Soup.Session session);

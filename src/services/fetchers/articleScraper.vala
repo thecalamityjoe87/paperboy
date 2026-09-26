@@ -24,7 +24,8 @@ public class ArticleScraper {
         Gee.ArrayList<string> section_urls,
         string base_origin,
         string current_search_query,
-        Soup.Session session
+        Soup.Session session,
+        GLib.Cancellable? cancellable = null
     ) {
         var articles = new Gee.ArrayList<Paperboy.NewsArticle>();
 
@@ -36,7 +37,8 @@ public class ArticleScraper {
             var client = Paperboy.HttpClientUtils.get_default();
             var options = new Paperboy.HttpClientUtils.RequestOptions()
                 .with_browser_headers()
-                .with_timeout(8);
+                .with_timeout(8)
+                .with_cancellable(cancellable);
             var http_response = client.fetch_sync(candidate_url, options);
 
             if (!http_response.is_success() || http_response.body == null) continue;

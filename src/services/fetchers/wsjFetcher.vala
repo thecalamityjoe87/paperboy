@@ -20,8 +20,8 @@ using Soup;
 using Tools;
 
 public class WsjFetcher : BaseFetcher {
-    public WsjFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func) {
-        base(set_label_func, clear_items_func, add_item_func);
+    public WsjFetcher(FetchSink sink) {
+        base(sink);
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
@@ -59,7 +59,7 @@ public class WsjFetcher : BaseFetcher {
                 url = "https://feeds.content.dowjones.io/public/rss/RSSWorldNews";
                 break;
         }
-        RssFeedProcessor.fetch_rss_url(url, "WSJ", FetcherUtils.category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, "WSJ", FetcherUtils.category_display_name(category), category, search_query, session, sink);
     }
 
     public override string get_source_name() {
@@ -82,6 +82,6 @@ public class WsjFetcher : BaseFetcher {
         }
         string url = @"$(base_url)?q=$(Uri.escape_string(query))&$(ceid)";
 
-        RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, sink);
     }
 }

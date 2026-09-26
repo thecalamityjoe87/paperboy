@@ -20,8 +20,8 @@ using Soup;
 using Tools;
 
 public class GuardianFetcher : BaseFetcher {
-    public GuardianFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func) {
-        base(set_label_func, clear_items_func, add_item_func);
+    public GuardianFetcher(FetchSink sink) {
+        base(sink);
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
@@ -65,7 +65,7 @@ public class GuardianFetcher : BaseFetcher {
             url = url + "&q=" + Uri.escape_string(search_query);
         }
 
-        client.fetch_json(url, (response, parser, root) => {
+        client.fetch_json_with(url, cancellable, (response, parser, root) => {
             if (!response.is_success() || root == null) {
                 warning("Guardian API HTTP error: %u", response.status_code);
                 return;
@@ -103,7 +103,7 @@ public class GuardianFetcher : BaseFetcher {
                     }
                     add_item(title, article_url, thumbnail, category, "The Guardian", published);
                 }
-                fetch_guardian_article_images(results, session, add_item, category);
+                fetch_guardian_article_images(results, session, category);
                 return false;
             });
         });
@@ -116,7 +116,6 @@ public class GuardianFetcher : BaseFetcher {
     private void fetch_guardian_article_images(
         Json.Array results,
         Soup.Session session,
-        AddItemFunc add_item,
         string current_category
     ) {
         int count = 0;
@@ -125,7 +124,7 @@ public class GuardianFetcher : BaseFetcher {
             var article = results.get_element(i).get_object();
             if (article.has_member("webUrl")) {
                 string url = article.get_string_member("webUrl");
-                Tools.ImageProcessor.fetch_open_graph_image(url, session, add_item, current_category, "The Guardian");
+                Tools.ImageProcessor.fetch_open_graph_image(url, session, sink, current_category, "The Guardian");
                 count++;
             }
         }

@@ -48,6 +48,9 @@ public class FetchContext : GLib.Object {
     /** The category this fetch was initiated for - prevents articles from appearing in wrong category */
     public string? expected_category { get; private set; default = null; }
 
+    /** This view visit's session; closed as soon as a newer context begins. */
+    public ViewSession session { get; private set; }
+
     /**
      * Whether this fetch is racing more than one source concurrently for the
      * same view (e.g. several preferred sources, or Sports' always-on
@@ -72,6 +75,7 @@ public class FetchContext : GLib.Object {
         if (w != null && w.prefs != null) {
             this.expected_category = w.prefs.category;
         }
+        this.session = new ViewSession(this.expected_category);
     }
     
     /**
@@ -87,6 +91,7 @@ public class FetchContext : GLib.Object {
         // Mark old context as cancelled
         if (_current_context != null) {
             _current_context.cancelled = true;
+            _current_context.session.close();
         }
 
         // Increment sequence
@@ -180,6 +185,7 @@ public class FetchContext : GLib.Object {
         _context_mutex.lock();
         if (_current_context != null) {
             _current_context.cancelled = true;
+            _current_context.session.close();
         }
         _sequence++;
         uint result = _sequence;

@@ -20,8 +20,8 @@ using Soup;
 using Tools;
 
 public class BloombergFetcher : BaseFetcher {
-    public BloombergFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func) {
-        base(set_label_func, clear_items_func, add_item_func);
+    public BloombergFetcher(FetchSink sink) {
+        base(sink);
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
@@ -32,8 +32,7 @@ public class BloombergFetcher : BaseFetcher {
         if (category == "business") {
             // Bloomberg has no single "business" feed - Business pulls its
             // industries/markets/economics desks together instead. Additive
-            // calls (clear_items is a no-op in every real caller - see
-            // FetchNewsController.global_no_op_clear), so these three don't
+            // calls (view sinks have no clear handler), so these three don't
             // clobber each other or other sources' articles.
             string[] business_feeds = {
                 "https://feeds.bloomberg.com/industries/news.rss",
@@ -41,7 +40,7 @@ public class BloombergFetcher : BaseFetcher {
                 "https://feeds.bloomberg.com/economics/news.rss"
             };
             foreach (var feed_url in business_feeds) {
-                RssFeedProcessor.fetch_rss_url(feed_url, "Bloomberg", FetcherUtils.category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
+                RssFeedProcessor.fetch_rss_url(feed_url, "Bloomberg", FetcherUtils.category_display_name(category), category, search_query, session, sink);
             }
             return;
         }
@@ -67,7 +66,7 @@ public class BloombergFetcher : BaseFetcher {
                 url = "https://feeds.bloomberg.com/markets/news.rss";
                 break;
         }
-        RssFeedProcessor.fetch_rss_url(url, "Bloomberg", FetcherUtils.category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, "Bloomberg", FetcherUtils.category_display_name(category), category, search_query, session, sink);
     }
 
     public override string get_source_name() {
@@ -90,6 +89,6 @@ public class BloombergFetcher : BaseFetcher {
         }
         string url = @"$(base_url)?q=$(Uri.escape_string(query))&$(ceid)";
 
-        RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, sink);
     }
 }

@@ -127,6 +127,7 @@ cairo = dependency('cairo')
     'src/services/markets/marketIndicesService.vala',
     'src/services/sports/sportsScoresService.vala',
     'src/services/feeds/fetchContext.vala',
+    'src/services/feeds/viewSession.vala',
     'src/services/feeds/generatedFeedService.vala',
     'src/services/feeds/locationLookupService.vala',
     'src/services/feeds/newsService.vala',
