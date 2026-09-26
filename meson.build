@@ -111,6 +111,7 @@ cairo = dependency('cairo')
     'src/services/articles/renderedPageFetcher.vala',
     'src/services/articles/thumbnailBackfillService.vala',
     'src/services/cache/discoveredThumbnailCache.vala',
+    'src/services/cache/feedHttpCache.vala',
     'src/services/cache/imageCache.vala',
     'src/services/cache/lruCache.vala',
     'src/services/cache/metaCache.vala',

@@ -63,6 +63,13 @@ namespace Paperboy {
         }
         // Bump when extraction improves; older feed files get regenerated once (see FeedUpdateManager).
         public const string GENERATOR_VERSION = "Paperboy 2";
+        // Only a failed/timed-out page load is worth retrying right away; anything later is deterministic.
+        public const string LOAD_TIMEOUT_ERROR = "Timed out waiting for page to load";
+        public const string LOAD_FAILED_ERROR = "Failed to load page";
+
+        public static bool is_retryable_error(string? error) {
+            return error != null && (error == LOAD_TIMEOUT_ERROR || error.has_prefix(LOAD_FAILED_ERROR));
+        }
 
         private const uint SETTLE_DELAY_MS = 2000;
         // Generous enough to cover heavier/slower homepages plus the
@@ -346,6 +353,7 @@ namespace Paperboy {
             GenerateFeedCallback? callback = (owned) on_done;
             ulong load_changed_id = 0;
             ulong load_failed_id = 0;
+            ulong terminated_id = 0;
             // Cancelled before the webview is torn down whenever finish() runs
             // while call_async_javascript_function() may still be in flight -
             // terminating the web process out from under a pending JS call
@@ -364,6 +372,7 @@ namespace Paperboy {
                 GLib.print("GeneratedFeedService: disconnecting signals\n");
                 if (load_changed_id != 0) webview.disconnect(load_changed_id);
                 if (load_failed_id != 0) webview.disconnect(load_failed_id);
+                if (terminated_id != 0) webview.disconnect(terminated_id);
                 GLib.print("GeneratedFeedService: terminating webview process\n");
                 WebViewUtils.terminate_process(webview);
                 GLib.print("GeneratedFeedService: removing child and destroying window\n");
@@ -378,7 +387,7 @@ namespace Paperboy {
             uint timeout_id = 0;
             timeout_id = Timeout.add(OVERALL_TIMEOUT_MS, () => {
                 timeout_id = 0;
-                finish(false, null, "Timed out waiting for page to load");
+                finish(false, null, LOAD_TIMEOUT_ERROR);
                 return false;
             });
 
@@ -447,9 +456,16 @@ namespace Paperboy {
                 if (!done) {
                     if (timeout_id != 0) Source.remove(timeout_id);
                     timeout_id = 0;
-                    finish(false, null, "Failed to load page: %s".printf(error != null ? error.message : "unknown"));
+                    finish(false, null, LOAD_FAILED_ERROR + ": %s".printf(error != null ? error.message : "unknown"));
                 }
                 return true;
+            });
+
+            terminated_id = webview.web_process_terminated.connect((reason) => {
+                if (done) return;
+                if (timeout_id != 0) Source.remove(timeout_id);
+                timeout_id = 0;
+                finish(false, null, "Web process terminated");
             });
 
             webview.load_uri(url);

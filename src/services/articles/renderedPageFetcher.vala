@@ -84,6 +84,7 @@ public class RenderedPageFetcher : GLib.Object {
         ReadabilityResult? best_result = null;
         ulong load_changed_id = 0;
         ulong load_failed_id = 0;
+        ulong terminated_id = 0;
 
         // Signal handlers hold refs back into this closure (which holds
         // webview), so they must be disconnected explicitly. Dropping every
@@ -96,6 +97,7 @@ public class RenderedPageFetcher : GLib.Object {
             callback = null;
             if (load_changed_id != 0) webview.disconnect(load_changed_id);
             if (load_failed_id != 0) webview.disconnect(load_failed_id);
+            if (terminated_id != 0) webview.disconnect(terminated_id);
             WebViewUtils.terminate_process(webview);
             win.set_child(null);
             win.destroy();
@@ -184,6 +186,13 @@ public class RenderedPageFetcher : GLib.Object {
                 finish();
             }
             return true;
+        });
+
+        terminated_id = webview.web_process_terminated.connect((reason) => {
+            if (!done) {
+                Source.remove(timeout_id);
+                finish();
+            }
         });
 
         webview.load_uri(url);

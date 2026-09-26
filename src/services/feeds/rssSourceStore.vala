@@ -140,6 +140,19 @@ namespace Paperboy {
             if (rc != Sqlite.OK && errmsg != null && !errmsg.down().contains("duplicate column")) {
                 GLib.warning("Failed to add custom_name column: %s", errmsg);
             }
+
+            // Refresh-scheduling state (see FeedUpdateManager).
+            string[] schedule_columns = {
+                "last_changed_at INTEGER DEFAULT 0",
+                "failure_count INTEGER DEFAULT 0",
+                "last_failure_at INTEGER DEFAULT 0"
+            };
+            foreach (string column in schedule_columns) {
+                rc = db.exec("ALTER TABLE rss_sources ADD COLUMN " + column + ";", null, out errmsg);
+                if (rc != Sqlite.OK && errmsg != null && !errmsg.down().contains("duplicate column")) {
+                    GLib.warning("Failed to add schedule column (%s): %s", column, errmsg);
+                }
+            }
         }
 
         // Records the result of a homepage feed-autodiscovery pass (see
@@ -170,10 +183,7 @@ namespace Paperboy {
             }
             cached_sources = null;
 
-            // Called from a background thread (FeedUpdateManager's fetch
-            // thread pool) - safe to emit directly since HeaderManager's
-            // listener only schedules an Idle.add() from here, same as
-            // update_last_fetched()'s identical emission below.
+            // May run off the main thread - safe to emit since listeners only schedule an Idle.add().
             var updated = get_source_by_url(source_url);
             if (updated != null) source_updated(updated);
         }
@@ -572,7 +582,7 @@ namespace Paperboy {
                 return sources;
             }
 
-            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at, podcast_feed_url, podcast_checked_at, podcast_candidate_count, custom_name FROM rss_sources;";
+            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at, podcast_feed_url, podcast_checked_at, podcast_candidate_count, custom_name, last_changed_at, failure_count, last_failure_at FROM rss_sources;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -581,23 +591,7 @@ namespace Paperboy {
             }
 
             while (stmt.step() == Sqlite.ROW) {
-                int64 id = stmt.column_int64(0);
-                string name = stmt.column_text(1);
-                string url = stmt.column_text(2);
-                string? icon_filename = stmt.column_text(3);
-                string? favicon_url = stmt.column_text(4);
-                string? original_url = stmt.column_text(5);
-                int64 created_at = stmt.column_int64(6);
-                int64 last_fetched_at = stmt.column_int64(7);
-
-                var source = new RssSource.with_data(id, name, url, icon_filename, created_at, last_fetched_at);
-                source.favicon_url = favicon_url;
-                source.original_url = original_url;
-                source.podcast_feed_url = stmt.column_text(8);
-                source.podcast_checked_at = stmt.column_int64(9);
-                source.podcast_candidate_count = stmt.column_int(10);
-                source.custom_name = stmt.column_text(11);
-                sources.add(source);
+                sources.add(source_from_row(stmt));
             }
 
             // SQL's ORDER BY name ASC would put "The Verge" under "T" -
@@ -609,13 +603,72 @@ namespace Paperboy {
             return sources;
         }
 
+        private RssSource source_from_row(Sqlite.Statement stmt) {
+            var source = new RssSource.with_data(stmt.column_int64(0), stmt.column_text(1), stmt.column_text(2),
+                stmt.column_text(3), stmt.column_int64(6), stmt.column_int64(7));
+            source.favicon_url = stmt.column_text(4);
+            source.original_url = stmt.column_text(5);
+            source.podcast_feed_url = stmt.column_text(8);
+            source.podcast_checked_at = stmt.column_int64(9);
+            source.podcast_candidate_count = stmt.column_int(10);
+            source.custom_name = stmt.column_text(11);
+            source.last_changed_at = stmt.column_int64(12);
+            source.failure_count = stmt.column_int(13);
+            source.last_failure_at = stmt.column_int64(14);
+            return source;
+        }
+
+        // Fresh read for the refresh scheduler - bypasses cached_sources, whose schedule fields go stale.
+        public Gee.ArrayList<RssSource> get_sources_for_scheduling() {
+            var sources = new Gee.ArrayList<RssSource>();
+            if (db == null) return sources;
+
+            Sqlite.Statement stmt;
+            if (db.prepare_v2("SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at, podcast_feed_url, podcast_checked_at, podcast_candidate_count, custom_name, last_changed_at, failure_count, last_failure_at FROM rss_sources;", -1, out stmt) != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                return sources;
+            }
+            while (stmt.step() == Sqlite.ROW) {
+                sources.add(source_from_row(stmt));
+            }
+            return sources;
+        }
+
+        // Schedule bookkeeping only: no source_updated, since that rebuilds the sidebar row.
+        // A no-op for URLs that aren't followed sources (built-in category feeds).
+        public void record_fetch_success(string url, bool content_changed) {
+            if (db == null) return;
+            string sql = content_changed
+                ? "UPDATE rss_sources SET last_fetched_at = ?1, last_changed_at = ?1, failure_count = 0, last_failure_at = 0 WHERE url = ?2;"
+                : "UPDATE rss_sources SET last_fetched_at = ?1, failure_count = 0, last_failure_at = 0 WHERE url = ?2;";
+            run_schedule_update(sql, url);
+        }
+
+        public void record_fetch_failure(string url) {
+            if (db == null) return;
+            run_schedule_update("UPDATE rss_sources SET failure_count = failure_count + 1, last_failure_at = ?1 WHERE url = ?2;", url);
+        }
+
+        private void run_schedule_update(string sql, string url) {
+            Sqlite.Statement stmt;
+            if (db.prepare_v2(sql, -1, out stmt) != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                return;
+            }
+            stmt.bind_int64(1, GLib.get_real_time() / 1000000);
+            stmt.bind_text(2, url);
+            if (stmt.step() != Sqlite.DONE) {
+                GLib.warning("Failed to update refresh schedule for %s: %s", url, db.errmsg());
+            }
+        }
+
         public RssSource? get_source_by_url(string url) {
             if (db == null) {
                 GLib.warning("Database not initialized");
                 return null;
             }
 
-            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at, podcast_feed_url, podcast_checked_at, podcast_candidate_count, custom_name FROM rss_sources WHERE url = ?;";
+            string sql = "SELECT id, name, url, icon_filename, favicon_url, original_url, created_at, last_fetched_at, podcast_feed_url, podcast_checked_at, podcast_candidate_count, custom_name, last_changed_at, failure_count, last_failure_at FROM rss_sources WHERE url = ?;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -626,59 +679,10 @@ namespace Paperboy {
             stmt.bind_text(1, url);
             rc = stmt.step();
             if (rc == Sqlite.ROW) {
-                int64 id = stmt.column_int64(0);
-                string name = stmt.column_text(1);
-                string url_val = stmt.column_text(2);
-                string? icon_filename = stmt.column_text(3);
-                string? favicon_url = stmt.column_text(4);
-                string? original_url = stmt.column_text(5);
-                int64 created_at = stmt.column_int64(6);
-                int64 last_fetched_at = stmt.column_int64(7);
-
-                var source = new RssSource.with_data(id, name, url_val, icon_filename, created_at, last_fetched_at);
-                source.favicon_url = favicon_url;
-                source.original_url = original_url;
-                source.podcast_feed_url = stmt.column_text(8);
-                source.podcast_checked_at = stmt.column_int64(9);
-                source.podcast_candidate_count = stmt.column_int(10);
-                source.custom_name = stmt.column_text(11);
-                return source;
+                return source_from_row(stmt);
             }
 
             return null;
-        }
-
-        public bool update_last_fetched(string url) {
-            if (db == null) {
-                GLib.warning("Database not initialized");
-                return false;
-            }
-
-            string sql = "UPDATE rss_sources SET last_fetched_at = ? WHERE url = ?;";
-            Sqlite.Statement stmt;
-            int rc = db.prepare_v2(sql, -1, out stmt);
-            if (rc != Sqlite.OK) {
-                GLib.warning("Failed to prepare statement: %s", db.errmsg());
-                return false;
-            }
-
-            stmt.bind_int64(1, GLib.get_real_time() / 1000000); // Convert to seconds
-            stmt.bind_text(2, url);
-
-            rc = stmt.step();
-            if (rc != Sqlite.DONE) {
-                GLib.warning("Failed to update last_fetched_at: %s", db.errmsg());
-                return false;
-            }
-
-            // Notify UI that this source was updated so views (sidebar, badges)
-            // can refresh without requiring an app restart.
-            var updated = get_source_by_url(url);
-            if (updated != null) {
-                source_updated(updated); 
-            }
-
-            return true;
         }
 
         public bool update_source_icon(string url, string? icon_filename) {

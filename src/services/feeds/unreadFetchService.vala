@@ -306,6 +306,20 @@ public class UnreadFetchService {
         });
     }
 
+    // Refreshes one followed feed's unread tracking and badge (used by FeedUpdateManager's scheduler).
+    public static void refresh_rss_source(NewsWindow win, Paperboy.RssSource source) {
+        _unread_window = win;
+        string? cache_key = (source.url.has_prefix("file://") && source.original_url != null) ? source.original_url : null;
+        enqueue_fetch(new FetchTask.for_rss(source.url, source.name, "rssfeed:" + source.url, cache_key));
+
+        string source_name = source.name;
+        Timeout.add(3000, () => {
+            var w = _unread_window;
+            if (w != null && w.sidebar_manager != null) w.sidebar_manager.update_badge_for_source(source_name);
+            return false;
+        });
+    }
+
     // Refresh My Feed metadata when personalized categories change
     // This re-fetches only the personalized categories from enabled sources
     public static void refresh_myfeed_metadata(NewsWindow win) {

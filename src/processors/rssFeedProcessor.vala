@@ -692,8 +692,36 @@ public class RssFeedProcessor {
                     fetch_options = new Paperboy.HttpClientUtils.RequestOptions();
                 }
                 fetch_options.with_cancellable(sink.cancellable);
+                string? cached_etag, cached_last_modified;
+                Paperboy.FeedHttpCache.get_validators(url, out cached_etag, out cached_last_modified);
+                if (cached_etag != null || cached_last_modified != null) {
+                    if (fetch_options.headers == null) fetch_options.headers = new Gee.HashMap<string, string>();
+                    if (cached_etag != null) fetch_options.headers["If-None-Match"] = cached_etag;
+                    if (cached_last_modified != null) fetch_options.headers["If-Modified-Since"] = cached_last_modified;
+                }
                 var http_response = client.fetch_sync(url, fetch_options);
                 if (http_response.cancelled) return null;
+
+                var rss_store = Paperboy.RssSourceStore.get_instance();
+                if (http_response.status_code == Soup.Status.NOT_MODIFIED) {
+                    string? cached_body = Paperboy.FeedHttpCache.load_body(url);
+                    if (cached_body != null) {
+                        GLib.debug("Feed not modified: %s", url);
+                        rss_store.record_fetch_success(url, false);
+                        parse_rss_and_display(cached_body, source_name, category_name, category_id, current_search_query, sink, session, url, cache_key_override);
+                        return null;
+                    }
+                    // Cached body vanished between the lookup and now - fetch it unconditionally.
+                    fetch_options.headers.unset("If-None-Match");
+                    fetch_options.headers.unset("If-Modified-Since");
+                    http_response = client.fetch_sync(url, fetch_options.without_deduplication());
+                    if (http_response.cancelled) return null;
+                }
+
+                // Offline isn't the feed's fault, so it doesn't count toward its failure backoff.
+                if (!http_response.is_success() && GLib.NetworkMonitor.get_default().get_network_available()) {
+                    rss_store.record_fetch_failure(url);
+                }
 
                 if (http_response.status_code == 0) {
                     if (http_response.error_message != null && http_response.error_message.length > 0) {
@@ -724,6 +752,8 @@ public class RssFeedProcessor {
                 }
 
                 string body = http_response.get_body_string();
+                bool changed = Paperboy.FeedHttpCache.store(url, body, http_response.get_header("etag"), http_response.get_header("last-modified"));
+                rss_store.record_fetch_success(url, changed);
                 parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, sink, session, url, cache_key_override);
             } catch (GLib.Error e) {
                 warning("RSS fetch error: %s", e.message);

@@ -277,6 +277,12 @@ public class FetchNewsController {
                 if (ls == null) return false;
 
                 if (!ls.initial_items_populated) {
+                    // A feed still being generated reloads the view itself when done (see FeedUpdateManager).
+                    string category = w.prefs.category ?? "";
+                    if (category.has_prefix("rssfeed:") && w.feed_updater != null
+                        && w.feed_updater.is_awaiting_generation(category.substring(8))) {
+                        return false;
+                    }
                     var network_monitor = GLib.NetworkMonitor.get_default();
                     if (!network_monitor.get_network_available()) {
                         w.show_error_message("No network connection detected. Check your connection and try again.");
@@ -628,6 +634,7 @@ if (is_myfeed_mode) {
 
                 if (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0) {
                     foreach (var rss_src in custom_rss_sources) {
+                        if (win.feed_updater != null) win.feed_updater.request_refresh(rss_src);
                         // generated feeds (file:// URLs) use original_url as cache key so it survives regeneration
                         string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
                         RssFeedProcessor.fetch_rss_url(
@@ -670,6 +677,7 @@ if (is_myfeed_mode) {
                 if (custom_rss_sources != null && custom_rss_sources.size > 0) {
                     win.article_manager.featured_used = true;
                     foreach (var rss_src in custom_rss_sources) {
+                        if (win.feed_updater != null) win.feed_updater.request_refresh(rss_src);
                         string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
                         RssFeedProcessor.fetch_rss_url(
                             rss_src.url,
@@ -731,13 +739,10 @@ if (is_myfeed_mode) {
         var rss_source = rss_store.get_source_by_url(feed_url);
         string feed_name_plain = rss_source != null ? rss_source.name : "RSS Feed";
 
-        // Manually viewing/refreshing this feed never goes through
-        // FeedUpdateManager.update_single_feed() (that's only the periodic
-        // background path) - piggyback the same podcast-discovery check
-        // here too, so an explicit refresh can also surface the button
-        // without waiting for the next scheduled background pass.
+        // Opening a feed can surface its podcast button, and a due generated feed jumps the regen queue.
         if (rss_source != null && win.feed_updater != null) {
             win.feed_updater.maybe_check_for_podcast_feed(rss_source);
+            win.feed_updater.request_refresh(rss_source, true);
         }
 
         // Build display name with logo URL for article cards (format: "Name||logo_url")

@@ -867,7 +867,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Initialize feed update manager for automatic RSS feed updates
         feed_updater = new FeedUpdateManager(this);
-
+        feed_updater.awaited_feed_generated.connect(on_awaited_feed_generated);
         feed_updater.request_show_toast.connect((message) => {
             show_toast(message);
         });
@@ -1006,22 +1006,16 @@ public class NewsWindow : Adw.ApplicationWindow {
             run_leak_test();
         }
 
-        // Start recurring feed updates with initial delay
-        // Wait 45 seconds after launch so initial content loads smoothly
-        // This allows time for user to view initial content and for background
-        // metadata fetch to complete before heavy feed regeneration starts
-        // Skipped during PAPERBOY_LEAK_TEST - unrelated background work.
+        // Background feed refresh starts after launch content has loaded.
         if (feed_updater != null && GLib.Environment.get_variable("PAPERBOY_LEAK_TEST") == null) {
             GLib.Timeout.add_seconds(45, () => {
-                feed_updater.start_recurring_updates();
+                feed_updater.start();
                 return false; // One-shot
             });
         }
 
         // Start the sports live-game poller (if enabled) with a short delay -
-        // unlike feed_updater's regeneration work, this is just a lightweight
-        // score fetch, so it doesn't need feed_updater's full 45s launch-smoothing
-        // delay, just enough to let initial content load first.
+        // it's a lightweight score fetch, so it only waits for initial content to load.
         if (sports_live_indicator != null && prefs.sports_live_indicator_enabled && prefs.sports_scores_enabled) {
             GLib.Timeout.add_seconds(5, () => {
                 sports_live_indicator.start();
@@ -1095,6 +1089,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                 article_manager.hero_carousel.force_settle();
             }
         });
+    }
+
+    // A feed opened with no generated file yet: show it once generated, or say why it can't be.
+    private void on_awaited_feed_generated(string old_url, string new_url, bool success) {
+        if (prefs.category != "rssfeed:" + old_url && prefs.category != "rssfeed:" + new_url) return;
+        GLib.debug("Feed refresh: awaited feed %s generated (success=%s), updating view", new_url, success.to_string());
+        if (success) {
+            prefs.category = "rssfeed:" + new_url;
+            fetch_news();
+        } else {
+            hide_loading_spinner();
+            show_error_message("Couldn't build a feed for this site right now. Paperboy will try again later.");
+        }
     }
 
     // Public helper so external callers (e.g., dialogs) can close an open article preview
