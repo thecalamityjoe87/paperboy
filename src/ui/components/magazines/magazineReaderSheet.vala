@@ -196,6 +196,7 @@ public class MagazineReaderSheet : GLib.Object {
     // render_current_page_async) alongside the main thread's own.
     private static GLib.Mutex poppler_lock;
     private int current_page = 0;
+    private Paperboy.MagazineEntry? open_entry = null;
     private int page_count = 0;
     private double zoom = 1.0;
     // Defaults on - a magazine reads as a two-page spread from the start,
@@ -259,6 +260,7 @@ public class MagazineReaderSheet : GLib.Object {
     // same idea as MagazinePdfImportService's own background-thread use
     // of Poppler.
     public void open_for_entry(Paperboy.MagazineEntry entry) {
+        save_position();
         if (window != null && window.toast_manager != null) window.toast_manager.show_persistent_toast("Opening magazine…");
 
         new GLib.Thread<void*>("magazine-open", () => {
@@ -294,7 +296,9 @@ public class MagazineReaderSheet : GLib.Object {
 
         title_label.set_text(entry.title.length > 0 ? entry.title : "Magazine");
         page_count = document.get_n_pages();
-        current_page = 0;
+        open_entry = entry;
+        current_page = entry.last_page.clamp(0, int.max(page_count - 1, 0));
+        if (spread_mode && current_page % 2 != 0) current_page -= 1;
         active_slot = 0;
         pages_stack.set_visible_child_name("slot0");
         update_cached_content_size();
@@ -324,8 +328,16 @@ public class MagazineReaderSheet : GLib.Object {
     }
 
     public void close() {
+        save_position();
         revealer.set_reveal_child(false);
         toc_pane.close();
+    }
+
+    // One write per close, not per page turn.
+    public void save_position() {
+        if (open_entry == null || open_entry.last_page == current_page) return;
+        open_entry.last_page = current_page;
+        Paperboy.MagazineLibraryStore.get_instance().update_last_page(open_entry.id, current_page);
     }
 
     public bool is_open() {

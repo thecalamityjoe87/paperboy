@@ -1052,6 +1052,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             StocksTickerController.reset();
             if (market_status != null) market_status.stop();
             if (podcast_playback != null) podcast_playback.flush_progress();
+            if (magazine_reader_sheet != null && magazine_reader_sheet.is_open()) magazine_reader_sheet.save_position();
 
             // Clean up old cached articles (frontpage and RSS feeds)
             var cache = Paperboy.RssArticleCache.get_instance();

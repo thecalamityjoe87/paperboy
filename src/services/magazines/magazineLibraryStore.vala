@@ -127,6 +127,7 @@ namespace Paperboy {
             // this column added on top of their already-created table.
             db.exec("ALTER TABLE magazine_entries ADD COLUMN category TEXT;", null, null);
             db.exec("ALTER TABLE magazine_entries ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;", null, null);
+            db.exec("ALTER TABLE magazine_entries ADD COLUMN last_page INTEGER NOT NULL DEFAULT 0;", null, null);
         }
 
         // Next free position at the FRONT of the manual drag-and-drop
@@ -331,6 +332,16 @@ namespace Paperboy {
             if (updated != null) entry_updated(updated);
         }
 
+        // No signal on purpose - nothing in the library UI shows the page.
+        public void update_last_page(int64 entry_id, int page) {
+            if (db == null) return;
+            Sqlite.Statement stmt;
+            if (db.prepare_v2("UPDATE magazine_entries SET last_page = ? WHERE id = ?;", -1, out stmt) != Sqlite.OK) return;
+            stmt.bind_int(1, page);
+            stmt.bind_int64(2, entry_id);
+            if (stmt.step() != Sqlite.DONE) GLib.warning("Failed to save magazine page: %s", db.errmsg());
+        }
+
         // Rewrites sort_order to 0..N-1 following ordered_ids exactly -
         // used after a drag-and-drop reorder, where the caller has already
         // computed the full desired display order for every entry
@@ -376,7 +387,7 @@ namespace Paperboy {
 
         public Paperboy.MagazineEntry? get_entry(int64 entry_id) {
             if (db == null) return null;
-            string sql = "SELECT id, source_id, title, source_url, local_path, thumbnail_path, added_at, category, sort_order FROM magazine_entries WHERE id = ?;";
+            string sql = "SELECT id, source_id, title, source_url, local_path, thumbnail_path, added_at, category, sort_order, last_page FROM magazine_entries WHERE id = ?;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) return null;
@@ -393,7 +404,7 @@ namespace Paperboy {
 
             // sort_order first (the manual drag-and-drop order), added_at
             // as a tiebreaker for legacy rows that all default to 0.
-            string sql = "SELECT id, source_id, title, source_url, local_path, thumbnail_path, added_at, category, sort_order FROM magazine_entries ORDER BY sort_order ASC, added_at DESC;";
+            string sql = "SELECT id, source_id, title, source_url, local_path, thumbnail_path, added_at, category, sort_order, last_page FROM magazine_entries ORDER BY sort_order ASC, added_at DESC;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) return entries;
@@ -425,6 +436,7 @@ namespace Paperboy {
             entry.added_at = stmt.column_int64(6);
             entry.category = stmt.column_text(7);
             entry.sort_order = stmt.column_int64(8);
+            entry.last_page = stmt.column_int(9);
             return entry;
         }
     }
