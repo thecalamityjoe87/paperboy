@@ -1042,7 +1042,6 @@ public class ContentView : GLib.Object {
         // RESTORE MODE: query cleared - rebuild the real view via fetch_news()
         // below, so just drop the search snapshot rather than replaying it.
         if (query_lower.length == 0) {
-            window.layout_manager.discard_search_snapshot();
             window.search_manager.forget_result_urls();
             malloc_trim(0);
             hero_container.set_visible(true);
@@ -1057,26 +1056,14 @@ public class ContentView : GLib.Object {
             return;
         }
 
-        // SEARCH MODE: Prepare for filtering
-        window.layout_manager.prepare_for_search_filter();
-
-        // UI presentation: hide hero
-        hero_container.set_visible(false);
-
-        // Sports' live-score sections (SportsScoresController) render
-        // underneath the hero independently of everything else here -
-        // search results shouldn't show live scores from whatever category
-        // was on screen before searching.
-        if (sports_scores_container != null) sports_scores_container.set_visible(false);
-        if (favorite_teams_container != null) favorite_teams_container.set_visible(false);
-        if (favorite_teams_label != null) favorite_teams_label.set_visible(false);
-        if (favorite_teams_separator != null) favorite_teams_separator.set_visible(false);
-        if (league_badge_carousel != null) league_badge_carousel.root.set_visible(false);
-        if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
-        if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
-        if (stocks_ticker_container != null) stocks_ticker_container.set_visible(false);
-        if (hero_stocks_separator != null) hero_stocks_separator.set_visible(false);
-        if (stocks_articles_separator != null) stocks_articles_separator.set_visible(false);
+        // SEARCH MODE: search is its own view. End the underlying view's session and clear
+        // every view's sections (heroes, Trending, rows, scores, stocks); results use the
+        // standard grid. Clearing the query rebuilds the underlying view via fetch_news() above.
+        FetchContext.begin_new(window);
+        if (window.loading_state != null) window.loading_state.end_for_search();
+        hide_all_pages();
+        if (myfeed_extras_container != null) myfeed_extras_container.set_visible(false);
+        window.layout_manager.enter_search_layout();
 
         // Search spans every category, not just the one on screen (e.g.
         // "Sports") - keeping that category's name/icon while showing

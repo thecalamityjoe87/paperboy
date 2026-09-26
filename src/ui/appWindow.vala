@@ -999,7 +999,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Debug-only: PAPERBOY_LEAK_TEST=1 headlessly drives repeated
         // search->clear cycles and logs RSS, for reproducing memory issues
         // without a rendered window - see run_leak_test().
-        if (GLib.Environment.get_variable("PAPERBOY_LEAK_TEST") != null) {
+        string? leak_test = GLib.Environment.get_variable("PAPERBOY_LEAK_TEST");
+        if (leak_test == "views") {
+            run_view_cycle_test();
+        } else if (leak_test != null) {
             run_leak_test();
         }
 
@@ -1302,6 +1305,37 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Suppress clearing here to avoid excessive eviction when switching
         // categories; rely on the LRU policy instead. Window-close still
         // frees widget-held textures elsewhere.
+    }
+
+    // Debug-only: PAPERBOY_LEAK_TEST=views cycles views through the same path as a
+    // sidebar click, PAPERBOY_LEAK_ROUNDS times, then quits. PAPERBOY_LEAK_VIEWS is a
+    // comma-separated list of view ids and PAPERBOY_LEAK_DWELL_MS the time on each.
+    private void run_view_cycle_test() {
+        string? views_env = GLib.Environment.get_variable("PAPERBOY_LEAK_VIEWS");
+        string[] ids = views_env != null ? views_env.split(",") : new string[] { "frontpage", "myfeed", "sports" };
+        string[] titles = ids;
+        string? rounds_env = GLib.Environment.get_variable("PAPERBOY_LEAK_ROUNDS");
+        int total = (rounds_env != null ? int.parse(rounds_env) : 6) * ids.length;
+        string? dwell_env = GLib.Environment.get_variable("PAPERBOY_LEAK_DWELL_MS");
+        uint dwell = dwell_env != null ? (uint) int.parse(dwell_env) : 8000;
+        int step = 0;
+        Timeout.add(dwell, () => {
+            if (step >= total) {
+                AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log", "view_cycle_test: done");
+                this.close();
+                return false;
+            }
+            int k = step % ids.length;
+            if (loading_state != null) {
+                AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log", "overlays on=%s error_or_empty=%s personalized=%s local_news=%s".printf(prefs.category,
+                    (loading_state.error_message_box != null && loading_state.error_message_box.get_visible()).to_string(),
+                    (loading_state.personalized_message_box != null && loading_state.personalized_message_box.get_visible()).to_string(),
+                    (loading_state.local_news_message_box != null && loading_state.local_news_message_box.get_visible()).to_string()));
+            }
+            if (sidebar_manager != null) sidebar_manager.handle_item_activation(ids[k], titles[k]);
+            step++;
+            return true;
+        });
     }
 
     // Debug-only headless leak repro - see PAPERBOY_LEAK_TEST above.

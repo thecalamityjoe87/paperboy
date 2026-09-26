@@ -259,11 +259,6 @@ public class MyFeedExtrasController : GLib.Object {
     private static void render_sports_row(NewsWindow win, Gee.ArrayList<GameScore> games) {
         if (win.content_view == null || win.content_view.myfeed_extras_container == null) return;
         if (active_ctx == null || !active_ctx.still_owns_view()) return;
-        // still_owns_view() alone isn't enough - it only catches a
-        // cancelled FetchContext, and not every page that can be navigated
-        // to (e.g. Magazines) invalidates the context on entry. Checking
-        // the category directly closes that gap regardless.
-        if (win.prefs.category != "myfeed") return;
         if (games.size == 0) return;
 
         // A single-league row is titled after that league; a mixed row gets
@@ -297,7 +292,6 @@ public class MyFeedExtrasController : GLib.Object {
     private static void render_market_row(NewsWindow win, Gee.ArrayList<MarketIndexQuote> quotes) {
         if (win.content_view == null || win.content_view.myfeed_extras_container == null) return;
         if (active_ctx == null || !active_ctx.still_owns_view()) return;
-        if (win.prefs.category != "myfeed") return;
 
         var section = new CategorySection(win, "Markets", "myfeed:market", true, false, null, false, null, "business", false);
         section.wrapper.add_css_class("frontpage-section-divider");

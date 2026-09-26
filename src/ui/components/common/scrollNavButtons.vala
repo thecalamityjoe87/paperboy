@@ -65,7 +65,6 @@ public class ScrollNavButtons : GLib.Object {
         left_button.set_margin_start(edge_margin);
         left_button.set_margin_end(edge_margin);
         overlay.add_overlay(left_button);
-        left_button.clicked.connect(() => prev_requested());
 
         right_button = new Gtk.Button.with_label("→");
         right_button.add_css_class("scroll-nav-arrow-label");
@@ -76,11 +75,24 @@ public class ScrollNavButtons : GLib.Object {
         right_button.set_margin_start(edge_margin);
         right_button.set_margin_end(edge_margin);
         overlay.add_overlay(right_button);
-        right_button.clicked.connect(() => next_requested());
+
+        // The overlay owns this object. Every closure below lives on the overlay or its
+        // children, so it holds them unowned - a strong capture kept whole sections alive.
+        overlay.set_data<ScrollNavButtons>("scroll-nav-buttons", this);
+        wire(this, overlay, left_button, right_button, css_class, edge_zone_width);
+    }
+
+    private static void wire(ScrollNavButtons nav, Gtk.Overlay overlay, Gtk.Button left, Gtk.Button right, string css_class, int? edge_zone_width) {
+        unowned ScrollNavButtons self_ref = nav;
+        unowned Gtk.Overlay ov = overlay;
+        unowned Gtk.Button left_button = left;
+        unowned Gtk.Button right_button = right;
+        left_button.clicked.connect(() => self_ref.prev_requested());
+        right_button.clicked.connect(() => self_ref.next_requested());
 
         var nav_motion = new Gtk.EventControllerMotion();
         nav_motion.motion.connect((x, y) => {
-            int w = overlay.get_width();
+            int w = ov.get_width();
             if (w <= 0) return;
 
             bool left_side, right_side;
@@ -118,13 +130,21 @@ public class ScrollNavButtons : GLib.Object {
     * the ":disabled" CSS rule, invisible even when hovered).
     */
     public void bind_adjustment(Gtk.Adjustment adj) {
-        adj.value_changed.connect(() => update_sensitivity(adj));
-        adj.changed.connect(() => update_sensitivity(adj));
-        update_sensitivity(adj);
+        bind_sensitivity(adj, left_button, right_button);
     }
 
-    private void update_sensitivity(Gtk.Adjustment adj) {
-        left_button.set_sensitive(adj.get_value() > adj.get_lower() + 1.0);
-        right_button.set_sensitive(adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0);
+    // Static and unowned for the same reason as wire(): these live on the scroller's own adjustment.
+    private static void bind_sensitivity(Gtk.Adjustment adj, Gtk.Button left, Gtk.Button right) {
+        unowned Gtk.Adjustment a = adj;
+        unowned Gtk.Button l = left;
+        unowned Gtk.Button r = right;
+        adj.value_changed.connect(() => update_sensitivity(a, l, r));
+        adj.changed.connect(() => update_sensitivity(a, l, r));
+        update_sensitivity(adj, left, right);
+    }
+
+    private static void update_sensitivity(Gtk.Adjustment adj, Gtk.Button left, Gtk.Button right) {
+        left.set_sensitive(adj.get_value() > adj.get_lower() + 1.0);
+        right.set_sensitive(adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0);
     }
 }

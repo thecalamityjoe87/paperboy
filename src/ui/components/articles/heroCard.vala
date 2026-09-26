@@ -19,6 +19,8 @@ using Gtk;
 using GLib;
 
 public class HeroCard : GLib.Object {
+
+
     public Gtk.Box root;
     public Gtk.Overlay overlay;
     public Gtk.Picture image;
@@ -372,9 +374,13 @@ public class HeroCard : GLib.Object {
             });
         }
 
+        // Unowned: these handlers live on root_widget's own controllers, and a strong
+        // capture of it is a reference cycle that kept every hero alive.
+        unowned Gtk.Box root_ref = root_widget;
+        unowned Gtk.Box badge_slot_ref = viewed_badge_slot;
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        motion.enter.connect(() => { root_ref.add_css_class("card-hover"); });
+        motion.leave.connect(() => { root_ref.remove_css_class("card-hover"); });
         root_widget.add_controller(motion);
 
         if (enable_context_menu) {
@@ -382,7 +388,7 @@ public class HeroCard : GLib.Object {
             right_click.set_button(3);
             right_click.pressed.connect((n_press, x, y) => {
                 show_context_menu(
-                    root_widget, card_url, article_state_store, parent_window, source_name, viewed_badge_slot, x, y,
+                    root_ref, card_url, article_state_store, parent_window, source_name, badge_slot_ref, x, y,
                     on_open_in_app, on_open_in_browser, on_follow_source, on_save_for_later, on_share
                 );
             });

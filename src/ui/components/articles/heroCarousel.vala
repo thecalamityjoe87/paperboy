@@ -41,6 +41,8 @@ private class CarouselState : GLib.Object {
 }
 
 public class HeroCarousel : GLib.Object {
+
+
     public Box? container;
 
     // Layout constants - kept equal since the picture spans the card's full height.

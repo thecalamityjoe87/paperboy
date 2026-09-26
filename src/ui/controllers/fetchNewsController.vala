@@ -17,7 +17,7 @@
 
 public class FetchNewsController {
 
-    // Multi-source fetches buffer incoming articles per FetchContext.seq and flush
+    // Multi-source fetches buffer incoming articles on their FetchContext and flush
     // newest-first once things go quiet (or MULTI_SOURCE_MAX_WAIT_MS elapses), instead
     // of ordering by whichever source responds first. Late arrivals after a flush stream
     // straight through unbuffered.
@@ -31,38 +31,11 @@ public class FetchNewsController {
     // category fan-out can return 1000+ raw candidates with no display cap to fall
     // back on, so this is the only thing bounding per-flush cost.
     private const int MULTI_SOURCE_BUFFER_CAP = 400;
-    // static Gee fields need lazy init in Vala - a field initializer here never runs
-    // since this class is never instantiated
-    private static Gee.HashMap<uint, Gee.ArrayList<ArticleItem>>? _multi_source_buffers = null;
-    private static Gee.HashMap<uint, uint>? _multi_source_timeouts = null;
-    private static Gee.HashMap<uint, int64?>? _multi_source_started_at = null;
-    private static Gee.HashSet<uint>? _multi_source_flushed = null;
-
-    private static Gee.HashMap<uint, Gee.ArrayList<ArticleItem>> multi_source_buffers() {
-        if (_multi_source_buffers == null) _multi_source_buffers = new Gee.HashMap<uint, Gee.ArrayList<ArticleItem>>();
-        return _multi_source_buffers;
-    }
-    private static Gee.HashMap<uint, uint> multi_source_timeouts() {
-        if (_multi_source_timeouts == null) _multi_source_timeouts = new Gee.HashMap<uint, uint>();
-        return _multi_source_timeouts;
-    }
-    private static Gee.HashMap<uint, int64?> multi_source_started_at() {
-        if (_multi_source_started_at == null) _multi_source_started_at = new Gee.HashMap<uint, int64?>();
-        return _multi_source_started_at;
-    }
-    private static Gee.HashSet<uint> multi_source_flushed() {
-        if (_multi_source_flushed == null) _multi_source_flushed = new Gee.HashSet<uint>();
-        return _multi_source_flushed;
-    }
 
     // shared tail of route_item(): both buffered and direct paths funnel through here
-    private static void dispatch_item(NewsWindow w, FetchContext cur, string title, string url, string? thumbnail, string category_id, string? source_name, string? published, string? snippet) {
-        // Single shared check (see FetchContext.still_owns_view): the
-        // category this fetch started for may no longer be on screen, or a
-        // global search may since have taken over the shared containers
-        // this would render into (ContentView.filter_by_query) - either way
-        // this item no longer belongs to the view currently on screen.
+    private static void dispatch_item(FetchContext cur, ArticleItem it) {
         if (!cur.still_owns_view()) return;
+        var w = cur.window;
 
         var cat_mgr = w.category_manager;
         var layout_mgr = w.layout_manager;
@@ -73,11 +46,11 @@ public class FetchNewsController {
             !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
             w.prefs != null && w.prefs.category != "saved";
             if (is_regular_cat) {
-                layout_mgr.track_category_article(cur.seq);
+                layout_mgr.track_category_article();
             }
         }
         if (article_mgr != null) {
-            article_mgr.add_item(title, url, thumbnail, category_id, source_name, published, snippet);
+            article_mgr.add_item(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published, it.snippet);
         }
     }
 
@@ -86,32 +59,26 @@ public class FetchNewsController {
     // burst of near-simultaneous responses gets sorted together, but is
     // capped by MULTI_SOURCE_MAX_WAIT_MS from the first item so one
     // unusually slow source can't hold up the whole view.
-    private static void buffer_multi_source_item(uint seq, string title, string url, string? thumbnail, string category_id, string? source_name, string? published, string? snippet) {
-        if (!multi_source_buffers().has_key(seq)) {
-            multi_source_buffers().set(seq, new Gee.ArrayList<ArticleItem>());
-            multi_source_started_at().set(seq, GLib.get_monotonic_time());
+    private static void buffer_multi_source_item(FetchContext ctx, ArticleItem item) {
+        if (ctx.multi_source_buffer == null) {
+            ctx.multi_source_buffer = new Gee.ArrayList<ArticleItem>();
+            ctx.multi_source_started_at = GLib.get_monotonic_time();
         }
-        var item = new ArticleItem(title, url, thumbnail, category_id, source_name, published);
-        item.snippet = snippet;
-        var buffered = multi_source_buffers().get(seq);
+        var buffered = ctx.multi_source_buffer;
         buffered.add(item);
         if (buffered.size > MULTI_SOURCE_BUFFER_CAP) evict_oldest_buffered_item(buffered);
 
-        if (multi_source_timeouts().has_key(seq)) {
-            GLib.Source.remove(multi_source_timeouts().get(seq));
-            multi_source_timeouts().unset(seq);
-        }
+        ViewSession.remove_source(ref ctx.multi_source_flush_id);
 
-        int64 elapsed_ms = (GLib.get_monotonic_time() - multi_source_started_at().get(seq)) / 1000;
+        int64 elapsed_ms = (GLib.get_monotonic_time() - ctx.multi_source_started_at) / 1000;
         int64 remaining_ms = MULTI_SOURCE_MAX_WAIT_MS - elapsed_ms;
         uint delay = (remaining_ms > MULTI_SOURCE_DEBOUNCE_MS) ? MULTI_SOURCE_DEBOUNCE_MS : (remaining_ms > 0 ? (uint) remaining_ms : 0);
 
-        uint tid = Timeout.add(delay, () => {
-            multi_source_timeouts().unset(seq);
-            flush_multi_source_buffer(seq);
+        ctx.multi_source_flush_id = ctx.session.timeout(delay, () => {
+            ctx.multi_source_flush_id = 0;
+            flush_multi_source_buffer(ctx);
             return false;
         });
-        multi_source_timeouts().set(seq, tid);
     }
 
     // Evict the oldest item from whichever pool (myfeed vs. built-in) currently holds
@@ -138,19 +105,11 @@ public class FetchNewsController {
     }
 
     // sort newest-first (undated articles sort last, keeping arrival order among themselves)
-    private static void flush_multi_source_buffer(uint seq) {
-        if (!multi_source_buffers().has_key(seq)) return;
-        var items = multi_source_buffers().get(seq);
-        multi_source_buffers().unset(seq);
-        multi_source_started_at().unset(seq);
-        multi_source_flushed().add(seq);
-
-        if (!FetchContext.is_current(seq)) return;
-        var cur = FetchContext.current_context();
-        if (cur == null || !cur.is_valid() || cur.seq != seq) return;
-        var w = cur.window;
-        if (w == null) return;
-        if (w.prefs != null && cur.expected_category != null && w.prefs.category != cur.expected_category) return;
+    private static void flush_multi_source_buffer(FetchContext ctx) {
+        var items = ctx.multi_source_buffer;
+        ctx.multi_source_buffer = null;
+        ctx.multi_source_flushed = true;
+        if (items == null || !ctx.still_owns_view()) return;
 
         items.sort((a, b) => {
             var da = DateUtils.parse_published_datetime(a.published);
@@ -163,18 +122,10 @@ public class FetchNewsController {
 
         // dispatch in small batches via Idle so building many cards doesn't block the main loop
         int index = 0;
-        Idle.add(() => {
-            if (!FetchContext.is_current(seq)) return false;
-            var cur2 = FetchContext.current_context();
-            if (cur2 == null || !cur2.is_valid() || cur2.seq != seq) return false;
-            var w2 = cur2.window;
-            if (w2 == null) return false;
-            if (w2.prefs != null && cur2.expected_category != null && w2.prefs.category != cur2.expected_category) return false;
-
+        ctx.session.idle(() => {
             int64 batch_start = GLib.get_monotonic_time();
             while (index < items.size && (GLib.get_monotonic_time() - batch_start) < DISPATCH_BATCH_BUDGET_US) {
-                var item = items.get(index);
-                dispatch_item(w2, cur2, item.title, item.url, item.thumbnail_url, item.category_id, item.source_name, item.published, item.snippet);
+                dispatch_item(ctx, items.get(index));
                 index++;
             }
             return index < items.size;
@@ -187,24 +138,30 @@ public class FetchNewsController {
         return new FetchSink(ctx.session, (it) => route_item(ctx, it), (text) => forward_label(ctx, text), null, (owned) on_done);
     }
 
+    // My Feed's custom RSS sources: straight into ArticleManager, header-only labels.
+    // Built here rather than inline so its handlers never capture fetch_news()'s locals.
+    private static FetchSink myfeed_rss_sink(FetchContext ctx) {
+        return new FetchSink(ctx.session, (it) => {
+            if (!ctx.still_owns_view()) return;
+            ctx.window.article_manager.add_item(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published);
+        }, (text) => { if (ctx.still_owns_view()) ctx.window.update_content_header(); });
+    }
+
     // Front Page's Trending section: a second fetch layered onto the same view that
     // skips section routing/buffering and goes straight in as trending items.
-    private static FetchSink trending_sink(FetchContext ctx, uint seq) {
+    private static FetchSink trending_sink(FetchContext ctx) {
         return new FetchSink(ctx.session, (it) => {
-            if (!ctx.is_valid()) return;
+            if (!ctx.still_owns_view()) return;
             var w = ctx.window;
-            if (w.prefs != null && ctx.expected_category != null && w.prefs.category != ctx.expected_category) return;
             if (w.article_manager != null) {
                 w.article_manager.add_item(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published, it.snippet, true);
             }
-        }, (text) => forward_label(ctx, text), null, () => { mark_frontpage_endpoint_done(seq); });
+        }, (text) => forward_label(ctx, text), null, () => { mark_frontpage_endpoint_done(ctx); });
     }
 
     private static void forward_label(FetchContext ctx, string? text) {
-        if (ctx.is_local_only_view() || !ctx.is_valid()) return;
+        if (ctx.is_local_only_view() || !ctx.still_owns_view()) return;
         var win = ctx.window;
-        if (win == null) return;
-        if (win.prefs != null && win.prefs.category != ctx.expected_category) return;
 
         if (text != null) {
             string lower = text.down();
@@ -220,19 +177,14 @@ public class FetchNewsController {
     }
 
     private static void route_item(FetchContext cur, ArticleItem it) {
-        if (!cur.is_valid()) return;
-        var w = cur.window;
-        if (w == null) return;
+        if (!cur.still_owns_view()) return;
 
-        // discard if the user switched categories before this fetch completed
-        if (w.prefs != null && cur.expected_category != null && w.prefs.category != cur.expected_category) return;
-
-        if (cur.is_multi_source && !multi_source_flushed().contains(cur.seq)) {
-            buffer_multi_source_item(cur.seq, it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published, it.snippet);
+        if (cur.is_multi_source && !cur.multi_source_flushed) {
+            buffer_multi_source_item(cur, it);
             return;
         }
 
-        dispatch_item(w, cur, it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published, it.snippet);
+        dispatch_item(cur, it);
     }
 
     // Front Page fires the frontpage list and Trending as two independent
@@ -240,43 +192,17 @@ public class FetchNewsController {
     // this counts down as each one's on_done fires and only lets the
     // initial reveal through once both have reported in, so the two
     // sections stop popping in at visibly different times.
-    private static Gee.HashMap<uint, int>? _frontpage_endpoints_done = null;
-    private static Gee.HashMap<uint, int> frontpage_endpoints_done() {
-        if (_frontpage_endpoints_done == null) _frontpage_endpoints_done = new Gee.HashMap<uint, int>();
-        return _frontpage_endpoints_done;
+    private static void mark_frontpage_endpoint_done(FetchContext ctx) {
+        if (!ctx.still_owns_view()) return;
+        ctx.frontpage_endpoints_done++;
+        if (ctx.frontpage_endpoints_done < 2) return;
+
+        var ls = ctx.window.loading_state;
+        if (ls != null) {
+            ls.awaiting_frontpage_endpoints = false;
+            if (ls.initial_items_populated && ls.initial_phase) ls.reveal_initial_content();
+        }
     }
-
-    private static void mark_frontpage_endpoint_done(uint seq) {
-        Idle.add(() => {
-            if (!FetchContext.is_current(seq)) {
-                frontpage_endpoints_done().unset(seq);
-                return false;
-            }
-            var cur = FetchContext.current_context();
-            if (cur == null || !cur.is_valid() || cur.seq != seq) {
-                frontpage_endpoints_done().unset(seq);
-                return false;
-            }
-            var w = cur.window;
-            if (w == null) return false;
-
-            int count = frontpage_endpoints_done().has_key(seq) ? frontpage_endpoints_done().get(seq) : 0;
-            count++;
-            frontpage_endpoints_done().set(seq, count);
-
-            if (count >= 2) {
-                frontpage_endpoints_done().unset(seq);
-                if (w.loading_state != null) {
-                    w.loading_state.awaiting_frontpage_endpoints = false;
-                    if (w.loading_state.initial_items_populated && w.loading_state.initial_phase) {
-                        w.loading_state.reveal_initial_content();
-                    }
-                }
-            }
-            return false;
-        });
-    }
-
 
     public static void fetch_news(NewsWindow win) {
         if (win == null) return;
@@ -284,7 +210,6 @@ public class FetchNewsController {
         // Close the previous view's session before any setup below schedules per-view work.
         // All window access in async callbacks must go through this context.
         var ctx = FetchContext.begin_new(win);
-        uint my_seq = ctx.seq;
 
         if (win.image_manager != null) win.image_manager.cleanup_stale_downloads();
 
@@ -345,10 +270,7 @@ public class FetchNewsController {
 
         if (loading_state != null) {
             loading_state.initial_reveal_timeout_id = ctx.session.timeout(NewsWindow.INITIAL_MAX_WAIT_MS, () => {
-                if (!FetchContext.is_current(my_seq)) return false;
-                var cur = FetchContext.current_context();
-                if (cur == null) return false;
-                var w = cur.window;
+                var w = ctx.window;
                 if (w == null) return false;
 
                 var ls = w.loading_state;
@@ -384,10 +306,7 @@ public class FetchNewsController {
         
         SetLabelFunc wrapped_set_label = (text) => {
             ctx.session.idle(() => {
-                if (!FetchContext.is_current(my_seq)) return false;
-                var cur = FetchContext.current_context();
-                if (cur == null) return false;
-                var w = cur.window;
+                var w = ctx.window;
                 if (w == null) return false;
                 if (text != null) {
                     string lower = text.down();
@@ -409,10 +328,7 @@ public class FetchNewsController {
         bool wrapped_clear_ran = false;
         ClearItemsFunc wrapped_clear = () => {
             ctx.session.idle(() => {
-                if (!FetchContext.is_current(my_seq)) return false;
-                var cur = FetchContext.current_context();
-                if (cur == null) return false;
-                var w = cur.window;
+                var w = ctx.window;
                 if (w == null) return false;
                 if (wrapped_clear_ran) {
                     return false;
@@ -475,16 +391,8 @@ public class FetchNewsController {
         bool ui_add_idle_scheduled = false;
 
         AddItemFunc wrapped_add = (title, url, thumbnail, category_id, source_name, published) => {
-            var cur_start = FetchContext.current_context();
-            if (cur_start == null || cur_start.seq != my_seq) return;
-            var w = cur_start.window;
-            if (w == null) return;
-
-            if (w.prefs != null && cur_start.expected_category != null) {
-                if (w.prefs.category != cur_start.expected_category) {
-                    return;
-                }
-            }
+            if (!ctx.still_owns_view()) return;
+            var w = ctx.window;
 
             // limited categories only, not frontpage/topten/all
             bool viewing_limited_category = (
@@ -516,21 +424,7 @@ public class FetchNewsController {
                             while (local_news_queue.size > 0 && processed < batch) {
                                 var ai = local_news_queue.get(0);
                                 local_news_queue.remove_at(0);
-                                if (!FetchContext.is_current(my_seq)) {
-                                    // stale fetch; drop item
-                                } else {
-                                    var cur2 = FetchContext.current_context();
-                                    if (cur2 != null) {
-                                        var w2 = cur2.window;
-                                        if (w2 != null && w2.prefs != null && cur2.expected_category != null) {
-                                            if (w2.prefs.category == cur2.expected_category) {
-                                                w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
-                                            }
-                                        } else if (w2 != null) {
-                                            w2.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
-                                        }
-                                    }
-                                }
+                                w.article_manager.add_item(ai.title, ai.url, ai.thumbnail_url, ai.category_id, ai.source_name, ai.published);
                                 processed++;
                             }
                             if (local_news_queue.size > 0) {
@@ -622,7 +516,7 @@ if (is_myfeed_mode) {
         }
 
         if (win.category_manager.is_rssfeed_view()) {
-            if (FetchNewsController.handle_rss_feed(win, ctx, wrapped_set_label, wrapped_clear, wrapped_add, win.session, current_search_query, my_seq))
+            if (FetchNewsController.handle_rss_feed(win, ctx, wrapped_set_label, wrapped_clear, wrapped_add, win.session, current_search_query))
                 return;
         }
         // handled before the multi-source branch so it works with zero/one preferred sources
@@ -637,19 +531,19 @@ if (is_myfeed_mode) {
             // so they always appear together instead of Trending lagging
             // in visibly after the frontpage list.
             if (win.loading_state != null) win.loading_state.awaiting_frontpage_endpoints = true;
-            NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, news_sink(ctx, () => { FetchNewsController.mark_frontpage_endpoint_done(my_seq); }));
+            NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, news_sink(ctx, () => { FetchNewsController.mark_frontpage_endpoint_done(ctx); }));
 
             // Trending section: a second, independent fetch layered onto the
             // Front Page (see trending_sink()) - same
             // backend data Top Ten used to show on its own page, now inline
             // between the Hero Carousel and Headlines.
             win.layout_manager.configure_trending_section();
-            var trending_fetcher = new PaperboyFetcher(trending_sink(ctx, my_seq));
+            var trending_fetcher = new PaperboyFetcher(trending_sink(ctx));
             trending_fetcher.fetch("topten", current_search_query, win.session);
 
             var sidebar_mgr = win.sidebar_manager;
             if (sidebar_mgr != null) {
-                sidebar_mgr.schedule_badge_refresh("frontpage", my_seq);
+                sidebar_mgr.schedule_badge_refresh("frontpage");
             }
             return;
         }
@@ -670,7 +564,7 @@ if (is_myfeed_mode) {
                 // Schedule badge refresh for frontpage
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh("frontpage", my_seq);
+                    sidebar_mgr.schedule_badge_refresh("frontpage");
                 }
                 return;
             }
@@ -728,7 +622,7 @@ if (is_myfeed_mode) {
                 if (!is_myfeed_mode) {
                     var sidebar_mgr = win.sidebar_manager;
                     if (sidebar_mgr != null) {
-                        sidebar_mgr.schedule_badge_refresh(win.prefs.category, my_seq);
+                        sidebar_mgr.schedule_badge_refresh(win.prefs.category);
                     }
                 }
 
@@ -757,7 +651,7 @@ if (is_myfeed_mode) {
 
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh("frontpage", my_seq);
+                    sidebar_mgr.schedule_badge_refresh("frontpage");
                 }
                 return;
             }
@@ -784,9 +678,7 @@ if (is_myfeed_mode) {
                             "myfeed",
                             current_search_query,
                             win.session,
-                            new FetchSink(ctx.session,
-                                (it) => wrapped_add(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published),
-                                (text) => { if (ctx.is_valid()) ctx.window.update_content_header(); }),
+                            myfeed_rss_sink(ctx),
                             cache_key
                         );
                     }
@@ -794,7 +686,7 @@ if (is_myfeed_mode) {
 
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh("myfeed", my_seq);
+                    sidebar_mgr.schedule_badge_refresh("myfeed");
                 }
             } else {
                 wrapped_clear();
@@ -808,79 +700,8 @@ if (is_myfeed_mode) {
 
                 var sidebar_mgr = win.sidebar_manager;
                 if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh(win.prefs.category, my_seq);
+                    sidebar_mgr.schedule_badge_refresh(win.prefs.category);
                 }
-            }
-        }
-    }
-
-    public static void schedule_adaptive_layout_check(NewsWindow win, uint my_seq) {
-        // check immediately, then again after a delay in case articles are still registering
-        ViewSession.view_idle(() => {
-            if (!FetchContext.is_current(my_seq)) return false;
-            perform_adaptive_check(win, my_seq);
-            return false;
-        });
-
-        ViewSession.view_timeout(600, () => {
-            if (!FetchContext.is_current(my_seq)) return false;
-            perform_adaptive_check(win, my_seq);
-            return false;
-        });
-    }
-
-    private static void perform_adaptive_check(NewsWindow win, uint my_seq) {
-        if (!FetchContext.is_current(my_seq)) return;
-        var cur = FetchContext.current_context();
-        if (cur == null) return;
-        var w = cur.window;
-        if (w == null) return;
-
-        var cat_mgr = w.category_manager;
-        var store = w.article_state_store;
-        var layout_mgr = w.layout_manager;
-
-        // Only check for regular categories, not special ones
-        if (cat_mgr != null && store != null && layout_mgr != null) {
-            if (!cat_mgr.is_frontpage_view() &&
-                !cat_mgr.is_myfeed_category() && !cat_mgr.is_local_news_view() &&
-                !cat_mgr.is_rssfeed_view() && w.prefs != null && w.prefs.category != "saved") {
-
-                // Get actual deduplicated count from ArticleStateStore
-                int actual_count = store.get_total_count_for_category(w.prefs.category);
-                stderr.printf("DEBUG: adaptive layout check - category=%s, actual_count=%d\n",
-                w.prefs.category, actual_count);
-
-                if (actual_count < 15 && actual_count > 0) {
-                    stderr.printf("DEBUG: triggering adaptive 2-hero layout (count=%d < 15)\n", actual_count);
-                    ViewSession.view_idle(() => {
-                        if (!FetchContext.is_current(my_seq)) return false;
-                        var c = FetchContext.current_context();
-                        if (c != null && c.window != null && c.window.layout_manager != null) {
-                            // rebuild_as_category_heroes() will handle revealing content
-                            c.window.layout_manager.rebuild_as_category_heroes();
-                        }
-                        return false;
-                    });
-                } else if (actual_count >= 15) {
-                    // No adaptive layout needed (>= 15 articles), allow normal spinner hiding
-                    if (w.loading_state != null) {
-                        w.loading_state.awaiting_adaptive_layout = false;
-                        // Trigger reveal if items are already populated
-                        if (w.loading_state.initial_items_populated) {
-                            // CRITICAL: Don't use reveal_initial_content() - it exits early if initial_phase is false
-                            if (w.loading_state != null) {
-                                w.loading_state.initial_phase = false;
-                                w.loading_state.hero_image_loaded = false;
-                            }
-                            w.hide_loading_spinner();
-                            if (w.main_content_container != null) {
-                                w.main_content_container.set_visible(true);
-                            }
-                        }
-                    }
-                }
-                // If actual_count == 0, keep waiting (don't clear flag yet)
             }
         }
     }
@@ -894,8 +715,7 @@ if (is_myfeed_mode) {
         ClearItemsFunc wrapped_clear,
         AddItemFunc wrapped_add,
         Soup.Session session,
-        string current_search_query,
-        uint my_seq
+        string current_search_query
     ) {
         if (!win.category_manager.is_rssfeed_view()) return false;
 
@@ -999,7 +819,7 @@ if (is_myfeed_mode) {
 
         // Update badge after articles finish loading
         if (win.sidebar_manager != null) {
-            win.sidebar_manager.schedule_source_badge_refresh(feed_name, my_seq);
+            win.sidebar_manager.schedule_source_badge_refresh(feed_name);
         }
 
         return true;
@@ -1058,21 +878,13 @@ if (is_myfeed_mode) {
         }
 
         // Clear and repopulate in a single idle callback to ensure proper ordering
-        uint _saved_seq = ctx.seq;
         var session = ctx.session;
         session.idle(() => {
-            if (!FetchContext.is_current(_saved_seq)) return false;
-            var cur_saved = FetchContext.current_context();
-            if (cur_saved == null) return false;
-            var w = cur_saved.window;
+            var w = ctx.window;
             if (w == null) return false;
 
             // Set label based on search query
-            if (current_search_query.length > 0) {
-                wrapped_set_label("Search Results: " + current_search_query + " in Saved Articles");
-            } else {
-                wrapped_set_label("Saved Articles");
-            }
+            w.update_content_header();
 
             // Drop any hero carousel left over from the previous view.
             w.layout_manager.clear_featured_box();
@@ -1095,16 +907,8 @@ if (is_myfeed_mode) {
 
             // Add saved articles immediately after clearing
                 foreach (var article in saved_articles) {
-                if (article != null && FetchContext.is_current(_saved_seq)) {
-                    var cur4 = FetchContext.current_context();
-                    if (cur4 != null) {
-                        var w4 = cur4.window;
-                        if (w4 != null) {
-                            wrapped_add(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved", article.published);
-                        }
-                    }
+                    if (article != null) w.article_manager.add_item(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved", article.published);
                 }
-            }
 
             // Give the new cards the same hidden/offset starting state
             // LoadingStateManager.trigger_initial_reveals() uses for every
@@ -1138,7 +942,6 @@ if (is_myfeed_mode) {
             // the new widgets) become visible for a frame, seen as a quick
             // flash/reflow right after the cards appeared.
             session.idle(() => {
-                if (!FetchContext.is_current(_saved_seq)) return false;
                 // CRITICAL: Don't use reveal_initial_content() here because it exits early if initial_phase is false
                 // After an RSS timeout error, initial_phase is already false, so we must directly show the container
                 w.hide_loading_spinner();
@@ -1225,20 +1028,12 @@ if (is_myfeed_mode) {
             return true;
         }
 
-        uint _history_seq = ctx.seq;
         var session = ctx.session;
         session.idle(() => {
-            if (!FetchContext.is_current(_history_seq)) return false;
-            var cur_history = FetchContext.current_context();
-            if (cur_history == null) return false;
-            var w = cur_history.window;
+            var w = ctx.window;
             if (w == null) return false;
 
-            if (current_search_query.length > 0) {
-                wrapped_set_label("Search Results: " + current_search_query + " in History");
-            } else {
-                wrapped_set_label("History");
-            }
+            w.update_content_header();
 
             // History isn't a traditional feed page - clear any leftover
             // hero carousel ("FEATURED") from whatever category was viewed
@@ -1258,15 +1053,7 @@ if (is_myfeed_mode) {
             }
 
             foreach (var article in history_articles) {
-                if (article != null && FetchContext.is_current(_history_seq)) {
-                    var cur4 = FetchContext.current_context();
-                    if (cur4 != null) {
-                        var w4 = cur4.window;
-                        if (w4 != null) {
-                            wrapped_add(article.title, article.url, article.thumbnail, "history", article.source, article.published);
-                        }
-                    }
-                }
+                if (article != null) w.article_manager.add_item(article.title, article.url, article.thumbnail, "history", article.source, article.published);
             }
 
             if (w.layout_manager != null && w.layout_manager.columns_row != null) {
@@ -1284,7 +1071,6 @@ if (is_myfeed_mode) {
             }
 
             session.idle(() => {
-                if (!FetchContext.is_current(_history_seq)) return false;
                 w.hide_loading_spinner();
                 if (w.main_content_container != null) {
                     w.main_content_container.set_visible(true);

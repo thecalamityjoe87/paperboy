@@ -75,9 +75,6 @@ namespace Managers {
         // for Front Page, or the interleaved key list from prepare_myfeed_sections()
         // for My Feed - both modes share the same iteration code over this.
         private Gee.ArrayList<string>? active_section_order;
-        // Card root -> its home section, so search filtering (which temporarily
-        // removes non-matching cards) can restore them to their own section.
-        private Gee.HashMap<Gtk.Widget, CategorySection>? card_home_section;
         // Each section's randomly-rolled top-up target (see
         // reveal_sections_with_pending_overflow), cached so repeated calls
         // don't re-roll a different target each time.
@@ -112,9 +109,6 @@ namespace Managers {
         public uint adaptive_layout_timeout_id = 0;
         public int article_count_for_adaptive = 0;
 
-        // Search/filter state - store the original card widgets (in order) so they
-        // can be restored when the search query is cleared.
-        private Gee.ArrayList<Gtk.Widget>? all_original_cards = null;
 
         public LayoutManager(NewsWindow w) {
             window = w;
@@ -133,14 +127,10 @@ namespace Managers {
         // Schedules an adaptive layout check 400ms after the last article
         // arrival; if the category ends up with fewer than 15 articles,
         // rebuilds it as a 2-column hero layout.
-        public void track_category_article(uint current_fetch_seq) {
+        public void track_category_article() {
             ViewSession.remove_source(ref adaptive_layout_timeout_id);
 
             adaptive_layout_timeout_id = ViewSession.view_timeout(400, () => {
-                if (current_fetch_seq != FetchContext.current) {
-                    return false;
-                }
-
                 int actual_count = 0;
                 if (window != null && window.article_state_store != null && window.prefs != null) {
                     actual_count = window.article_state_store.get_total_count_for_category(window.prefs.category);
@@ -158,7 +148,6 @@ namespace Managers {
 
                 if (actual_count < 15 && actual_count > 0 && !is_sports) {
                     ViewSession.view_idle(() => {
-                        if (current_fetch_seq != FetchContext.current) return false;
                         rebuild_as_category_heroes();
                         return false;
                     });
@@ -512,18 +501,10 @@ namespace Managers {
                 child = next;
             }
 
-            // Reassigning category_sections/card_home_section below drops
-            // the *only* remaining references to the previous visit's
-            // CategorySection objects and card widgets - including, after a
-            // search, every pre-search card that discard_search_snapshot()/
-            // restore_original_layout() already detached from the widget
-            // tree but couldn't free on their own, since card_home_section
-            // still held each of them as a map key. That's a much bigger
-            // deallocation burst than the plain container-clear above, so
-            // trim after dropping these old maps, not before - trimming
-            // only here (once, after both) covers both bursts in one call.
+            // Reassigning category_sections below drops the
+            // only remaining references to the previous visit's sections and
+            // cards, so trim after dropping these old maps, not before.
             category_sections = new Gee.HashMap<string, CategorySection>();
-            card_home_section = new Gee.HashMap<Gtk.Widget, CategorySection>();
             section_target_depth = new Gee.HashMap<string, int>();
             active_section_order = new Gee.ArrayList<string>();
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) active_section_order.add(cat);
@@ -607,13 +588,8 @@ namespace Managers {
                 child = next;
             }
 
-            // See the matching comment in prepare_category_sections() -
-            // trim after dropping the old maps below, not before, since
-            // that's what actually releases a search's worth of detached
-            // pre-search cards that only card_home_section was still
-            // referencing.
+            // See the matching comment in prepare_category_sections().
             category_sections = new Gee.HashMap<string, CategorySection>();
-            card_home_section = new Gee.HashMap<Gtk.Widget, CategorySection>();
             section_target_depth = new Gee.HashMap<string, int>();
             active_section_order = new Gee.ArrayList<string>();
             malloc_trim(0);
@@ -725,7 +701,6 @@ namespace Managers {
             if (hero_frontpage_separator != null) hero_frontpage_separator.set_visible(false);
             if (columns_row != null) columns_row.set_visible(true);
             category_sections = null;
-            card_home_section = null;
             active_section_order = null;
             malloc_trim(0);
         }
@@ -752,7 +727,6 @@ namespace Managers {
             }
 
             section.add_card(card_root);
-            if (card_home_section != null) card_home_section.set(card_root, section);
         }
 
         /**
@@ -771,7 +745,6 @@ namespace Managers {
             if (section == null) return;
 
             section.add_card(card_root);
-            if (card_home_section != null) card_home_section.set(card_root, section);
         }
 
         /**
@@ -1009,198 +982,20 @@ namespace Managers {
             }
         }
 
-        /**
-        * Store the original card widgets (in order) before filtering, so they
-        * can be restored exactly when the search query is cleared.
-        */
-        public Gee.ArrayList<Gtk.Widget> store_original_card_positions() {
-            var original_cards = new Gee.ArrayList<Gtk.Widget>();
-
-            if (using_category_sections) {
-                if (category_sections == null || active_section_order == null) return original_cards;
-                foreach (string cat in active_section_order) {
-                    CategorySection? section = category_sections.get(cat);
-                    if (section == null) continue;
-                    Gtk.Widget? child = section.row.get_first_child();
-                    while (child != null) {
-                        original_cards.add(child);
-                        child = child.get_next_sibling();
-                    }
-                }
-                return original_cards;
-            }
-
-            if (columns_row == null) return original_cards;
-
-            Gtk.Widget? flow_child = columns_row.get_first_child();
-            while (flow_child != null) {
-                Gtk.Widget? card_root = unwrap_flow_child(flow_child);
-                if (card_root != null) {
-                    original_cards.add(card_root);
-                }
-                flow_child = flow_child.get_next_sibling();
-            }
-
-            return original_cards;
+        // Search results always use the standard flat grid, whatever layout the
+        // underlying view was in (category rows, Trending's 4 columns, adaptive heroes).
+        public void enter_search_layout() {
+            teardown_category_sections();
+            rebuild_columns(3);
         }
 
-        /**
-        * Remove all cards from the grid.
-        * Used during search filtering to clear the layout.
-        */
-        public void clear_all_columns_for_filter() {
-            if (using_category_sections) {
-                if (category_sections != null) {
-                    foreach (var section in category_sections.values) {
-                        Gtk.Widget? child = section.row.get_first_child();
-                        while (child != null) {
-                            Gtk.Widget? next = child.get_next_sibling();
-                            section.row.remove(child);
-                            child = next;
-                        }
-                        section.wrapper.set_visible(false);
-                    }
-                }
-                // Global search cards have no home section (they're built
-                // fresh from cross-category results, not from any section's
-                // original cards) and land in columns_row's fallback below -
-                // clear it too so repeated searches don't pile up stale
-                // cards from the previous keystroke's results.
-                clear_columns();
-                // Same reasoning as prepare_category_sections()/
-                // teardown_category_sections() below: search rebuilds up to
-                // MAX_RESULTS cards (with their own decoded thumbnails) on
-                // every debounced keystroke while typing, and freeing that
-                // many widgets in one burst is exactly the glibc
-                // fragmentation pattern malloc_trim() exists to clean up
-                // here - the widgets themselves are already correctly freed
-                // (SearchManager.adopt_result_urls() drops the previous
-                // batch's ViewStateManager entries first), this just
-                // returns that freed heap to the OS instead of leaving it
-                // sitting in glibc's arena looking like growing RSS.
-                malloc_trim(0);
-                return;
-            }
-            clear_columns();
-            malloc_trim(0);
-        }
-
-        /**
-        * Add matching cards back into the grid after search filtering.
-        * Gtk.FlowBox handles row/column placement automatically.
-        */
-        public void redistribute_cards_across_columns(Gee.ArrayList<Gtk.Widget> card_roots) {
-            if (using_category_sections) {
-                bool used_columns_row_fallback = false;
-                foreach (var card_root in card_roots) {
-                    CategorySection? home = card_home_section != null ? card_home_section.get(card_root) : null;
-                    if (home != null) {
-                        home.add_card(card_root);
-                    } else if (columns_row != null) {
-                        columns_row.append(card_root);
-                        used_columns_row_fallback = true;
-                    }
-                }
-                // columns_row is hidden while using category sections (see
-                // switch_to_category_sections) - cards with no home section
-                // (global search results) need it shown to actually appear.
-                if (used_columns_row_fallback && columns_row != null) {
-                    columns_row.set_visible(true);
-                }
-                return;
-            }
-
-            if (columns_row == null) return;
-
-            foreach (var card_root in card_roots) {
-                columns_row.append(card_root);
-            }
-        }
-
-        /**
-        * Drop the pre-search card snapshot (see prepare_for_search_filter())
-        * without replaying it - the widgets it references are about to be
-        * torn down and rebuilt from scratch by a fresh fetch anyway (see
-        * SearchManager.reset_query_state(), used when a search is cleared
-        * as a side effect of switching category rather than by the user
-        * clearing the search box directly). Without this, all_original_cards
-        * only ever gets nulled inside restore_original_layout() below - skip
-        * that call even once and it holds every pre-search card widget
-        * (with their decoded thumbnails) alive indefinitely, since its
-        * capture guard (prepare_for_search_filter()) never fires again once
-        * it's non-null.
-        */
-        public void discard_search_snapshot() {
-            all_original_cards = null;
-        }
-
-        /**
-        * Restore cards to their original positions after search is cleared
-        */
-        public void restore_original_layout() {
-            if (all_original_cards == null || all_original_cards.size == 0) return;
-
-            if (using_category_sections) {
-                clear_all_columns_for_filter();
-                bool used_columns_row_fallback = false;
-                foreach (var card_root in all_original_cards) {
-                    CategorySection? home = card_home_section != null ? card_home_section.get(card_root) : null;
-                    if (home != null) {
-                        home.add_card(card_root);
-                        card_root.set_visible(true);
-                    } else if (columns_row != null) {
-                        // Shouldn't normally happen for genuinely original
-                        // cards, but better to still show a card with no
-                        // recorded home section than silently drop it.
-                        columns_row.append(card_root);
-                        card_root.set_visible(true);
-                        used_columns_row_fallback = true;
-                    }
-                }
-                // Re-hide columns_row unless it's actually holding restored
-                // cards via the fallback above.
-                if (columns_row != null) columns_row.set_visible(used_columns_row_fallback);
-                all_original_cards = null;
-                return;
-            }
-
-            if (columns_row == null) return;
-
-            // Clear current layout first
-            clear_all_columns_for_filter();
-
-            // Restore each card in its original order
-            foreach (var card_root in all_original_cards) {
-                columns_row.append(card_root);
-                card_root.set_visible(true);
-            }
-
-            // Clear the stored positions
-            all_original_cards = null;
-        }
-
-        /**
-        * Prepare for search filtering - store original positions
-        */
-        public void prepare_for_search_filter() {
-            if (all_original_cards == null) {
-                all_original_cards = store_original_card_positions();
-            }
-        }
-
-        /**
-        * Apply search filter - clear and redistribute matching cards
-        */
+        // Replace the previous keystroke's results with this batch.
         public void apply_search_filter(Gee.ArrayList<Gtk.Widget> matching_cards) {
-            clear_all_columns_for_filter();
-            redistribute_cards_across_columns(matching_cards);
-        }
-
-        /**
-        * Check if we're currently in search/filter mode
-        */
-        public bool is_filtered() {
-            return all_original_cards != null;
+            clear_columns();
+            // Each keystroke frees up to MAX_RESULTS cards at once - return that heap to the OS.
+            malloc_trim(0);
+            if (columns_row == null) return;
+            foreach (var card_root in matching_cards) columns_row.append(card_root);
         }
 
         /**

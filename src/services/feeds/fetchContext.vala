@@ -15,201 +15,80 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+
 /**
- * FetchContext: A robust context object for managing async fetch operations.
- * 
- * This solves the segfault problem where async callbacks try to access
- * a destroyed NewsWindow. The context is a separate, long-lived object that:
- * 
- * 1. Tracks whether the fetch is still valid (not cancelled by a newer fetch)
- * 2. Holds a WEAK reference to the window (becomes null if window destroyed)
- * 3. Provides a single is_valid() check for callbacks
- * 
- * Usage in fetch_news():
- *   var ctx = FetchContext.begin_new(this);
- *   // ... in async callback ...
- *   if (!ctx.is_valid()) return false;  // Safe - context never crashes
- *   ctx.window.some_method();  // Only accessed after is_valid() check
+ * One visit to one view: the window it renders into, its ViewSession, and
+ * the per-visit fetch state. Starting a new context closes the previous
+ * session, which cancels its requests and drops its callbacks, so an async
+ * callback owns the screen exactly as long as its context's session is open.
  */
 public class FetchContext : GLib.Object {
+
+
     private static FetchContext? _current_context = null;
     private static uint _sequence = 0;
-    private static GLib.RecMutex _context_mutex = GLib.RecMutex();
+    private static GLib.Mutex _sequence_mutex = GLib.Mutex();
 
-    /** The sequence number for this fetch context */
     public uint seq { get; private set; }
-
-    /** Whether this context has been superseded by a newer fetch */
-    public bool cancelled { get; private set; default = false; }
-
-    /** Weak reference to the window - may become null if window is destroyed */
     public weak NewsWindow? window { get; private set; default = null; }
-
-    /** The category this fetch was initiated for - prevents articles from appearing in wrong category */
-    public string? expected_category { get; private set; default = null; }
-
-    /** This view visit's session; closed as soon as a newer context begins. */
     public ViewSession session { get; private set; }
 
     /**
-     * Whether this fetch is racing more than one source concurrently for the
-     * same view (e.g. several preferred sources, or Sports' always-on
-     * backend supplement alongside the per-source fetch). When true,
-     * FetchNewsController briefly buffers incoming articles and flushes them
-     * newest-first instead of streaming them straight through in whatever
-     * order each source's network request happens to complete - otherwise a
-     * fast-but-stale source can plant its oldest article as the hero simply
-     * because it answered before a fresher source did. Set once, right after
-     * begin_new(), by the caller that knows how many sources it's about to
-     * query.
+     * Whether this fetch races more than one source for the same view. When
+     * true, incoming articles are buffered briefly and flushed newest-first,
+     * so a fast but stale source can't claim the hero slot just by answering
+     * first. Set right after begin_new() by the caller that knows the source count.
      */
     public bool is_multi_source { get; set; default = false; }
 
-    /**
-     * Private constructor - use begin_new() to create contexts.
-     */
+    // Per-visit state for FetchNewsController's multi-source buffering and Front Page countdown.
+    public Gee.ArrayList<ArticleItem>? multi_source_buffer = null;
+    public int64 multi_source_started_at = 0;
+    public uint multi_source_flush_id = 0;
+    public bool multi_source_flushed = false;
+    public int frontpage_endpoints_done = 0;
+
     private FetchContext(uint sequence, NewsWindow? w) {
         this.seq = sequence;
         this.window = w;
-        // Capture the category at fetch time to prevent race conditions
-        if (w != null && w.prefs != null) {
-            this.expected_category = w.prefs.category;
-        }
-        this.session = new ViewSession(this.expected_category);
+        string? category = (w != null && w.prefs != null) ? w.prefs.category : null;
+        this.session = new ViewSession(category);
     }
-    
-    /**
-     * Begin a new fetch context, invalidating any previous context.
-     * Call this at the start of fetch_news().
-     *
-     * @param w The NewsWindow initiating the fetch
-     * @return The new FetchContext to capture in callbacks
-     */
+
+    /** Main thread only. Closes the previous view's session and starts a new one. */
     public static FetchContext begin_new(NewsWindow? w) {
-        _context_mutex.lock();
-
-        // Mark old context as cancelled
-        if (_current_context != null) {
-            _current_context.cancelled = true;
-            _current_context.session.close();
-        }
-
-        // Increment sequence
+        if (_current_context != null) _current_context.session.close();
+        _sequence_mutex.lock();
         _sequence++;
-
-        // Create and store new context
-        _current_context = new FetchContext(_sequence, w);
-        var result = _current_context;
-
-        _context_mutex.unlock();
-        return result;
-    }
-    
-    /**
-     * Check if this context is still valid for executing callbacks.
-     * Returns true only if:
-     * - This context has not been cancelled by a newer fetch
-     * - The window reference is still alive
-     * 
-     * @return true if safe to proceed with callback operations
-     */
-    public bool is_valid() {
-        return !cancelled && window != null;
+        uint s = _sequence;
+        _sequence_mutex.unlock();
+        _current_context = new FetchContext(s, w);
+        // A new visit starts with no messages left over from the previous view.
+        if (w != null && w.loading_state != null) w.loading_state.clear_view_messages();
+        return _current_context;
     }
 
-    /**
-     * The single check every async render into a shared ContentView
-     * container (hero_container, columns_row, category_sections_container,
-     * sports_scores_container, ...) should make right before touching that
-     * container: is this context still valid, is the window still the one
-     * that started it, is its category still what's on screen, and - since
-     * a global text search takes over those same containers - is no search
-     * currently active? Any "no" means the view this fetch was for isn't
-     * the one currently owning the screen, so the caller should drop the
-     * result instead of rendering it.
-     *
-     * Centralizing this (rather than each caller re-deriving its own
-     * mix of these checks) is what lets every writer into the shared
-     * containers - the news pipeline, Podcasts, Sports Scores, and
-     * anything added later - agree on exactly one definition of "do I
-     * still own this view".
-     */
-    public bool still_owns_view() {
-        if (!is_valid()) return false;
-        var w = window;
-        if (w == null) return false;
-        if (w.prefs != null && expected_category != null && w.prefs.category != expected_category) return false;
-        if (w.search_manager != null && w.search_manager.get_query().strip().length > 0) return false;
-        return true;
-    }
-    
-    /** Saved and History render only their own local-store items, never network fetch results. */
-    public bool is_local_only_view() {
-        return expected_category == "saved" || expected_category == "history";
+    public static FetchContext? current_context() {
+        return _current_context;
     }
 
-    /**
-     * Check if this context's sequence matches the current sequence.
-     * Use this for lightweight staleness checks without window access.
-     * Note: Accesses _sequence without mutex for performance. May have
-     * a tiny race window, but worst case is a false positive which is safe.
-     */
-    public bool is_current_seq() {
-        // Atomic read of _sequence without mutex to avoid deadlock
-        // during object construction
-        return seq == _sequence;
-    }
-    
-    // ============================================================
-    // BACKWARD COMPATIBILITY: Static sequence-based API
-    // These allow existing code to continue working during migration
-    // ============================================================
-    
-    /**
-     * Get the current fetch sequence number (backward compat).
-     */
+    /** Generation counter, bumped per view visit. Read by ImageManager to drop stale image deliveries. */
     public static uint current {
         get {
-            _context_mutex.lock();
+            _sequence_mutex.lock();
             uint result = _sequence;
-            _context_mutex.unlock();
+            _sequence_mutex.unlock();
             return result;
         }
     }
 
-    /**
-     * Increment and return the new sequence number (backward compat).
-     * NOTE: This does NOT create a context. Use begin_new() for full safety.
-     */
-    public static uint next() {
-        _context_mutex.lock();
-        if (_current_context != null) {
-            _current_context.cancelled = true;
-            _current_context.session.close();
-        }
-        _sequence++;
-        uint result = _sequence;
-        _context_mutex.unlock();
-        return result;
+    /** Whether an async callback from this visit may still touch the shared containers. */
+    public bool still_owns_view() {
+        return !session.is_closed() && window != null;
     }
 
-    /**
-     * Check if a sequence is current (backward compat).
-     */
-    public static bool is_current(uint seq) {
-        _context_mutex.lock();
-        bool result = (seq == _sequence);
-        _context_mutex.unlock();
-        return result;
-    }
-
-    /**
-     * Get the current context, if any.
-     */
-    public static FetchContext? current_context() {
-        _context_mutex.lock();
-        FetchContext? result = _current_context;
-        _context_mutex.unlock();
-        return result;
+    /** Saved and History render only their own local-store items, never network fetch results. */
+    public bool is_local_only_view() {
+        return session.category == "saved" || session.category == "history";
     }
 }

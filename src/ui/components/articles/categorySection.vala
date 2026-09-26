@@ -26,6 +26,8 @@ using Gtk;
  *
  */
 public class CategorySection : GLib.Object {
+
+
     public Gtk.Box wrapper;
     public Gtk.Box row;
     // Only set when the header has a logo/pill-capable layout (see the
@@ -181,44 +183,7 @@ public class CategorySection : GLib.Object {
         scroller.set_child(bounce_host);
 
         // Rubber-band bounce past either end (see ContentView.set_window()).
-        var hadj = scroller.get_hadjustment();
-        bool row_was_at_start = hadj.get_value() <= hadj.get_lower() + 0.5;
-        bool row_was_at_end = hadj.get_value() >= hadj.get_upper() - hadj.get_page_size() - 0.5;
-        hadj.value_changed.connect(() => {
-            bool at_start = hadj.get_value() <= hadj.get_lower() + 0.5;
-            bool at_end = hadj.get_value() >= hadj.get_upper() - hadj.get_page_size() - 0.5;
-            // Skip if there's no real overflow (still populating).
-            bool has_overflow = hadj.get_upper() - hadj.get_lower() > hadj.get_page_size() + 0.5;
-            if (has_overflow && window != null && window.animation_manager != null) {
-                if (at_start && !row_was_at_start) {
-                    window.animation_manager.bounce_scroll_edge(bounce_host, Managers.BounceEdge.START, 500.0);
-                }
-                if (at_end && !row_was_at_end) {
-                    window.animation_manager.bounce_scroll_edge(bounce_host, Managers.BounceEdge.END, 500.0);
-                }
-            }
-            row_was_at_start = at_start;
-            row_was_at_end = at_end;
-        });
-
-        // Catches continued overscroll once already pinned.
-        var row_scroll_controller = new Gtk.EventControllerScroll(Gtk.EventControllerScrollFlags.BOTH_AXES);
-        row_scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
-        scroller.add_controller(row_scroll_controller);
-        row_scroll_controller.scroll.connect((dx, dy) => {
-            if (window == null || window.animation_manager == null) return false;
-            if (hadj.get_upper() - hadj.get_lower() <= hadj.get_page_size() + 0.5) return false;
-            // Trackpads often report horizontal scroll as dy, not dx.
-            double delta = dx != 0 ? dx : dy;
-            bool at_start = hadj.get_value() <= hadj.get_lower() + 0.5;
-            bool at_end = hadj.get_value() >= hadj.get_upper() - hadj.get_page_size() - 0.5;
-            if (delta < 0 && at_start) {
-                window.animation_manager.bounce_scroll_edge(bounce_host, Managers.BounceEdge.START, 500.0);
-            } else if (delta > 0 && at_end) {
-                window.animation_manager.bounce_scroll_edge(bounce_host, Managers.BounceEdge.END, 500.0);
-            }
-            return false;
-        });
+        wire_row_bounce(scroller, bounce_host, window);
 
         var overlay = new Gtk.Overlay();
         overlay.set_child(scroller);
@@ -268,6 +233,52 @@ public class CategorySection : GLib.Object {
     public void add_card(Gtk.Widget card_root) {
         row.append(card_root);
         wrapper.set_visible(true);
+    }
+
+    // Static for the same reason as add_nav_buttons: these closures hang off
+    // signals owned by the section's own scroller, so they must not capture `this`.
+    private static void wire_row_bounce(Gtk.ScrolledWindow scroller, Gtk.Box bounce_host, NewsWindow? window) {
+        var hadj = scroller.get_hadjustment();
+        // Unowned: these closures live on the row's own adjustment and scroller.
+        unowned Gtk.Adjustment h = hadj;
+        unowned Gtk.Box host = bounce_host;
+        bool row_was_at_start = h.get_value() <= h.get_lower() + 0.5;
+        bool row_was_at_end = h.get_value() >= h.get_upper() - h.get_page_size() - 0.5;
+        hadj.value_changed.connect(() => {
+            bool at_start = h.get_value() <= h.get_lower() + 0.5;
+            bool at_end = h.get_value() >= h.get_upper() - h.get_page_size() - 0.5;
+            // Skip if there's no real overflow (still populating).
+            bool has_overflow = h.get_upper() - h.get_lower() > h.get_page_size() + 0.5;
+            if (has_overflow && window != null && window.animation_manager != null) {
+                if (at_start && !row_was_at_start) {
+                    window.animation_manager.bounce_scroll_edge(host, Managers.BounceEdge.START, 500.0);
+                }
+                if (at_end && !row_was_at_end) {
+                    window.animation_manager.bounce_scroll_edge(host, Managers.BounceEdge.END, 500.0);
+                }
+            }
+            row_was_at_start = at_start;
+            row_was_at_end = at_end;
+        });
+
+        // Catches continued overscroll once already pinned.
+        var row_scroll_controller = new Gtk.EventControllerScroll(Gtk.EventControllerScrollFlags.BOTH_AXES);
+        row_scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+        scroller.add_controller(row_scroll_controller);
+        row_scroll_controller.scroll.connect((dx, dy) => {
+            if (window == null || window.animation_manager == null) return false;
+            if (h.get_upper() - h.get_lower() <= h.get_page_size() + 0.5) return false;
+            // Trackpads often report horizontal scroll as dy, not dx.
+            double delta = dx != 0 ? dx : dy;
+            bool at_start = h.get_value() <= h.get_lower() + 0.5;
+            bool at_end = h.get_value() >= h.get_upper() - h.get_page_size() - 0.5;
+            if (delta < 0 && at_start) {
+                window.animation_manager.bounce_scroll_edge(host, Managers.BounceEdge.START, 500.0);
+            } else if (delta > 0 && at_end) {
+                window.animation_manager.bounce_scroll_edge(host, Managers.BounceEdge.END, 500.0);
+            }
+            return false;
+        });
     }
 
     /**
@@ -332,17 +343,30 @@ public class CategorySection : GLib.Object {
         // overlay, which centers on the row's actual full height - correct
         // for picture-less cards like ScoreCard.
 
+        // Everything below hangs off this row's own widgets, so it captures them unowned;
+        // only the one-shot idle/timeout take strong refs, since they can outlive the row.
+        unowned Gtk.ScrolledWindow u_scroller = scroller;
+        unowned Gtk.Adjustment u_adj = adj;
+        unowned Gtk.Box u_row = row_widget;
+        unowned Gtk.Button u_right = nav_buttons.right_button;
+        unowned Gtk.Widget u_left_fade = left_fade;
+        unowned Gtk.Widget u_right_fade = right_fade;
+
         nav_buttons.prev_requested.connect(() => {
-            scroller.scroll_child(Gtk.ScrollType.PAGE_BACKWARD, true);
+            u_scroller.scroll_child(Gtk.ScrollType.PAGE_BACKWARD, true);
         });
         nav_buttons.next_requested.connect(() => {
-            bool can_scroll_more = adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0;
+            bool can_scroll_more = u_adj.get_value() < u_adj.get_upper() - u_adj.get_page_size() - 1.0;
             if (can_scroll_more) {
-                scroller.scroll_child(Gtk.ScrollType.PAGE_FORWARD, true);
+                u_scroller.scroll_child(Gtk.ScrollType.PAGE_FORWARD, true);
             } else if (win != null && win.article_manager != null) {
                 load_state.loading = true;
-                show_load_more_spinner(nav_buttons.right_button);
+                show_load_more_spinner(u_right);
                 win.article_manager.load_more_for_category(qcat);
+
+                Gtk.Adjustment a = u_adj;
+                Gtk.Box row_ref = u_row;
+                Gtk.Button right_ref = u_right;
 
                 // The new cards widen the row, but scroll position is
                 // unchanged, so without this the user would still be
@@ -356,11 +380,11 @@ public class CategorySection : GLib.Object {
                 // width first (append happened synchronously above, but
                 // layout allocation hasn't run yet).
                 GLib.Idle.add(() => {
-                    double target_value = adj.get_value() + (adj.get_page_size() * 0.5);
-                    double max_value = adj.get_upper() - adj.get_page_size();
+                    double target_value = a.get_value() + (a.get_page_size() * 0.5);
+                    double max_value = a.get_upper() - a.get_page_size();
                     if (target_value > max_value) target_value = max_value;
-                    var scroll_target = new Adw.PropertyAnimationTarget((GLib.Object) adj, "value");
-                    var scroll_anim = new Adw.TimedAnimation(row_widget, adj.get_value(), target_value, 300u, scroll_target);
+                    var scroll_target = new Adw.PropertyAnimationTarget((GLib.Object) a, "value");
+                    var scroll_anim = new Adw.TimedAnimation(row_ref, a.get_value(), target_value, 300u, scroll_target);
                     scroll_anim.play();
                     return false;
                 });
@@ -372,7 +396,7 @@ public class CategorySection : GLib.Object {
                 // before swapping the arrow back in.
                 GLib.Timeout.add(450, () => {
                     load_state.loading = false;
-                    update_load_more_affordance(adj, nav_buttons.right_button, load_state, win, qcat);
+                    update_load_more_affordance(a, right_ref, load_state, win, qcat);
                     return false;
                 });
             }
@@ -383,12 +407,12 @@ public class CategorySection : GLib.Object {
         // ...then layer the load-more override on top, connected after
         // bind_adjustment so it runs second and has the final say on the
         // right button's icon/sensitivity for this row.
-        adj.value_changed.connect(() => update_load_more_affordance(adj, nav_buttons.right_button, load_state, win, qcat));
-        adj.changed.connect(() => update_load_more_affordance(adj, nav_buttons.right_button, load_state, win, qcat));
+        adj.value_changed.connect(() => update_load_more_affordance(u_adj, u_right, load_state, win, qcat));
+        adj.changed.connect(() => update_load_more_affordance(u_adj, u_right, load_state, win, qcat));
         update_load_more_affordance(adj, nav_buttons.right_button, load_state, win, qcat);
 
-        adj.value_changed.connect(() => update_scroll_fades(adj, left_fade, right_fade));
-        adj.changed.connect(() => update_scroll_fades(adj, left_fade, right_fade));
+        adj.value_changed.connect(() => update_scroll_fades(u_adj, u_left_fade, u_right_fade));
+        adj.changed.connect(() => update_scroll_fades(u_adj, u_left_fade, u_right_fade));
         update_scroll_fades(adj, left_fade, right_fade);
     }
 

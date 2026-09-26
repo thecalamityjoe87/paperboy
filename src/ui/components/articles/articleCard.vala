@@ -20,6 +20,8 @@ using Gtk;
 using GLib;
 
 public class ArticleCard : GLib.Object {
+
+
     // Fixed height reserved for the title area (margins + the category
     // label + up to 3 wrapped title lines + the relative-time caption
     // below it), so total card height is a hard constant that never
@@ -283,20 +285,23 @@ public class ArticleCard : GLib.Object {
         // as the class comment above describes for `self`, since these
         // attach to controllers root_widget itself owns.
         var motion = new Gtk.EventControllerMotion();
+        // The controllers themselves are unowned too - capturing one in its own handler is a cycle.
+        unowned Gtk.EventControllerMotion motion_ref = motion;
         motion.enter.connect(() => {
-            var w = motion.get_widget();
+            var w = motion_ref.get_widget();
             if (w != null) w.add_css_class("card-hover");
         });
         motion.leave.connect(() => {
-            var w = motion.get_widget();
+            var w = motion_ref.get_widget();
             if (w != null) w.remove_css_class("card-hover");
         });
         root_widget.add_controller(motion);
 
         var right_click = new Gtk.GestureClick();
         right_click.set_button(3);
+        unowned Gtk.GestureClick right_click_ref = right_click;
         right_click.pressed.connect((n_press, x, y) => {
-            var w = right_click.get_widget() as Gtk.Box;
+            var w = right_click_ref.get_widget() as Gtk.Box;
             if (w == null) return;
             show_context_menu(
                 w, card_url, article_state_store, parent_window, source_name, x, y,

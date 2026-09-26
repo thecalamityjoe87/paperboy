@@ -318,6 +318,32 @@ public class LoadingStateManager : GLib.Object {
         return cards == null || cards.get_n_items() == 0;
     }
 
+    // Search took over, possibly mid-load: end the underlying view's loading state without
+    // hide_loading_spinner()'s load-more/end-of-feed side effects.
+    public void end_for_search() {
+        initial_phase = false;
+        pending_reveal_action = null;
+        ViewSession.remove_source(ref initial_reveal_timeout_id);
+        ViewSession.remove_source(ref absolute_reveal_timeout_id);
+        ViewSession.remove_source(ref backfill_grace_timeout_id);
+        if (loading_container != null) loading_container.set_visible(false);
+        if (loading_spinner != null) loading_spinner.stop();
+        fetch_finished();
+        hide_error_message();
+        if (window.main_content_container != null) window.main_content_container.set_visible(true);
+    }
+
+    // Every view-level message (error/empty state, My Feed and Local News prompts, end of
+    // feed) belongs to the view that showed it. Cleared whenever a new view session begins.
+    public void clear_view_messages() {
+        if (error_message_box != null) error_message_box.set_visible(false);
+        if (personalized_message_box != null) personalized_message_box.set_visible(false);
+        if (personalized_message_sub_label != null) personalized_message_sub_label.set_visible(false);
+        if (local_news_message_box != null) local_news_message_box.set_visible(false);
+        if (window.content_view != null) window.content_view.remove_end_of_feed_message();
+        if (window.main_content_container != null) window.main_content_container.set_visible(true);
+    }
+
     public void hide_error_message() {
         if (error_message_box != null) {
             error_message_box.set_visible(false);

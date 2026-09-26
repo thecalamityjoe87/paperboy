@@ -932,33 +932,27 @@ public class SidebarManager : GLib.Object {
     }
 
     /**
-     * Schedule a badge refresh for a category after a delay.
-     * Uses fetch_sequence to ignore stale updates from cancelled fetches.
+     * Schedule a badge refresh for a category after a delay, dropped if the view is left first.
      *
      * @param category_id The category to refresh badge for
-     * @param fetch_seq The fetch sequence number to check against
      * @param delay_ms Delay in milliseconds before refresh (default 1500)
      */
-    public void schedule_badge_refresh(string category_id, uint fetch_seq, uint delay_ms = 1500) {
-        Timeout.add(delay_ms, () => {
-            if (fetch_seq != FetchContext.current) return false;
-                update_badge_for_category(category_id);
+    public void schedule_badge_refresh(string category_id, uint delay_ms = 1500) {
+        ViewSession.view_timeout(delay_ms, () => {
+            update_badge_for_category(category_id);
             return false;
         });
     }
 
     /**
-     * Schedule a badge refresh for an RSS source after a delay.
-     * Uses fetch_sequence to ignore stale updates from cancelled fetches.
+     * Schedule a badge refresh for an RSS source after a delay, dropped if the view is left first.
      *
      * @param source_name The source name to refresh badge for
-     * @param fetch_seq The fetch sequence number to check against
      * @param delay_ms Delay in milliseconds before refresh (default 1500)
      */
-    public void schedule_source_badge_refresh(string source_name, uint fetch_seq, uint delay_ms = 1500) {
-        Timeout.add(delay_ms, () => {
-            if (fetch_seq != FetchContext.current) return false;
-                update_badge_for_source(source_name);
+    public void schedule_source_badge_refresh(string source_name, uint delay_ms = 1500) {
+        ViewSession.view_timeout(delay_ms, () => {
+            update_badge_for_source(source_name);
             return false;
         });
     }

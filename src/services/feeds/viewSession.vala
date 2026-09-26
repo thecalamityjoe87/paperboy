@@ -20,6 +20,8 @@
  * anything its fetchers still deliver, and removes its scheduled callbacks.
  */
 public class ViewSession : GLib.Object {
+
+
     public string? category { get; private set; }
     public GLib.Cancellable cancellable { get; private set; default = new GLib.Cancellable(); }
 
@@ -124,6 +126,8 @@ public delegate void SinkVoidHandler();
  * on the main loop, and never once the owning session has closed.
  */
 public class FetchSink : GLib.Object {
+
+
     private ViewSession? session;
     private SinkItemHandler? on_item;
     private SinkLabelHandler? on_label;

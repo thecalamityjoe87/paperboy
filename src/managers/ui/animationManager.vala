@@ -368,8 +368,10 @@ namespace Managers {
             var anim = new Adw.TimedAnimation(label, 0.0, max_scroll, duration_ms, target);
             anim.set_easing(Adw.Easing.LINEAR);
             state.scroll_anim = anim;
+            // Unowned - see animate_card_entrance(). state.scroll_anim keeps it alive while running.
+            unowned Adw.TimedAnimation a = anim;
             anim.done.connect(() => {
-                if (state.scroll_anim == anim) state.scroll_anim = null;
+                if (state.scroll_anim == a) state.scroll_anim = null;
                 if (state.generation != my_gen) return;
                 state.pause_timeout_id = GLib.Timeout.add(MARQUEE_PAUSE_MS, () => {
                     state.pause_timeout_id = 0;
@@ -399,15 +401,19 @@ namespace Managers {
             // See active_entrance_animations above.
             active_entrance_animations.add(opacity_target);
             active_entrance_animations.add(anim_opacity);
+            // Unowned in the handlers: capturing an animation in its own done handler is a
+            // reference cycle, and it kept every animated card alive.
+            unowned Adw.TimedAnimation a = anim_opacity;
+            unowned Adw.PropertyAnimationTarget t = opacity_target;
             anim_opacity.done.connect(() => {
-                active_entrance_animations.remove(anim_opacity);
-                active_entrance_animations.remove(opacity_target);
+                active_entrance_animations.remove(a);
+                active_entrance_animations.remove(t);
             });
 
             if (delay_ms == 0) {
                 anim_opacity.play();
             } else {
-                GLib.Timeout.add(delay_ms, () => { anim_opacity.play(); return false; });
+                GLib.Timeout.add(delay_ms, () => { a.play(); return false; });
             }
         }
 
@@ -429,12 +435,14 @@ namespace Managers {
             var anim = new Adw.TimedAnimation(live.get(0), 0.0, 1.0, 420u, target);
             anim.set_easing(Adw.Easing.EASE_OUT_QUINT);
 
-            // See active_entrance_animations above.
+            // See active_entrance_animations above, and animate_card_entrance() for why unowned.
             active_entrance_animations.add(target);
             active_entrance_animations.add(anim);
+            unowned Adw.TimedAnimation a = anim;
+            unowned Adw.CallbackAnimationTarget t = target;
             anim.done.connect(() => {
-                active_entrance_animations.remove(anim);
-                active_entrance_animations.remove(target);
+                active_entrance_animations.remove(a);
+                active_entrance_animations.remove(t);
             });
 
             anim.play();
@@ -456,11 +464,16 @@ namespace Managers {
             active_entrance_animations.add(adapter);
             active_entrance_animations.add(target);
             active_entrance_animations.add(anim);
+            // Unowned - see animate_card_entrance().
+            unowned Adw.SpringAnimation a = anim;
+            unowned Adw.PropertyAnimationTarget t = target;
+            unowned BounceMarginAdapter ad = adapter;
+            unowned Gtk.Widget c = content;
             anim.done.connect(() => {
-                active_entrance_animations.remove(anim);
-                active_entrance_animations.remove(target);
-                active_entrance_animations.remove(adapter);
-                bouncing_widgets.remove(content);
+                active_entrance_animations.remove(a);
+                active_entrance_animations.remove(t);
+                active_entrance_animations.remove(ad);
+                bouncing_widgets.remove(c);
             });
 
             anim.play();
@@ -485,9 +498,12 @@ namespace Managers {
 
                 active_save_animations.add(opacity_target);
                 active_save_animations.add(fade_anim);
+                // Unowned - see animate_card_entrance().
+                unowned Adw.TimedAnimation a = fade_anim;
+                unowned Adw.PropertyAnimationTarget t = opacity_target;
                 fade_anim.done.connect(() => {
-                    active_save_animations.remove(fade_anim);
-                    active_save_animations.remove(opacity_target);
+                    active_save_animations.remove(a);
+                    active_save_animations.remove(t);
                 });
                 fade_anim.play();
                 return false;
@@ -535,11 +551,15 @@ namespace Managers {
                 active_save_animations.add(y_adapter);
                 active_save_animations.add(y_target);
                 active_save_animations.add(anim);
+                // Unowned - see animate_card_entrance().
+                unowned Adw.TimedAnimation a = anim;
+                unowned Adw.PropertyAnimationTarget t = y_target;
+                unowned FixedYAdapter ya = y_adapter;
                 anim.done.connect(() => {
-                    active_save_animations.remove(anim);
-                    active_save_animations.remove(y_target);
-                    active_save_animations.remove(y_adapter);
-                    if (state.ribbon_anim == anim) state.ribbon_anim = null;
+                    active_save_animations.remove(a);
+                    active_save_animations.remove(t);
+                    active_save_animations.remove(ya);
+                    if (state.ribbon_anim == a) state.ribbon_anim = null;
                     ribbon_fixed.move(ribbon_image, 0, rest);
                 });
                 anim.play();
@@ -550,11 +570,15 @@ namespace Managers {
                 active_save_animations.add(y_adapter);
                 active_save_animations.add(y_target);
                 active_save_animations.add(anim);
+                // Unowned - see animate_card_entrance().
+                unowned Adw.TimedAnimation a = anim;
+                unowned Adw.PropertyAnimationTarget t = y_target;
+                unowned FixedYAdapter ya = y_adapter;
                 anim.done.connect(() => {
-                    active_save_animations.remove(anim);
-                    active_save_animations.remove(y_target);
-                    active_save_animations.remove(y_adapter);
-                    if (state.ribbon_anim == anim) state.ribbon_anim = null;
+                    active_save_animations.remove(a);
+                    active_save_animations.remove(t);
+                    active_save_animations.remove(ya);
+                    if (state.ribbon_anim == a) state.ribbon_anim = null;
                     ribbon_fixed.move(ribbon_image, 0, hidden);
                     // Only now hide it, so the "Viewed" badge doesn't jump
                     // left mid-slide.
@@ -655,10 +679,16 @@ namespace Managers {
                 active_save_animations.add(fly_anim);
                 active_save_animations.add(fade_anim);
 
+                // Unowned - see animate_card_entrance().
+                unowned Adw.TimedAnimation fly_a = fly_anim;
+                unowned Adw.PropertyAnimationTarget fly_t = fly_target;
+                unowned FlyShrinkAdapter fly_ad = fly_adapter;
+                unowned Adw.TimedAnimation fade_a = fade_anim;
+                unowned Adw.PropertyAnimationTarget fade_t = fade_target;
                 fly_anim.done.connect(() => {
-                    active_save_animations.remove(fly_anim);
-                    active_save_animations.remove(fly_target);
-                    active_save_animations.remove(fly_adapter);
+                    active_save_animations.remove(fly_a);
+                    active_save_animations.remove(fly_t);
+                    active_save_animations.remove(fly_ad);
                     if (state.ghost == ghost) {
                         if (window.root_overlay != null) window.root_overlay.remove_overlay(ghost);
                         state.ghost = null;
@@ -669,8 +699,8 @@ namespace Managers {
                     pop_sidebar_saved_row();
                 });
                 fade_anim.done.connect(() => {
-                    active_save_animations.remove(fade_anim);
-                    active_save_animations.remove(fade_target);
+                    active_save_animations.remove(fade_a);
+                    active_save_animations.remove(fade_t);
                 });
 
                 fly_anim.play();

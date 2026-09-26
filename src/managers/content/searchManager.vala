@@ -131,13 +131,6 @@ namespace Managers {
          * around its own programmatic search_entry.set_text("") for the
          * same reason - without both, clearing a search while navigating
          * away triggered two full fetch_news() calls back to back.
-         *
-         * Also drops LayoutManager's pre-search card snapshot (see
-         * LayoutManager.discard_search_snapshot()) - skipping the normal
-         * filter_by_query("") restore path here means restore_original_
-         * layout() never runs to null it out, which otherwise pins every
-         * pre-search card widget (and its decoded thumbnail) alive
-         * indefinitely, since the snapshot is never retaken once set.
          */
         public void reset_query_state() {
             if (search_timeout_id > 0) {
@@ -146,9 +139,6 @@ namespace Managers {
             }
             current_query = "";
             forget_result_urls();
-            if (window != null && window.layout_manager != null) {
-                window.layout_manager.discard_search_snapshot();
-            }
         }
 
         /**
