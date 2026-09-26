@@ -756,7 +756,7 @@ public class FeedUpdateManager : GLib.Object {
     private string extract_feed_signature(string feed_xml) {
         var signature = new StringBuilder();
         
-        Xml.Doc* doc = Xml.Parser.parse_doc(feed_xml);
+        Xml.Doc* doc = RssValidatorUtils.parse_feed_xml(feed_xml);
         if (doc == null) {
             return "";
         }
@@ -836,8 +836,8 @@ public class FeedUpdateManager : GLib.Object {
     private string merge_rss_feeds(string old_feed, string new_feed) {
         try {
             // Parse both feeds
-            Xml.Doc* old_doc = Xml.Parser.parse_doc(old_feed);
-            Xml.Doc* new_doc = Xml.Parser.parse_doc(new_feed);
+            Xml.Doc* old_doc = RssValidatorUtils.parse_feed_xml(old_feed);
+            Xml.Doc* new_doc = RssValidatorUtils.parse_feed_xml(new_feed);
 
             if (old_doc == null || new_doc == null) {
                 GLib.warning("Failed to parse feeds for merging");

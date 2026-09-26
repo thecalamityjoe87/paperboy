@@ -65,7 +65,7 @@ public class RssFeedProcessor {
         string? cache_key_override = null
     ) {
         // NONET avoids NOENT so entities/DTDs can't be used for XXE or billion-laughs attacks
-        var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER;
+        var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING;
         Xml.Doc* doc = null;
         try {
             string sanitized_body = sanitize_xml(body);

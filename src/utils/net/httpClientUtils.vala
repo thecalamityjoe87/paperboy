@@ -34,6 +34,12 @@ public class HttpClientUtils : Object {
 
     // HTTP session (reused for connection pooling)
     private Soup.Session session;
+    // One session per non-default timeout; swapping a shared session's timeout races across threads.
+    private Gee.HashMap<uint, Soup.Session> timeout_sessions = new Gee.HashMap<uint, Soup.Session>();
+    private GLib.Mutex timeout_sessions_mutex = new GLib.Mutex();
+    // Hosts whose HTTP/2 responses libsoup has choked on; always fetched over HTTP/1.1 afterwards.
+    private Gee.HashSet<string> http1_hosts = new Gee.HashSet<string>();
+    private GLib.Mutex http1_hosts_mutex = new GLib.Mutex();
 
     // Concurrency control
     private static GLib.Mutex _request_mutex = new GLib.Mutex();
@@ -350,15 +356,17 @@ public class HttpClientUtils : Object {
             if (options.enable_deduplication) withdraw_in_flight(url);
             return cancelled_response();
         }
+        Soup.Message? msg = null;
         try {
         try {
             // Create request
-            var msg = new Soup.Message(options.method, url);
+            msg = new Soup.Message(options.method, url);
             if (msg == null) {
                 response.status_code = 0;
                 response.error_message = "Failed to create HTTP request";
                 return response;
             }
+            if (is_http1_host(msg.get_uri().get_host())) msg.set_force_http1(true);
 
             // Set headers
             var headers = msg.get_request_headers();
@@ -375,17 +383,7 @@ public class HttpClientUtils : Object {
                 msg.set_request_body_from_bytes(options.body_content_type, new GLib.Bytes(options.body.data));
             }
 
-            // Temporarily set timeout for this request
-            uint old_timeout = session.timeout;
-            session.timeout = options.timeout;
-
-            // Perform request
-            GLib.Bytes? body = null;
-            try {
-                body = session.send_and_read(msg, options.cancellable);
-            } finally {
-                session.timeout = old_timeout;
-            }
+            GLib.Bytes? body = session_for_timeout(options.timeout).send_and_read(msg, options.cancellable);
 
             // Extract response
             response.status_code = msg.get_status();
@@ -424,21 +422,15 @@ public class HttpClientUtils : Object {
                 return cancelled_response();
             }
 
-            // Check if this is an HTTP/2 error (or an INTERNAL_ERROR) - retry
-            // with HTTP/1.1 and also attempt a retry without Brotli (br)
-            // in Accept-Encoding which some servers mishandle over HTTP/2.
-            // "TLS connection was non-properly terminated" is a known
-            // symptom of the same underlying failure class under a
-            // different name - some CDNs (e.g. Cloudflare) can drop an
-            // HTTP/2 connection mid-stream in a way libsoup/GnuTLS surfaces
-            // as a TLS-layer error rather than an explicit HTTP/2 one
-            // (observed fetching 9to5google.com's homepage). Worth the same
-            // forced-HTTP/1.1 retry as the HTTP/2 case above.
+            // HTTP/2 failures get retried over HTTP/1.1. Some CDNs surface them as TLS errors,
+            // and some servers (e.g. roadandtrack.com) stall libsoup's HTTP/2 reader until it times out.
             bool is_http2_style_error = e.message != null && (
                 (e.message.contains("HTTP/2") && !e.message.contains("INTERNAL_ERROR")) ||
-                e.message.contains("non-properly terminated")
+                e.message.contains("non-properly terminated") ||
+                (e is GLib.IOError.TIMED_OUT && msg != null && msg.get_http_version() == Soup.HTTPVersion.@2_0)
             );
             if (is_http2_style_error) {
+                if (msg != null) remember_http1_host(msg.get_uri().get_host());
                 try {
                     // Create a new session for the retry
                     var http1_session = new Soup.Session() {
@@ -519,6 +511,33 @@ public class HttpClientUtils : Object {
         }
 
         return response;
+    }
+
+    private bool is_http1_host(string? host) {
+        if (host == null) return false;
+        http1_hosts_mutex.lock();
+        bool found = http1_hosts.contains(host);
+        http1_hosts_mutex.unlock();
+        return found;
+    }
+
+    private void remember_http1_host(string? host) {
+        if (host == null) return;
+        http1_hosts_mutex.lock();
+        http1_hosts.add(host);
+        http1_hosts_mutex.unlock();
+    }
+
+    private Soup.Session session_for_timeout(uint timeout) {
+        if (timeout == session.timeout) return session;
+        timeout_sessions_mutex.lock();
+        var s = timeout_sessions.get(timeout);
+        if (s == null) {
+            s = new Soup.Session() { timeout = timeout };
+            timeout_sessions.set(timeout, s);
+        }
+        timeout_sessions_mutex.unlock();
+        return s;
     }
 
     // Drop an in-flight entry so waiters on the same URL issue their own request.

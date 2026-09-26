@@ -705,11 +705,11 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             // Real XML parsing (not regex) to handle Atom titles with attributes and CDATA.
             Xml.Doc* doc = null;
             try {
-                int parser_options = (int) (Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS);
+                int parser_options = (int) (Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING);
                 doc = Xml.Parser.read_memory(xml_content, (int) xml_content.length, null, null, parser_options);
             } catch (GLib.Error e) {
                 string cleaned = xml_content.replace("\0", "");
-                try { doc = Xml.Parser.read_memory(cleaned, (int) cleaned.length, null, null, (int)(Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS)); } catch (GLib.Error ee) { doc = null; }
+                try { doc = Xml.Parser.read_memory(cleaned, (int) cleaned.length, null, null, (int)(Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING)); } catch (GLib.Error ee) { doc = null; }
             }
 
             if (doc != null) {

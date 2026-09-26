@@ -56,7 +56,7 @@ namespace Paperboy {
         }
 
         private static bool parse(string xml_body, Gee.ArrayList<FeedComment> out_list) {
-            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER;
+            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING;
             Xml.Doc* doc = Xml.Parser.read_memory(xml_body, (int) xml_body.length, null, "UTF-8", (int) parser_options);
             if (doc == null) return false;
 

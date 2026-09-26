@@ -130,7 +130,7 @@ namespace Paperboy {
         }
 
         private Paperboy.PodcastShow? parse_show(string xml, string feed_url) {
-            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER;
+            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING;
             Xml.Doc* doc = Xml.Parser.read_memory(xml, xml.length, null, null, parser_options);
             if (doc == null) return null;
 
@@ -184,7 +184,7 @@ namespace Paperboy {
         }
 
         private void parse_episodes(string xml, string show_title, string? show_image_url, Gee.ArrayList<Paperboy.PodcastEpisode> episodes) {
-            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER;
+            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING;
             Xml.Doc* doc = Xml.Parser.read_memory(xml, xml.length, null, null, parser_options);
             if (doc == null) return;
 
