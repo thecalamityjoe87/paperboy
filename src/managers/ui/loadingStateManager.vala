@@ -45,6 +45,10 @@ public class LoadingStateManager : GLib.Object {
     public Gtk.Image? error_icon;
     public Gtk.Label? error_message_label;
     public Gtk.Button? error_retry_button;
+    // Bundled icon the empty state is currently showing (null while the
+    // overlay shows an error or is hidden) - kept so a light/dark switch
+    // can re-resolve its themed variant, see refresh_empty_icon_for_theme().
+    private string? empty_icon_file = null;
 
     // State flags (managed internally)
     public bool initial_phase = false;
@@ -248,6 +252,15 @@ public class LoadingStateManager : GLib.Object {
 
     public void show_error_message(string? msg = null) {
         if (error_message_box != null) {
+            // show_empty_message() reuses this overlay with its own icon and
+            // no Refresh button - put the error presentation back.
+            empty_icon_file = null;
+            if (error_icon != null) {
+                error_icon.set_from_icon_name("dialog-error-symbolic");
+                error_icon.set_pixel_size(48);
+                error_icon.set_opacity(1.0);
+            }
+            if (error_retry_button != null) error_retry_button.set_visible(true);
             hide_loading_spinner();
             if (personalized_message_box != null) personalized_message_box.set_visible(false);
             if (local_news_message_box != null) local_news_message_box.set_visible(false);
@@ -257,6 +270,73 @@ public class LoadingStateManager : GLib.Object {
             if (error_message_label != null && msg != null) error_message_label.set_text(msg);
             error_message_box.set_visible(true);
         }
+    }
+
+    // Centered empty state for a view that legitimately has nothing to
+    // show (History/Saved/Magazines library when empty). `icon_file` is a
+    // bundled "<name>-mono.svg" (the view's own header icon, or
+    // search-mono.svg for an empty search), shown large and dimmed. Reuses the error overlay minus
+    // its Refresh button. Also ends the initial phase and cancels the reveal
+    // timeouts - left armed, INITIAL_MAX_WAIT_MS later fires
+    // show_error_message() over this since no items were ever populated.
+    public void show_empty_message(string icon_file, string msg = "Nothing here yet") {
+        if (error_message_box == null) return;
+
+        initial_phase = false;
+        hero_image_loaded = false;
+        pending_reveal_action = null;
+        if (initial_reveal_timeout_id > 0) {
+            Source.remove(initial_reveal_timeout_id);
+            initial_reveal_timeout_id = 0;
+        }
+        if (absolute_reveal_timeout_id > 0) {
+            Source.remove(absolute_reveal_timeout_id);
+            absolute_reveal_timeout_id = 0;
+        }
+
+        if (loading_container != null && loading_container.get_visible()) hide_loading_spinner();
+        if (window.content_view != null) window.content_view.remove_end_of_feed_message();
+        if (window.main_content_container != null) window.main_content_container.set_visible(false);
+
+        empty_icon_file = icon_file;
+        if (error_icon != null) {
+            apply_empty_icon();
+            error_icon.set_pixel_size(80);
+            // Explicit opacity rather than the dim-label class - that's
+            // deprecated in libadwaita 1.7+ (now .dimmed) and didn't
+            // visibly dim these bundled -mono icons.
+            error_icon.set_opacity(0.4);
+        }
+        if (error_message_label != null) error_message_label.set_text(msg);
+        if (error_retry_button != null) error_retry_button.set_visible(false);
+        error_message_box.set_visible(true);
+    }
+
+    private void apply_empty_icon() {
+        if (error_icon == null || empty_icon_file == null) return;
+        string? icon_path = CategoryIconsUtils.resolve_themed_icon_path(empty_icon_file);
+        if (icon_path != null) {
+            error_icon.set_from_gicon(new GLib.FileIcon(GLib.File.new_for_path(icon_path)));
+        } else {
+            error_icon.set_from_icon_name("action-unavailable-symbolic");
+        }
+    }
+
+    // Called on a light/dark switch so the empty state's bundled mono icon
+    // swaps to/from its "-white" variant like the header/sidebar icons do.
+    public void refresh_empty_icon_for_theme() {
+        if (error_message_box == null || !error_message_box.get_visible()) return;
+        apply_empty_icon();
+    }
+
+    // True when the article surface (hero, flat grid, or category sections)
+    // holds no cards at all.
+    private bool article_view_is_empty() {
+        var lm = window.layout_manager;
+        if (lm == null) return false;
+        if (lm.featured_box != null && lm.featured_box.get_first_child() != null) return false;
+        var cards = lm.get_cards_for_iteration();
+        return cards == null || cards.get_n_items() == 0;
     }
 
     public void hide_error_message() {
@@ -535,6 +615,17 @@ public class LoadingStateManager : GLib.Object {
                 return;
             }
             if (local_news_message_box != null && local_news_message_box.get_visible()) {
+                return;
+            }
+            // Already showing an error or the empty state - nothing to append below.
+            if (error_message_box != null && error_message_box.get_visible()) {
+                return;
+            }
+            // "No more articles" under zero articles would sit alone at the top
+            // of a blank page. Views that are legitimately empty (History,
+            // Saved) show show_empty_message() instead; network views fall
+            // through to the fetch error.
+            if (article_view_is_empty()) {
                 return;
             }
             var children = window.content_box.observe_children();

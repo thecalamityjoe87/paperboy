@@ -948,6 +948,9 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // StocksTickerController), so it's never otherwise
                 // re-resolved after the theme changes.
                 StocksTickerController.refresh_icon_for_theme();
+                // And the centered empty state (History/Saved/Magazines),
+                // which may be on screen during the switch.
+                if (loading_state != null) loading_state.refresh_empty_icon_for_theme();
             });
         }
 

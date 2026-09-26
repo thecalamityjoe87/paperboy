@@ -281,6 +281,9 @@ namespace Managers {
             if (content_view == null) return;
 
             content_view.hide_all_pages();
+            // Same as MagazineLibraryManager - Podcasts skips begin_fetch(),
+            // so clear any empty-state/error overlay from the previous view.
+            if (window != null && window.loading_state != null) window.loading_state.hide_error_message();
 
             content_view.podcasts_hero_title.set_visible(true);
             content_view.hero_container.set_visible(true);

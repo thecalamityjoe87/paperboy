@@ -1166,7 +1166,10 @@ if (is_myfeed_mode) {
             } else {
                 wrapped_set_label("Saved Articles — No saved articles yet");
             }
-            win.hide_loading_spinner();
+            if (win.loading_state != null) {
+                if (current_search_query.length > 0) win.loading_state.show_empty_message("search-mono.svg", "No results");
+                else win.loading_state.show_empty_message("saved-mono.svg");
+            }
             return true;
         }
 
@@ -1330,7 +1333,10 @@ if (is_myfeed_mode) {
             } else {
                 wrapped_set_label("History — No articles read yet");
             }
-            win.hide_loading_spinner();
+            if (win.loading_state != null) {
+                if (current_search_query.length > 0) win.loading_state.show_empty_message("search-mono.svg", "No results");
+                else win.loading_state.show_empty_message("history-mono.svg");
+            }
             return true;
         }
 

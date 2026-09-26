@@ -42,7 +42,6 @@ public class ContentView : GLib.Object {
     public Gtk.Box trending_hero_container;
     public Gtk.FlowBox columns_row;
     public Gtk.FlowBox podcast_search_flow;
-    public Gtk.Label magazine_library_empty_label;
     public Gtk.Box magazine_library_header_actions;
     public Gtk.Button magazine_library_add_button;
     public Gtk.Button magazine_library_organize_button;
@@ -495,20 +494,6 @@ public class ContentView : GLib.Object {
 
         main_content_container.append(podcast_search_flow);
 
-        // Magazine Library page - just an empty-state label; entries
-        // render as CategorySection rows into category_sections_container
-        // below (see Managers.MagazineLibraryManager), same shared
-        // containers Podcasts/Front Page use for their own category rows.
-        // "Add Magazine"/"Organize" float in the header area above (see
-        // magazine_library_header_actions, next to rss_podcast_button),
-        // not here.
-        magazine_library_empty_label = new Gtk.Label("Your library is empty. Add a magazine to get started.");
-        magazine_library_empty_label.add_css_class("dim-label");
-        magazine_library_empty_label.set_margin_top(40);
-        magazine_library_empty_label.set_margin_bottom(40);
-        magazine_library_empty_label.set_visible(false);
-        main_content_container.append(magazine_library_empty_label);
-
         // Same faint divider as hero_scores_separator/scores_articles_separator,
         // shown only alongside category_sections_container (see LayoutManager's
         // prepare_category_sections/teardown_category_sections) so it never
@@ -960,7 +945,6 @@ public class ContentView : GLib.Object {
         clear_and_hide_flowbox(columns_row);
 
         clear_and_hide_flowbox(magazine_library_flow);
-        if (magazine_library_empty_label != null) magazine_library_empty_label.set_visible(false);
         if (magazine_library_header_actions != null) magazine_library_header_actions.set_visible(false);
         if (clear_history_button != null) clear_history_button.set_visible(false);
         if (magazine_library_trash_revealer != null) magazine_library_trash_revealer.set_reveal_child(false);

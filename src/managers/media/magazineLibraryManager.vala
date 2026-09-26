@@ -366,6 +366,10 @@ namespace Managers {
         private void prepare_containers() {
             if (content_view == null) return;
             content_view.hide_all_pages();
+            // Magazines never goes through fetch_news()/begin_fetch(), so an
+            // empty-state or error overlay left by the previous view would
+            // otherwise stay up over this page.
+            if (window != null && window.loading_state != null) window.loading_state.hide_error_message();
         }
 
         private void clear_children(Gtk.Box box) {
@@ -402,8 +406,13 @@ namespace Managers {
             }
 
             var entries = Paperboy.MagazineLibraryStore.get_instance().get_all_entries();
-            content_view.magazine_library_empty_label.set_visible(entries.size == 0);
-            if (entries.size == 0) return;
+            var loading_state = window != null ? window.loading_state : null;
+            if (entries.size == 0) {
+                if (loading_state != null) loading_state.show_empty_message("magazine-mono.svg", "Your library is empty. Add a magazine to get started.");
+                return;
+            }
+            // Covers adding the first magazine while the empty state is up.
+            if (loading_state != null) loading_state.hide_error_message();
 
             var by_category = new Gee.HashMap<string, Gee.ArrayList<Paperboy.MagazineEntry>>();
             foreach (var entry in entries) {
