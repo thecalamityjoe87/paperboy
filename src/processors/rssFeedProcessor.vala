@@ -334,12 +334,25 @@ public class RssFeedProcessor {
                                 string? updated_date = null; // Atom fallback, only used if no pubDate/published found
                                 string? desc_text = null;
                                 string? comments_url = null;
+                                string? item_source = null;
+                                string? item_source_label = null;
                                 int thumb_width = -1;
                                 bool thumb_is_thumbnail_tag = false;
                                 for (Xml.Node* c = it->children; c != null; c = c->next) {
                                     if (c->type != Xml.ElementType.ELEMENT_NODE) continue;
                                     if (c->name == "title") {
                                         title = c->get_content();
+                                    } else if (c->name == "source") {
+                                        // Per-item publisher (e.g. Google News aggregated results)
+                                        string? src = c->get_content();
+                                        if (src != null && src.strip().length > 0) {
+                                            item_source_label = src.strip();
+                                            item_source = item_source_label;
+                                            string? src_url = c->get_prop("url");
+                                            string? host = src_url != null ? UrlUtils.extract_host_from_url(src_url) : null;
+                                            if (host != null && host.length > 0)
+                                                item_source += "||https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+                                        }
                                     } else if (c->name == "commentRss" && c->ns != null && c->ns->prefix == "wfw") {
                                         string? content = c->get_content();
                                         if (content != null && content.strip().length > 0) comments_url = content.strip();
@@ -486,11 +499,16 @@ public class RssFeedProcessor {
                                     // See the RSS-branch comment above - same
                                     // stray-named-entity issue applies to Atom
                                     // <title> content.
-                                    row.add(stripHtmlUtils.strip_html(title));
+                                    string clean_title = stripHtmlUtils.strip_html(title);
+                                    // Google News appends " - Publisher" to titles; the badge already shows it
+                                    if (item_source_label != null && clean_title.has_suffix(" - " + item_source_label))
+                                        clean_title = clean_title.substring(0, clean_title.length - item_source_label.length - 3).strip();
+                                    row.add(clean_title);
                                     row.add(link);
                                     row.add(thumb);
                                     row.add(pub_date ?? updated_date);
                                     row.add(desc_text);
+                                    row.add(item_source);
                                     items.add(row);
                                     Paperboy.CommentsUrlRegistry.register(link, comments_url);
                                 }
@@ -512,6 +530,9 @@ public class RssFeedProcessor {
                     string title = row[0] ?? "No title";
                     string url = row[1] ?? "";
                     string? pub_date = row.size > 3 ? row[3] : null;
+                    // Local news comes from one Google News search, so use each item's own publisher
+                    string item_source_name = source_name;
+                    if (category_id == "local_news" && row.size > 5 && row[5] != null) item_source_name = row[5];
 
                     if (current_search_query.length > 0) {
                         string query_lower = current_search_query.down();
@@ -533,14 +554,14 @@ public class RssFeedProcessor {
                         string? extracted_logo_url = null;
                         string? extracted_category_id = null;
 
-                        if (source_name != null && source_name.length > 0) {
-                            extracted_source_name = source_name;
+                        if (item_source_name != null && item_source_name.length > 0) {
+                            extracted_source_name = item_source_name;
 
-                            int cat_idx = source_name.index_of("##category::");
+                            int cat_idx = item_source_name.index_of("##category::");
                             if (cat_idx >= 0) {
-                                extracted_source_name = source_name.substring(0, cat_idx);
-                                if (source_name.length > cat_idx + 12) {
-                                    extracted_category_id = source_name.substring(cat_idx + 12);
+                                extracted_source_name = item_source_name.substring(0, cat_idx);
+                                if (item_source_name.length > cat_idx + 12) {
+                                    extracted_category_id = item_source_name.substring(cat_idx + 12);
                                 }
                             }
 
@@ -557,7 +578,7 @@ public class RssFeedProcessor {
                     }
 
                     string? row_snippet = row.size > 4 ? row[4] : null;
-                    add_item(title, url, row[2], category_id, source_name, pub_date, row_snippet);
+                    add_item(title, url, row[2], category_id, item_source_name, pub_date, row_snippet);
                 }
 
                 return false;

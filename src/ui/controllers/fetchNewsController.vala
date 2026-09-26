@@ -1428,23 +1428,14 @@ if (is_myfeed_mode) {
         if (win == null) return false;
         if (!win.category_manager.is_local_news_view()) return false; 
 
-        var prefs = NewsPreferences.get_instance();
-        string display_city = (prefs.user_location_city != null && prefs.user_location_city.length > 0)
-            ? prefs.user_location_city
-            : prefs.user_location;
-
-        if (display_city == null || display_city.strip().length == 0) {
+        var area = NewsPreferences.get_instance().get_active_local_area();
+        if (area == null || area.city.strip().length == 0) {
             wrapped_set_label("Local News — No location configured");
             win.hide_loading_spinner();
             return true;
         }
-
-        // Prefer the nearest-major-city search term (falls back to the
-        // exact resolved city for locations already near/in a major city,
-        // or for locations saved without running the geocode lookup).
-        string news_query_city = (prefs.user_location_news_query != null && prefs.user_location_news_query.length > 0)
-            ? prefs.user_location_news_query
-            : display_city;
+        string display_city = area.city;
+        if (win.article_state_store != null) win.article_state_store.set_local_news_area(area.key);
 
         // Clear UI and fetch via Google News' RSS search endpoint, scoped to
         // the user's resolved location. This replaced a feedspot.com HTML
@@ -1459,15 +1450,7 @@ if (is_myfeed_mode) {
         // Ensure the top-right source badge / header reflects Local News
         win.update_content_header_now();
 
-        // Fetch both the exact resolved town and the nearest major metro
-        // (when they differ) so users near a small town get that town's
-        // own coverage plus the metro's, rather than just one or the
-        // other. ArticleManager already dedupes by normalized URL, so any
-        // story both searches turn up is only shown once.
         fetch_local_news_query(display_city, "local_news", current_search_query, session);
-        if (news_query_city != display_city) {
-            fetch_local_news_query(news_query_city, "local_news", current_search_query, session);
-        }
 
         return true;
     }
@@ -1486,12 +1469,14 @@ if (is_myfeed_mode) {
         var cache = Paperboy.RssArticleCache.get_instance();
         var cached_articles = cache.get_cached_articles(url);
         foreach (var article in cached_articles) {
+            string cached_source = article.source_name ?? city;
+            if (article.source_name != null && article.logo_url != null) cached_source += "||" + article.logo_url;
             FetchNewsController.global_add_item(
                 article.title,
                 article.url,
                 article.thumbnail_url,
                 category_id,
-                city,
+                cached_source,
                 article.published_date
             );
         }

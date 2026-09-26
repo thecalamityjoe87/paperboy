@@ -103,6 +103,14 @@ else
   echo "Warning: data/resources/adblock.css not found in source tree"
 fi
 
+# Readability.js powers the WebKit reader/thumbnail fallback (e.g. Google News links)
+if [ -f "$ROOT_DIR/data/resources/readability.js" ]; then
+  mkdir -p "$APPDIR/usr/share/paperboy/resources"
+  cp "$ROOT_DIR/data/resources/readability.js" "$APPDIR/usr/share/paperboy/resources/readability.js"
+else
+  echo "Warning: data/resources/readability.js not found in source tree"
+fi
+
 # Copy release_notes.md into AppDir data dir so DataPaths finds it at runtime
 if [ -f "$ROOT_DIR/data/release_notes.md" ]; then
   cp "$ROOT_DIR/data/release_notes.md" "$APPDIR/usr/share/paperboy/release_notes.md"

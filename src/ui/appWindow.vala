@@ -321,7 +321,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Main menu, on the sidebar's trailing (right) side
     var menu = new Menu();
     menu.append("Preferences", "app.change-source");
-    menu.append("Set User Location", "app.set-location");
+    menu.append("Manage locations", "app.manage-locations");
     menu.append("Show Welcome Tour", "app.show-onboarding");
     menu.append("About Paperboy", "app.about");
 
@@ -946,11 +946,11 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // initial state and fetch
         update_sidebar_for_source();
-        // If this is the user's first run, the preferences dialog will be
-        // presented from main.activate(). Defer the initial network fetch
-        // so the dialog can appear and the user can adjust sources first.
         var prefs_local = NewsPreferences.get_instance();
-        if (prefs_local == null || !prefs_local.first_run) {
+        // Front Page comes from the backend, so first run can load it behind onboarding.
+        if (prefs_local != null && prefs_local.first_run) {
+            fetch_news();
+        } else {
             // If viewing "saved" category, check if saved articles are already loaded
             // (they load synchronously in ArticleStateStore constructor, so signal may have
             // already fired before we connected the handler at line 333)

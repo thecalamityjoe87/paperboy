@@ -666,7 +666,7 @@ public class ContentView : GLib.Object {
         local_news_title.set_wrap(true);
         ln_inner.append(local_news_title);
 
-        local_news_hint = new Gtk.Label("Open the main menu (☰) → choose 'Set User Location' to configure your city or ZIP code.");
+        local_news_hint = new Gtk.Label("Open the main menu (☰) → choose 'Manage locations' to configure your city or ZIP code.");
         local_news_hint.add_css_class("dim-label");
         local_news_hint.set_halign(Gtk.Align.CENTER);
         local_news_hint.set_valign(Gtk.Align.CENTER);

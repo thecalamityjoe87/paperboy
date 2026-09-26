@@ -26,9 +26,6 @@ public class CardBuilder : GLib.Object {
         GLib.Object();
     }
 
-    // Resolves a category id to its display text ("Feeds" for RSS feeds,
-    // otherwise NewsWindow's own display-name lookup) - shared by every
-    // card type's category_label (see build_category_label below).
     public static string category_display_text(NewsWindow win, string category_id) {
         if (category_id != null && category_id.has_prefix("rssfeed:")) {
             return "Feeds";
@@ -36,9 +33,6 @@ public class CardBuilder : GLib.Object {
         return win.category_display_name_for(category_id);
     }
 
-    // Plain colored category label shown above a card's title (e.g.
-    // "MARKETS") - not an overlay chip on the image, matching the
-    // app-wide card design.
     public static Gtk.Widget build_category_label(string display_text) {
         var lbl = new Gtk.Label(display_text.up());
         lbl.add_css_class("card-category-label");
@@ -48,13 +42,11 @@ public class CardBuilder : GLib.Object {
         return lbl;
     }
 
-    // Helper to map NewsSource -> display name (copied from NewsWindow.get_source_name)
     private static string source_display_name(NewsSource source) {
         switch (source) {
             case NewsSource.GUARDIAN: return "The Guardian";
             case NewsSource.WALL_STREET_JOURNAL: return "Wall Street Journal";
             case NewsSource.BBC: return "BBC News";
-            case NewsSource.REDDIT: return "Reddit";
             case NewsSource.NEW_YORK_TIMES: return "NY Times";
             case NewsSource.BLOOMBERG: return "Bloomberg";
             case NewsSource.ABC_NEWS: return "ABC News";
@@ -65,14 +57,12 @@ public class CardBuilder : GLib.Object {
         }
     }
 
-    // Shared with SourceMetadata.resolve_source_icon() so other UI (hero
-    // cards, reader view) can find the same bundled logo this badge uses.
+    // Shared with SourceMetadata.resolve_source_icon() so other UI can find the same bundled logo.
     public static NewsSource? resolve_builtin_news_source(string? display_name) {
         if (display_name == null || display_name.length == 0) return null;
         string low = display_name.down();
         if (low.index_of("guardian") >= 0) return NewsSource.GUARDIAN;
         if (low.index_of("bbc") >= 0) return NewsSource.BBC;
-        if (low.index_of("reddit") >= 0) return NewsSource.REDDIT;
         if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
             (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) return NewsSource.NEW_YORK_TIMES;
         if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) return NewsSource.WALL_STREET_JOURNAL;
@@ -88,7 +78,6 @@ public class CardBuilder : GLib.Object {
         switch (source) {
             case NewsSource.GUARDIAN: return "guardian-logo.png";
             case NewsSource.BBC: return "bbc-logo.png";
-            case NewsSource.REDDIT: return "reddit-logo.png";
             case NewsSource.NEW_YORK_TIMES: return "nytimes-logo.png";
             case NewsSource.BLOOMBERG: return "bloomberg-logo.png";
             case NewsSource.ABC_NEWS: return "abc-logo.png";
@@ -100,88 +89,160 @@ public class CardBuilder : GLib.Object {
         }
     }
 
-    public static Gtk.Widget build_source_badge(NewsSource source) {
+    private static Gtk.Box create_badge_box() {
         var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
         box.add_css_class("source-badge");
         box.set_margin_bottom(8);
         box.set_margin_end(8);
         box.set_valign(Gtk.Align.END);
         box.set_halign(Gtk.Align.END);
+        return box;
+    }
 
-        string? filename = source_icon_filename(source);
-        if (filename != null) {
-            string? path = DataPathsUtils.find_data_file("icons/" + filename);
-            if (path != null) {
-                    // Use ImageCache for all generated pixbufs so we never keep long-lived
-                    // pixbufs/textures outside the central cache. Ask ImageCache to
-                    // provide a scaled pixbuf for the requested size.
-                    // Determine a scaled size that fits into 20x20 while preserving aspect.
-                    // We'll request the scaled backend pixbuf directly from ImageCache.
-                    // First, probe original image size using a best-effort full-size load.
-                    Gdk.Pixbuf? probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(path, 0, 0), path, 0, 0);
-                    if (probe != null) {
-                        int orig_w = probe.get_width();
-                        int orig_h = probe.get_height();
-                        double scale = 1.0;
-                        if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
-                        int sw = (int)(orig_w * scale);
-                        int sh = (int)(orig_h * scale);
-                        if (sw < 1) sw = 1;
-                        if (sh < 1) sh = 1;
+    private static Gtk.Box create_logo_wrapper() {
+        var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
+        logo_wrapper.add_css_class("circular-logo");
+        logo_wrapper.set_valign(Gtk.Align.CENTER);
+        logo_wrapper.set_halign(Gtk.Align.CENTER);
 
-                        // Request the scaled pixbuf from ImageCache (centralized creation)
-                        string key = "pixbuf::file:%s::%dx%d".printf(path, sw, sh);
-                        Gdk.Pixbuf? used_pb = ImageCache.get_global().get_or_load_file(key, path, sw, sh);
-
-                        if (used_pb != null) {
-                            var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                            var cr = new Cairo.Context(surface);
-                            int x = (20 - sw) / 2;
-                            int y = (20 - sh) / 2;
-                            Gdk.cairo_set_source_pixbuf(cr, used_pb, x, y);
-                            cr.paint();
-                            string surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(path, 20, 20);
-                            var pb_surface = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
-                            var cached_surface = pb_surface;
-
-                            var pic = new Gtk.Picture();
-                            Gdk.Pixbuf? final_pb = cached_surface != null ? cached_surface : pb_surface;
-                            if (final_pb != null) {
-                                pic.set_paintable(Gdk.Texture.for_pixbuf(final_pb));
-                            }
-                            pic.set_size_request(20, 20);
-
-                            var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                            logo_wrapper.add_css_class("circular-logo");
-                            logo_wrapper.set_size_request(20, 20);
-                            logo_wrapper.set_valign(Gtk.Align.CENTER);
-                            logo_wrapper.set_halign(Gtk.Align.CENTER);
-                            logo_wrapper.append(pic);
-                            box.append(logo_wrapper);
-                        }
-                    }
+        // Pin to 24 logical px - a Gtk.Picture's natural size is its texture's pixel
+        // size, so HiDPI textures (24 * scale factor) would otherwise grow the badge.
+        logo_wrapper.set_layout_manager(new Gtk.CustomLayout(null,
+            (w, orientation, for_size, out minimum, out natural, out min_baseline, out nat_baseline) => {
+                minimum = natural = 24;
+                min_baseline = nat_baseline = -1;
+            },
+            (w, width, height, baseline) => {
+                for (var c = w.get_first_child(); c != null; c = c.get_next_sibling()) {
+                    c.allocate(width, height, baseline, null);
                 }
-            }
+            }));
 
-        var lbl = new Gtk.Label(source_display_name(source));
+        return logo_wrapper;
+    }
+
+    // Fits the icon into a (24 * scale)px square, preserving aspect.
+    private static Gdk.Pixbuf? load_scaled_icon_pixbuf(string icon_path, int scale) {
+        Gdk.Pixbuf? probe = ImageCache.get_global().get_or_load_file(
+            "pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0),
+            icon_path,
+            0,
+            0
+        );
+
+        if (probe == null) {
+            return null;
+        }
+
+        int orig_w = probe.get_width();
+        int orig_h = probe.get_height();
+        double target = 24.0 * scale;
+
+        double factor = 1.0;
+        if (orig_w > 0 && orig_h > 0) {
+            factor = double.min(target / orig_w, target / orig_h);
+        }
+
+        int sw = int.max(1, (int)(orig_w * factor));
+        int sh = int.max(1, (int)(orig_h * factor));
+
+        string key = "pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh);
+        return ImageCache.get_global().get_or_load_file(key, icon_path, sw, sh);
+    }
+
+    private static Gtk.Picture? load_and_scale_icon(string icon_path) {
+        if (icon_path == null || !GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
+            return null;
+        }
+
+        Gdk.Pixbuf? scaled_pb = load_scaled_icon_pixbuf(icon_path, 1);
+        if (scaled_pb == null) {
+            return null;
+        }
+
+        var pic = new Gtk.Picture();
+        pic.set_paintable(Gdk.Texture.for_pixbuf(scaled_pb));
+        pic.set_content_fit(Gtk.ContentFit.CONTAIN);
+        pic.set_halign(Gtk.Align.CENTER);
+        pic.set_valign(Gtk.Align.CENTER);
+
+        // Scale factor is only known once realized; re-render so HiDPI logos stay sharp.
+        pic.realize.connect(() => {
+            int scale = pic.get_scale_factor();
+            if (scale <= 1) return;
+            Gdk.Pixbuf? hi_pb = load_scaled_icon_pixbuf(icon_path, scale);
+            if (hi_pb != null) pic.set_paintable(Gdk.Texture.for_pixbuf(hi_pb));
+        });
+
+        return pic;
+    }
+
+    private static Gtk.Box? create_logo_wrapper_from_url(NewsWindow win, string image_url) {
+        if (win.image_manager == null) {
+            return null;
+        }
+
+        var logo_wrapper = create_logo_wrapper();
+
+        var pic = new Gtk.Picture();
+        pic.set_valign(Gtk.Align.CENTER);
+        pic.set_halign(Gtk.Align.CENTER);
+        pic.set_content_fit(Gtk.ContentFit.CONTAIN);
+        pic.set_size_request(24, 24);
+
+        win.image_manager.load_image_async(pic, image_url, 24, 24);
+
+        logo_wrapper.append(pic);
+
+        return logo_wrapper;
+    }
+
+
+
+    private static Gtk.Label create_source_badge_label(string text, int max_width_chars = 14) {
+        var lbl = new Gtk.Label(text);
         lbl.add_css_class("source-badge-label");
         lbl.set_valign(Gtk.Align.CENTER);
         lbl.set_xalign(0.5f);
         lbl.set_ellipsize(Pango.EllipsizeMode.END);
-        lbl.set_max_width_chars(12);
+        lbl.set_max_width_chars(max_width_chars);
+        return lbl;
+    }
+
+    private static Gtk.Box? create_logo_wrapper_from_file(string? icon_path) {
+        if (icon_path == null) {
+            return null;
+        }
+        Gtk.Picture? pic = load_and_scale_icon(icon_path);
+        if (pic == null) {
+            return null;
+        }
+        var logo_wrapper = create_logo_wrapper();
+        logo_wrapper.append(pic);
+        return logo_wrapper;
+    }
+
+    public static Gtk.Widget build_source_badge(NewsSource source) {
+        var box = create_badge_box();
+
+        string? filename = source_icon_filename(source);
+        if (filename != null) {
+            string? path = DataPathsUtils.find_data_file("icons/" + filename);
+            Gtk.Box? logo_wrapper = create_logo_wrapper_from_file(path);
+            if (logo_wrapper != null) {
+                box.append(logo_wrapper);
+            }
+        }
+
+        var lbl = create_source_badge_label(source_display_name(source), 12);
         box.append(lbl);
 
         return box;
     }
 
-    // Front Page/Top Ten (paperboy-API-backed) articles carry their
-    // source's display name and logo URL encoded straight into the
-    // `source_name` string as "Name||logo_url##category::category_id" (see
-    // paperboyFetcher.vala) rather than being indexable via SourceMetadata,
-    // since update_index_and_fetch() is never called for these sources.
-    // Shared here so any caller that needs a source's logo/name for one of
-    // these articles (card badges, the reader view's source banner) decodes
-    // it the same way instead of re-implementing this split/strip dance.
+    // API-backed articles can encode source display name and logo URL in `source_name`
+    // as "Name||logo_url##category::category_id".
+    // This function centralizes decoding of that format.
     public static void parse_encoded_source_name(string? source_name, out string? display_name, out string? logo_url) {
         logo_url = null;
         display_name = source_name;
@@ -200,28 +261,75 @@ public class CardBuilder : GLib.Object {
         }
     }
 
+    private static Gtk.Widget build_badge_with_optional_logo(string display_text, Gtk.Box? logo_wrapper) {
+        var box = create_badge_box();
+        if (logo_wrapper != null) {
+            box.append(logo_wrapper);
+        }
+        var lbl = create_source_badge_label(display_text);
+        box.append(lbl);
+        return box;
+    }
+
+    // Tries to load a source logo in order: saved local file -> metadata logo URL -> Google favicon -> RSS favicon.
+    private static Gtk.Box? try_load_icon_from_metadata(NewsWindow win, string? meta_filename, string? meta_logo_url, string? rss_url, string? rss_favicon_url) {
+        if (meta_filename != null) {
+            var data_dir = GLib.Environment.get_user_data_dir();
+            var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", meta_filename);
+            Gtk.Box? wrapper = create_logo_wrapper_from_file(icon_path);
+            if (wrapper != null) {
+                return wrapper;
+            }
+        }
+
+        if (meta_logo_url != null && meta_logo_url.length > 0 &&
+            (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
+            return create_logo_wrapper_from_url(win, meta_logo_url);
+        }
+
+        if (rss_url != null && rss_url.length > 0) {
+            string? host = UrlUtils.extract_host_from_url(rss_url);
+            if (host != null && host.length > 0) {
+                string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+                return create_logo_wrapper_from_url(win, google_favicon_url);
+            }
+        }
+
+        if (rss_favicon_url != null && rss_favicon_url.length > 0 &&
+            (rss_favicon_url.has_prefix("http://") || rss_favicon_url.has_prefix("https://"))) {
+            return create_logo_wrapper_from_url(win, rss_favicon_url);
+        }
+
+        return null;
+    }
+
+    private static string get_final_display_name(string? display_name, string? source_name) {
+        if (display_name != null && display_name.length > 0) {
+            return display_name;
+        }
+        if (source_name != null && source_name.length > 0) {
+            return source_name;
+        }
+        return "News";
+    }
+
     public static Gtk.Widget build_source_badge_dynamic(NewsWindow win, string? source_name, string? url, string? category_id) {
         string? provided_logo_url = null;
         string? display_name = null;
         parse_encoded_source_name(source_name, out display_name, out provided_logo_url);
 
-        // For My Feed articles, prioritize source_info metadata from when the article
-        // was originally fetched from frontpage/topten. This ensures we use the
-        // correct display name and logo from the JSON API data rather than trying
-        // to match against potentially incorrect RSS feed metadata.
+        // For My Feed: first try SourceMetadata, then fall back to matching an RSS source by name or URL/domain.
         if (category_id == "myfeed") {
             string? meta_logo_url = null;
             string? meta_filename = null;
             string? meta_display_name = null;
 
-            // First try matching by display_name if available
             if (display_name != null && display_name.length > 0) {
                 meta_logo_url = SourceMetadata.get_logo_url_for_source(display_name);
                 meta_filename = SourceMetadata.get_saved_filename_for_source(display_name);
                 meta_display_name = SourceMetadata.get_display_name_for_source(display_name);
             }
 
-            // If no match by name, try matching by article URL domain
             if (meta_logo_url == null && meta_filename == null && url != null && url.length > 0) {
                 string? url_display_name = null;
                 string? url_logo_url = null;
@@ -234,109 +342,25 @@ public class CardBuilder : GLib.Object {
                 }
             }
 
-            // If we found source_info metadata, use it directly
             if (meta_logo_url != null || meta_filename != null) {
-                // Use the proper display name from metadata (e.g., "Tom's Guide" not "Tom s Guide")
                 if (meta_display_name != null && meta_display_name.length > 0) {
                     display_name = meta_display_name;
                 }
-                var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
-                box.add_css_class("source-badge");
-                box.set_margin_bottom(8);
-                box.set_margin_end(8);
-                box.set_valign(Gtk.Align.END);
-                box.set_halign(Gtk.Align.END);
-
-                bool icon_loaded = false;
-
-                // Try to load from saved file first
-                if (meta_filename != null) {
-                    var data_dir = GLib.Environment.get_user_data_dir();
-                    var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", meta_filename);
-                    if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                            var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
-                            if (probe != null) {
-                                int orig_w = probe.get_width(); int orig_h = probe.get_height();
-                                double scale = 1.0;
-                                if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
-                                int sw = (int)(orig_w * scale);
-                                int sh = (int)(orig_h * scale);
-                                if (sw < 1) sw = 1; if (sh < 1) sh = 1;
-
-                                var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
-
-                                var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                                var cr = new Cairo.Context(surface);
-                                int x = (20 - sw) / 2;
-                                int y = (20 - sh) / 2;
-                                Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
-                                cr.paint();
-                                var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, 20, 20);
-                                var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
-
-                                var pic = new Gtk.Picture();
-                                if (pb_surf != null) {
-                                    pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
-                                }
-                                pic.set_size_request(20, 20);
-
-                                var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                                logo_wrapper.add_css_class("circular-logo");
-                                logo_wrapper.set_size_request(20, 20);
-                                logo_wrapper.set_valign(Gtk.Align.CENTER);
-                                logo_wrapper.set_halign(Gtk.Align.CENTER);
-                                logo_wrapper.append(pic);
-                                box.append(logo_wrapper);
-                                icon_loaded = true;
-                            }
-                    }
-                }
-
-                // Fall back to loading from URL if file not found
-                if (!icon_loaded && meta_logo_url != null && meta_logo_url.length > 0 &&
-                    (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
-                    var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                    logo_wrapper.add_css_class("circular-logo");
-                    logo_wrapper.set_size_request(20, 20);
-                    logo_wrapper.set_valign(Gtk.Align.CENTER);
-                    logo_wrapper.set_halign(Gtk.Align.CENTER);
-
-                    var pic = new Gtk.Picture();
-                    pic.set_size_request(20, 20);
-                    pic.set_valign(Gtk.Align.CENTER);
-                    pic.set_halign(Gtk.Align.CENTER);
-                    if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20);
-
-                    logo_wrapper.append(pic);
-                    box.append(logo_wrapper);
-                    icon_loaded = true;
-                }
-
-                var lbl = new Gtk.Label(display_name);
-                lbl.add_css_class("source-badge-label");
-                lbl.set_valign(Gtk.Align.CENTER);
-                lbl.set_xalign(0.5f);
-                lbl.set_ellipsize(Pango.EllipsizeMode.END);
-                lbl.set_max_width_chars(14);
-                box.append(lbl);
-                return box;
+                Gtk.Box? logo_wrapper = try_load_icon_from_metadata(win, meta_filename, meta_logo_url, null, null);
+                return build_badge_with_optional_logo(display_name != null ? display_name : "", logo_wrapper);
             }
         }
 
-        // Check if this is a custom RSS source (fallback if source_info not found)
         if (provided_logo_url == null && category_id == "myfeed") {
             var rss_store = Paperboy.RssSourceStore.get_instance();
             var all_sources = rss_store.get_all_sources();
             foreach (var src in all_sources) {
-                // Match by source_name (which comes from RSS feed) or by URL domain
                 bool is_match = false;
 
-                // First try matching by source name
                 if (source_name != null && source_name == src.name) {
                     is_match = true;
                 }
 
-                // Also try matching by URL domain as fallback
                 if (!is_match && url != null && url.length > 0) {
                     string src_host = UrlUtils.extract_host_from_url(src.url);
                     string article_host = UrlUtils.extract_host_from_url(url);
@@ -346,320 +370,53 @@ public class CardBuilder : GLib.Object {
                 }
 
                 if (is_match) {
-                    // This article is from a custom RSS source
-                    var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
-                    box.add_css_class("source-badge");
-                    box.set_margin_bottom(8);
-                    box.set_margin_end(8);
-                    box.set_valign(Gtk.Align.END);
-                    box.set_halign(Gtk.Align.END);
+                    string? dummy_logo_url;
+                    string final_display_name;
+                    parse_encoded_source_name(src.name, out final_display_name, out dummy_logo_url);
 
-                    // Apply article pane source name logic for better display names
-                    string final_display_name = src.name;
-                    var prefs = NewsPreferences.get_instance();
-                        // Parse encoded source name (format: "SourceName||logo_url##category::cat")
-                        string? explicit_source_name = src.name;
-                        if (explicit_source_name != null && explicit_source_name.length > 0) {
-                            int pipe_idx = explicit_source_name.index_of("||");
-                            if (pipe_idx >= 0) {
-                                explicit_source_name = explicit_source_name.substring(0, pipe_idx);
-                            }
-                            int cat_idx = explicit_source_name.index_of("##category::");
-                            if (cat_idx >= 0) {
-                                explicit_source_name = explicit_source_name.substring(0, cat_idx);
-                            }
-                            final_display_name = explicit_source_name;
-                        }
-                    
-
-                    // Priority 1: Check source_info meta files first (from frontpage/topten)
-                    bool icon_loaded = false;
                     string? meta_logo_url = SourceMetadata.get_logo_url_for_source(final_display_name);
                     string? meta_filename = SourceMetadata.get_saved_filename_for_source(final_display_name);
 
-                    // Try to load from saved source_info file first
-                    if (meta_filename != null) {
-                        var data_dir = GLib.Environment.get_user_data_dir();
-                        var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", meta_filename);
-                        if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                            var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
-                            if (probe != null) {
-                                int orig_w = probe.get_width(); int orig_h = probe.get_height();
-                                double scale = 1.0;
-                                if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
-                                int sw = (int)(orig_w * scale);
-                                int sh = (int)(orig_h * scale);
-                                if (sw < 1) sw = 1; if (sh < 1) sh = 1;
-
-                                var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
-
-                                var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                                var cr = new Cairo.Context(surface);
-                                int x = (20 - sw) / 2;
-                                int y = (20 - sh) / 2;
-                                Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
-                                cr.paint();
-                                var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, 20, 20);
-                                var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
-
-                                var pic = new Gtk.Picture();
-                                if (pb_surf != null) {
-                                    pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
-                                }
-                                pic.set_size_request(20, 20);
-
-                                var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                                logo_wrapper.add_css_class("circular-logo");
-                                logo_wrapper.set_size_request(20, 20);
-                                logo_wrapper.set_valign(Gtk.Align.CENTER);
-                                logo_wrapper.set_halign(Gtk.Align.CENTER);
-                                logo_wrapper.append(pic);
-                                box.append(logo_wrapper);
-                                icon_loaded = true;
-                            }
-                        }
-                    }
-
-                    // Priority 2: Try loading directly from API logo URL (high quality from logo.dev)
-                    if (!icon_loaded && meta_logo_url != null && meta_logo_url.length > 0 &&
-                        (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
-                        var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                        logo_wrapper.add_css_class("circular-logo");
-                        logo_wrapper.set_size_request(20, 20);
-                        logo_wrapper.set_valign(Gtk.Align.CENTER);
-                        logo_wrapper.set_halign(Gtk.Align.CENTER);
-
-                        var pic = new Gtk.Picture();
-                        pic.set_size_request(20, 20);
-                        pic.set_valign(Gtk.Align.CENTER);
-                        pic.set_halign(Gtk.Align.CENTER);
-                        if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20);
-
-                        logo_wrapper.append(pic);
-                        box.append(logo_wrapper);
-                        icon_loaded = true;
-                    }
-
-                    // Priority 3: Try Google favicon service
-                    if (!icon_loaded) {
-                        string? host = UrlUtils.extract_host_from_url(src.url);
-                        if (host != null && host.length > 0) {
-                            string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
-                            var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                            logo_wrapper.add_css_class("circular-logo");
-                            logo_wrapper.set_size_request(20, 20);
-                            logo_wrapper.set_valign(Gtk.Align.CENTER);
-                            logo_wrapper.set_halign(Gtk.Align.CENTER);
-
-                            var pic = new Gtk.Picture();
-                            pic.set_size_request(20, 20);
-                            pic.set_valign(Gtk.Align.CENTER);
-                            pic.set_halign(Gtk.Align.CENTER);
-                            if (win.image_manager != null) win.image_manager.load_image_async(pic, google_favicon_url, 20, 20);
-
-                            logo_wrapper.append(pic);
-                            box.append(logo_wrapper);
-                            icon_loaded = true;
-                        }
-                    }
-
-                    // Priority 4: Try RSS favicon_url
-                    if (!icon_loaded && src.favicon_url != null && src.favicon_url.length > 0 &&
-                        (src.favicon_url.has_prefix("http://") || src.favicon_url.has_prefix("https://"))) {
-                        var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                        logo_wrapper.add_css_class("circular-logo");
-                        logo_wrapper.set_size_request(20, 20);
-                        logo_wrapper.set_valign(Gtk.Align.CENTER);
-                        logo_wrapper.set_halign(Gtk.Align.CENTER);
-
-                        var pic = new Gtk.Picture();
-                        pic.set_size_request(20, 20);
-                        pic.set_valign(Gtk.Align.CENTER);
-                        pic.set_halign(Gtk.Align.CENTER);
-                        if (win.image_manager != null) win.image_manager.load_image_async(pic, src.favicon_url, 20, 20);
-
-                        logo_wrapper.append(pic);
-                        box.append(logo_wrapper);
-                        icon_loaded = true;
-                    }
-
-                    var lbl = new Gtk.Label(final_display_name);
-                    lbl.add_css_class("source-badge-label");
-                    lbl.set_valign(Gtk.Align.CENTER);
-                    lbl.set_xalign(0.5f);
-                    lbl.set_ellipsize(Pango.EllipsizeMode.END);
-                    lbl.set_max_width_chars(14);
-                    box.append(lbl);
-                    return box;
+                    Gtk.Box? logo_wrapper = try_load_icon_from_metadata(win, meta_filename, meta_logo_url, src.url, src.favicon_url);
+                    return build_badge_with_optional_logo(final_display_name, logo_wrapper);
                 }
             }
         }
 
-
-        // If the API did not provide an explicit logo URL and the name maps to a known source,
-        // reuse the bundled badge.
         if (provided_logo_url == null && display_name != null && display_name.length > 0) {
             NewsSource? resolved = resolve_builtin_news_source(display_name);
             if (resolved != null) {
-                string? icon_path = null;
-                string? fname = source_icon_filename(resolved);
-                if (fname != null) icon_path = DataPathsUtils.find_data_file("icons/" + fname);
-                if (icon_path != null) return build_source_badge(resolved);
+                return build_source_badge(resolved);
             }
         }
 
-        // Check source_info meta files for logo data (for frontpage/topten/myfeed articles)
-        // This should happen BEFORE the text-only fallback to ensure we use saved logos
         if (provided_logo_url == null && display_name != null && display_name.length > 0) {
-            // Try to get logo URL from meta files first
             string? meta_logo_url = SourceMetadata.get_logo_url_for_source(display_name);
             string? meta_filename = SourceMetadata.get_saved_filename_for_source(display_name);
             
             if (meta_logo_url != null || meta_filename != null) {
-                var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
-                box.add_css_class("source-badge");
-                box.set_margin_bottom(8);
-                box.set_margin_end(8);
-                box.set_valign(Gtk.Align.END);
-                box.set_halign(Gtk.Align.END);
-
-                bool icon_loaded = false;
-
-                // Try to load from saved file first
-                if (meta_filename != null) {
-                    var data_dir = GLib.Environment.get_user_data_dir();
-                    var icon_path = GLib.Path.build_filename(data_dir, "paperboy", "source_logos", meta_filename);
-                            if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                            var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, 0, 0), icon_path, 0, 0);
-                            if (probe != null) {
-                                int orig_w = probe.get_width(); int orig_h = probe.get_height();
-                                double scale = 1.0;
-                                if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
-                                int sw = (int)(orig_w * scale);
-                                int sh = (int)(orig_h * scale);
-                                if (sw < 1) sw = 1; if (sh < 1) sh = 1;
-
-                                var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(icon_path, sw, sh), icon_path, sw, sh);
-
-                                var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                                var cr = new Cairo.Context(surface);
-                                int x = (20 - sw) / 2;
-                                int y = (20 - sh) / 2;
-                                Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
-                                cr.paint();
-                                var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(icon_path, 20, 20);
-                                var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
-
-                                var pic = new Gtk.Picture();
-                                if (pb_surf != null) {
-                                    pic.set_paintable(Gdk.Texture.for_pixbuf(pb_surf));
-                                }
-                                pic.set_size_request(20, 20);
-
-                                var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                                logo_wrapper.add_css_class("circular-logo");
-                                logo_wrapper.set_size_request(20, 20);
-                                logo_wrapper.set_valign(Gtk.Align.CENTER);
-                                logo_wrapper.set_halign(Gtk.Align.CENTER);
-                                logo_wrapper.append(pic);
-                                box.append(logo_wrapper);
-                                icon_loaded = true;
-                            }
-                    }
-                }
-
-                // Fall back to loading from URL if file not found
-                if (!icon_loaded && meta_logo_url != null && meta_logo_url.length > 0 &&
-                    (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
-                    var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                    logo_wrapper.add_css_class("circular-logo");
-                    logo_wrapper.set_size_request(20, 20);
-                    logo_wrapper.set_valign(Gtk.Align.CENTER);
-                    logo_wrapper.set_halign(Gtk.Align.CENTER);
-
-                    var pic = new Gtk.Picture();
-                    pic.set_size_request(20, 20);
-                    pic.set_valign(Gtk.Align.CENTER);
-                    pic.set_halign(Gtk.Align.CENTER);
-                    if (win.image_manager != null) win.image_manager.load_image_async(pic, meta_logo_url, 20, 20);
-                    logo_wrapper.append(pic);
-                    box.append(logo_wrapper);
-                    icon_loaded = true;
-                }
-
-                var lbl = new Gtk.Label(display_name);
-                lbl.add_css_class("source-badge-label");
-                lbl.set_valign(Gtk.Align.CENTER);
-                lbl.set_xalign(0.5f);
-                lbl.set_ellipsize(Pango.EllipsizeMode.END);
-                lbl.set_max_width_chars(14);
-                box.append(lbl);
-                return box;
+                Gtk.Box? logo_wrapper = try_load_icon_from_metadata(win, meta_filename, meta_logo_url, null, null);
+                return build_badge_with_optional_logo(display_name, logo_wrapper);
             }
         }
 
-        // Text-only badge for aggregated views when no logo is available
         bool is_aggregated = (category_id != null && (category_id == "frontpage" || category_id == "topten" || category_id == "myfeed"));
         if (is_aggregated && display_name != null && display_name.length > 0 && provided_logo_url == null) {
-            var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
-            box.add_css_class("source-badge");
-            box.set_margin_bottom(8);
-            box.set_margin_end(8);
-            box.set_valign(Gtk.Align.END);
-            box.set_halign(Gtk.Align.END);
-
-            var lbl = new Gtk.Label(display_name);
-            lbl.add_css_class("source-badge-label");
-            lbl.set_valign(Gtk.Align.CENTER);
-            lbl.set_xalign(0.5f);
-            lbl.set_ellipsize(Pango.EllipsizeMode.END);
-            lbl.set_max_width_chars(14);
-            box.append(lbl);
-            return box;
+            return build_badge_with_optional_logo(display_name, null);
         }
 
-        // If an explicit remote logo URL is provided, use it
         if (provided_logo_url != null) {
             provided_logo_url = provided_logo_url.strip();
             if (provided_logo_url.has_prefix("//")) provided_logo_url = "https:" + provided_logo_url;
         }
 
         if (provided_logo_url != null && (provided_logo_url.has_prefix("http://") || provided_logo_url.has_prefix("https://"))) {
-            var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
-            box.add_css_class("source-badge");
-            box.set_margin_bottom(8);
-            box.set_margin_end(8);
-            box.set_valign(Gtk.Align.END);
-            box.set_halign(Gtk.Align.END);
-
-            var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-            logo_wrapper.add_css_class("circular-logo");
-            logo_wrapper.set_size_request(20, 20);
-            logo_wrapper.set_valign(Gtk.Align.CENTER);
-            logo_wrapper.set_halign(Gtk.Align.CENTER);
-
-            var pic = new Gtk.Picture();
-            pic.set_size_request(20, 20);
-            pic.set_valign(Gtk.Align.CENTER);
-            pic.set_halign(Gtk.Align.CENTER);
-            if (win.image_manager != null) win.image_manager.load_image_async(pic, provided_logo_url, 20, 20);
-
-            logo_wrapper.append(pic);
-            box.append(logo_wrapper);
-
-            var lbl = new Gtk.Label(display_name != null && display_name.length > 0 ? display_name : source_name);
-            lbl.add_css_class("source-badge-label");
-            lbl.set_valign(Gtk.Align.CENTER);
-            lbl.set_xalign(0.5f);
-            lbl.set_ellipsize(Pango.EllipsizeMode.END);
-            lbl.set_max_width_chars(14);
-            box.append(lbl);
-            return box;
+            Gtk.Box? logo_wrapper = create_logo_wrapper_from_url(win, provided_logo_url);
+            string final_display = get_final_display_name(display_name, source_name);
+            return build_badge_with_optional_logo(final_display, logo_wrapper);
         }
 
-        // Try local icon candidates derived from display_name
         if (display_name != null && display_name.length > 0) {
-            // Build simple candidates: hyphen, underscore, concat
             string low = display_name.down();
             var sb = new StringBuilder();
             for (int i = 0; i < low.length; i++) {
@@ -683,93 +440,24 @@ public class CardBuilder : GLib.Object {
                 foreach (var rel in paths) {
                     string? full = DataPathsUtils.find_data_file(rel);
                     if (full != null) {
-                        var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
-                        box.add_css_class("source-badge");
-                        box.set_margin_bottom(8);
-                        box.set_margin_end(8);
-                        box.set_valign(Gtk.Align.END);
-                        box.set_halign(Gtk.Align.END);
-                                // Centralize file loading and scaling in ImageCache
-                                var probe = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(full, 0, 0), full, 0, 0);
-                                if (probe != null) {
-                                    int orig_w = probe.get_width(); int orig_h = probe.get_height();
-                                    double scale = 1.0;
-                                    if (orig_w > 0 && orig_h > 0) scale = double.max(20.0 / orig_w, 20.0 / orig_h);
-                                    int sw = (int)(orig_w * scale);
-                                    int sh = (int)(orig_h * scale);
-                                    if (sw < 1) sw = 1; if (sh < 1) sh = 1;
-
-                                    var scaled_icon = ImageCache.get_global().get_or_load_file("pixbuf::file:%s::%dx%d".printf(full, sw, sh), full, sw, sh);
-
-                                    var surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 20, 20);
-                                    var cr = new Cairo.Context(surface);
-                                    int x = (20 - sw) / 2;
-                                    int y = (20 - sh) / 2;
-                                    Gdk.cairo_set_source_pixbuf(cr, scaled_icon, x, y);
-                                    cr.paint();
-                                    var surf_key = "pixbuf::surface:icon:%s::%dx%d".printf(full, 20, 20);
-                                    var pb_surf = ImageCache.get_global().get_or_from_surface(surf_key, surface, 0, 0, 20, 20);
-
-                                    Gdk.Pixbuf? final_pb = pb_surf;
-
-                                    var pic = new Gtk.Picture();
-                                    if (final_pb != null) {
-                                        pic.set_paintable(Gdk.Texture.for_pixbuf(final_pb));
-                                    }
-                                    pic.set_size_request(20, 20);
-
-                                var logo_wrapper = new Gtk.Box(Orientation.HORIZONTAL, 0);
-                                logo_wrapper.add_css_class("circular-logo");
-                                logo_wrapper.set_size_request(20, 20);
-                                logo_wrapper.set_valign(Gtk.Align.CENTER);
-                                logo_wrapper.set_halign(Gtk.Align.CENTER);
-                                logo_wrapper.append(pic);
-                                box.append(logo_wrapper);
-                            }
-
-                        var lbl = new Gtk.Label(display_name != null && display_name.length > 0 ? display_name : source_name);
-                        lbl.add_css_class("source-badge-label");
-                        lbl.set_valign(Gtk.Align.CENTER);
-                        lbl.set_xalign(0.5f);
-                        lbl.set_ellipsize(Pango.EllipsizeMode.END);
-                        lbl.set_max_width_chars(14);
-                        box.append(lbl);
-                        return box;
+                        Gtk.Box? logo_wrapper = create_logo_wrapper_from_file(full);
+                        string final_display = get_final_display_name(display_name, source_name);
+                        return build_badge_with_optional_logo(final_display, logo_wrapper);
                     }
                 }
             }
         }
 
-        var box_fallback = new Gtk.Box(Orientation.HORIZONTAL, 6);
-        box_fallback.add_css_class("source-badge");
-        box_fallback.set_margin_bottom(8);
-        box_fallback.set_margin_end(8);
-        box_fallback.set_valign(Gtk.Align.END);
-        box_fallback.set_halign(Gtk.Align.END);
-        var lbl_f = new Gtk.Label(display_name != null && display_name.length > 0 ? display_name : (source_name != null && source_name.length > 0 ? source_name : "News"));
-        lbl_f.add_css_class("source-badge-label");
-        lbl_f.set_valign(Gtk.Align.CENTER);
-        lbl_f.set_xalign(0.5f);
-        lbl_f.set_ellipsize(Pango.EllipsizeMode.END);
-        lbl_f.set_max_width_chars(14);
-        box_fallback.append(lbl_f);
-        return box_fallback;
+        string final_display = get_final_display_name(display_name, source_name);
+        return build_badge_with_optional_logo(final_display, null);
     }
 
+    // Eye icon represents that the article has been read/viewed.
     public static Gtk.Widget build_viewed_badge() {
         var box = new Gtk.Box(Orientation.HORIZONTAL, 4);
         box.add_css_class("viewed-badge");
-        // Packed into viewed_badge_slot (bottom-right of the title area,
-        // opposite time_label - see ArticleCard/HeroCard), not floated over
-        // the image, so no halign/valign/margin positioning needed here;
-        // ordinary box layout handles it.
         box.set_valign(Gtk.Align.CENTER);
 
-        // An eye, not a checkmark: a check reads as "verified" in a news
-        // app (a much worse misread than just being unclear), while an eye
-        // reinforces "you've seen this" instead. view-reveal-symbolic is
-        // the standard open-eye glyph (used elsewhere for password-reveal
-        // toggles).
         var icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
         icon.set_pixel_size(14);
         icon.get_style_context().add_class("viewed-badge-icon");
@@ -784,20 +472,12 @@ public class CardBuilder : GLib.Object {
         return box;
     }
 
-    // Rest Y (within the ribbon's own Gtk.Fixed) for the save ribbon, pokes
-    // up past the card's top edge. Public so AnimationManager can animate
-    // toward/away from the same value.
-    public const int SAVE_RIBBON_HEIGHT = 50; // 10% bigger (29px icon, was 26px)
+    public const int SAVE_RIBBON_HEIGHT = 50;
     public const int SAVE_RIBBON_REST_Y = -8;
-    // Fully tucked away above the card, tab's bottom edge at the rest
-    // tab's own top edge - i.e. rest minus its own height.
     public const int SAVE_RIBBON_HIDDEN_Y = SAVE_RIBBON_REST_Y - SAVE_RIBBON_HEIGHT;
 
-    // Persistent "this is saved" tag in the card's top-right corner (see
-    // AnimationManager.animate_save_toggle for the slide animation). A
-    // Gtk.Fixed positions it, not a margin - GTK couldn't reconcile a
-    // negative margin against the widget's own measured size, which
-    // spammed layout warnings and a visible relayout glitch on every card.
+    // Uses Gtk.Fixed with negative Y positioning to poke above the card. Hidden with set_visible(false) when unsaved
+    // to avoid reserving space in the layout.
     public static Gtk.Widget build_save_ribbon(bool initially_saved) {
         var tab = new Gtk.Image();
         tab.add_css_class("save-ribbon");
@@ -814,16 +494,10 @@ public class CardBuilder : GLib.Object {
             }
         }
         if (tab.get_paintable() == null) {
-            // Bundled asset missing for some reason - fall back to a
-            // recognizable bookmark glyph rather than a blank space.
             tab.set_from_icon_name("user-bookmarks-symbolic");
         }
         tab.set_pixel_size(icon_px);
         tab.set_size_request(icon_px, icon_px);
-        // Not just positioned off the top - removed from layout entirely
-        // while unsaved, so it doesn't reserve a gap next to the "Viewed"
-        // badge (see AnimationManager.animate_save_toggle, which flips this
-        // back to true right before sliding it in).
         tab.set_visible(initially_saved);
 
         var fixed = new Gtk.Fixed();

@@ -21,6 +21,11 @@ public class PaperboyApp : Adw.Application {
         GLib.Object(application_id: "io.github.thecalamityjoe87.Paperboy", flags: ApplicationFlags.FLAGS_NONE);
     }
 
+    protected override void shutdown() {
+        WebViewUtils.terminate_all();
+        base.shutdown();
+    }
+
     protected override void activate() {
         // Ensure global HttpClient is constructed on the main thread
         // before any other subsystem can spawn worker threads.
@@ -65,11 +70,11 @@ public class PaperboyApp : Adw.Application {
         });
         this.add_action(about_action);
 
-        var set_location_action = new SimpleAction("set-location", null);
-        set_location_action.activate.connect(() => {
-            LocationDialog.show(win);
+        var manage_locations_action = new SimpleAction("manage-locations", null);
+        manage_locations_action.activate.connect(() => {
+            PrefsDialog.show_preferences_dialog(win, false, false, true);
         });
-        this.add_action(set_location_action);
+        this.add_action(manage_locations_action);
 
         var onboarding_action = new SimpleAction("show-onboarding", null);
         onboarding_action.activate.connect(() => {

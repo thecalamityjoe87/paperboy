@@ -9,6 +9,12 @@
       <description>Whether the Followed Sources section in the sidebar is expanded</description>
     </key>
 
+    <key name="sidebar-local-news-expanded" type="b">
+      <default>true</default>
+      <summary>Local News section expanded state</summary>
+      <description>Whether the Local News section in the sidebar is expanded</description>
+    </key>
+
     <key name="sidebar-popular-categories-expanded" type="b">
       <default>true</default>
       <summary>Popular Categories section expanded state</summary>
@@ -81,6 +87,18 @@
       <default>''</default>
       <summary>Local News search term</summary>
       <description>City name used to query local news; the nearest major city when the resolved location is a small town, otherwise the same as user-location-city</description>
+    </key>
+
+    <key name="local-areas" type="a(ss)">
+      <default>[]</default>
+      <summary>Local News locations</summary>
+      <description>Saved Local News locations as (search query, resolved city) pairs</description>
+    </key>
+
+    <key name="active-local-area" type="s">
+      <default>""</default>
+      <summary>Active Local News location</summary>
+      <description>Lowercased resolved city of the location the Local News view is showing</description>
     </key>
 
     <key name="reader-view-enabled" type="b">

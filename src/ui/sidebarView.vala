@@ -206,9 +206,6 @@ public class SidebarView : GLib.Object {
             expander.set_enable_expansion(true);
             expander.set_show_enable_switch(false);
 
-            // Store the last known expanded state to detect actual user changes
-            expander.set_data("last_expanded_state", section.is_expanded);
-
             // Add items directly to the expander for smooth native animations
             foreach (var item in section.items) {
                 Gtk.Widget item_widget;
@@ -232,6 +229,15 @@ public class SidebarView : GLib.Object {
                 if (section.section_id == "podcasts_entry" && item.id.has_prefix("podcastshow:")) {
                     podcast_subscription_rows.set(item.id, row);
                 }
+            }
+
+            if (section.section_id == "local_news_entry") {
+                var add_row = new Gtk.ListBoxRow();
+                add_row.set_child(create_manage_locations_button());
+                add_row.set_activatable(false);
+                add_row.set_selectable(false);
+                add_row.add_css_class("sidebar-expander-item");
+                expander.add_row(add_row);
             }
 
             // Optional "Add RSS Feed" button
@@ -261,10 +267,9 @@ public class SidebarView : GLib.Object {
                 add_podcast_row = add_row;
             }
 
-            // Track expansion state changes and notify manager
-            // Use activate signal instead of notify to only catch actual user clicks
-            expander.activate.connect(() => {
-                manager.toggle_section_expanded(section.section_id);
+            // Header clicks only surface as an "expanded" change, not "activate".
+            expander.notify["expanded"].connect(() => {
+                manager.set_section_expanded(section.section_id, expander.get_expanded());
             });
 
             // Store expander for later updates
@@ -684,6 +689,36 @@ public class SidebarView : GLib.Object {
         });
     }
     
+    private Gtk.Button create_manage_locations_button() {
+        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        button_box.add_css_class("sidebar-row-vspace");
+        button_box.set_margin_start(8);
+        button_box.set_margin_end(8);
+
+        var icon_holder = build_icon_slot();
+        var icon = new Gtk.Image.from_icon_name("emblem-system-symbolic");
+        icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
+        icon_holder.append(icon);
+        button_box.append(icon_holder);
+
+        var label = new Gtk.Label("Manage locations");
+        label.set_xalign(0);
+        label.set_hexpand(true);
+        button_box.append(label);
+
+        var manage_button = new Gtk.Button();
+        manage_button.set_can_focus(false);
+        manage_button.set_child(button_box);
+        manage_button.add_css_class("flat");
+        manage_button.add_css_class("sidebar-item-row");
+
+        manage_button.clicked.connect(() => {
+            PrefsDialog.show_preferences_dialog(window, false, false, true);
+        });
+
+        return manage_button;
+    }
+
     private Gtk.Button create_add_podcast_button() {
         var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         button_box.add_css_class("sidebar-row-vspace");
@@ -779,6 +814,7 @@ public class SidebarView : GLib.Object {
     private bool is_special_category_id(string id) {
         return id == "frontpage" ||
                id == "myfeed" || id == "local_news" ||
+               id.has_prefix(LocalArea.ID_PREFIX) ||
                id == "saved";
     }
 

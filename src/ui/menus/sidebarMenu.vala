@@ -65,6 +65,15 @@ public class SidebarMenu : GLib.Object {
         });
         menu_box.append(mark_unread_btn);
         
+        var rename_btn = create_menu_item("document-edit-symbolic", "Rename");
+        rename_btn.clicked.connect(() => {
+            popover.popdown();
+            if (current_source_url.length > 0) {
+                FeedRenameDialog.present(window, window, current_source_url);
+            }
+        });
+        menu_box.append(rename_btn);
+        
         // Remove this source
         var remove_btn = create_menu_item("user-trash-symbolic", "Remove this source");
         remove_btn.add_css_class("destructive-action");

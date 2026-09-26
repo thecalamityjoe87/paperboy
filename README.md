@@ -55,7 +55,7 @@ A simple news app written in Vala, built with GTK4 and Libadwaita. My motivation
 This app is very much so in an alpha state. It will definitely eat your dogs and throw your kittens outside. It's functional, but it's still very much so a WIP.
 
 ## Build dependencies
-This project declares several dependencies in `meson.build` (GTK4, Libadwaita, libsoup-3.0, JSON-GLib, GdkPixbuf, libxml2, Gee, GIO, SQLite, WebKitGTK, GeoClue, and geocode-glib) plus the Vala toolchain and the usual build tools (Meson, Ninja, a C compiler and `pkg-config`).
+This project declares several dependencies in `meson.build` (GTK4, Libadwaita, libsoup-3.0, JSON-GLib, GdkPixbuf, libxml2, Gee, GIO, SQLite, WebKitGTK, and GeoClue) plus the Vala toolchain and the usual build tools (Meson, Ninja, a C compiler and `pkg-config`).
 
 To produce AppImages you will also need `appimagetool` (or the AppImage bundle of `appimagetool`).
 
@@ -71,7 +71,6 @@ Summary of required toolchain and libraries:
 - Gee collection library: `libgee-0.8-dev`
 - SQLite (runtime and headers): `libsqlite3-dev`
 - GeoClue (used for the local-news location lookup): `libgeoclue-2-dev`
-- geocode-glib (reverse geocoding for location lookup): `libgeocode-glib-dev`
 - GStreamer (podcast audio playback: core, base, and "bad" plugins): `libgstreamer1.0-dev`, `libgstreamer-plugins-base1.0-dev`, `libgstreamer-plugins-bad1.0-dev`
 - `appimagetool` (optional, to create AppImages)
 
@@ -88,7 +87,7 @@ sudo apt install build-essential valac meson ninja-build pkg-config \
 	libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev \
 	libsoup-3.0-dev libjson-glib-dev libgdk-pixbuf-2.0-dev \
 	libxml2-dev libgee-0.8-dev libsqlite3-dev \
-	libgeoclue-2-dev libgeocode-glib-dev \
+	libgeoclue-2-dev \
   libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev
 
 # Rust (recommended via rustup) and appimagetool (optional):
@@ -103,7 +102,7 @@ Fedora:
 sudo dnf install @development-tools vala meson ninja pkgconf-pkg-config \
   gtk4-devel libadwaita-devel webkitgtk6-devel libsoup3-devel json-glib-devel \
   gdk-pixbuf2-devel libxml2-devel libgee-devel sqlite-devel \
-  geoclue2-devel geocode-glib2-devel
+  geoclue2-devel
 
 # Rust toolchain and appimagetool (if desired):
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -115,7 +114,7 @@ Arch Linux:
 ```bash
 sudo pacman -S --needed base-devel vala meson ninja pkgconf \
   gtk4 libadwaita webkit2gtk libsoup json-glib gdk-pixbuf2 libxml2 gee sqlite \
-  geoclue geocode-glib
+  geoclue
 
 # Rust and appimagetool (optional):
 rustup default stable
@@ -126,7 +125,7 @@ OpenSUSE Tumbleweed:
 ```bash
 sudo zypper in -t pattern devel_basis && sudo zypper in meson vala gtk4-devel \
   libwebkitgtk6.0-devel libsoup3-devel json-glib-devel libadwaita-devel libgee-devel sqlite3-devel \
-  geoclue2-devel geocode-glib2-devel
+  geoclue2-devel
 ```
 
 Build & run

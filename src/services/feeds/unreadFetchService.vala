@@ -1,0 +1,357 @@
+/*
+ * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+public class UnreadFetchService {
+
+    // Weak so this doesn't keep the window alive. Do NOT use FetchContext here - it would
+    // cancel the main content fetch.
+    private static weak NewsWindow? _unread_window = null;
+
+    // Shorter timeout than the main session so background fetches fail fast without blocking the UI.
+    private static Soup.Session? _metadata_session = null;
+
+    // Static Gee collections need lazy init in Vala (inline initializers don't run).
+    private static Gee.Queue<FetchTask>? _fetch_queue = null;
+    private static int _active_fetches = 0;
+    private const int MAX_CONCURRENT_FETCHES = 3;
+
+    // Task types for the fetch queue
+    private enum TaskType {
+        CATEGORY,
+        RSS_FEED,
+        LOCAL_FEED
+    }
+
+    private class FetchTask {
+        public TaskType type;
+        public string? category;
+        public NewsSource? source;
+        public string? rss_url;
+        public string? rss_name;
+        public string? category_id;
+        public string? cache_key;
+        public string? news_query;
+
+        public FetchTask.for_category(string cat, NewsSource src) {
+            this.type = TaskType.CATEGORY;
+            this.category = cat;
+            this.source = src;
+        }
+
+        public FetchTask.for_rss(string url, string name, string cat_id, string? cache_key_override = null) {
+            this.type = TaskType.RSS_FEED;
+            this.rss_url = url;
+            this.rss_name = name;
+            this.category_id = cat_id;
+            this.cache_key = cache_key_override;
+        }
+
+        // `display_city` is the user's resolved location (e.g. "San
+        // Francisco, CA"), used as the article source label; `query_city`
+        // is the (possibly different) nearest-major-city term used to
+        // build the Google News RSS search query at dispatch time.
+        // `tracking_id` is the city's own unread-tracking category.
+        public FetchTask.for_local(string display_city, string query_city, string tracking_id) {
+            this.type = TaskType.LOCAL_FEED;
+            this.rss_name = display_city;
+            this.news_query = query_city;
+            this.category_id = tracking_id;
+        }
+    }
+
+    private static Soup.Session get_metadata_session() {
+        if (_metadata_session == null) {
+            _metadata_session = new Soup.Session() {
+                timeout = 5
+            };
+        }
+        return _metadata_session;
+    }
+
+    private static Gee.Queue<FetchTask> get_fetch_queue() {
+        if (_fetch_queue == null) {
+            _fetch_queue = new Gee.LinkedList<FetchTask>();
+        }
+        return _fetch_queue;
+    }
+
+    private static void global_metadata_add(string title, string url, string? thumbnail_url, string category_id, string? source_name) {
+        var win = _unread_window;
+        if (win == null) return;
+
+        var store = win.article_state_store;
+        if (store == null) return;
+
+        string normalized = win.normalize_article_url(url);
+        store.register_article(normalized, category_id, source_name);
+
+        var prefs = win.prefs;
+        if (prefs == null) return;
+
+        // RSS sources: needs both the "enabled" switch and the separate My Feed opt-in.
+        if (category_id != null && category_id.has_prefix("rssfeed:")) {
+            string rss_url = category_id.substring("rssfeed:".length);
+            if (prefs.preferred_source_enabled("custom:" + rss_url) && prefs.myfeed_feed_enabled(rss_url)) {
+                store.register_article(normalized, "myfeed", "rssfeed:" + rss_url);
+            }
+        }
+        // Built-in sources: needs source enabled, category personalized, and custom-only mode off.
+        else if (source_name != null && category_id != null && prefs.personalized_feed_enabled && !prefs.myfeed_custom_only) {
+            var personalized_cats = prefs.personalized_categories;
+            if (personalized_cats != null && personalized_cats.contains(category_id)) {
+                string? source_id = SourceManager.normalize_source_display_name_to_id(source_name);
+
+                if (source_id != null) {
+                    bool is_enabled = prefs.preferred_source_enabled(source_id);
+                    if (is_enabled) {
+                        store.register_article(normalized, "myfeed", source_id);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void enqueue_fetch(FetchTask task) {
+        get_fetch_queue().offer(task);
+        process_fetch_queue();
+    }
+
+    private static void process_fetch_queue() {
+        var queue = get_fetch_queue();
+        while (_active_fetches < MAX_CONCURRENT_FETCHES && !queue.is_empty) {
+            var task = queue.poll();
+            if (task == null) break;
+
+            _active_fetches++;
+
+            var win = _unread_window;
+            if (win == null) {
+                _active_fetches--;
+                continue;
+            }
+
+            switch (task.type) {
+                case TaskType.CATEGORY:
+                    // Clear before every fetch (not just once) since the backend can return different
+                    // articles each time. Skip only the category the user is currently viewing - the
+                    // main fetch already handles that one.
+                    if (win != null && win.article_state_store != null && task.category != null) {
+                        bool should_clear = (win.prefs == null || win.prefs.category != task.category);
+
+                        if (should_clear) {
+                            win.article_state_store.clear_category_articles(task.category);
+                        }
+                    }
+
+                    NewsService.fetch(
+                        task.source,
+                        task.category,
+                        "",  // no search query
+                        get_metadata_session(),
+                        (s) => {},  // no label updates
+                        () => {},   // no clear
+                        (title, url, thumb, cat_id, src_name) => {
+                            global_metadata_add(title, url, thumb, cat_id, src_name);
+                        }
+                    );
+                    GLib.Timeout.add(100, () => {
+                        _active_fetches--;
+                        process_fetch_queue();
+                        return false;
+                    });
+                    break;
+
+                case TaskType.RSS_FEED:
+                    RssFeedProcessor.fetch_rss_url(
+                        task.rss_url,
+                        task.rss_name,
+                        task.rss_name,
+                        task.category_id,
+                        "",  // no search query
+                        get_metadata_session(),
+                        (s) => {},  // no label updates
+                        () => {},   // no clear
+                        (title, url, thumb, cat_id, src_name) => {
+                            global_metadata_add(title, url, thumb, cat_id, src_name);
+                        },
+                        task.cache_key  // Pass cache_key for generated feeds
+                    );
+                    // Decrement counter after a short delay
+                    GLib.Timeout.add(100, () => {
+                        _active_fetches--;
+                        process_fetch_queue();
+                        return false;
+                    });
+                    break;
+
+                case TaskType.LOCAL_FEED:
+                    string local_query = GLib.Uri.escape_string(task.news_query ?? task.rss_name, null, false);
+                    string local_tracking_id = task.category_id;
+                    RssFeedProcessor.fetch_rss_url(
+                        "https://news.google.com/rss/search?q=" + local_query + "&hl=en-US&gl=US&ceid=US:en",
+                        task.rss_name,
+                        "Local News",
+                        "local_news",
+                        "",  // no search query
+                        get_metadata_session(),
+                        (s) => {},  // no label updates
+                        () => {},   // no clear
+                        (title, url, thumb, cat_id, src_name) => {
+                            global_metadata_add(title, url, thumb, local_tracking_id, src_name);
+                        }
+                    );
+                    // Decrement counter after a short delay
+                    GLib.Timeout.add(100, () => {
+                        _active_fetches--;
+                        process_fetch_queue();
+                        return false;
+                    });
+                    break;
+            }
+        }
+    }
+
+    // Fetches regular categories and RSS sources in the background to populate unread counts.
+    // Special categories (myfeed, local_news, saved) are handled separately.
+    public static void fetch_all_category_metadata_for_counts(NewsWindow win) {
+        if (win == null) return;
+
+        // Do NOT use FetchContext.begin_new() - it would cancel the main content fetch.
+        _unread_window = win;
+
+        get_fetch_queue().clear();
+        _active_fetches = 0;
+
+        // Don't clear article tracking here - this only supplements counts. The main fetch
+        // (fetchNewsController) clears on category navigation; clearing here too races with it
+        // and can drop or double-count articles.
+
+        var source_mgr = win.source_manager;
+        var enabled_sources = (source_mgr != null) ? source_mgr.get_enabled_source_enums() : new Gee.ArrayList<NewsSource>();
+
+        if (enabled_sources.size == 0) {
+            enabled_sources.add(win.effective_news_source());
+        }
+
+        // Fetch these first so they load even if RSS feeds time out
+        string[] priority_categories = {"frontpage"};
+        foreach (var source in enabled_sources) {
+            foreach (string cat in priority_categories) {
+                enqueue_fetch(new FetchTask.for_category(cat, source));
+            }
+        }
+
+        // Regular news API categories - fetch ALL categories to populate regular category badges
+        string[] regular_categories = {"general", "us", "sports", "science", "health", "technology",
+                                       "business", "entertainment", "politics", "lifestyle"};
+
+        foreach (var source in enabled_sources) {
+            foreach (string cat in regular_categories) {
+                enqueue_fetch(new FetchTask.for_category(cat, source));
+            }
+        }
+
+        // Fetch every saved Local News city, each tracked under its own id.
+        if (win.prefs != null) {
+            foreach (var local_area in win.prefs.get_local_areas()) {
+                string local_city = local_area.city.strip();
+                if (local_city.length == 0) continue;
+                enqueue_fetch(new FetchTask.for_local(local_city, local_city, local_area.id));
+            }
+        }
+
+        // Fetch metadata for ALL custom RSS sources
+        // This ensures the "RSS Feeds" expander badges are populated
+        var rss_store = Paperboy.RssSourceStore.get_instance();
+        var all_sources = rss_store.get_all_sources();
+
+        if (all_sources.size > 0) {
+            foreach (var rss_src in all_sources) {
+                string rss_category_id = "rssfeed:" + rss_src.url;
+                // For generated feeds (file:// URLs), use original_url as cache key
+                string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
+                enqueue_fetch(new FetchTask.for_rss(rss_src.url, rss_src.name, rss_category_id, cache_key));
+            }
+        }
+
+        // Save after fetching all metadata and refresh badges
+        // Increased timeout to 7 seconds to allow more time for throttled fetches
+        Timeout.add(7000, () => {
+            var w = _unread_window;
+            if (w == null) return false;
+
+            // Safely access managers through local variables
+            var store = w.article_state_store;
+            if (store != null) {
+                store.mark_initial_fetch_complete();
+                store.save_article_tracking_to_disk();
+            }
+
+            var sidebar_mgr = w.sidebar_manager;
+            if (sidebar_mgr != null) {
+                // Refresh all badges so regular categories and frontpage/topten
+                // reflect their initial metadata, and Saved reflects the
+                // registered saved-article set from ArticleStateStore.
+                sidebar_mgr.refresh_all_badge_counts();
+            }
+        return false;
+        });
+    }
+
+    // Refresh My Feed metadata when personalized categories change
+    // This re-fetches only the personalized categories from enabled sources
+    public static void refresh_myfeed_metadata(NewsWindow win) {
+        if (win == null) return;
+
+        // Store weak reference to window for callbacks
+        _unread_window = win;
+
+        var prefs = win.prefs;
+        if (prefs == null || !prefs.personalized_feed_enabled) return;
+
+        // Get personalized categories
+        var personalized_cats = prefs.personalized_categories;
+        if (personalized_cats == null || personalized_cats.size == 0) return;
+
+        // Get all enabled built-in sources
+        var source_mgr = win.source_manager;
+        var enabled_sources = (source_mgr != null) ? source_mgr.get_enabled_source_enums() : new Gee.ArrayList<NewsSource>();
+
+        if (enabled_sources.size == 0) {
+            enabled_sources.add(win.effective_news_source());
+        }
+
+        // Fetch metadata for personalized categories from all enabled sources
+        foreach (var source in enabled_sources) {
+            foreach (string cat in personalized_cats) {
+                enqueue_fetch(new FetchTask.for_category(cat, source));
+            }
+        }
+
+        // Schedule badge refresh after fetches complete
+        Timeout.add(3000, () => {
+            var w = _unread_window;
+            if (w == null) return false;
+
+            var sidebar_mgr = w.sidebar_manager;
+            if (sidebar_mgr != null) {
+                sidebar_mgr.update_badge_for_category("myfeed");
+            }
+        return false;
+        });
+    }
+}
