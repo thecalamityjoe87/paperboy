@@ -8,6 +8,18 @@
 - Added customizable preview rows at the top of My Feed for Sports scores, Markets, Podcasts, and Magazines with quick "Go to" buttons
 - Unified page container ownership and cleanup logic, preventing lingering widgets across page switches, and reset scroll position when navigating categories
 - Consolidated redundant symbolic icon size tiers into a single resolution-independent icon directory
+- Added support for up to 5 Local News cities, each with its own expandable sidebar row and unread count, plus a Preferences group to reorder, change, add, and remove them
+- Replaced geocode-glib with direct Nominatim lookups for more accurate town, ZIP, and nearby-metro (within 200 km) results, and removed the dependency
+- Improved Local News articles to show the real publisher name, logo, and source badge, and to strip the " - Publisher" suffix from titles
+- Fixed the Local News reader view and thumbnails by decoding Google News redirect links, and stopped Google's logo from being used as article thumbnails
+- Added renaming for followed feeds from the sidebar right-click menu or Preferences > Feeds
+- Split the Preferences Sources tab into Built-in sources and Custom feeds subpages
+- Fixed the article extractor discarding real article bodies on some WordPress sites, and bundled readability.js in the AppImage so the rendered-page fallback works
+- Fixed the first-run landing page to open Front Page, and made factory resets save properly
+- Fixed a UI deadlock from overlapping feed generation requests, and "WebProcess didn't exit" aborts when quitting mid-render
+- Fixed oversized and blurry source badge logos on fractional-scale and HiDPI displays
+- Fixed sidebar sections not remembering their expanded state
+- Reorganized the source tree into feature subfolders
 
 # v0.11.3a - Hotfix: Image Viewer Memory Leak
 
