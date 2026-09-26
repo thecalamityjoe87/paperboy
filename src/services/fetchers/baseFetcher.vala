@@ -36,8 +36,17 @@ public abstract class BaseFetcher : GLib.Object {
     protected void set_label(string text) { sink.set_label(text); }
     protected void clear_items() { sink.clear_items(); }
     protected void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null) {
+        if (caches_for_search) {
+            Paperboy.RssArticleCache.get_instance().cache_article(
+                url, title, thumbnail_url, published,
+                "fetcher:%s:%s".printf(get_source_name(), category_id),
+                source_name, null, category_id
+            );
+        }
         sink.add_item(title, url, thumbnail_url, category_id, source_name, published, snippet);
     }
+    // Global search only reads RssArticleCache; RSS-based fetchers already write to it.
+    protected virtual bool caches_for_search { get { return true; } }
     // Fires once a fetch's network request has concluded, success or not.
     protected void done() { sink.done(); }
 

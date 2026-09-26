@@ -684,7 +684,7 @@ public class RssFeedProcessor {
                 }
 
                 var client = Paperboy.HttpClientUtils.get_default();
-                // reddit rate-limits the default User-Agent, so use browser-style headers for it (like RedditFetcher does)
+                // reddit rate-limits the default User-Agent, so use browser-style headers for it
                 Paperboy.HttpClientUtils.RequestOptions? fetch_options = null;
                 if (url.down().contains("reddit.com")) {
                     fetch_options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();

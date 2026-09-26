@@ -510,13 +510,6 @@ namespace Managers {
                 should_be_hero = false;
             } else if (!featured_used) {
                 should_be_hero = true;
-
-                if (window.prefs.news_source == NewsSource.REDDIT && url != null && url.length > 0) {
-                    string u_low = url.down();
-                    if (u_low != null && (u_low.index_of("/live/") >= 0 || u_low.has_suffix("/live") || u_low.index_of("reddit.com/live") >= 0)) {
-                        should_be_hero = false;
-                    }
-                }
             }
             
             if (should_be_hero) {

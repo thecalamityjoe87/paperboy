@@ -97,7 +97,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     public static NewsSource source_id_to_enum(string source_id) {
         switch (source_id) {
             case "guardian": return NewsSource.GUARDIAN;
-            case "reddit": return NewsSource.REDDIT;
             case "bbc": return NewsSource.BBC;
             case "nytimes": return NewsSource.NEW_YORK_TIMES;
             case "wsj": return NewsSource.WALL_STREET_JOURNAL;
@@ -114,7 +113,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     public static string source_enum_to_id(NewsSource source) {
         switch (source) {
             case NewsSource.GUARDIAN: return "guardian";
-            case NewsSource.REDDIT: return "reddit";
             case NewsSource.BBC: return "bbc";
             case NewsSource.NEW_YORK_TIMES: return "nytimes";
             case NewsSource.WALL_STREET_JOURNAL: return "wsj";
@@ -136,8 +134,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 return "Wall Street Journal";
             case NewsSource.BBC:
                 return "BBC News";
-            case NewsSource.REDDIT:
-                return "Reddit";
             case NewsSource.NEW_YORK_TIMES:
                 return "NY Times";
             case NewsSource.BLOOMBERG:
@@ -271,7 +267,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         // Map display names to source IDs
         if (low.index_of("guardian") >= 0) return "guardian";
         if (low == "bbc" || low == "bbc news" || low.index_of("bbc") >= 0) return "bbc";
-        if (low == "reddit") return "reddit";
         if (low.index_of("new york times") >= 0 || low.index_of("ny times") >= 0 || low.index_of("nytimes") >= 0) return "nytimes";
         if (low.index_of("wall street") >= 0 || low == "wsj") return "wsj";
         if (low.index_of("bloomberg") >= 0) return "bloomberg";
@@ -298,9 +293,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         }
         if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) {
             return NewsSource.BBC;
-        }
-        if (low.index_of("reddit.com") >= 0 || low.index_of("redd.it") >= 0) {
-            return NewsSource.REDDIT;
         }
         if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) {
             return NewsSource.NEW_YORK_TIMES;
@@ -346,7 +338,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             string low = clean_name.down();
             if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
             else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
-            else if (low.index_of("reddit") >= 0) resolved = NewsSource.REDDIT;
             // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
             else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
             (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
@@ -399,7 +390,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         switch (source) {
             case NewsSource.GUARDIAN: return n.contains("guardian");
             case NewsSource.BBC: return n.contains("bbc");
-            case NewsSource.REDDIT: return n.contains("reddit");
             case NewsSource.NEW_YORK_TIMES: return n.contains("nytimes") || n.contains("new york times");
             case NewsSource.WALL_STREET_JOURNAL: return n.contains("wsj") || n.contains("wall street");
             case NewsSource.BLOOMBERG: return n.contains("bloomberg");
@@ -441,9 +431,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return source_id == "bloomberg";
         }
 
-        // Lifestyle is not provided by BBC, Reddit, ABC News, or PBS NewsHour
+        // Lifestyle is not provided by BBC, ABC News, or PBS NewsHour
         if (category == "lifestyle") {
-            if (source_id == "bbc" || source_id == "reddit" || source_id == "abc" || source_id == "pbs") {
+            if (source_id == "bbc" || source_id == "abc" || source_id == "pbs") {
                 return false;
             }
         }

@@ -26,43 +26,41 @@ public class GuardianFetcher : BaseFetcher {
 
     public override void fetch(string category, string search_query, Soup.Session session) {
         var client = Paperboy.HttpClientUtils.get_default();
-        string base_url = "https://content.guardianapis.com/search?show-fields=thumbnail&page-size=30&api-key=test";
+        // Proxied through paperboyBackend so the Guardian API key stays server-side.
+        string base_url = "https://paperboybackend.onrender.com/guardian/search?";
         string url;
         switch (category) {
             case "us":
-                url = base_url + "&section=us-news";
+                url = base_url + "section=us-news";
                 break;
             case "technology":
-                url = base_url + "&section=technology";
+                url = base_url + "section=technology";
                 break;
             case "business":
-                url = base_url + "&section=business";
+                url = base_url + "section=business";
                 break;
             case "science":
-                url = base_url + "&section=science";
+                url = base_url + "section=science";
                 break;
             case "sports":
-                url = base_url + "&section=sport";
+                url = base_url + "section=sport";
                 break;
             case "health":
-                url = base_url + "&tag=society/health";
+                url = base_url + "tag=society/health";
                 break;
             case "politics":
-                url = base_url + "&section=politics";
+                url = base_url + "section=politics";
                 break;
             case "entertainment":
-                url = base_url + "&section=culture";
+                url = base_url + "section=culture";
                 break;
             case "lifestyle":
-                url = base_url + "&section=lifeandstyle";
+                url = base_url + "section=lifeandstyle";
                 break;
             case "general":
             default:
-                url = base_url + "&section=world";
+                url = base_url + "section=world";
                 break;
-        }
-        if (search_query.length > 0) {
-            url = url + "&q=" + Uri.escape_string(search_query);
         }
 
         client.fetch_json_with(url, cancellable, (response, parser, root) => {
@@ -83,11 +81,7 @@ public class GuardianFetcher : BaseFetcher {
 
             string category_name = FetcherUtils.category_display_name(category);
             Idle.add(() => {
-                if (search_query.length > 0) {
-                    set_label(@"Search Results: \"$(search_query)\" in $(category_name) — The Guardian");
-                } else {
-                    set_label(@"$(category_name) — The Guardian");
-                }
+                set_label(@"$(category_name) — The Guardian");
                 uint len = results.get_length();
                 for (uint i = 0; i < len; i++) {
                     var article = results.get_element(i).get_object();

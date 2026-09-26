@@ -29,7 +29,7 @@ public class ArticleSourceResolver : GLib.Object {
             }
         }
 
-        NewsSource article_src = NewsSource.REDDIT;
+        NewsSource article_src = NewsSource.UNKNOWN;
 
         // Map source name if found in buffer
         if (found_article_item && article_source_name != null && article_source_name.length > 0) {
@@ -42,7 +42,6 @@ public class ArticleSourceResolver : GLib.Object {
             else if (lower.contains("bloomberg")) { article_src = NewsSource.BLOOMBERG; source_mapped = true; }
             else if (lower.contains("npr")) { article_src = NewsSource.NPR; source_mapped = true; }
             else if (lower.contains("fox")) { article_src = NewsSource.FOX; source_mapped = true; }
-            else if (lower.contains("reddit")) { article_src = NewsSource.REDDIT; source_mapped = true; }
             else if (lower.contains("pbs")) { article_src = NewsSource.PBS; source_mapped = true; }
         }
 
@@ -56,7 +55,6 @@ public class ArticleSourceResolver : GLib.Object {
             switch (article_src) {
                 case NewsSource.GUARDIAN: is_actual_match = url_lower.contains("guardian") || url_lower.contains("theguardian"); break;
                 case NewsSource.BBC: is_actual_match = url_lower.contains("bbc."); break;
-                case NewsSource.REDDIT: is_actual_match = url_lower.contains("reddit") || url_lower.contains("redd.it"); break;
                 case NewsSource.NEW_YORK_TIMES: is_actual_match = url_lower.contains("nytimes") || url_lower.contains("nyti.ms"); break;
                 case NewsSource.WALL_STREET_JOURNAL: is_actual_match = url_lower.contains("wsj.com") || url_lower.contains("dowjones"); break;
                 case NewsSource.BLOOMBERG: is_actual_match = url_lower.contains("bloomberg"); break;

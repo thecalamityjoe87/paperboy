@@ -17,7 +17,7 @@
 
 // Finds a native WordPress comments RSS feed directly from an article's own
 // page, for articles that didn't come through RssFeedProcessor (built-in
-// fetchers like Guardian/Fox/Reddit, or Frontpage/Top Ten's GNews-backed
+// fetchers like Guardian/Fox, or Frontpage/Top Ten's GNews-backed
 // pipeline, none of which carry a feed-level wfw:commentRss). WordPress
 // emits a standard per-post "Comments Feed" <link> in every article page's
 // own <head>, independent of how the page was reached - so this works

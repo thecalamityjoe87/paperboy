@@ -31,7 +31,7 @@ public class PbsFetcher : BaseFetcher {
         // unrelated HTML article page, not a feed, despite a 200 status).
         // It has no dedicated technology, business, or sports desk, so
         // those (and anything else unmapped) fall back to World News,
-        // matching how BbcFetcher/RedditFetcher handle sections a source
+        // matching how BbcFetcher handle sections a source
         // simply doesn't cover.
         string url = "https://www.pbs.org/newshour/feeds/rss/world";
 

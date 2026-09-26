@@ -163,7 +163,6 @@ cairo = dependency('cairo')
     'src/services/fetchers/nytFetcher.vala',
     'src/services/fetchers/paperboyFetcher.vala',
     'src/services/fetchers/pbsFetcher.vala',
-    'src/services/fetchers/redditFetcher.vala',
     'src/services/fetchers/wsjFetcher.vala',
 
     # Models

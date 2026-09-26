@@ -72,7 +72,7 @@ public class DateUtils {
         var http_date = Soup.date_time_new_from_http_string(s);
         if (http_date != null) return http_date;
 
-        // Some JSON APIs (e.g. Reddit's created_utc) give a raw Unix epoch
+        // Some JSON APIs give a raw Unix epoch
         // seconds value instead of a formatted date string.
         double epoch_seconds;
         if (double.try_parse(s, out epoch_seconds)) {

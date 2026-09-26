@@ -35,6 +35,9 @@ public class PaperboyFetcher : BaseFetcher {
         }
     }
 
+    // Front page is cached under "paperboy:frontpage" by this fetcher itself.
+    protected override bool caches_for_search { get { return false; } }
+
     public override string get_source_name() {
         return "Paperboy";
     }

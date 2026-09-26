@@ -642,7 +642,6 @@ public class SidebarManager : GLib.Object {
     private NewsSource parse_source_id(string id) {
         switch (id) {
             case "guardian": return NewsSource.GUARDIAN;
-            case "reddit": return NewsSource.REDDIT;
             case "bbc": return NewsSource.BBC;
             case "nytimes": return NewsSource.NEW_YORK_TIMES;
             case "wsj": return NewsSource.WALL_STREET_JOURNAL;

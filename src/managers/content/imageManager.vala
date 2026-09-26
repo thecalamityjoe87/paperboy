@@ -254,11 +254,6 @@ public class ImageManager : GLib.Object {
             GLib.Bytes? body = http_response.body;
             int64 length = (body != null) ? (int64) body.get_size() : 0;
 
-            if (job.news_src == NewsSource.REDDIT && length > 2 * 1024 * 1024) {
-                // Reddit oversized image - report failure, caller shows a placeholder.
-                return outcome;
-            }
-
             if (status == Soup.Status.NOT_MODIFIED) {
                 // Not modified; refresh last-access and re-decode the cached copy at
                 // the size this specific job was requested for.
@@ -692,7 +687,7 @@ public class ImageManager : GLib.Object {
             return;
         }
 
-        int multiplier = (source == NewsSource.REDDIT) ? 2 : 3;
+        int multiplier = 3;
         int target_w = img_w * multiplier;
         int target_h = img_h * multiplier;
 

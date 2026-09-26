@@ -40,7 +40,7 @@ A simple news app written in Vala, built with GTK4 and Libadwaita. My motivation
 
 ## 🚀 Some cool features of Paperboy
 
-- 📰 **Curated sources out of the box** – including The Guardian, Reddit, BBC, FOX News, NPR, PBS, ABC News, Bloomberg, the NYT, and the WSJ.
+- 📰 **Curated sources out of the box** – including The Guardian, BBC, FOX News, NPR, PBS, ABC News, Bloomberg, the NYT, and the WSJ.
 - ⚡ **Powered by PaperboyAPI** – fetches articles from multiple sources and categories seamlessly.  
 - ⭐ **Follow news sources** – users can add sources they find through the API.  
 - 📡 **RSS feed support** – add any RSS feeds to Paperboy to follow additional websites or blogs.  

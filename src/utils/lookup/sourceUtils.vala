@@ -28,8 +28,6 @@ public class SourceUtils {
                 return "Wall Street Journal";
             case NewsSource.BBC:
                 return "BBC News";
-            case NewsSource.REDDIT:
-                return "Reddit";
             case NewsSource.NEW_YORK_TIMES:
                 return "NY Times";
             case NewsSource.BLOOMBERG:
@@ -58,9 +56,6 @@ public class SourceUtils {
                 break;
             case NewsSource.BBC:
                 icon_filename = "bbc-logo.png";
-                break;
-            case NewsSource.REDDIT:
-                icon_filename = "reddit-logo.png";
                 break;
             case NewsSource.NEW_YORK_TIMES:
                 icon_filename = "nytimes-logo.png";
@@ -100,7 +95,6 @@ public class SourceUtils {
         string low = url.down();
         if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) return NewsSource.GUARDIAN;
         if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) return NewsSource.BBC;
-        if (low.index_of("reddit.com") >= 0 || low.index_of("redd.it") >= 0) return NewsSource.REDDIT;
         if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) return NewsSource.NEW_YORK_TIMES;
         if (low.index_of("wsj.com") >= 0 || low.index_of("dowjones") >= 0) return NewsSource.WALL_STREET_JOURNAL;
         if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
