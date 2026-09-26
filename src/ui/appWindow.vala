@@ -321,7 +321,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Main menu, on the sidebar's trailing (right) side
     var menu = new Menu();
     menu.append("Preferences", "app.change-source");
-    menu.append("Manage locations", "app.manage-locations");
+    menu.append("Manage Locations", "app.manage-locations");
     menu.append("Show Welcome Tour", "app.show-onboarding");
     menu.append("About Paperboy", "app.about");
 
