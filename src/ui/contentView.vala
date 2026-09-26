@@ -710,6 +710,9 @@ public class ContentView : GLib.Object {
         content_box.append(main_overlay);
         content_area.append(content_box);
         main_scrolled.set_child(content_area);
+        // Don't jump to whichever widget regains focus (e.g. when a dialog closes).
+        var main_viewport = main_scrolled.get_child() as Gtk.Viewport;
+        if (main_viewport != null) main_viewport.set_scroll_to_focus(false);
 
         // Vertical "more to scroll" cue for the whole page (every view, not
         // just Front Page) - same cheap edge-fade-to-background approach as

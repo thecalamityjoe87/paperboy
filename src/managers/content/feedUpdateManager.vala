@@ -154,7 +154,7 @@ public class FeedUpdateManager : GLib.Object {
                 int64 now = GLib.get_real_time() / 1000000;
                 int64 time_since_fetch = now - source.last_fetched_at;
 
-                if (time_since_fetch < update_interval) {
+                if (time_since_fetch < update_interval && !is_outdated_generated_feed(source)) {
                     GLib.print("  ⏭  Skipping %s (updated %lld seconds ago)\n",
                         source.name, time_since_fetch);
                     skipped_count++;
@@ -275,6 +275,10 @@ public class FeedUpdateManager : GLib.Object {
 
             var gen_result = generate_feed_via_webkit_blocking(source.original_url);
             if (!gen_result.success || gen_result.rss_xml == null) {
+                GLib.print("  ⟳ Retrying generation for %s (%s)\n", source.name, gen_result.error_message ?? "unknown error");
+                gen_result = generate_feed_via_webkit_blocking(source.original_url);
+            }
+            if (!gen_result.success || gen_result.rss_xml == null) {
                 GLib.warning("  ✗ Feed generation failed for %s: %s", source.name, gen_result.error_message ?? "unknown error");
                 return false;
             }
@@ -314,7 +318,7 @@ public class FeedUpdateManager : GLib.Object {
                                         string old_signature = extract_feed_signature(old_feed);
                                         string new_signature = extract_feed_signature(gen_feed);
 
-                                        if (old_signature == new_signature) {
+                                        if (old_signature == new_signature && !generator_outdated(old_feed)) {
                                             content_changed = false;
                                             GLib.print("  ⏭  Skipping %s - content unchanged (%d items)\n", source.name, item_count);
                                         }
@@ -351,19 +355,6 @@ public class FeedUpdateManager : GLib.Object {
                             }
                         }
 
-                        // Delete old XML file (will be replaced by merged version)
-                        if (old_file_path.length > 0) {
-                            try {
-                                var old_file = GLib.File.new_for_path(old_file_path);
-                                if (old_file.query_exists()) {
-                                    old_file.delete();
-                                    GLib.print("  ✓ Deleted old feed file: %s\n", GLib.Path.get_basename(old_file_path));
-                                }
-                            } catch (Error e) {
-                                GLib.warning("  ⚠ Failed to delete old feed file: %s", e.message);
-                            }
-                        }
-
                         // Save new XML file (now contains merged articles)
                         // Use same filename (without timestamp) so we replace the old file
                         string data_dir = GLib.Environment.get_user_data_dir();
@@ -381,6 +372,19 @@ public class FeedUpdateManager : GLib.Object {
                         string safe_feed = RssValidatorUtils.sanitize_for_xml(gen_feed);
                         writer.put_string(safe_feed);
                         writer.close(null);
+
+                        // Only remove the old file once the new one is safely written (replace() is atomic).
+                        if (old_file_path.length > 0 && old_file_path != new_file_path) {
+                            try {
+                                var old_file = GLib.File.new_for_path(old_file_path);
+                                if (old_file.query_exists()) {
+                                    old_file.delete();
+                                    GLib.print("  ✓ Deleted old feed file: %s\n", GLib.Path.get_basename(old_file_path));
+                                }
+                            } catch (Error e) {
+                                GLib.warning("  ⚠ Failed to delete old feed file: %s", e.message);
+                            }
+                        }
 
                         // Update database with new file path
                         var store = Paperboy.RssSourceStore.get_instance();
@@ -733,12 +737,30 @@ public class FeedUpdateManager : GLib.Object {
     /**
      * Extract signature from a single RSS item or Atom entry
      */
+    // Generated feed file written by an older version of the generator.
+    private bool is_outdated_generated_feed(Paperboy.RssSource source) {
+        if (!source.url.has_prefix("file://")) return false;
+        try {
+            uint8[] contents;
+            GLib.File.new_for_uri(source.url).load_contents(null, out contents, null);
+            return generator_outdated((string) contents);
+        } catch (Error e) {
+            return false;
+        }
+    }
+
+    private bool generator_outdated(string feed_xml) {
+        return !feed_xml.contains("<generator>" + Paperboy.GeneratedFeedService.GENERATOR_VERSION + "</generator>");
+    }
+
     private void extract_item_signature(Xml.Node* item, StringBuilder signature) {
         for (Xml.Node* child = item->children; child != null; child = child->next) {
             if (child->type != Xml.ElementType.ELEMENT_NODE) continue;
             
             // Look for GUID, link, or id elements
-            if (child->name == "guid" || child->name == "link" || child->name == "id") {
+            // Dates included so a regeneration that newly finds them isn't treated as unchanged.
+            if (child->name == "guid" || child->name == "link" || child->name == "id" ||
+                child->name == "pubDate" || child->name == "published" || child->name == "updated") {
                 string? content = child->get_content();
                 if (content != null && content.length > 0) {
                     signature.append(content);

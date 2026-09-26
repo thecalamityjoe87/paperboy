@@ -96,62 +96,7 @@ public class ArticleSnippetService : GLib.Object {
                     // Use centralized stripHtmlUtils for snippet extraction
                     result = stripHtmlUtils.extract_snippet_from_html(html);
 
-                    // Try to extract published date/time from common meta tags or <time>
-                    string lower = html.down();
-                    int pos = 0;
-                    while ((pos = lower.index_of("<meta", pos)) >= 0) {
-                        int end = lower.index_of(">", pos);
-                        if (end < 0 || end <= pos) break;
-                        if (html.length < end + 1 || lower.length < end + 1) break;
-                        string tag = html.substring(pos, end - pos + 1);
-                        string tl = lower.substring(pos, end - pos + 1);
-                        if (tl.index_of("datepublished") >= 0 || tl.index_of("article:published_time") >= 0 || tl.index_of("property=\"article:published_time\"") >= 0 || tl.index_of("name=\"pubdate\"") >= 0 || tl.index_of("itemprop=\"datePublished\"") >= 0) {
-                            string content = stripHtmlUtils.extract_attr(tag, "content");
-                            if (content != null && content.strip().length > 0) { published = content.strip(); break; }
-                        }
-                        pos = end + 1;
-                    }
-                    if (published.length == 0) {
-                        // Many sites (e.g. ABC News) only expose the publish
-                        // date via JSON-LD ("datePublished":"...") rather
-                        // than a <meta> tag, so fall back to a plain string
-                        // search for that key before trying <time>.
-                        int jpos = lower.index_of("\"datepublished\"");
-                        if (jpos >= 0) {
-                            int colon = lower.index_of(":", jpos);
-                            if (colon > jpos) {
-                                int qstart = lower.index_of("\"", colon);
-                                if (qstart > colon) {
-                                    int qend = lower.index_of("\"", qstart + 1);
-                                    if (qend > qstart && html.length >= qend) {
-                                        string val = html.substring(qstart + 1, qend - (qstart + 1)).strip();
-                                        if (val.length > 0) published = val;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (published.length == 0) {
-                        // search for <time datetime=\"...\">
-                        int tpos = lower.index_of("<time");
-                        if (tpos >= 0) {
-                            int tend = lower.index_of(">", tpos);
-                            if (tend > tpos && html.length >= tend + 1) {
-                                string ttag = html.substring(tpos, tend - tpos + 1);
-                                string dt = stripHtmlUtils.extract_attr(ttag, "datetime");
-                                if (dt != null && dt.strip().length > 0) published = dt.strip();
-                                else {
-                                    // fallback inner text
-                                    int close = lower.index_of("</time>", tend);
-                                    if (close > tend && html.length >= close && close > tend + 1) {
-                                        string inner = html.substring(tend + 1, close - (tend + 1));
-                                        inner = stripHtmlUtils.strip_html(inner).strip();
-                                        if (inner.length > 0) published = inner;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    published = extract_published_from_html(html);
                 }
             string final = result;
 
@@ -182,6 +127,67 @@ public class ArticleSnippetService : GLib.Object {
             });
             return null;
         });
+    }
+
+    // Publish date from a page's meta tags, JSON-LD or <time>, or "" if none is found.
+    public static string extract_published_from_html(string html) {
+        string published = "";
+        string lower = html.down();
+        int pos = 0;
+        while ((pos = lower.index_of("<meta", pos)) >= 0) {
+            int end = lower.index_of(">", pos);
+            if (end < 0 || end <= pos) break;
+            if (html.length < end + 1 || lower.length < end + 1) break;
+            string tag = html.substring(pos, end - pos + 1);
+            string tl = lower.substring(pos, end - pos + 1);
+            if (tl.index_of("datepublished") >= 0 || tl.index_of("article:published_time") >= 0 || tl.index_of("property=\"article:published_time\"") >= 0 || tl.index_of("name=\"pubdate\"") >= 0 || tl.index_of("itemprop=\"datePublished\"") >= 0) {
+                string content = stripHtmlUtils.extract_attr(tag, "content");
+                if (content != null && content.strip().length > 0) { published = content.strip(); break; }
+            }
+            pos = end + 1;
+        }
+        if (published.length == 0) {
+            // Many sites (e.g. ABC News) only expose the publish
+            // date via JSON-LD ("datePublished":"...") rather
+            // than a <meta> tag, so fall back to a plain string
+            // search for that key before trying <time>.
+            int jpos = lower.index_of("\"datepublished\"");
+            if (jpos >= 0) {
+                int colon = lower.index_of(":", jpos);
+                if (colon > jpos) {
+                    int qstart = lower.index_of("\"", colon);
+                    if (qstart > colon) {
+                        int qend = lower.index_of("\"", qstart + 1);
+                        if (qend > qstart && html.length >= qend) {
+                            string val = html.substring(qstart + 1, qend - (qstart + 1)).strip();
+                            if (val.length > 0) published = val;
+                        }
+                    }
+                }
+            }
+        }
+        if (published.length == 0) {
+            // search for <time datetime=\"...\">
+            int tpos = lower.index_of("<time");
+            if (tpos >= 0) {
+                int tend = lower.index_of(">", tpos);
+                if (tend > tpos && html.length >= tend + 1) {
+                    string ttag = html.substring(tpos, tend - tpos + 1);
+                    string dt = stripHtmlUtils.extract_attr(ttag, "datetime");
+                    if (dt != null && dt.strip().length > 0) published = dt.strip();
+                    else {
+                        // fallback inner text
+                        int close = lower.index_of("</time>", tend);
+                        if (close > tend && html.length >= close && close > tend + 1) {
+                            string inner = html.substring(tend + 1, close - (tend + 1));
+                            inner = stripHtmlUtils.strip_html(inner).strip();
+                            if (inner.length > 0) published = inner;
+                        }
+                    }
+                }
+            }
+        }
+        return published;
     }
 
     // Convenience wrapper for HeroCard callers: resolves the article's

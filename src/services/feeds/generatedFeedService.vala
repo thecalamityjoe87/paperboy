@@ -61,11 +61,16 @@ namespace Paperboy {
             }
             run(job.url, (owned) job.on_done);
         }
+        // Bump when extraction improves; older feed files get regenerated once (see FeedUpdateManager).
+        public const string GENERATOR_VERSION = "Paperboy 2";
+
         private const uint SETTLE_DELAY_MS = 2000;
         // Generous enough to cover heavier/slower homepages plus the
         // per-candidate title-verification fetches (up to 20, in parallel)
         // that run after the page settles.
         private const uint OVERALL_TIMEOUT_MS = 35000;
+        // Heavy homepages (e.g. AP News) take 11-13s to extract.
+        private const uint JS_TIMEOUT_MS = 20000;
 
         // Mirrors html2rss's own priority order: JSON-LD article data first
         // (most sites that have it give clean title/link/image/date),
@@ -243,13 +248,51 @@ namespace Paperboy {
                     var title = titleEl ? titleEl.getAttribute('content') : (doc.querySelector('title') ? doc.querySelector('title').textContent : null);
                     var descEl = doc.querySelector('meta[property="og:description"]') || doc.querySelector('meta[name="description"]');
                     var imgEl = doc.querySelector('meta[property="og:image"]');
-                    var dateEl = doc.querySelector('meta[property="article:published_time"]');
                     return {
                         title: title ? title.trim() : null,
                         description: descEl ? descEl.getAttribute('content') : null,
                         image: imgEl ? imgEl.getAttribute('content') : null,
-                        pubDate: dateEl ? dateEl.getAttribute('content') : null
+                        pubDate: extractPubDate(doc)
                     };
+                }
+
+                // Sites expose the publish date in many different places, so try the common ones in order.
+                function extractPubDate(doc) {
+                    function metaValue(selectors) {
+                        for (var i = 0; i < selectors.length; i++) {
+                            var el = doc.querySelector(selectors[i]);
+                            var v = el ? (el.getAttribute('content') || el.getAttribute('datetime') || '').trim() : '';
+                            if (v && !isNaN(Date.parse(v))) return v;
+                        }
+                        return null;
+                    }
+
+                    // Breadth-first, since some sites nest it (e.g. Product.review.datePublished).
+                    function jsonLdDate() {
+                        var ld = doc.querySelectorAll('script[type="application/ld+json"]');
+                        for (var j = 0; j < ld.length; j++) {
+                            var queue;
+                            try { queue = [JSON.parse(ld[j].textContent)]; } catch (e) { continue; }
+                            for (var q = 0; q < queue.length && q < 500; q++) {
+                                var n = queue[q];
+                                if (!n || typeof n !== 'object') continue;
+                                if (typeof n.datePublished === 'string' && !isNaN(Date.parse(n.datePublished))) return n.datePublished;
+                                for (var key in n) queue.push(n[key]);
+                            }
+                        }
+                        return null;
+                    }
+
+                    var v = metaValue([
+                            'meta[property="article:published_time"]', 'meta[property="og:published_time"]',
+                            'meta[itemprop="datePublished"]', 'meta[name="parsely-pub-date"]', 'meta[name="sailthru.date"]'])
+                        || jsonLdDate()
+                        || metaValue([
+                            'meta[name="pubdate"]', 'meta[name="publish-date"]', 'meta[name="date"]',
+                            'meta[name="dc.date"]', 'meta[name="DC.date.issued"]',
+                            'time[itemprop="datePublished"]', 'time[pubdate]', 'article time[datetime]']);
+                    // Normalized to ISO so the Vala side's parser always understands it.
+                    return v ? new Date(v).toISOString() : null;
                 }
 
                 // Verifies each candidate against its own page's real title
@@ -332,7 +375,9 @@ namespace Paperboy {
                 GLib.print("GeneratedFeedService: finish() complete\n");
             }
 
-            uint timeout_id = Timeout.add(OVERALL_TIMEOUT_MS, () => {
+            uint timeout_id = 0;
+            timeout_id = Timeout.add(OVERALL_TIMEOUT_MS, () => {
+                timeout_id = 0;
                 finish(false, null, "Timed out waiting for page to load");
                 return false;
             });
@@ -350,7 +395,12 @@ namespace Paperboy {
                     // evaluate_javascript() does not: it hands back the Promise
                     // object as-is, which fails with "Unsupported result type".
                     GLib.print("GeneratedFeedService: calling JS extraction for %s\n", url);
-                    uint js_timeout_id = Timeout.add(10000, () => {
+                    // The page has loaded; from here only the JS timeout applies.
+                    if (timeout_id != 0) {
+                        Source.remove(timeout_id);
+                        timeout_id = 0;
+                    }
+                    uint js_timeout_id = Timeout.add(JS_TIMEOUT_MS, () => {
                         if (!done) {
                             GLib.warning("GeneratedFeedService: JS timeout for %s", url);
                             finish(false, null, "JavaScript execution timeout");
@@ -374,7 +424,6 @@ namespace Paperboy {
                         }
 
                         GLib.print("GeneratedFeedService: removing timeouts\n");
-                        Source.remove(timeout_id);
                         Source.remove(js_timeout_id);
 
                         GLib.print("GeneratedFeedService: parsing items\n");
@@ -396,7 +445,8 @@ namespace Paperboy {
 
             load_failed_id = webview.load_failed.connect((ev, failing_uri, error) => {
                 if (!done) {
-                    Source.remove(timeout_id);
+                    if (timeout_id != 0) Source.remove(timeout_id);
+                    timeout_id = 0;
                     finish(false, null, "Failed to load page: %s".printf(error != null ? error.message : "unknown"));
                 }
                 return true;
@@ -450,6 +500,7 @@ namespace Paperboy {
             channel->new_text_child(null, "title", "Feed for %s".printf(source_url));
             channel->new_text_child(null, "link", source_url);
             channel->new_text_child(null, "description", "Generated by Paperboy");
+            channel->new_text_child(null, "generator", GENERATOR_VERSION);
 
             foreach (var it in items) {
                 Xml.Node* item = channel->new_child(null, "item");

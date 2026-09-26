@@ -89,6 +89,9 @@ public class SidebarView : GLib.Object {
         sidebar_scrolled = new Gtk.ScrolledWindow();
         sidebar_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         sidebar_scrolled.set_child(sidebar_list);
+        // Don't jump to whichever widget regains focus (e.g. when a dialog closes).
+        var sidebar_viewport = sidebar_scrolled.get_child() as Gtk.Viewport;
+        if (sidebar_viewport != null) sidebar_viewport.set_scroll_to_focus(false);
         
         // Create revealer
         sidebar_revealer = new Gtk.Revealer();

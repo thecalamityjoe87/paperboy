@@ -58,8 +58,16 @@ public class DateUtils {
         string s = raw.strip();
         if (s.length == 0) return null;
 
-        var iso = new GLib.DateTime.from_iso8601(s, null);
+        // Timezone-less timestamps ("2026-09-25T13:38:55") are treated as UTC.
+        var utc = new GLib.TimeZone.utc();
+        var iso = new GLib.DateTime.from_iso8601(s, utc);
         if (iso != null) return iso;
+
+        // Date-only values ("2026-09-25").
+        if (s.length == 10) {
+            iso = new GLib.DateTime.from_iso8601(s + "T00:00:00", utc);
+            if (iso != null) return iso;
+        }
 
         var http_date = Soup.date_time_new_from_http_string(s);
         if (http_date != null) return http_date;
