@@ -132,6 +132,10 @@ namespace Managers {
             content_view.loading_label.set_text("Loading podcasts...");
             content_view.loading_container.set_visible(true);
             content_view.loading_spinner.start();
+            // Same spinner widget as LoadingStateManager's, so the same undo when Podcasts ends.
+            ViewSession.current().on_close("loading-spinner", () => {
+                if (window != null && window.loading_state != null) window.loading_state.close_spinner();
+            });
             // Hide the podcast-specific containers directly, not just main_content_container.
             if (content_view.podcasts_hero_title != null) content_view.podcasts_hero_title.set_visible(false);
             content_view.hero_container.set_visible(false);

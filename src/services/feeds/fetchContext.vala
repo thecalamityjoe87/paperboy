@@ -19,8 +19,8 @@
 /**
  * One visit to one view: the window it renders into, its ViewSession, and
  * the per-visit fetch state. Starting a new context closes the previous
- * session, which cancels its requests and drops its callbacks, so an async
- * callback owns the screen exactly as long as its context's session is open.
+ * session, which cancels its requests, drops its callbacks and undoes its
+ * on-screen chrome, so a view owns the screen exactly as long as its session is open.
  */
 public class FetchContext : GLib.Object {
 
@@ -58,13 +58,12 @@ public class FetchContext : GLib.Object {
     /** Main thread only. Closes the previous view's session and starts a new one. */
     public static FetchContext begin_new(NewsWindow? w) {
         if (_current_context != null) _current_context.session.close();
+        else ViewSession.close_detached();
         _sequence_mutex.lock();
         _sequence++;
         uint s = _sequence;
         _sequence_mutex.unlock();
         _current_context = new FetchContext(s, w);
-        // A new visit starts with no messages left over from the previous view.
-        if (w != null && w.loading_state != null) w.loading_state.clear_view_messages();
         return _current_context;
     }
 

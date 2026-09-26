@@ -1295,6 +1295,11 @@ namespace Managers {
             request_remove_end_feed_message();
             request_show_load_more_button();
             load_more_button_visible = true;
+            // The button belongs to this view: removed at once (no fade) when it ends.
+            ViewSession.current().on_close("load-more-button", () => {
+                if (window.content_view != null) window.content_view.remove_load_more_button_now();
+                load_more_button_visible = false;
+            });
         }
 
         public void clear_load_more_button() {

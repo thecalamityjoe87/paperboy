@@ -865,6 +865,7 @@ public class ContentView : GLib.Object {
         load_more_button_widget = new Gtk.Button();
         load_more_button_widget.add_css_class("suggested-action");
         load_more_button_widget.add_css_class("pill");
+        load_more_button_widget.add_css_class("load-more-button");
         load_more_button_widget.set_margin_top(20);
         load_more_button_widget.set_margin_bottom(20);
         load_more_button_widget.set_halign(Gtk.Align.CENTER);
@@ -909,6 +910,19 @@ public class ContentView : GLib.Object {
         });
     }
     
+    // Immediate removal for a view change - no fade, and also drops one still fading out.
+    public void remove_load_more_button_now() {
+        load_more_button_widget = null;
+        load_more_button_spinner = null;
+        load_more_button_label = null;
+        Gtk.Widget? c = content_box.get_first_child();
+        while (c != null) {
+            var next = c.get_next_sibling();
+            if (c.has_css_class("load-more-button")) content_box.remove(c);
+            c = next;
+        }
+    }
+
     public void hide_load_more_button() {
         if (load_more_button_widget == null) return;
 

@@ -203,6 +203,7 @@ public class LoadingStateManager : GLib.Object {
             loading_container.set_visible(true);
             loading_spinner.start();
             if (window.main_content_container != null) window.main_content_container.set_visible(false);
+            ViewSession.current().on_close("loading-spinner", () => close_spinner());
         }
     }
 
@@ -254,6 +255,7 @@ public class LoadingStateManager : GLib.Object {
             if (msg == null) msg = "No articles could be loaded. Try refreshing or check your source settings.";
             if (error_message_label != null && msg != null) error_message_label.set_text(msg);
             error_message_box.set_visible(true);
+            ViewSession.current().on_close("message-overlay", () => close_message_overlay());
         }
     }
 
@@ -289,6 +291,7 @@ public class LoadingStateManager : GLib.Object {
         if (error_message_label != null) error_message_label.set_text(msg);
         if (error_retry_button != null) error_retry_button.set_visible(false);
         error_message_box.set_visible(true);
+        ViewSession.current().on_close("message-overlay", () => close_message_overlay());
     }
 
     private void apply_empty_icon() {
@@ -333,14 +336,33 @@ public class LoadingStateManager : GLib.Object {
         if (window.main_content_container != null) window.main_content_container.set_visible(true);
     }
 
-    // Every view-level message (error/empty state, My Feed and Local News prompts, end of
-    // feed) belongs to the view that showed it. Cleared whenever a new view session begins.
-    public void clear_view_messages() {
+    // Undo helpers for chrome registered with ViewSession.on_close() above - each runs when
+    // the view that showed it ends, so nothing it showed carries into the next view.
+    public void close_spinner() {
+        if (loading_container != null) loading_container.set_visible(false);
+        if (loading_spinner != null) loading_spinner.stop();
+        fetch_finished();
+        restore_content_area();
+    }
+
+    private void close_message_overlay() {
         if (error_message_box != null) error_message_box.set_visible(false);
+        restore_content_area();
+    }
+
+    private void close_myfeed_prompt() {
         if (personalized_message_box != null) personalized_message_box.set_visible(false);
         if (personalized_message_sub_label != null) personalized_message_sub_label.set_visible(false);
+        restore_content_area();
+    }
+
+    private void close_local_news_prompt() {
         if (local_news_message_box != null) local_news_message_box.set_visible(false);
-        if (window.content_view != null) window.content_view.remove_end_of_feed_message();
+        restore_content_area();
+    }
+
+    // The chrome above hides the content area while it's up; the next view decides afresh.
+    private void restore_content_area() {
         if (window.main_content_container != null) window.main_content_container.set_visible(true);
     }
 
@@ -407,6 +429,7 @@ public class LoadingStateManager : GLib.Object {
         }
 
         if (personalized_message_box != null) personalized_message_box.set_visible(show_message);
+        if (show_message) ViewSession.current().on_close("myfeed-prompt", () => close_myfeed_prompt());
 
         // Keep main content hidden while showing the overlay, or during initial_phase/adaptive layout
         // to avoid a flash of blank cards.
@@ -442,6 +465,7 @@ public class LoadingStateManager : GLib.Object {
         needs_location = is_local && !has_location;
 
         if (local_news_message_box != null) local_news_message_box.set_visible(needs_location);
+        if (needs_location) ViewSession.current().on_close("local-news-prompt", () => close_local_news_prompt());
         // Don't re-show content underneath the My Feed message
         bool personalized_shown = personalized_message_box != null && personalized_message_box.get_visible();
         if (!personalized_shown && !initial_phase && !awaiting_adaptive_layout && window.main_content_container != null) {
@@ -646,6 +670,9 @@ public class LoadingStateManager : GLib.Object {
             }
 
             window.content_box.append(end_label);
+            ViewSession.current().on_close("end-of-feed", () => {
+                if (window.content_view != null) window.content_view.remove_end_of_feed_message();
+            });
     }
 }
 

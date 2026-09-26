@@ -1326,16 +1326,31 @@ public class NewsWindow : Adw.ApplicationWindow {
                 return false;
             }
             int k = step % ids.length;
-            if (loading_state != null) {
-                AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log", "overlays on=%s error_or_empty=%s personalized=%s local_news=%s".printf(prefs.category,
-                    (loading_state.error_message_box != null && loading_state.error_message_box.get_visible()).to_string(),
-                    (loading_state.personalized_message_box != null && loading_state.personalized_message_box.get_visible()).to_string(),
-                    (loading_state.local_news_message_box != null && loading_state.local_news_message_box.get_visible()).to_string()));
-            }
+            log_view_chrome("end-of-dwell");
             if (sidebar_manager != null) sidebar_manager.handle_item_activation(ids[k], titles[k]);
+            Timeout.add(150, () => { log_view_chrome("+150ms"); return false; });
             step++;
             return true;
         });
+    }
+
+    // Debug-only: which view-level chrome is on screen, for run_view_cycle_test().
+    private void log_view_chrome(string when) {
+        if (loading_state == null || content_view == null) return;
+        bool load_more = false, end_of_feed = false;
+        for (var c = content_box.get_first_child(); c != null; c = c.get_next_sibling()) {
+            if (c.has_css_class("load-more-button")) load_more = true;
+            var label = c as Gtk.Label;
+            if (label != null && label.get_label() == "<b>No more articles</b>") end_of_feed = true;
+        }
+        AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log",
+            "chrome %s on=%s message=%s myfeed_prompt=%s local_prompt=%s spinner=%s load_more=%s end_of_feed=%s".printf(
+                when, prefs.category,
+                (loading_state.error_message_box != null && loading_state.error_message_box.get_visible()).to_string(),
+                (loading_state.personalized_message_box != null && loading_state.personalized_message_box.get_visible()).to_string(),
+                (loading_state.local_news_message_box != null && loading_state.local_news_message_box.get_visible()).to_string(),
+                (loading_state.loading_container != null && loading_state.loading_container.get_visible()).to_string(),
+                load_more.to_string(), end_of_feed.to_string()));
     }
 
     // Debug-only headless leak repro - see PAPERBOY_LEAK_TEST above.

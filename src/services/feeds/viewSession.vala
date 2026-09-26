@@ -17,23 +17,32 @@
 
 /**
  * One visit to one view. Closing it cancels its network requests, drops
- * anything its fetchers still deliver, and removes its scheduled callbacks.
+ * anything its fetchers still deliver, removes its scheduled callbacks, and
+ * undoes whatever the view put on screen outside its own containers.
  */
 public class ViewSession : GLib.Object {
+    public delegate void CleanupFunc();
 
+    private class Cleanup : GLib.Object {
+        public CleanupFunc fn;
+        public Cleanup(owned CleanupFunc fn) { this.fn = (owned) fn; }
+    }
 
     public string? category { get; private set; }
     public GLib.Cancellable cancellable { get; private set; default = new GLib.Cancellable(); }
 
     private int _closed = 0;
     private Gee.HashSet<uint> sources = new Gee.HashSet<uint>();
+    private Gee.HashMap<string, Cleanup> cleanups = new Gee.HashMap<string, Cleanup>();
+    private Gee.ArrayList<string> cleanup_order = new Gee.ArrayList<string>();
     private static ViewSession? _detached = null;
 
     public ViewSession(string? category) {
         this.category = category;
     }
 
-    // The session of the view on screen. Before any view exists, a session that never closes.
+    // The session of the view on screen. Before any view exists, a stand-in session that
+    // closes when the first real one begins (see close_detached()).
     public static ViewSession current() {
         var ctx = FetchContext.current_context();
         if (ctx != null) return ctx.session;
@@ -48,6 +57,23 @@ public class ViewSession : GLib.Object {
 
     public static uint view_timeout(uint ms, owned GLib.SourceFunc fn) {
         return current().timeout(ms, (owned) fn);
+    }
+
+    // Main thread only. Called as the first real session begins.
+    public static void close_detached() {
+        if (_detached == null) return;
+        _detached.close();
+        _detached = null;
+    }
+
+    // Main thread only. Registers the undo for something this view put on screen outside
+    // its own containers (a message, the spinner, a load-more button); it runs when the
+    // session closes. One entry per key, so showing the same thing twice registers once.
+    // Cleanups must not capture the session or the view's own widgets.
+    public void on_close(string key, owned CleanupFunc fn) {
+        if (is_closed()) { fn(); return; }
+        if (!cleanups.has_key(key)) cleanup_order.add(key);
+        cleanups.set(key, new Cleanup((owned) fn));
     }
 
     // Safe for an ID whose source a closed session already removed.
@@ -72,6 +98,10 @@ public class ViewSession : GLib.Object {
             if (ctx.find_source_by_id(sid) != null) GLib.Source.remove(sid);
         }
         sources.clear();
+        // After the timers are gone, so nothing of this session can put its chrome back.
+        foreach (var key in cleanup_order) cleanups.get(key).fn();
+        cleanups.clear();
+        cleanup_order.clear();
     }
 
     // Main thread only. Never runs once the session is closed. Returns 0 if already closed.
