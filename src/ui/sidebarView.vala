@@ -357,14 +357,23 @@ public class SidebarView : GLib.Object {
     }
 
     // Right-click menu for a podcast subscription row - always
-    // "subscribed", so just Play + Remove podcast. Popped up with
+    // "subscribed", so just Play + More info + Remove podcast. Popped up with
     // has_arrow=true, no pointing_to, matching SidebarMenu's own style.
     private void show_podcast_sidebar_menu(Gtk.Widget row_widget, string item_id, string item_title, double x, double y) {
         int64 feed_id = int64.parse(item_id.substring("podcastshow:".length));
         var menu = new PodcastMenu(true);
+        menu.show_info_item = true;
 
         menu.play_requested.connect(() => {
             manager.handle_item_activation(item_id, item_title);
+        });
+        menu.info_requested.connect(() => {
+            foreach (var sub in Paperboy.PodcastSubscriptionStore.get_instance().get_all_subscriptions()) {
+                if (sub.feed_id == feed_id) {
+                    PodcastDetailDialog.show(window, window.podcast_playback, sub.to_show(), window);
+                    return;
+                }
+            }
         });
         menu.unsubscribe_requested.connect(() => {
             Paperboy.PodcastSubscriptionStore.get_instance().unsubscribe(feed_id);

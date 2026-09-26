@@ -1154,8 +1154,11 @@ button.pill {
     margin-bottom: 5.7px;
 }
 
+/* -90deg, not the visually identical 270deg - Adwaita transitions this
+   transform, and 270 -> 0 interpolates as a 270deg counter-clockwise spin
+   instead of a 90deg turn. */
 .navigation-sidebar .sidebar-expander image.expander-row-arrow {
-    -gtk-icon-transform: rotate(270deg);
+    -gtk-icon-transform: rotate(-90deg);
     min-height: 0;
     min-width: 0;
 }

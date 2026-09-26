@@ -83,6 +83,147 @@ public class ImageViewerDialog : GLib.Object {
         });
     }
 
+    // Pinch / button zoom for the pop-out. Only holds weak widget refs and is
+    // owned by the scroller (via set_data), and signal handlers are instance
+    // methods (connected without a strong ref), so no gesture/button closure
+    // forms a ref cycle that would keep the dialog's widgets alive.
+    private class ZoomController : GLib.Object {
+        private const double MIN_ZOOM = 1.0;
+        private const double MAX_ZOOM = 5.0;
+        private const double ZOOM_STEP = 1.25;
+
+        private weak Gtk.ScrolledWindow? scroller;
+        private weak Gtk.Picture? picture;
+        private weak Gtk.Button? zoom_out_button;
+        private weak Gtk.Button? zoom_in_button;
+        // Fitted copy looks best at 1x; the full-res original stays sharp when zoomed.
+        private Gdk.Paintable fitted_paintable;
+        private Gdk.Paintable full_paintable;
+        private int base_w;
+        private int base_h;
+        private double zoom = MIN_ZOOM;
+        private double pinch_start_zoom = MIN_ZOOM;
+        private double drag_start_h;
+        private double drag_start_v;
+
+        public ZoomController(Gtk.ScrolledWindow scroller, Gtk.Picture picture,
+                              Gtk.Button zoom_out_button, Gtk.Button zoom_in_button,
+                              Gdk.Paintable fitted_paintable, Gdk.Paintable full_paintable,
+                              int base_w, int base_h) {
+            this.scroller = scroller;
+            this.picture = picture;
+            this.zoom_out_button = zoom_out_button;
+            this.zoom_in_button = zoom_in_button;
+            this.fitted_paintable = fitted_paintable;
+            this.full_paintable = full_paintable;
+            this.base_w = base_w;
+            this.base_h = base_h;
+
+            zoom_out_button.clicked.connect(on_zoom_out_clicked);
+            zoom_in_button.clicked.connect(on_zoom_in_clicked);
+
+            // Handles both touchscreen and touchpad pinches.
+            var pinch = new Gtk.GestureZoom();
+            pinch.begin.connect(on_pinch_begin);
+            pinch.scale_changed.connect(on_pinch_scale_changed);
+            scroller.add_controller(pinch);
+
+            // Click-and-drag panning for mouse users once zoomed in (touch
+            // already pans via the scroller's own kinetic scrolling).
+            var drag = new Gtk.GestureDrag();
+            drag.set_button(Gdk.BUTTON_PRIMARY);
+            drag.drag_begin.connect(on_drag_begin);
+            drag.drag_update.connect(on_drag_update);
+            scroller.add_controller(drag);
+
+            update_controls();
+        }
+
+        private void on_zoom_out_clicked(Gtk.Button button) {
+            zoom_about_center(zoom / ZOOM_STEP);
+        }
+
+        private void on_zoom_in_clicked(Gtk.Button button) {
+            zoom_about_center(zoom * ZOOM_STEP);
+        }
+
+        private void on_pinch_begin(Gtk.Gesture gesture, Gdk.EventSequence? sequence) {
+            pinch_start_zoom = zoom;
+        }
+
+        private void on_pinch_scale_changed(Gtk.GestureZoom gesture, double scale) {
+            double cx, cy;
+            if (gesture.get_bounding_box_center(out cx, out cy)) {
+                set_zoom(pinch_start_zoom * scale, cx, cy);
+            } else {
+                zoom_about_center(pinch_start_zoom * scale);
+            }
+        }
+
+        private void on_drag_begin(Gtk.GestureDrag gesture, double x, double y) {
+            var sc = scroller;
+            var device = gesture.get_device();
+            if (sc == null || zoom <= MIN_ZOOM
+                || (device != null && device.get_source() == Gdk.InputSource.TOUCHSCREEN)) {
+                gesture.set_state(Gtk.EventSequenceState.DENIED);
+                return;
+            }
+            drag_start_h = sc.get_hadjustment().get_value();
+            drag_start_v = sc.get_vadjustment().get_value();
+        }
+
+        private void on_drag_update(Gtk.GestureDrag gesture, double dx, double dy) {
+            var sc = scroller;
+            if (sc == null) return;
+            sc.get_hadjustment().set_value(drag_start_h - dx);
+            sc.get_vadjustment().set_value(drag_start_v - dy);
+        }
+
+        private void zoom_about_center(double target) {
+            var sc = scroller;
+            if (sc == null) return;
+            set_zoom(target, sc.get_width() / 2.0, sc.get_height() / 2.0);
+        }
+
+        // (anchor_x, anchor_y) is in scroller coordinates; the image point
+        // under it stays put while the zoom level changes.
+        private void set_zoom(double target, double anchor_x, double anchor_y) {
+            var sc = scroller;
+            var pic = picture;
+            if (sc == null || pic == null) return;
+
+            double new_zoom = target.clamp(MIN_ZOOM, MAX_ZOOM);
+            if ((new_zoom - zoom).abs() < 0.001) return;
+
+            var hadj = sc.get_hadjustment();
+            var vadj = sc.get_vadjustment();
+            double image_x = (hadj.get_value() + anchor_x) / zoom;
+            double image_y = (vadj.get_value() + anchor_y) / zoom;
+
+            zoom = new_zoom;
+            int w = (int) Math.round(base_w * zoom);
+            int h = (int) Math.round(base_h * zoom);
+            pic.set_paintable(zoom > MIN_ZOOM ? full_paintable : fitted_paintable);
+            pic.set_size_request(w, h);
+
+            // The viewport only picks up the new size on its next allocation;
+            // configure the adjustments now so the anchored scroll offset
+            // isn't clamped against the old bounds.
+            hadj.configure(image_x * zoom - anchor_x, 0, w,
+                hadj.get_step_increment(), hadj.get_page_increment(), hadj.get_page_size());
+            vadj.configure(image_y * zoom - anchor_y, 0, h,
+                vadj.get_step_increment(), vadj.get_page_increment(), vadj.get_page_size());
+
+            update_controls();
+        }
+
+        private void update_controls() {
+            zoom_out_button?.set_sensitive(zoom > MIN_ZOOM + 0.001);
+            zoom_in_button?.set_sensitive(zoom < MAX_ZOOM - 0.001);
+            scroller?.set_cursor_from_name(zoom > MIN_ZOOM ? "grab" : null);
+        }
+    }
+
     private static Gdk.Pixbuf scale_down_preserving_aspect(Gdk.Pixbuf pix, int max_dim) {
         int w = pix.get_width();
         int h = pix.get_height();
@@ -141,6 +282,13 @@ public class ImageViewerDialog : GLib.Object {
         picture.set_halign(Gtk.Align.CENTER);
         picture.set_valign(Gtk.Align.CENTER);
 
+        // Fixed-size viewport onto the picture; zooming grows the picture's
+        // size request and the scroller pans over it.
+        var scroller = new Gtk.ScrolledWindow();
+        scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC);
+        scroller.set_size_request(fitted_w, fitted_h);
+        scroller.set_child(picture);
+
         var dialog = new Adw.Dialog();
         var handle = new DialogHandle();
         handle.target = dialog;
@@ -156,15 +304,39 @@ public class ImageViewerDialog : GLib.Object {
         close_button.set_tooltip_text("Close");
         close_button.clicked.connect(() => { handle.target?.close(); });
 
+        var zoom_out_button = new Gtk.Button.from_icon_name("zoom-out-symbolic");
+        zoom_out_button.add_css_class("osd");
+        zoom_out_button.add_css_class("circular");
+        zoom_out_button.set_tooltip_text("Zoom Out");
+
+        var zoom_in_button = new Gtk.Button.from_icon_name("zoom-in-symbolic");
+        zoom_in_button.add_css_class("osd");
+        zoom_in_button.add_css_class("circular");
+        zoom_in_button.set_tooltip_text("Zoom In");
+
+        var zoom_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        zoom_box.append(zoom_out_button);
+        zoom_box.append(zoom_in_button);
+
+        var zoom = new ZoomController(scroller, picture, zoom_out_button, zoom_in_button,
+            fitted_paintable, paintable, fitted_w, fitted_h);
+        // The scroller owns the controller; the controller only holds weak
+        // widget refs, so nothing here outlives the dialog.
+        scroller.set_data<ZoomController>("zoom-controller", zoom);
+
         // Gtk.Fixed, not Gtk.Overlay - a controller on an Overlay ancestor
         // leaks that subtree on destroy (confirmed via isolated repro).
         int btn_w;
         close_button.measure(Gtk.Orientation.HORIZONTAL, -1, null, out btn_w, null, null);
+        int zoom_box_w, zoom_box_h;
+        zoom_box.measure(Gtk.Orientation.HORIZONTAL, -1, null, out zoom_box_w, null, null);
+        zoom_box.measure(Gtk.Orientation.VERTICAL, -1, null, out zoom_box_h, null, null);
         const int BTN_MARGIN = 8;
 
         var content = new Gtk.Fixed();
-        content.put(picture, 0, 0);
+        content.put(scroller, 0, 0);
         content.put(close_button, fitted_w - btn_w - BTN_MARGIN, BTN_MARGIN);
+        content.put(zoom_box, fitted_w - zoom_box_w - BTN_MARGIN, fitted_h - zoom_box_h - BTN_MARGIN);
 
         dialog.set_follows_content_size(false);
         dialog.set_content_width(fitted_w);

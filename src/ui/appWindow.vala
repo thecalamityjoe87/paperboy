@@ -446,6 +446,13 @@ public class NewsWindow : Adw.ApplicationWindow {
         // on the previous page stuck visible underneath it.
         hide_additive_feature_containers();
 
+        // The magazine reader is a root-level overlay, independent of the
+        // page underneath - same as the podcast pane below, it wouldn't
+        // otherwise close itself when navigating to another view.
+        if (category != "magazines" && magazine_reader_sheet != null && magazine_reader_sheet.is_open()) {
+            magazine_reader_sheet.close();
+        }
+
         // Every navigation starts at the top of the new page, regardless
         // of how far down the previous one was scrolled - content just
         // being rebuilt in place (as Podcasts/Magazines/fetch_news() all
