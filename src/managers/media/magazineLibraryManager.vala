@@ -55,6 +55,9 @@ namespace Managers {
         // other card just to make one of them disappear.
         private bool suppress_next_removal_render = false;
 
+        // Active search filter - non-empty swaps the library for a flat grid of matches.
+        private string search_query = "";
+
         private bool selection_mode = false;
         private bool selection_bar_wired = false;
         private Gee.HashSet<int64?> selected_ids =
@@ -113,6 +116,7 @@ namespace Managers {
         public void show() {
             // Ends the previous view's session, same as PodcastManager.show().
             FetchContext.begin_new(window);
+            search_query = "";
             prepare_containers();
             if (window != null) window.update_content_header_now();
             wire_add_button();
@@ -120,6 +124,38 @@ namespace Managers {
             wire_selection_bar();
             set_header_buttons_visible(true);
             render_library();
+        }
+
+        // Filters the local library by title, category or source URL.
+        public void search(string query) {
+            string trimmed = query.strip();
+            if (trimmed == search_query) return;
+            search_query = trimmed;
+            if (is_showing()) render_library();
+        }
+
+        private bool entry_matches(Paperboy.MagazineEntry entry, string needle) {
+            if (entry.title != null && entry.title.down().contains(needle)) return true;
+            if (entry.category != null && entry.category.down().contains(needle)) return true;
+            return entry.source_url != null && entry.source_url.down().contains(needle);
+        }
+
+        private void render_search_results(Gee.ArrayList<Paperboy.MagazineEntry> entries) {
+            string needle = search_query.down();
+            var matches = new Gee.ArrayList<Paperboy.MagazineEntry>();
+            foreach (var entry in entries) {
+                if (entry_matches(entry, needle)) matches.add(entry);
+            }
+
+            if (matches.size > 0) render_flat_grid(matches);
+
+            if (content_view.category_subtitle != null) {
+                string label_text = matches.size == 0
+                    ? "No magazines found matching \"%s\"".printf(search_query)
+                    : "Search results: found %d %s matching \"%s\"".printf(matches.size, matches.size == 1 ? "magazine" : "magazines", search_query);
+                content_view.category_subtitle.set_label(label_text);
+                content_view.category_subtitle.set_visible(true);
+            }
         }
 
         // "Add Magazine"/"Organize" float in the page's own in-content
@@ -408,6 +444,7 @@ namespace Managers {
             if (content_view == null) return;
             live_card_roots.clear();
             if (selection_mode) prune_selection();
+            if (content_view.category_subtitle != null) content_view.category_subtitle.set_visible(false);
             clear_children(content_view.category_sections_container);
             content_view.category_sections_container.set_visible(false);
             if (content_view.hero_frontpage_separator != null) content_view.hero_frontpage_separator.set_visible(false);
@@ -425,6 +462,11 @@ namespace Managers {
             }
             // Covers adding the first magazine while the empty state is up.
             if (loading_state != null) loading_state.hide_error_message();
+
+            if (search_query.length > 0) {
+                render_search_results(entries);
+                return;
+            }
 
             var by_category = new Gee.HashMap<string, Gee.ArrayList<Paperboy.MagazineEntry>>();
             foreach (var entry in entries) {

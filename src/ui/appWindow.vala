@@ -364,6 +364,10 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
             return;
         }
+        if (prefs.category == "magazines") {
+            if (magazine_manager != null) magazine_manager.search(search_entry.get_text());
+            return;
+        }
         if (search_manager != null) {
             search_manager.update_query(search_entry.get_text());
         }
@@ -375,6 +379,10 @@ public class NewsWindow : Adw.ApplicationWindow {
     ulong stop_search_handler_id = search_entry.stop_search.connect(() => {
         if (prefs.category == "podcasts") {
             if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
+            return;
+        }
+        if (prefs.category == "magazines") {
+            if (magazine_manager != null) magazine_manager.search(search_entry.get_text());
             return;
         }
         if (search_manager != null) {
@@ -506,7 +514,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (content_view != null && content_view.clear_history_button != null) {
             content_view.clear_history_button.set_visible(category == "history");
         }
-        search_entry.set_placeholder_text("Search news for keywords…");
+        search_entry.set_placeholder_text(category == "magazines" ? "Search magazines…" : "Search news for keywords…");
         search_entry.set_text("");
         if (search_manager != null) search_manager.reset_query_state();
         GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
@@ -979,6 +987,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             } else if (prefs_local != null && prefs_local.category == "magazines") {
                 // Same reasoning as the podcasts branch above - Magazines
                 // isn't a FetchNewsController category either.
+                search_entry.set_placeholder_text("Search magazines…");
                 if (magazine_manager != null) magazine_manager.show();
             } else if (prefs_local != null && prefs_local.category == "saved") {
                 // Check if saved articles are already loaded (get_saved_count() always works)
