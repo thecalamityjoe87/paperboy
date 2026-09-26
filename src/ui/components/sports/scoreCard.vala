@@ -36,6 +36,14 @@ public class ScoreCard : GLib.Object {
     public Gtk.Box root;
     public string url;
 
+    // Set for My Feed's one-shot preview row (see MyFeedExtrasController),
+    // which never re-polls: a live game shows a plain "LIVE" there instead
+    // of its game clock, since a clock frozen at load time reads as broken
+    // where a slightly stale score doesn't. show_league prefixes the status
+    // with the league name for rows that mix leagues.
+    private bool preview;
+    private bool show_league;
+
     private Gtk.Label status_label;
     private Gtk.Picture away_logo;
     private Gtk.Label away_name_label;
@@ -44,9 +52,11 @@ public class ScoreCard : GLib.Object {
     private Gtk.Label home_name_label;
     private Gtk.Label home_score_label;
 
-    public ScoreCard(GameScore game) {
+    public ScoreCard(GameScore game, bool preview = false, bool show_league = false) {
         GLib.Object();
         this.url = game.espn_link;
+        this.preview = preview;
+        this.show_league = show_league;
 
         root = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         root.add_css_class("card");
@@ -65,6 +75,7 @@ public class ScoreCard : GLib.Object {
 
         status_label = new Gtk.Label("");
         status_label.set_xalign(0);
+        status_label.set_ellipsize(Pango.EllipsizeMode.END);
         status_label.add_css_class("caption");
         status_label.add_css_class("score-card-status");
         root.append(status_label);
@@ -88,7 +99,9 @@ public class ScoreCard : GLib.Object {
     }
 
     private void apply_game(GameScore game) {
-        status_label.set_text(game.status_detail);
+        string status_text = (preview && game.status == GameStatus.LIVE) ? "LIVE" : game.status_detail;
+        if (show_league) status_text = "%s · %s".printf(game.league_display_name, status_text);
+        status_label.set_text(status_text);
         if (game.status == GameStatus.LIVE) {
             status_label.add_css_class("score-card-status-live");
         } else {
