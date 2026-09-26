@@ -122,10 +122,7 @@ namespace Managers {
 
         public void reset_adaptive_tracking() {
             article_count_for_adaptive = 0;
-            if (adaptive_layout_timeout_id > 0) {
-                Source.remove(adaptive_layout_timeout_id);
-                adaptive_layout_timeout_id = 0;
-            }
+            ViewSession.remove_source(ref adaptive_layout_timeout_id);
         }
 
         // Backward compatibility alias
@@ -137,12 +134,9 @@ namespace Managers {
         // arrival; if the category ends up with fewer than 15 articles,
         // rebuilds it as a 2-column hero layout.
         public void track_category_article(uint current_fetch_seq) {
-            if (adaptive_layout_timeout_id > 0) {
-                Source.remove(adaptive_layout_timeout_id);
-                adaptive_layout_timeout_id = 0;
-            }
+            ViewSession.remove_source(ref adaptive_layout_timeout_id);
 
-            adaptive_layout_timeout_id = Timeout.add(400, () => {
+            adaptive_layout_timeout_id = ViewSession.view_timeout(400, () => {
                 if (current_fetch_seq != FetchContext.current) {
                     return false;
                 }
@@ -163,7 +157,7 @@ namespace Managers {
                 bool is_sports = window != null && window.prefs != null && window.prefs.category == "sports";
 
                 if (actual_count < 15 && actual_count > 0 && !is_sports) {
-                    Idle.add(() => {
+                    ViewSession.view_idle(() => {
                         if (current_fetch_seq != FetchContext.current) return false;
                         rebuild_as_category_heroes();
                         return false;
@@ -250,7 +244,7 @@ namespace Managers {
                     info.last_requested_h = new_h;
                     window.append_debug_log("Refetching hero image at larger size: " + new_w.to_string() + "x" + new_h.to_string());
                     window.image_manager.load_image_async(picture, info.url, new_w, new_h);
-                    Timeout.add(500, () => { maybe_refetch_hero_for(picture, info); return false; });
+                    ViewSession.view_timeout(500, () => { maybe_refetch_hero_for(picture, info); return false; });
                 }
         }
 
@@ -423,7 +417,7 @@ namespace Managers {
 
             // After rebuild completes, reveal content with animations
             // Minimal delay to ensure layout has settled (reduced from 50ms to 30ms)
-            Timeout.add(30, () => {
+            ViewSession.view_timeout(30, () => {
                 if (window != null && window.loading_state != null) {
                     if (window.loading_state.initial_items_populated && window.loading_state.initial_phase) {
                         window.loading_state.reveal_initial_content();

@@ -437,6 +437,9 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Listen for category selections and trigger fetch/update from the window
     sidebar_manager.category_selected.connect((category) => {
+        // End the previous view's session now, not when the new view's (sometimes deferred) fetch starts.
+        FetchContext.begin_new(this);
+
         // Podcasts/Magazines each return early below, before ever reaching
         // fetch_news() - hide_additive_feature_containers() has to run
         // here too, not just inside fetch_news(), or navigating to either

@@ -25,9 +25,33 @@ public class ViewSession : GLib.Object {
 
     private int _closed = 0;
     private Gee.HashSet<uint> sources = new Gee.HashSet<uint>();
+    private static ViewSession? _detached = null;
 
     public ViewSession(string? category) {
         this.category = category;
+    }
+
+    // The session of the view on screen. Before any view exists, a session that never closes.
+    public static ViewSession current() {
+        var ctx = FetchContext.current_context();
+        if (ctx != null) return ctx.session;
+        if (_detached == null) _detached = new ViewSession(null);
+        return _detached;
+    }
+
+    // Per-view deferred work for code that doesn't hold a session itself.
+    public static uint view_idle(owned GLib.SourceFunc fn) {
+        return current().idle((owned) fn);
+    }
+
+    public static uint view_timeout(uint ms, owned GLib.SourceFunc fn) {
+        return current().timeout(ms, (owned) fn);
+    }
+
+    // Safe for an ID whose source a closed session already removed.
+    public static void remove_source(ref uint id) {
+        if (id > 0 && GLib.MainContext.default().find_source_by_id(id) != null) GLib.Source.remove(id);
+        id = 0;
     }
 
     // Safe from any thread.
@@ -40,13 +64,17 @@ public class ViewSession : GLib.Object {
         if (AtomicInt.get(ref _closed) == 1) return;
         AtomicInt.set(ref _closed, 1);
         cancellable.cancel();
-        foreach (var sid in sources) GLib.Source.remove(sid);
+        // Some may already have been removed by their owner via remove_source().
+        var ctx = GLib.MainContext.default();
+        foreach (var sid in sources) {
+            if (ctx.find_source_by_id(sid) != null) GLib.Source.remove(sid);
+        }
         sources.clear();
     }
 
-    // Main thread only. Never runs once the session is closed.
-    public void idle(owned GLib.SourceFunc fn) {
-        if (is_closed()) return;
+    // Main thread only. Never runs once the session is closed. Returns 0 if already closed.
+    public uint idle(owned GLib.SourceFunc fn) {
+        if (is_closed()) return 0;
         uint sid = 0;
         sid = GLib.Idle.add(() => {
             if (is_closed()) return false;
@@ -55,11 +83,12 @@ public class ViewSession : GLib.Object {
             return again;
         });
         sources.add(sid);
+        return sid;
     }
 
-    // Main thread only. Never runs once the session is closed.
-    public void timeout(uint ms, owned GLib.SourceFunc fn) {
-        if (is_closed()) return;
+    // Main thread only. Never runs once the session is closed. Returns 0 if already closed.
+    public uint timeout(uint ms, owned GLib.SourceFunc fn) {
+        if (is_closed()) return 0;
         uint sid = 0;
         sid = GLib.Timeout.add(ms, () => {
             if (is_closed()) return false;
@@ -68,6 +97,7 @@ public class ViewSession : GLib.Object {
             return again;
         });
         sources.add(sid);
+        return sid;
     }
 }
 

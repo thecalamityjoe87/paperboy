@@ -206,11 +206,11 @@ namespace Managers {
             // A category with zero cards in the initial cap would otherwise
             // stay hidden with no way to reach its queued overflow - see
             // LayoutManager.reveal_sections_with_pending_overflow(). Debounced
-            // via a single Idle.add latch so a batch of articles triggers one
+            // via a single idle latch so a batch of articles triggers one
             // reveal pass, not one per article.
             if (window.layout_manager != null && !reveal_pending) {
                 reveal_pending = true;
-                GLib.Idle.add(() => {
+                ViewSession.view_idle(() => {
                     reveal_pending = false;
                     if (window.layout_manager != null) {
                         window.layout_manager.reveal_sections_with_pending_overflow();
@@ -265,6 +265,7 @@ namespace Managers {
             // bounded grace period passes) - see BackfillBatchGate.
             var backfill_gate = new BackfillBatchGate();
             ThumbnailBackfillService.current_batch = backfill_gate;
+            var session = ViewSession.current();
 
             int loaded = 0;
             int i = 0;
@@ -301,7 +302,7 @@ namespace Managers {
                 var anim_mgr = window.animation_manager;
                 backfill_gate.ready.connect(() => {
                     // Delay until idle so widgets are realized/parented.
-                    GLib.Idle.add(() => {
+                    session.idle(() => {
                         var cards = new Gee.ArrayList<Gtk.Widget>();
                         int idx = 0;
                         var child = row.get_first_child();
@@ -584,7 +585,7 @@ namespace Managers {
                         window.append_debug_log("meta_check: hero url=" + _norm + " was=" + (was ? "true" : "false"));
                         if (was) window.mark_article_viewed(_norm);
                     }
-                    Timeout.add(300, () => { var info = window.image_manager.hero_requests.get(hero_card.image); if (info != null) window.maybe_refetch_hero_for(hero_card.image, info); return false; });
+                    ViewSession.view_timeout(300, () => { var info = window.image_manager.hero_requests.get(hero_card.image); if (info != null) window.maybe_refetch_hero_for(hero_card.image, info); return false; });
                 }
 
                 hero_card.image.set_data<bool>("has-real-thumbnail", hero_will_load);
@@ -1142,7 +1143,7 @@ namespace Managers {
                     request_hide_load_more_button();
                     load_more_button_visible = false;
                     
-                    Timeout.add(300, () => {
+                    ViewSession.view_timeout(300, () => {
                         if (window.loading_state.loading_container == null || !window.loading_state.loading_container.get_visible()) {
                             show_end_of_feed_message();
                         }
@@ -1175,6 +1176,7 @@ namespace Managers {
             // bounded grace period passes) - see BackfillBatchGate.
             var backfill_gate = new BackfillBatchGate();
             ThumbnailBackfillService.current_batch = backfill_gate;
+            var session = ViewSession.current();
 
             for (int i = 0; i < articles_to_load; i++) {
                 // Remove from the front rather than indexing in place: this
@@ -1222,7 +1224,7 @@ namespace Managers {
                 var lm2 = window.layout_manager;
                 backfill_gate.ready.connect(() => {
                     // Delay until idle so widgets are realized/parented
-                    GLib.Idle.add(() => {
+                    session.idle(() => {
                         var cards = new Gee.ArrayList<Gtk.Widget>();
 
                         // Featured box new children
@@ -1367,6 +1369,8 @@ namespace Managers {
             featured_carousel_category = null;
             featured_used = false;
             trending_hero_count = 0;
+            // The latch's idle may have been dropped with the previous view's session.
+            reveal_pending = false;
 
             if (buffer_flush_timeout_id > 0) {
                 Source.remove(buffer_flush_timeout_id);

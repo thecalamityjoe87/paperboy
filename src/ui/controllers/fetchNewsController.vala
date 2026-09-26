@@ -212,10 +212,7 @@ public class FetchNewsController {
                 if (win.loading_state != null) win.loading_state.network_failure_detected = true;
                 win.hide_loading_spinner();
                 win.show_error_message(text);
-                if (win.loading_state != null && win.loading_state.initial_reveal_timeout_id > 0) {
-                    Source.remove(win.loading_state.initial_reveal_timeout_id);
-                    win.loading_state.initial_reveal_timeout_id = 0;
-                }
+                if (win.loading_state != null) ViewSession.remove_source(ref win.loading_state.initial_reveal_timeout_id);
                 return;
             }
         }
@@ -284,6 +281,11 @@ public class FetchNewsController {
     public static void fetch_news(NewsWindow win) {
         if (win == null) return;
 
+        // Close the previous view's session before any setup below schedules per-view work.
+        // All window access in async callbacks must go through this context.
+        var ctx = FetchContext.begin_new(win);
+        uint my_seq = ctx.seq;
+
         if (win.image_manager != null) win.image_manager.cleanup_stale_downloads();
 
         if (win.article_manager != null) win.article_manager.reset_for_new_fetch();
@@ -323,8 +325,6 @@ public class FetchNewsController {
         // === PHASE 2: Early exit checks ===
         bool is_myfeed_category = win.category_manager.is_myfeed_category();
         if (is_myfeed_category && !win.prefs.personalized_feed_enabled) {
-            // Cancel any in-flight My Feed fetch so it can't repopulate the view
-            FetchContext.begin_new(win);
             MyFeedExtrasController.hide(win);
             if (win.layout_manager != null) win.layout_manager.remove_end_feed_message();
             win.update_content_header();
@@ -343,12 +343,8 @@ public class FetchNewsController {
         }
         win.update_content_header_now();
 
-        // all window access below must go through FetchContext validation to avoid use-after-free
-        var ctx = FetchContext.begin_new(win);
-        uint my_seq = ctx.seq;
-
         if (loading_state != null) {
-            loading_state.initial_reveal_timeout_id = Timeout.add(NewsWindow.INITIAL_MAX_WAIT_MS, () => {
+            loading_state.initial_reveal_timeout_id = ctx.session.timeout(NewsWindow.INITIAL_MAX_WAIT_MS, () => {
                 if (!FetchContext.is_current(my_seq)) return false;
                 var cur = FetchContext.current_context();
                 if (cur == null) return false;
@@ -387,7 +383,7 @@ public class FetchNewsController {
         }
         
         SetLabelFunc wrapped_set_label = (text) => {
-            Idle.add(() => {
+            ctx.session.idle(() => {
                 if (!FetchContext.is_current(my_seq)) return false;
                 var cur = FetchContext.current_context();
                 if (cur == null) return false;
@@ -412,7 +408,7 @@ public class FetchNewsController {
         // keep this idempotent per fetch
         bool wrapped_clear_ran = false;
         ClearItemsFunc wrapped_clear = () => {
-            Idle.add(() => {
+            ctx.session.idle(() => {
                 if (!FetchContext.is_current(my_seq)) return false;
                 var cur = FetchContext.current_context();
                 if (cur == null) return false;
@@ -514,7 +510,7 @@ public class FetchNewsController {
                     local_news_items_enqueued++;
                     if (!local_news_flush_scheduled) {
                         local_news_flush_scheduled = true;
-                        Timeout.add(60, () => {
+                        ctx.session.timeout(60, () => {
                             int processed = 0;
                             int batch = 6;
                             while (local_news_queue.size > 0 && processed < batch) {
@@ -820,13 +816,13 @@ if (is_myfeed_mode) {
 
     public static void schedule_adaptive_layout_check(NewsWindow win, uint my_seq) {
         // check immediately, then again after a delay in case articles are still registering
-        Idle.add(() => {
+        ViewSession.view_idle(() => {
             if (!FetchContext.is_current(my_seq)) return false;
             perform_adaptive_check(win, my_seq);
             return false;
         });
 
-        Timeout.add(600, () => {
+        ViewSession.view_timeout(600, () => {
             if (!FetchContext.is_current(my_seq)) return false;
             perform_adaptive_check(win, my_seq);
             return false;
@@ -857,7 +853,7 @@ if (is_myfeed_mode) {
 
                 if (actual_count < 15 && actual_count > 0) {
                     stderr.printf("DEBUG: triggering adaptive 2-hero layout (count=%d < 15)\n", actual_count);
-                    Idle.add(() => {
+                    ViewSession.view_idle(() => {
                         if (!FetchContext.is_current(my_seq)) return false;
                         var c = FetchContext.current_context();
                         if (c != null && c.window != null && c.window.layout_manager != null) {
@@ -1063,7 +1059,8 @@ if (is_myfeed_mode) {
 
         // Clear and repopulate in a single idle callback to ensure proper ordering
         uint _saved_seq = ctx.seq;
-        Idle.add(() => {
+        var session = ctx.session;
+        session.idle(() => {
             if (!FetchContext.is_current(_saved_seq)) return false;
             var cur_saved = FetchContext.current_context();
             if (cur_saved == null) return false;
@@ -1093,10 +1090,7 @@ if (is_myfeed_mode) {
             // back in a moment later (the flash).
             if (w.loading_state != null) {
                 w.loading_state.initial_phase = false;
-                if (w.loading_state.initial_reveal_timeout_id > 0) {
-                    Source.remove(w.loading_state.initial_reveal_timeout_id);
-                    w.loading_state.initial_reveal_timeout_id = 0;
-                }
+                ViewSession.remove_source(ref w.loading_state.initial_reveal_timeout_id);
             }
 
             // Add saved articles immediately after clearing
@@ -1143,7 +1137,7 @@ if (is_myfeed_mode) {
             // let GTK's first layout guess (before it finished measuring
             // the new widgets) become visible for a frame, seen as a quick
             // flash/reflow right after the cards appeared.
-            Idle.add(() => {
+            session.idle(() => {
                 if (!FetchContext.is_current(_saved_seq)) return false;
                 // CRITICAL: Don't use reveal_initial_content() here because it exits early if initial_phase is false
                 // After an RSS timeout error, initial_phase is already false, so we must directly show the container
@@ -1232,7 +1226,8 @@ if (is_myfeed_mode) {
         }
 
         uint _history_seq = ctx.seq;
-        Idle.add(() => {
+        var session = ctx.session;
+        session.idle(() => {
             if (!FetchContext.is_current(_history_seq)) return false;
             var cur_history = FetchContext.current_context();
             if (cur_history == null) return false;
@@ -1259,10 +1254,7 @@ if (is_myfeed_mode) {
 
             if (w.loading_state != null) {
                 w.loading_state.initial_phase = false;
-                if (w.loading_state.initial_reveal_timeout_id > 0) {
-                    Source.remove(w.loading_state.initial_reveal_timeout_id);
-                    w.loading_state.initial_reveal_timeout_id = 0;
-                }
+                ViewSession.remove_source(ref w.loading_state.initial_reveal_timeout_id);
             }
 
             foreach (var article in history_articles) {
@@ -1291,7 +1283,7 @@ if (is_myfeed_mode) {
                 w.layout_manager.refresh_columns();
             }
 
-            Idle.add(() => {
+            session.idle(() => {
                 if (!FetchContext.is_current(_history_seq)) return false;
                 w.hide_loading_spinner();
                 if (w.main_content_container != null) {

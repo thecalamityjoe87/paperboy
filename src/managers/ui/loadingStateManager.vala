@@ -114,7 +114,7 @@ public class LoadingStateManager : GLib.Object {
 
         pending_reveal_action = (owned) retry;
         if (backfill_grace_timeout_id == 0) {
-            backfill_grace_timeout_id = GLib.Timeout.add(BACKFILL_GRACE_MS, () => {
+            backfill_grace_timeout_id = ViewSession.view_timeout(BACKFILL_GRACE_MS, () => {
                 backfill_grace_timeout_id = 0;
                 backfill_grace_expired = true;
                 if (pending_reveal_action != null) {
@@ -132,14 +132,8 @@ public class LoadingStateManager : GLib.Object {
         initial_phase = false;
         hero_image_loaded = false;
         pending_reveal_action = null;
-        if (initial_reveal_timeout_id > 0) {
-            Source.remove(initial_reveal_timeout_id);
-            initial_reveal_timeout_id = 0;
-        }
-        if (absolute_reveal_timeout_id > 0) {
-            Source.remove(absolute_reveal_timeout_id);
-            absolute_reveal_timeout_id = 0;
-        }
+        ViewSession.remove_source(ref initial_reveal_timeout_id);
+        ViewSession.remove_source(ref absolute_reveal_timeout_id);
         hide_loading_spinner();
         trigger_initial_reveals();
     }
@@ -156,26 +150,17 @@ public class LoadingStateManager : GLib.Object {
         pending_backfills = 0;
         backfill_grace_expired = false;
         pending_reveal_action = null;
-        if (backfill_grace_timeout_id > 0) {
-            Source.remove(backfill_grace_timeout_id);
-            backfill_grace_timeout_id = 0;
-        }
+        ViewSession.remove_source(ref backfill_grace_timeout_id);
 
         if (window.image_cache != null) window.image_cache.clear();
 
         // Don't reset awaiting_adaptive_layout - it may already be set from before begin_fetch()
 
-        if (initial_reveal_timeout_id > 0) {
-            Source.remove(initial_reveal_timeout_id);
-            initial_reveal_timeout_id = 0;
-        }
-        if (absolute_reveal_timeout_id > 0) {
-            Source.remove(absolute_reveal_timeout_id);
-            absolute_reveal_timeout_id = 0;
-        }
+        ViewSession.remove_source(ref initial_reveal_timeout_id);
+        ViewSession.remove_source(ref absolute_reveal_timeout_id);
 
         // Absolute max wait before giving up on content and revealing anyway (avoids blank screen).
-        absolute_reveal_timeout_id = GLib.Timeout.add(4000, () => {
+        absolute_reveal_timeout_id = ViewSession.view_timeout(4000, () => {
             // Don't let a stuck/slow endpoint (e.g. Trending on Front Page)
             // hold the spinner up forever - show whatever landed by now.
             awaiting_frontpage_endpoints = false;
@@ -239,7 +224,7 @@ public class LoadingStateManager : GLib.Object {
             if (window.article_manager.remaining_articles != null && window.article_manager.remaining_articles.size > 0 && window.article_manager.articles_shown >= Managers.ArticleManager.INITIAL_ARTICLE_LIMIT) {
                 window.article_manager.show_load_more_button();
             } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.size == 0) {
-                Timeout.add(800, () => {
+                ViewSession.view_timeout(800, () => {
                     if (window == null) return false; // weak ref; window may be gone
                     if (loading_container == null || !loading_container.get_visible()) {
                         show_end_of_feed_message();
@@ -285,14 +270,8 @@ public class LoadingStateManager : GLib.Object {
         initial_phase = false;
         hero_image_loaded = false;
         pending_reveal_action = null;
-        if (initial_reveal_timeout_id > 0) {
-            Source.remove(initial_reveal_timeout_id);
-            initial_reveal_timeout_id = 0;
-        }
-        if (absolute_reveal_timeout_id > 0) {
-            Source.remove(absolute_reveal_timeout_id);
-            absolute_reveal_timeout_id = 0;
-        }
+        ViewSession.remove_source(ref initial_reveal_timeout_id);
+        ViewSession.remove_source(ref absolute_reveal_timeout_id);
 
         if (loading_container != null && loading_container.get_visible()) hide_loading_spinner();
         if (window.content_view != null) window.content_view.remove_end_of_feed_message();
@@ -416,10 +395,7 @@ public class LoadingStateManager : GLib.Object {
         if (loading_container != null && show_message) {
             loading_container.set_visible(false);
 
-            if (initial_reveal_timeout_id > 0) {
-                Source.remove(initial_reveal_timeout_id);
-                initial_reveal_timeout_id = 0;
-            }
+            ViewSession.remove_source(ref initial_reveal_timeout_id);
 
             // Exit initial phase so the reveal timeout doesn't fire an error over this message
             initial_items_populated = true;
@@ -459,14 +435,8 @@ public class LoadingStateManager : GLib.Object {
         // earlier ready_or_defer() call - a later backfill/grace callback
         // consuming it would fire a second, spurious reveal.
         pending_reveal_action = null;
-        if (initial_reveal_timeout_id > 0) {
-            Source.remove(initial_reveal_timeout_id);
-            initial_reveal_timeout_id = 0;
-        }
-        if (absolute_reveal_timeout_id > 0) {
-            Source.remove(absolute_reveal_timeout_id);
-            absolute_reveal_timeout_id = 0;
-        }
+        ViewSession.remove_source(ref initial_reveal_timeout_id);
+        ViewSession.remove_source(ref absolute_reveal_timeout_id);
         hide_loading_spinner();
         bool pvis = personalized_message_box != null ? personalized_message_box.get_visible() : false;
         bool lvis = local_news_message_box != null ? local_news_message_box.get_visible() : false;
@@ -474,7 +444,7 @@ public class LoadingStateManager : GLib.Object {
             trigger_initial_reveals();
         }
 
-        Timeout.add(180, () => {
+        ViewSession.view_timeout(180, () => {
             if (window.image_manager != null) window.image_manager.upgrade_images_after_initial();
             if (window.sidebar_manager != null) {
                 window.sidebar_manager.refresh_all_badge_counts();
@@ -518,7 +488,7 @@ public class LoadingStateManager : GLib.Object {
         if (window.main_content_container != null) window.main_content_container.set_visible(true);
 
         // Short delay so first-time layout of this subtree settles before the fade starts.
-        GLib.Timeout.add(50, () => {
+        ViewSession.view_timeout(50, () => {
             window.animation_manager.animate_cards_entrance_batch(cards);
             return false;
         });
@@ -530,10 +500,8 @@ public class LoadingStateManager : GLib.Object {
         // Reset the timeout on each new article so we wait for the whole batch to land
         // before revealing, instead of revealing after the very first one.
         if (initial_phase) {
-            if (initial_reveal_timeout_id > 0) {
-                Source.remove(initial_reveal_timeout_id);
-            }
-            initial_reveal_timeout_id = GLib.Timeout.add(300, () => {
+            ViewSession.remove_source(ref initial_reveal_timeout_id);
+            initial_reveal_timeout_id = ViewSession.view_timeout(300, () => {
                 initial_reveal_timeout_id = 0;
 
                 if (awaiting_adaptive_layout || awaiting_frontpage_endpoints) {
@@ -568,7 +536,7 @@ public class LoadingStateManager : GLib.Object {
                     if (ready_or_defer(force_reveal_now)) force_reveal_now();
                 } else {
                     // Too few articles yet; give it more time before revealing anyway.
-                    initial_reveal_timeout_id = GLib.Timeout.add(1200, () => {
+                    initial_reveal_timeout_id = ViewSession.view_timeout(1200, () => {
                         initial_reveal_timeout_id = 0;
                         if (awaiting_adaptive_layout || awaiting_frontpage_endpoints) {
                             return false;
