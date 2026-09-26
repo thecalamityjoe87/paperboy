@@ -772,7 +772,7 @@ public class ArticleSheet : GLib.Object {
         }
 
         // No feed-level wfw:commentRss (e.g. built-in fetchers like
-        // Guardian/Fox/Reddit, or Frontpage/Top Ten's GNews-backed
+        // Guardian/Fox, or Frontpage/Top Ten's GNews-backed
         // pipeline, none of which carry that field) - check the article's
         // own page directly for WordPress's standard per-post comments
         // feed link before falling back to OpenWeb/Disqus/HN/generic scrape.

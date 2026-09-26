@@ -111,6 +111,8 @@ namespace Managers {
         }
 
         public void show() {
+            // Ends the previous view's session, same as PodcastManager.show().
+            FetchContext.begin_new(window);
             prepare_containers();
             if (window != null) window.update_content_header_now();
             wire_add_button();

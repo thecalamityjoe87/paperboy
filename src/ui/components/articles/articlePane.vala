@@ -190,7 +190,7 @@ public class ArticlePane : GLib.Object {
                     PlaceholderBuilder.set_placeholder_image_for_source(pic, img_w, img_h, article_src);
                 }
             } else {
-                int multiplier = (article_src == NewsSource.REDDIT) ? 2 : 3;
+                int multiplier = 3;
                 int target_w = img_w * multiplier;
                 int target_h = img_h * multiplier;
                 bool loaded_from_cache = false;

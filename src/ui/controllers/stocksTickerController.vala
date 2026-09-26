@@ -65,14 +65,8 @@ public class StocksTickerController : GLib.Object {
     }
 
     public static void stop_polling() {
-        if (indices_timeout_id != 0) {
-            Source.remove(indices_timeout_id);
-            indices_timeout_id = 0;
-        }
-        if (crypto_timeout_id != 0) {
-            Source.remove(crypto_timeout_id);
-            crypto_timeout_id = 0;
-        }
+        ViewSession.remove_source(ref indices_timeout_id);
+        ViewSession.remove_source(ref crypto_timeout_id);
     }
 
     // Drop the reused section/cards - called on window close so this static
@@ -109,11 +103,9 @@ public class StocksTickerController : GLib.Object {
     }
 
     private static void schedule_next_indices_poll() {
-        if (indices_timeout_id != 0) {
-            Source.remove(indices_timeout_id);
-            indices_timeout_id = 0;
-        }
-        indices_timeout_id = Timeout.add_seconds(POLL_SECONDS, () => {
+        ViewSession.remove_source(ref indices_timeout_id);
+        if (active_ctx == null) return;
+        indices_timeout_id = active_ctx.session.timeout_seconds(POLL_SECONDS, () => {
             indices_timeout_id = 0;
             if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
                 return false;
@@ -124,11 +116,9 @@ public class StocksTickerController : GLib.Object {
     }
 
     private static void schedule_next_crypto_poll() {
-        if (crypto_timeout_id != 0) {
-            Source.remove(crypto_timeout_id);
-            crypto_timeout_id = 0;
-        }
-        crypto_timeout_id = Timeout.add_seconds(POLL_SECONDS, () => {
+        ViewSession.remove_source(ref crypto_timeout_id);
+        if (active_ctx == null) return;
+        crypto_timeout_id = active_ctx.session.timeout_seconds(POLL_SECONDS, () => {
             crypto_timeout_id = 0;
             if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
                 return false;

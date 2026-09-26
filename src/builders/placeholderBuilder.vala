@@ -102,10 +102,6 @@ public class PlaceholderBuilder : GLib.Object {
                     gradient.add_color_stop_rgb(0, 0.6, 0.0, 0.0);
                     gradient.add_color_stop_rgb(1, 0.8, 0.1, 0.1);
                     break;
-                case NewsSource.REDDIT:
-                    gradient.add_color_stop_rgb(0, 1.0, 0.2, 0.0);
-                    gradient.add_color_stop_rgb(1, 1.0, 0.4, 0.1);
-                    break;
                 case NewsSource.NEW_YORK_TIMES:
                     gradient.add_color_stop_rgb(0, 0.1, 0.1, 0.1);
                     gradient.add_color_stop_rgb(1, 0.3, 0.3, 0.3);
@@ -225,10 +221,6 @@ public class PlaceholderBuilder : GLib.Object {
                 case NewsSource.BBC:
                     gradient.add_color_stop_rgb(0, 0.7, 0.0, 0.0);
                     gradient.add_color_stop_rgb(1, 0.9, 0.2, 0.2);
-                    break;
-                case NewsSource.REDDIT:
-                    gradient.add_color_stop_rgb(0, 1.0, 0.3, 0.0);
-                    gradient.add_color_stop_rgb(1, 1.0, 0.5, 0.2);
                     break;
                 case NewsSource.NEW_YORK_TIMES:
                     gradient.add_color_stop_rgb(0, 0.0, 0.0, 0.0);
@@ -445,7 +437,6 @@ public class PlaceholderBuilder : GLib.Object {
             case NewsSource.GUARDIAN: return "The Guardian";
             case NewsSource.WALL_STREET_JOURNAL: return "Wall Street Journal";
             case NewsSource.BBC: return "BBC News";
-            case NewsSource.REDDIT: return "Reddit";
             case NewsSource.NEW_YORK_TIMES: return "NY Times";
             case NewsSource.BLOOMBERG: return "Bloomberg";
             case NewsSource.ABC_NEWS: return "ABC News";
@@ -462,7 +453,6 @@ public class PlaceholderBuilder : GLib.Object {
         switch (source) {
             case NewsSource.GUARDIAN: icon_filename = "guardian-logo.png"; break;
             case NewsSource.BBC: icon_filename = "bbc-logo.png"; break;
-            case NewsSource.REDDIT: icon_filename = "reddit-logo.png"; break;
             case NewsSource.NEW_YORK_TIMES: icon_filename = "nytimes-logo.png"; break;
             case NewsSource.BLOOMBERG: icon_filename = "bloomberg-logo.png"; break;
             case NewsSource.ABC_NEWS: icon_filename = "abc-logo.png"; break;

@@ -710,6 +710,9 @@ public class ContentView : GLib.Object {
         content_box.append(main_overlay);
         content_area.append(content_box);
         main_scrolled.set_child(content_area);
+        // Don't jump to whichever widget regains focus (e.g. when a dialog closes).
+        var main_viewport = main_scrolled.get_child() as Gtk.Viewport;
+        if (main_viewport != null) main_viewport.set_scroll_to_focus(false);
 
         // Vertical "more to scroll" cue for the whole page (every view, not
         // just Front Page) - same cheap edge-fade-to-background approach as
@@ -865,6 +868,7 @@ public class ContentView : GLib.Object {
         load_more_button_widget = new Gtk.Button();
         load_more_button_widget.add_css_class("suggested-action");
         load_more_button_widget.add_css_class("pill");
+        load_more_button_widget.add_css_class("load-more-button");
         load_more_button_widget.set_margin_top(20);
         load_more_button_widget.set_margin_bottom(20);
         load_more_button_widget.set_halign(Gtk.Align.CENTER);
@@ -909,6 +913,19 @@ public class ContentView : GLib.Object {
         });
     }
     
+    // Immediate removal for a view change - no fade, and also drops one still fading out.
+    public void remove_load_more_button_now() {
+        load_more_button_widget = null;
+        load_more_button_spinner = null;
+        load_more_button_label = null;
+        Gtk.Widget? c = content_box.get_first_child();
+        while (c != null) {
+            var next = c.get_next_sibling();
+            if (c.has_css_class("load-more-button")) content_box.remove(c);
+            c = next;
+        }
+    }
+
     public void hide_load_more_button() {
         if (load_more_button_widget == null) return;
 
@@ -1042,7 +1059,6 @@ public class ContentView : GLib.Object {
         // RESTORE MODE: query cleared - rebuild the real view via fetch_news()
         // below, so just drop the search snapshot rather than replaying it.
         if (query_lower.length == 0) {
-            window.layout_manager.discard_search_snapshot();
             window.search_manager.forget_result_urls();
             malloc_trim(0);
             hero_container.set_visible(true);
@@ -1057,26 +1073,14 @@ public class ContentView : GLib.Object {
             return;
         }
 
-        // SEARCH MODE: Prepare for filtering
-        window.layout_manager.prepare_for_search_filter();
-
-        // UI presentation: hide hero
-        hero_container.set_visible(false);
-
-        // Sports' live-score sections (SportsScoresController) render
-        // underneath the hero independently of everything else here -
-        // search results shouldn't show live scores from whatever category
-        // was on screen before searching.
-        if (sports_scores_container != null) sports_scores_container.set_visible(false);
-        if (favorite_teams_container != null) favorite_teams_container.set_visible(false);
-        if (favorite_teams_label != null) favorite_teams_label.set_visible(false);
-        if (favorite_teams_separator != null) favorite_teams_separator.set_visible(false);
-        if (league_badge_carousel != null) league_badge_carousel.root.set_visible(false);
-        if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
-        if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
-        if (stocks_ticker_container != null) stocks_ticker_container.set_visible(false);
-        if (hero_stocks_separator != null) hero_stocks_separator.set_visible(false);
-        if (stocks_articles_separator != null) stocks_articles_separator.set_visible(false);
+        // SEARCH MODE: search is its own view. End the underlying view's session and clear
+        // every view's sections (heroes, Trending, rows, scores, stocks); results use the
+        // standard grid. Clearing the query rebuilds the underlying view via fetch_news() above.
+        FetchContext.begin_new(window);
+        if (window.loading_state != null) window.loading_state.end_for_search();
+        hide_all_pages();
+        if (myfeed_extras_container != null) myfeed_extras_container.set_visible(false);
+        window.layout_manager.enter_search_layout();
 
         // Search spans every category, not just the one on screen (e.g.
         // "Sports") - keeping that category's name/icon while showing

@@ -59,15 +59,13 @@ public class RssFeedProcessor {
         string category_name,
         string category_id,
         string current_search_query,
-        SetLabelFunc set_label,
-        ClearItemsFunc clear_items,
-        AddItemFunc add_item,
+        FetchSink sink,
         Soup.Session session,
         string? feed_url = null,
         string? cache_key_override = null
     ) {
         // NONET avoids NOENT so entities/DTDs can't be used for XXE or billion-laughs attacks
-        var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER;
+        var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING;
         Xml.Doc* doc = null;
         try {
             string sanitized_body = sanitize_xml(body);
@@ -520,12 +518,12 @@ public class RssFeedProcessor {
 
             Idle.add(() => {
                 if (current_search_query.length > 0) {
-                    set_label(@"Search Results: \"$(current_search_query)\" in $(category_name) — $(source_name)");
+                    sink.set_label(@"Search Results: \"$(current_search_query)\" in $(category_name) — $(source_name)");
                 } else {
-                    set_label(@"$(category_name) — $(source_name)");
+                    sink.set_label(@"$(category_name) — $(source_name)");
                 }
 
-                clear_items();
+                sink.clear_items();
                 foreach (var row in items) {
                     string title = row[0] ?? "No title";
                     string url = row[1] ?? "";
@@ -578,7 +576,7 @@ public class RssFeedProcessor {
                     }
 
                     string? row_snippet = row.size > 4 ? row[4] : null;
-                    add_item(title, url, row[2], category_id, item_source_name, pub_date, row_snippet);
+                    sink.add_item(title, url, row[2], category_id, item_source_name, pub_date, row_snippet);
                 }
 
                 return false;
@@ -606,10 +604,6 @@ public class RssFeedProcessor {
             }
 
             if (bbc_enabled) {
-                AddItemFunc safe_add = (title, url, thumbnail, cid, sname, published) => {
-                    Idle.add(() => { add_item(title, url, thumbnail, cid, sname, published); return false; });
-                };
-
                 new Thread<void*>("bbc-image-upgrade", () => {
                     try {
                         int upgrades = 0;
@@ -621,7 +615,7 @@ public class RssFeedProcessor {
                             string link_l = link.down();
                             if ((link_l.contains("bbc.") || link_l.contains("bbci.co.uk"))) {
                                 if (thumb == null || thumb.length < 50) {
-                                    Tools.ImageProcessor.fetch_bbc_highres_image(link, session, safe_add, category_id, source_name);
+                                    Tools.ImageProcessor.fetch_bbc_highres_image(link, session, sink, category_id, source_name);
                                     upgrades++;
                                 }
                             }
@@ -647,27 +641,21 @@ public class RssFeedProcessor {
         string category_id,
         string current_search_query,
         Soup.Session session,
-        SetLabelFunc set_label,
-        ClearItemsFunc clear_items,
-        AddItemFunc add_item,
+        FetchSink sink,
         string? cache_key_override = null
     ) {
         new Thread<void*>("fetch-rss", () => {
-            // hold local refs so the closures survive after the caller's scope returns
-            var _set_label_ref = set_label;
-            var _clear_items_ref = clear_items;
-            var _add_item_ref = add_item;
             try {
 
                 string trimmed = url.strip();
                 if (trimmed.length == 0) {
                     warning("RSS fetch called with empty URL for source '%s'", source_name);
-                    try { set_label("Error loading feed — invalid (empty) URL"); } catch (GLib.Error e) { }
+                    try { sink.set_label("Error loading feed — invalid (empty) URL"); } catch (GLib.Error e) { }
                     return null;
                 }
                 if (trimmed.contains(" ") || !(trimmed.has_prefix("http://") || trimmed.has_prefix("https://") || trimmed.has_prefix("file://"))) {
                     warning("RSS fetch called with malformed/unsupported URL for source '%s': %s", source_name, url);
-                    try { set_label("Error loading feed — invalid URL"); } catch (GLib.Error e) { }
+                    try { sink.set_label("Error loading feed — invalid URL"); } catch (GLib.Error e) { }
                     return null;
                 }
                 if (url.has_prefix("file://")) {
@@ -677,17 +665,17 @@ public class RssFeedProcessor {
                         if (!f.query_exists(null)) {
                             // regeneration is handled by FeedUpdateManager, not here
                             warning("Local RSS file not found, will need regeneration: %s", path);
-                            try { set_label("Generating feed... (this may take 30-40 seconds)"); } catch (GLib.Error e) { }
+                            try { sink.set_label("Generating feed... (this may take 30-40 seconds)"); } catch (GLib.Error e) { }
                             return null;
                         }
                         string body = "";
                         bool ok = GLib.FileUtils.get_contents(path, out body);
                         if (!ok || body.length == 0) {
                             warning("Failed to read local RSS file: %s", path);
-                            try { set_label("Failed to read local RSS file"); } catch (GLib.Error e) { }
+                            try { sink.set_label("Failed to read local RSS file"); } catch (GLib.Error e) { }
                             return null;
                         }
-                        parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session, url, cache_key_override);
+                        parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, sink, session, url, cache_key_override);
                         return null;
                     } catch (GLib.Error e) {
                         warning("Error reading local RSS file: %s", e.message);
@@ -696,12 +684,44 @@ public class RssFeedProcessor {
                 }
 
                 var client = Paperboy.HttpClientUtils.get_default();
-                // reddit rate-limits the default User-Agent, so use browser-style headers for it (like RedditFetcher does)
+                // reddit rate-limits the default User-Agent, so use browser-style headers for it
                 Paperboy.HttpClientUtils.RequestOptions? fetch_options = null;
                 if (url.down().contains("reddit.com")) {
                     fetch_options = new Paperboy.HttpClientUtils.RequestOptions().with_browser_headers();
+                } else {
+                    fetch_options = new Paperboy.HttpClientUtils.RequestOptions();
+                }
+                fetch_options.with_cancellable(sink.cancellable);
+                string? cached_etag, cached_last_modified;
+                Paperboy.FeedHttpCache.get_validators(url, out cached_etag, out cached_last_modified);
+                if (cached_etag != null || cached_last_modified != null) {
+                    if (fetch_options.headers == null) fetch_options.headers = new Gee.HashMap<string, string>();
+                    if (cached_etag != null) fetch_options.headers["If-None-Match"] = cached_etag;
+                    if (cached_last_modified != null) fetch_options.headers["If-Modified-Since"] = cached_last_modified;
                 }
                 var http_response = client.fetch_sync(url, fetch_options);
+                if (http_response.cancelled) return null;
+
+                var rss_store = Paperboy.RssSourceStore.get_instance();
+                if (http_response.status_code == Soup.Status.NOT_MODIFIED) {
+                    string? cached_body = Paperboy.FeedHttpCache.load_body(url);
+                    if (cached_body != null) {
+                        GLib.debug("Feed not modified: %s", url);
+                        rss_store.record_fetch_success(url, false);
+                        parse_rss_and_display(cached_body, source_name, category_name, category_id, current_search_query, sink, session, url, cache_key_override);
+                        return null;
+                    }
+                    // Cached body vanished between the lookup and now - fetch it unconditionally.
+                    fetch_options.headers.unset("If-None-Match");
+                    fetch_options.headers.unset("If-Modified-Since");
+                    http_response = client.fetch_sync(url, fetch_options.without_deduplication());
+                    if (http_response.cancelled) return null;
+                }
+
+                // Offline isn't the feed's fault, so it doesn't count toward its failure backoff.
+                if (!http_response.is_success() && GLib.NetworkMonitor.get_default().get_network_available()) {
+                    rss_store.record_fetch_failure(url);
+                }
 
                 if (http_response.status_code == 0) {
                     if (http_response.error_message != null && http_response.error_message.length > 0) {
@@ -715,31 +735,30 @@ public class RssFeedProcessor {
                     } else {
                         warning("Network error fetching RSS for '%s' (%s): unknown error", source_name, url);
                     }
-                    try { set_label("Error loading feed — network/DNS error"); } catch (GLib.Error e) { }
+                    try { sink.set_label("Error loading feed — network/DNS error"); } catch (GLib.Error e) { }
                     return null;
                 }
 
                 if (!http_response.is_success()) {
                     warning("HTTP %u fetching RSS for '%s' (%s)", http_response.status_code, source_name, url);
-                    try { set_label(("Error loading feed — HTTP %u").printf(http_response.status_code)); } catch (GLib.Error e) { }
+                    try { sink.set_label(("Error loading feed — HTTP %u").printf(http_response.status_code)); } catch (GLib.Error e) { }
                     return null;
                 }
 
                 if (http_response.body == null) {
                     warning("Empty response for RSS from '%s' (%s)", source_name, url);
-                    try { set_label("Error loading feed — empty response"); } catch (GLib.Error e) { }
+                    try { sink.set_label("Error loading feed — empty response"); } catch (GLib.Error e) { }
                     return null;
                 }
 
                 string body = http_response.get_body_string();
-                parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, set_label, clear_items, add_item, session, url, cache_key_override);
+                bool changed = Paperboy.FeedHttpCache.store(url, body, http_response.get_header("etag"), http_response.get_header("last-modified"));
+                rss_store.record_fetch_success(url, changed);
+                parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, sink, session, url, cache_key_override);
             } catch (GLib.Error e) {
                 warning("RSS fetch error: %s", e.message);
-                try { set_label("Error loading feed"); } catch (GLib.Error _) { }
+                try { sink.set_label("Error loading feed"); } catch (GLib.Error _) { }
             }
-            _set_label_ref = null;
-            _clear_items_ref = null;
-            _add_item_ref = null;
             return null;
         });
     }

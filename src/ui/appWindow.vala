@@ -437,6 +437,9 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Listen for category selections and trigger fetch/update from the window
     sidebar_manager.category_selected.connect((category) => {
+        // End the previous view's session now, not when the new view's (sometimes deferred) fetch starts.
+        FetchContext.begin_new(this);
+
         // Podcasts/Magazines each return early below, before ever reaching
         // fetch_news() - hide_additive_feature_containers() has to run
         // here too, not just inside fetch_news(), or navigating to either
@@ -864,7 +867,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Initialize feed update manager for automatic RSS feed updates
         feed_updater = new FeedUpdateManager(this);
-
+        feed_updater.awaited_feed_generated.connect(on_awaited_feed_generated);
         feed_updater.request_show_toast.connect((message) => {
             show_toast(message);
         });
@@ -996,26 +999,23 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Debug-only: PAPERBOY_LEAK_TEST=1 headlessly drives repeated
         // search->clear cycles and logs RSS, for reproducing memory issues
         // without a rendered window - see run_leak_test().
-        if (GLib.Environment.get_variable("PAPERBOY_LEAK_TEST") != null) {
+        string? leak_test = GLib.Environment.get_variable("PAPERBOY_LEAK_TEST");
+        if (leak_test == "views") {
+            run_view_cycle_test();
+        } else if (leak_test != null) {
             run_leak_test();
         }
 
-        // Start recurring feed updates with initial delay
-        // Wait 45 seconds after launch so initial content loads smoothly
-        // This allows time for user to view initial content and for background
-        // metadata fetch to complete before heavy feed regeneration starts
-        // Skipped during PAPERBOY_LEAK_TEST - unrelated background work.
+        // Background feed refresh starts after launch content has loaded.
         if (feed_updater != null && GLib.Environment.get_variable("PAPERBOY_LEAK_TEST") == null) {
             GLib.Timeout.add_seconds(45, () => {
-                feed_updater.start_recurring_updates();
+                feed_updater.start();
                 return false; // One-shot
             });
         }
 
         // Start the sports live-game poller (if enabled) with a short delay -
-        // unlike feed_updater's regeneration work, this is just a lightweight
-        // score fetch, so it doesn't need feed_updater's full 45s launch-smoothing
-        // delay, just enough to let initial content load first.
+        // it's a lightweight score fetch, so it only waits for initial content to load.
         if (sports_live_indicator != null && prefs.sports_live_indicator_enabled && prefs.sports_scores_enabled) {
             GLib.Timeout.add_seconds(5, () => {
                 sports_live_indicator.start();
@@ -1052,6 +1052,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             StocksTickerController.reset();
             if (market_status != null) market_status.stop();
             if (podcast_playback != null) podcast_playback.flush_progress();
+            if (magazine_reader_sheet != null && magazine_reader_sheet.is_open()) magazine_reader_sheet.save_position();
 
             // Clean up old cached articles (frontpage and RSS feeds)
             var cache = Paperboy.RssArticleCache.get_instance();
@@ -1089,6 +1090,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                 article_manager.hero_carousel.force_settle();
             }
         });
+    }
+
+    // A feed opened with no generated file yet: show it once generated, or say why it can't be.
+    private void on_awaited_feed_generated(string old_url, string new_url, bool success) {
+        if (prefs.category != "rssfeed:" + old_url && prefs.category != "rssfeed:" + new_url) return;
+        GLib.debug("Feed refresh: awaited feed %s generated (success=%s), updating view", new_url, success.to_string());
+        if (success) {
+            prefs.category = "rssfeed:" + new_url;
+            fetch_news();
+        } else {
+            hide_loading_spinner();
+            show_error_message("Couldn't build a feed for this site right now. Paperboy will try again later.");
+        }
     }
 
     // Public helper so external callers (e.g., dialogs) can close an open article preview
@@ -1299,6 +1313,52 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Suppress clearing here to avoid excessive eviction when switching
         // categories; rely on the LRU policy instead. Window-close still
         // frees widget-held textures elsewhere.
+    }
+
+    // Debug-only: PAPERBOY_LEAK_TEST=views cycles views through the same path as a
+    // sidebar click, PAPERBOY_LEAK_ROUNDS times, then quits. PAPERBOY_LEAK_VIEWS is a
+    // comma-separated list of view ids and PAPERBOY_LEAK_DWELL_MS the time on each.
+    private void run_view_cycle_test() {
+        string? views_env = GLib.Environment.get_variable("PAPERBOY_LEAK_VIEWS");
+        string[] ids = views_env != null ? views_env.split(",") : new string[] { "frontpage", "myfeed", "sports" };
+        string[] titles = ids;
+        string? rounds_env = GLib.Environment.get_variable("PAPERBOY_LEAK_ROUNDS");
+        int total = (rounds_env != null ? int.parse(rounds_env) : 6) * ids.length;
+        string? dwell_env = GLib.Environment.get_variable("PAPERBOY_LEAK_DWELL_MS");
+        uint dwell = dwell_env != null ? (uint) int.parse(dwell_env) : 8000;
+        int step = 0;
+        Timeout.add(dwell, () => {
+            if (step >= total) {
+                AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log", "view_cycle_test: done");
+                this.close();
+                return false;
+            }
+            int k = step % ids.length;
+            log_view_chrome("end-of-dwell");
+            if (sidebar_manager != null) sidebar_manager.handle_item_activation(ids[k], titles[k]);
+            Timeout.add(150, () => { log_view_chrome("+150ms"); return false; });
+            step++;
+            return true;
+        });
+    }
+
+    // Debug-only: which view-level chrome is on screen, for run_view_cycle_test().
+    private void log_view_chrome(string when) {
+        if (loading_state == null || content_view == null) return;
+        bool load_more = false, end_of_feed = false;
+        for (var c = content_box.get_first_child(); c != null; c = c.get_next_sibling()) {
+            if (c.has_css_class("load-more-button")) load_more = true;
+            var label = c as Gtk.Label;
+            if (label != null && label.get_label() == "<b>No more articles</b>") end_of_feed = true;
+        }
+        AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log",
+            "chrome %s on=%s message=%s myfeed_prompt=%s local_prompt=%s spinner=%s load_more=%s end_of_feed=%s".printf(
+                when, prefs.category,
+                (loading_state.error_message_box != null && loading_state.error_message_box.get_visible()).to_string(),
+                (loading_state.personalized_message_box != null && loading_state.personalized_message_box.get_visible()).to_string(),
+                (loading_state.local_news_message_box != null && loading_state.local_news_message_box.get_visible()).to_string(),
+                (loading_state.loading_container != null && loading_state.loading_container.get_visible()).to_string(),
+                load_more.to_string(), end_of_feed.to_string()));
     }
 
     // Debug-only headless leak repro - see PAPERBOY_LEAK_TEST above.

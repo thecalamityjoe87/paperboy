@@ -41,6 +41,10 @@ namespace Paperboy {
         public int podcast_candidate_count { get; set; }
         // User-chosen name override; `name` stays as the key for unread counts/icons.
         public string? custom_name { get; set; }
+        // Refresh scheduling (see FeedUpdateManager); last_fetched_at is the last successful refresh.
+        public int64 last_changed_at { get; set; }
+        public int failure_count { get; set; }
+        public int64 last_failure_at { get; set; }
 
         public RssSource() {
             id = -1;

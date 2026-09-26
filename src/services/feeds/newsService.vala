@@ -22,7 +22,6 @@ public enum NewsSource {
     GUARDIAN,
     NEW_YORK_TIMES,
     WALL_STREET_JOURNAL,
-    REDDIT,
     BLOOMBERG,
     ABC_NEWS,
     NPR,
@@ -37,14 +36,11 @@ public class NewsService {
         string current_category,
         string current_search_query,
         Soup.Session session,
-        SetLabelFunc set_label,
-        ClearItemsFunc clear_items,
-        AddItemFunc add_item,
-        FetchDoneFunc? on_done = null
+        FetchSink sink
     ) {
         // Special handling for Paperboy API (frontpage and topten)
         if (current_category == "frontpage" || current_category == "topten") {
-            var paperboy_fetcher = new PaperboyFetcher(set_label, clear_items, add_item, on_done);
+            var paperboy_fetcher = new PaperboyFetcher(sink);
             paperboy_fetcher.fetch(current_category, current_search_query, session);
             return;
         }
@@ -61,34 +57,31 @@ public class NewsService {
 
         switch (source) {
             case NewsSource.GUARDIAN:
-                fetcher = new GuardianFetcher(set_label, clear_items, add_item);
+                fetcher = new GuardianFetcher(sink);
                 break;
             case NewsSource.WALL_STREET_JOURNAL:
-                fetcher = new WsjFetcher(set_label, clear_items, add_item);
-                break;
-            case NewsSource.REDDIT:
-                fetcher = new RedditFetcher(set_label, clear_items, add_item);
+                fetcher = new WsjFetcher(sink);
                 break;
             case NewsSource.BBC:
-                fetcher = new BbcFetcher(set_label, clear_items, add_item);
+                fetcher = new BbcFetcher(sink);
                 break;
             case NewsSource.NEW_YORK_TIMES:
-                fetcher = new NytFetcher(set_label, clear_items, add_item);
+                fetcher = new NytFetcher(sink);
                 break;
             case NewsSource.BLOOMBERG:
-                fetcher = new BloombergFetcher(set_label, clear_items, add_item);
+                fetcher = new BloombergFetcher(sink);
                 break;
             case NewsSource.ABC_NEWS:
-                fetcher = new AbcNewsFetcher(set_label, clear_items, add_item);
+                fetcher = new AbcNewsFetcher(sink);
                 break;
             case NewsSource.NPR:
-                fetcher = new NprFetcher(set_label, clear_items, add_item);
+                fetcher = new NprFetcher(sink);
                 break;
             case NewsSource.FOX:
-                fetcher = new FoxFetcher(set_label, clear_items, add_item);
+                fetcher = new FoxFetcher(sink);
                 break;
             case NewsSource.PBS:
-                fetcher = new PbsFetcher(set_label, clear_items, add_item);
+                fetcher = new PbsFetcher(sink);
                 break;
         }
 
@@ -105,8 +98,6 @@ public class NewsService {
                 return "Wall Street Journal";
             case NewsSource.BBC:
                 return "BBC News";
-            case NewsSource.REDDIT:
-                return "Reddit";
             case NewsSource.NEW_YORK_TIMES:
                 return "New York Times";
             case NewsSource.BLOOMBERG:
@@ -125,8 +116,8 @@ public class NewsService {
     }
 
     public static bool supports_category(NewsSource source, string category) {
-        // BBC, Reddit, and ABC News do not provide dedicated "lifestyle" content
-        if (source == NewsSource.BBC || source == NewsSource.REDDIT || source == NewsSource.ABC_NEWS) {
+        // BBC and ABC News do not provide dedicated "lifestyle" content
+        if (source == NewsSource.BBC || source == NewsSource.ABC_NEWS) {
             if (category == "lifestyle") return false;
         }
 

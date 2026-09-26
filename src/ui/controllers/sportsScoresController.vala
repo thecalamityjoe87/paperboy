@@ -149,14 +149,8 @@ public class SportsScoresController : GLib.Object {
     }
 
     public static void stop_polling() {
-        if (timeout_id != 0) {
-            Source.remove(timeout_id);
-            timeout_id = 0;
-        }
-        if (favorite_teams_timeout_id != 0) {
-            Source.remove(favorite_teams_timeout_id);
-            favorite_teams_timeout_id = 0;
-        }
+        ViewSession.remove_source(ref timeout_id);
+        ViewSession.remove_source(ref favorite_teams_timeout_id);
     }
 
     // Drop the reused sections/cards - called on window close so this
@@ -198,11 +192,9 @@ public class SportsScoresController : GLib.Object {
     // this repeatedly (e.g. load() firing again before the previous fetch's
     // callback lands) collapses down to one live timer instead of leaking.
     private static void schedule_next_poll(int seconds) {
-        if (timeout_id != 0) {
-            Source.remove(timeout_id);
-            timeout_id = 0;
-        }
-        timeout_id = Timeout.add_seconds(seconds, () => {
+        ViewSession.remove_source(ref timeout_id);
+        if (active_ctx == null) return;
+        timeout_id = active_ctx.session.timeout_seconds(seconds, () => {
             timeout_id = 0;
             if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
                 return false;
@@ -473,11 +465,9 @@ public class SportsScoresController : GLib.Object {
     }
 
     private static void schedule_next_favorite_teams_poll(int seconds) {
-        if (favorite_teams_timeout_id != 0) {
-            Source.remove(favorite_teams_timeout_id);
-            favorite_teams_timeout_id = 0;
-        }
-        favorite_teams_timeout_id = Timeout.add_seconds(seconds, () => {
+        ViewSession.remove_source(ref favorite_teams_timeout_id);
+        if (active_ctx == null) return;
+        favorite_teams_timeout_id = active_ctx.session.timeout_seconds(seconds, () => {
             favorite_teams_timeout_id = 0;
             if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
                 return false;

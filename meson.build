@@ -111,6 +111,7 @@ cairo = dependency('cairo')
     'src/services/articles/renderedPageFetcher.vala',
     'src/services/articles/thumbnailBackfillService.vala',
     'src/services/cache/discoveredThumbnailCache.vala',
+    'src/services/cache/feedHttpCache.vala',
     'src/services/cache/imageCache.vala',
     'src/services/cache/lruCache.vala',
     'src/services/cache/metaCache.vala',
@@ -127,6 +128,7 @@ cairo = dependency('cairo')
     'src/services/markets/marketIndicesService.vala',
     'src/services/sports/sportsScoresService.vala',
     'src/services/feeds/fetchContext.vala',
+    'src/services/feeds/viewSession.vala',
     'src/services/feeds/generatedFeedService.vala',
     'src/services/feeds/locationLookupService.vala',
     'src/services/feeds/newsService.vala',
@@ -162,7 +164,6 @@ cairo = dependency('cairo')
     'src/services/fetchers/nytFetcher.vala',
     'src/services/fetchers/paperboyFetcher.vala',
     'src/services/fetchers/pbsFetcher.vala',
-    'src/services/fetchers/redditFetcher.vala',
     'src/services/fetchers/wsjFetcher.vala',
 
     # Models

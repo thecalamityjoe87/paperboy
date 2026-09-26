@@ -63,6 +63,8 @@ namespace Paperboy {
         // end), rewritten by MagazineLibraryStore.reorder_entries() when
         // the user drags a card to a new position.
         public int64 sort_order;
+        // Page the reader was last left on, restored on reopen.
+        public int last_page;
 
         public MagazineEntry() {
             id = 0;
@@ -74,6 +76,7 @@ namespace Paperboy {
             added_at = 0;
             category = null;
             sort_order = 0;
+            last_page = 0;
         }
 
         public static int64 compute_id(string source_url) {

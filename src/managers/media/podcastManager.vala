@@ -102,6 +102,8 @@ namespace Managers {
         public void show() {
             // Invalidates any fetch still in flight from the news pipeline or a previous visit.
             podcast_ctx = FetchContext.begin_new(window);
+            // The search entry is cleared on navigation, so every visit starts with no query.
+            last_search_query = "";
 
             prepare_containers();
             if (window != null) window.update_content_header_now();
@@ -130,6 +132,10 @@ namespace Managers {
             content_view.loading_label.set_text("Loading podcasts...");
             content_view.loading_container.set_visible(true);
             content_view.loading_spinner.start();
+            // Same spinner widget as LoadingStateManager's, so the same undo when Podcasts ends.
+            ViewSession.current().on_close("loading-spinner", () => {
+                if (window != null && window.loading_state != null) window.loading_state.close_spinner();
+            });
             // Hide the podcast-specific containers directly, not just main_content_container.
             if (content_view.podcasts_hero_title != null) content_view.podcasts_hero_title.set_visible(false);
             content_view.hero_container.set_visible(false);
@@ -155,10 +161,7 @@ namespace Managers {
             if (trimmed == last_search_query) return;
             last_search_query = trimmed;
 
-            if (search_timeout_id != 0) {
-                GLib.Source.remove(search_timeout_id);
-                search_timeout_id = 0;
-            }
+            ViewSession.remove_source(ref search_timeout_id);
 
             if (trimmed.length == 0) {
                 search_request_id++; // invalidate any in-flight response
@@ -166,7 +169,9 @@ namespace Managers {
                 return;
             }
 
-            search_timeout_id = Timeout.add(SEARCH_DEBOUNCE_MS, () => {
+            // On the Podcasts session: run_search() clears shared containers, so it must never fire after leaving.
+            if (podcast_ctx == null) return;
+            search_timeout_id = podcast_ctx.session.timeout(SEARCH_DEBOUNCE_MS, () => {
                 search_timeout_id = 0;
                 run_search(trimmed);
                 return false;
@@ -242,7 +247,7 @@ namespace Managers {
             if (window != null && window.animation_manager != null) {
                 var anim_mgr = window.animation_manager;
                 var flow = content_view.podcast_search_flow;
-                GLib.Idle.add(() => {
+                ctx.session.idle(() => {
                     var cards = new Gee.ArrayList<Gtk.Widget>();
                     Gtk.Widget? cell = flow.get_first_child();
                     while (cell != null) {
@@ -354,7 +359,7 @@ namespace Managers {
             // Same fade-in ArticleCard grids use, deferred to idle so widgets are realized first.
             if (window != null && window.animation_manager != null) {
                 var anim_mgr = window.animation_manager;
-                GLib.Idle.add(() => {
+                ViewSession.view_idle(() => {
                     var cards = new Gee.ArrayList<Gtk.Widget>();
                     Gtk.Widget? child = content_view.hero_container.get_first_child();
                     while (child != null) {
@@ -531,7 +536,7 @@ namespace Managers {
             if (window != null && window.animation_manager != null) {
                 var anim_mgr = window.animation_manager;
                 var row = section.row;
-                GLib.Idle.add(() => {
+                ViewSession.view_idle(() => {
                     var cards = new Gee.ArrayList<Gtk.Widget>();
                     Gtk.Widget? child = row.get_first_child();
                     while (child != null) {

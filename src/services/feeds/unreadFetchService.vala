@@ -162,11 +162,9 @@ public class UnreadFetchService {
                         task.category,
                         "",  // no search query
                         get_metadata_session(),
-                        (s) => {},  // no label updates
-                        () => {},   // no clear
-                        (title, url, thumb, cat_id, src_name) => {
-                            global_metadata_add(title, url, thumb, cat_id, src_name);
-                        }
+                        new FetchSink(null, (it) => {
+                            global_metadata_add(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name);
+                        })
                     );
                     GLib.Timeout.add(100, () => {
                         _active_fetches--;
@@ -183,11 +181,9 @@ public class UnreadFetchService {
                         task.category_id,
                         "",  // no search query
                         get_metadata_session(),
-                        (s) => {},  // no label updates
-                        () => {},   // no clear
-                        (title, url, thumb, cat_id, src_name) => {
-                            global_metadata_add(title, url, thumb, cat_id, src_name);
-                        },
+                        new FetchSink(null, (it) => {
+                            global_metadata_add(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name);
+                        }),
                         task.cache_key  // Pass cache_key for generated feeds
                     );
                     // Decrement counter after a short delay
@@ -208,11 +204,9 @@ public class UnreadFetchService {
                         "local_news",
                         "",  // no search query
                         get_metadata_session(),
-                        (s) => {},  // no label updates
-                        () => {},   // no clear
-                        (title, url, thumb, cat_id, src_name) => {
-                            global_metadata_add(title, url, thumb, local_tracking_id, src_name);
-                        }
+                        new FetchSink(null, (it) => {
+                            global_metadata_add(it.title, it.url, it.thumbnail_url, local_tracking_id, it.source_name);
+                        })
                     );
                     // Decrement counter after a short delay
                     GLib.Timeout.add(100, () => {
@@ -309,6 +303,20 @@ public class UnreadFetchService {
                 sidebar_mgr.refresh_all_badge_counts();
             }
         return false;
+        });
+    }
+
+    // Refreshes one followed feed's unread tracking and badge (used by FeedUpdateManager's scheduler).
+    public static void refresh_rss_source(NewsWindow win, Paperboy.RssSource source) {
+        _unread_window = win;
+        string? cache_key = (source.url.has_prefix("file://") && source.original_url != null) ? source.original_url : null;
+        enqueue_fetch(new FetchTask.for_rss(source.url, source.name, "rssfeed:" + source.url, cache_key));
+
+        string source_name = source.name;
+        Timeout.add(3000, () => {
+            var w = _unread_window;
+            if (w != null && w.sidebar_manager != null) w.sidebar_manager.update_badge_for_source(source_name);
+            return false;
         });
     }
 

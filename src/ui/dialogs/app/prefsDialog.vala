@@ -2015,7 +2015,6 @@ public class PrefsDialog : GLib.Object {
                         NewsSource source;
                         switch (source_id) {
                             case "guardian": source = NewsSource.GUARDIAN; break;
-                            case "reddit": source = NewsSource.REDDIT; break;
                             case "bbc": source = NewsSource.BBC; break;
                             case "nytimes": source = NewsSource.NEW_YORK_TIMES; break;
                             case "wsj": source = NewsSource.WALL_STREET_JOURNAL; break;

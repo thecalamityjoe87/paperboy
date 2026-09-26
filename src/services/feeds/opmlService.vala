@@ -110,7 +110,7 @@ namespace Paperboy {
             var feed_entries = new Gee.ArrayList<FeedEntry>();
             var podcast_entries = new Gee.ArrayList<FeedEntry>();
 
-            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER;
+            var parser_options = Xml.ParserOption.NONET | Xml.ParserOption.NOCDATA | Xml.ParserOption.NOBLANKS | Xml.ParserOption.RECOVER | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING;
             Xml.Doc* doc = Xml.Parser.read_file(path, null, (int) parser_options);
             if (doc == null) {
                 throw new GLib.IOError.INVALID_DATA("Could not parse OPML file");

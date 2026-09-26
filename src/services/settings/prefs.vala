@@ -52,7 +52,6 @@ public class NewsPreferences : GLib.Object {
             string source_str = settings.get_string("news-source");
             switch (source_str) {
                 case "guardian": return NewsSource.GUARDIAN;
-                case "reddit": return NewsSource.REDDIT;
                 case "bbc": return NewsSource.BBC;
                 case "wsj": return NewsSource.WALL_STREET_JOURNAL;
                 case "nytimes": return NewsSource.NEW_YORK_TIMES;
@@ -69,7 +68,6 @@ public class NewsPreferences : GLib.Object {
             string source_str = "";
             switch (value) {
                 case NewsSource.GUARDIAN: source_str = "guardian"; break;
-                case NewsSource.REDDIT: source_str = "reddit"; break;
                 case NewsSource.BBC: source_str = "bbc"; break;
                 case NewsSource.WALL_STREET_JOURNAL: source_str = "wsj"; break;
                 case NewsSource.NEW_YORK_TIMES: source_str = "nytimes"; break;
@@ -607,7 +605,6 @@ public class NewsPreferences : GLib.Object {
         if (enabled) {
             switch (id) {
                 case "guardian": news_source = NewsSource.GUARDIAN; break;
-                case "reddit": news_source = NewsSource.REDDIT; break;
                 case "bbc": news_source = NewsSource.BBC; break;
                 case "nytimes": news_source = NewsSource.NEW_YORK_TIMES; break;
                 case "wsj": news_source = NewsSource.WALL_STREET_JOURNAL; break;
@@ -904,7 +901,7 @@ public class NewsPreferences : GLib.Object {
                 // not exist at startup). If the config file exists but lacks the
                 // key, leave it empty rather than seeding defaults.
                 if (first_run && !clean_config.has_key("preferences", "preferred_sources")) {
-                    string[] default_sources = {"guardian", "reddit", "bbc", "nytimes", "wsj", "bloomberg", "abc", "npr", "fox"};
+                    string[] default_sources = {"guardian", "bbc", "nytimes", "wsj", "bloomberg", "abc", "npr", "fox"};
                     clean_config.set_string_list("preferences", "preferred_sources", default_sources);
                 }
             }
@@ -1099,6 +1096,9 @@ public class NewsPreferences : GLib.Object {
                     warning("NewsPreferences.load_config: could not read from preferences: %s", e.message);
                 }
             }
+
+            // Reddit was removed as a built-in source.
+            while (_preferred_sources.remove("reddit")) {}
 
             if (_preferred_sources.size == 0) {
                 warning("NewsPreferences.load_config: no preferred_sources found in config, initialized empty list");

@@ -23,6 +23,12 @@ using GLib;
  * Validates XML structure, checks for required elements, and counts items
  */
 public class RssValidatorUtils : GLib.Object {
+    // Recovers from common feed mistakes (e.g. bare '&' in URLs) without libxml printing to stderr.
+    public static Xml.Doc* parse_feed_xml(string xml) {
+        int opts = (int) (Xml.ParserOption.NONET | Xml.ParserOption.RECOVER | Xml.ParserOption.NOERROR | Xml.ParserOption.NOWARNING);
+        return Xml.Parser.read_memory(xml, xml.length, null, null, opts);
+    }
+
     
     /**
      * Validate RSS/Atom XML structure
@@ -109,7 +115,7 @@ public class RssValidatorUtils : GLib.Object {
         // If we still have zero, attempt an XML-parse fallback which will
         // correctly handle namespaces and unusual formatting.
         if (count == 0) {
-            Xml.Doc* doc = Xml.Parser.parse_doc(xml_content);
+            Xml.Doc* doc = parse_feed_xml(xml_content);
             if (doc != null) {
                 Xml.Node* root = doc->get_root_element();
                 if (root != null) {
