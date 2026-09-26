@@ -587,11 +587,7 @@ public class SidebarManager : GLib.Object {
                 return 0;
             }
             var displayed = window.article_manager != null ? window.article_manager.get_myfeed_displayed_urls() : null;
-            // Placeholder until My Feed has actually been built this
-            // session (is_category_visited persists across app restarts,
-            // but displayed_urls is reset fresh each launch - gating on the
-            // persisted flag would skip the placeholder even when there's
-            // no real data yet this session).
+            // Placeholder until My Feed has been built at least once.
             if (displayed == null || displayed.size == 0) {
                 return -1;
             }
@@ -901,11 +897,13 @@ public class SidebarManager : GLib.Object {
      */
     public void update_badge_for_category(string category_id) {
         int unread_count = 0;
-        // My Feed has no real count until it's actually been built this
-        // session (displayed_urls is reset fresh each launch, unlike the
-        // persisted is_category_visited flag popular categories use) -
-        // keep showing "--" until then.
+        // My Feed keeps showing "--" until it's been built at least once.
         bool myfeed_has_data = false;
+        if (category_id == "myfeed" && !window.prefs.personalized_feed_enabled) {
+            category_unread_counts.set(category_id, 0);
+            badge_updated_force(category_id, 0, false);
+            return;
+        }
         if (window.article_state_store != null) {
             if (category_id == "myfeed") {
                 var displayed = window.article_manager != null ? window.article_manager.get_myfeed_displayed_urls() : null;
@@ -921,7 +919,10 @@ public class SidebarManager : GLib.Object {
         category_unread_counts.set(category_id, unread_count);
 
         if (category_id == "myfeed") {
-            if (!myfeed_has_data) return;
+            if (!myfeed_has_data) {
+                badge_placeholder_set(category_id, false);
+                return;
+            }
         } else if (is_popular_category(category_id) && !is_category_visited(category_id)) {
             // Don't update - keep placeholder
             return;

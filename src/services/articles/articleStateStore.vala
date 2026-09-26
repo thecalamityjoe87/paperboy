@@ -49,6 +49,8 @@ public class ArticleStateStore : GLib.Object {
     private Gee.HashSet<string> visited_categories;
     // Track which sources have been visited by the user (for source badge persistence)
     private Gee.HashSet<string> visited_sources;
+    // URLs that got a card in the last My Feed build, persisted so the badge survives restarts
+    private Gee.HashSet<string> myfeed_displayed_urls;
     private GLib.Mutex article_tracking_lock = new GLib.Mutex();
 
     // Track whether initial background metadata fetch has completed
@@ -122,6 +124,7 @@ public class ArticleStateStore : GLib.Object {
         source_last_registration_time = new Gee.HashMap<string, long?>();
         visited_categories = new Gee.HashSet<string>();
         visited_sources = new Gee.HashSet<string>();
+        myfeed_displayed_urls = new Gee.HashSet<string>();
         saved_articles = new Gee.HashMap<string, SavedArticle>();
         history_articles = new Gee.HashMap<string, HistoryArticle>();
 
@@ -337,6 +340,26 @@ public class ArticleStateStore : GLib.Object {
         }
     }
 
+    public void add_myfeed_displayed_url(string normalized_url) {
+        article_tracking_lock.lock();
+        myfeed_displayed_urls.add(normalized_url);
+        article_tracking_lock.unlock();
+    }
+
+    public void reset_myfeed_displayed_urls() {
+        article_tracking_lock.lock();
+        myfeed_displayed_urls.clear();
+        article_tracking_lock.unlock();
+    }
+
+    public Gee.HashSet<string> get_myfeed_displayed_urls() {
+        var copy = new Gee.HashSet<string>();
+        article_tracking_lock.lock();
+        copy.add_all(myfeed_displayed_urls);
+        article_tracking_lock.unlock();
+        return copy;
+    }
+
     // Explicitly save article tracking to disk
     public void save_article_tracking_to_disk() {
         save_article_tracking();
@@ -453,9 +476,7 @@ public class ArticleStateStore : GLib.Object {
     // ArticleManager.get_myfeed_displayed_urls()). category_articles["myfeed"]
     // holds every article ever registered for the category, which is far
     // more than ArticleManager.MYFEED_ROW_CARD_CAP ever lets onto the page,
-    // so counting that directly badly overcounts. Falls back to 0 if My Feed
-    // hasn't been built yet this session (displayed_urls null/empty) rather
-    // than showing that inflated total.
+    // so counting that directly badly overcounts.
     public int get_unread_count_for_myfeed(Gee.HashSet<string>? displayed_urls) {
         if (displayed_urls == null || displayed_urls.size == 0) return 0;
 
@@ -696,6 +717,13 @@ public class ArticleStateStore : GLib.Object {
             }
             builder.end_array();
 
+            builder.set_member_name("myfeed_displayed");
+            builder.begin_array();
+            foreach (string url in myfeed_displayed_urls) {
+                builder.add_string_value(url);
+            }
+            builder.end_array();
+
             builder.end_object();
 
             var generator = new Json.Generator();
@@ -784,6 +812,12 @@ public class ArticleStateStore : GLib.Object {
                         string source_name = node.get_string();
                         visited_sources.add(source_name);
                     } catch (GLib.Error e) { }
+                });
+            }
+
+            if (obj.has_member("myfeed_displayed")) {
+                obj.get_array_member("myfeed_displayed").foreach_element((arr, index, node) => {
+                    try { myfeed_displayed_urls.add(node.get_string()); } catch (GLib.Error e) { }
                 });
             }
         } catch (GLib.Error e) {

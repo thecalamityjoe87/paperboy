@@ -71,7 +71,15 @@ public class MyFeedExtrasController : GLib.Object {
     // visible underneath every other category's content.
     public static void hide(NewsWindow win) {
         if (win.content_view == null || win.content_view.myfeed_extras_container == null) return;
-        win.content_view.myfeed_extras_container.set_visible(false);
+        active_ctx = null;
+        var container = win.content_view.myfeed_extras_container;
+        container.set_visible(false);
+        Gtk.Widget? child = container.get_first_child();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling();
+            container.remove(child);
+            child = next;
+        }
     }
 
     private static void load_sports(NewsWindow win) {

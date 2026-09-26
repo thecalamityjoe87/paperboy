@@ -861,7 +861,11 @@ public class PrefsDialog : GLib.Object {
         personalized_switch.notify["active"].connect(() => {
             prefs.personalized_feed_enabled = personalized_switch.get_active();
             prefs.save_config();
-            // Refresh My Feed badge to show/hide it based on the enabled state
+            // Drop the stale count so re-enabling starts from a fresh build
+            if (!prefs.personalized_feed_enabled && win != null && win.article_state_store != null) {
+                win.article_state_store.reset_myfeed_displayed_urls();
+                win.article_state_store.save_article_tracking_to_disk();
+            }
             if (win != null && win.sidebar_manager != null) {
                 win.sidebar_manager.update_badge_for_category("myfeed");
             }

@@ -360,7 +360,9 @@ public class LoadingStateManager : GLib.Object {
         needs_location = is_local && !has_location;
 
         if (local_news_message_box != null) local_news_message_box.set_visible(needs_location);
-        if (!initial_phase && !awaiting_adaptive_layout && window.main_content_container != null) {
+        // Don't re-show content underneath the My Feed message
+        bool personalized_shown = personalized_message_box != null && personalized_message_box.get_visible();
+        if (!personalized_shown && !initial_phase && !awaiting_adaptive_layout && window.main_content_container != null) {
             window.main_content_container.set_visible(!needs_location);
         }
     }

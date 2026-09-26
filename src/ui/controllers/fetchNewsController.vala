@@ -358,6 +358,10 @@ public class FetchNewsController {
         // === PHASE 2: Early exit checks ===
         bool is_myfeed_category = win.category_manager.is_myfeed_category();
         if (is_myfeed_category && !win.prefs.personalized_feed_enabled) {
+            // Cancel any in-flight My Feed fetch so it can't repopulate the view
+            FetchContext.begin_new(win);
+            MyFeedExtrasController.hide(win);
+            if (win.layout_manager != null) win.layout_manager.remove_end_feed_message();
             win.update_content_header();
             win.update_personalization_ui();
             win.hide_loading_spinner();

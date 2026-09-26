@@ -62,16 +62,6 @@ namespace Managers {
         private Gee.HashMap<string, int>? myfeed_row_card_counts = null;
         private const int MYFEED_ROW_CARD_CAP = 10;
 
-        // URLs that actually got a real card built in the current My Feed
-        // build (see place_myfeed_article_cards) - reset once per My Feed
-        // fetch by LayoutManager.prepare_myfeed_sections(), not by the
-        // general clear_articles() (which runs on every category switch and
-        // would otherwise wipe this the moment the user leaves My Feed).
-        // ArticleStateStore.get_unread_count_for_myfeed() uses this instead
-        // of the full registered-article pool, which includes far more
-        // articles than MYFEED_ROW_CARD_CAP ever lets onto the page.
-        private Gee.HashSet<string>? myfeed_displayed_urls = null;
-
         // Track URLs seen in current view to prevent duplicate cards
         private Gee.HashSet<string> seen_urls;
 
@@ -830,22 +820,21 @@ namespace Managers {
             place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, src_key, true);
             placed = true;
         }
-        if (placed) {
-            if (myfeed_displayed_urls == null) myfeed_displayed_urls = new Gee.HashSet<string>();
-            myfeed_displayed_urls.add(window.normalize_article_url(url));
+        if (placed && window.article_state_store != null) {
+            window.article_state_store.add_myfeed_displayed_url(window.normalize_article_url(url));
         }
     }
 
     // Reset once per My Feed fetch (see LayoutManager.prepare_myfeed_sections)
     // so the badge count reflects only the current build's cards.
     public void reset_myfeed_displayed_urls() {
-        if (myfeed_displayed_urls == null) myfeed_displayed_urls = new Gee.HashSet<string>();
-        else myfeed_displayed_urls.clear();
+        if (window.article_state_store != null) window.article_state_store.reset_myfeed_displayed_urls();
     }
 
+    // Persisted in ArticleStateStore so the badge count survives restarts.
     public Gee.HashSet<string> get_myfeed_displayed_urls() {
-        if (myfeed_displayed_urls == null) myfeed_displayed_urls = new Gee.HashSet<string>();
-        return myfeed_displayed_urls;
+        if (window.article_state_store == null) return new Gee.HashSet<string>();
+        return window.article_state_store.get_myfeed_displayed_urls();
     }
 
     // Claims one of MYFEED_ROW_CARD_CAP real-card slots for this row key,

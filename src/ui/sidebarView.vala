@@ -701,7 +701,7 @@ public class SidebarView : GLib.Object {
         icon_holder.append(icon);
         button_box.append(icon_holder);
 
-        var label = new Gtk.Label("Manage locations");
+        var label = new Gtk.Label("Manage Locations");
         label.set_xalign(0);
         label.set_hexpand(true);
         button_box.append(label);

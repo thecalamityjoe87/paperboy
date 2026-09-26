@@ -1390,7 +1390,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Additive only: opt-in preview rows render above whatever My Feed
         // already shows below. See MyFeedExtrasController.
-        if (prefs.category == "myfeed") {
+        if (prefs.category == "myfeed" && prefs.personalized_feed_enabled) {
             MyFeedExtrasController.load(this);
         }
     }
