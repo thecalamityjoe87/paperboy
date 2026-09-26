@@ -55,6 +55,11 @@ namespace Managers {
         // other card just to make one of them disappear.
         private bool suppress_next_removal_render = false;
 
+        private bool selection_mode = false;
+        private bool selection_bar_wired = false;
+        private Gee.HashSet<int64?> selected_ids =
+            new Gee.HashSet<int64?>((v) => { return (uint) v; }, (a, b) => { return a == b; });
+
         // Tracks each currently-live card's root widget by entry_id, kept
         // in sync on every render_library() pass, so handle_reorder_
         // requested() can move the real widgets in place instead of
@@ -110,6 +115,7 @@ namespace Managers {
             if (window != null) window.update_content_header_now();
             wire_add_button();
             wire_trash_zone();
+            wire_selection_bar();
             set_header_buttons_visible(true);
             render_library();
         }
@@ -149,6 +155,7 @@ namespace Managers {
         }
 
         public void set_header_buttons_visible(bool visible) {
+            if (!visible) exit_selection_mode();
             if (content_view == null || content_view.magazine_library_header_actions == null) return;
             content_view.magazine_library_header_actions.set_visible(visible);
         }
@@ -190,6 +197,7 @@ namespace Managers {
         // last card in its row/grid - then just let the normal re-render
         // tear down whatever container is now empty.
         private void handle_remove_requested(int64 entry_id) {
+            if (selected_ids.remove(entry_id)) update_selection_bar();
             Gtk.Widget? widget = live_card_roots.has_key(entry_id) ? live_card_roots.get(entry_id) : null;
 
             if (widget == null || widget.get_parent() == null || is_only_child(widget)) {
@@ -397,6 +405,7 @@ namespace Managers {
         private void render_library() {
             if (content_view == null) return;
             live_card_roots.clear();
+            if (selection_mode) prune_selection();
             clear_children(content_view.category_sections_container);
             content_view.category_sections_container.set_visible(false);
             if (content_view.hero_frontpage_separator != null) content_view.hero_frontpage_separator.set_visible(false);
@@ -408,6 +417,7 @@ namespace Managers {
             var entries = Paperboy.MagazineLibraryStore.get_instance().get_all_entries();
             var loading_state = window != null ? window.loading_state : null;
             if (entries.size == 0) {
+                exit_selection_mode();
                 if (loading_state != null) loading_state.show_empty_message("magazine-mono.svg", "Your library is empty. Add a magazine to get started.");
                 return;
             }
@@ -468,19 +478,7 @@ namespace Managers {
                 // letting them grow gives a fuller-looking grid.
                 card.root.set_hexpand(true);
                 card.root.set_halign(Gtk.Align.FILL);
-                MagazineCard.wire_interactions(card.root, entry.id, (entry_id) => {
-                    open_entry(entry_id);
-                }, (entry_id) => {
-                    handle_remove_requested(entry_id);
-                    if (window != null && window.toast_manager != null) window.toast_manager.show_toast("Removed from library");
-                }, (entry_id) => {
-                    show_set_category_dialog(entry_id);
-                }, (dragged_id, target_id) => {
-                    handle_reorder_requested(dragged_id, target_id);
-                }, (dragging) => {
-                    handle_drag_state_changed(dragging);
-                });
-                live_card_roots.set(entry.id, card.root);
+                wire_card(card.root, entry.id);
                 content_view.magazine_library_flow.append(card.root);
             }
 
@@ -517,19 +515,7 @@ namespace Managers {
                 // FILL/hexpand rather than relying on that coincidence.
                 card.root.set_hexpand(false);
                 card.root.set_halign(Gtk.Align.CENTER);
-                MagazineCard.wire_interactions(card.root, entry.id, (entry_id) => {
-                    open_entry(entry_id);
-                }, (entry_id) => {
-                    handle_remove_requested(entry_id);
-                    if (window != null && window.toast_manager != null) window.toast_manager.show_toast("Removed from library");
-                }, (entry_id) => {
-                    show_set_category_dialog(entry_id);
-                }, (dragged_id, target_id) => {
-                    handle_reorder_requested(dragged_id, target_id);
-                }, (dragging) => {
-                    handle_drag_state_changed(dragging);
-                });
-                live_card_roots.set(entry.id, card.root);
+                wire_card(card.root, entry.id);
                 section.add_card(card.root);
             }
 
@@ -547,6 +533,142 @@ namespace Managers {
                     return false;
                 });
             }
+        }
+
+        private void wire_card(Gtk.Box root, int64 id) {
+            MagazineCard.wire_interactions(root, id, (entry_id) => {
+                if (selection_mode) toggle_selected(entry_id);
+                else open_entry(entry_id);
+            }, (entry_id) => {
+                handle_remove_requested(entry_id);
+                if (window != null && window.toast_manager != null) window.toast_manager.show_toast("Removed from library");
+            }, (entry_id) => {
+                show_set_category_dialog(entry_id);
+            }, (dragged_id, target_id) => {
+                handle_reorder_requested(dragged_id, target_id);
+            }, (dragging) => {
+                handle_drag_state_changed(dragging);
+            }, (entry_id) => {
+                if (!selection_mode) enter_selection_mode();
+                toggle_selected(entry_id);
+            });
+            live_card_roots.set(id, root);
+            apply_selection_classes(root, id);
+        }
+
+        private void apply_selection_classes(Gtk.Widget root, int64 id) {
+            if (selection_mode) root.add_css_class("magazine-selecting");
+            else root.remove_css_class("magazine-selecting");
+            if (selection_mode && selected_ids.contains(id)) root.add_css_class("magazine-selected");
+            else root.remove_css_class("magazine-selected");
+        }
+
+        private void enter_selection_mode() {
+            if (selection_mode) return;
+            selection_mode = true;
+            foreach (var entry in live_card_roots.entries) apply_selection_classes(entry.value, entry.key);
+            if (content_view != null && content_view.magazine_selection_revealer != null) {
+                content_view.magazine_library_trash_revealer.set_reveal_child(false);
+                content_view.magazine_selection_revealer.set_reveal_child(true);
+            }
+            update_selection_bar();
+        }
+
+        public void exit_selection_mode() {
+            if (!selection_mode) return;
+            selection_mode = false;
+            selected_ids.clear();
+            foreach (var entry in live_card_roots.entries) apply_selection_classes(entry.value, entry.key);
+            if (content_view != null && content_view.magazine_selection_revealer != null) {
+                content_view.magazine_selection_revealer.set_reveal_child(false);
+            }
+        }
+
+        private void toggle_selected(int64 id) {
+            if (selected_ids.contains(id)) selected_ids.remove(id);
+            else selected_ids.add(id);
+            if (live_card_roots.has_key(id)) apply_selection_classes(live_card_roots.get(id), id);
+            update_selection_bar();
+        }
+
+        private void select_all() {
+            if (!selection_mode) enter_selection_mode();
+            foreach (var entry in Paperboy.MagazineLibraryStore.get_instance().get_all_entries()) selected_ids.add(entry.id);
+            foreach (var entry in live_card_roots.entries) apply_selection_classes(entry.value, entry.key);
+            update_selection_bar();
+        }
+
+        private void update_selection_bar() {
+            if (content_view == null || content_view.magazine_selection_label == null) return;
+            int count = selected_ids.size;
+            content_view.magazine_selection_label.set_text(count == 1 ? "1 selected" : "%d selected".printf(count));
+            content_view.magazine_selection_delete_button.set_label(count > 0 ? "Delete (%d)".printf(count) : "Delete");
+            content_view.magazine_selection_delete_button.set_sensitive(count > 0);
+        }
+
+        // Drops ids that no longer exist (e.g. removed while selecting).
+        private void prune_selection() {
+            var store = Paperboy.MagazineLibraryStore.get_instance();
+            var stale = new Gee.ArrayList<int64?>();
+            foreach (var id in selected_ids) {
+                if (store.get_entry(id) == null) stale.add(id);
+            }
+            foreach (var id in stale) selected_ids.remove(id);
+            update_selection_bar();
+        }
+
+        private void confirm_delete_selected() {
+            if (window == null || selected_ids.size == 0) return;
+            int count = selected_ids.size;
+            var confirm_dialog = new Adw.AlertDialog(
+                count == 1 ? "Delete 1 magazine?" : "Delete %d magazines?".printf(count),
+                "Their downloaded files are removed too. This can't be undone."
+            );
+            confirm_dialog.add_response("cancel", "Cancel");
+            confirm_dialog.add_response("delete", "Delete");
+            confirm_dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE);
+            confirm_dialog.set_default_response("cancel");
+            confirm_dialog.set_close_response("cancel");
+            confirm_dialog.response.connect((response_id) => {
+                if (response_id != "delete") return;
+                var ids = new Gee.ArrayList<int64?>();
+                ids.add_all(selected_ids);
+                exit_selection_mode();
+                // Each removal schedules a render; schedule_render() coalesces them into one.
+                var store = Paperboy.MagazineLibraryStore.get_instance();
+                foreach (var id in ids) store.remove_entry(id);
+                if (window != null && window.toast_manager != null) {
+                    window.toast_manager.show_toast(ids.size == 1 ? "Removed 1 magazine" : "Removed %d magazines".printf(ids.size));
+                }
+            });
+            confirm_dialog.present((Gtk.Window) window);
+        }
+
+        private void wire_selection_bar() {
+            if (selection_bar_wired || content_view == null || content_view.magazine_selection_revealer == null) return;
+            selection_bar_wired = true;
+            content_view.magazine_selection_all_button.clicked.connect(() => { select_all(); });
+            content_view.magazine_selection_cancel_button.clicked.connect(() => { exit_selection_mode(); });
+            content_view.magazine_selection_delete_button.clicked.connect(() => { confirm_delete_selected(); });
+
+            if (window == null) return;
+            var keys = new Gtk.EventControllerKey();
+            keys.key_pressed.connect((keyval, keycode, state) => {
+                if (!is_showing()) return false;
+                if (keyval == Gdk.Key.Escape && selection_mode) {
+                    exit_selection_mode();
+                    return true;
+                }
+                if ((keyval == Gdk.Key.a || keyval == Gdk.Key.A) && (state & Gdk.ModifierType.CONTROL_MASK) != 0) {
+                    // Leave Ctrl+A alone for text fields (e.g. search).
+                    if (window.get_focus() is Gtk.Editable) return false;
+                    if (Paperboy.MagazineLibraryStore.get_instance().get_all_entries().size == 0) return false;
+                    select_all();
+                    return true;
+                }
+                return false;
+            });
+            ((Gtk.Widget) window).add_controller(keys);
         }
 
         private void show_set_category_dialog(int64 entry_id) {

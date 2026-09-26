@@ -784,6 +784,183 @@ public class PrefsDialog : GLib.Object {
         custom_group.add(feeds_nav_row);
         sources_page.add(custom_group);
 
+        // Podcast subscriptions subpage
+        var podcast_store = Paperboy.PodcastSubscriptionStore.get_instance();
+        var podcasts_page = new Adw.PreferencesPage();
+        var podcasts_list_group = new Adw.PreferencesGroup();
+        var podcast_rows = new Gee.ArrayList<Gtk.Widget>();
+        var podcasts_nav_row = new Adw.ActionRow();
+        podcasts_nav_row.set_title("Subscribed podcasts");
+
+        var remove_all_podcasts_row = new Adw.ButtonRow();
+        remove_all_podcasts_row.set_title("Remove all podcasts");
+        remove_all_podcasts_row.set_start_icon_name("user-trash-symbolic");
+        remove_all_podcasts_row.add_css_class("destructive-action");
+        var remove_all_podcasts_group = new Adw.PreferencesGroup();
+        remove_all_podcasts_group.add(remove_all_podcasts_row);
+
+        void update_podcasts_summary() {
+            int n = podcast_rows.size;
+            // if/else, not a nested ternary: Vala frees the printf() temp in that form before it's used.
+            if (n == 0) podcasts_nav_row.set_subtitle("No podcasts yet");
+            else if (n == 1) podcasts_nav_row.set_subtitle("1 podcast");
+            else podcasts_nav_row.set_subtitle("%d podcasts".printf(n));
+            podcasts_list_group.set_description(n == 0 ? "No podcasts yet. Find some from the sidebar's Podcasts section." : null);
+            remove_all_podcasts_group.set_visible(n > 0);
+        }
+
+        void populate_podcast_rows() {
+            foreach (var old_row in podcast_rows) podcasts_list_group.remove(old_row);
+            podcast_rows.clear();
+            foreach (var sub in podcast_store.get_all_subscriptions()) {
+                int64 feed_id = sub.feed_id;
+                string show_title = sub.title;
+                var row = new Adw.ActionRow();
+                row.set_title(GLib.Markup.escape_text(show_title));
+                if (sub.author != null && sub.author.length > 0) row.set_subtitle(GLib.Markup.escape_text(sub.author));
+                row.add_prefix(create_favicon_picture("placeholder:podcast:%s".printf(feed_id.to_string()), sub.image_url));
+
+                var delete_btn = new Gtk.Button();
+                delete_btn.set_icon_name("user-trash-symbolic");
+                delete_btn.set_valign(Gtk.Align.CENTER);
+                delete_btn.set_has_frame(false);
+                delete_btn.set_tooltip_text("Remove podcast");
+                delete_btn.add_css_class("destructive-action");
+                delete_btn.clicked.connect(() => {
+                    var confirm = new Adw.AlertDialog("Remove podcast?", "\"%s\" will be removed from your podcasts.".printf(show_title));
+                    confirm.add_response("cancel", "Cancel");
+                    confirm.add_response("remove", "Remove");
+                    confirm.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE);
+                    confirm.set_default_response("cancel");
+                    confirm.set_close_response("cancel");
+                    confirm.response.connect((response_id) => {
+                        if (response_id != "remove") return;
+                        podcast_store.unsubscribe(feed_id);
+                        podcasts_list_group.remove(row);
+                        podcast_rows.remove(row);
+                        update_podcasts_summary();
+                    });
+                    confirm.present(dialog);
+                });
+                row.add_suffix(delete_btn);
+
+                podcasts_list_group.add(row);
+                podcast_rows.add(row);
+            }
+            update_podcasts_summary();
+        }
+
+        remove_all_podcasts_row.activated.connect(() => {
+            int n = podcast_rows.size;
+            var confirm = new Adw.AlertDialog("Remove all podcasts?",
+                n == 1 ? "Your 1 podcast will be removed." : "All %d of your podcasts will be removed.".printf(n));
+            confirm.add_response("cancel", "Cancel");
+            confirm.add_response("remove", "Remove all");
+            confirm.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE);
+            confirm.set_default_response("cancel");
+            confirm.set_close_response("cancel");
+            confirm.response.connect((response_id) => {
+                if (response_id != "remove") return;
+                foreach (var sub in podcast_store.get_all_subscriptions()) podcast_store.unsubscribe(sub.feed_id);
+                populate_podcast_rows();
+            });
+            confirm.present(dialog);
+        });
+
+        populate_podcast_rows();
+        podcasts_page.add(podcasts_list_group);
+        podcasts_page.add(remove_all_podcasts_group);
+        var podcasts_nav_page = build_sources_subpage(podcasts_page, "Podcasts");
+
+        var podcasts_group = new Adw.PreferencesGroup();
+        podcasts_group.set_title("Podcasts");
+        podcasts_group.set_description("Shows you've subscribed to");
+        podcasts_nav_row.add_suffix(new Gtk.Image.from_icon_name("go-next-symbolic"));
+        podcasts_nav_row.set_activatable(true);
+        podcasts_nav_row.activated.connect(() => {
+            if (podcasts_nav_page.get_parent() == null) dialog.push_subpage(podcasts_nav_page);
+        });
+        podcasts_group.add(podcasts_nav_row);
+        sources_page.add(podcasts_group);
+
+        // Magazine sources subpage - websites scanned for PDFs
+        var magazine_store = Paperboy.MagazineLibraryStore.get_instance();
+        var magazine_sources_page = new Adw.PreferencesPage();
+        var magazine_sources_list_group = new Adw.PreferencesGroup();
+        int magazine_source_count = 0;
+        var magazine_sources_nav_row = new Adw.ActionRow();
+        magazine_sources_nav_row.set_title("Magazine sources");
+
+        void update_magazine_sources_summary() {
+            int n = magazine_source_count;
+            if (n == 0) magazine_sources_nav_row.set_subtitle("No sources yet");
+            else if (n == 1) magazine_sources_nav_row.set_subtitle("1 source");
+            else magazine_sources_nav_row.set_subtitle("%d sources".printf(n));
+            magazine_sources_list_group.set_description(n == 0 ? "No sources yet. Websites you add from the Magazines page show up here." : null);
+        }
+
+        foreach (var source in magazine_store.get_all_sources()) {
+            int64 source_id = source.id;
+            string source_name = (source.name != null && source.name.length > 0) ? source.name : source.website_url;
+            var row = new Adw.ActionRow();
+            row.set_title(GLib.Markup.escape_text(source_name));
+            row.set_subtitle(GLib.Markup.escape_text(elide_string(source.website_url, 28)));
+            row.set_tooltip_text(source.website_url);
+            string? host = UrlUtils.extract_host_from_url(source.website_url);
+            string? icon_url = (host != null && host.length > 0) ? "https://www.google.com/s2/favicons?domain=" + host + "&sz=128" : null;
+            row.add_prefix(create_favicon_picture("placeholder:magsource:%s".printf(source_id.to_string()), icon_url));
+
+            var delete_btn = new Gtk.Button();
+            delete_btn.set_icon_name("user-trash-symbolic");
+            delete_btn.set_valign(Gtk.Align.CENTER);
+            delete_btn.set_has_frame(false);
+            delete_btn.set_tooltip_text("Remove source");
+            delete_btn.add_css_class("destructive-action");
+            delete_btn.clicked.connect(() => {
+                int n_entries = magazine_store.get_entries_for_source(source_id).size;
+                string body;
+                if (n_entries == 0) {
+                    body = "\"%s\" will be removed.".printf(source_name);
+                } else if (n_entries == 1) {
+                    body = "\"%s\" and the 1 magazine added from it will be removed, including its downloaded file.".printf(source_name);
+                } else {
+                    body = "\"%s\" and the %d magazines added from it will be removed, including their downloaded files.".printf(source_name, n_entries);
+                }
+                var confirm = new Adw.AlertDialog("Remove source?", body);
+                confirm.add_response("cancel", "Cancel");
+                confirm.add_response("remove", "Remove");
+                confirm.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE);
+                confirm.set_default_response("cancel");
+                confirm.set_close_response("cancel");
+                confirm.response.connect((response_id) => {
+                    if (response_id != "remove") return;
+                    magazine_store.remove_source(source_id);
+                    magazine_sources_list_group.remove(row);
+                    magazine_source_count--;
+                    update_magazine_sources_summary();
+                });
+                confirm.present(dialog);
+            });
+            row.add_suffix(delete_btn);
+
+            magazine_sources_list_group.add(row);
+            magazine_source_count++;
+        }
+        update_magazine_sources_summary();
+        magazine_sources_page.add(magazine_sources_list_group);
+        var magazine_sources_nav_page = build_sources_subpage(magazine_sources_page, "Magazine sources");
+
+        var magazines_group = new Adw.PreferencesGroup();
+        magazines_group.set_title("Magazines");
+        magazines_group.set_description("Websites scanned for magazine PDFs");
+        magazine_sources_nav_row.add_suffix(new Gtk.Image.from_icon_name("go-next-symbolic"));
+        magazine_sources_nav_row.set_activatable(true);
+        magazine_sources_nav_row.activated.connect(() => {
+            if (magazine_sources_nav_page.get_parent() == null) dialog.push_subpage(magazine_sources_nav_page);
+        });
+        magazines_group.add(magazine_sources_nav_row);
+        sources_page.add(magazines_group);
+
         // Local News locations
         var local_group = new Adw.PreferencesGroup();
         local_group.set_title("Local News");

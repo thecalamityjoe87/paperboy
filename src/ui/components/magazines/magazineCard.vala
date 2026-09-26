@@ -45,6 +45,8 @@ public class MagazineCard : GLib.Object {
     // lets the caller show the trash drop zone only while a drag is
     // actually in progress.
     public delegate void DragStateChangedCallback(bool dragging);
+    // Ctrl+click or right-click "Select" - enters selection mode.
+    public delegate void EntrySelectRequestedCallback(int64 entry_id);
 
     public MagazineCard.for_entry(Paperboy.MagazineEntry entry) {
         GLib.Object();
@@ -173,15 +175,42 @@ public class MagazineCard : GLib.Object {
         text_box.append(subtitle_label);
 
         overlay.add_overlay(title_box);
+
+        // Selection-mode checkmark, shown/filled via the root's
+        // .magazine-selecting/.magazine-selected classes (see style.css).
+        var check_icon = new Gtk.Image.from_icon_name("object-select-symbolic");
+        check_icon.set_pixel_size(14);
+        check_icon.set_hexpand(true);
+        check_icon.set_vexpand(true);
+        check_icon.set_halign(Gtk.Align.CENTER);
+        check_icon.set_valign(Gtk.Align.CENTER);
+        var check_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        check_box.add_css_class("magazine-select-check");
+        check_box.set_size_request(24, 24);
+        check_box.set_halign(Gtk.Align.END);
+        check_box.set_valign(Gtk.Align.START);
+        check_box.set_margin_top(8);
+        check_box.set_margin_end(8);
+        check_box.set_can_target(false);
+        check_box.append(check_icon);
+        overlay.add_overlay(check_box);
+
         root.append(overlay);
     }
 
     // Static to avoid a root -> closure -> self reference cycle, same
     // reasoning as PodcastCard.wire_interactions.
-    public static void wire_interactions(Gtk.Box root_widget, int64 entry_id, owned EntryActivatedCallback on_activated, owned EntryRemoveRequestedCallback on_remove_requested, owned EntrySetCategoryRequestedCallback on_set_category_requested, owned EntryReorderRequestedCallback on_reorder_requested, owned DragStateChangedCallback on_drag_state_changed) {
+    public static void wire_interactions(Gtk.Box root_widget, int64 entry_id, owned EntryActivatedCallback on_activated, owned EntryRemoveRequestedCallback on_remove_requested, owned EntrySetCategoryRequestedCallback on_set_category_requested, owned EntryReorderRequestedCallback on_reorder_requested, owned DragStateChangedCallback on_drag_state_changed, owned EntrySelectRequestedCallback on_select_requested) {
         var gesture = new Gtk.GestureClick();
         gesture.set_button(1);
-        gesture.released.connect(() => { on_activated(entry_id); });
+        unowned Gtk.GestureClick click_ref = gesture;
+        gesture.released.connect(() => {
+            if ((click_ref.get_current_event_state() & Gdk.ModifierType.CONTROL_MASK) != 0) {
+                on_select_requested(entry_id);
+            } else {
+                on_activated(entry_id);
+            }
+        });
         root_widget.add_controller(gesture);
 
         // Drag-and-drop reordering - GtkDragSource only actually starts a
@@ -191,6 +220,8 @@ public class MagazineCard : GLib.Object {
         var drag_source = new Gtk.DragSource();
         drag_source.set_actions(Gdk.DragAction.MOVE);
         drag_source.prepare.connect((source, x, y) => {
+            if (root_widget.has_css_class("magazine-selecting")) return null;
+
             var val = GLib.Value(typeof(string));
             val.set_string(entry_id.to_string());
 
@@ -257,6 +288,7 @@ public class MagazineCard : GLib.Object {
         right_click.set_button(3);
         right_click.pressed.connect((n_press, x, y) => {
             var menu = new GLib.Menu();
+            menu.append("Select", "magazine.select");
             menu.append("Set Category…", "magazine.set-category");
             menu.append("Remove from Library", "magazine.remove");
             var popover = new Gtk.PopoverMenu.from_model(menu);
@@ -271,6 +303,9 @@ public class MagazineCard : GLib.Object {
             var set_category_action = new GLib.SimpleAction("set-category", null);
             set_category_action.activate.connect(() => { on_set_category_requested(entry_id); });
             action_group.add_action(set_category_action);
+            var select_action = new GLib.SimpleAction("select", null);
+            select_action.activate.connect(() => { on_select_requested(entry_id); });
+            action_group.add_action(select_action);
             root_widget.insert_action_group("magazine", action_group);
 
             root_widget.set_data("magazine-current-popover", popover);

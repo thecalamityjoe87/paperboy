@@ -367,6 +367,40 @@
     box-shadow: 0 2px 10px alpha(@error_color, 0.5);
 }
 
+/* Magazines selection mode - see MagazineLibraryManager/MagazineCard. */
+.magazine-select-check {
+    opacity: 0;
+    border-radius: 9999px;
+    border: 2px solid white;
+    background-color: alpha(black, 0.35);
+    color: transparent;
+    box-shadow: 0 1px 4px alpha(black, 0.3);
+}
+
+.magazine-selecting .magazine-select-check {
+    opacity: 1;
+}
+
+.magazine-selected .magazine-select-check {
+    background-color: @accent_bg_color;
+    border-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+.magazine-selected {
+    outline: 3px solid @accent_bg_color;
+    outline-offset: -3px;
+    border-radius: 12px;
+}
+
+.magazine-selection-bar {
+    background-color: rgba(29, 29, 29, 0.96);
+    color: white;
+    border-radius: 9999px;
+    padding: 6px;
+    box-shadow: 0 2px 8px alpha(black, 0.25);
+}
+
 /* Organize Magazines dialog - one column per category, magazines are
    dragged between them (see MagazineLibraryManager.show_organize_dialog).
    .magazine-drop-target is shared with the reordering/trash rules above. */
@@ -1327,6 +1361,20 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .custom-toast-close:hover {
     background-color: alpha(white, 0.15);
+}
+
+/* Scoped to beat ".sidebar-expander box { background-color: transparent }". */
+.navigation-sidebar .sidebar-expander box.sidebar-new-dot {
+    background-color: @accent_bg_color;
+    border-radius: 9999px;
+    min-width: 8px;
+    min-height: 8px;
+}
+
+/* Podcast show rows: dot pinned to the icon's top-right corner. */
+.navigation-sidebar .sidebar-expander box.sidebar-new-dot-corner {
+    box-shadow: 0 0 0 2px @sidebar_bg_color;
+    margin-right: 1px;
 }
 
 /* Unread Count Badge. Alignment is anchored by the label's own

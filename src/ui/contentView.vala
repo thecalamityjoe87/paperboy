@@ -50,6 +50,11 @@ public class ContentView : GLib.Object {
     public Gtk.FlowBox magazine_library_flow;
     public Gtk.Box magazine_library_trash_zone;
     public Gtk.Revealer magazine_library_trash_revealer;
+    public Gtk.Revealer magazine_selection_revealer;
+    public Gtk.Label magazine_selection_label;
+    public Gtk.Button magazine_selection_all_button;
+    public Gtk.Button magazine_selection_cancel_button;
+    public Gtk.Button magazine_selection_delete_button;
     public Gtk.Box category_sections_container;
     // Opt-in preview rows for other app features shown at the top of My
     // Feed - see MyFeedExtrasController.
@@ -669,11 +674,10 @@ public class ContentView : GLib.Object {
         local_news_message_box.set_visible(false);
 
         // Error message overlay (for fetch failures)
+        // Centered, not FILL - a full-size overlay blocked clicks on the page header's buttons.
         error_message_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
-        error_message_box.set_halign(Gtk.Align.FILL);
-        error_message_box.set_valign(Gtk.Align.FILL);
-        error_message_box.set_hexpand(true);
-        error_message_box.set_vexpand(true);
+        error_message_box.set_halign(Gtk.Align.CENTER);
+        error_message_box.set_valign(Gtk.Align.CENTER);
 
         var error_inner = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         error_inner.set_hexpand(true);
@@ -767,6 +771,34 @@ public class ContentView : GLib.Object {
         magazine_library_trash_revealer.set_reveal_child(false);
         magazine_library_trash_revealer.set_child(magazine_library_trash_zone);
         main_scroll_overlay.add_overlay(magazine_library_trash_revealer);
+
+        // Magazines selection-mode action bar (see MagazineLibraryManager).
+        var selection_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+        selection_bar.add_css_class("magazine-selection-bar");
+        magazine_selection_label = new Gtk.Label("");
+        magazine_selection_label.set_margin_start(8);
+        magazine_selection_label.set_margin_end(8);
+        selection_bar.append(magazine_selection_label);
+        magazine_selection_all_button = new Gtk.Button.with_label("Select all");
+        magazine_selection_all_button.add_css_class("pill");
+        selection_bar.append(magazine_selection_all_button);
+        magazine_selection_cancel_button = new Gtk.Button.with_label("Cancel");
+        magazine_selection_cancel_button.add_css_class("pill");
+        selection_bar.append(magazine_selection_cancel_button);
+        magazine_selection_delete_button = new Gtk.Button.with_label("Delete");
+        magazine_selection_delete_button.add_css_class("pill");
+        magazine_selection_delete_button.add_css_class("destructive-action");
+        selection_bar.append(magazine_selection_delete_button);
+
+        magazine_selection_revealer = new Gtk.Revealer();
+        magazine_selection_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP);
+        magazine_selection_revealer.set_transition_duration(200);
+        magazine_selection_revealer.set_halign(Gtk.Align.CENTER);
+        magazine_selection_revealer.set_valign(Gtk.Align.END);
+        magazine_selection_revealer.set_margin_bottom(20);
+        magazine_selection_revealer.set_reveal_child(false);
+        magazine_selection_revealer.set_child(selection_bar);
+        main_scroll_overlay.add_overlay(magazine_selection_revealer);
 
         Gtk.Adjustment vadj = main_scrolled.get_vadjustment();
         vadj.value_changed.connect(() => update_vertical_scroll_fades(vadj, top_fade, bottom_fade));
