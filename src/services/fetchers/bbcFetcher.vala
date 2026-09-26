@@ -20,8 +20,8 @@ using Soup;
 using Tools;
 
 public class BbcFetcher : BaseFetcher {
-    public BbcFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func) {
-        base(set_label_func, clear_items_func, add_item_func);
+    public BbcFetcher(FetchSink sink) {
+        base(sink);
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
@@ -57,7 +57,7 @@ public class BbcFetcher : BaseFetcher {
                 break;
         }
 
-        RssFeedProcessor.fetch_rss_url(url, "BBC News", category_display_name(category), category, search_query, session, set_label, clear_items, add_item);
+        RssFeedProcessor.fetch_rss_url(url, "BBC News", category_display_name(category), category, search_query, session, sink);
     }
 
     public override string get_source_name() {

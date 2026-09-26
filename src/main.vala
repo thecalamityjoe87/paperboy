@@ -21,6 +21,11 @@ public class PaperboyApp : Adw.Application {
         GLib.Object(application_id: "io.github.thecalamityjoe87.Paperboy", flags: ApplicationFlags.FLAGS_NONE);
     }
 
+    protected override void shutdown() {
+        WebViewUtils.terminate_all();
+        base.shutdown();
+    }
+
     protected override void activate() {
         // Ensure global HttpClient is constructed on the main thread
         // before any other subsystem can spawn worker threads.
@@ -65,11 +70,11 @@ public class PaperboyApp : Adw.Application {
         });
         this.add_action(about_action);
 
-        var set_location_action = new SimpleAction("set-location", null);
-        set_location_action.activate.connect(() => {
-            LocationDialog.show(win);
+        var manage_locations_action = new SimpleAction("manage-locations", null);
+        manage_locations_action.activate.connect(() => {
+            PrefsDialog.show_preferences_dialog(win, false, false, true);
         });
-        this.add_action(set_location_action);
+        this.add_action(manage_locations_action);
 
         var onboarding_action = new SimpleAction("show-onboarding", null);
         onboarding_action.activate.connect(() => {
@@ -88,6 +93,15 @@ private const int M_ARENA_MAX = -8;
 private const int M_ARENA_TEST = -7;
 
 public static int main(string[] args) {
+    // Re-exec'd by MagazinePdfImportService to sandbox untrusted PDF
+    // parsing in its own process (see MagazineThumbnailerTool) - handled
+    // before anything else here so that process never touches GTK/Adw/GST
+    // init or the malloc tuning below, same as a genuinely separate
+    // binary would.
+    if (args.length >= 2 && args[1] == Paperboy.MagazineThumbnailerTool.INTERNAL_FLAG) {
+        return Paperboy.MagazineThumbnailerTool.run(args[1:args.length]);
+    }
+
     // Caps glibc's malloc arenas: uncapped, concurrent image/XML worker
     // churn fragments memory across arenas and balloons RSS. 4 is enough
     // for HttpClientUtils.MAX_CONCURRENT_REQUESTS worker threads to avoid

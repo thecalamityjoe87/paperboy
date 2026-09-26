@@ -96,6 +96,17 @@ public class SportsScoresController : GLib.Object {
     // on every rebuild() - see the connect() call site below.
     private static bool badge_carousel_connected = false;
 
+    // Below this many leagues chosen in Preferences, looping/scrolling the
+    // carousel has nothing to scroll to - it switches to a static carousel
+    // (see LeagueBadgeCarousel.rebuild()) with a trailing badge inviting the
+    // user to enable more leagues, instead of the normal looping one.
+    private const int MIN_LEAGUES_FOR_LOOPING_CAROUSEL = 4;
+    // Tracks the last static/looping mode actually built, so a change in
+    // how many leagues are *chosen* (not just which are active today)
+    // still forces a rebuild even if the active league set didn't change.
+    private static bool last_static_mode = false;
+    private static bool settings_badge_connected = false;
+
     // "My Teams" (favorited individual teams, see fetch_and_populate_favorite_teams())
     // polls independently of the league sections above - own timer, own
     // last-good cache, own built-once/updated-in-place sections, keyed by
@@ -138,14 +149,8 @@ public class SportsScoresController : GLib.Object {
     }
 
     public static void stop_polling() {
-        if (timeout_id != 0) {
-            Source.remove(timeout_id);
-            timeout_id = 0;
-        }
-        if (favorite_teams_timeout_id != 0) {
-            Source.remove(favorite_teams_timeout_id);
-            favorite_teams_timeout_id = 0;
-        }
+        ViewSession.remove_source(ref timeout_id);
+        ViewSession.remove_source(ref favorite_teams_timeout_id);
     }
 
     // Drop the reused sections/cards - called on window close so this
@@ -187,11 +192,9 @@ public class SportsScoresController : GLib.Object {
     // this repeatedly (e.g. load() firing again before the previous fetch's
     // callback lands) collapses down to one live timer instead of leaking.
     private static void schedule_next_poll(int seconds) {
-        if (timeout_id != 0) {
-            Source.remove(timeout_id);
-            timeout_id = 0;
-        }
-        timeout_id = Timeout.add_seconds(seconds, () => {
+        ViewSession.remove_source(ref timeout_id);
+        if (active_ctx == null) return;
+        timeout_id = active_ctx.session.timeout_seconds(seconds, () => {
             timeout_id = 0;
             if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
                 return false;
@@ -286,11 +289,22 @@ public class SportsScoresController : GLib.Object {
         return true;
     }
 
+    // The update-in-place path assumes the sections it built last time are
+    // still in `container` - if anything else has emptied it since, fall
+    // back to a full rebuild rather than updating cards no longer on screen.
+    private static bool sections_attached(Gee.HashMap<string, CategorySection> sections, Gtk.Widget container) {
+        foreach (var section in sections.values) {
+            if (section.wrapper.get_parent() != container) return false;
+        }
+        return true;
+    }
+
     private static void render(NewsWindow win, Gee.ArrayList<string> league_keys, Gee.HashMap<string, Gee.ArrayList<GameScore>> results) {
         if (win.content_view == null || win.content_view.sports_scores_container == null) return;
         if (active_ctx == null || !active_ctx.still_owns_view()) return;
 
         var container = win.content_view.sports_scores_container;
+        bool static_mode = league_keys.size < MIN_LEAGUES_FOR_LOOPING_CAROUSEL;
 
         var active_leagues = new Gee.ArrayList<string>();
         foreach (var league_key in league_keys) {
@@ -308,7 +322,8 @@ public class SportsScoresController : GLib.Object {
         // every poll was found to leak memory, a GTK4 quirk confirmed via
         // an isolated repro and unrelated to anything ScoreCard itself
         // draws or holds onto.
-        bool needs_rebuild = !string_lists_equal(active_leagues, last_rendered_order());
+        bool needs_rebuild = !string_lists_equal(active_leagues, last_rendered_order()) || static_mode != last_static_mode
+            || !sections_attached(current_sections(), container);
         if (!needs_rebuild) {
             foreach (var league_key in active_leagues) {
                 var games = results.get(league_key);
@@ -357,16 +372,24 @@ public class SportsScoresController : GLib.Object {
                 current_cards().set(league_key, cards_for_league);
             }
 
-            win.content_view.league_badge_carousel.rebuild(active_leagues);
+            win.content_view.league_badge_carousel.rebuild(active_leagues, static_mode);
             // The carousel itself is a permanent widget (never rebuilt) -
-            // only connect its selection signal once, not on every
-            // rebuild(), or repeated league changes would stack up
+            // only connect its selection/settings signals once, not on
+            // every rebuild(), or repeated league changes would stack up
             // duplicate handlers and fire selection multiple times.
             if (!badge_carousel_connected) {
                 badge_carousel_connected = true;
                 win.content_view.league_badge_carousel.badge_selected.connect((league_key) => {
                     selected_league = league_key;
                     apply_selected_league();
+                });
+            }
+            if (!settings_badge_connected) {
+                settings_badge_connected = true;
+                GLib.debug("LeagueBadgeCarousel: connecting settings_requested handler");
+                win.content_view.league_badge_carousel.settings_requested.connect(() => {
+                    GLib.debug("SportsScoresController: settings_requested received, active_window=%p", active_window);
+                    if (active_window != null) PrefsDialog.show_preferences_dialog(active_window, false, true);
                 });
             }
             foreach (var league_key in active_leagues) {
@@ -376,6 +399,7 @@ public class SportsScoresController : GLib.Object {
 
             last_rendered_order().clear();
             last_rendered_order().add_all(active_leagues);
+            last_static_mode = static_mode;
         } else {
             foreach (var league_key in active_leagues) {
                 var games = results.get(league_key);
@@ -441,11 +465,9 @@ public class SportsScoresController : GLib.Object {
     }
 
     private static void schedule_next_favorite_teams_poll(int seconds) {
-        if (favorite_teams_timeout_id != 0) {
-            Source.remove(favorite_teams_timeout_id);
-            favorite_teams_timeout_id = 0;
-        }
-        favorite_teams_timeout_id = Timeout.add_seconds(seconds, () => {
+        ViewSession.remove_source(ref favorite_teams_timeout_id);
+        if (active_ctx == null) return;
+        favorite_teams_timeout_id = active_ctx.session.timeout_seconds(seconds, () => {
             favorite_teams_timeout_id = 0;
             if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
                 return false;
@@ -527,7 +549,8 @@ public class SportsScoresController : GLib.Object {
             if (games != null && games.size > 0) active_keys.add(key);
         }
 
-        bool needs_rebuild = !string_lists_equal(active_keys, last_rendered_favorite_teams());
+        bool needs_rebuild = !string_lists_equal(active_keys, last_rendered_favorite_teams())
+            || !sections_attached(favorite_team_sections(), container);
         if (!needs_rebuild) {
             foreach (var key in active_keys) {
                 var games = results.get(key);

@@ -56,6 +56,10 @@ public class SidebarView : GLib.Object {
     // unsubscribe (see on_podcast_subscription_removed) - keyed by the
     // same "podcastshow:<feed_id>" item id used elsewhere.
     private Gee.HashMap<string, Gtk.ListBoxRow> podcast_subscription_rows = new Gee.HashMap<string, Gtk.ListBoxRow>();
+    // "New episodes" dots, one per show row. Independent of the unread-badge prefs.
+    private Gee.HashMap<string, Gtk.Widget> podcast_new_dots = new Gee.HashMap<string, Gtk.Widget>();
+    // Dots on collapsed section headers, keyed by section_id (see update_header_dot()).
+    private Gee.HashMap<string, Gtk.Widget> section_header_dots = new Gee.HashMap<string, Gtk.Widget>();
     
     // Context menu
     private SidebarMenu sidebar_menu;
@@ -85,6 +89,9 @@ public class SidebarView : GLib.Object {
         sidebar_scrolled = new Gtk.ScrolledWindow();
         sidebar_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         sidebar_scrolled.set_child(sidebar_list);
+        // Don't jump to whichever widget regains focus (e.g. when a dialog closes).
+        var sidebar_viewport = sidebar_scrolled.get_child() as Gtk.Viewport;
+        if (sidebar_viewport != null) sidebar_viewport.set_scroll_to_focus(false);
         
         // Create revealer
         sidebar_revealer = new Gtk.Revealer();
@@ -120,11 +127,13 @@ public class SidebarView : GLib.Object {
         if (!live_pill_widgets.has_key("sports")) return;
         live_pill_widgets.get("sports").set_visible(
             is_live && window.prefs.sports_live_indicator_enabled && window.prefs.sports_scores_enabled);
+        update_header_dot("popular_categories");
     }
 
     private void on_market_open_changed(bool is_open) {
         if (!live_pill_widgets.has_key("business")) return;
         live_pill_widgets.get("business").set_visible(is_open && window.prefs.market_pill_enabled);
+        update_header_dot("popular_categories");
     }
 
     // Expose badge widget lookup for animation helpers (e.g., vacuum save effect)
@@ -206,9 +215,6 @@ public class SidebarView : GLib.Object {
             expander.set_enable_expansion(true);
             expander.set_show_enable_switch(false);
 
-            // Store the last known expanded state to detect actual user changes
-            expander.set_data("last_expanded_state", section.is_expanded);
-
             // Add items directly to the expander for smooth native animations
             foreach (var item in section.items) {
                 Gtk.Widget item_widget;
@@ -232,6 +238,15 @@ public class SidebarView : GLib.Object {
                 if (section.section_id == "podcasts_entry" && item.id.has_prefix("podcastshow:")) {
                     podcast_subscription_rows.set(item.id, row);
                 }
+            }
+
+            if (section.section_id == "local_news_entry") {
+                var add_row = new Gtk.ListBoxRow();
+                add_row.set_child(create_manage_locations_button());
+                add_row.set_activatable(false);
+                add_row.set_selectable(false);
+                add_row.add_css_class("sidebar-expander-item");
+                expander.add_row(add_row);
             }
 
             // Optional "Add RSS Feed" button
@@ -261,14 +276,21 @@ public class SidebarView : GLib.Object {
                 add_podcast_row = add_row;
             }
 
-            // Track expansion state changes and notify manager
-            // Use activate signal instead of notify to only catch actual user clicks
-            expander.activate.connect(() => {
-                manager.toggle_section_expanded(section.section_id);
+            if (section.section_id == "podcasts_entry" || section.section_id == "popular_categories") {
+                var header_dot = build_new_dot();
+                expander.add_suffix(header_dot);
+                section_header_dots.set(section.section_id, header_dot);
+            }
+
+            // Header clicks only surface as an "expanded" change, not "activate".
+            expander.notify["expanded"].connect(() => {
+                manager.set_section_expanded(section.section_id, expander.get_expanded());
+                update_header_dot(section.section_id);
             });
 
             // Store expander for later updates
             section_containers.set(section.section_id, expander);
+            update_header_dot(section.section_id);
 
             // Add ExpanderRow to the ListBox
             sidebar_list.append(expander);
@@ -352,14 +374,23 @@ public class SidebarView : GLib.Object {
     }
 
     // Right-click menu for a podcast subscription row - always
-    // "subscribed", so just Play + Remove podcast. Popped up with
+    // "subscribed", so just Play + More info + Remove podcast. Popped up with
     // has_arrow=true, no pointing_to, matching SidebarMenu's own style.
     private void show_podcast_sidebar_menu(Gtk.Widget row_widget, string item_id, string item_title, double x, double y) {
         int64 feed_id = int64.parse(item_id.substring("podcastshow:".length));
         var menu = new PodcastMenu(true);
+        menu.show_info_item = true;
 
         menu.play_requested.connect(() => {
             manager.handle_item_activation(item_id, item_title);
+        });
+        menu.info_requested.connect(() => {
+            foreach (var sub in Paperboy.PodcastSubscriptionStore.get_instance().get_all_subscriptions()) {
+                if (sub.feed_id == feed_id) {
+                    PodcastDetailDialog.show(window, window.podcast_playback, sub.to_show(), window);
+                    return;
+                }
+            }
         });
         menu.unsubscribe_requested.connect(() => {
             Paperboy.PodcastSubscriptionStore.get_instance().unsubscribe(feed_id);
@@ -420,7 +451,21 @@ public class SidebarView : GLib.Object {
         if (icon != null) {
             icon_holder.append(icon);
         }
-        row_box.append(icon_holder);
+        if (item.id.has_prefix("podcastshow:")) {
+            var icon_overlay = new Gtk.Overlay();
+            icon_overlay.set_child(icon_holder);
+            icon_overlay.set_valign(Gtk.Align.CENTER);
+            var dot = build_new_dot();
+            dot.add_css_class("sidebar-new-dot-corner");
+            dot.set_halign(Gtk.Align.END);
+            dot.set_valign(Gtk.Align.START);
+            dot.set_visible(item.unread_count > 0);
+            icon_overlay.add_overlay(dot);
+            podcast_new_dots.set(item.id, dot);
+            row_box.append(icon_overlay);
+        } else {
+            row_box.append(icon_holder);
+        }
         icon_holders.set(item.id, icon_holder);
         icon_keys_by_id.set(item.id, item.icon_key);
 
@@ -684,6 +729,36 @@ public class SidebarView : GLib.Object {
         });
     }
     
+    private Gtk.Button create_manage_locations_button() {
+        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        button_box.add_css_class("sidebar-row-vspace");
+        button_box.set_margin_start(8);
+        button_box.set_margin_end(8);
+
+        var icon_holder = build_icon_slot();
+        var icon = new Gtk.Image.from_icon_name("emblem-system-symbolic");
+        icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
+        icon_holder.append(icon);
+        button_box.append(icon_holder);
+
+        var label = new Gtk.Label("Manage Locations");
+        label.set_xalign(0);
+        label.set_hexpand(true);
+        button_box.append(label);
+
+        var manage_button = new Gtk.Button();
+        manage_button.set_can_focus(false);
+        manage_button.set_child(button_box);
+        manage_button.add_css_class("flat");
+        manage_button.add_css_class("sidebar-item-row");
+
+        manage_button.clicked.connect(() => {
+            PrefsDialog.show_preferences_dialog(window, false, false, true);
+        });
+
+        return manage_button;
+    }
+
     private Gtk.Button create_add_podcast_button() {
         var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         button_box.add_css_class("sidebar-row-vspace");
@@ -779,6 +854,7 @@ public class SidebarView : GLib.Object {
     private bool is_special_category_id(string id) {
         return id == "frontpage" ||
                id == "myfeed" || id == "local_news" ||
+               id.has_prefix(LocalArea.ID_PREFIX) ||
                id == "saved";
     }
 
@@ -867,6 +943,31 @@ public class SidebarView : GLib.Object {
         manager.rebuild_sidebar();
     }
 
+    private Gtk.Widget build_new_dot() {
+        var dot = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        dot.add_css_class("sidebar-new-dot");
+        dot.set_size_request(8, 8);
+        dot.set_valign(Gtk.Align.CENTER);
+        dot.set_halign(Gtk.Align.CENTER);
+        dot.set_can_target(false);
+        dot.set_visible(false);
+        return dot;
+    }
+
+    // Header dots only show while collapsed - the rows' own dots/pills cover it when expanded.
+    private void update_header_dot(string section_id) {
+        var header_dot = section_header_dots.get(section_id);
+        if (header_dot == null) return;
+        var expander = section_containers.get(section_id) as Adw.ExpanderRow;
+        bool expanded = expander != null && expander.get_expanded();
+        var indicators = section_id == "podcasts_entry" ? podcast_new_dots.values : live_pill_widgets.values;
+        bool active = false;
+        foreach (var indicator in indicators) {
+            if (indicator.get_visible()) { active = true; break; }
+        }
+        header_dot.set_visible(active && !expanded);
+    }
+
     private void on_podcast_subscription_removed(string item_id) {
         var expander = section_containers.get("podcasts_entry") as Adw.ExpanderRow;
         var row = podcast_subscription_rows.get(item_id);
@@ -877,6 +978,8 @@ public class SidebarView : GLib.Object {
         icon_holders.unset(item_id);
         icon_keys_by_id.unset(item_id);
         badge_widgets.unset(item_id);
+        podcast_new_dots.unset(item_id);
+        update_header_dot("podcasts_entry");
     }
 
     // Removes every child of `container`. Has to go through the
@@ -912,6 +1015,10 @@ public class SidebarView : GLib.Object {
     }
     
     private void on_badge_updated(string item_id, int count, bool is_source) {
+        if (podcast_new_dots.has_key(item_id)) {
+            podcast_new_dots.get(item_id).set_visible(count > 0);
+            update_header_dot("podcasts_entry");
+        }
         if (badge_widgets.has_key(item_id)) {
             var badge = badge_widgets.get(item_id);
             if (badge is Gtk.Label) {
@@ -1120,5 +1227,8 @@ public class SidebarView : GLib.Object {
         add_podcast_button = null;
         add_podcast_row = null;
         podcast_subscription_rows.clear();
+        podcast_new_dots.clear();
+        section_header_dots.clear();
+        live_pill_widgets.clear();
     }
 }

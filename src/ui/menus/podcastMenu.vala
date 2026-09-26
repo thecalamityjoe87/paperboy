@@ -30,6 +30,11 @@ public class PodcastMenu : GLib.Object {
     public signal void play_requested();
     public signal void subscribe_requested();
     public signal void unsubscribe_requested();
+    public signal void info_requested();
+
+    // Opt-in "More info" item - only sidebar rows need it, since clicking a
+    // PodcastCard/PodcastHeroCard already opens PodcastDetailDialog.
+    public bool show_info_item { get; set; default = false; }
 
     // Whether the show this menu is for is already subscribed - governs
     // whether "Subscribe" or "Remove podcast" is shown, same one-menu-two-
@@ -50,6 +55,15 @@ public class PodcastMenu : GLib.Object {
             if (popover != null) popover.popdown();
         });
         menu_box.append(play_btn);
+
+        if (show_info_item) {
+            var info_btn = create_menu_item("dialog-information-symbolic", "More info");
+            info_btn.clicked.connect(() => {
+                info_requested();
+                if (popover != null) popover.popdown();
+            });
+            menu_box.append(info_btn);
+        }
 
         if (is_subscribed) {
             var remove_btn = create_menu_item("user-trash-symbolic", "Remove podcast");

@@ -20,8 +20,8 @@ using Soup;
 using Tools;
 
 public class FoxFetcher : BaseFetcher {
-    public FoxFetcher(SetLabelFunc set_label_func, ClearItemsFunc clear_items_func, AddItemFunc add_item_func) {
-        base(set_label_func, clear_items_func, add_item_func);
+    public FoxFetcher(FetchSink sink) {
+        base(sink);
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
@@ -67,7 +67,7 @@ public class FoxFetcher : BaseFetcher {
                 return null;
             }
 
-            Gee.ArrayList<Paperboy.NewsArticle> articles = ArticleScraper.scrape_section_urls(section_urls, "https://www.foxnews.com", current_search_query, session);
+            Gee.ArrayList<Paperboy.NewsArticle> articles = ArticleScraper.scrape_section_urls(section_urls, "https://www.foxnews.com", current_search_query, session, cancellable);
             Idle.add(() => {
                 string category_name = FetcherUtils.category_display_name(current_category) + " — Fox News";
                 if (current_search_query.length > 0) {
@@ -85,7 +85,7 @@ public class FoxFetcher : BaseFetcher {
                     });
                     count++;
                 }
-                fetch_fox_article_images(articles, session, add_item, current_category);
+                fetch_fox_article_images(articles, session, current_category);
                 return false;
             });
             return null;
@@ -95,13 +95,12 @@ public class FoxFetcher : BaseFetcher {
     private void fetch_fox_article_images(
         Gee.ArrayList<Paperboy.NewsArticle> articles,
         Soup.Session session,
-        AddItemFunc add_item,
         string current_category
     ) {
         int count = 0;
         foreach (var article in articles) {
             if (article.image_url == null && count < 6 && article.url != null) {
-                Tools.ImageProcessor.fetch_open_graph_image(article.url, session, add_item, current_category, "Fox News");
+                Tools.ImageProcessor.fetch_open_graph_image(article.url, session, sink, current_category, "Fox News");
                 count++;
             }
             if (count >= 6) break;

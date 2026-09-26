@@ -103,6 +103,14 @@ else
   echo "Warning: data/resources/adblock.css not found in source tree"
 fi
 
+# Readability.js powers the WebKit reader/thumbnail fallback (e.g. Google News links)
+if [ -f "$ROOT_DIR/data/resources/readability.js" ]; then
+  mkdir -p "$APPDIR/usr/share/paperboy/resources"
+  cp "$ROOT_DIR/data/resources/readability.js" "$APPDIR/usr/share/paperboy/resources/readability.js"
+else
+  echo "Warning: data/resources/readability.js not found in source tree"
+fi
+
 # Copy release_notes.md into AppDir data dir so DataPaths finds it at runtime
 if [ -f "$ROOT_DIR/data/release_notes.md" ]; then
   cp "$ROOT_DIR/data/release_notes.md" "$APPDIR/usr/share/paperboy/release_notes.md"
@@ -250,8 +258,6 @@ HERE="$(dirname "$(readlink -f "${0}")")"
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-}"
 # Point GSettings to the bundled schema directory so preferences can be saved/loaded
 export GSETTINGS_SCHEMA_DIR="$HERE/usr/share/glib-2.0/schemas:${GSETTINGS_SCHEMA_DIR:-}"
-# Let the runtime know where internal helper binaries live inside the AppDir
-export PAPERBOY_LIBEXECDIR="$HERE/usr/libexec"
 # Prepend bundled fallback libs so libxml2.so.16 from the AppDir is preferred.
 # Keep $HERE/usr/lib in the search path for other bundled libs if present.
 # Use a safe expansion under `set -u` so referencing an unset LD_LIBRARY_PATH

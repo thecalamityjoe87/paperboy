@@ -81,7 +81,9 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Managers.PodcastPlaybackManager podcast_playback;
     public PodcastPlayerBar podcast_player_bar;
     public PodcastPane podcast_pane;
+    public MagazineReaderSheet magazine_reader_sheet;
     public Managers.PodcastManager podcast_manager;
+    public Managers.MagazineLibraryManager magazine_manager;
     private Gtk.Widget? current_toast_widget;
     public Gtk.Widget dim_overlay;
     public Gtk.Box main_content_container;
@@ -319,7 +321,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Main menu, on the sidebar's trailing (right) side
     var menu = new Menu();
     menu.append("Preferences", "app.change-source");
-    menu.append("Set User Location", "app.set-location");
+    menu.append("Manage Locations", "app.manage-locations");
     menu.append("Show Welcome Tour", "app.show-onboarding");
     menu.append("About Paperboy", "app.about");
 
@@ -402,6 +404,18 @@ public class NewsWindow : Adw.ApplicationWindow {
                 });
             }
         });
+
+        // Same idea as saved_articles_loaded above, for History.
+        article_state_store.history_loaded.connect(() => {
+            var p = NewsPreferences.get_instance();
+            if (p != null && p.category == "history") {
+                Idle.add(() => {
+                    update_content_header();
+                    fetch_news();
+                    return false;
+                });
+            }
+        });
     }
 
     // Create SidebarView (UI only)
@@ -423,6 +437,36 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Listen for category selections and trigger fetch/update from the window
     sidebar_manager.category_selected.connect((category) => {
+        // End the previous view's session now, not when the new view's (sometimes deferred) fetch starts.
+        FetchContext.begin_new(this);
+
+        // Podcasts/Magazines each return early below, before ever reaching
+        // fetch_news() - hide_additive_feature_containers() has to run
+        // here too, not just inside fetch_news(), or navigating to either
+        // (including via a CategorySection's own "Go to" button, which
+        // fires this same signal) leaves whatever additive container
+        // (Sports scores, Stocks ticker, My Feed's extra rows) was showing
+        // on the previous page stuck visible underneath it.
+        hide_additive_feature_containers();
+
+        // The magazine reader is a root-level overlay, independent of the
+        // page underneath - same as the podcast pane below, it wouldn't
+        // otherwise close itself when navigating to another view.
+        if (category != "magazines" && magazine_reader_sheet != null && magazine_reader_sheet.is_open()) {
+            magazine_reader_sheet.close();
+        }
+
+        // Every navigation starts at the top of the new page, regardless
+        // of how far down the previous one was scrolled - content just
+        // being rebuilt in place (as Podcasts/Magazines/fetch_news() all
+        // do) doesn't reset main_scrolled's own scroll position on its
+        // own. Most noticeable now that My Feed's own extra preview rows
+        // can push it tall enough to be mid-scroll when you tap a "Go to"
+        // button, but this applies to every category switch.
+        if (content_view != null && content_view.main_scrolled != null) {
+            content_view.main_scrolled.get_vadjustment().set_value(0);
+        }
+
         // Clearing the search box here is just resetting UI/state before
         // this handler does its own rebuild (podcast_manager.show() or
         // fetch_news() below) - letting search_entry.set_text("") fire the
@@ -450,6 +494,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (search_manager != null) search_manager.reset_query_state();
             GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
             GLib.SignalHandler.unblock(search_entry, stop_search_handler_id);
+            if (magazine_manager != null) magazine_manager.set_header_buttons_visible(false);
             if (podcast_manager != null) podcast_manager.show();
             return;
         }
@@ -457,11 +502,23 @@ public class NewsWindow : Adw.ApplicationWindow {
         // overlay independent of ContentView's containers, so it wouldn't
         // otherwise close itself when the underlying page changes.
         if (podcast_pane != null) podcast_pane.close();
+        if (category != "magazines" && magazine_manager != null) magazine_manager.set_header_buttons_visible(false);
+        if (content_view != null && content_view.clear_history_button != null) {
+            content_view.clear_history_button.set_visible(category == "history");
+        }
         search_entry.set_placeholder_text("Search news for keywords…");
         search_entry.set_text("");
         if (search_manager != null) search_manager.reset_query_state();
         GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
         GLib.SignalHandler.unblock(search_entry, stop_search_handler_id);
+        // Magazines is the same "renders into ContentView's own containers
+        // instead of a separate page" idea as Podcasts above, just with its
+        // own dedicated magazine_library_flow grid rather than the hero/
+        // category rows.
+        if (category == "magazines") {
+            if (magazine_manager != null) magazine_manager.show();
+            return;
+        }
         if (category == "frontpage") {
             fetch_news();
             return;
@@ -585,6 +642,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // to tear down podcast content when the user navigates to a news
     // category - see the category_selected handler above.
     podcast_manager = new Managers.PodcastManager(this, content_view, podcast_playback, podcast_pane);
+    magazine_manager = new Managers.MagazineLibraryManager(this, content_view);
+    magazine_reader_sheet = new MagazineReaderSheet(this);
 
     // Wrap content in a NavigationView so we can slide in a preview page
     nav_view = new Adw.NavigationView();
@@ -732,6 +791,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // PodcastPane's doc comment for why this is a plain Gtk.Revealer
     // rather than Adw.BottomSheet.
     root_overlay.add_overlay(podcast_pane.revealer);
+    root_overlay.add_overlay(magazine_reader_sheet.revealer);
 
     // Wrap root_overlay with article preview split
     article_preview_split.set_content(root_overlay);
@@ -807,7 +867,7 @@ public class NewsWindow : Adw.ApplicationWindow {
 
         // Initialize feed update manager for automatic RSS feed updates
         feed_updater = new FeedUpdateManager(this);
-
+        feed_updater.awaited_feed_generated.connect(on_awaited_feed_generated);
         feed_updater.request_show_toast.connect((message) => {
             show_toast(message);
         });
@@ -891,16 +951,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // StocksTickerController), so it's never otherwise
                 // re-resolved after the theme changes.
                 StocksTickerController.refresh_icon_for_theme();
+                // And the centered empty state (History/Saved/Magazines),
+                // which may be on screen during the switch.
+                if (loading_state != null) loading_state.refresh_empty_icon_for_theme();
             });
         }
 
         // initial state and fetch
         update_sidebar_for_source();
-        // If this is the user's first run, the preferences dialog will be
-        // presented from main.activate(). Defer the initial network fetch
-        // so the dialog can appear and the user can adjust sources first.
         var prefs_local = NewsPreferences.get_instance();
-        if (prefs_local == null || !prefs_local.first_run) {
+        // Front Page comes from the backend, so first run can load it behind onboarding.
+        if (prefs_local != null && prefs_local.first_run) {
+            fetch_news();
+        } else {
             // If viewing "saved" category, check if saved articles are already loaded
             // (they load synchronously in ArticleStateStore constructor, so signal may have
             // already fired before we connected the handler at line 333)
@@ -913,6 +976,10 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // recognizes "podcasts" or ever calls fetch_finished().
                 search_entry.set_placeholder_text("Search podcasts…");
                 if (podcast_manager != null) podcast_manager.show();
+            } else if (prefs_local != null && prefs_local.category == "magazines") {
+                // Same reasoning as the podcasts branch above - Magazines
+                // isn't a FetchNewsController category either.
+                if (magazine_manager != null) magazine_manager.show();
             } else if (prefs_local != null && prefs_local.category == "saved") {
                 // Check if saved articles are already loaded (get_saved_count() always works)
                 if (article_state_store != null && article_state_store.get_saved_count() >= 0) {
@@ -932,26 +999,23 @@ public class NewsWindow : Adw.ApplicationWindow {
         // Debug-only: PAPERBOY_LEAK_TEST=1 headlessly drives repeated
         // search->clear cycles and logs RSS, for reproducing memory issues
         // without a rendered window - see run_leak_test().
-        if (GLib.Environment.get_variable("PAPERBOY_LEAK_TEST") != null) {
+        string? leak_test = GLib.Environment.get_variable("PAPERBOY_LEAK_TEST");
+        if (leak_test == "views") {
+            run_view_cycle_test();
+        } else if (leak_test != null) {
             run_leak_test();
         }
 
-        // Start recurring feed updates with initial delay
-        // Wait 45 seconds after launch so initial content loads smoothly
-        // This allows time for user to view initial content and for background
-        // metadata fetch to complete before heavy feed regeneration starts
-        // Skipped during PAPERBOY_LEAK_TEST - unrelated background work.
+        // Background feed refresh starts after launch content has loaded.
         if (feed_updater != null && GLib.Environment.get_variable("PAPERBOY_LEAK_TEST") == null) {
             GLib.Timeout.add_seconds(45, () => {
-                feed_updater.start_recurring_updates();
+                feed_updater.start();
                 return false; // One-shot
             });
         }
 
         // Start the sports live-game poller (if enabled) with a short delay -
-        // unlike feed_updater's regeneration work, this is just a lightweight
-        // score fetch, so it doesn't need feed_updater's full 45s launch-smoothing
-        // delay, just enough to let initial content load first.
+        // it's a lightweight score fetch, so it only waits for initial content to load.
         if (sports_live_indicator != null && prefs.sports_live_indicator_enabled && prefs.sports_scores_enabled) {
             GLib.Timeout.add_seconds(5, () => {
                 sports_live_indicator.start();
@@ -988,6 +1052,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             StocksTickerController.reset();
             if (market_status != null) market_status.stop();
             if (podcast_playback != null) podcast_playback.flush_progress();
+            if (magazine_reader_sheet != null && magazine_reader_sheet.is_open()) magazine_reader_sheet.save_position();
 
             // Clean up old cached articles (frontpage and RSS feeds)
             var cache = Paperboy.RssArticleCache.get_instance();
@@ -1025,6 +1090,19 @@ public class NewsWindow : Adw.ApplicationWindow {
                 article_manager.hero_carousel.force_settle();
             }
         });
+    }
+
+    // A feed opened with no generated file yet: show it once generated, or say why it can't be.
+    private void on_awaited_feed_generated(string old_url, string new_url, bool success) {
+        if (prefs.category != "rssfeed:" + old_url && prefs.category != "rssfeed:" + new_url) return;
+        GLib.debug("Feed refresh: awaited feed %s generated (success=%s), updating view", new_url, success.to_string());
+        if (success) {
+            prefs.category = "rssfeed:" + new_url;
+            fetch_news();
+        } else {
+            hide_loading_spinner();
+            show_error_message("Couldn't build a feed for this site right now. Paperboy will try again later.");
+        }
     }
 
     // Public helper so external callers (e.g., dialogs) can close an open article preview
@@ -1070,8 +1148,8 @@ public class NewsWindow : Adw.ApplicationWindow {
         return CategoryManager.get_category_display_name(cat);
     }
 
-    public Gtk.Widget build_category_chip(string category_id) {
-        return CardBuilder.build_category_chip(this, category_id);
+    public string category_chip_text(string category_id) {
+        return CardBuilder.category_display_text(this, category_id);
     }
 
     public string get_source_name(NewsSource source) {
@@ -1101,8 +1179,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     // Delegate preview-opened handling to the ViewStateManager
-    public void preview_opened(string url) {
-        if (view_state != null) view_state.preview_opened(url);
+    public void preview_opened(string url, string? title = null, string? thumbnail_url = null, string? source_name = null, string? published = null, string? category_id = null) {
+        if (view_state != null) view_state.preview_opened(url, title, thumbnail_url, source_name, published, category_id);
     }
 
     // Delegate preview-closed handling to the ViewStateManager
@@ -1237,6 +1315,52 @@ public class NewsWindow : Adw.ApplicationWindow {
         // frees widget-held textures elsewhere.
     }
 
+    // Debug-only: PAPERBOY_LEAK_TEST=views cycles views through the same path as a
+    // sidebar click, PAPERBOY_LEAK_ROUNDS times, then quits. PAPERBOY_LEAK_VIEWS is a
+    // comma-separated list of view ids and PAPERBOY_LEAK_DWELL_MS the time on each.
+    private void run_view_cycle_test() {
+        string? views_env = GLib.Environment.get_variable("PAPERBOY_LEAK_VIEWS");
+        string[] ids = views_env != null ? views_env.split(",") : new string[] { "frontpage", "myfeed", "sports" };
+        string[] titles = ids;
+        string? rounds_env = GLib.Environment.get_variable("PAPERBOY_LEAK_ROUNDS");
+        int total = (rounds_env != null ? int.parse(rounds_env) : 6) * ids.length;
+        string? dwell_env = GLib.Environment.get_variable("PAPERBOY_LEAK_DWELL_MS");
+        uint dwell = dwell_env != null ? (uint) int.parse(dwell_env) : 8000;
+        int step = 0;
+        Timeout.add(dwell, () => {
+            if (step >= total) {
+                AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log", "view_cycle_test: done");
+                this.close();
+                return false;
+            }
+            int k = step % ids.length;
+            log_view_chrome("end-of-dwell");
+            if (sidebar_manager != null) sidebar_manager.handle_item_activation(ids[k], titles[k]);
+            Timeout.add(150, () => { log_view_chrome("+150ms"); return false; });
+            step++;
+            return true;
+        });
+    }
+
+    // Debug-only: which view-level chrome is on screen, for run_view_cycle_test().
+    private void log_view_chrome(string when) {
+        if (loading_state == null || content_view == null) return;
+        bool load_more = false, end_of_feed = false;
+        for (var c = content_box.get_first_child(); c != null; c = c.get_next_sibling()) {
+            if (c.has_css_class("load-more-button")) load_more = true;
+            var label = c as Gtk.Label;
+            if (label != null && label.get_label() == "<b>No more articles</b>") end_of_feed = true;
+        }
+        AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log",
+            "chrome %s on=%s message=%s myfeed_prompt=%s local_prompt=%s spinner=%s load_more=%s end_of_feed=%s".printf(
+                when, prefs.category,
+                (loading_state.error_message_box != null && loading_state.error_message_box.get_visible()).to_string(),
+                (loading_state.personalized_message_box != null && loading_state.personalized_message_box.get_visible()).to_string(),
+                (loading_state.local_news_message_box != null && loading_state.local_news_message_box.get_visible()).to_string(),
+                (loading_state.loading_container != null && loading_state.loading_container.get_visible()).to_string(),
+                load_more.to_string(), end_of_feed.to_string()));
+    }
+
     // Debug-only headless leak repro - see PAPERBOY_LEAK_TEST above.
     private void run_leak_test() {
         // Force Front Page specifically - a fresh/isolated profile may
@@ -1270,10 +1394,38 @@ public class NewsWindow : Adw.ApplicationWindow {
         });
     }
 
+    // Sports scores, the Stocks ticker, and My Feed's extra preview rows
+    // are all containers additively layered on top of whatever their own
+    // category already shows (see SportsScoresController/
+    // StocksTickerController/MyFeedExtrasController) - hiding whichever
+    // one doesn't match the *current* prefs.category has to be callable
+    // from every navigation path, not just fetch_news(), since Podcasts
+    // and Magazines both bypass fetch_news() entirely (they render via
+    // PodcastManager/MagazineLibraryManager directly - see both the
+    // category_selected handler above and fetch_news() below). Without
+    // this being called from both places, navigating to Podcasts/Magazines
+    // left whichever of these was previously showing stuck visible
+    // underneath the new page's own content.
+    private void hide_additive_feature_containers() {
+        if (prefs.category != "sports") {
+            SportsScoresController.stop_polling();
+            SportsScoresController.hide(this);
+        }
+        if (!(prefs.category == "business" && prefs.market_cards_enabled)) {
+            StocksTickerController.stop_polling();
+            StocksTickerController.hide(this);
+        }
+        if (prefs.category != "myfeed") {
+            MyFeedExtrasController.hide(this);
+        }
+    }
+
     // Thin wrapper delegating to FetchNewsController. Keeps public API stable
     // while the heavy implementation lives in `fetch_news_impl` for easier
     // staged extraction.
     public void fetch_news() {
+        hide_additive_feature_containers();
+
         // Podcasts isn't a FetchNewsController category - it renders
         // directly into ContentView's containers via PodcastManager (see
         // the sidebar's category_selected handler). Guarded centrally here
@@ -1286,6 +1438,10 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (podcast_manager != null) podcast_manager.show();
             return;
         }
+        if (prefs.category == "magazines") {
+            if (magazine_manager != null) magazine_manager.show();
+            return;
+        }
 
         FetchNewsController.fetch_news(this);
 
@@ -1294,18 +1450,18 @@ public class NewsWindow : Adw.ApplicationWindow {
         // by this call). See SportsScoresController for details.
         if (prefs.category == "sports") {
             SportsScoresController.load(this);
-        } else {
-            SportsScoresController.stop_polling();
-            SportsScoresController.hide(this);
         }
 
         // Additive only: the Stocks ticker renders underneath whatever the
         // Business category already shows above. See StocksTickerController.
         if (prefs.category == "business" && prefs.market_cards_enabled) {
             StocksTickerController.load(this);
-        } else {
-            StocksTickerController.stop_polling();
-            StocksTickerController.hide(this);
+        }
+
+        // Additive only: opt-in preview rows render above whatever My Feed
+        // already shows below. See MyFeedExtrasController.
+        if (prefs.category == "myfeed" && prefs.personalized_feed_enabled) {
+            MyFeedExtrasController.load(this);
         }
     }
 

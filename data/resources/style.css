@@ -25,6 +25,22 @@
     border-radius: 12px 12px 0 0;
 }
 
+/* History's compact row cards lay the thumbnail on the left, bleeding
+   edge-to-edge, instead of on top - only the left corners round to match
+   the card's own shape. */
+.history-card picture {
+    border-radius: 12px 0 0 12px;
+}
+
+/* Plain blue category label shown above every card's title (e.g.
+   "MARKETS") - app-wide, replacing the old overlay chip on the image. */
+.card-category-label {
+    color: #3584e4;
+    font-weight: 700;
+    font-size: 0.78em;
+    letter-spacing: 0.4px;
+}
+
 /* Header date (see ContentView) - weekday + numeric month/day, larger than
    the default "body" style class it replaced. */
 .header-date-label {
@@ -125,6 +141,14 @@
     outline-offset: 2px;
 }
 
+/* Trailing "add more leagues" badge in the static (< 4 leagues) carousel -
+   see LeagueBadgeCarousel.build_settings_badge(). Neutral fill since it
+   isn't a real league's brand color. */
+.league-badge-settings {
+    background-color: alpha(currentColor, 0.12);
+    color: currentColor;
+}
+
 /* Same dark-pill language as .live-pill-header, sized down for the small
    corner overlay this reuses it in. */
 .league-badge-live-pill {
@@ -153,7 +177,7 @@
    of its own (unlike ".card") - see MarketIndexCard's comment for why. */
 .ticker-card-hero {
     border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
 }
 
 /* Neutral dark base with a soft directional glow radiating from the upper
@@ -266,13 +290,13 @@
    behave like regular clickable cards. */
 .hero-card-podcast {
     border: none;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
     transition: box-shadow 200ms ease;
 }
 
 .hero-card-podcast:hover,
 .hero-card-podcast.card-hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.55);
 }
 
 /* Bottom-pinned title/author scrim on a full-bleed podcast hero card - a
@@ -293,6 +317,134 @@
     font-size: 1em;
     font-weight: 500;
 }
+
+/* Magazine Library grid cards reuse the podcast hero card's full-bleed +
+   scrim look, but the card itself is much smaller than a Podcasts hero
+   (220px vs. a hero row's ~300-400px), so .hero-title's 2.1em (which only
+   applies inside .hero-card anyway, which these cards don't use) would be
+   far too large here - same reasoning as .ticker-card-hero-title's own
+   size-down for the Stocks ticker cards. */
+.magazine-hero-title {
+    color: white;
+    font-weight: 800;
+    font-size: 1.1em;
+}
+
+/* Magazine card cover art is a DrawingArea, not a Picture (see
+   MagazineCard) - so it needs its own rounded-corner rule rather than
+   the "picture" element selector .hero-card-podcast picture uses. */
+.magazine-cover-canvas {
+    border-radius: 12px;
+}
+
+/* Drag-and-drop reordering feedback - see MagazineCard.wire_interactions. */
+.magazine-dragging {
+    opacity: 0.4;
+}
+
+.magazine-drop-target {
+    outline: 3px solid @accent_color;
+    outline-offset: -3px;
+    border-radius: 12px;
+}
+
+/* Trash drop zone at the bottom of the Magazines page - see
+   MagazineLibraryManager. Same dark-pill language as .custom-toast/
+   .podcast-card-badge-btn (near-black translucent circle, white icon,
+   soft shadow) rather than a bespoke style, so it reads as consistent
+   floating chrome instead of a one-off control. */
+.magazine-trash-zone {
+    background-color: rgba(29, 29, 29, 0.9);
+    color: white;
+    border-radius: 9999px;
+    box-shadow: 0 2px 8px alpha(black, 0.25);
+    transition: all 150ms ease;
+}
+
+.magazine-trash-zone.magazine-drop-target {
+    background-color: @error_color;
+    color: white;
+    box-shadow: 0 2px 10px alpha(@error_color, 0.5);
+}
+
+/* Magazines selection mode - see MagazineLibraryManager/MagazineCard. */
+.magazine-select-check {
+    opacity: 0;
+    border-radius: 9999px;
+    border: 2px solid white;
+    background-color: alpha(black, 0.35);
+    color: transparent;
+    box-shadow: 0 1px 4px alpha(black, 0.3);
+}
+
+.magazine-selecting .magazine-select-check {
+    opacity: 1;
+}
+
+.magazine-selected .magazine-select-check {
+    background-color: @accent_bg_color;
+    border-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+.magazine-selected {
+    outline: 3px solid @accent_bg_color;
+    outline-offset: -3px;
+    border-radius: 12px;
+}
+
+.magazine-selection-bar {
+    background-color: rgba(29, 29, 29, 0.96);
+    color: white;
+    border-radius: 9999px;
+    padding: 6px;
+    box-shadow: 0 2px 8px alpha(black, 0.25);
+}
+
+/* Organize Magazines dialog - one column per category, magazines are
+   dragged between them (see MagazineLibraryManager.show_organize_dialog).
+   .magazine-drop-target is shared with the reordering/trash rules above. */
+.magazine-organize-bucket {
+    background-color: alpha(@borders, 0.15);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.magazine-organize-chip {
+    padding: 4px 6px;
+    border-radius: 8px;
+}
+
+.magazine-organize-chip:hover {
+    background-color: alpha(@borders, 0.3);
+}
+
+/* A category row's chips are thumbnail-only (no title label - see
+   MagazineOrganizeDialog.build_chip's show_title) - any padding at all
+   reads as dead space between covers once there's no text left to pad
+   against, so this stays flush. */
+.magazine-organize-chip-compact {
+    padding: 0;
+    border-radius: 6px;
+}
+
+.magazine-organize-chip-compact:hover {
+    background-color: alpha(@borders, 0.3);
+}
+
+/* GtkFlowBoxChild has its own theme padding/margin around every cell,
+   independent of the flowbox's own row/column spacing - overridden here
+   since MagazineOrganizeDialog.build_category_row can't reach that node
+   directly (it's created internally by GtkFlowBox.append()). */
+.magazine-organize-chips-flow flowboxchild {
+    padding: 0;
+    margin: 0;
+}
+
+.magazine-organize-chip-thumb {
+    border-radius: 4px;
+}
+
 
 /* "Updated 7m ago" caption under a ticker card's change line. */
 .ticker-card-updated {
@@ -383,18 +535,6 @@
 .podcast-episode-progress > trough > progress {
     background-color: @accent_bg_color;
     border-radius: 3px;
-}
-
-/* Small pill category chip overlaid on images */
-.category-chip {
-    background-color: alpha(black, 0.6);
-    color: white;
-    /* Shorter than source-badge/viewed-badge, so radius is scaled down too. */
-    border-radius: 5px;
-    padding: 2px 8px;
-    margin: 8px;
-    font-size: 0.8em;
-    font-weight: 600;
 }
 
 /* Source badge (icon + short name) shown on cards and hero slides */
@@ -854,6 +994,43 @@ button.pill {
     opacity: 0;
 }
 
+/* Same look/behavior as .section-nav, for the magazine reader's page
+   edges (see MagazineReaderSheet) - slightly larger, since it's sitting
+   over a full page rather than a row of small cards. */
+.magazine-reader-nav {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 9999px;
+    padding: 6px;
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+.magazine-reader-nav:hover {
+    transform: scale(1.08);
+}
+
+.magazine-reader-nav.magazine-reader-nav-active {
+    opacity: 1;
+    background-color: alpha(black, 0.72);
+}
+
+.magazine-reader-nav:disabled {
+    opacity: 0;
+}
+
+/* Highlights whichever page(s) are on screen in the reader's left-edge
+   page-browser panel (see MagazineTocPane.set_current_page()). */
+.magazine-toc-item-current {
+    background-color: alpha(@accent_bg_color, 0.15);
+    outline: 2px solid @accent_bg_color;
+    outline-offset: -2px;
+    border-radius: 8px;
+}
+
 /* Same as .section-nav, sized down further for the compact league badge
    carousel (see LeagueBadgeCarousel). */
 .league-nav {
@@ -1011,8 +1188,11 @@ button.pill {
     margin-bottom: 5.7px;
 }
 
+/* -90deg, not the visually identical 270deg - Adwaita transitions this
+   transform, and 270 -> 0 interpolates as a 270deg counter-clockwise spin
+   instead of a 90deg turn. */
 .navigation-sidebar .sidebar-expander image.expander-row-arrow {
-    -gtk-icon-transform: rotate(270deg);
+    -gtk-icon-transform: rotate(-90deg);
     min-height: 0;
     min-width: 0;
 }
@@ -1181,6 +1361,20 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .custom-toast-close:hover {
     background-color: alpha(white, 0.15);
+}
+
+/* Scoped to beat ".sidebar-expander box { background-color: transparent }". */
+.navigation-sidebar .sidebar-expander box.sidebar-new-dot {
+    background-color: @accent_bg_color;
+    border-radius: 9999px;
+    min-width: 8px;
+    min-height: 8px;
+}
+
+/* Podcast show rows: dot pinned to the icon's top-right corner. */
+.navigation-sidebar .sidebar-expander box.sidebar-new-dot-corner {
+    box-shadow: 0 0 0 2px @sidebar_bg_color;
+    margin-right: 1px;
 }
 
 /* Unread Count Badge. Alignment is anchored by the label's own
