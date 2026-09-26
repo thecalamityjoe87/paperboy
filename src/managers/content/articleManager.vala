@@ -340,7 +340,15 @@ namespace Managers {
             return null;
         }
 
+        // Single gate for every card. Keyed on the on-screen category so it also covers the gap before the new fetch starts.
+        private bool view_allows_item(string category_id) {
+            string? cat = window.prefs != null ? window.prefs.category : null;
+            bool local_only = cat == "saved" || cat == "history";
+            return !local_only || category_id == cat;
+        }
+
         public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null, bool is_trending = false) {
+            if (!view_allows_item(category_id)) return;
             bool is_myfeed = window.category_manager.is_myfeed_view();
 
             // My Feed doesn't use the flat article-count cap: its rows are
@@ -453,6 +461,7 @@ namespace Managers {
         }
 
         public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null, string? snippet = null, string? myfeed_row_key_hint = null, bool is_trending = false) {
+            if (!view_allows_item(category_id)) return;
             // Buffer this article's snippet/published date as a fallback for
             // ArticleSnippetService, which live-fetches the article page and
             // falls back to article_buffer when that fetch fails or is incomplete.
@@ -1347,11 +1356,10 @@ namespace Managers {
 
             if (hero_carousel != null) {
                 hero_carousel.stop_timer();
-                if (hero_carousel.container != null && window.layout_manager.featured_box != null) {
-                    window.layout_manager.featured_box.remove(hero_carousel.container);
-                }
                 hero_carousel = null;
             }
+            // Clear the whole box - HeroCarousel's "FEATURED" label is a sibling of its container.
+            if (window.layout_manager != null) window.layout_manager.clear_featured_box();
 
             if (featured_carousel_items != null) {
                 featured_carousel_items.clear();

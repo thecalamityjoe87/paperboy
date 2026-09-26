@@ -138,6 +138,11 @@ public class FetchContext : GLib.Object {
         return true;
     }
     
+    /** Saved and History render only their own local-store items, never network fetch results. */
+    public bool is_local_only_view() {
+        return expected_category == "saved" || expected_category == "history";
+    }
+
     /**
      * Check if this context's sequence matches the current sequence.
      * Use this for lightweight staleness checks without window access.

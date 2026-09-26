@@ -185,9 +185,10 @@ public class FetchNewsController {
     public static void global_forward_label(string? text) {
         Idle.add(() => {
             var ctx = FetchContext.current_context();
-            if (ctx == null) return false;
+            if (ctx == null || ctx.is_local_only_view()) return false;
             var win = ctx.window;
             if (win == null) return false;
+            if (win.prefs != null && win.prefs.category != ctx.expected_category) return false;
 
             if (text != null) {
                 string lower = text.down();
@@ -1189,7 +1190,10 @@ if (is_myfeed_mode) {
                 wrapped_set_label("Saved Articles");
             }
 
-            // Clear columns
+            // Drop any hero carousel left over from the previous view.
+            w.layout_manager.clear_featured_box();
+            w.article_manager.reset_featured_state();
+
             w.layout_manager.clear_columns();
 
             w.article_manager.article_buffer.clear();
