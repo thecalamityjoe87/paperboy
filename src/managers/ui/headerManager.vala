@@ -194,6 +194,10 @@ public class HeaderManager : GLib.Object {
         cr.arc(size / 2.0, size / 2.0, size / 2.0, 0, 2 * Math.PI);
         cr.clip();
 
+        // Same dimmed backing as .circular-logo, for transparent logos.
+        cr.set_source_rgba(246 / 255.0, 243 / 255.0, 236 / 255.0, 0.92);
+        cr.paint();
+
         // Draw the pixbuf
         Gdk.cairo_set_source_pixbuf(cr, source, 0, 0);
         cr.paint();

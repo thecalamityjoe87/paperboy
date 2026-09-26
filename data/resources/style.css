@@ -700,6 +700,14 @@
     transition: background-color 250ms ease;
 }
 
+/* Dimmed backing so dark logos with transparent backgrounds stay visible on dark themes. */
+.source-badge .circular-logo picture,
+.reader-view .circular-logo picture,
+.navigation-sidebar .circular-logo picture,
+.source-row .circular-logo picture {
+    background-color: rgba(246, 243, 236, 0.92);
+}
+
 /* Clip dynamic remote source logos (wrapper + all descendants) to a circle. */
 .source-badge .circular-logo,
 .source-badge .circular-logo picture,
