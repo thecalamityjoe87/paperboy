@@ -297,6 +297,16 @@ public class SportsScoresController : GLib.Object {
         return true;
     }
 
+    // The update-in-place path assumes the sections it built last time are
+    // still in `container` - if anything else has emptied it since, fall
+    // back to a full rebuild rather than updating cards no longer on screen.
+    private static bool sections_attached(Gee.HashMap<string, CategorySection> sections, Gtk.Widget container) {
+        foreach (var section in sections.values) {
+            if (section.wrapper.get_parent() != container) return false;
+        }
+        return true;
+    }
+
     private static void render(NewsWindow win, Gee.ArrayList<string> league_keys, Gee.HashMap<string, Gee.ArrayList<GameScore>> results) {
         if (win.content_view == null || win.content_view.sports_scores_container == null) return;
         if (active_ctx == null || !active_ctx.still_owns_view()) return;
@@ -320,7 +330,8 @@ public class SportsScoresController : GLib.Object {
         // every poll was found to leak memory, a GTK4 quirk confirmed via
         // an isolated repro and unrelated to anything ScoreCard itself
         // draws or holds onto.
-        bool needs_rebuild = !string_lists_equal(active_leagues, last_rendered_order()) || static_mode != last_static_mode;
+        bool needs_rebuild = !string_lists_equal(active_leagues, last_rendered_order()) || static_mode != last_static_mode
+            || !sections_attached(current_sections(), container);
         if (!needs_rebuild) {
             foreach (var league_key in active_leagues) {
                 var games = results.get(league_key);
@@ -548,7 +559,8 @@ public class SportsScoresController : GLib.Object {
             if (games != null && games.size > 0) active_keys.add(key);
         }
 
-        bool needs_rebuild = !string_lists_equal(active_keys, last_rendered_favorite_teams());
+        bool needs_rebuild = !string_lists_equal(active_keys, last_rendered_favorite_teams())
+            || !sections_attached(favorite_team_sections(), container);
         if (!needs_rebuild) {
             foreach (var key in active_keys) {
                 var games = results.get(key);

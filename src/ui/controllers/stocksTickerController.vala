@@ -204,7 +204,11 @@ public class StocksTickerController : GLib.Object {
         // to anything this feature itself draws or holds onto. A full
         // rebuild is still needed if the symbol set actually changes (e.g.
         // crypto finishing its first fetch after indices already rendered).
-        bool needs_rebuild = current_section == null || current_cards().size != quotes.size;
+        // Also rebuild if the section was removed from the container by
+        // anything else since the last render - updating its cards in place
+        // would otherwise leave an empty row on screen.
+        bool needs_rebuild = current_section == null || current_section.wrapper.get_parent() != container
+            || current_cards().size != quotes.size;
         if (!needs_rebuild) {
             foreach (var quote in quotes) {
                 if (!current_cards().has_key(quote.symbol)) {

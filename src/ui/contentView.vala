@@ -970,15 +970,20 @@ public class ContentView : GLib.Object {
         if (hero_trending_separator != null) hero_trending_separator.set_visible(false);
         if (hero_frontpage_separator != null) hero_frontpage_separator.set_visible(false);
 
-        clear_and_hide_box(sports_scores_container);
-        clear_and_hide_box(favorite_teams_container);
+        // Sports/Stocks rows are only hidden, never cleared: their
+        // controllers build each section once and update those same cards
+        // in place on later visits (see SportsScoresController.render()/
+        // StocksTickerController.render()), so emptying these here left the
+        // controllers updating detached cards behind an empty row.
+        if (sports_scores_container != null) sports_scores_container.set_visible(false);
+        if (favorite_teams_container != null) favorite_teams_container.set_visible(false);
         if (favorite_teams_label != null) favorite_teams_label.set_visible(false);
         if (favorite_teams_separator != null) favorite_teams_separator.set_visible(false);
         if (league_badge_carousel != null) league_badge_carousel.root.set_visible(false);
         if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
         if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
 
-        clear_and_hide_box(stocks_ticker_container);
+        if (stocks_ticker_container != null) stocks_ticker_container.set_visible(false);
         if (hero_stocks_separator != null) hero_stocks_separator.set_visible(false);
         if (stocks_articles_separator != null) stocks_articles_separator.set_visible(false);
 
