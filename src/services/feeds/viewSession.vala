@@ -87,6 +87,20 @@ public class ViewSession : GLib.Object {
     }
 
     // Main thread only. Never runs once the session is closed. Returns 0 if already closed.
+    public uint timeout_seconds(uint seconds, owned GLib.SourceFunc fn) {
+        if (is_closed()) return 0;
+        uint sid = 0;
+        sid = GLib.Timeout.add_seconds(seconds, () => {
+            if (is_closed()) return false;
+            bool again = fn();
+            if (!again) sources.remove(sid);
+            return again;
+        });
+        sources.add(sid);
+        return sid;
+    }
+
+    // Main thread only. Never runs once the session is closed. Returns 0 if already closed.
     public uint timeout(uint ms, owned GLib.SourceFunc fn) {
         if (is_closed()) return 0;
         uint sid = 0;
