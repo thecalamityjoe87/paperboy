@@ -167,15 +167,14 @@ public class HeroCard : GLib.Object {
         save_ribbon = CardBuilder.build_save_ribbon(already_saved);
         overlay.add_overlay(save_ribbon);
 
-        // Same quick-open buttons ArticleCard shows on hover, centered over
-        // the image - see ArticleCard's constructor for the full reasoning.
+        // Same hover-only quick-open buttons as ArticleCard, top-right of the image.
         bool hover_actions_enabled = parent_window == null || parent_window.prefs == null || parent_window.prefs.card_hover_actions_enabled;
-        var hover_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
+        var hover_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 2);
         hover_actions.add_css_class("card-hover-actions");
-        hover_actions.set_halign(Gtk.Align.CENTER);
-        hover_actions.set_valign(Gtk.Align.CENTER);
-        hover_actions.set_hexpand(true);
-        hover_actions.set_vexpand(true);
+        hover_actions.set_halign(Gtk.Align.END);
+        hover_actions.set_valign(Gtk.Align.START);
+        hover_actions.set_margin_top(10);
+        hover_actions.set_margin_end(10);
         hover_actions.set_visible(hover_actions_enabled);
 
         var quick_reader_btn = new Gtk.Button();
@@ -183,16 +182,20 @@ public class HeroCard : GLib.Object {
         quick_reader_btn.add_css_class("hero-card-hover-action-btn");
         quick_reader_btn.set_tooltip_text("Open in reader view");
         var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
-        quick_reader_icon.set_pixel_size(28);
+        quick_reader_icon.set_pixel_size(22);
         quick_reader_btn.set_child(quick_reader_icon);
         hover_actions.append(quick_reader_btn);
+
+        var hover_divider = new Gtk.Separator(Gtk.Orientation.VERTICAL);
+        hover_divider.add_css_class("source-badge-divider");
+        hover_actions.append(hover_divider);
 
         var quick_pane_btn = new Gtk.Button();
         quick_pane_btn.add_css_class("card-hover-action-btn");
         quick_pane_btn.add_css_class("hero-card-hover-action-btn");
         quick_pane_btn.set_tooltip_text("Preview article");
         var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
-        quick_pane_icon.set_pixel_size(28);
+        quick_pane_icon.set_pixel_size(22);
         quick_pane_btn.set_child(quick_pane_icon);
         hover_actions.append(quick_pane_btn);
 
@@ -381,8 +384,14 @@ public class HeroCard : GLib.Object {
         unowned Gtk.Box root_ref = root_widget;
         unowned Gtk.Box badge_slot_ref = viewed_badge_slot;
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root_ref.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root_ref.remove_css_class("card-hover"); });
+        motion.enter.connect(() => {
+            root_ref.add_css_class("card-hover");
+            CardBuilder.set_follow_revealed(root_ref, card_url, true);
+        });
+        motion.leave.connect(() => {
+            root_ref.remove_css_class("card-hover");
+            CardBuilder.set_follow_revealed(root_ref, card_url, false);
+        });
         root_widget.add_controller(motion);
 
         if (enable_context_menu) {

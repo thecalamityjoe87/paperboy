@@ -101,39 +101,35 @@ public class ArticleCard : GLib.Object {
         save_ribbon = CardBuilder.build_save_ribbon(already_saved);
         overlay.add_overlay(save_ribbon);
 
-        // Quick-open buttons, centered over the image - hidden until the
-        // card is hovered (see .card-hover-actions in style.css), giving a
-        // one-click path straight to reader view or the preview pane
-        // instead of always going through the preview pane first. Stored
-        // via set_data (not public fields wire_interactions could capture
-        // directly) for the same reason save_ribbon is looked up that way
-        // elsewhere - see wire_interactions() below.
-        // Always built (not skipped) so toggling the "hover actions" pref
-        // can just flip this box's visibility live on every already-
-        // rendered card (see set_hover_actions_visible_for_all below)
-        // instead of requiring a full view rebuild.
+        // Hover-only quick-open buttons in the image's top-right corner. Always
+        // built so the "hover actions" pref can toggle them live (see
+        // set_hover_actions_visible_for_all).
         bool hover_actions_enabled = window == null || window.prefs == null || window.prefs.card_hover_actions_enabled;
-        var hover_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
+        var hover_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 2);
         hover_actions.add_css_class("card-hover-actions");
-        hover_actions.set_halign(Gtk.Align.CENTER);
-        hover_actions.set_valign(Gtk.Align.CENTER);
-        hover_actions.set_hexpand(true);
-        hover_actions.set_vexpand(true);
+        hover_actions.set_halign(Gtk.Align.END);
+        hover_actions.set_valign(Gtk.Align.START);
+        hover_actions.set_margin_top(8);
+        hover_actions.set_margin_end(8);
         hover_actions.set_visible(hover_actions_enabled);
 
         var quick_reader_btn = new Gtk.Button();
         quick_reader_btn.add_css_class("card-hover-action-btn");
         quick_reader_btn.set_tooltip_text("Open in reader view");
         var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
-        quick_reader_icon.set_pixel_size(26);
+        quick_reader_icon.set_pixel_size(20);
         quick_reader_btn.set_child(quick_reader_icon);
         hover_actions.append(quick_reader_btn);
+
+        var hover_divider = new Gtk.Separator(Gtk.Orientation.VERTICAL);
+        hover_divider.add_css_class("source-badge-divider");
+        hover_actions.append(hover_divider);
 
         var quick_pane_btn = new Gtk.Button();
         quick_pane_btn.add_css_class("card-hover-action-btn");
         quick_pane_btn.set_tooltip_text("Preview article");
         var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
-        quick_pane_icon.set_pixel_size(26);
+        quick_pane_icon.set_pixel_size(20);
         quick_pane_btn.set_child(quick_pane_icon);
         hover_actions.append(quick_pane_btn);
 
@@ -290,13 +286,18 @@ public class ArticleCard : GLib.Object {
         unowned Gtk.EventControllerMotion motion_ref = motion;
         motion.enter.connect(() => {
             var w = motion_ref.get_widget();
-            if (w != null) w.add_css_class("card-hover");
+            if (w == null) return;
+            w.add_css_class("card-hover");
+            CardBuilder.set_follow_revealed(w, card_url, true);
         });
         motion.leave.connect(() => {
             var w = motion_ref.get_widget();
-            if (w != null) w.remove_css_class("card-hover");
+            if (w == null) return;
+            w.remove_css_class("card-hover");
+            CardBuilder.set_follow_revealed(w, card_url, false);
         });
         root_widget.add_controller(motion);
+
 
         var right_click = new Gtk.GestureClick();
         right_click.set_button(3);

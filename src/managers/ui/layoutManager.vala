@@ -976,12 +976,6 @@ namespace Managers {
         /**
         * Add an overlay (badge) to an article card.
         */
-        public void add_card_overlay(ArticleCard card, Gtk.Widget badge) {
-            if (card.overlay != null) {
-                card.overlay.add_overlay(badge);
-            }
-        }
-
         // Search results always use the standard flat grid, whatever layout the
         // underlying view was in (category rows, Trending's 4 columns, adaptive heroes).
         public void enter_search_layout() {
