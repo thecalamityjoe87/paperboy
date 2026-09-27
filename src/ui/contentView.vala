@@ -65,6 +65,8 @@ public class ContentView : GLib.Object {
     public Gtk.Separator favorite_teams_separator;
     public Gtk.Label favorite_teams_label;
     public Gtk.Box favorite_teams_container;
+    public Gtk.Separator highlights_separator;
+    public Gtk.Box highlights_container;
     public LeagueBadgeCarousel league_badge_carousel;
     public Gtk.Separator hero_scores_separator;
     public Gtk.Separator scores_articles_separator;
@@ -463,6 +465,20 @@ public class ContentView : GLib.Object {
         favorite_teams_container.set_hexpand(true);
         favorite_teams_container.set_visible(false);
         main_content_container.append(favorite_teams_container);
+
+        // Sports "Highlights" video row, owned by SportsScoresController.
+        highlights_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        highlights_separator.add_css_class("section-divider");
+        highlights_separator.set_margin_top(10);
+        highlights_separator.set_margin_bottom(20);
+        highlights_separator.set_visible(false);
+        main_content_container.append(highlights_separator);
+
+        highlights_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        highlights_container.set_halign(Gtk.Align.FILL);
+        highlights_container.set_hexpand(true);
+        highlights_container.set_visible(false);
+        main_content_container.append(highlights_container);
 
         scores_articles_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
         scores_articles_separator.add_css_class("section-divider");
@@ -1057,6 +1073,8 @@ public class ContentView : GLib.Object {
         if (favorite_teams_container != null) favorite_teams_container.set_visible(false);
         if (favorite_teams_label != null) favorite_teams_label.set_visible(false);
         if (favorite_teams_separator != null) favorite_teams_separator.set_visible(false);
+        if (highlights_container != null) highlights_container.set_visible(false);
+        if (highlights_separator != null) highlights_separator.set_visible(false);
         if (league_badge_carousel != null) league_badge_carousel.root.set_visible(false);
         if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
         if (scores_articles_separator != null) scores_articles_separator.set_visible(false);

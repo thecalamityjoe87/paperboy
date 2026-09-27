@@ -68,6 +68,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // sports_live_indicator above, for a Business sidebar "Open" pill.
     public MarketStatusManager? market_status;
     public Adw.OverlaySplitView split_view;
+    // Dialogs are presented here so they center over the content column (see DialogUtils).
+    public Gtk.Widget? content_dialog_host;
     public Adw.NavigationView nav_view;
     public Adw.OverlaySplitView article_preview_split;
     public Gtk.Box article_preview_content;
@@ -809,8 +811,19 @@ public class NewsWindow : Adw.ApplicationWindow {
     content_toolbar.add_top_bar(content_header);
     content_toolbar.set_content(article_preview_split);
     
+    content_dialog_host = DialogUtils.create_host(content_toolbar);
+    if (content_dialog_host != null) {
+        // The window-level host blocked the sidebar while a dialog was up; keep that.
+        unowned Adw.NavigationPage sidebar_ref = sidebar_page;
+        content_dialog_host.notify["visible-dialog"].connect((obj, pspec) => {
+            Adw.Dialog? visible = null;
+            obj.get("visible-dialog", out visible);
+            sidebar_ref.set_can_target(visible == null);
+        });
+    }
+
     // Create NavigationPage for main content
-    var content_page = new Adw.NavigationPage(content_toolbar, "Content");
+    var content_page = new Adw.NavigationPage(content_dialog_host ?? content_toolbar, "Content");
 
     // Set sidebar and content pages for NavigationSplitView
     split_view.set_sidebar(sidebar_page);

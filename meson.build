@@ -43,6 +43,7 @@ cairo = dependency('cairo')
     'src/ui/components/sports/leagueBadgeCarousel.vala',
     'src/ui/components/markets/marketIndexCard.vala',
     'src/ui/components/sports/scoreCard.vala',
+    'src/ui/components/sports/highlightCard.vala',
     'src/ui/components/magazines/magazineCard.vala',
     'src/ui/components/magazines/magazineReaderSheet.vala',
     'src/ui/components/magazines/magazineTocPane.vala',
@@ -70,6 +71,7 @@ cairo = dependency('cairo')
     'src/ui/dialogs/content/shareDialog.vala',
     'src/ui/dialogs/media/magazineOrganizeDialog.vala',
     'src/ui/dialogs/media/podcastDetailDialog.vala',
+    'src/ui/dialogs/media/highlightPlayerDialog.vala',
     'src/ui/dialogs/media/podcastPickerDialog.vala',
     'src/ui/dialogs/notes/noteEditorDialog.vala',
     'src/ui/dialogs/notes/notesBrowserDialog.vala',
@@ -172,6 +174,7 @@ cairo = dependency('cairo')
 
     # Models
     'src/models/sports/gameScore.vala',
+    'src/models/sports/videoHighlight.vala',
     'src/models/markets/marketIndexHistory.vala',
     'src/models/markets/marketIndexQuote.vala',
     'src/models/media/imageModels.vala',
@@ -199,6 +202,7 @@ cairo = dependency('cairo')
     'src/utils/text/sortUtils.vala',
     'src/utils/text/stripHtmlUtils.vala',
     'src/utils/ui/categoryIconsUtils.vala',
+    'src/utils/ui/dialogUtils.vala',
     'src/utils/ui/fixedSizeLayoutUtils.vala',
     'src/utils/ui/pixbufUtils.vala',
     'src/utils/ui/podcastImageUtils.vala',

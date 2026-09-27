@@ -41,8 +41,12 @@ public class WebViewUtils : GLib.Object {
     }
 
     // Use instead of `new WebKit.WebView()` so terminate_all() can reach it on quit.
-    public static WebKit.WebView create() {
-        var view = new WebKit.WebView();
+    // allow_autoplay: WebKit's default policy blocks autoplay with sound.
+    public static WebKit.WebView create(bool allow_autoplay = false) {
+        var view = allow_autoplay
+            ? (WebKit.WebView) GLib.Object.new(typeof(WebKit.WebView), "website-policies",
+                GLib.Object.new(typeof(WebKit.WebsitePolicies), "autoplay", WebKit.AutoplayPolicy.ALLOW))
+            : new WebKit.WebView();
         var dead = new Gee.ArrayList<Tracked>();
         foreach (var t in live()) if (t.view.get() == null) dead.add(t);
         live().remove_all(dead);

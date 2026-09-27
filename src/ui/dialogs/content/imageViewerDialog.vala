@@ -247,8 +247,10 @@ public class ImageViewerDialog : GLib.Object {
         if (iw <= 0 || ih <= 0) return paintable;
 
         const int MARGIN = 48;
-        int avail_w = int.max(200, parent_window.get_width() - MARGIN);
-        int avail_h = int.max(200, parent_window.get_height() - MARGIN);
+        int area_w, area_h;
+        DialogUtils.available_size(parent_window, out area_w, out area_h);
+        int avail_w = int.max(200, area_w - MARGIN);
+        int avail_h = int.max(200, area_h - MARGIN);
         double scale = double.min(1.0, double.min((double) avail_w / iw, (double) avail_h / ih));
         if (scale >= 1.0) return paintable;
 
@@ -342,7 +344,7 @@ public class ImageViewerDialog : GLib.Object {
         dialog.set_content_width(fitted_w);
         dialog.set_content_height(fitted_h);
         dialog.set_child(content);
-        dialog.present(parent_window);
+        dialog.present(DialogUtils.parent_for(parent_window));
 
         // Close when the app window loses focus (e.g. alt-tabbing away), not just via the close button.
         // Goes through handle too - a direct `dialog` capture here would poison the weak captures above.

@@ -131,6 +131,6 @@ public class PodcastPickerDialog : GLib.Object {
             }
         });
 
-        dialog.present(parent_window);
+        dialog.present(DialogUtils.parent_for(parent_window));
     }
 }

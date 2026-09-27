@@ -135,6 +135,24 @@ public class SportsScoresController : GLib.Object {
         return _last_rendered_favorite_teams;
     }
 
+    // "Highlights" video row - own timer; clips change slowly, so a fixed cadence.
+    private const int HIGHLIGHTS_SHOWN = 12;
+    private const int HIGHLIGHTS_CANDIDATES = 16;
+    private const int HIGHLIGHTS_POLL_SECONDS = 1800;
+    private static uint highlights_timeout_id = 0;
+    private static CategorySection? highlights_section = null;
+    private static Gee.ArrayList<HighlightCard>? _highlight_cards = null;
+    private static Gee.ArrayList<HighlightCard> highlight_cards() {
+        if (_highlight_cards == null) _highlight_cards = new Gee.ArrayList<HighlightCard>();
+        return _highlight_cards;
+    }
+    // Clip id -> already-resolved clip, so polls don't re-fetch detail for clips still on the board.
+    private static Gee.HashMap<string, VideoHighlight>? _resolved_highlights = null;
+    private static Gee.HashMap<string, VideoHighlight> resolved_highlights() {
+        if (_resolved_highlights == null) _resolved_highlights = new Gee.HashMap<string, VideoHighlight>();
+        return _resolved_highlights;
+    }
+
     public static void load(NewsWindow win) {
         if (!win.prefs.sports_scores_enabled) {
             stop_polling();
@@ -146,11 +164,13 @@ public class SportsScoresController : GLib.Object {
         active_ctx = FetchContext.current_context();
         fetch_and_populate(win);
         fetch_and_populate_favorite_teams(win);
+        fetch_and_populate_highlights(win);
     }
 
     public static void stop_polling() {
         ViewSession.remove_source(ref timeout_id);
         ViewSession.remove_source(ref favorite_teams_timeout_id);
+        ViewSession.remove_source(ref highlights_timeout_id);
     }
 
     // Drop the reused sections/cards - called on window close so this
@@ -169,6 +189,10 @@ public class SportsScoresController : GLib.Object {
         favorite_team_sections().clear();
         favorite_team_cards().clear();
         last_rendered_favorite_teams().clear();
+
+        highlights_section = null;
+        highlight_cards().clear();
+        resolved_highlights().clear();
     }
 
     // Called when navigating away from Sports: render() only ever runs
@@ -181,6 +205,8 @@ public class SportsScoresController : GLib.Object {
         if (win.content_view.favorite_teams_container != null) win.content_view.favorite_teams_container.set_visible(false);
         if (win.content_view.favorite_teams_label != null) win.content_view.favorite_teams_label.set_visible(false);
         if (win.content_view.favorite_teams_separator != null) win.content_view.favorite_teams_separator.set_visible(false);
+        if (win.content_view.highlights_container != null) win.content_view.highlights_container.set_visible(false);
+        if (win.content_view.highlights_separator != null) win.content_view.highlights_separator.set_visible(false);
         if (win.content_view.league_badge_carousel != null) win.content_view.league_badge_carousel.root.set_visible(false);
         if (win.content_view.hero_scores_separator != null) win.content_view.hero_scores_separator.set_visible(false);
         if (win.content_view.scores_articles_separator != null) win.content_view.scores_articles_separator.set_visible(false);
@@ -654,5 +680,175 @@ public class SportsScoresController : GLib.Object {
         container.set_visible(any_section);
         if (win.content_view.favorite_teams_label != null) win.content_view.favorite_teams_label.set_visible(any_section);
         if (win.content_view.favorite_teams_separator != null) win.content_view.favorite_teams_separator.set_visible(any_section);
+    }
+
+    private static void schedule_next_highlights_poll() {
+        ViewSession.remove_source(ref highlights_timeout_id);
+        if (active_ctx == null) return;
+        highlights_timeout_id = active_ctx.session.timeout_seconds(HIGHLIGHTS_POLL_SECONDS, () => {
+            highlights_timeout_id = 0;
+            if (active_window == null || active_ctx == null || !active_ctx.still_owns_view()) {
+                return false;
+            }
+            fetch_and_populate_highlights(active_window);
+            return false;
+        });
+    }
+
+    // Clips from every enabled league's news feed, favorite teams' clips first.
+    private static void fetch_and_populate_highlights(NewsWindow win) {
+        var league_keys = new Gee.ArrayList<string>();
+        foreach (var key in win.prefs.ordered_sports_league_keys()) {
+            if (win.prefs.sports_league_enabled(key)) league_keys.add(key);
+        }
+        if (league_keys.size == 0) {
+            render_highlights(win, new Gee.ArrayList<VideoHighlight>());
+            schedule_next_highlights_poll();
+            return;
+        }
+
+        var favorite_keys = new Gee.HashSet<string>();
+        foreach (var fav in win.prefs.favorite_teams()) favorite_keys.add(favorite_team_key(fav.league_key, fav.team_id));
+
+        var all = new Gee.ArrayList<VideoHighlight>();
+        int pending = league_keys.size;
+        bool any_ok = false;
+        var ctx = active_ctx;
+        foreach (var league_key in league_keys) {
+            SportsScoresService.fetch_highlights(league_key, (returned_key, highlights) => {
+                if (ctx == null || !ctx.still_owns_view()) return;
+                if (highlights != null) {
+                    any_ok = true;
+                    all.add_all(highlights);
+                }
+
+                pending--;
+                if (pending > 0) return;
+                // Every feed failed - keep whatever is already shown.
+                if (!any_ok) {
+                    schedule_next_highlights_poll();
+                    return;
+                }
+                resolve_highlights(win, rank_highlights(all, favorite_keys));
+            });
+        }
+    }
+
+    private static bool is_favorite_clip(VideoHighlight h, Gee.HashSet<string> favorite_keys) {
+        foreach (var team_id in h.team_ids) {
+            if (favorite_keys.contains(favorite_team_key(h.league_key, team_id))) return true;
+        }
+        return false;
+    }
+
+    private static Gee.ArrayList<VideoHighlight> rank_highlights(Gee.ArrayList<VideoHighlight> all, Gee.HashSet<string> favorite_keys) {
+        all.sort((a, b) => {
+            bool fa = is_favorite_clip(a, favorite_keys);
+            bool fb = is_favorite_clip(b, favorite_keys);
+            if (fa != fb) return fa ? -1 : 1;
+            if (a.published == null || b.published == null) {
+                return (a.published == null ? 1 : 0) - (b.published == null ? 1 : 0);
+            }
+            return b.published.compare(a.published);
+        });
+
+        var picked = new Gee.ArrayList<VideoHighlight>();
+        var seen = new Gee.HashSet<string>();
+        foreach (var h in all) {
+            if (seen.contains(h.clip_id)) continue;
+            seen.add(h.clip_id);
+            picked.add(h);
+            if (picked.size >= HIGHLIGHTS_CANDIDATES) break;
+        }
+        return picked;
+    }
+
+    // Resolves a few more candidates than shown, so a clip whose detail fetch fails can be skipped.
+    private static void resolve_highlights(NewsWindow win, Gee.ArrayList<VideoHighlight> candidates) {
+        var to_resolve = new Gee.ArrayList<VideoHighlight>();
+        foreach (var h in candidates) {
+            var cached = resolved_highlights().get(h.clip_id);
+            if (cached != null) {
+                h.stream_url = cached.stream_url;
+                h.duration_seconds = cached.duration_seconds;
+            } else {
+                to_resolve.add(h);
+            }
+        }
+
+        int pending = to_resolve.size;
+        if (pending == 0) {
+            finish_highlights(win, candidates);
+            return;
+        }
+
+        var ctx = active_ctx;
+        foreach (var h in to_resolve) {
+            SportsScoresService.resolve_highlight_stream(h, (resolved, ok) => {
+                if (ctx == null || !ctx.still_owns_view()) return;
+                if (ok) resolved_highlights().set(resolved.clip_id, resolved);
+                pending--;
+                if (pending <= 0) finish_highlights(win, candidates);
+            });
+        }
+    }
+
+    private static void finish_highlights(NewsWindow win, Gee.ArrayList<VideoHighlight> candidates) {
+        var shown = new Gee.ArrayList<VideoHighlight>();
+        var keep = new Gee.HashSet<string>();
+        foreach (var h in candidates) {
+            keep.add(h.clip_id);
+            if (h.stream_url != null && shown.size < HIGHLIGHTS_SHOWN) shown.add(h);
+        }
+
+        var stale = new Gee.ArrayList<string>();
+        foreach (var id in resolved_highlights().keys) {
+            if (!keep.contains(id)) stale.add(id);
+        }
+        foreach (var id in stale) resolved_highlights().unset(id);
+
+        render_highlights(win, shown);
+        schedule_next_highlights_poll();
+    }
+
+    // Section is built once; its cards are updated in place, added or trimmed to match.
+    private static void render_highlights(NewsWindow win, Gee.ArrayList<VideoHighlight> shown) {
+        if (win.content_view == null || win.content_view.highlights_container == null) return;
+        if (active_ctx == null || !active_ctx.still_owns_view()) return;
+
+        var container = win.content_view.highlights_container;
+        bool any = shown.size > 0;
+
+        if (any) {
+            if (highlights_section == null || highlights_section.wrapper.get_parent() != container) {
+                Gtk.Widget? child = container.get_first_child();
+                while (child != null) {
+                    Gtk.Widget? next = child.get_next_sibling();
+                    container.remove(child);
+                    child = next;
+                }
+                highlight_cards().clear();
+                highlights_section = new CategorySection(win, "Highlights", "sports:highlights");
+                container.append(highlights_section.wrapper);
+            }
+
+            var cards = highlight_cards();
+            for (int i = 0; i < shown.size; i++) {
+                if (i < cards.size) {
+                    cards.get(i).update(shown.get(i));
+                } else {
+                    var card = new HighlightCard(shown.get(i), win);
+                    highlights_section.add_card(card.root);
+                    cards.add(card);
+                }
+            }
+            while (cards.size > shown.size) {
+                var extra = cards.remove_at(cards.size - 1);
+                highlights_section.row.remove(extra.root);
+            }
+        }
+
+        container.set_visible(any);
+        if (win.content_view.highlights_separator != null) win.content_view.highlights_separator.set_visible(any);
     }
 }

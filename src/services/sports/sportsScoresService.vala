@@ -28,6 +28,8 @@ public class SportsScoresService : GLib.Object {
     public delegate void LeagueResultCallback(string league_key, Gee.ArrayList<GameScore>? games);
     public delegate void TeamsResultCallback(string league_key, Gee.ArrayList<TeamInfo>? teams);
     public delegate void TeamScheduleCallback(string league_key, string team_id, Gee.ArrayList<GameScore>? games);
+    public delegate void HighlightsResultCallback(string league_key, Gee.ArrayList<VideoHighlight>? highlights);
+    public delegate void HighlightStreamCallback(VideoHighlight highlight, bool ok);
 
     // One entry from a league's /teams listing - used only by the
     // Preferences "Favorite Teams" picker, not the score cards themselves.
@@ -361,6 +363,116 @@ public class SportsScoresService : GLib.Object {
         });
     }
 
+    // Video clips from a league's news feed, newest first. Premium clips are skipped.
+    public static void fetch_highlights(string league_key, owned HighlightsResultCallback callback) {
+        League l;
+        if (!find_league(league_key, out l)) {
+            callback(league_key, null);
+            return;
+        }
+
+        string url = "https://site.api.espn.com/apis/site/v2/sports/%s/%s/news?limit=50".printf(l.sport_path, l.league_path);
+        fetch_json(url, l, (root) => {
+            callback(l.key, root != null ? parse_highlights(root, l.key) : null);
+        });
+    }
+
+    // Fills in stream_url (MP4, falling back to HLS) and duration from the clip's detail endpoint.
+    public static void resolve_highlight_stream(VideoHighlight highlight, owned HighlightStreamCallback callback) {
+        League l;
+        if (!find_league(highlight.league_key, out l)) {
+            callback(highlight, false);
+            return;
+        }
+
+        string url = "https://content.core.api.espn.com/v1/video/clips/%s".printf(highlight.clip_id);
+        fetch_json(url, l, (root) => {
+            callback(highlight, root != null && apply_clip_detail(root, highlight));
+        });
+    }
+
+    private static Gee.ArrayList<VideoHighlight> parse_highlights(Json.Node root, string league_key) {
+        var highlights = new Gee.ArrayList<VideoHighlight>();
+        if (root.get_node_type() != Json.NodeType.OBJECT) return highlights;
+        var articles_node = root.get_object().get_member("articles");
+        if (articles_node == null || articles_node.get_node_type() != Json.NodeType.ARRAY) return highlights;
+
+        foreach (var node in articles_node.get_array().get_elements()) {
+            if (node.get_node_type() != Json.NodeType.OBJECT) continue;
+            var obj = node.get_object();
+            if (json_get_string_safe(obj, "type") != "Media" || json_get_bool_safe(obj, "premium")) continue;
+
+            string? id = json_get_id_safe(obj, "id");
+            string? headline = json_get_string_safe(obj, "headline");
+            if (id == null || headline == null) continue;
+
+            var h = new VideoHighlight(id, league_key, headline);
+            h.description = json_get_string_safe(obj, "description");
+            string? published = json_get_string_safe(obj, "published");
+            if (published != null) h.published = parse_espn_date(published);
+
+            var images = obj.get_member("images");
+            if (images != null && images.get_node_type() == Json.NodeType.ARRAY && images.get_array().get_length() > 0) {
+                var first = images.get_array().get_element(0);
+                if (first.get_node_type() == Json.NodeType.OBJECT) h.thumbnail_url = json_get_string_safe(first.get_object(), "url");
+            }
+
+            var links = obj.get_member("links");
+            if (links != null && links.get_node_type() == Json.NodeType.OBJECT) {
+                var web = links.get_object().get_member("web");
+                if (web != null && web.get_node_type() == Json.NodeType.OBJECT) h.web_url = json_get_string_safe(web.get_object(), "href");
+            }
+
+            var categories = obj.get_member("categories");
+            if (categories != null && categories.get_node_type() == Json.NodeType.ARRAY) {
+                foreach (var cat in categories.get_array().get_elements()) {
+                    if (cat.get_node_type() != Json.NodeType.OBJECT) continue;
+                    if (json_get_string_safe(cat.get_object(), "type") != "team") continue;
+                    string? team_id = json_get_id_safe(cat.get_object(), "teamId");
+                    if (team_id != null) h.team_ids.add(team_id);
+                }
+            }
+
+            highlights.add(h);
+        }
+
+        highlights.sort((a, b) => {
+            if (a.published == null || b.published == null) {
+                return (a.published == null ? 1 : 0) - (b.published == null ? 1 : 0);
+            }
+            return b.published.compare(a.published);
+        });
+        return highlights;
+    }
+
+    private static bool apply_clip_detail(Json.Node root, VideoHighlight highlight) {
+        if (root.get_node_type() != Json.NodeType.OBJECT) return false;
+        var videos = root.get_object().get_member("videos");
+        if (videos == null || videos.get_node_type() != Json.NodeType.ARRAY || videos.get_array().get_length() == 0) return false;
+        var video_node = videos.get_array().get_element(0);
+        if (video_node.get_node_type() != Json.NodeType.OBJECT) return false;
+        var video = video_node.get_object();
+
+        var duration = video.get_member("duration");
+        if (duration != null && duration.get_node_type() == Json.NodeType.VALUE && duration.get_value_type() == typeof(int64)) {
+            highlight.duration_seconds = (int) duration.get_int();
+        }
+
+        var links = video.get_member("links");
+        if (links == null || links.get_node_type() != Json.NodeType.OBJECT) return false;
+        var source = links.get_object().get_member("source");
+        if (source == null || source.get_node_type() != Json.NodeType.OBJECT) return false;
+        var source_obj = source.get_object();
+
+        // MP4 first: neither Gtk.Video nor WebKit plays ESPN's HLS playlists here.
+        highlight.stream_url = json_get_string_safe(source_obj, "href");
+        if (highlight.stream_url == null) {
+            var hls = source_obj.get_member("HLS");
+            if (hls != null && hls.get_node_type() == Json.NodeType.OBJECT) highlight.stream_url = json_get_string_safe(hls.get_object(), "href");
+        }
+        return highlight.stream_url != null;
+    }
+
     private static void sort_by_start_time(Gee.ArrayList<GameScore> games) {
         games.sort((a, b) => {
             if (a.start_time == null || b.start_time == null) {
@@ -593,6 +705,16 @@ public class SportsScoresService : GLib.Object {
         } catch (GLib.Error e) {
             return false;
         }
+    }
+
+    // ESPN ids come back as either JSON numbers or strings depending on the endpoint.
+    private static string? json_get_id_safe(Json.Object obj, string member) {
+        if (!obj.has_member(member)) return null;
+        var node = obj.get_member(member);
+        if (node == null || node.get_node_type() != Json.NodeType.VALUE) return null;
+        if (node.get_value_type() == typeof(int64)) return node.get_int().to_string();
+        if (node.get_value_type() == typeof(string)) return node.get_string();
+        return null;
     }
 
     private static string? json_get_string_safe(Json.Object obj, string member) {

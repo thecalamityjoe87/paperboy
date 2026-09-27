@@ -270,7 +270,7 @@ public class NoteEditorDialog : GLib.Object {
             WebViewUtils.terminate_process(webview);
         });
 
-        dialog.present(parent);
+        dialog.present(DialogUtils.parent_for(parent));
         title_entry.grab_focus();
     }
 }

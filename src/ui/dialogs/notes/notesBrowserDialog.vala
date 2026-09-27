@@ -26,7 +26,7 @@ public class NotesBrowserDialog : GLib.Object {
 
     public static void show(NewsWindow window) {
         if (current_instance != null) {
-            current_instance.present(window);
+            current_instance.present(DialogUtils.parent_for(window));
             return;
         }
 
@@ -128,7 +128,7 @@ public class NotesBrowserDialog : GLib.Object {
         });
 
         current_instance = dialog;
-        dialog.present(window);
+        dialog.present(DialogUtils.parent_for(window));
     }
 
     private delegate void VoidFunc();

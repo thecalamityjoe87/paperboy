@@ -214,7 +214,7 @@ public class MagazineOrganizeDialog : GLib.Object {
 
         refresh();
 
-        dialog.present((Gtk.Window) window);
+        dialog.present(DialogUtils.parent_for((Gtk.Window) window));
     }
 
     // The fixed Uncategorized column - a droppable list of chips, never
@@ -394,7 +394,7 @@ public class MagazineOrganizeDialog : GLib.Object {
                 }
             });
 
-            confirm_dialog.present((Gtk.Window) window);
+            confirm_dialog.present(DialogUtils.parent_for((Gtk.Window) window));
         });
 
         // Fills the row's width so several chips pack left-to-right before
