@@ -241,7 +241,7 @@ public class PodcastDetailDialog : GLib.Object {
         nav_view.push(main_page);
 
         dialog.set_child(nav_view);
-        dialog.present(DialogUtils.parent_for(parent_window));
+        dialog.present(parent_window);
 
         VoidFunc update_episode_play_buttons = () => {
             var current = playback.get_current_episode();

@@ -225,7 +225,7 @@ public class ShareDialog : GLib.Object {
         content_box.append(button_box);
 
         dialog.set_child(content_box);
-        dialog.present(DialogUtils.parent_for(parent_window));
+        dialog.present(parent_window);
     }
 
     private static Gtk.Button create_menu_button(string icon_name, string label_text, owned VoidFunc callback) {

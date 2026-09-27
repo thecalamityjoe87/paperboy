@@ -685,7 +685,7 @@ namespace Managers {
                     window.toast_manager.show_toast(ids.size == 1 ? "Removed 1 magazine" : "Removed %d magazines".printf(ids.size));
                 }
             });
-            confirm_dialog.present(DialogUtils.parent_for((Gtk.Window) window));
+            confirm_dialog.present((Gtk.Window) window);
         }
 
         private void wire_selection_bar() {

@@ -151,7 +151,7 @@ public class HeaderManager : GLib.Object {
                 }
             });
 
-            confirm_dialog.present(DialogUtils.parent_for((Gtk.Widget) window));
+            confirm_dialog.present((Gtk.Widget) window);
         });
     }
 

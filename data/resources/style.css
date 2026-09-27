@@ -1298,6 +1298,11 @@ navigation-split-view>widget.sidebar-pane {
     background-color: alpha(black, 0.4);
 }
 
+/* A bit stronger than libadwaita's dialog dimming to offset the lighter sidebar background */
+.sidebar-dialog-dim {
+    background-color: RGB(from var(--shade-color) r g b / calc(alpha * 2.6));
+}
+
 /* Only the headerbar for the sidebar pane */
 navigation-split-view>widget.sidebar-pane headerbar {
     background-color: @sidebar_bg_color;

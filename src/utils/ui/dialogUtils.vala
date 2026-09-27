@@ -36,6 +36,17 @@ public class DialogUtils : GLib.Object {
         return win.content_dialog_host;
     }
 
+    // The dialog's backdrop dimming layer (first child of its floating/bottom sheet).
+    public static Gtk.Widget? find_dimming(Gtk.Widget w) {
+        for (var c = w.get_first_child(); c != null; c = c.get_next_sibling()) {
+            var type_name = c.get_type().name();
+            if (type_name == "AdwFloatingSheet" || type_name == "AdwBottomSheet") return c.get_first_child();
+            var found = find_dimming(c);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
     // Size of the area a dialog presented on `parent` will be centered over.
     public static void available_size(Gtk.Widget parent, out int width, out int height) {
         var target = parent_for(parent);

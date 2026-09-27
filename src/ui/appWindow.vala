@@ -88,6 +88,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Managers.MagazineLibraryManager magazine_manager;
     private Gtk.Widget? current_toast_widget;
     public Gtk.Widget dim_overlay;
+    private Gtk.Widget sidebar_dialog_dim;
+    private GLib.WeakRef sidebar_dim_source;
     public Gtk.Box main_content_container;
     public Gtk.ScrolledWindow main_scrolled;
     public Gtk.Widget content_area;
@@ -815,10 +817,23 @@ public class NewsWindow : Adw.ApplicationWindow {
     if (content_dialog_host != null) {
         // The window-level host blocked the sidebar while a dialog was up; keep that.
         unowned Adw.NavigationPage sidebar_ref = sidebar_page;
+
+        // Mirrors the dialog's own backdrop dimming over the sidebar.
+        sidebar_dialog_dim = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        sidebar_dialog_dim.add_css_class("sidebar-dialog-dim");
+        sidebar_dialog_dim.set_can_target(false);
+        sidebar_dialog_dim.set_opacity(0);
+        var sidebar_child = sidebar_page.get_child();
+        var sidebar_overlay = new Gtk.Overlay();
+        sidebar_page.set_child(sidebar_overlay);
+        sidebar_overlay.set_child(sidebar_child);
+        sidebar_overlay.add_overlay(sidebar_dialog_dim);
+
         content_dialog_host.notify["visible-dialog"].connect((obj, pspec) => {
             Adw.Dialog? visible = null;
             obj.get("visible-dialog", out visible);
             sidebar_ref.set_can_target(visible == null);
+            if (visible != null) bind_sidebar_dim(visible);
         });
     }
 
@@ -1257,6 +1272,19 @@ public class NewsWindow : Adw.ApplicationWindow {
     public int estimate_content_width() {
         if (layout_manager != null) return layout_manager.estimate_content_width();
         return 1280;
+    }
+
+    private void bind_sidebar_dim(Adw.Dialog dialog) {
+        // A stacked dialog keeps following the one already dimming.
+        var current = sidebar_dim_source.get() as Gtk.Widget;
+        if (current != null && current.get_mapped()) return;
+
+        var dimming = DialogUtils.find_dimming(dialog);
+        if (dimming == null) return;
+        sidebar_dim_source.set(dimming);
+        dimming.bind_property("opacity", sidebar_dialog_dim, "opacity", GLib.BindingFlags.SYNC_CREATE);
+        unowned Gtk.Widget dim_ref = sidebar_dialog_dim;
+        dimming.unmap.connect(() => dim_ref.set_opacity(0));
     }
 
     private void update_main_content_size(bool sidebar_visible) {
