@@ -367,6 +367,7 @@ public class SportsScoresController : GLib.Object {
                     section.add_card(card.root);
                     cards_for_league.set(game.game_id, card);
                 }
+                open_on_current_game(section, games, cards_for_league);
                 container.append(section.wrapper);
                 current_sections().set(league_key, section);
                 current_cards().set(league_key, cards_for_league);
@@ -460,6 +461,32 @@ public class SportsScoresController : GLib.Object {
         }
     }
 
+    private const int TEAM_RESULTS_SHOWN = 5;
+    private const int TEAM_UPCOMING_SHOWN = 5;
+
+    // A team's last few results plus its next few games, out of the whole season.
+    private static Gee.ArrayList<GameScore> recent_and_upcoming(Gee.ArrayList<GameScore> games) {
+        int first_upcoming = games.size;
+        for (int i = 0; i < games.size; i++) {
+            if (games.get(i).status == GameStatus.SCHEDULED) { first_upcoming = i; break; }
+        }
+        int start = int.max(0, first_upcoming - TEAM_RESULTS_SHOWN);
+        int end = int.min(games.size, first_upcoming + TEAM_UPCOMING_SHOWN);
+        var trimmed = new Gee.ArrayList<GameScore>();
+        for (int i = start; i < end; i++) trimmed.add(games.get(i));
+        return trimmed;
+    }
+
+    // Rows are oldest-first; open on the first live game, else the latest one with a result.
+    private static void open_on_current_game(CategorySection section, Gee.ArrayList<GameScore> games, Gee.HashMap<string, ScoreCard> cards) {
+        GameScore? target = null;
+        foreach (var game in games) {
+            if (game.status == GameStatus.LIVE) { target = game; break; }
+            if (game.status == GameStatus.FINAL && !game.no_result) target = game;
+        }
+        if (target != null && cards.has_key(target.game_id)) section.scroll_to_card(cards.get(target.game_id).root);
+    }
+
     private static string favorite_team_key(string league_key, string team_id) {
         return "%s|%s".printf(league_key, team_id);
     }
@@ -500,8 +527,9 @@ public class SportsScoresController : GLib.Object {
                 if (ctx == null || !ctx.still_owns_view()) return;
 
                 if (games != null) {
-                    favorite_teams_last_good().set(key, games);
-                    results.set(key, games);
+                    var shown = recent_and_upcoming(games);
+                    favorite_teams_last_good().set(key, shown);
+                    results.set(key, shown);
                 } else if (favorite_teams_last_good().has_key(key)) {
                     results.set(key, favorite_teams_last_good().get(key));
                 } else {
@@ -599,6 +627,7 @@ public class SportsScoresController : GLib.Object {
                     section.add_card(card.root);
                     cards_for_team.set(game.game_id, card);
                 }
+                open_on_current_game(section, games, cards_for_team);
                 container.append(section.wrapper);
                 favorite_team_sections().set(key, section);
                 favorite_team_cards().set(key, cards_for_team);

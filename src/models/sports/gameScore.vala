@@ -48,6 +48,8 @@ public class GameScore : GLib.Object {
     public GameStatus status;
     public string status_detail; // e.g. "Q3 7:42", "FINAL", "7:00 PM"
     public GLib.DateTime? start_time;
+    public bool time_valid;  // false when ESPN has a date but no kickoff time yet ("TBD")
+    public bool no_result;   // finished without being played (postponed, canceled)
     public string espn_link;
 
     public GameScore(string league, string league_display_name, string game_id) {
@@ -62,6 +64,8 @@ public class GameScore : GLib.Object {
         this.away_score = "";
         this.status = GameStatus.SCHEDULED;
         this.status_detail = "";
+        this.time_valid = true;
+        this.no_result = false;
         this.espn_link = "";
     }
 }

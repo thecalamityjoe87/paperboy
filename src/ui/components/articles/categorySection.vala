@@ -235,6 +235,39 @@ public class CategorySection : GLib.Object {
         wrapper.set_visible(true);
     }
 
+    // Starts the row scrolled so `card_root` sits at its left edge, once the row is laid out.
+    public void scroll_to_card(Gtk.Widget card_root) {
+        if (scroll_adjustment != null) scroll_row_to_card(row, scroll_adjustment, card_root);
+    }
+
+    // Static so these closures don't capture `this`.
+    private static void scroll_row_to_card(Gtk.Box row_widget, Gtk.Adjustment adjustment, Gtk.Widget card_root) {
+        unowned Gtk.Adjustment adj = adjustment;
+        unowned Gtk.Box r = row_widget;
+        unowned Gtk.Widget target = card_root;
+        // Hidden sections (unselected leagues) wait until first shown instead of ticking.
+        if (!row_widget.get_mapped()) {
+            ulong map_handler = 0;
+            map_handler = row_widget.map.connect(() => {
+                r.disconnect(map_handler);
+                scroll_row_to_card(r, adj, target);
+            });
+            return;
+        }
+        row_widget.add_tick_callback(() => {
+            if (target.get_parent() != r || !r.get_mapped()) return false;
+            if (target.get_width() <= 0) return true;
+            Graphene.Point p;
+            if (!target.compute_point(r, Graphene.Point() { x = 0, y = 0 }, out p)) return false;
+            // Stay 1px short of the end so the edge bounce doesn't fire.
+            double max_value = adj.get_upper() - adj.get_page_size() - 1.0;
+            if (max_value > adj.get_lower()) {
+                adj.set_value(double.min(p.x, max_value));
+            }
+            return false;
+        });
+    }
+
     // Static for the same reason as add_nav_buttons: these closures hang off
     // signals owned by the section's own scroller, so they must not capture `this`.
     private static void wire_row_bounce(Gtk.ScrolledWindow scroller, Gtk.Box bounce_host, NewsWindow? window) {

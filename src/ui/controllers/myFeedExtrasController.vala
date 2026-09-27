@@ -108,7 +108,13 @@ public class MyFeedExtrasController : GLib.Object {
                 if (ctx == null || !ctx.still_owns_view()) return;
                 if (games != null) results.set(returned_key, games);
                 if (remaining == 0) {
-                    render_sports_row(win, select_sports_games(league_order, results, favorites));
+                    var selected = select_sports_games(league_order, results, favorites);
+                    // Picked by priority, shown in time order.
+                    selected.sort((a, b) => {
+                        if (a.start_time == null || b.start_time == null) return 0;
+                        return a.start_time.compare(b.start_time);
+                    });
+                    render_sports_row(win, selected);
                 }
             });
         }

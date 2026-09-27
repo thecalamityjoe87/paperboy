@@ -143,11 +143,54 @@ public class SportsScoresService : GLib.Object {
             return;
         }
 
-        string url = "https://site.api.espn.com/apis/site/v2/sports/%s/%s/scoreboard".printf(l.sport_path, l.league_path);
-        if (l.extra_query != null && l.extra_query.length > 0) {
-            url = "%s?%s".printf(url, l.extra_query);
-        }
+        string base_url = "https://site.api.espn.com/apis/site/v2/sports/%s/%s/scoreboard".printf(l.sport_path, l.league_path);
+        string extra = (l.extra_query != null && l.extra_query.length > 0) ? l.extra_query : "";
+        string url = extra.length > 0 ? "%s?%s".printf(base_url, extra) : base_url;
 
+        fetch_json(url, l, (root) => {
+            Gee.ArrayList<GameScore>? games = root != null ? parse_events(root, l.key, l.display_name) : null;
+            string? next_day = games != null ? next_scoreboard_day(root) : null;
+            if (next_day == null) {
+                callback(l.key, games);
+                return;
+            }
+
+            // Daily scoreboards (everything but the weekly football ones) only cover one day; add the next.
+            string next_url = "%s?dates=%s%s".printf(base_url, next_day, extra.length > 0 ? "&" + extra : "");
+            fetch_json(next_url, l, (next_root) => {
+                if (next_root != null) merge_games(games, parse_events(next_root, l.key, l.display_name));
+                callback(l.key, games);
+            });
+        });
+    }
+
+    // "YYYYMMDD" for the day after a daily scoreboard's own "day", or null for weekly ones.
+    private static string? next_scoreboard_day(Json.Node root) {
+        if (root.get_node_type() != Json.NodeType.OBJECT) return null;
+        var obj = root.get_object();
+        if (!obj.has_member("day")) return null;
+        var day_node = obj.get_member("day");
+        if (day_node == null || day_node.get_node_type() != Json.NodeType.OBJECT) return null;
+        string? date = json_get_string_safe(day_node.get_object(), "date");
+        if (date == null) return null;
+        var day = new GLib.DateTime.from_iso8601(date + "T00:00:00Z", null);
+        if (day == null) return null;
+        return day.add_days(1).format("%Y%m%d");
+    }
+
+    // Appends games not already present, then re-sorts.
+    private static void merge_games(Gee.ArrayList<GameScore> games, Gee.ArrayList<GameScore> extra) {
+        var seen = new Gee.HashSet<string>();
+        foreach (var g in games) seen.add(g.game_id);
+        foreach (var g in extra) {
+            if (!seen.contains(g.game_id)) games.add(g);
+        }
+        sort_by_start_time(games);
+    }
+
+    private delegate void JsonCallback(Json.Node? root);
+
+    private static void fetch_json(string url, League l, owned JsonCallback callback) {
         // ESPN's unofficial API appears to block by User-Agent content
         // specifically, not by header shape or rate: confirmed by hand
         // (repeated, alternating curl calls against the live endpoint)
@@ -161,38 +204,18 @@ public class SportsScoresService : GLib.Object {
 
         var client = Paperboy.HttpClientUtils.get_default();
         client.fetch_async(url, options, (response) => {
-            if (!response.is_success()) {
-                callback(l.key, null);
+            string? body = response.is_success() ? response.get_body_string() : null;
+            if (body == null) {
+                callback(null);
                 return;
             }
-
-            Json.Node? root = null;
             try {
                 var parser = new Json.Parser();
-                string? body = response.get_body_string();
-                if (body == null) {
-                    callback(l.key, null);
-                    return;
-                }
                 parser.load_from_data(body);
-                root = parser.get_root();
+                callback(parser.get_root());
             } catch (GLib.Error e) {
-                warning("SportsScoresService: JSON parse error for %s: %s", l.key, e.message);
-                callback(l.key, null);
-                return;
-            }
-
-            if (root == null) {
-                callback(l.key, null);
-                return;
-            }
-
-            try {
-                var games = parse_events(root, l.key, l.display_name);
-                callback(l.key, games);
-            } catch (GLib.Error e) {
-                warning("SportsScoresService: failed to parse %s scoreboard: %s", l.key, e.message);
-                callback(l.key, null);
+                warning("SportsScoresService: JSON parse error for %s (%s): %s", l.key, url, e.message);
+                callback(null);
             }
         });
     }
@@ -312,9 +335,8 @@ public class SportsScoresService : GLib.Object {
         return teams;
     }
 
-    // A favorited team's own schedule (past + upcoming games) - same
-    // events[]/competitions[]/competitors[] shape as the scoreboard
-    // endpoint, so parse_events() is fully reusable as-is.
+    // A favorited team's own schedule (past + upcoming games), sorted oldest
+    // first - ESPN returns soccer newest-first and everything else oldest-first.
     public static void fetch_team_schedule(string league_key, string team_id, owned TeamScheduleCallback callback) {
         League l;
         if (!find_league(league_key, out l)) {
@@ -324,61 +346,48 @@ public class SportsScoresService : GLib.Object {
 
         string url = "https://site.api.espn.com/apis/site/v2/sports/%s/%s/teams/%s/schedule".printf(l.sport_path, l.league_path, team_id);
 
-        var options = new Paperboy.HttpClientUtils.RequestOptions();
-        options.user_agent = "curl/8.7.1";
-
-        var client = Paperboy.HttpClientUtils.get_default();
-        client.fetch_async(url, options, (response) => {
-            if (!response.is_success()) {
-                callback(l.key, team_id, null);
-                return;
-            }
-
-            Json.Node? root = null;
-            try {
-                var parser = new Json.Parser();
-                string? body = response.get_body_string();
-                if (body == null) {
-                    callback(l.key, team_id, null);
-                    return;
-                }
-                parser.load_from_data(body);
-                root = parser.get_root();
-            } catch (GLib.Error e) {
-                warning("SportsScoresService: JSON parse error for %s team %s schedule: %s", l.key, team_id, e.message);
-                callback(l.key, team_id, null);
-                return;
-            }
-
-            if (root == null) {
-                callback(l.key, team_id, null);
-                return;
-            }
-
-            try {
-                var games = parse_events(root, l.key, l.display_name);
+        fetch_json(url, l, (root) => {
+            Gee.ArrayList<GameScore>? games = root != null ? parse_events(root, l.key, l.display_name) : null;
+            if (games == null || l.sport_path != "soccer") {
                 callback(l.key, team_id, games);
-            } catch (GLib.Error e) {
-                warning("SportsScoresService: failed to parse %s team %s schedule: %s", l.key, team_id, e.message);
-                callback(l.key, team_id, null);
+                return;
             }
+
+            // Soccer schedules only list played games; upcoming ones need fixture=true.
+            fetch_json(url + "?fixture=true", l, (fixture_root) => {
+                if (fixture_root != null) merge_games(games, parse_events(fixture_root, l.key, l.display_name));
+                callback(l.key, team_id, games);
+            });
         });
     }
 
-    private static Gee.ArrayList<GameScore> parse_events(Json.Node root, string league_key, string league_display_name) throws GLib.Error {
+    private static void sort_by_start_time(Gee.ArrayList<GameScore> games) {
+        games.sort((a, b) => {
+            if (a.start_time == null || b.start_time == null) {
+                return (a.start_time == null ? 1 : 0) - (b.start_time == null ? 1 : 0);
+            }
+            return a.start_time.compare(b.start_time);
+        });
+    }
+
+    // Returns games sorted oldest first - ESPN's own order varies by league and endpoint.
+    private static Gee.ArrayList<GameScore> parse_events(Json.Node root, string league_key, string league_display_name) {
         var games = new Gee.ArrayList<GameScore>();
         if (root.get_node_type() != Json.NodeType.OBJECT) return games;
 
         var obj = root.get_object();
         if (!obj.has_member("events")) return games;
 
-        Json.Array events = obj.get_array_member("events");
+        var events_node = obj.get_member("events");
+        if (events_node == null || events_node.get_node_type() != Json.NodeType.ARRAY) return games;
+        Json.Array events = events_node.get_array();
         uint len = events.get_length();
         for (uint i = 0; i < len; i++) {
             var ev = events.get_element(i);
             if (ev.get_node_type() != Json.NodeType.OBJECT) continue;
             parse_event(ev.get_object(), league_key, league_display_name, games);
         }
+        sort_by_start_time(games);
         return games;
     }
 
@@ -428,8 +437,9 @@ public class SportsScoresService : GLib.Object {
 
             string? date_str = json_get_string_safe(comp_obj, "date") ?? event_date_str;
             if (date_str != null) {
-                game.start_time = new GLib.DateTime.from_iso8601(date_str, null);
+                game.start_time = parse_espn_date(date_str);
             }
+            if (comp_obj.has_member("timeValid")) game.time_valid = json_get_bool_safe(comp_obj, "timeValid");
 
             var status_obj = comp_obj.has_member("status") ? comp_obj : ev;
             apply_status(status_obj, game);
@@ -462,6 +472,7 @@ public class SportsScoresService : GLib.Object {
         var type_obj = type_node.get_object();
         string? state = json_get_string_safe(type_obj, "state");
         game.status = state == "in" ? GameStatus.LIVE : (state == "post" ? GameStatus.FINAL : GameStatus.SCHEDULED);
+        game.no_result = state == "post" && type_obj.has_member("completed") && !json_get_bool_safe(type_obj, "completed");
         string? detail = json_get_string_safe(type_obj, "shortDetail");
         if (detail == null) detail = json_get_string_safe(type_obj, "detail");
         game.status_detail = detail ?? "";
@@ -504,7 +515,14 @@ public class SportsScoresService : GLib.Object {
 
             home_away = (index == 0) ? "away" : "home";
         } else {
+            // Scoreboard gives "score" as a string; team schedules give an object with "displayValue".
             string? s = json_get_string_safe(c_obj, "score");
+            if (s == null && c_obj.has_member("score")) {
+                var score_node = c_obj.get_member("score");
+                if (score_node != null && score_node.get_node_type() == Json.NodeType.OBJECT) {
+                    s = json_get_string_safe(score_node.get_object(), "displayValue");
+                }
+            }
             score = s ?? "";
             if (c_obj.has_member("team")) {
                 var team_node = c_obj.get_member("team");
@@ -551,6 +569,18 @@ public class SportsScoresService : GLib.Object {
             game.away_score = score;
             game.away_logo_url = logo;
             game.away_team_id = team_id;
+        }
+    }
+
+    // ESPN omits seconds ("2026-09-27T00:30Z"), which GLib's ISO 8601 parser rejects.
+    private static GLib.DateTime? parse_espn_date(string date_str) {
+        var dt = new GLib.DateTime.from_iso8601(date_str, null);
+        if (dt != null) return dt;
+        try {
+            var no_seconds = new GLib.Regex("T(\\d{2}:\\d{2})(Z|[+-])");
+            return new GLib.DateTime.from_iso8601(no_seconds.replace(date_str, -1, 0, "T\\1:00\\2"), null);
+        } catch (GLib.RegexError e) {
+            return null;
         }
     }
 

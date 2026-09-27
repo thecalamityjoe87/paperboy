@@ -105,4 +105,48 @@ public class DateUtils {
         string[] months = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
         return "%s %d".printf(months[dt.get_month() - 1], dt.get_day_of_month());
     }
+
+    private static bool clock_format_loaded;
+    private static bool clock_12h;
+    private static GLib.DBusProxy? settings_portal;
+
+    // strftime format for a time of day, following GNOME's 12h/24h clock setting.
+    public static string clock_time_format() {
+        if (!clock_format_loaded) {
+            clock_format_loaded = true;
+            clock_12h = read_clock_format() == "12h";
+        }
+        return clock_12h ? "%-I:%M %p" : "%H:%M";
+    }
+
+    // Settings portal first, since a Flatpak sandbox can't read the host's GSettings.
+    private static string? read_clock_format() {
+        try {
+            settings_portal = new GLib.DBusProxy.for_bus_sync(GLib.BusType.SESSION, GLib.DBusProxyFlags.NONE, null,
+                "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.Settings");
+            settings_portal.g_signal.connect((sender, signal_name, parameters) => {
+                if (signal_name != "SettingChanged") return;
+                string ns, key;
+                GLib.Variant value;
+                parameters.get("(ssv)", out ns, out key, out value);
+                if (ns == "org.gnome.desktop.interface" && key == "clock-format" && value.is_of_type(GLib.VariantType.STRING)) {
+                    clock_12h = value.get_string() == "12h";
+                }
+            });
+            // Read (unlike the newer ReadOne) exists on every portal version, but nests the value twice.
+            var result = settings_portal.call_sync("Read", new GLib.Variant("(ss)", "org.gnome.desktop.interface", "clock-format"),
+                GLib.DBusCallFlags.NONE, 1000, null);
+            var value = result.get_child_value(0).get_variant();
+            if (value.is_of_type(GLib.VariantType.VARIANT)) value = value.get_variant();
+            if (value.is_of_type(GLib.VariantType.STRING)) return value.get_string();
+        } catch (GLib.Error e) {
+            debug("DateUtils: settings portal unavailable for clock-format: %s", e.message);
+        }
+
+        var schema = GLib.SettingsSchemaSource.get_default()?.lookup("org.gnome.desktop.interface", true);
+        if (schema != null && schema.has_key("clock-format")) {
+            return new GLib.Settings.full(schema, null, null).get_string("clock-format");
+        }
+        return null;
+    }
 }
