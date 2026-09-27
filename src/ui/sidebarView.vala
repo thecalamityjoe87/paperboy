@@ -368,9 +368,28 @@ public class SidebarView : GLib.Object {
                 show_podcast_sidebar_menu(btn, item_id, item_title, x, y);
             });
             btn.add_controller(right_click);
+        } else if (item.id == "local_news" || item.id.has_prefix(LocalArea.ID_PREFIX)) {
+            string item_id = item.id;
+            var right_click = new Gtk.GestureClick();
+            right_click.set_button(3);
+            right_click.pressed.connect((n_press, x, y) => {
+                var area = find_local_area(item_id);
+                if (area != null) sidebar_menu.show_for_local_area(btn, area);
+            });
+            btn.add_controller(right_click);
         }
 
         return btn;
+    }
+
+    // The active city's row uses the "local_news" routing id instead of its own.
+    private LocalArea? find_local_area(string item_id) {
+        var prefs = NewsPreferences.get_instance();
+        if (item_id == "local_news") return prefs.get_active_local_area();
+        foreach (var area in prefs.get_local_areas()) {
+            if (area.id == item_id) return area;
+        }
+        return null;
     }
 
     // Right-click menu for a podcast subscription row - always
