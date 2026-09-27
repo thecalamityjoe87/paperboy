@@ -1,3 +1,23 @@
+# v0.12.1a - Sports Highlights & In-App Video, Reading Times, Local Weather, and MPRIS
+
+- Added a Highlights row to the Sports page with up to 12 ESPN video clips from your enabled leagues. Clips of your favorite teams come first, and the row refreshes every 30 minutes while Sports is open
+- Added in-app video playback across news sites: reader view now finds an article's lead video using the standard tags most publishers include, and plays it in a new video player dialog with autoplay and fullscreen
+- The video player handles publisher players, YouTube, Vimeo, Dailymotion, and MP4/HLS streams (via bundled hls.js), with site-specific tweaks for ESPN, Fox News, Fox Business, ABC News, and PBS
+- Video-only pages now open in reader view as a title and video instead of failing, and the reader no longer shows a duplicate hero image when the video already uses it as its poster
+- Added "N min read" to article, hero, and history cards, using the site's own reading time when it publishes one. For feeds that only include an excerpt, the article is fetched in the background to get it
+- Added current weather and today's high/low for your local area to the Local News header and My Feed (via Open-Meteo, in °F or °C to match your locale); clicking it opens GNOME Weather if installed
+- Added MPRIS support so podcast playback shows up in GNOME media controls and on the lock screen, and responds to media keys
+- Added a dedicated search to Magazine Rack that filters your library by title, category, or source
+- The Saved page header now shows your saved article count instead of the date, and History hides the date row and moves "Clear History" up next to the title
+- The header date now stays correct past midnight
+- The image viewer and video player now center over the content area, with the sidebar dimmed along with it
+- Fixed Local News articles appearing out of order: they now show newest-first, cached and live results are merged without duplicates, and newer stories are no longer cut by the item cap
+- Fixed favorite-team scores not showing, and game start times failing to parse (which also broke score polling and My Feed's game filter)
+- Game times now follow your time zone and GNOME clock format, finished games show their date, unscheduled games show "TBD", and postponed or canceled games no longer show 0-0
+- Scores rows are now sorted by start time and open on the first live game (or the latest result), include upcoming soccer fixtures and the next day's games, and My Teams is trimmed to the last 5 results and next 5 games
+- Fixed a full-page error staying over loaded articles when just one source failed on Sports, multi-source categories, or My Feed
+- Fixed dark logos with transparent backgrounds disappearing on dark themes by giving circular source logos a light backing
+
 # v0.12.0a - Magazine Rack & PDF Reader, Reading History, My Feed Extras, and a Feed Refresh Overhaul
 
 - Added Magazine Rack to import, organize, and read PDF magazines with two-page spreads, pinch/button zoom, swipe page turning with live drag-peek, and a slide-out table of contents panel
