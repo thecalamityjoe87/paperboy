@@ -53,6 +53,19 @@ public class RssFeedProcessor {
         return result.str;
     }
 
+    // Rows hold the published date at index 3; undated rows sort last.
+    private static void keep_newest_items(Gee.ArrayList<Gee.ArrayList<string?>> items, int max) {
+        items.sort((a, b) => {
+            var da = DateUtils.parse_published_datetime(a.size > 3 ? a[3] : null);
+            var db = DateUtils.parse_published_datetime(b.size > 3 ? b[3] : null);
+            if (da == null && db == null) return 0;
+            if (da == null) return 1;
+            if (db == null) return -1;
+            return db.compare(da);
+        });
+        while (items.size > max) items.remove_at(items.size - 1);
+    }
+
     public static void parse_rss_and_display(
         string body,
         string source_name,
@@ -272,10 +285,6 @@ public class RssFeedProcessor {
                             }
 
                             if (title != null && link != null) {
-                                if (category_id == "local_news" && items.size >= LOCAL_FEED_MAX_ITEMS) {
-                                    try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssFeedProcessor: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name); } catch (GLib.Error e) { }
-                                    continue;
-                                }
 
                                 var row = new Gee.ArrayList<string?>();
                                 if (thumb != null && bbc_enabled) {
@@ -494,10 +503,6 @@ public class RssFeedProcessor {
                                 }
 
                                 if (title != null && link != null) {
-                                    if (category_id == "local_news" && items.size >= LOCAL_FEED_MAX_ITEMS) {
-                                        try { if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null) warning("rssFeedProcessor: local feed cap reached (%d): %s", LOCAL_FEED_MAX_ITEMS, source_name); } catch (GLib.Error e) { }
-                                        continue;
-                                    }
 
                                     var row = new Gee.ArrayList<string?>();
                                     if (thumb != null && bbc_enabled) {
@@ -535,6 +540,9 @@ public class RssFeedProcessor {
                     }
                 }
             }
+
+            // Google News search results come in relevance order, so keep the newest instead of the first N.
+            if (category_id == "local_news") keep_newest_items(items, LOCAL_FEED_MAX_ITEMS);
 
             // Feeds mixing excerpts with the odd long one would give too-short estimates.
             if (reading_minutes.size * 2 >= content_items) ArticleReadingTimeCache.get_instance().set_many(reading_minutes);
