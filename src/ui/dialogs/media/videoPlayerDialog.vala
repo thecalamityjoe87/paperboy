@@ -108,6 +108,10 @@ public class VideoPlayerDialog : GLib.Object {
             video.get_user_content_manager().add_script(new WebKit.UserScript(embed.page_script,
                 WebKit.UserContentInjectedFrames.ALL_FRAMES, WebKit.UserScriptInjectionTime.END, null, null));
         }
+        if (embed.start_script != null) {
+            video.get_user_content_manager().add_script(new WebKit.UserScript(embed.start_script,
+                WebKit.UserContentInjectedFrames.ALL_FRAMES, WebKit.UserScriptInjectionTime.START, null, null));
+        }
         video.load_uri(embed.url);
 
         var dialog = new Adw.Dialog();

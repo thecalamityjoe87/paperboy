@@ -22,10 +22,13 @@ public class VideoEmbed : GLib.Object {
     public string url;
     // Run in the embed page once it loads, for players that need a nudge to autoplay.
     public string? page_script;
+    // Run before the embed page's own scripts.
+    public string? start_script;
 
-    public VideoEmbed(string url, string? page_script = null) {
+    public VideoEmbed(string url, string? page_script = null, string? start_script = null) {
         this.url = url;
         this.page_script = page_script;
+        this.start_script = start_script;
     }
 }
 
@@ -45,6 +48,10 @@ public class VideoEmbedResolver : GLib.Object {
     // Dismisses the "Introducing Verts" promo ABC's embed shows over the video (it lives in its own frame).
     private const string ABC_DISMISS_PROMO_JS = "(function(){var n=0;var t=setInterval(function(){var b=document.querySelector('button.v-close');if(b){b.click();clearInterval(t);}else if(++n>60){clearInterval(t);}},500);})();";
 
+    // Hides WebKit's native audio/video track lists so Video.js manages tracks itself. Otherwise WebKit's
+    // own MSE track disables the player's separate audio track, and playback stalls after the first segment.
+    private const string BRIGHTCOVE_EMULATE_TRACKS_JS = "['audioTracks','videoTracks'].forEach(function(p){Object.defineProperty(HTMLMediaElement.prototype,p,{get:function(){return undefined;},configurable:true});});";
+
     private const string PBS_EMBED_URL = "https://player.pbs.org/viralplayer/%s/?autoplay=true";
 
     public static VideoEmbed espn_clip(string clip_id) {
@@ -63,6 +70,9 @@ public class VideoEmbedResolver : GLib.Object {
             }
             if (new GLib.Regex("^https?://player\\.pbs\\.org/viralplayer/(\\d+)").match(url, 0, out mi)) {
                 return new VideoEmbed(PBS_EMBED_URL.printf(mi.fetch(1)));
+            }
+            if (new GLib.Regex("^https://players\\.brightcove\\.net/").match(url)) {
+                return new VideoEmbed(url, null, BRIGHTCOVE_EMULATE_TRACKS_JS);
             }
         } catch (GLib.RegexError e) {
         }
