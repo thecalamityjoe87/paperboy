@@ -156,14 +156,15 @@ public class FetchNewsController {
             if (w.article_manager != null) {
                 w.article_manager.add_item(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published, it.snippet, true);
             }
-        }, (text) => forward_label(ctx, text), null, () => { mark_frontpage_endpoint_done(ctx); });
+        }, (text) => { if (ctx.still_owns_view()) ctx.window.update_content_header(); }, null, () => { mark_frontpage_endpoint_done(ctx); });
     }
 
     private static void forward_label(FetchContext ctx, string? text) {
         if (ctx.is_local_only_view() || !ctx.still_owns_view()) return;
         var win = ctx.window;
 
-        if (text != null) {
+        // With several sources, one failure isn't the whole view's; INITIAL_MAX_WAIT_MS covers all of them failing.
+        if (text != null && !ctx.is_multi_source) {
             string lower = text.down();
             if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
                 if (win.loading_state != null) win.loading_state.network_failure_detected = true;
