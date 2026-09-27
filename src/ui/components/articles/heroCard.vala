@@ -247,10 +247,12 @@ public class HeroCard : GLib.Object {
         // after) still stack below it rather than sharing its row.
         var time_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
 
-        time_label = new Gtk.Label(DateUtils.time_ago(published));
+        time_label = new Gtk.Label(null);
+        CardBuilder.set_card_time(root, time_label, DateUtils.time_ago(published), url);
         time_label.add_css_class("hero-card-time");
         time_label.set_xalign(0);
         time_label.set_hexpand(true);
+        time_label.set_ellipsize(Pango.EllipsizeMode.END);
         time_row.append(time_label);
 
         viewed_badge_slot = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);

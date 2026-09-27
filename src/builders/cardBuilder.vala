@@ -452,6 +452,26 @@ public class CardBuilder : GLib.Object {
         return build_badge_with_optional_logo(final_display, null);
     }
 
+    // Sets a card's time caption, e.g. "7h ago · 5 min read". The base text and
+    // URL are kept on the card so refresh_card_time() can redo it later.
+    public static void set_card_time(Gtk.Widget card_root, Gtk.Label time_label, string base_text, string url) {
+        card_root.set_data("article-time-label", time_label);
+        card_root.set_data("article-time-base", base_text);
+        card_root.set_data("article-time-url", url);
+        refresh_card_time(card_root);
+    }
+
+    public static void refresh_card_time(Gtk.Widget card_root) {
+        Gtk.Label? label = card_root.get_data<Gtk.Label>("article-time-label");
+        string? base_text = card_root.get_data<string>("article-time-base");
+        string? url = card_root.get_data<string>("article-time-url");
+        if (label == null || base_text == null || url == null) return;
+        string reading = ArticleReadingTimeCache.label_for(ArticleReadingTimeCache.get_instance().get_minutes(url));
+        if (reading == "") label.set_text(base_text);
+        else if (base_text == "") label.set_text(reading);
+        else label.set_text(base_text + " · " + reading);
+    }
+
     // Eye icon represents that the article has been read/viewed.
     public static Gtk.Widget build_viewed_badge() {
         var box = new Gtk.Box(Orientation.HORIZONTAL, 4);

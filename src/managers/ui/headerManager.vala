@@ -47,6 +47,7 @@ public class HeaderManager : GLib.Object {
 
         wire_podcast_button();
         wire_clear_history_button();
+        wire_weather();
 
         var state_store = window.article_state_store;
         if (state_store != null) {
@@ -61,6 +62,69 @@ public class HeaderManager : GLib.Object {
             if (window.prefs.category == "saved") update_date_label();
             return false;
         });
+    }
+
+    // Opens GNOME Weather when installed; otherwise the weather is display-only.
+    private void wire_weather() {
+        var box = window.content_view != null ? window.content_view.weather_box : null;
+        if (box == null) return;
+        var click = new Gtk.GestureClick();
+        click.set_button(1);
+        box.add_controller(click);
+        click.released.connect(() => {
+            var app_info = new GLib.DesktopAppInfo("org.gnome.Weather.desktop");
+            if (app_info == null) return;
+            try {
+                app_info.launch(null, window.get_display().get_app_launch_context());
+            } catch (GLib.Error e) {
+                GLib.warning("HeaderManager: couldn't open GNOME Weather: %s", e.message);
+            }
+        });
+    }
+
+    // Pages showing the active local area's weather (My Feed only once it's enabled).
+    private bool shows_weather(string? category) {
+        if (category == "myfeed") return window.prefs.personalized_feed_enabled;
+        return category == "local_news";
+    }
+
+    // Current conditions for the active local area, shown from cache right
+    // away and refreshed in the background once stale.
+    private void update_weather() {
+        var view = window.content_view;
+        if (view == null || view.weather_box == null) return;
+        bool searching = window.search_manager != null && window.search_manager.get_query().strip().length > 0;
+        var area = NewsPreferences.get_instance().get_active_local_area();
+        if (searching || !shows_weather(window.prefs.category) || area == null) {
+            view.weather_box.set_visible(false);
+            return;
+        }
+
+        var cached = WeatherService.cached(area);
+        if (cached != null) apply_weather(area, cached); else view.weather_box.set_visible(false);
+
+        string key = area.key;
+        WeatherService.get_async(area, (report) => {
+            if (report == null || !shows_weather(window.prefs.category)) return;
+            var active = NewsPreferences.get_instance().get_active_local_area();
+            if (active == null || active.key != key) return;
+            apply_weather(active, report);
+        });
+    }
+
+    private void apply_weather(LocalArea area, WeatherReport report) {
+        var view = window.content_view;
+        view.weather_icon.set_from_icon_name(report.icon_name());
+        view.weather_temp_label.set_markup("%d<span rise='9000' size='50%%'>°</span>".printf((int) Math.round(report.temperature)));
+        view.weather_condition_label.set_text(report.description());
+        view.weather_range_label.set_markup("H <b>%s</b> · L <b>%s</b>".printf(WeatherReport.format_degrees(report.high), WeatherReport.format_degrees(report.low)));
+
+        bool has_weather_app = new GLib.DesktopAppInfo("org.gnome.Weather.desktop") != null;
+        string tooltip = "Weather in %s".printf(area.name);
+        if (has_weather_app) tooltip += "\nOpen Weather for the full forecast";
+        view.weather_box.set_tooltip_text(tooltip);
+        view.weather_box.set_cursor_from_name(has_weather_app ? "pointer" : null);
+        view.weather_box.set_visible(true);
     }
 
     // Wired once - the button is reused for the app's whole lifetime.
@@ -337,6 +401,7 @@ public class HeaderManager : GLib.Object {
             update_date_label();
             update_category_icon();
             update_podcast_button();
+            update_weather();
             return false;
         });
     }
@@ -353,6 +418,7 @@ public class HeaderManager : GLib.Object {
         update_date_label();
         update_category_icon();
         update_podcast_button();
+        update_weather();
     }
 
     // Today's date is meaningless on archive pages: Saved shows its count instead, History drops the row.

@@ -17,11 +17,14 @@
  */
 
 public class PaperboyApp : Adw.Application {
+    private Paperboy.PodcastMprisService? mpris = null;
+
     public PaperboyApp() {
         GLib.Object(application_id: "io.github.thecalamityjoe87.Paperboy", flags: ApplicationFlags.FLAGS_NONE);
     }
 
     protected override void shutdown() {
+        if (mpris != null) mpris.unregister();
         WebViewUtils.terminate_all();
         base.shutdown();
     }
@@ -39,6 +42,7 @@ public class PaperboyApp : Adw.Application {
 
         var win = new NewsWindow(this);
         win.present();
+        if (mpris == null) mpris = new Paperboy.PodcastMprisService(this, win.podcast_playback);
 
         // Warms up GSK's opacity-compositing path off-screen before the real entrance animation needs it.
         var warmup = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);

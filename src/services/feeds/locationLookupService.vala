@@ -37,6 +37,8 @@ public class LocationLookupService : GLib.Object {
     // be found); `news_query_city` is the nearest major city (may equal
     // `resolved`, or "" alongside it on failure).
     public delegate void ResolvedCallback(string resolved, string news_query_city);
+    // Both NaN on failure.
+    public delegate void CoordsCallback(double lat, double lon);
 
     // Looks up free text (a ZIP code or a city name). `callback`
     // always runs on the main loop.
@@ -48,20 +50,10 @@ public class LocationLookupService : GLib.Object {
                 callback("", "");
                 return;
             }
-            var results = root.get_array();
-            if (results.get_length() == 0) {
+            var chosen = pick_result(root.get_array());
+            if (chosen == null) {
                 callback("", "");
                 return;
-            }
-
-            // Bare ZIP codes match postal codes worldwide; prefer a US result.
-            Json.Object chosen = results.get_object_element(0);
-            for (uint i = 0; i < results.get_length(); i++) {
-                var candidate = results.get_object_element(i);
-                if (get_address_field(candidate, "country_code") == "us") {
-                    chosen = candidate;
-                    break;
-                }
             }
 
             double lat = double.parse(chosen.get_string_member_with_default("lat", "nan"));
@@ -75,6 +67,33 @@ public class LocationLookupService : GLib.Object {
             // No town in the match itself (some ZIP codes); ask what's at its point.
             reverse(lat, lon, (owned) callback);
         });
+    }
+
+    // Coordinates for a place name (e.g. a saved LocalArea's "City, State").
+    // `callback` always runs on the main loop.
+    public static void geocode_async(string query, owned CoordsCallback callback) {
+        string url = NOMINATIM + "/search?format=jsonv2&addressdetails=1&limit=10&q="
+            + GLib.Uri.escape_string(query, null, false);
+        Paperboy.HttpClientUtils.get_default().fetch_json(url, (response, parser, root) => {
+            Json.Object? chosen = null;
+            if (root != null && root.get_node_type() == Json.NodeType.ARRAY) chosen = pick_result(root.get_array());
+            if (chosen == null) {
+                callback(double.NAN, double.NAN);
+                return;
+            }
+            callback(double.parse(chosen.get_string_member_with_default("lat", "nan")),
+                     double.parse(chosen.get_string_member_with_default("lon", "nan")));
+        });
+    }
+
+    // Bare ZIP codes match postal codes worldwide; prefer a US result.
+    private static Json.Object? pick_result(Json.Array results) {
+        if (results.get_length() == 0) return null;
+        for (uint i = 0; i < results.get_length(); i++) {
+            var candidate = results.get_object_element(i);
+            if (get_address_field(candidate, "country_code") == "us") return candidate;
+        }
+        return results.get_object_element(0);
     }
 
     // Detect the user's current location via GeoClue2. `callback` always
@@ -97,11 +116,15 @@ public class LocationLookupService : GLib.Object {
         try {
             var simple = yield new GClue.Simple(DESKTOP_ID, GClue.AccuracyLevel.CITY, null);
             var loc = simple.get_location();
-            if (loc == null) return false;
+            if (loc == null) {
+                GLib.warning("LocationLookupService: GeoClue returned no location");
+                return false;
+            }
             lat = loc.latitude;
             lon = loc.longitude;
             return true;
         } catch (GLib.Error e) {
+            GLib.warning("LocationLookupService: GeoClue failed: %s", e.message);
             return false;
         }
     }
@@ -118,6 +141,13 @@ public class LocationLookupService : GLib.Object {
             string display = "";
             if (root != null && root.get_node_type() == Json.NodeType.OBJECT) {
                 display = format_place(root.get_object());
+                if (display.length == 0) {
+                    GLib.warning("LocationLookupService: reverse lookup found no town (addresstype '%s')",
+                        root.get_object().get_string_member_with_default("addresstype", "?"));
+                }
+            } else {
+                GLib.warning("LocationLookupService: reverse lookup failed (HTTP %u%s)", response.status_code,
+                    response.error_message != null ? ", " + response.error_message : "");
             }
             finish(display, lat, lon, (owned) callback);
         });

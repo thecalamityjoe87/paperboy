@@ -82,6 +82,8 @@ public class RssFeedProcessor {
             }
 
             var items = new Gee.ArrayList<Gee.ArrayList<string?>>();
+            var reading_minutes = new Gee.HashMap<string, int>();
+            int content_items = 0;
             bool bbc_enabled = false;
             try { string? env = GLib.Environment.get_variable("PAPERBOY_ENABLE_BBC_EXTRACT"); if (env == null) bbc_enabled = true; else bbc_enabled = env != "0"; } catch (GLib.Error e) { bbc_enabled = true; }
 
@@ -120,6 +122,8 @@ public class RssFeedProcessor {
                             // fallback snippet if live-fetching the article page later fails
                             string? desc_text = null;
                             string? comments_url = null;
+                            // content:encoded / Atom <content>, for the reading-time estimate
+                            string? full_html = null;
                             int thumb_width = -1;
                             bool thumb_is_thumbnail_tag = false;
                             for (Xml.Node* c = it->children; c != null; c = c->next) {
@@ -226,10 +230,11 @@ public class RssFeedProcessor {
                                             GLib.warning("rssFeedProcessor: after strip_resize_params: %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
                                         }
                                     }
-                                } else if (c->name == "content" && thumb == null) {
+                                } else if (c->name == "content") {
                                     // Atom <content type="html"> often contains HTML with <img>
                                     string? content_html = c->get_content();
-                                    if (content_html != null) {
+                                    if (content_html != null) full_html = content_html;
+                                    if (content_html != null && thumb == null) {
                                         thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content_html);
                                         if (thumb != null) {
                                             if (thumb.has_prefix("//")) thumb = "https:" + thumb;
@@ -250,9 +255,10 @@ public class RssFeedProcessor {
                                             thumb = Tools.ImageProcessor.strip_resize_params(thumb);
                                         }
                                     }
-                                } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
+                                } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content") {
                                     string? content = c->get_content();
-                                    if (content != null) {
+                                    if (content != null) full_html = content;
+                                    if (content != null && thumb == null) {
                                         thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content);
                                         if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
                                             GLib.warning("rssFeedProcessor: extracted from content:encoded: %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
@@ -293,6 +299,11 @@ public class RssFeedProcessor {
                                 row.add(pub_date ?? updated_date);
                                 row.add(desc_text);
                                 items.add(row);
+                                if (full_html != null) {
+                                    content_items++;
+                                    int words = ArticleReadingTimeCache.count_words(stripHtmlUtils.strip_html(full_html));
+                                    if (words >= ArticleReadingTimeCache.MIN_FULL_TEXT_WORDS) reading_minutes.set(link, ArticleReadingTimeCache.minutes_for_words(words));
+                                }
                                 Paperboy.CommentsUrlRegistry.register(link, comments_url);
                             }
                         }
@@ -332,6 +343,8 @@ public class RssFeedProcessor {
                                 string? updated_date = null; // Atom fallback, only used if no pubDate/published found
                                 string? desc_text = null;
                                 string? comments_url = null;
+                                // content:encoded / Atom <content>, for the reading-time estimate
+                                string? full_html = null;
                                 string? item_source = null;
                                 string? item_source_label = null;
                                 int thumb_width = -1;
@@ -441,9 +454,10 @@ public class RssFeedProcessor {
                                             thumb = Tools.ImageProcessor.extract_image_from_html_snippet(desc);
                                             if (thumb != null) thumb = Tools.ImageProcessor.strip_resize_params(thumb);
                                         }
-                                    } else if (c->name == "content" && thumb == null) {
+                                    } else if (c->name == "content") {
                                         string? content_html = c->get_content();
-                                        if (content_html != null) {
+                                        if (content_html != null) full_html = content_html;
+                                        if (content_html != null && thumb == null) {
                                             thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content_html);
                                             if (thumb != null) {
                                                 if (thumb.has_prefix("//")) thumb = "https:" + thumb;
@@ -463,9 +477,10 @@ public class RssFeedProcessor {
                                                 thumb = Tools.ImageProcessor.strip_resize_params(thumb);
                                             }
                                         }
-                                    } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content" && thumb == null) {
+                                    } else if (c->name == "encoded" && c->ns != null && c->ns->prefix == "content") {
                                         string? content = c->get_content();
-                                        if (content != null) {
+                                        if (content != null) full_html = content;
+                                        if (content != null && thumb == null) {
                                             thumb = Tools.ImageProcessor.extract_image_from_html_snippet(content);
                                             if (GLib.Environment.get_variable("PAPERBOY_DEBUG") != null && thumb != null) {
                                                 GLib.warning("rssFeedProcessor: extracted from content:encoded: %s", thumb.length > 80 ? thumb.substring(0, 80) + "..." : thumb);
@@ -508,6 +523,11 @@ public class RssFeedProcessor {
                                     row.add(desc_text);
                                     row.add(item_source);
                                     items.add(row);
+                                    if (full_html != null) {
+                                        content_items++;
+                                        int words = ArticleReadingTimeCache.count_words(stripHtmlUtils.strip_html(full_html));
+                                        if (words >= ArticleReadingTimeCache.MIN_FULL_TEXT_WORDS) reading_minutes.set(link, ArticleReadingTimeCache.minutes_for_words(words));
+                                    }
                                     Paperboy.CommentsUrlRegistry.register(link, comments_url);
                                 }
                             }
@@ -515,6 +535,9 @@ public class RssFeedProcessor {
                     }
                 }
             }
+
+            // Feeds mixing excerpts with the odd long one would give too-short estimates.
+            if (reading_minutes.size * 2 >= content_items) ArticleReadingTimeCache.get_instance().set_many(reading_minutes);
 
             Idle.add(() => {
                 if (current_search_query.length > 0) {

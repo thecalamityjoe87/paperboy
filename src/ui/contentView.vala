@@ -77,6 +77,12 @@ public class ContentView : GLib.Object {
     // Shown only for a followed RSS feed that also looks like a podcast
     // feed (see HeaderManager.update_podcast_button()) - hidden otherwise.
     public Gtk.Button rss_podcast_button;
+    // Local-area weather, right side of the title/date rows (see HeaderManager.update_weather()).
+    public Gtk.Box weather_box;
+    public Gtk.Image weather_icon;
+    public Gtk.Label weather_temp_label;
+    public Gtk.Label weather_condition_label;
+    public Gtk.Label weather_range_label;
     // The button's child is an icon + label box (not a plain label), so
     // HeaderManager updates this directly rather than via set_label().
     public Gtk.Label rss_podcast_button_label;
@@ -161,7 +167,11 @@ public class ContentView : GLib.Object {
         clear_history_button.set_visible(false);
         title_row.append(clear_history_button);
 
-        header_box.append(title_row);
+        // Title and date rows share an overlay so the weather can span both.
+        var header_rows = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
+        var header_rows_overlay = new Gtk.Overlay();
+        header_rows_overlay.set_child(header_rows);
+        header_rows.append(title_row);
 
         // Add current date label - weekday + full month name/day, no year.
         // rss_podcast_button floats over this row as a Gtk.Overlay child
@@ -236,8 +246,41 @@ public class ContentView : GLib.Object {
         magazine_library_header_actions.set_visible(false);
         date_overlay.add_overlay(magazine_library_header_actions);
 
+        header_rows.append(date_overlay);
+        header_box.append(header_rows_overlay);
 
-        header_box.append(date_overlay);
+        // Sized to fit within the title + date rows (72px) without growing them.
+        weather_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        weather_box.set_halign(Gtk.Align.END);
+        weather_box.set_valign(Gtk.Align.CENTER);
+        weather_icon = new Gtk.Image();
+        weather_icon.set_pixel_size(44);
+        weather_icon.set_valign(Gtk.Align.CENTER);
+        weather_icon.set_margin_end(14);
+        weather_box.append(weather_icon);
+
+        var weather_text = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        weather_text.set_valign(Gtk.Align.CENTER);
+        weather_temp_label = new Gtk.Label("");
+        weather_temp_label.set_xalign(0);
+        var temp_attrs = new Pango.AttrList();
+        temp_attrs.insert(Pango.attr_scale_new(2.0));
+        temp_attrs.insert(Pango.attr_weight_new(Pango.Weight.SEMIBOLD));
+        weather_temp_label.set_attributes(temp_attrs);
+        weather_text.append(weather_temp_label);
+        weather_condition_label = new Gtk.Label("");
+        weather_condition_label.set_xalign(0);
+        weather_text.append(weather_condition_label);
+        weather_box.append(weather_text);
+
+        weather_range_label = new Gtk.Label("");
+        weather_range_label.add_css_class("dim-label");
+        // Bottom-aligned with the condition line.
+        weather_range_label.set_valign(Gtk.Align.END);
+        weather_range_label.set_margin_start(10);
+        weather_box.append(weather_range_label);
+        weather_box.set_visible(false);
+        header_rows_overlay.add_overlay(weather_box);
 
         // Same faint line used elsewhere (hero/scores/article-grid
         // separators) - sits between the date and whichever title comes

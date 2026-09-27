@@ -51,6 +51,8 @@ namespace Managers {
         public signal void position_updated(uint64 position_ns, uint64 duration_ns);
         public signal void episode_changed(Paperboy.PodcastEpisode episode);
         public signal void playback_error(string message);
+        // Explicit position jumps (not normal playback progress), for MPRIS's Seeked signal.
+        public signal void seeked(uint64 position_ns);
 
         public PodcastPlaybackManager() {
             GLib.Object();
@@ -87,6 +89,8 @@ namespace Managers {
             current_episode = episode;
             current_rate = rate;
             last_progress_save_us = 0;
+            last_position_ns = 0;
+            last_duration_ns = 0;
             player.set_uri(episode.audio_url);
             player.play();
             player.set_rate(rate);
@@ -104,6 +108,7 @@ namespace Managers {
             if (progress != null && progress.position_ns > 5000000000
                     && (progress.duration_ns == 0 || progress.position_ns < progress.duration_ns - 10000000000)) {
                 player.seek(progress.position_ns);
+                seeked(progress.position_ns);
             }
         }
 
@@ -179,6 +184,8 @@ namespace Managers {
 
         public void seek_to(uint64 position_ns) {
             player.seek(position_ns);
+            last_position_ns = position_ns;
+            seeked(position_ns);
         }
 
         public void skip(int64 delta_seconds) {
@@ -190,6 +197,8 @@ namespace Managers {
             if (dur > 0 && (uint64) new_pos > dur) new_pos = (int64) dur;
 
             player.seek((uint64) new_pos);
+            last_position_ns = (uint64) new_pos;
+            seeked((uint64) new_pos);
         }
 
         public void set_rate(double rate) {
@@ -207,6 +216,16 @@ namespace Managers {
 
         public bool is_playing() {
             return playing;
+        }
+
+        public uint64 get_position_ns() {
+            return current_episode != null ? last_position_ns : 0;
+        }
+
+        // Falls back to the feed's listed duration until GStreamer knows the real one.
+        public uint64 get_duration_ns() {
+            if (last_duration_ns > 0 && last_duration_ns != Gst.CLOCK_TIME_NONE) return last_duration_ns;
+            return current_episode != null ? (uint64) current_episode.duration_seconds * 1000000000 : 0;
         }
 
         // Whatever show's episode list was most recently loaded (see the

@@ -47,6 +47,8 @@ public class ExtractedArticle : GLib.Object {
     public string? published { get; set; default = null; }
     public string? hero_image_url { get; set; default = null; }
     public string? site_name { get; set; default = null; }
+    // The site's own reading time (Yoast meta tags or JSON-LD timeRequired), 0 if none.
+    public int reported_minutes { get; set; default = 0; }
     public Gee.ArrayList<ArticleBlock> blocks;
     public bool success { get; set; default = false; }
 
@@ -78,6 +80,7 @@ public class ArticleExtractorService : GLib.Object {
 
             Idle.add(() => {
                 if (result.success || !allow_rendered_fallback) {
+                    record_reading_time(url, result, result.reported_minutes);
                     on_done(result);
                     return false;
                 }
@@ -92,12 +95,28 @@ public class ArticleExtractorService : GLib.Object {
                 // algorithm against the live rendered DOM.
                 RenderedPageFetcher.fetch_async(target_url, (readability_result) => {
                     var rendered_result = readability_result != null ? build_article_from_readability(readability_result, target_url, result.hero_image_url) : null;
-                    on_done(rendered_result != null && rendered_result.success ? rendered_result : result);
+                    var final_result = rendered_result != null && rendered_result.success ? rendered_result : result;
+                    record_reading_time(url, final_result, result.reported_minutes);
+                    on_done(final_result);
                 });
                 return false;
             });
             return null;
         });
+    }
+
+    private static void record_reading_time(string url, ExtractedArticle article, int reported_minutes) {
+        if (!article.success) return;
+        int minutes = reported_minutes;
+        if (minutes <= 0) {
+            int words = 0;
+            foreach (var block in article.blocks) {
+                if (block.kind == ArticleBlockKind.TEXT && block.text != null) words += ArticleReadingTimeCache.count_words(block.text);
+            }
+            if (words < 50) return;
+            minutes = ArticleReadingTimeCache.minutes_for_words(words);
+        }
+        ArticleReadingTimeCache.get_instance().set_minutes(url, minutes);
     }
 
     private static string? fetch_html_sync(string url) {
@@ -114,6 +133,7 @@ public class ArticleExtractorService : GLib.Object {
         var article = new ExtractedArticle();
 
         extract_meta(html, article);
+        if (article.reported_minutes <= 0) article.reported_minutes = json_ld_time_required_minutes(html);
 
         int opts = Html.ParserOption.RECOVER | Html.ParserOption.NOERROR | Html.ParserOption.NOWARNING | Html.ParserOption.NONET;
         // Force UTF-8 explicitly rather than letting libxml2 auto-detect
@@ -435,12 +455,76 @@ public class ArticleExtractorService : GLib.Object {
         }
     }
 
+    // "5 minutes" -> 5; "Less than a minute" -> 1; 0 if unrecognized.
+    private static int parse_minutes_text(string text) {
+        string t = text.strip().down();
+        int value = 0;
+        int i = 0;
+        while (i < t.length && t[i].isdigit()) {
+            value = value * 10 + (t[i] - '0');
+            i++;
+        }
+        if (value > 0) return value < 600 ? value : 0;
+        return t.contains("minute") ? 1 : 0;
+    }
+
+    // JSON-LD timeRequired as an ISO 8601 duration ("PT5M", "PT1H10M"), rounded up to minutes.
+    private static int json_ld_time_required_minutes(string html) {
+        if (!html.contains("timeRequired")) return 0;
+        foreach (var raw in find_json_ld_scripts(html)) {
+            Json.Object? candidate = null;
+            try {
+                var parser = new Json.Parser();
+                parser.load_from_data(raw);
+                candidate = find_article_object_in_node(parser.get_root());
+            } catch (GLib.Error e) {
+                continue;
+            }
+            if (candidate == null || !candidate.has_member("timeRequired")) continue;
+            var node = candidate.get_member("timeRequired");
+            if (node.get_value_type() != typeof(string)) continue;
+            int minutes = parse_iso_duration_minutes(node.get_string());
+            if (minutes > 0) return minutes;
+        }
+        return 0;
+    }
+
+    private static int parse_iso_duration_minutes(string duration) {
+        string d = duration.strip().up();
+        int t_idx = d.index_of("T");
+        if (!d.has_prefix("P") || t_idx < 0) return 0;
+        int seconds = 0;
+        int number = 0;
+        for (int i = t_idx + 1; i < d.length; i++) {
+            char c = d[i];
+            if (c.isdigit()) {
+                number = number * 10 + (c - '0');
+                continue;
+            }
+            if (c == '.') {
+                // Drop fractional digits ("PT4M30.5S").
+                while (i + 1 < d.length && d[i + 1].isdigit()) i++;
+                continue;
+            }
+            if (c == 'H') seconds += number * 3600;
+            else if (c == 'M') seconds += number * 60;
+            else if (c == 'S') seconds += number;
+            else return 0;
+            number = 0;
+        }
+        if (seconds <= 0 || seconds >= 600 * 60) return 0;
+        return (seconds + 59) / 60;
+    }
+
     // ---- Meta tag extraction (title/author/date/image/site name) ----
 
     private static void extract_meta(string html, ExtractedArticle article) {
         string lower = html.down();
         int pos = 0;
         string? title_fallback = null;
+        // Yoast pairs twitter:labelN ("Est. reading time") with twitter:dataN ("5 minutes").
+        var twitter_labels = new Gee.HashMap<string, string>();
+        var twitter_data = new Gee.HashMap<string, string>();
 
         while ((pos = lower.index_of("<meta", pos)) >= 0) {
             int end = lower.index_of(">", pos);
@@ -474,9 +558,17 @@ public class ArticleExtractorService : GLib.Object {
                 if (article.site_name == null && prop_attr == "og:site_name") {
                     article.site_name = stripHtmlUtils.strip_html(content);
                 }
+                if (name_attr.has_prefix("twitter:label")) twitter_labels.set(name_attr.substring(13), content.down());
+                if (name_attr.has_prefix("twitter:data")) twitter_data.set(name_attr.substring(12), content);
             }
 
             pos = end + 1;
+        }
+
+        foreach (var entry in twitter_labels.entries) {
+            if (!entry.value.contains("reading time") || !twitter_data.has_key(entry.key)) continue;
+            article.reported_minutes = parse_minutes_text(twitter_data.get(entry.key));
+            break;
         }
 
         if (article.title.length == 0) {
