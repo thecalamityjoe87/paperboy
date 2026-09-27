@@ -212,6 +212,7 @@ public class FetchNewsController {
         var ctx = FetchContext.begin_new(win);
 
         if (win.image_manager != null) win.image_manager.cleanup_stale_downloads();
+        ReadingTimePrefetchService.clear_queue();
 
         if (win.article_manager != null) win.article_manager.reset_for_new_fetch();
 

@@ -459,6 +459,7 @@ public class CardBuilder : GLib.Object {
         card_root.set_data("article-time-base", base_text);
         card_root.set_data("article-time-url", url);
         refresh_card_time(card_root);
+        ReadingTimePrefetchService.enqueue(url);
     }
 
     public static void refresh_card_time(Gtk.Widget card_root) {
