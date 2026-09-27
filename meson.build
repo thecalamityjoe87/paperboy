@@ -71,7 +71,7 @@ cairo = dependency('cairo')
     'src/ui/dialogs/content/shareDialog.vala',
     'src/ui/dialogs/media/magazineOrganizeDialog.vala',
     'src/ui/dialogs/media/podcastDetailDialog.vala',
-    'src/ui/dialogs/media/highlightPlayerDialog.vala',
+    'src/ui/dialogs/media/videoPlayerDialog.vala',
     'src/ui/dialogs/media/podcastPickerDialog.vala',
     'src/ui/dialogs/notes/noteEditorDialog.vala',
     'src/ui/dialogs/notes/notesBrowserDialog.vala',
@@ -132,6 +132,8 @@ cairo = dependency('cairo')
     'src/services/comments/viafouraCommentsService.vala',
     'src/services/markets/marketIndicesService.vala',
     'src/services/sports/sportsScoresService.vala',
+    'src/services/video/videoEmbedResolver.vala',
+    'src/services/video/videoPageServer.vala',
     'src/services/feeds/fetchContext.vala',
     'src/services/feeds/viewSession.vala',
     'src/services/feeds/generatedFeedService.vala',
@@ -268,3 +270,6 @@ install_data('data/resources/adblock.css', install_dir: join_paths(get_option('d
 # Mozilla's Readability.js (Apache-2.0), used by RenderedPageFetcher as the
 # reader-view fallback's extraction engine - same install pattern as above.
 install_data('data/resources/readability.js', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))
+
+# hls.js (Apache-2.0), used by VideoPageServer to play HLS streams WebKit can't play natively.
+install_data('data/resources/hls.min.js', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))

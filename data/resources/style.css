@@ -181,8 +181,13 @@
     -gtk-icon-size: 22px;
 }
 
-/* Stronger than libadwaita's default floating-sheet shadow (see HighlightPlayerDialog) */
-dialog.highlight-player floating-sheet > sheet {
+/* Darker than libadwaita's faint default dim, so the video takes focus over the content/reader view */
+dialog.video-player floating-sheet > dimming {
+    background-color: rgba(0, 0, 0, 0.65);
+}
+
+/* Stronger than libadwaita's default floating-sheet shadow (see VideoPlayerDialog) */
+dialog.video-player floating-sheet > sheet {
     box-shadow: 0 6px 32px 6px rgba(0, 0, 6, 0.30),
                 0 0 10px 2px rgba(0, 0, 6, 0.25),
                 0 0 0 1px rgba(0, 0, 0, 0.10);

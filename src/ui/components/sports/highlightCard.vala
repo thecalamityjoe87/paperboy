@@ -21,7 +21,7 @@ using GLib;
 /**
  * A video clip card for the Sports "Highlights" row. Built once and reused
  * across polls via update(), same as ScoreCard. Clicking opens
- * HighlightPlayerDialog.
+ * VideoPlayerDialog.
  */
 public class HighlightCard : GLib.Object {
     public Gtk.Box root;
@@ -144,7 +144,7 @@ public class HighlightCard : GLib.Object {
         gesture.set_button(1);
         gesture.released.connect(() => {
             var h = r.get_data<VideoHighlight>("highlight");
-            if (h != null) HighlightPlayerDialog.show(w, h);
+            if (h != null) VideoPlayerDialog.show(w, VideoEmbedResolver.espn_clip(h.clip_id), h.headline);
         });
         root_widget.add_controller(gesture);
 

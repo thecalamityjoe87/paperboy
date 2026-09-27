@@ -17,8 +17,8 @@
 
 using Gtk;
 
-// Plays a Sports highlight clip in a 16:9 dialog sized to fit the window.
-public class HighlightPlayerDialog : GLib.Object {
+// Plays a publisher's embed player (see VideoEmbedResolver) in a 16:9 dialog sized to fit the content area.
+public class VideoPlayerDialog : GLib.Object {
     private const int MAX_VIDEO_WIDTH = 960;
     private const int WINDOW_MARGIN = 96;
     private const int BTN_MARGIN = 8;
@@ -87,12 +87,7 @@ public class HighlightPlayerDialog : GLib.Object {
         }
     }
 
-    public static void show(Gtk.Window parent_window, VideoHighlight highlight) {
-        if (highlight.stream_url == null) {
-            if (highlight.web_url != null) BrowserUtils.open_url_in_browser(highlight.web_url);
-            return;
-        }
-
+    public static void show(Gtk.Window parent_window, VideoEmbed embed, string title) {
         int area_w, area_h;
         DialogUtils.available_size(parent_window, out area_w, out area_h);
         int w = int.min(MAX_VIDEO_WIDTH, area_w - WINDOW_MARGIN);
@@ -104,19 +99,20 @@ public class HighlightPlayerDialog : GLib.Object {
         }
         if (w < 320 || h < 180) { w = 320; h = 180; }
 
-        // WebKit, not Gtk.Video: GTK streams remote files through giostreamsrc, which stalls on 60fps clips.
         var video = WebViewUtils.create(true);
-        var settings = video.get_settings();
-        settings.set_media_playback_requires_user_gesture(false);
+        video.get_settings().set_media_playback_requires_user_gesture(false);
         video.set_size_request(w, h);
-        video.load_html(
-            "<!DOCTYPE html><html><head><style>*{margin:0;padding:0}html,body{width:100%%;height:100%%;background:#000;overflow:hidden}video{width:100%%;height:100%%;object-fit:contain}</style></head><body><video src=\"%s\" controls autoplay playsinline></video></body></html>"
-                .printf(GLib.Markup.escape_text(highlight.stream_url)),
-            "https://www.espn.com/");
+        unowned WebKit.WebView v = video;
+        // All frames: some players (e.g. ABC's promo) live in an iframe.
+        if (embed.page_script != null) {
+            video.get_user_content_manager().add_script(new WebKit.UserScript(embed.page_script,
+                WebKit.UserContentInjectedFrames.ALL_FRAMES, WebKit.UserScriptInjectionTime.END, null, null));
+        }
+        video.load_uri(embed.url);
 
         var dialog = new Adw.Dialog();
-        dialog.add_css_class("highlight-player");
-        dialog.set_title(highlight.headline);
+        dialog.add_css_class("video-player");
+        dialog.set_title(title);
         var handle = new DialogHandle();
         handle.target = dialog;
 
@@ -135,7 +131,6 @@ public class HighlightPlayerDialog : GLib.Object {
         video.set_data<FullscreenController>("fullscreen-controller", new FullscreenController(video, content, parent_window));
 
         // Kill the web process on close; dropping the view alone doesn't stop playback.
-        unowned WebKit.WebView v = video;
         dialog.closed.connect(() => {
             var fs = v.get_data<FullscreenController>("fullscreen-controller");
             if (fs != null) fs.restore();
