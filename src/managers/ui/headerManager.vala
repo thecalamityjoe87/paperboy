@@ -47,6 +47,20 @@ public class HeaderManager : GLib.Object {
 
         wire_podcast_button();
         wire_clear_history_button();
+
+        var state_store = window.article_state_store;
+        if (state_store != null) {
+            state_store.saved_articles_loaded.connect(on_saved_count_changed);
+            state_store.saved_article_added.connect((url) => { on_saved_count_changed(); });
+            state_store.saved_article_removed.connect((url) => { on_saved_count_changed(); });
+        }
+    }
+
+    private void on_saved_count_changed() {
+        ViewSession.view_idle(() => {
+            if (window.prefs.category == "saved") update_date_label();
+            return false;
+        });
     }
 
     // Wired once - the button is reused for the app's whole lifetime.
@@ -320,6 +334,7 @@ public class HeaderManager : GLib.Object {
         //string label_text = (q != null && q.length > 0) ? ("Search Results: \"" + q + "\" in " + disp) : disp;
         Idle.add(() => {
             if (category_label != null) category_label.set_text(disp_cat);
+            update_date_label();
             update_category_icon();
             update_podcast_button();
             return false;
@@ -335,8 +350,26 @@ public class HeaderManager : GLib.Object {
 
         if (category_subtitle != null) category_subtitle.set_visible(false);
 
+        update_date_label();
         update_category_icon();
         update_podcast_button();
+    }
+
+    // Today's date is meaningless on archive pages: Saved shows its count instead, History drops the row.
+    public void update_date_label() {
+        var view = window.content_view;
+        if (view == null || view.date_overlay == null || view.date_label == null) return;
+        // Global search is its own view, while prefs.category still names the page underneath.
+        bool searching = window.search_manager != null && window.search_manager.get_query().strip().length > 0;
+        string cat = searching ? "" : window.prefs.category;
+        view.date_overlay.set_visible(cat != "history");
+
+        if (cat == "saved") {
+            int count = window.article_state_store != null ? window.article_state_store.get_saved_count() : 0;
+            view.date_label.set_text(count == 1 ? "1 saved article" : "%d saved articles".printf(count));
+        } else {
+            view.date_label.set_text(new DateTime.now_local().format("%A, %B %d"));
+        }
     }
 
     public string category_display_name_for(string cat) {

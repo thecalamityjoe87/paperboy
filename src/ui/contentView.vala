@@ -47,6 +47,8 @@ public class ContentView : GLib.Object {
     public Gtk.Button magazine_library_organize_button;
     // Shown only while viewing the History page - see HeaderManager.wire_clear_history_button().
     public Gtk.Button clear_history_button;
+    public Gtk.Overlay date_overlay;
+    public Gtk.Label date_label;
     public Gtk.FlowBox magazine_library_flow;
     public Gtk.Box magazine_library_trash_zone;
     public Gtk.Revealer magazine_library_trash_revealer;
@@ -150,6 +152,15 @@ public class ContentView : GLib.Object {
         cat_title_box.append(category_label);
         title_row.append(cat_title_box);
 
+        // History page action - lives in the title row since the date row is hidden there.
+        clear_history_button = new Gtk.Button.with_label("Clear History");
+        clear_history_button.add_css_class("destructive-action");
+        clear_history_button.add_css_class("pill");
+        clear_history_button.set_halign(Gtk.Align.END);
+        clear_history_button.set_valign(Gtk.Align.CENTER);
+        clear_history_button.set_visible(false);
+        title_row.append(clear_history_button);
+
         header_box.append(title_row);
 
         // Add current date label - weekday + full month name/day, no year.
@@ -163,11 +174,11 @@ public class ContentView : GLib.Object {
         // constant position whether or not the current feed has a
         // discovered podcast (see rss_podcast_button's opacity/can_target
         // toggling below instead of set_visible(), for the same reason).
-        var date_overlay = new Gtk.Overlay();
+        date_overlay = new Gtk.Overlay();
 
         var date = new DateTime.now_local();
         var date_str = date.format("%A, %B %d");
-        var date_label = new Gtk.Label(date_str);
+        date_label = new Gtk.Label(date_str);
         date_label.set_xalign(0);
         date_label.add_css_class("dim-label");
         date_label.add_css_class("header-date-label");
@@ -225,15 +236,6 @@ public class ContentView : GLib.Object {
         magazine_library_header_actions.set_visible(false);
         date_overlay.add_overlay(magazine_library_header_actions);
 
-        // History page action - same floating-corner idiom as the Magazines
-        // actions above, in the same date_overlay row.
-        clear_history_button = new Gtk.Button.with_label("Clear History");
-        clear_history_button.add_css_class("destructive-action");
-        clear_history_button.add_css_class("pill");
-        clear_history_button.set_halign(Gtk.Align.END);
-        clear_history_button.set_valign(Gtk.Align.END);
-        clear_history_button.set_visible(false);
-        date_overlay.add_overlay(clear_history_button);
 
         header_box.append(date_overlay);
 
@@ -1091,7 +1093,10 @@ public class ContentView : GLib.Object {
         // it's already correct for every keystroke after the first.
         if (category_label.get_text() != "Search results") {
             category_label.set_text("Search results");
-            if (window.header_manager != null) window.header_manager.update_category_icon();
+            if (window.header_manager != null) {
+                window.header_manager.update_category_icon();
+                window.header_manager.update_date_label();
+            }
         }
 
         // Delegate card dimension calculation to LayoutManager
