@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.12.0a',
+  version : '0.12.1a',
   meson_version : '>=0.59.0'
 )
 
@@ -43,6 +43,7 @@ cairo = dependency('cairo')
     'src/ui/components/sports/leagueBadgeCarousel.vala',
     'src/ui/components/markets/marketIndexCard.vala',
     'src/ui/components/sports/scoreCard.vala',
+    'src/ui/components/sports/highlightCard.vala',
     'src/ui/components/magazines/magazineCard.vala',
     'src/ui/components/magazines/magazineReaderSheet.vala',
     'src/ui/components/magazines/magazineTocPane.vala',
@@ -70,6 +71,7 @@ cairo = dependency('cairo')
     'src/ui/dialogs/content/shareDialog.vala',
     'src/ui/dialogs/media/magazineOrganizeDialog.vala',
     'src/ui/dialogs/media/podcastDetailDialog.vala',
+    'src/ui/dialogs/media/videoPlayerDialog.vala',
     'src/ui/dialogs/media/podcastPickerDialog.vala',
     'src/ui/dialogs/notes/noteEditorDialog.vala',
     'src/ui/dialogs/notes/notesBrowserDialog.vala',
@@ -110,6 +112,9 @@ cairo = dependency('cairo')
     'src/services/articles/articleStateStore.vala',
     'src/services/articles/renderedPageFetcher.vala',
     'src/services/articles/thumbnailBackfillService.vala',
+    'src/services/articles/readingTimePrefetchService.vala',
+    'src/services/cache/articleReadingTimeCache.vala',
+    'src/services/weather/weatherService.vala',
     'src/services/cache/discoveredThumbnailCache.vala',
     'src/services/cache/feedHttpCache.vala',
     'src/services/cache/imageCache.vala',
@@ -127,6 +132,8 @@ cairo = dependency('cairo')
     'src/services/comments/viafouraCommentsService.vala',
     'src/services/markets/marketIndicesService.vala',
     'src/services/sports/sportsScoresService.vala',
+    'src/services/video/videoEmbedResolver.vala',
+    'src/services/video/videoPageServer.vala',
     'src/services/feeds/fetchContext.vala',
     'src/services/feeds/viewSession.vala',
     'src/services/feeds/generatedFeedService.vala',
@@ -143,6 +150,7 @@ cairo = dependency('cairo')
     'src/services/notes/notesStore.vala',
     'src/services/podcasts/podcastFeedResolver.vala',
     'src/services/podcasts/podcastIndexService.vala',
+    'src/services/podcasts/podcastMprisService.vala',
     'src/services/podcasts/podcastPlaybackStateStore.vala',
     'src/services/podcasts/podcastSubscriptionStore.vala',
     'src/services/settings/prefs.vala',
@@ -168,6 +176,7 @@ cairo = dependency('cairo')
 
     # Models
     'src/models/sports/gameScore.vala',
+    'src/models/sports/videoHighlight.vala',
     'src/models/markets/marketIndexHistory.vala',
     'src/models/markets/marketIndexQuote.vala',
     'src/models/media/imageModels.vala',
@@ -177,6 +186,7 @@ cairo = dependency('cairo')
     'src/models/news/articleNote.vala',
     'src/models/news/feedComment.vala',
     'src/models/news/localArea.vala',
+    'src/models/weather/weatherReport.vala',
     'src/models/news/newsArticle.vala',
     'src/models/news/rssSource.vala',
 
@@ -194,6 +204,7 @@ cairo = dependency('cairo')
     'src/utils/text/sortUtils.vala',
     'src/utils/text/stripHtmlUtils.vala',
     'src/utils/ui/categoryIconsUtils.vala',
+    'src/utils/ui/dialogUtils.vala',
     'src/utils/ui/fixedSizeLayoutUtils.vala',
     'src/utils/ui/pixbufUtils.vala',
     'src/utils/ui/podcastImageUtils.vala',
@@ -259,3 +270,6 @@ install_data('data/resources/adblock.css', install_dir: join_paths(get_option('d
 # Mozilla's Readability.js (Apache-2.0), used by RenderedPageFetcher as the
 # reader-view fallback's extraction engine - same install pattern as above.
 install_data('data/resources/readability.js', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))
+
+# hls.js (Apache-2.0), used by VideoPageServer to play HLS streams WebKit can't play natively.
+install_data('data/resources/hls.min.js', install_dir: join_paths(get_option('datadir'), 'paperboy', 'resources'))

@@ -121,6 +121,9 @@ public class PaperboyFetcher : BaseFetcher {
                     return;
                 }
 
+
+                record_reading_times(articles);
+
                 Idle.add(() => {
                     // Don't clear items or update label - we already showed cached articles
                     // Just add fresh articles that aren't in cache
@@ -320,6 +323,9 @@ public class PaperboyFetcher : BaseFetcher {
                     return;
                 }
 
+
+                record_reading_times(articles);
+
                 Idle.add(() => {
                     if (current_search_query.length > 0) {
                         set_label(@"Search Results: \"$(current_search_query)\" in Top Ten — Paperboy");
@@ -504,6 +510,7 @@ public class PaperboyFetcher : BaseFetcher {
                                     }
                                 }
                                 if (front_articles != null) {
+                                    record_reading_times(front_articles);
                                     uint total_candidates = front_articles.get_length();
                                     uint max_candidates = 20;
                                     uint len2 = total_candidates;
@@ -604,6 +611,8 @@ public class PaperboyFetcher : BaseFetcher {
                     return;
                 }
 
+                record_reading_times(articles);
+
                 Idle.add(() => {
                     uint len = articles.get_length();
                     for (uint i = 0; i < len; i++) {
@@ -682,6 +691,22 @@ public class PaperboyFetcher : BaseFetcher {
                 warning("Paperboy Sports fetch error: %s", e.message);
             }
         });
+    }
+
+    // The API's `content` is the article's full text; stored before any cards are built.
+    private static void record_reading_times(Json.Array articles) {
+        var minutes = new Gee.HashMap<string, int>();
+        for (uint i = 0; i < articles.get_length(); i++) {
+            var node = articles.get_element(i);
+            if (node.get_node_type() != Json.NodeType.OBJECT) continue;
+            var art = node.get_object();
+            string? url = json_get_string_safe(art, "url") ?? json_get_string_safe(art, "link");
+            string? content = json_get_string_safe(art, "content");
+            if (url == null || content == null) continue;
+            int words = ArticleReadingTimeCache.count_words(stripHtmlUtils.strip_html(content));
+            if (words >= ArticleReadingTimeCache.MIN_FULL_TEXT_WORDS) minutes.set(url, ArticleReadingTimeCache.minutes_for_words(words));
+        }
+        ArticleReadingTimeCache.get_instance().set_many(minutes);
     }
 
     private static string? json_get_string_safe(Json.Object obj, string member) {

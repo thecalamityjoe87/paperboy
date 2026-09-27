@@ -113,6 +113,16 @@ public class ThumbnailBackfillService : GLib.Object {
         return _queue;
     }
     private static int in_flight = 0;
+    private static Gee.HashSet<string>? _pending_urls = null;
+    private static Gee.HashSet<string> pending_urls() {
+        if (_pending_urls == null) _pending_urls = new Gee.HashSet<string>();
+        return _pending_urls;
+    }
+
+    // Whether an extraction for this normalized URL is queued or running.
+    public static bool is_pending(string normalized_url) {
+        return pending_urls().contains(normalized_url);
+    }
 
     // Set by a caller (e.g. "Load More") right before placing a batch of
     // cards, so every enqueue() call made while placing them is attributed
@@ -142,6 +152,7 @@ public class ThumbnailBackfillService : GLib.Object {
         if (window.loading_state != null) window.loading_state.on_backfill_started();
         if (current_batch != null) current_batch.started();
 
+        pending_urls().add(normalized);
         queue().add(new Request(window, url, normalized, pic, current_batch, fallback_w, fallback_h));
         maybe_start_next();
     }
@@ -165,6 +176,7 @@ public class ThumbnailBackfillService : GLib.Object {
         // MAX_CONCURRENT above, same as the plain-fetch case.
         ArticleExtractorService.extract_async(req.url, true, (extracted) => {
             in_flight--;
+            pending_urls().remove(req.normalized_url);
 
             // Don't require extracted.success - that reflects whether the
             // article body itself was extracted, not whether a hero image

@@ -53,6 +53,12 @@ namespace Managers {
             url_to_picture = new Gee.HashMap<string, Gtk.Picture>();
             url_to_card = new Gee.HashMap<string, Gee.ArrayList<Gtk.Widget>>();
             normalized_to_url = new Gee.HashMap<string, string>();
+
+            ArticleReadingTimeCache.get_instance().reading_time_changed.connect((normalized_url, minutes) => {
+                var cards = url_to_card.get(normalized_url);
+                if (cards == null) return;
+                foreach (var card in cards) CardBuilder.refresh_card_time(card);
+            });
         }
 
         public string normalize_article_url(string url) {

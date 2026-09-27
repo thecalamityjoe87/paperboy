@@ -487,6 +487,7 @@ public class LoadingStateManager : GLib.Object {
         pending_reveal_action = null;
         ViewSession.remove_source(ref initial_reveal_timeout_id);
         ViewSession.remove_source(ref absolute_reveal_timeout_id);
+        hide_error_message();
         hide_loading_spinner();
         bool pvis = personalized_message_box != null ? personalized_message_box.get_visible() : false;
         bool lvis = local_news_message_box != null ? local_news_message_box.get_visible() : false;

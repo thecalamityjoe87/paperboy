@@ -47,6 +47,8 @@ public class ExtractedArticle : GLib.Object {
     public string? published { get; set; default = null; }
     public string? hero_image_url { get; set; default = null; }
     public string? site_name { get; set; default = null; }
+    // The site's own reading time (Yoast meta tags or JSON-LD timeRequired), 0 if none.
+    public int reported_minutes { get; set; default = 0; }
     public Gee.ArrayList<ArticleBlock> blocks;
     public bool success { get; set; default = false; }
 
@@ -78,6 +80,7 @@ public class ArticleExtractorService : GLib.Object {
 
             Idle.add(() => {
                 if (result.success || !allow_rendered_fallback) {
+                    record_reading_time(url, result, result.reported_minutes);
                     on_done(result);
                     return false;
                 }
@@ -92,12 +95,28 @@ public class ArticleExtractorService : GLib.Object {
                 // algorithm against the live rendered DOM.
                 RenderedPageFetcher.fetch_async(target_url, (readability_result) => {
                     var rendered_result = readability_result != null ? build_article_from_readability(readability_result, target_url, result.hero_image_url) : null;
-                    on_done(rendered_result != null && rendered_result.success ? rendered_result : result);
+                    var final_result = rendered_result != null && rendered_result.success ? rendered_result : result;
+                    record_reading_time(url, final_result, result.reported_minutes);
+                    on_done(final_result);
                 });
                 return false;
             });
             return null;
         });
+    }
+
+    private static void record_reading_time(string url, ExtractedArticle article, int reported_minutes) {
+        if (!article.success) return;
+        int minutes = reported_minutes;
+        if (minutes <= 0) {
+            int words = 0;
+            foreach (var block in article.blocks) {
+                if (block.kind == ArticleBlockKind.TEXT && block.text != null) words += ArticleReadingTimeCache.count_words(block.text);
+            }
+            if (words < 50) return;
+            minutes = ArticleReadingTimeCache.minutes_for_words(words);
+        }
+        ArticleReadingTimeCache.get_instance().set_minutes(url, minutes);
     }
 
     private static string? fetch_html_sync(string url) {
@@ -114,6 +133,7 @@ public class ArticleExtractorService : GLib.Object {
         var article = new ExtractedArticle();
 
         extract_meta(html, article);
+        if (article.reported_minutes <= 0) article.reported_minutes = json_ld_time_required_minutes(html);
 
         int opts = Html.ParserOption.RECOVER | Html.ParserOption.NOERROR | Html.ParserOption.NOWARNING | Html.ParserOption.NONET;
         // Force UTF-8 explicitly rather than letting libxml2 auto-detect
@@ -174,12 +194,160 @@ public class ArticleExtractorService : GLib.Object {
         // regardless of how well the body content itself already extracted.
         backfill_author_and_date_from_json_ld(html, article);
 
+        bool has_video = add_lead_video(html, url, article);
+
         if (article.title.length == 0 && text_block_count == 0) {
             article.success = false;
         } else {
-            article.success = text_block_count > 0;
+            // A video-only watch page has no body text but is still worth showing.
+            article.success = text_block_count > 0 || has_video;
         }
         return article;
+    }
+
+    // For pages whose video isn't in the body markup, adds the page's lead video as the first block.
+    // Returns whether the article has a video.
+    private static bool add_lead_video(string html, string url, ExtractedArticle article) {
+        foreach (var b in article.blocks) {
+            if (b.kind != ArticleBlockKind.TEXT && b.kind != ArticleBlockKind.IMAGE) return true;
+        }
+        var block = detect_page_video(html, url);
+        if (block == null) return false;
+        block.image_url = article.hero_image_url;
+        article.blocks.insert(0, block);
+        return true;
+    }
+
+    // Site rules first (VideoEmbedResolver), then the standard signals publishers add for search engines
+    // and social cards: schema.org VideoObject, twitter:player, og:video, and Brightcove's embed markup.
+    // A player page is preferred over a raw media file, so the publisher's own player plays it.
+    private static ArticleBlock? detect_page_video(string html, string url) {
+        var embeds = new Gee.ArrayList<string>();
+        var contents = new Gee.ArrayList<string>();
+        collect_video_objects(html, embeds, contents);
+        var meta = meta_values(html);
+
+        var site_candidates = new Gee.ArrayList<string>();
+        site_candidates.add(url);
+        site_candidates.add_all(embeds);
+        site_candidates.add_all(contents);
+        foreach (var c in site_candidates) {
+            if (VideoEmbedResolver.for_url(c) != null) return video_block(ArticleBlockKind.VIDEO_LINK, c);
+        }
+        string? site_lead = VideoEmbedResolver.lead_video_url_from_page(url, html);
+        if (site_lead != null) return video_block(ArticleBlockKind.VIDEO_LINK, site_lead);
+
+        var players = new Gee.ArrayList<string>();
+        players.add_all(embeds);
+        if (meta.has_key("twitter:player")) players.add(meta.get("twitter:player"));
+        string og_type = meta.has_key("og:video:type") ? meta.get("og:video:type").down() : "";
+        foreach (var key in new string[] { "og:video:secure_url", "og:video:url", "og:video" }) {
+            if (meta.has_key(key) && (og_type == "text/html" || og_type == "")) players.add(meta.get(key));
+        }
+        string? brightcove = brightcove_player_url(html);
+        if (brightcove != null) players.add(brightcove);
+        foreach (var p in players) {
+            if (is_player_page(p, url)) return video_block(ArticleBlockKind.VIDEO_EMBED, p);
+        }
+
+        var files = new Gee.ArrayList<string>();
+        files.add_all(contents);
+        files.add_all(embeds);
+        foreach (var key in new string[] { "og:video:secure_url", "og:video:url", "og:video" }) {
+            if (meta.has_key(key)) files.add(meta.get(key));
+        }
+        foreach (var f in files) {
+            if (f.has_prefix("https://") && VideoEmbedResolver.is_media_file(f)) return video_block(ArticleBlockKind.VIDEO_FILE, f);
+        }
+        return null;
+    }
+
+    private static ArticleBlock video_block(ArticleBlockKind kind, string video_url) {
+        return new ArticleBlock() { kind = kind, video_url = video_url };
+    }
+
+    // An https page other than the article itself (some sites point og:video back at the article).
+    private static bool is_player_page(string candidate, string page_url) {
+        if (!candidate.has_prefix("https://") || VideoEmbedResolver.is_media_file(candidate)) return false;
+        return candidate.split("#")[0].replace("http://", "https://") != page_url.split("#")[0].replace("http://", "https://");
+    }
+
+    // Brightcove's standard embed markup: <video-js data-account=.. data-player=.. data-video-id=..>.
+    private static string? brightcove_player_url(string html) {
+        try {
+            GLib.MatchInfo mi;
+            if (new GLib.Regex("<(?:video-js|video|div)\\b[^>]*\\bdata-account=[\"'](\\d+)[\"'][^>]*>").match(html, 0, out mi)) {
+                string tag = mi.fetch(0);
+                string account = mi.fetch(1);
+                string player = stripHtmlUtils.extract_attr(tag, "data-player");
+                string video_id = stripHtmlUtils.extract_attr(tag, "data-video-id");
+                if (video_id.length > 0 && GLib.Regex.match_simple("^[A-Za-z0-9_:-]+$", video_id)) {
+                    return "https://players.brightcove.net/%s/%s_default/index.html?videoId=%s".printf(
+                        account, player.length > 0 ? player : "default", GLib.Uri.escape_string(video_id, null, false));
+                }
+            }
+        } catch (GLib.RegexError e) {
+        }
+        return null;
+    }
+
+    // First value of each <meta> name/property, entity-decoded.
+    private static Gee.HashMap<string, string> meta_values(string html) {
+        var values = new Gee.HashMap<string, string>();
+        string lower = html.down();
+        int pos = 0;
+        while ((pos = lower.index_of("<meta", pos)) >= 0) {
+            int end = lower.index_of(">", pos);
+            if (end < 0) break;
+            string tag = html.substring(pos, end - pos + 1);
+            string key = stripHtmlUtils.extract_attr(tag, "property").down();
+            if (key.length == 0) key = stripHtmlUtils.extract_attr(tag, "name").down();
+            string content = stripHtmlUtils.extract_attr(tag, "content").strip();
+            if (key.length > 0 && content.length > 0 && !values.has_key(key)) values.set(key, stripHtmlUtils.strip_html(content));
+            pos = end + 1;
+        }
+        return values;
+    }
+
+    // embedUrl and contentUrl of every schema.org VideoObject; publishers disagree on which holds what.
+    private static void collect_video_objects(string html, Gee.ArrayList<string> embeds, Gee.ArrayList<string> contents) {
+        if (!html.contains("VideoObject")) return;
+        foreach (var raw in find_json_ld_scripts(html)) {
+            try {
+                var parser = new Json.Parser();
+                parser.load_from_data(raw);
+                collect_video_object_urls(parser.get_root(), embeds, contents);
+            } catch (GLib.Error e) {
+            }
+        }
+    }
+
+    private static void collect_video_object_urls(Json.Node? node, Gee.ArrayList<string> embeds, Gee.ArrayList<string> contents) {
+        if (node == null) return;
+        if (node.get_node_type() == Json.NodeType.ARRAY) {
+            foreach (var el in node.get_array().get_elements()) collect_video_object_urls(el, embeds, contents);
+            return;
+        }
+        if (node.get_node_type() != Json.NodeType.OBJECT) return;
+        var obj = node.get_object();
+        var type_node = obj.get_member("@type");
+        if (type_node != null && type_node.get_node_type() == Json.NodeType.VALUE && type_node.get_value_type() == typeof(string)
+            && type_node.get_string() == "VideoObject") {
+            string? e = json_string_member(obj, "embedUrl");
+            if (e != null) embeds.add(e);
+            string? c = json_string_member(obj, "contentUrl");
+            if (c != null) contents.add(c);
+        }
+        foreach (var member in obj.get_members()) {
+            var child = obj.get_member(member);
+            if (child.get_node_type() == Json.NodeType.OBJECT || child.get_node_type() == Json.NodeType.ARRAY) collect_video_object_urls(child, embeds, contents);
+        }
+    }
+
+    private static string? json_string_member(Json.Object obj, string key) {
+        var v = obj.get_member(key);
+        if (v == null || v.get_node_type() != Json.NodeType.VALUE || v.get_value_type() != typeof(string)) return null;
+        return v.get_string();
     }
 
     private static int count_text_blocks(ExtractedArticle article) {
@@ -435,12 +603,76 @@ public class ArticleExtractorService : GLib.Object {
         }
     }
 
+    // "5 minutes" -> 5; "Less than a minute" -> 1; 0 if unrecognized.
+    private static int parse_minutes_text(string text) {
+        string t = text.strip().down();
+        int value = 0;
+        int i = 0;
+        while (i < t.length && t[i].isdigit()) {
+            value = value * 10 + (t[i] - '0');
+            i++;
+        }
+        if (value > 0) return value < 600 ? value : 0;
+        return t.contains("minute") ? 1 : 0;
+    }
+
+    // JSON-LD timeRequired as an ISO 8601 duration ("PT5M", "PT1H10M"), rounded up to minutes.
+    private static int json_ld_time_required_minutes(string html) {
+        if (!html.contains("timeRequired")) return 0;
+        foreach (var raw in find_json_ld_scripts(html)) {
+            Json.Object? candidate = null;
+            try {
+                var parser = new Json.Parser();
+                parser.load_from_data(raw);
+                candidate = find_article_object_in_node(parser.get_root());
+            } catch (GLib.Error e) {
+                continue;
+            }
+            if (candidate == null || !candidate.has_member("timeRequired")) continue;
+            var node = candidate.get_member("timeRequired");
+            if (node.get_value_type() != typeof(string)) continue;
+            int minutes = parse_iso_duration_minutes(node.get_string());
+            if (minutes > 0) return minutes;
+        }
+        return 0;
+    }
+
+    private static int parse_iso_duration_minutes(string duration) {
+        string d = duration.strip().up();
+        int t_idx = d.index_of("T");
+        if (!d.has_prefix("P") || t_idx < 0) return 0;
+        int seconds = 0;
+        int number = 0;
+        for (int i = t_idx + 1; i < d.length; i++) {
+            char c = d[i];
+            if (c.isdigit()) {
+                number = number * 10 + (c - '0');
+                continue;
+            }
+            if (c == '.') {
+                // Drop fractional digits ("PT4M30.5S").
+                while (i + 1 < d.length && d[i + 1].isdigit()) i++;
+                continue;
+            }
+            if (c == 'H') seconds += number * 3600;
+            else if (c == 'M') seconds += number * 60;
+            else if (c == 'S') seconds += number;
+            else return 0;
+            number = 0;
+        }
+        if (seconds <= 0 || seconds >= 600 * 60) return 0;
+        return (seconds + 59) / 60;
+    }
+
     // ---- Meta tag extraction (title/author/date/image/site name) ----
 
     private static void extract_meta(string html, ExtractedArticle article) {
         string lower = html.down();
         int pos = 0;
         string? title_fallback = null;
+        // Yoast pairs twitter:labelN ("Est. reading time") with twitter:dataN ("5 minutes").
+        var twitter_labels = new Gee.HashMap<string, string>();
+        var twitter_data = new Gee.HashMap<string, string>();
 
         while ((pos = lower.index_of("<meta", pos)) >= 0) {
             int end = lower.index_of(">", pos);
@@ -474,9 +706,17 @@ public class ArticleExtractorService : GLib.Object {
                 if (article.site_name == null && prop_attr == "og:site_name") {
                     article.site_name = stripHtmlUtils.strip_html(content);
                 }
+                if (name_attr.has_prefix("twitter:label")) twitter_labels.set(name_attr.substring(13), content.down());
+                if (name_attr.has_prefix("twitter:data")) twitter_data.set(name_attr.substring(12), content);
             }
 
             pos = end + 1;
+        }
+
+        foreach (var entry in twitter_labels.entries) {
+            if (!entry.value.contains("reading time") || !twitter_data.has_key(entry.key)) continue;
+            article.reported_minutes = parse_minutes_text(twitter_data.get(entry.key));
+            break;
         }
 
         if (article.title.length == 0) {

@@ -1,24 +1,62 @@
-# v0.12.0a - Magazine Rack & PDF Reader, Reading History, and My Feed Extras
+# v0.12.1a - Sports Highlights & In-App Video, Reading Times, Local Weather, and MPRIS
+
+- Added a Highlights row to the Sports page with up to 12 ESPN video clips from your enabled leagues. Clips of your favorite teams come first, and the row refreshes every 30 minutes while Sports is open
+- Added in-app video playback across news sites: reader view now finds an article's lead video using the standard tags most publishers include, and plays it in a new video player dialog with autoplay and fullscreen
+- The video player handles publisher players, YouTube, Vimeo, Dailymotion, and MP4/HLS streams (via bundled hls.js), with site-specific tweaks for ESPN, Fox News, Fox Business, ABC News, and PBS
+- Video-only pages now open in reader view as a title and video instead of failing, and the reader no longer shows a duplicate hero image when the video already uses it as its poster
+- Added "N min read" to article, hero, and history cards, using the site's own reading time when it publishes one. For feeds that only include an excerpt, the article is fetched in the background to get it
+- Added current weather and today's high/low for your local area to the Local News header and My Feed (via Open-Meteo, in °F or °C to match your locale); clicking it opens GNOME Weather if installed
+- Added MPRIS support so podcast playback shows up in GNOME media controls and on the lock screen, and responds to media keys
+- Added a dedicated search to Magazine Rack that filters your library by title, category, or source
+- The Saved page header now shows your saved article count instead of the date, and History hides the date row and moves "Clear History" up next to the title
+- The header date now stays correct past midnight
+- The image viewer and video player now center over the content area, with the sidebar dimmed along with it
+- Fixed Local News articles appearing out of order: they now show newest-first, cached and live results are merged without duplicates, and newer stories are no longer cut by the item cap
+- Fixed favorite-team scores not showing, and game start times failing to parse (which also broke score polling and My Feed's game filter)
+- Game times now follow your time zone and GNOME clock format, finished games show their date, unscheduled games show "TBD", and postponed or canceled games no longer show 0-0
+- Scores rows are now sorted by start time and open on the first live game (or the latest result), include upcoming soccer fixtures and the next day's games, and My Teams is trimmed to the last 5 results and next 5 games
+- Fixed a full-page error staying over loaded articles when just one source failed on Sports, multi-source categories, or My Feed
+- Fixed dark logos with transparent backgrounds disappearing on dark themes by giving circular source logos a light backing
+
+# v0.12.0a - Magazine Rack & PDF Reader, Reading History, My Feed Extras, and a Feed Refresh Overhaul
 
 - Added Magazine Rack to import, organize, and read PDF magazines with two-page spreads, pinch/button zoom, swipe page turning with live drag-peek, and a slide-out table of contents panel
 - Added an "Organize Rack" drag-and-drop dialog to sort magazines into custom categories, reorder category rows, and toggle flat-grid or category-row views
+- Added multi-select to Magazine Rack (right-click "Select", Ctrl+click, or Ctrl+A) with a bottom action bar for batch deletion
+- Magazines now reopen at the page you left off on
 - Integrated a sandboxed PDF thumbnailer subprocess running via internal re-exec (--internal-magazine-thumbnailer) with crash containment and prefetch caching
 - Added a dedicated History view displaying previously read articles in a compact horizontal card layout with relative viewed timestamps, search, and a "Clear History" confirmation dialog
+- Added centered empty states for History, Saved, and Magazines, replacing the false "No articles could be loaded" error
 - Updated article card styling to display category names as colored accent text above the title instead of floating badges
 - Added customizable preview rows at the top of My Feed for Sports scores, Markets, Podcasts, and Magazines with quick "Go to" buttons
-- Unified page container ownership and cleanup logic, preventing lingering widgets across page switches, and reset scroll position when navigating categories
-- Consolidated redundant symbolic icon size tiers into a single resolution-independent icon directory
+- Personalized the My Feed sports row: it follows your league order and favorite teams, puts favorites and live games first, and skips leagues in their off-season
+- Fixed the My Feed unread badge resetting on restart, and made disabling My Feed fully clear its content, extras rows, and badge
 - Added support for up to 5 Local News cities, each with its own expandable sidebar row and unread count, plus a Preferences group to reorder, change, add, and remove them
 - Replaced geocode-glib with direct Nominatim lookups for more accurate town, ZIP, and nearby-metro (within 200 km) results, and removed the dependency
 - Improved Local News articles to show the real publisher name, logo, and source badge, and to strip the " - Publisher" suffix from titles
 - Fixed the Local News reader view and thumbnails by decoding Google News redirect links, and stopped Google's logo from being used as article thumbnails
 - Added renaming for followed feeds from the sidebar right-click menu or Preferences > Feeds
-- Split the Preferences Sources tab into Built-in sources and Custom feeds subpages
+- Added new-episode dots to podcast shows in the sidebar (and to collapsed Podcasts and Popular sections), plus a "More info" item in the podcast right-click menu
+- Split the Preferences Sources tab into Built-in sources and Custom feeds subpages, and added Podcasts and Magazines groups to manage subscribed shows and magazine sources
+- Added pinch-to-zoom, zoom buttons, and click-and-drag panning to the image viewer
+- Reworked background feed refresh into a per-feed scheduler with adaptive intervals, exponential backoff on failures, and pausing while the window is hidden (slower on metered connections and power-saver mode)
+- Added conditional GET (ETag/Last-Modified) caching for RSS feeds, so unchanged feeds are served from disk
+- Added a memory watchdog that kills runaway WebKit pages over 1.5 GB, and capped merged generated feeds at 100 items
+- Improved publish-date extraction for generated feeds and fixed blank card times on sites like AP News; outdated generated feeds now regenerate automatically and are no longer lost if a rewrite fails
+- The Guardian now loads through the Paperboy backend after its public API key stopped working, and Guardian and Fox articles now appear in search
+- Removed Reddit as a built-in news source (Share to Reddit and user-added Reddit RSS feeds still work)
+- Fixed feeds stalling on some HTTP/2 servers by falling back to HTTP/1.1, fixed request timeouts getting stuck at 8s, and silenced parser noise from slightly malformed feeds
+- Each view now owns its requests, timers, and on-screen messages, and cleans them all up on exit, so articles, loading spinners, "No more articles", and load-more buttons no longer leak into the next view
+- Unified page container ownership and cleanup logic, preventing lingering widgets across page switches, and reset scroll position when navigating categories
+- Search now uses its own standard grid layout instead of inheriting the Front Page layout
+- Fixed several memory leaks that kept cards, sections, and animations alive after leaving a page
+- Fixed Sports and Markets rows going empty after switching pages
 - Fixed the article extractor discarding real article bodies on some WordPress sites, and bundled readability.js in the AppImage so the rendered-page fallback works
 - Fixed the first-run landing page to open Front Page, and made factory resets save properly
 - Fixed a UI deadlock from overlapping feed generation requests, and "WebProcess didn't exit" aborts when quitting mid-render
 - Fixed oversized and blurry source badge logos on fractional-scale and HiDPI displays
-- Fixed sidebar sections not remembering their expanded state
+- Fixed sidebar sections not remembering their expanded state, the expander caret over-rotating, and lists jumping after closing a dialog
+- Consolidated redundant symbolic icon size tiers into a single resolution-independent icon directory
 - Reorganized the source tree into feature subfolders
 
 # v0.11.3a - Hotfix: Image Viewer Memory Leak

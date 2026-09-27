@@ -99,7 +99,7 @@ public class ScoreCard : GLib.Object {
     }
 
     private void apply_game(GameScore game) {
-        string status_text = (preview && game.status == GameStatus.LIVE) ? "LIVE" : game.status_detail;
+        string status_text = (preview && game.status == GameStatus.LIVE) ? "LIVE" : status_text_for(game);
         if (show_league) status_text = "%s · %s".printf(game.league_display_name, status_text);
         status_label.set_text(status_text);
         if (game.status == GameStatus.LIVE) {
@@ -108,8 +108,32 @@ public class ScoreCard : GLib.Object {
             status_label.remove_css_class("score-card-status-live");
         }
 
-        apply_team(away_logo, away_name_label, away_score_label, game.away_team, game.away_team_abbr, game.away_logo_url, game.away_score, game.status);
-        apply_team(home_logo, home_name_label, home_score_label, game.home_team, game.home_team_abbr, game.home_logo_url, game.home_score, game.status);
+        bool show_scores = game.status != GameStatus.SCHEDULED && !game.no_result;
+        apply_team(away_logo, away_name_label, away_score_label, game.away_team, game.away_team_abbr, game.away_logo_url, show_scores ? game.away_score : "");
+        apply_team(home_logo, home_name_label, home_score_label, game.home_team, game.home_team_abbr, game.home_logo_url, show_scores ? game.home_score : "");
+    }
+
+    // Built from the start time in the user's own timezone/clock format, since ESPN's
+    // text is always US Eastern. Live games keep ESPN's clock ("Q3 7:42", "67'").
+    private static string status_text_for(GameScore game) {
+        if (game.status == GameStatus.LIVE || game.start_time == null) return game.status_detail;
+        var local = game.start_time.to_local();
+        if (game.status == GameStatus.FINAL) return "%s · %s".printf(game.status_detail, day_label(local));
+        if (!game.time_valid) return "TBD";
+        return "%s · %s".printf(day_label(local), local.format(DateUtils.clock_time_format()));
+    }
+
+    private static string day_label(GLib.DateTime local) {
+        var today = new GLib.DateTime.now_local();
+        var d = GLib.Date();
+        d.set_dmy((GLib.DateDay) local.get_day_of_month(), local.get_month(), (GLib.DateYear) local.get_year());
+        var t = GLib.Date();
+        t.set_dmy((GLib.DateDay) today.get_day_of_month(), today.get_month(), (GLib.DateYear) today.get_year());
+        int diff = (int) d.get_julian() - (int) t.get_julian();
+        if (diff == 0) return "Today";
+        if (diff == -1) return "Yesterday";
+        if (diff == 1) return "Tomorrow";
+        return local.format("%a %-m/%-d");
     }
 
     // Must stay static: Vala folds a strong ref to `self` into the shared
@@ -158,12 +182,10 @@ public class ScoreCard : GLib.Object {
         return row;
     }
 
-    private void apply_team(Gtk.Picture logo, Gtk.Label name_label, Gtk.Label score_label, string team_name, string abbr, string? logo_url, string score, GameStatus status) {
+    private void apply_team(Gtk.Picture logo, Gtk.Label name_label, Gtk.Label score_label, string team_name, string abbr, string? logo_url, string score) {
         string display_name = team_name.length > 0 ? team_name : abbr;
         name_label.set_text(display_name);
-
-        string score_text = (status == GameStatus.SCHEDULED) ? "" : score;
-        score_label.set_text(score_text);
+        score_label.set_text(score);
 
         if (logo_url != null && logo_url.length > 0) {
             load_team_logo(logo, logo_url);

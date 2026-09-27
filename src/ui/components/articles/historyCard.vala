@@ -153,7 +153,8 @@ public class HistoryCard : GLib.Object {
         var bottom_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
 
         string viewed_text = "Viewed " + DateUtils.time_ago(viewed_timestamp.to_string());
-        time_label = new Gtk.Label(viewed_text);
+        time_label = new Gtk.Label(null);
+        CardBuilder.set_card_time(root, time_label, viewed_text, url);
         time_label.add_css_class("article-card-time");
         time_label.set_xalign(0);
         time_label.set_hexpand(true);
@@ -176,6 +177,5 @@ public class HistoryCard : GLib.Object {
 
         root.set_data("article-url", url);
         root.set_data("article-title-text", title);
-        root.set_data("article-time-label", time_label);
     }
 }

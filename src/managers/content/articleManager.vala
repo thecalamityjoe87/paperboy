@@ -386,16 +386,18 @@ namespace Managers {
             // uses its own set (see trending_seen_urls) instead of sharing
             // seen_urls with the Front Page's own concurrent stream.
             if (normalized.length > 0 && already_seen_and_mark(normalized, is_trending)) {
-                // Backfill the already-rendered card's time label if this
-                // duplicate call carries a published date it doesn't have yet.
-                if (published != null && published.length > 0 && window.view_state != null) {
+                // Backfill the already-rendered card's time caption: a published
+                // date it doesn't have yet, or a reading time recorded since
+                // (e.g. a cached card re-sent by a fresh API fetch).
+                if (window.view_state != null) {
                     var existing_widgets = window.view_state.get_cards_for_url(normalized);
                     if (existing_widgets != null) {
                         foreach (var existing_widget in existing_widgets) {
-                            Gtk.Label? existing_time_label = existing_widget.get_data<Gtk.Label>("article-time-label");
-                            if (existing_time_label != null && existing_time_label.get_text() == "") {
-                                existing_time_label.set_text(DateUtils.time_ago(published));
+                            string? existing_base = existing_widget.get_data<string>("article-time-base");
+                            if (existing_base != null && existing_base == "" && published != null && published.length > 0) {
+                                existing_widget.set_data("article-time-base", DateUtils.time_ago(published));
                             }
+                            CardBuilder.refresh_card_time(existing_widget);
                         }
                     }
                 }

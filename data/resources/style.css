@@ -171,6 +171,38 @@
     min-width: 24px;
 }
 
+/* Sports highlight video cards (see HighlightCard) */
+.highlight-card-play {
+    min-width: 48px;
+    min-height: 48px;
+    border-radius: 999px;
+    background-color: alpha(black, 0.55);
+    color: white;
+    -gtk-icon-size: 22px;
+}
+
+/* Darker than libadwaita's faint default dim, so the video takes focus over the content/reader view */
+dialog.video-player floating-sheet > dimming {
+    background-color: rgba(0, 0, 0, 0.65);
+}
+
+/* Stronger than libadwaita's default floating-sheet shadow (see VideoPlayerDialog) */
+dialog.video-player floating-sheet > sheet {
+    box-shadow: 0 6px 32px 6px rgba(0, 0, 6, 0.30),
+                0 0 10px 2px rgba(0, 0, 6, 0.25),
+                0 0 0 1px rgba(0, 0, 0, 0.10);
+}
+
+.highlight-card-duration {
+    background-color: alpha(black, 0.7);
+    color: white;
+    font-size: 0.8em;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin: 8px;
+}
+
 /* Stocks ticker cards (see MarketIndexCard), styled after PodcastHeroCard's
    full-bleed-art-plus-bottom-scrim layout - a colored block stands in for
    cover art, tinted by whether the index is up or down today. No background
@@ -698,6 +730,14 @@
 .navigation-sidebar .sidebar-item-row.save-arrival-pulse {
     background-color: alpha(@accent_bg_color, 0.25);
     transition: background-color 250ms ease;
+}
+
+/* Dimmed backing so dark logos with transparent backgrounds stay visible on dark themes. */
+.source-badge .circular-logo picture,
+.reader-view .circular-logo picture,
+.navigation-sidebar .circular-logo picture,
+.source-row .circular-logo picture {
+    background-color: rgba(246, 243, 236, 0.92);
 }
 
 /* Clip dynamic remote source logos (wrapper + all descendants) to a circle. */
@@ -1256,6 +1296,11 @@ navigation-split-view>widget.sidebar-pane {
 /* Dim overlay to disable main area when article preview is open */
 .dim-overlay {
     background-color: alpha(black, 0.4);
+}
+
+/* A bit stronger than libadwaita's dialog dimming to offset the lighter sidebar background */
+.sidebar-dialog-dim {
+    background-color: RGB(from var(--shade-color) r g b / calc(alpha * 2.6));
 }
 
 /* Only the headerbar for the sidebar pane */

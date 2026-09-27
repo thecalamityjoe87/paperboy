@@ -1,3 +1,19 @@
+paperboy (0.12.1a-1) unstable; urgency=low
+
+  * Added a Highlights row to the Sports page with ESPN video clips from your enabled leagues, favorite teams first
+  * Added in-app video playback in reader view with a new video player dialog supporting publisher players, YouTube, Vimeo, Dailymotion, and MP4/HLS streams
+  * Added "N min read" reading times to article, hero, and history cards
+  * Added current local weather and today's high/low to the Local News header and My Feed
+  * Added MPRIS support so podcast playback appears in GNOME media controls and responds to media keys
+  * Added a dedicated search to Magazine Rack
+  * The image viewer and video player now center over the content area
+  * Fixed Local News article ordering, favorite-team scores, game time parsing, and score polling
+  * Game times now follow your time zone and GNOME clock format, and scores rows are sorted by start time
+  * Fixed a full-page error staying over loaded articles when a single source failed
+  * Fixed dark transparent logos disappearing on dark themes
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Sun, 27 Sep 2026 00:00:00 +0000
+
 paperboy (0.12.0a-1) unstable; urgency=low
 
   * Added magazine rack to import, organize, and read pdf magazines with two-page spreads, pinch/button zoom, swipe page turning with live drag-peek, and a slide-out table of contents panel

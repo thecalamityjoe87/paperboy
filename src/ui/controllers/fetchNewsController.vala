@@ -156,14 +156,15 @@ public class FetchNewsController {
             if (w.article_manager != null) {
                 w.article_manager.add_item(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published, it.snippet, true);
             }
-        }, (text) => forward_label(ctx, text), null, () => { mark_frontpage_endpoint_done(ctx); });
+        }, (text) => { if (ctx.still_owns_view()) ctx.window.update_content_header(); }, null, () => { mark_frontpage_endpoint_done(ctx); });
     }
 
     private static void forward_label(FetchContext ctx, string? text) {
         if (ctx.is_local_only_view() || !ctx.still_owns_view()) return;
         var win = ctx.window;
 
-        if (text != null) {
+        // With several sources, one failure isn't the whole view's; INITIAL_MAX_WAIT_MS covers all of them failing.
+        if (text != null && !ctx.is_multi_source) {
             string lower = text.down();
             if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
                 if (win.loading_state != null) win.loading_state.network_failure_detected = true;
@@ -212,6 +213,7 @@ public class FetchNewsController {
         var ctx = FetchContext.begin_new(win);
 
         if (win.image_manager != null) win.image_manager.cleanup_stale_downloads();
+        ReadingTimePrefetchService.clear_queue();
 
         if (win.article_manager != null) win.article_manager.reset_for_new_fetch();
 
@@ -1139,32 +1141,65 @@ if (is_myfeed_mode) {
         return true;
     }
 
+    // How long a cached Local News view waits on the live feed before showing the cache alone.
+    private const uint LOCAL_NEWS_CACHE_FALLBACK_MS = 2500;
+
+    // Cached and live Local News items, merged by URL and shown once in date order.
+    private class LocalNewsBatch {
+        public FetchContext ctx;
+        public Gee.HashMap<string, ArticleItem> items = new Gee.HashMap<string, ArticleItem>();
+        public bool shown = false;
+        public uint settle_id = 0;
+        public uint fallback_id = 0;
+
+        public LocalNewsBatch(FetchContext ctx) { this.ctx = ctx; }
+
+        public void add_live(ArticleItem it) {
+            if (shown) return; // already cached by RssFeedProcessor for the next visit
+            items.set(it.url, it);
+            ViewSession.remove_source(ref settle_id);
+            settle_id = ctx.session.timeout(MULTI_SOURCE_DEBOUNCE_MS, () => {
+                settle_id = 0;
+                show();
+                return false;
+            });
+        }
+
+        public void show() {
+            if (shown || !ctx.still_owns_view()) return;
+            shown = true;
+            ViewSession.remove_source(ref settle_id);
+            ViewSession.remove_source(ref fallback_id);
+            ctx.multi_source_buffer = new Gee.ArrayList<ArticleItem>();
+            ctx.multi_source_buffer.add_all(items.values);
+            flush_multi_source_buffer(ctx);
+        }
+    }
+
     private static void fetch_local_news_query(FetchContext ctx, string city, string category_id, string current_search_query, Soup.Session session) {
-        var sink = news_sink(ctx);
         string query = GLib.Uri.escape_string(city.strip(), null, false);
         string url = "https://news.google.com/rss/search?q=" + query + "&hl=en-US&gl=US&ceid=US:en";
 
-        // Local news articles are already cached under this exact URL by
-        // RssFeedProcessor (it caches unconditionally whenever a feed_url is
-        // given, which fetch_rss_url always does). Show that cache first so
-        // a slow, rate-limited, or genuinely empty live Google News response
-        // doesn't leave the view with nothing to show - the same "instant
-        // display, then update in the background" pattern followed RSS feeds
-        // already use (see handle_rss_feed above).
+        // Cache is merged with the live feed rather than shown first, since
+        // anything appended after it would land out of date order.
+        var batch = new LocalNewsBatch(ctx);
         var cache = Paperboy.RssArticleCache.get_instance();
-        var cached_articles = cache.get_cached_articles(url);
-        foreach (var article in cached_articles) {
+        foreach (var article in cache.get_cached_articles(url)) {
             string cached_source = article.source_name ?? city;
             if (article.source_name != null && article.logo_url != null) cached_source += "||" + article.logo_url;
-            sink.add_item(
-                article.title,
-                article.url,
-                article.thumbnail_url,
-                category_id,
-                cached_source,
-                article.published_date
-            );
+            batch.items.set(article.url, new ArticleItem(article.title, article.url, article.thumbnail_url, category_id, cached_source, article.published_date));
         }
+        if (batch.items.size > 0) {
+            batch.fallback_id = ctx.session.timeout(LOCAL_NEWS_CACHE_FALLBACK_MS, () => {
+                batch.fallback_id = 0;
+                batch.show();
+                return false;
+            });
+        }
+
+        var sink = new FetchSink(ctx.session, (it) => {
+            if (ctx.still_owns_view()) batch.add_live(it);
+        }, (text) => forward_label(ctx, text));
 
         RssFeedProcessor.fetch_rss_url(
             url,

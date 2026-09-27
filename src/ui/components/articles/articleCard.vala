@@ -189,10 +189,12 @@ public class ArticleCard : GLib.Object {
         bottom_row.set_valign(Gtk.Align.END);
         bottom_row.set_vexpand(true);
 
-        time_label = new Gtk.Label(DateUtils.time_ago(published));
+        time_label = new Gtk.Label(null);
+        CardBuilder.set_card_time(root, time_label, DateUtils.time_ago(published), url);
         time_label.add_css_class("article-card-time");
         time_label.set_xalign(0);
         time_label.set_hexpand(true);
+        time_label.set_ellipsize(Pango.EllipsizeMode.END);
         bottom_row.append(time_label);
 
         viewed_badge_slot = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
@@ -210,7 +212,6 @@ public class ArticleCard : GLib.Object {
         // wire_interactions() below.
         root.set_data("article-url", url);
         root.set_data("article-title-text", title);
-        root.set_data("article-time-label", time_label);
         root.set_data("article-viewed-badge-slot", viewed_badge_slot);
     }
 

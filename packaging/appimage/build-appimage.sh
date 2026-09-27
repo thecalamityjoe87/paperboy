@@ -111,6 +111,14 @@ else
   echo "Warning: data/resources/readability.js not found in source tree"
 fi
 
+# hls.js plays HLS video streams in the video dialog (see VideoPageServer)
+if [ -f "$ROOT_DIR/data/resources/hls.min.js" ]; then
+  mkdir -p "$APPDIR/usr/share/paperboy/resources"
+  cp "$ROOT_DIR/data/resources/hls.min.js" "$APPDIR/usr/share/paperboy/resources/hls.min.js"
+else
+  echo "Warning: data/resources/hls.min.js not found in source tree"
+fi
+
 # Copy release_notes.md into AppDir data dir so DataPaths finds it at runtime
 if [ -f "$ROOT_DIR/data/release_notes.md" ]; then
   cp "$ROOT_DIR/data/release_notes.md" "$APPDIR/usr/share/paperboy/release_notes.md"

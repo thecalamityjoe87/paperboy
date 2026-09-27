@@ -47,6 +47,8 @@ public class ContentView : GLib.Object {
     public Gtk.Button magazine_library_organize_button;
     // Shown only while viewing the History page - see HeaderManager.wire_clear_history_button().
     public Gtk.Button clear_history_button;
+    public Gtk.Overlay date_overlay;
+    public Gtk.Label date_label;
     public Gtk.FlowBox magazine_library_flow;
     public Gtk.Box magazine_library_trash_zone;
     public Gtk.Revealer magazine_library_trash_revealer;
@@ -63,6 +65,8 @@ public class ContentView : GLib.Object {
     public Gtk.Separator favorite_teams_separator;
     public Gtk.Label favorite_teams_label;
     public Gtk.Box favorite_teams_container;
+    public Gtk.Separator highlights_separator;
+    public Gtk.Box highlights_container;
     public LeagueBadgeCarousel league_badge_carousel;
     public Gtk.Separator hero_scores_separator;
     public Gtk.Separator scores_articles_separator;
@@ -75,6 +79,12 @@ public class ContentView : GLib.Object {
     // Shown only for a followed RSS feed that also looks like a podcast
     // feed (see HeaderManager.update_podcast_button()) - hidden otherwise.
     public Gtk.Button rss_podcast_button;
+    // Local-area weather, right side of the title/date rows (see HeaderManager.update_weather()).
+    public Gtk.Box weather_box;
+    public Gtk.Image weather_icon;
+    public Gtk.Label weather_temp_label;
+    public Gtk.Label weather_condition_label;
+    public Gtk.Label weather_range_label;
     // The button's child is an icon + label box (not a plain label), so
     // HeaderManager updates this directly rather than via set_label().
     public Gtk.Label rss_podcast_button_label;
@@ -150,7 +160,20 @@ public class ContentView : GLib.Object {
         cat_title_box.append(category_label);
         title_row.append(cat_title_box);
 
-        header_box.append(title_row);
+        // History page action - lives in the title row since the date row is hidden there.
+        clear_history_button = new Gtk.Button.with_label("Clear History");
+        clear_history_button.add_css_class("destructive-action");
+        clear_history_button.add_css_class("pill");
+        clear_history_button.set_halign(Gtk.Align.END);
+        clear_history_button.set_valign(Gtk.Align.CENTER);
+        clear_history_button.set_visible(false);
+        title_row.append(clear_history_button);
+
+        // Title and date rows share an overlay so the weather can span both.
+        var header_rows = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
+        var header_rows_overlay = new Gtk.Overlay();
+        header_rows_overlay.set_child(header_rows);
+        header_rows.append(title_row);
 
         // Add current date label - weekday + full month name/day, no year.
         // rss_podcast_button floats over this row as a Gtk.Overlay child
@@ -163,11 +186,11 @@ public class ContentView : GLib.Object {
         // constant position whether or not the current feed has a
         // discovered podcast (see rss_podcast_button's opacity/can_target
         // toggling below instead of set_visible(), for the same reason).
-        var date_overlay = new Gtk.Overlay();
+        date_overlay = new Gtk.Overlay();
 
         var date = new DateTime.now_local();
         var date_str = date.format("%A, %B %d");
-        var date_label = new Gtk.Label(date_str);
+        date_label = new Gtk.Label(date_str);
         date_label.set_xalign(0);
         date_label.add_css_class("dim-label");
         date_label.add_css_class("header-date-label");
@@ -225,17 +248,41 @@ public class ContentView : GLib.Object {
         magazine_library_header_actions.set_visible(false);
         date_overlay.add_overlay(magazine_library_header_actions);
 
-        // History page action - same floating-corner idiom as the Magazines
-        // actions above, in the same date_overlay row.
-        clear_history_button = new Gtk.Button.with_label("Clear History");
-        clear_history_button.add_css_class("destructive-action");
-        clear_history_button.add_css_class("pill");
-        clear_history_button.set_halign(Gtk.Align.END);
-        clear_history_button.set_valign(Gtk.Align.END);
-        clear_history_button.set_visible(false);
-        date_overlay.add_overlay(clear_history_button);
+        header_rows.append(date_overlay);
+        header_box.append(header_rows_overlay);
 
-        header_box.append(date_overlay);
+        // Sized to fit within the title + date rows (72px) without growing them.
+        weather_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        weather_box.set_halign(Gtk.Align.END);
+        weather_box.set_valign(Gtk.Align.CENTER);
+        weather_icon = new Gtk.Image();
+        weather_icon.set_pixel_size(44);
+        weather_icon.set_valign(Gtk.Align.CENTER);
+        weather_icon.set_margin_end(14);
+        weather_box.append(weather_icon);
+
+        var weather_text = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        weather_text.set_valign(Gtk.Align.CENTER);
+        weather_temp_label = new Gtk.Label("");
+        weather_temp_label.set_xalign(0);
+        var temp_attrs = new Pango.AttrList();
+        temp_attrs.insert(Pango.attr_scale_new(2.0));
+        temp_attrs.insert(Pango.attr_weight_new(Pango.Weight.SEMIBOLD));
+        weather_temp_label.set_attributes(temp_attrs);
+        weather_text.append(weather_temp_label);
+        weather_condition_label = new Gtk.Label("");
+        weather_condition_label.set_xalign(0);
+        weather_text.append(weather_condition_label);
+        weather_box.append(weather_text);
+
+        weather_range_label = new Gtk.Label("");
+        weather_range_label.add_css_class("dim-label");
+        // Bottom-aligned with the condition line.
+        weather_range_label.set_valign(Gtk.Align.END);
+        weather_range_label.set_margin_start(10);
+        weather_box.append(weather_range_label);
+        weather_box.set_visible(false);
+        header_rows_overlay.add_overlay(weather_box);
 
         // Same faint line used elsewhere (hero/scores/article-grid
         // separators) - sits between the date and whichever title comes
@@ -418,6 +465,20 @@ public class ContentView : GLib.Object {
         favorite_teams_container.set_hexpand(true);
         favorite_teams_container.set_visible(false);
         main_content_container.append(favorite_teams_container);
+
+        // Sports "Highlights" video row, owned by SportsScoresController.
+        highlights_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+        highlights_separator.add_css_class("section-divider");
+        highlights_separator.set_margin_top(10);
+        highlights_separator.set_margin_bottom(20);
+        highlights_separator.set_visible(false);
+        main_content_container.append(highlights_separator);
+
+        highlights_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        highlights_container.set_halign(Gtk.Align.FILL);
+        highlights_container.set_hexpand(true);
+        highlights_container.set_visible(false);
+        main_content_container.append(highlights_container);
 
         scores_articles_separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
         scores_articles_separator.add_css_class("section-divider");
@@ -1012,6 +1073,8 @@ public class ContentView : GLib.Object {
         if (favorite_teams_container != null) favorite_teams_container.set_visible(false);
         if (favorite_teams_label != null) favorite_teams_label.set_visible(false);
         if (favorite_teams_separator != null) favorite_teams_separator.set_visible(false);
+        if (highlights_container != null) highlights_container.set_visible(false);
+        if (highlights_separator != null) highlights_separator.set_visible(false);
         if (league_badge_carousel != null) league_badge_carousel.root.set_visible(false);
         if (hero_scores_separator != null) hero_scores_separator.set_visible(false);
         if (scores_articles_separator != null) scores_articles_separator.set_visible(false);
@@ -1091,7 +1154,10 @@ public class ContentView : GLib.Object {
         // it's already correct for every keystroke after the first.
         if (category_label.get_text() != "Search results") {
             category_label.set_text("Search results");
-            if (window.header_manager != null) window.header_manager.update_category_icon();
+            if (window.header_manager != null) {
+                window.header_manager.update_category_icon();
+                window.header_manager.update_date_label();
+            }
         }
 
         // Delegate card dimension calculation to LayoutManager

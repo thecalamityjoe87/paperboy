@@ -770,7 +770,6 @@ public class ReaderView : GLib.Object {
         Gtk.Widget? child = content_box.get_first_child();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling();
-            if (child is ReaderVideoEmbed) ((ReaderVideoEmbed) child).stop_playback();
             content_box.remove(child);
             child = next;
         }
@@ -831,7 +830,10 @@ public class ReaderView : GLib.Object {
             source_header_bar.set_visible(true);
         }
 
-        if (article.hero_image_url != null && article.hero_image_url.length > 0) {
+        // A lead video block already shows the hero image as its poster.
+        bool hero_is_video_poster = article.blocks.size > 0 && article.blocks[0].kind != ArticleBlockKind.TEXT
+            && article.blocks[0].kind != ArticleBlockKind.IMAGE && article.blocks[0].image_url == article.hero_image_url;
+        if (article.hero_image_url != null && article.hero_image_url.length > 0 && !hero_is_video_poster) {
             var hero_image = new Gtk.Picture();
             hero_image.set_content_fit(Gtk.ContentFit.COVER);
             hero_image.set_size_request(-1, 320);

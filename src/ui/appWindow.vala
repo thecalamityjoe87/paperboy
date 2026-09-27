@@ -68,6 +68,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // sports_live_indicator above, for a Business sidebar "Open" pill.
     public MarketStatusManager? market_status;
     public Adw.OverlaySplitView split_view;
+    // Dialogs are presented here so they center over the content column (see DialogUtils).
+    public Gtk.Widget? content_dialog_host;
     public Adw.NavigationView nav_view;
     public Adw.OverlaySplitView article_preview_split;
     public Gtk.Box article_preview_content;
@@ -86,6 +88,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     public Managers.MagazineLibraryManager magazine_manager;
     private Gtk.Widget? current_toast_widget;
     public Gtk.Widget dim_overlay;
+    private Gtk.Widget sidebar_dialog_dim;
+    private GLib.WeakRef sidebar_dim_source;
     public Gtk.Box main_content_container;
     public Gtk.ScrolledWindow main_scrolled;
     public Gtk.Widget content_area;
@@ -364,6 +368,10 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
             return;
         }
+        if (prefs.category == "magazines") {
+            if (magazine_manager != null) magazine_manager.search(search_entry.get_text());
+            return;
+        }
         if (search_manager != null) {
             search_manager.update_query(search_entry.get_text());
         }
@@ -375,6 +383,10 @@ public class NewsWindow : Adw.ApplicationWindow {
     ulong stop_search_handler_id = search_entry.stop_search.connect(() => {
         if (prefs.category == "podcasts") {
             if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
+            return;
+        }
+        if (prefs.category == "magazines") {
+            if (magazine_manager != null) magazine_manager.search(search_entry.get_text());
             return;
         }
         if (search_manager != null) {
@@ -506,7 +518,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (content_view != null && content_view.clear_history_button != null) {
             content_view.clear_history_button.set_visible(category == "history");
         }
-        search_entry.set_placeholder_text("Search news for keywords…");
+        search_entry.set_placeholder_text(category == "magazines" ? "Search magazines…" : "Search news for keywords…");
         search_entry.set_text("");
         if (search_manager != null) search_manager.reset_query_state();
         GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
@@ -801,8 +813,32 @@ public class NewsWindow : Adw.ApplicationWindow {
     content_toolbar.add_top_bar(content_header);
     content_toolbar.set_content(article_preview_split);
     
+    content_dialog_host = DialogUtils.create_host(content_toolbar);
+    if (content_dialog_host != null) {
+        // The window-level host blocked the sidebar while a dialog was up; keep that.
+        unowned Adw.NavigationPage sidebar_ref = sidebar_page;
+
+        // Mirrors the dialog's own backdrop dimming over the sidebar.
+        sidebar_dialog_dim = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        sidebar_dialog_dim.add_css_class("sidebar-dialog-dim");
+        sidebar_dialog_dim.set_can_target(false);
+        sidebar_dialog_dim.set_opacity(0);
+        var sidebar_child = sidebar_page.get_child();
+        var sidebar_overlay = new Gtk.Overlay();
+        sidebar_page.set_child(sidebar_overlay);
+        sidebar_overlay.set_child(sidebar_child);
+        sidebar_overlay.add_overlay(sidebar_dialog_dim);
+
+        content_dialog_host.notify["visible-dialog"].connect((obj, pspec) => {
+            Adw.Dialog? visible = null;
+            obj.get("visible-dialog", out visible);
+            sidebar_ref.set_can_target(visible == null);
+            if (visible != null) bind_sidebar_dim(visible);
+        });
+    }
+
     // Create NavigationPage for main content
-    var content_page = new Adw.NavigationPage(content_toolbar, "Content");
+    var content_page = new Adw.NavigationPage(content_dialog_host ?? content_toolbar, "Content");
 
     // Set sidebar and content pages for NavigationSplitView
     split_view.set_sidebar(sidebar_page);
@@ -979,6 +1015,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             } else if (prefs_local != null && prefs_local.category == "magazines") {
                 // Same reasoning as the podcasts branch above - Magazines
                 // isn't a FetchNewsController category either.
+                search_entry.set_placeholder_text("Search magazines…");
                 if (magazine_manager != null) magazine_manager.show();
             } else if (prefs_local != null && prefs_local.category == "saved") {
                 // Check if saved articles are already loaded (get_saved_count() always works)
@@ -1235,6 +1272,19 @@ public class NewsWindow : Adw.ApplicationWindow {
     public int estimate_content_width() {
         if (layout_manager != null) return layout_manager.estimate_content_width();
         return 1280;
+    }
+
+    private void bind_sidebar_dim(Adw.Dialog dialog) {
+        // A stacked dialog keeps following the one already dimming.
+        var current = sidebar_dim_source.get() as Gtk.Widget;
+        if (current != null && current.get_mapped()) return;
+
+        var dimming = DialogUtils.find_dimming(dialog);
+        if (dimming == null) return;
+        sidebar_dim_source.set(dimming);
+        dimming.bind_property("opacity", sidebar_dialog_dim, "opacity", GLib.BindingFlags.SYNC_CREATE);
+        unowned Gtk.Widget dim_ref = sidebar_dialog_dim;
+        dimming.unmap.connect(() => dim_ref.set_opacity(0));
     }
 
     private void update_main_content_size(bool sidebar_visible) {
