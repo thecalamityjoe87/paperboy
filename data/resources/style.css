@@ -32,10 +32,9 @@
     border-radius: 12px 0 0 12px;
 }
 
-/* Plain blue category label shown above every card's title (e.g.
-   "MARKETS") - app-wide, replacing the old overlay chip on the image. */
+/* Category label above every card's title (e.g. "MARKETS"), in the GNOME accent color. */
 .card-category-label {
-    color: #3584e4;
+    color: @accent_color;
     font-weight: 700;
     font-size: 0.78em;
     letter-spacing: 0.4px;
