@@ -1,3 +1,12 @@
+paperboy (0.12.3a-1) unstable; urgency=low
+
+  * Fixed articles opened in reader view loading the full page in the background, which could keep a site's lead video playing behind the reader
+  * "Save for later" in reader view now uses the article's actual title
+  * Fixed articles and feeds from some sites (such as Cosmopolitan, Elle, Esquire, and Road & Track) hanging for up to 30 seconds due to an HTTP/2 bug in libsoup
+  * Fixed the app freezing on the Front Page for up to 20 seconds while the Paperboy backend was starting up
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Sun, 27 Sep 2026 00:00:00 +0000
+
 paperboy (0.12.2a-1) unstable; urgency=low
 
   * Added a follow button that slides out of the source badge when you hover an article card, the hero card, or hero carousel slides

@@ -1,3 +1,10 @@
+# v0.12.3a - Fixes for Background Article Audio, Stalled Page Loads, and a Front Page Freeze
+
+- Fixed articles opened in reader view still loading the full page in the background, which on sites like ABC News played the lead video behind the reader and kept its audio going after the video dialog closed. The web page now loads only when you switch to it, and opening another article clears out the previous page
+- "Save for later" in reader view now uses the article's actual title
+- Fixed articles and feeds from some sites (such as Cosmopolitan, Elle, Esquire, and Road & Track) hanging for up to 30 seconds before loading, due to an HTTP/2 bug in libsoup. These requests now switch to HTTP/1.1 right away
+- Fixed the app freezing on the Front Page for up to 20 seconds, sometimes bringing up GNOME's "not responding" prompt, while the Paperboy backend was starting up
+
 # v0.12.2a - Follow Sources From Cards, Local News Menu, and Video Fixes
 
 - Added a follow button that slides out of the source badge when you hover an article card, the hero card, or hero carousel slides. Sites you already follow show an accent checkmark, and built-in sources don't get the button
