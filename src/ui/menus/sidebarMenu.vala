@@ -45,6 +45,38 @@ public class SidebarMenu : GLib.Object {
         popover.popup();
     }
     
+    public void show_for_local_area(Gtk.Widget widget, LocalArea area) {
+        var popover = new Gtk.Popover();
+        popover.set_parent(widget);
+        popover.set_has_arrow(true);
+
+        var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        menu_box.add_css_class("menu");
+
+        var change_btn = create_menu_item("document-edit-symbolic", "Change location");
+        change_btn.clicked.connect(() => {
+            popover.popdown();
+            LocationDialog.choose(window, area, (chosen) => {
+                LocationDialog.save_areas(window, chosen, area.key);
+            });
+        });
+        menu_box.append(change_btn);
+
+        var remove_btn = create_menu_item("user-trash-symbolic", "Remove location");
+        remove_btn.add_css_class("destructive-action");
+        remove_btn.clicked.connect(() => {
+            popover.popdown();
+            var prefs = NewsPreferences.get_instance();
+            prefs.remove_local_area(area.key);
+            prefs.save_config();
+            LocationDialog.refresh_local_news(window);
+        });
+        menu_box.append(remove_btn);
+
+        popover.set_child(menu_box);
+        popover.popup();
+    }
+
     private Gtk.Box create_menu_box(Gtk.Popover popover) {
         var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         menu_box.add_css_class("menu");

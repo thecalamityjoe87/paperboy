@@ -313,6 +313,75 @@ public class CardBuilder : GLib.Object {
         return "News";
     }
 
+    // Adds a card's source badge. For non-built-in sources, a follow button
+    // slides out of its left edge while the card is hovered (see set_follow_revealed).
+    public static void attach_source_badge(NewsWindow win, Gtk.Widget card_root, Gtk.Overlay overlay, Gtk.Widget badge, string url, string? source_name) {
+        overlay.add_overlay(badge);
+        var badge_box = badge as Gtk.Box;
+        if (badge_box == null || SourceManager.is_article_from_builtin(url)) return;
+
+        string? source_label = null;
+        for (var c = badge_box.get_first_child(); c != null; c = c.get_next_sibling()) {
+            if (c is Gtk.Label) source_label = ((Gtk.Label) c).get_text();
+        }
+
+        var follow_btn = new Gtk.Button.from_icon_name("list-add-symbolic");
+        follow_btn.add_css_class("source-badge-follow-btn");
+        follow_btn.set_valign(Gtk.Align.CENTER);
+        follow_btn.clicked.connect(() => {
+            if (Paperboy.RssSourceStore.get_instance().is_article_host_followed(url)) return;
+            win.show_persistent_toast("Searching for feed...");
+            win.source_manager.follow_rss_source(url, source_name);
+        });
+
+        var divider = new Gtk.Separator(Gtk.Orientation.VERTICAL);
+        divider.add_css_class("source-badge-divider");
+
+        var follow_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        follow_row.append(follow_btn);
+        follow_row.append(divider);
+
+        var revealer = new Gtk.Revealer();
+        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_LEFT);
+        revealer.set_transition_duration(200);
+        revealer.set_child(follow_row);
+        // Hidden once collapsed, so the badge's spacing doesn't leave a gap.
+        revealer.set_visible(false);
+        revealer.notify["child-revealed"].connect((obj, pspec) => {
+            var r = (Gtk.Revealer) obj;
+            if (!r.get_reveal_child() && !r.get_child_revealed()) r.set_visible(false);
+        });
+        badge_box.prepend(revealer);
+
+        badge_box.set_data("follow-source-btn", follow_btn);
+        badge_box.set_data("follow-source-revealer", revealer);
+        badge_box.set_data<string>("follow-source-name", source_label ?? "this source");
+        card_root.set_data("source-badge", badge_box);
+    }
+
+    // Called from a card's hover handler. Refreshes the follow state on each
+    // reveal, since following finishes asynchronously.
+    public static void set_follow_revealed(Gtk.Widget card_root, string card_url, bool revealed) {
+        var badge = card_root.get_data<Gtk.Widget>("source-badge");
+        if (badge == null) return;
+        var revealer = badge.get_data<Gtk.Revealer>("follow-source-revealer");
+        var btn = badge.get_data<Gtk.Button>("follow-source-btn");
+        if (revealer == null || btn == null) return;
+        if (revealed) {
+            bool followed = Paperboy.RssSourceStore.get_instance().is_article_host_followed(card_url);
+            string name = badge.get_data<string>("follow-source-name");
+            btn.set_icon_name(followed ? "object-select-symbolic" : "list-add-symbolic");
+            btn.set_tooltip_text(followed ? "Following " + name : "Follow " + name);
+            if (followed) {
+                btn.add_css_class("following");
+            } else {
+                btn.remove_css_class("following");
+            }
+            revealer.set_visible(true);
+        }
+        revealer.set_reveal_child(revealed);
+    }
+
     public static Gtk.Widget build_source_badge_dynamic(NewsWindow win, string? source_name, string? url, string? category_id) {
         string? provided_logo_url = null;
         string? display_name = null;

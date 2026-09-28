@@ -662,6 +662,23 @@ namespace Paperboy {
             }
         }
 
+        // True if a followed source's feed or site is on this article's domain.
+        public bool is_article_host_followed(string article_url) {
+            string host = UrlUtils.extract_host_from_url(article_url);
+            if (host.length == 0) return false;
+            foreach (var src in get_all_sources()) {
+                if (hosts_match(host, UrlUtils.extract_host_from_url(src.url))) return true;
+                if (hosts_match(host, UrlUtils.extract_host_from_url(src.original_url))) return true;
+            }
+            return false;
+        }
+
+        // "feeds.example.com" matches "example.com".
+        private static bool hosts_match(string a, string b) {
+            if (a.length == 0 || b.length == 0) return false;
+            return a == b || a.has_suffix("." + b) || b.has_suffix("." + a);
+        }
+
         public RssSource? get_source_by_url(string url) {
             if (db == null) {
                 GLib.warning("Database not initialized");

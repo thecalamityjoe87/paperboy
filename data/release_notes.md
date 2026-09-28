@@ -1,3 +1,11 @@
+# v0.12.2a - Follow Sources From Cards, Local News Menu, and Video Fixes
+
+- Added a follow button that slides out of the source badge when you hover an article card, the hero card, or hero carousel slides. Sites you already follow show an accent checkmark, and built-in sources don't get the button
+- Moved the reader view and preview buttons from the center of the card image to a small pill in the image's top-right corner
+- Added a right-click menu to Local News cities in the sidebar with "Change location" and "Remove location"
+- Category labels on article cards now use your GNOME accent color instead of a fixed blue, and stay readable in light and dark mode
+- Fixed Brightcove videos (such as Al Jazeera's) stopping after about 10 seconds
+
 # v0.12.1a - Sports Highlights & In-App Video, Reading Times, Local Weather, and MPRIS
 
 - Added a Highlights row to the Sports page with up to 12 ESPN video clips from your enabled leagues. Clips of your favorite teams come first, and the row refreshes every 30 minutes while Sports is open

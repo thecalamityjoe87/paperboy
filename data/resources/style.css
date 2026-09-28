@@ -32,10 +32,9 @@
     border-radius: 12px 0 0 12px;
 }
 
-/* Plain blue category label shown above every card's title (e.g.
-   "MARKETS") - app-wide, replacing the old overlay chip on the image. */
+/* Category label above every card's title (e.g. "MARKETS"), in the GNOME accent color. */
 .card-category-label {
-    color: #3584e4;
+    color: @accent_color;
     font-weight: 700;
     font-size: 0.78em;
     letter-spacing: 0.4px;
@@ -619,6 +618,32 @@ dialog.video-player floating-sheet > sheet {
     color: @accent_fg_color;
 }
 
+/* Follow button that slides out of an article card's .source-badge on hover. */
+.source-badge-follow-btn {
+    background: none;
+    color: white;
+    border-radius: 999px;
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    box-shadow: none;
+}
+
+.source-badge-follow-btn:hover {
+    background-color: alpha(white, 0.15);
+}
+
+.source-badge-follow-btn.following {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+.source-badge-divider {
+    background-color: alpha(white, 0.3);
+    min-width: 1px;
+    margin: 3px 0;
+}
+
 /* Hover-only "click for info" hint - fades in via .card-hover. */
 .podcast-card-info-hint {
     background-color: alpha(black, 0.6);
@@ -634,10 +659,13 @@ dialog.video-player floating-sheet > sheet {
     opacity: 1;
 }
 
-/* Quick-open buttons centered over an article card's image (reader view /
-   preview pane) - same hover-only fade convention as
-   .podcast-card-info-hint above. */
+/* Hover-only quick-open pill (reader view / preview) in the top-right
+   corner of a card's image. */
 .card-hover-actions {
+    background-color: alpha(black, 0.6);
+    border-radius: 8px;
+    padding: 3px;
+    box-shadow: 0 2px 6px alpha(black, 0.25);
     opacity: 0;
     transition: opacity 150ms ease;
 }
@@ -646,26 +674,29 @@ dialog.video-player floating-sheet > sheet {
     opacity: 1;
 }
 
-/* Same dark-pill badge language as .source-badge/.category-chip, sized up
-   for a bigger, easier-to-see/click hover target. */
+/* Borderless buttons inside the .card-hover-actions pill. */
 .card-hover-action-btn {
-    background-color: alpha(black, 0.6);
+    background: none;
     color: white;
-    border-radius: 12px;
-    min-width: 56px;
-    min-height: 56px;
+    border-radius: 6px;
+    min-width: 36px;
+    min-height: 36px;
     padding: 0;
-    box-shadow: 0 2px 6px alpha(black, 0.25);
+    box-shadow: none;
+}
+
+.card-hover-actions .source-badge-divider {
+    margin: 6px 2px;
 }
 
 .card-hover-action-btn:hover {
-    background-color: alpha(black, 0.8);
+    background-color: alpha(white, 0.15);
 }
 
 /* Hero cards are bigger than grid cards, so their hover buttons are too. */
 .hero-card-hover-action-btn {
-    min-width: 62px;
-    min-height: 62px;
+    min-width: 40px;
+    min-height: 40px;
 }
 
 /* Shown bottom-right of the title area, opposite the time caption, once

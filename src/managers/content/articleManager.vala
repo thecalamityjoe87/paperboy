@@ -554,7 +554,7 @@ namespace Managers {
                 }
 
                 var hero_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
-                hero_card.overlay.add_overlay(hero_source_badge);
+                CardBuilder.attach_source_badge(window, hero_card.root, hero_card.overlay, hero_source_badge, url, source_name);
 
                 string _norm = window.normalize_article_url(url);
 
@@ -741,7 +741,7 @@ namespace Managers {
             if (slide_hero != null) {
                 ArticleSnippetService.attach_hero_snippet(slide_hero, url, source_name, article_buffer);
                 var slide_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
-                slide_hero.overlay.add_overlay(slide_source_badge);
+                CardBuilder.attach_source_badge(window, slide_hero.root, slide_hero.overlay, slide_source_badge, url, source_name);
             }
             var slide = components.slide;
             var slide_image = components.image;
@@ -927,7 +927,7 @@ namespace Managers {
         );
 
         var card_badge = window.build_source_badge_dynamic(source_name, url, category_id);
-        window.layout_manager.add_card_overlay(article_card, card_badge);
+        CardBuilder.attach_source_badge(window, article_card.root, article_card.overlay, card_badge, url, source_name);
 
         bool card_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
             (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
