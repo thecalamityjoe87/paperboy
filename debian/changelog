@@ -1,3 +1,13 @@
+paperboy (0.12.2a-1) unstable; urgency=low
+
+  * Added a follow button that slides out of the source badge when you hover an article card, the hero card, or hero carousel slides
+  * Moved the reader view and preview buttons to a small pill in the top-right corner of the card image
+  * Added a right-click menu to Local News cities in the sidebar with "Change location" and "Remove location"
+  * Category labels on article cards now use your GNOME accent color
+  * Fixed Brightcove videos (such as Al Jazeera's) stopping after about 10 seconds
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Sun, 27 Sep 2026 00:00:00 +0000
+
 paperboy (0.12.1a-1) unstable; urgency=low
 
   * Added a Highlights row to the Sports page with ESPN video clips from your enabled leagues, favorite teams first
