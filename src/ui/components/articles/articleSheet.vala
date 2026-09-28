@@ -35,6 +35,9 @@ public class ArticleSheet : GLib.Object {
     private Gtk.Stack? view_stack;
     private ReaderView? reader_view;
     private string? reader_loaded_url = null;
+    private string? reader_title = null;
+    // The URL the web view last loaded; it stays unloaded while reader view is shown.
+    private string? web_loaded_url = null;
     private string? current_source_name_encoded = null;
     private WebKit.WebView? webview;
     private string adblock_css = "";
@@ -521,7 +524,7 @@ public class ArticleSheet : GLib.Object {
                 parent_window.article_state_store.unsave_article(article_url);
                 parent_window.show_toast("Removed article from saved");
             } else {
-                string title = (webview != null ? webview.get_title() : null) ?? "";
+                string title = (web_loaded_url != null && webview != null ? webview.get_title() : null) ?? reader_title ?? "";
                 if (title.length == 0) title = article_url;
                 parent_window.article_state_store.save_article(article_url, title, null, source_name, null);
                 parent_window.show_toast("Added article to saved");
@@ -561,6 +564,7 @@ public class ArticleSheet : GLib.Object {
         }
 
         webview = WebViewUtils.create();
+        web_loaded_url = null;
         webview.get_settings().set_enable_page_cache(false);
         if (adblock_css.length > 0) {
             user_content_manager = webview.get_user_content_manager();
@@ -641,6 +645,7 @@ public class ArticleSheet : GLib.Object {
                 if (is_destroyed || current_url != url_snapshot) return;
                 if (extracted.success) {
                     reader_loaded_url = url_snapshot;
+                    reader_title = extracted.title;
                     reader_view.show_article(extracted, url_snapshot, current_source_name_encoded);
                     reader_view.highlight_notes(Paperboy.NotesStore.get_instance().get_notes_for_url(url_snapshot));
                     backfill_card_thumbnail(url_snapshot, extracted.hero_image_url);
@@ -684,6 +689,12 @@ public class ArticleSheet : GLib.Object {
         if (view_stack == null) return;
         view_stack.set_visible_child_name("web");
         if (reader_view != null) reader_view.get_settings_button().set_visible(false);
+        // Loaded only on demand: the hidden page would otherwise autoplay its own videos behind reader view.
+        if (current_url != null && web_loaded_url != current_url) {
+            if (webview == null) setup_webview();
+            web_loaded_url = current_url;
+            webview.load_uri(current_url);
+        }
     }
 
     private void load_comments() {
@@ -945,9 +956,10 @@ public class ArticleSheet : GLib.Object {
         if (url == null) return;
         current_url = url;
         reader_loaded_url = null;
+        reader_title = null;
         current_source_name_encoded = source_name_encoded;
-        if (webview == null) setup_webview();
-        if (webview != null) webview.load_uri(url);
+        // Rebuilt so reader view never sits over the previous article's live page.
+        if (webview == null || web_loaded_url != null) setup_webview();
         container.set_visible(true);
         if (!is_open()) nav_view.push(article_page);
 

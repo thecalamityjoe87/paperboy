@@ -383,7 +383,7 @@ public class HttpClientUtils : Object {
                 msg.set_request_body_from_bytes(options.body_content_type, new GLib.Bytes(options.body.data));
             }
 
-            GLib.Bytes? body = session_for_timeout(options.timeout).send_and_read(msg, options.cancellable);
+            GLib.Bytes? body = send_and_read_body(session_for_timeout(options.timeout), msg, options.cancellable);
 
             // Extract response
             response.status_code = msg.get_status();
@@ -511,6 +511,19 @@ public class HttpClientUtils : Object {
         }
 
         return response;
+    }
+
+    // libsoup's HTTP/2 reader never finishes a response that ends in trailers (e.g. Hearst's
+    // Fastly sites), so bail as soon as one is announced and let the HTTP/1.1 retry take over.
+    private static GLib.Bytes send_and_read_body(Soup.Session s, Soup.Message msg, GLib.Cancellable? cancellable) throws GLib.Error {
+        var stream = s.send(msg, cancellable);
+        if (msg.get_http_version() == Soup.HTTPVersion.@2_0 && msg.get_response_headers().get_one("Trailer") != null) {
+            try { stream.close(null); } catch (GLib.Error e) { }
+            throw new GLib.IOError.NOT_SUPPORTED("HTTP/2 response with trailers");
+        }
+        var out = new GLib.MemoryOutputStream.resizable();
+        out.splice(stream, GLib.OutputStreamSpliceFlags.CLOSE_SOURCE | GLib.OutputStreamSpliceFlags.CLOSE_TARGET, cancellable);
+        return out.steal_as_bytes();
     }
 
     private bool is_http1_host(string? host) {
