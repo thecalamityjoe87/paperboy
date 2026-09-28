@@ -673,10 +673,18 @@ namespace Paperboy {
             return false;
         }
 
-        // "feeds.example.com" matches "example.com".
-        private static bool hosts_match(string a, string b) {
-            if (a.length == 0 || b.length == 0) return false;
-            return a == b || a.has_suffix("." + b) || b.has_suffix("." + a);
+        // A "feeds.example.com" feed matches articles on example.com and its subdomains,
+        // but a feed on finance.yahoo.com doesn't claim all of yahoo.com.
+        private static bool hosts_match(string article_host, string source_host) {
+            string site = source_host;
+            foreach (var prefix in new string[] { "feeds.", "feed.", "rss." }) {
+                if (site.has_prefix(prefix)) {
+                    site = site.substring(prefix.length);
+                    break;
+                }
+            }
+            if (article_host.length == 0 || site.length == 0) return false;
+            return article_host == site || article_host.has_suffix("." + site);
         }
 
         public RssSource? get_source_by_url(string url) {

@@ -404,8 +404,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Determine whether the given article URL belongs to a built-in source.
     // Returns true if infer_source_from_url returns a known source (not UNKNOWN).
     public static bool is_article_from_builtin(string? article_url) {
-        if (article_url == null || article_url.length == 0) return false;
-        return infer_source_from_url(article_url) != NewsSource.UNKNOWN;
+        return builtin_source_for_article(article_url) != NewsSource.UNKNOWN;
+    }
+
+    // Matched on the host, so another site's article with "bloomberg" in its slug doesn't count.
+    public static NewsSource builtin_source_for_article(string? article_url) {
+        if (article_url == null || article_url.length == 0) return NewsSource.UNKNOWN;
+        return infer_source_from_url(UrlUtils.extract_host_from_url(article_url));
     }
 
 
@@ -774,12 +779,24 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         return result;
     }
 
+    private void enable_builtin_source(NewsSource source) {
+        if (window != null) window.clear_persistent_toast();
+        var prefs = NewsPreferences.get_instance();
+        string id = source_enum_to_id(source);
+        if (!prefs.preferred_source_enabled(id)) {
+            prefs.set_preferred_source_enabled(id, true);
+            prefs.save_config();
+        }
+        request_show_toast("Enabled " + get_source_name(source));
+        if (window != null && window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("myfeed");
+    }
+
     public void follow_rss_source(string article_url, string? source_metadata = null) {
-        // Built-in sources can't be re-added as custom RSS entries.
-        if (is_article_from_builtin(article_url)) {
+        // Built-in sources are followed by switching them on, not by adding them as a feed.
+        NewsSource builtin = builtin_source_for_article(article_url);
+        if (builtin != NewsSource.UNKNOWN) {
             GLib.Idle.add(() => {
-                if (window != null) window.clear_persistent_toast();
-                request_show_toast("Source is built-in");
+                enable_builtin_source(builtin);
                 return false;
             });
             return;

@@ -46,6 +46,8 @@ public class VideoEmbedResolver : GLib.Object {
 
     private const string ABC_EMBED_URL = "https://abcnews.com/video/embed?id=%s&autoplay=true";
     // Dismisses the "Introducing Verts" promo ABC's embed shows over the video (it lives in its own frame).
+    // "Headlines from ABC News Live", which ABC attaches to stories that have no video of their own.
+    private const string ABC_FILLER_VIDEO_ID = "71045364";
     private const string ABC_DISMISS_PROMO_JS = "(function(){var n=0;var t=setInterval(function(){var b=document.querySelector('button.v-close');if(b){b.click();clearInterval(t);}else if(++n>60){clearInterval(t);}},500);})();";
 
     // Hides WebKit's native audio/video track lists so Video.js manages tracks itself. Otherwise WebKit's
@@ -111,7 +113,10 @@ public class VideoEmbedResolver : GLib.Object {
             if (new GLib.Regex("^https?://(?:www\\.)?abcnews\\.(?:go\\.)?com/").match(page_url)) {
                 GLib.MatchInfo mi;
                 if (new GLib.Regex("\"videoId\":\"?(\\d{6,})").match(html, 0, out mi)) {
-                    return "https://abcnews.com/video/%s/".printf(mi.fetch(1));
+                    do {
+                        string id = mi.fetch(1);
+                        if (id != ABC_FILLER_VIDEO_ID) return "https://abcnews.com/video/%s/".printf(id);
+                    } while (mi.next());
                 }
             }
         } catch (GLib.RegexError e) {

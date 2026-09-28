@@ -1206,7 +1206,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // name to a known NewsSource first; if that fails, it looks for a local
     // icon file derived from the source name. If no icon is found it falls
     // back to a text-only badge using the provided name.
-    public Gtk.Widget build_source_badge_dynamic(string? source_name, string url, string category_id) {
+    public Gtk.Widget build_source_badge_dynamic(string? source_name, string url, string? category_id) {
         return CardBuilder.build_source_badge_dynamic(this, source_name, url, category_id);
     }
 

@@ -1,3 +1,13 @@
+# v0.12.4a - ABC News Video, Article Link, and Follow Button Fixes
+
+- Fixed every ABC News article without its own video playing the same generic "Headlines from ABC News Live" clip. Those articles (including all AP wire stories) now show no video, and ABC stories with their own clip play that clip
+- Fixed articles whose links rely on a query string (such as ABC News's story?id= pages) opening to a "page unavailable" error. Articles now open, and are saved to History, with their full link
+- The follow button on article cards now appears only on the Front Page and in search results, where you're likely to find sources you don't follow yet
+- Search results now show each article's source badge, with the same follow button on hover
+- Built-in sources now get the follow button too: a check shows when the source is enabled, and following a disabled one switches it back on. The card's right-click menu offers "Enable built-in source" for disabled ones
+- Fixed cards showing a source as followed because of a different feed on the same site (for example, following Yahoo Finance marked every Yahoo article as followed)
+- Fixed articles from other sites being treated as built-in sources when their link merely mentioned one (such as "bloomberg" in the article's address)
+
 # v0.12.3a - Fixes for Background Article Audio, Stalled Page Loads, and a Front Page Freeze
 
 - Fixed articles opened in reader view still loading the full page in the background, which on sites like ABC News played the lead video behind the reader and kept its audio going after the video dialog closed. The web page now loads only when you switch to it, and opening another article clears out the previous page
