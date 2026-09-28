@@ -490,14 +490,9 @@ public class PaperboyFetcher : BaseFetcher {
                     }
 
                     if (added_count < 10) {
-                        try {
-                            string fp_url = BASE_URL + "/news/frontpage";
-                            var http_response = client.fetch_sync(fp_url, new Paperboy.HttpClientUtils.RequestOptions().with_cancellable(cancellable));
-                            if (http_response.is_success()) {
-                                string body2 = http_response.get_body_string();
-                                var p2 = new Json.Parser();
-                                p2.load_from_data(body2);
-                                var r2 = p2.get_root();
+                        // Async: this runs on the main thread, and a sync fetch froze the UI while the backend cold-starts.
+                        client.fetch_json_with(BASE_URL + "/news/frontpage", cancellable, (fp_response, p2, r2) => {
+                            if (fp_response.is_success() && r2 != null) {
                                 Json.Array front_articles = null;
                                 if (r2.get_node_type() == Json.NodeType.ARRAY) {
                                     front_articles = r2.get_array();
@@ -561,7 +556,9 @@ public class PaperboyFetcher : BaseFetcher {
                                     }
                                 }
                             }
-                        } catch (GLib.Error e) { }
+                            done();
+                        });
+                        return false;
                     }
                     done();
                     return false;
