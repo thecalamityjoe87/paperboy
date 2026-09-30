@@ -288,13 +288,13 @@ public class ArticleCard : GLib.Object {
             var w = motion_ref.get_widget();
             if (w == null) return;
             w.add_css_class("card-hover");
-            CardBuilder.set_follow_revealed(w, card_url, true);
+            CardBuilder.set_follow_revealed(w, true);
         });
         motion.leave.connect(() => {
             var w = motion_ref.get_widget();
             if (w == null) return;
             w.remove_css_class("card-hover");
-            CardBuilder.set_follow_revealed(w, card_url, false);
+            CardBuilder.set_follow_revealed(w, false);
         });
         root_widget.add_controller(motion);
 

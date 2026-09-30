@@ -1,3 +1,14 @@
+paperboy (0.12.4a-1) unstable; urgency=low
+
+  * Fixed every ABC News article without its own video playing the same generic "Headlines from ABC News Live" clip
+  * Fixed articles whose links rely on a query string (such as ABC News's story?id= pages) opening to a "page unavailable" error
+  * The follow button on article cards now appears only on the Front Page and in search results, and search results now show a source badge on every article
+  * Built-in sources can now be followed from cards and the right-click menu, which switches a disabled built-in source back on
+  * Fixed cards showing a source as followed because of a different feed on the same site
+  * Fixed articles from other sites being treated as built-in sources when their link merely mentioned one
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Sun, 27 Sep 2026 00:00:00 +0000
+
 paperboy (0.12.3a-1) unstable; urgency=low
 
   * Fixed articles opened in reader view loading the full page in the background, which could keep a site's lead video playing behind the reader

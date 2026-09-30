@@ -116,14 +116,14 @@ public class AboutDialog : GLib.Object {
             }
         }
 
-        var version = new Gtk.Label("0.12.3a");
+        var version = new Gtk.Label("0.12.4a");
         version.add_css_class("monospace");
         version.add_css_class("dim-label");
         version.set_halign(Gtk.Align.CENTER);
         version.set_margin_top(8);
         page.append(version);
 
-        var desc = new Gtk.Label("A simple news app written in Vala, built with GTK4 and Libadwaita.");
+        var desc = new Gtk.Label("An all-in-one news app written in Vala, built with GTK4 and Libadwaita.");
         desc.set_wrap(true);
         desc.set_justify(Gtk.Justification.CENTER);
         desc.add_css_class("dim-label");

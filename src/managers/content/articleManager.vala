@@ -139,12 +139,12 @@ namespace Managers {
                 return;
             }
 
-            string normalized = window.normalize_article_url(article_url);
-            window.mark_article_viewed(normalized);
+            // Open the real URL: normalizing strips query strings some sites need (ABC's story?id=).
+            window.mark_article_viewed(window.normalize_article_url(article_url));
             if (window.article_state_store != null) {
-                window.article_state_store.record_history(normalized, title, thumbnail_url, source_name_encoded, published, category_id);
+                window.article_state_store.record_history(article_url, title, thumbnail_url, source_name_encoded, published, category_id);
             }
-            if (window.article_sheet != null) window.article_sheet.open(normalized, force_reader_view, source_name_encoded);
+            if (window.article_sheet != null) window.article_sheet.open(article_url, force_reader_view, source_name_encoded);
         }
 
         public void open_article_in_browser_if_online(string article_url, string? source_name = null, string? title = null, string? thumbnail_url = null, string? published = null, string? category_id = null) {
@@ -154,12 +154,11 @@ namespace Managers {
                 return;
             }
 
-            string normalized = window.normalize_article_url(article_url);
-            window.mark_article_viewed(normalized);
+            window.mark_article_viewed(window.normalize_article_url(article_url));
             if (window.article_state_store != null) {
-                window.article_state_store.record_history(normalized, title, thumbnail_url, source_name, published, category_id);
+                window.article_state_store.record_history(article_url, title, thumbnail_url, source_name, published, category_id);
             }
-            if (window.article_pane != null) window.article_pane.open_article_in_browser(normalized);
+            if (window.article_pane != null) window.article_pane.open_article_in_browser(article_url);
         }
 
         private bool is_limited_category(string category) {
@@ -554,7 +553,7 @@ namespace Managers {
                 }
 
                 var hero_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
-                CardBuilder.attach_source_badge(window, hero_card.root, hero_card.overlay, hero_source_badge, url, source_name);
+                CardBuilder.attach_source_badge(window, hero_card.root, hero_card.overlay, hero_source_badge, url, source_name, window.prefs.category == "frontpage");
 
                 string _norm = window.normalize_article_url(url);
 
@@ -741,7 +740,7 @@ namespace Managers {
             if (slide_hero != null) {
                 ArticleSnippetService.attach_hero_snippet(slide_hero, url, source_name, article_buffer);
                 var slide_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
-                CardBuilder.attach_source_badge(window, slide_hero.root, slide_hero.overlay, slide_source_badge, url, source_name);
+                CardBuilder.attach_source_badge(window, slide_hero.root, slide_hero.overlay, slide_source_badge, url, source_name, window.prefs.category == "frontpage");
             }
             var slide = components.slide;
             var slide_image = components.image;
@@ -927,7 +926,7 @@ namespace Managers {
         );
 
         var card_badge = window.build_source_badge_dynamic(source_name, url, category_id);
-        CardBuilder.attach_source_badge(window, article_card.root, article_card.overlay, card_badge, url, source_name);
+        CardBuilder.attach_source_badge(window, article_card.root, article_card.overlay, card_badge, url, source_name, window.prefs.category == "frontpage");
 
         bool card_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
             (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
@@ -1476,6 +1475,9 @@ namespace Managers {
         article_card.source_name = hero_source_name;
         article_card.category_id = hero_category_id;
         article_card.thumbnail_url = hero_thumbnail_url;
+
+        var card_badge = window.build_source_badge_dynamic(hero_source_name, hero_url, hero_category_id);
+        CardBuilder.attach_source_badge(window, article_card.root, article_card.overlay, card_badge, hero_url, hero_source_name, true);
 
         wire_article_card_handlers(article_card, hero_title, hero_url, hero_thumbnail_url, hero_category_id, hero_source_name);
 

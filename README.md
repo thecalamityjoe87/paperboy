@@ -51,7 +51,7 @@
 </table>
 
 ## About
-A simple news app written in Vala, built with GTK4 and Libadwaita. My motivation for building this app because I wanted to have a simple, but beautiful native GTK4 news application similar to Apple News. Feel free to test, change, and contribute back to this project.
+An all-in-one news app written in Vala, built with GTK4 and Libadwaita. My motivation for building this app because I wanted to have a simple, but beautiful native GTK4 news application similar to Apple News. Feel free to test, change, and contribute back to this project.
 
 ## 🚀 Features
 
@@ -182,4 +182,4 @@ Put [`appimagetool`](https://github.com/AppImage/appimagetool) somewhere on your
 ./packaging/appimage/build-appimage.sh -M
 ```
 
-`-M` names the output after the version in `meson.build` (for example `paperboy-0.12.3a-x86_64.AppImage`); leave it off to get a plain `paperboy.AppImage`.
+`-M` names the output after the version in `meson.build` (for example `paperboy-0.12.4a-x86_64.AppImage`); leave it off to get a plain `paperboy.AppImage`.

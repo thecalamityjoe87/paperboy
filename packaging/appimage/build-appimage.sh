@@ -157,9 +157,9 @@ if [ -n "${VERSION-}" ]; then
   <id>${DESKTOP_ID}</id>
   <metadata_license>CC0-1.0</metadata_license>
   <name>Paperboy</name>
-  <summary>A simple news reader and RSS application</summary>
+  <summary>An all-in-one news app</summary>
   <description>
-    <p>Paperboy is a simple news app written in Vala built with GTK4 and Libadwaita.</p>
+    <p>Paperboy is an all-in-one news app written in Vala, built with GTK4 and Libadwaita.</p>
   </description>
   <url type="homepage">https://github.com/thecalamityjoe87/paperboy</url>
   <launchable type="desktop-id">io.github.thecalamityjoe87.Paperboy.desktop</launchable>

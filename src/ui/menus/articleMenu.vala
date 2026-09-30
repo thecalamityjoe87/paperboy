@@ -75,14 +75,13 @@ public class ArticleMenu : GLib.Object {
         });
         menu_box.append(follow_btn);*/
 
-        // Follow this source (or built-in label)
+        // Follow this source, or enable a built-in one that's switched off
         bool is_builtin = SourceManager.is_article_from_builtin(article_url);
-        string label = is_builtin ? "Built-in source" : "Follow this source";
-        // Change to a neutral info icon for builtin
-        string icon = is_builtin ? "emblem-default-symbolic" : "list-add-symbolic";
+        bool builtin_enabled = is_builtin && CardBuilder.is_source_followed(article_url);
+        string label = !is_builtin ? "Follow this source" : (builtin_enabled ? "Built-in source" : "Enable built-in source");
+        string icon = builtin_enabled ? "emblem-default-symbolic" : "list-add-symbolic";
         var follow_btn = create_menu_item(icon, label);
-        // For built-in sources: make it non-clickable
-        if (is_builtin) {
+        if (builtin_enabled) {
             follow_btn.set_sensitive(false);
             follow_btn.set_tooltip_text("This is a built-in source. You can enable or disable it in preferences.");
         } else {

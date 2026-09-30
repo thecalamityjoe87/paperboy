@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.12.3a',
+  version : '0.12.4a',
   meson_version : '>=0.59.0'
 )
 
@@ -204,6 +204,7 @@ cairo = dependency('cairo')
     'src/utils/text/sortUtils.vala',
     'src/utils/text/stripHtmlUtils.vala',
     'src/utils/ui/categoryIconsUtils.vala',
+    'src/utils/ui/checkIconUtils.vala',
     'src/utils/ui/dialogUtils.vala',
     'src/utils/ui/fixedSizeLayoutUtils.vala',
     'src/utils/ui/pixbufUtils.vala',
@@ -253,6 +254,8 @@ install_data(
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-sidebar-show-symbolic.svg',
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-view-refresh-symbolic.svg',
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-comments-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-check-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-check-bold-symbolic.svg',
   install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'actions')
 )
 

@@ -386,11 +386,11 @@ public class HeroCard : GLib.Object {
         var motion = new Gtk.EventControllerMotion();
         motion.enter.connect(() => {
             root_ref.add_css_class("card-hover");
-            CardBuilder.set_follow_revealed(root_ref, card_url, true);
+            CardBuilder.set_follow_revealed(root_ref, true);
         });
         motion.leave.connect(() => {
             root_ref.remove_css_class("card-hover");
-            CardBuilder.set_follow_revealed(root_ref, card_url, false);
+            CardBuilder.set_follow_revealed(root_ref, false);
         });
         root_widget.add_controller(motion);
 
