@@ -123,7 +123,7 @@ public class AboutDialog : GLib.Object {
         version.set_margin_top(8);
         page.append(version);
 
-        var desc = new Gtk.Label("A simple news app written in Vala, built with GTK4 and Libadwaita.");
+        var desc = new Gtk.Label("An all-in-one news app written in Vala, built with GTK4 and Libadwaita.");
         desc.set_wrap(true);
         desc.set_justify(Gtk.Justification.CENTER);
         desc.add_css_class("dim-label");

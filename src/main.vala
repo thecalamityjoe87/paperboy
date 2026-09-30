@@ -1,4 +1,4 @@
-/* Paperboy - A simple news reader and RSS application
+/* Paperboy - An all-in-one news app written in Vala, built with GTK4 and Libadwaita.
  * 
  * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
  *
