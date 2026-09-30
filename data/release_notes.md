@@ -9,6 +9,7 @@
 - Fixed articles from other sites being treated as built-in sources when their link merely mentioned one (such as "bloomberg" in the article's address)
 - Redesigned the checkmark used throughout the app (following, subscribed podcasts, magazine selection, and onboarding) as a smaller, cleaner check inside a white-ringed circle, drawn the same way regardless of your icon theme
 - Onboarding's theme and source checkmarks now use your GNOME accent color instead of a fixed green
+- Fixed the local weather staying in the header after starting a search from Local News or My Feed
 
 # v0.12.3a - Fixes for Background Article Audio, Stalled Page Loads, and a Front Page Freeze
 

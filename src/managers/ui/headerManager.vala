@@ -82,6 +82,11 @@ public class HeaderManager : GLib.Object {
         });
     }
 
+    // Global search is its own view; prefs.category still names the page underneath.
+    private bool is_searching() {
+        return window.search_manager != null && window.search_manager.get_query().strip().length > 0;
+    }
+
     // Pages showing the active local area's weather (My Feed only once it's enabled).
     private bool shows_weather(string? category) {
         if (category == "myfeed") return window.prefs.personalized_feed_enabled;
@@ -93,19 +98,19 @@ public class HeaderManager : GLib.Object {
     private void update_weather() {
         var view = window.content_view;
         if (view == null || view.weather_box == null) return;
-        bool searching = window.search_manager != null && window.search_manager.get_query().strip().length > 0;
         var area = NewsPreferences.get_instance().get_active_local_area();
-        if (searching || !shows_weather(window.prefs.category) || area == null) {
-            view.weather_box.set_visible(false);
+        if (is_searching() || !shows_weather(window.prefs.category) || area == null) {
+            hide_weather();
             return;
         }
 
         var cached = WeatherService.cached(area);
-        if (cached != null) apply_weather(area, cached); else view.weather_box.set_visible(false);
+        if (cached != null) apply_weather(area, cached); else hide_weather();
 
         string key = area.key;
+        var session = ViewSession.current();
         WeatherService.get_async(area, (report) => {
-            if (report == null || !shows_weather(window.prefs.category)) return;
+            if (report == null || session.is_closed()) return;
             var active = NewsPreferences.get_instance().get_active_local_area();
             if (active == null || active.key != key) return;
             apply_weather(active, report);
@@ -125,6 +130,12 @@ public class HeaderManager : GLib.Object {
         view.weather_box.set_tooltip_text(tooltip);
         view.weather_box.set_cursor_from_name(has_weather_app ? "pointer" : null);
         view.weather_box.set_visible(true);
+        ViewSession.current().on_close("weather", () => hide_weather());
+    }
+
+    private void hide_weather() {
+        var view = window.content_view;
+        if (view != null && view.weather_box != null) view.weather_box.set_visible(false);
     }
 
     // Wired once - the button is reused for the app's whole lifetime.
@@ -296,12 +307,8 @@ public class HeaderManager : GLib.Object {
         // Clear existing icon
         clear_category_icon_holder();
 
-        // A global search takes over the header title (see
-        // ContentView.filter_by_query, which sets category_label to
-        // "Search results") independently of window.prefs.category, which
-        // stays whatever category was selected before searching - so the
-        // icon needs the same override, not the category switch below.
-        if (window.search_manager != null && window.search_manager.get_query().strip().length > 0) {
+        // Search swaps the header title too (see ContentView.filter_by_query).
+        if (is_searching()) {
             var search_icon = CategoryIconsUtils.create_category_header_icon("search", 36);
             if (search_icon != null) category_icon_holder.append(search_icon);
             return;
@@ -425,9 +432,7 @@ public class HeaderManager : GLib.Object {
     public void update_date_label() {
         var view = window.content_view;
         if (view == null || view.date_overlay == null || view.date_label == null) return;
-        // Global search is its own view, while prefs.category still names the page underneath.
-        bool searching = window.search_manager != null && window.search_manager.get_query().strip().length > 0;
-        string cat = searching ? "" : window.prefs.category;
+        string cat = is_searching() ? "" : window.prefs.category;
         view.date_overlay.set_visible(cat != "history");
 
         if (cat == "saved") {
