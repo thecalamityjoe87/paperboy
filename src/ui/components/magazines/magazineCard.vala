@@ -178,8 +178,7 @@ public class MagazineCard : GLib.Object {
 
         // Selection-mode checkmark, shown/filled via the root's
         // .magazine-selecting/.magazine-selected classes (see style.css).
-        var check_icon = new Gtk.Image.from_icon_name("object-select-symbolic");
-        check_icon.set_pixel_size(14);
+        var check_icon = CheckIconUtils.new_image(16, true);
         check_icon.set_hexpand(true);
         check_icon.set_vexpand(true);
         check_icon.set_halign(Gtk.Align.CENTER);

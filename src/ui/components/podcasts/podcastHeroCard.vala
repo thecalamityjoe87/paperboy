@@ -165,7 +165,7 @@ public class PodcastHeroCard : GLib.Object {
     // classes with no common base to hang it on.
     private void update_subscribe_button_state() {
         bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(feed_id);
-        subscribe_button.set_icon_name(subscribed ? "object-select-symbolic" : "list-add-symbolic");
+        subscribe_button.set_icon_name(subscribed ? CheckIconUtils.icon_name() : "list-add-symbolic");
         subscribe_button.set_tooltip_text(subscribed ? "Subscribed" : "Subscribe");
         if (subscribed) {
             subscribe_button.add_css_class("subscribed");

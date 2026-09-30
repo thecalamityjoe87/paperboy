@@ -402,7 +402,7 @@ dialog.video-player floating-sheet > sheet {
 .magazine-select-check {
     opacity: 0;
     border-radius: 9999px;
-    border: 2px solid white;
+    border: 1.5px solid white;
     background-color: alpha(black, 0.35);
     color: transparent;
     box-shadow: 0 1px 4px alpha(black, 0.3);
@@ -414,7 +414,8 @@ dialog.video-player floating-sheet > sheet {
 
 .magazine-selected .magazine-select-check {
     background-color: @accent_bg_color;
-    border-color: @accent_bg_color;
+    border-color: white;
+    background-clip: padding-box;
     color: @accent_fg_color;
 }
 
@@ -589,6 +590,7 @@ dialog.video-player floating-sheet > sheet {
     background-color: alpha(black, 0.6);
     color: white;
     border-radius: 999px;
+    border: 1.5px solid transparent;
     min-width: 30px;
     min-height: 30px;
     padding: 0;
@@ -616,6 +618,8 @@ dialog.video-player floating-sheet > sheet {
 .podcast-card-badge-btn.subscribed {
     background-color: @accent_bg_color;
     color: @accent_fg_color;
+    border-color: white;
+    background-clip: padding-box;
 }
 
 /* Follow button that slides out of an article card's .source-badge on hover. */
@@ -623,6 +627,7 @@ dialog.video-player floating-sheet > sheet {
     background: none;
     color: white;
     border-radius: 999px;
+    border: 1.5px solid transparent;
     min-width: 22px;
     min-height: 22px;
     padding: 0;
@@ -636,6 +641,8 @@ dialog.video-player floating-sheet > sheet {
 .source-badge-follow-btn.following {
     background-color: @accent_bg_color;
     color: @accent_fg_color;
+    border-color: white;
+    background-clip: padding-box;
 }
 
 .source-badge-divider {
@@ -1568,14 +1575,14 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .onboarding-source-badge {
     -gtk-icon-transform: none;
-    background-color: rgb(26, 126, 64);
-    color: white;
-    /* symbolic icons inherit this as their fill color */
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
     border-radius: 50%;
     min-width: 18px;
     min-height: 18px;
     padding: 2px;
-    border: 2px solid @window_bg_color;
+    border: 1.5px solid white;
+    background-clip: padding-box;
     line-height: 0;
 }
 

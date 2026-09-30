@@ -259,9 +259,8 @@ public class OnboardingDialog : GLib.Object {
             label.add_css_class("caption");
             tile_frame.append(label);
 
-            var badge = new Gtk.Image.from_icon_name("object-select-symbolic");
+            var badge = CheckIconUtils.new_image(14, true);
             badge.add_css_class("onboarding-source-badge");
-            badge.set_pixel_size(11);
             badge.set_halign(Gtk.Align.END);
             badge.set_valign(Gtk.Align.START);
             badge.set_margin_end(-4);
@@ -430,9 +429,8 @@ public class OnboardingDialog : GLib.Object {
             if (logo_path != null) picture.set_from_file(logo_path);
             tile_frame.append(picture);
 
-            var badge = new Gtk.Image.from_icon_name("object-select-symbolic");
+            var badge = CheckIconUtils.new_image(14, true);
             badge.add_css_class("onboarding-source-badge");
-            badge.set_pixel_size(11);
             badge.set_halign(Gtk.Align.END);
             badge.set_valign(Gtk.Align.START);
             badge.set_margin_end(-4);

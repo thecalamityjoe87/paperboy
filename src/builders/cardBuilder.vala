@@ -376,7 +376,7 @@ public class CardBuilder : GLib.Object {
 
         bool followed = is_source_followed(url);
         string name = badge.get_data<string>("follow-source-name");
-        btn.set_icon_name(followed ? "object-select-symbolic" : "list-add-symbolic");
+        btn.set_icon_name(followed ? CheckIconUtils.icon_name() : "list-add-symbolic");
         btn.set_tooltip_text(followed ? "Following " + name : "Follow " + name);
         if (followed) {
             btn.add_css_class("following");

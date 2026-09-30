@@ -82,7 +82,7 @@ public class SidebarMenu : GLib.Object {
         menu_box.add_css_class("menu");
         
         // Mark all as read
-        var mark_read_btn = create_menu_item("emblem-ok-symbolic", "Mark all as read");
+        var mark_read_btn = create_menu_item(CheckIconUtils.icon_name(), "Mark all as read");
         mark_read_btn.clicked.connect(() => {
             on_mark_all_read();
             popover.popdown();
