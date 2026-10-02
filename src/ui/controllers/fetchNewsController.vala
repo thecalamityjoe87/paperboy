@@ -539,7 +539,10 @@ if (is_myfeed_mode) {
             // so they always appear together instead of Trending lagging
             // in visibly after the frontpage list.
             if (win.loading_state != null) win.loading_state.awaiting_frontpage_endpoints = true;
-            NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, news_sink(ctx, () => { FetchNewsController.mark_frontpage_endpoint_done(ctx); }));
+            NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, news_sink(ctx, () => {
+                if (ctx.still_owns_view() && ctx.window.article_manager != null) ctx.window.article_manager.finalize_recommendations();
+                FetchNewsController.mark_frontpage_endpoint_done(ctx);
+            }));
 
             // Trending section: a second, independent fetch layered onto the
             // Front Page (see trending_sink()) - same

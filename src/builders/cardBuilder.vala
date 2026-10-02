@@ -317,8 +317,13 @@ public class CardBuilder : GLib.Object {
     // sources you may not follow), a follow button or check slides out of it on hover.
     public static void attach_source_badge(NewsWindow win, Gtk.Widget card_root, Gtk.Overlay overlay, Gtk.Widget badge, string url, string? source_name, bool followable) {
         overlay.add_overlay(badge);
+        if (followable) make_badge_followable(win, card_root, badge, url, source_name);
+    }
+
+    // Adds the hover follow button to a badge wherever it's placed (on the image or in a card's text area).
+    public static void make_badge_followable(NewsWindow win, Gtk.Widget card_root, Gtk.Widget badge, string url, string? source_name) {
         var badge_box = badge as Gtk.Box;
-        if (badge_box == null || !followable) return;
+        if (badge_box == null) return;
 
         string? source_label = null;
         for (var c = badge_box.get_first_child(); c != null; c = c.get_next_sibling()) {
@@ -358,6 +363,44 @@ public class CardBuilder : GLib.Object {
         badge_box.set_data<string>("follow-source-name", source_label ?? "this source");
         badge_box.set_data<string>("follow-source-url", url);
         card_root.set_data("source-badge", badge_box);
+    }
+
+    // Hover "reader view" / "preview" buttons for a card image's top-right corner, connected by
+    // ArticleCard.wire_interactions(). Always built so the hover-actions pref can toggle them live.
+    public static Gtk.Box build_hover_actions(Gtk.Widget root, NewsWindow? window) {
+        bool enabled = window == null || window.prefs == null || window.prefs.card_hover_actions_enabled;
+        var hover_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 2);
+        hover_actions.add_css_class("card-hover-actions");
+        hover_actions.set_halign(Gtk.Align.END);
+        hover_actions.set_valign(Gtk.Align.START);
+        hover_actions.set_margin_top(8);
+        hover_actions.set_margin_end(8);
+        hover_actions.set_visible(enabled);
+
+        var quick_reader_btn = new Gtk.Button();
+        quick_reader_btn.add_css_class("card-hover-action-btn");
+        quick_reader_btn.set_tooltip_text("Open in reader view");
+        var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
+        quick_reader_icon.set_pixel_size(20);
+        quick_reader_btn.set_child(quick_reader_icon);
+        hover_actions.append(quick_reader_btn);
+
+        var hover_divider = new Gtk.Separator(Gtk.Orientation.VERTICAL);
+        hover_divider.add_css_class("source-badge-divider");
+        hover_actions.append(hover_divider);
+
+        var quick_pane_btn = new Gtk.Button();
+        quick_pane_btn.add_css_class("card-hover-action-btn");
+        quick_pane_btn.set_tooltip_text("Preview article");
+        var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
+        quick_pane_icon.set_pixel_size(20);
+        quick_pane_btn.set_child(quick_pane_icon);
+        hover_actions.append(quick_pane_btn);
+
+        root.set_data("quick-reader-btn", quick_reader_btn);
+        root.set_data("quick-pane-btn", quick_pane_btn);
+        root.set_data("hover-actions-box", hover_actions);
+        return hover_actions;
     }
 
     // Called from a card's hover handler. Refreshes the follow state on each

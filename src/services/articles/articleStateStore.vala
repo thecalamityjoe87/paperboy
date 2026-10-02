@@ -1337,6 +1337,18 @@ public class ArticleStateStore : GLib.Object {
         return list;
     }
 
+    // Snapshot of reading history as a "Recommended for you" interest profile.
+    public InterestProfile build_interest_profile() {
+        var profile = new InterestProfile();
+        history_lock.lock();
+        foreach (var a in history_articles.values) {
+            profile.add_read(a.url, a.title, a.source, a.category_id, a.viewed_timestamp);
+        }
+        history_lock.unlock();
+        profile.finish();
+        return profile;
+    }
+
     public int get_history_count() {
         history_lock.lock();
         int result = history_articles.size;

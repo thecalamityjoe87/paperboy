@@ -80,6 +80,11 @@ namespace Managers {
         // don't re-roll a different target each time.
         private Gee.HashMap<string, int>? section_target_depth;
         private const string MISC_SECTION_KEY = "more";
+
+        // Front Page "Recommended for you" row, built only once reading history makes the profile ready.
+        public const string RECOMMENDED_SECTION_KEY = "recommended";
+        public InterestProfile? recommendation_profile = null;
+        public RecommendedSection? recommended_section = null;
         // These are the actual category ids the Paperboy frontpage API sends;
         // anything else falls through to the "more" catch-all.
         private static string[] FRONTPAGE_SECTION_CATEGORIES = {
@@ -510,6 +515,8 @@ namespace Managers {
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) active_section_order.add(cat);
             malloc_trim(0);
 
+            prepare_recommended_section();
+
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) {
                 // Written as if/else rather than a nested ternary: mixing an
                 // owned string (category_display_name_for's return) with a
@@ -553,6 +560,21 @@ namespace Managers {
             if (columns_row != null) columns_row.set_visible(false);
         }
 
+        // Adds the (hidden until filled) "Recommended for you" panel above the category rows when there's enough history to go on.
+        private void prepare_recommended_section() {
+            recommendation_profile = null;
+            recommended_section = null;
+            if (window == null || window.article_state_store == null) return;
+
+            var profile = window.article_state_store.build_interest_profile();
+            if (!profile.is_ready()) return;
+            recommendation_profile = profile;
+
+            recommended_section = new RecommendedSection(estimate_content_width());
+            recommended_section.wrapper.add_css_class("frontpage-section-divider");
+            category_sections_container.append(recommended_section.wrapper);
+        }
+
         /**
         * Build (or rebuild) My Feed's row sections: rows alternate between
         * one per followed built-in source (that source's latest articles,
@@ -589,6 +611,8 @@ namespace Managers {
             }
 
             // See the matching comment in prepare_category_sections().
+            recommendation_profile = null;
+            recommended_section = null;
             category_sections = new Gee.HashMap<string, CategorySection>();
             section_target_depth = new Gee.HashMap<string, int>();
             active_section_order = new Gee.ArrayList<string>();
@@ -702,6 +726,8 @@ namespace Managers {
             if (columns_row != null) columns_row.set_visible(true);
             category_sections = null;
             active_section_order = null;
+            recommendation_profile = null;
+            recommended_section = null;
             malloc_trim(0);
         }
 
@@ -935,7 +961,9 @@ namespace Managers {
             // (and the Trending grid, forced flat even while Front Page's
             // sections are active) appends straight to the grid, which
             // handles row/column placement automatically.
-            if (using_category_sections && section_category_id != null && !force_flat_grid) {
+            if (section_category_id == RECOMMENDED_SECTION_KEY) {
+                if (recommended_section != null) recommended_section.add_grid(article_card.root);
+            } else if (using_category_sections && section_category_id != null && !force_flat_grid) {
                 if (no_fallback_section) {
                     add_card_to_named_section(section_category_id, article_card.root);
                 } else {

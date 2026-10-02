@@ -66,6 +66,25 @@
     padding-top: 0;
 }
 
+/* Front Page "Recommended for you" panel (see RecommendedSection). */
+.recommended-panel {
+    background-color: alpha(@accent_bg_color, 0.07);
+    border: 1px solid alpha(@accent_color, 0.28);
+    border-radius: 18px;
+    padding: 24px;
+}
+
+.recommended-title {
+    color: @accent_color;
+    font-size: 1.9em;
+    font-weight: 900;
+}
+
+.recommended-subtitle {
+    font-size: 0.9em;
+    color: alpha(currentColor, 0.60);
+}
+
 /* Groups a league's score cards into one bordered panel (see
    CategorySection's card_container option) - Sports sections only. */
 .section-card-container {

@@ -138,14 +138,22 @@ public class ArticlePane : GLib.Object {
         title_wrap.append(ttl);
 
         // Metadata label (source + published date/time) - AFTER TITLE
-        var meta_label = new Gtk.Label("");
-        meta_label.set_xalign(0);
-        meta_label.set_selectable(false);
-        meta_label.add_css_class("caption");
-        meta_label.set_halign(Gtk.Align.START);
-        meta_label.set_wrap(false);
-        meta_label.set_margin_top(4);
-        title_wrap.append(meta_label);
+        // Source and date are separate labels so only a long source name (e.g. "ABC News - Breaking
+        // News, Latest News and Videos") gets ellipsized, keeping the date visible and the pane from widening.
+        var meta_row = new Gtk.Box(Orientation.HORIZONTAL, 0);
+        meta_row.set_halign(Gtk.Align.START);
+        meta_row.set_margin_top(4);
+        var meta_source_label = new Gtk.Label("");
+        meta_source_label.set_xalign(0);
+        meta_source_label.add_css_class("caption");
+        meta_source_label.set_ellipsize(Pango.EllipsizeMode.END);
+        meta_source_label.set_max_width_chars(24);
+        meta_row.append(meta_source_label);
+        var meta_date_label = new Gtk.Label("");
+        meta_date_label.set_xalign(0);
+        meta_date_label.add_css_class("caption");
+        meta_row.append(meta_date_label);
+        title_wrap.append(meta_row);
         outer.append(title_wrap);
 
         // Image (constrained) - AFTER METADATA
@@ -379,11 +387,7 @@ public class ArticlePane : GLib.Object {
             parent_window.article_manager.article_buffer
         );
 
-        if (homepage_published_any != null && homepage_published_any.length > 0) {
-            meta_label.set_text(display_source + " • " + DateUtils.format_published(homepage_published_any));
-        } else {
-            meta_label.set_text(display_source);
-        }
+        set_meta_text(meta_source_label, meta_date_label, display_source, homepage_published_any);
 
         // Fetch snippet asynchronously. ArticlePreviewService will consult any
         // provided article buffer (cached feed entries) for quick results.
@@ -394,12 +398,18 @@ public class ArticlePane : GLib.Object {
             string to_show = preview.snippet.length > 0 ? preview.snippet : "No preview available. Open the article to read more.";
             snippet_label.set_text(to_show);
 
-            if (meta_label != null && preview.published != null && preview.published.length > 0) {
+            if (preview.published != null && preview.published.length > 0) {
                 string label_to_use = (display_source != null && display_source.length > 0) ? display_source : SourceUtils.get_source_name(article_src);
-                meta_label.set_text(label_to_use + " • " + DateUtils.format_published(preview.published));
+                set_meta_text(meta_source_label, meta_date_label, label_to_use, preview.published);
             }
         }, article_src, display_source, parent_window.article_manager.article_buffer);
         
+    }
+
+    private static void set_meta_text(Gtk.Label source_label, Gtk.Label date_label, string? source, string? published) {
+        source_label.set_text(source ?? "");
+        bool has_date = published != null && published.length > 0;
+        date_label.set_text(has_date ? " • " + DateUtils.format_published(published) : "");
     }
 
     // Load image using centralized ImageManager if available
