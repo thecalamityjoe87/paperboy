@@ -53,13 +53,9 @@ namespace Managers {
         private bool reveal_pending = false;
         public int articles_shown = 0;
 
-        // Per-row real-card counts for My Feed (keyed by section key, e.g.
-        // "source:guardian" or a bare category id), reset each fetch. My Feed
-        // has many independent rows rather than one flat grid, so each row
-        // gets its own modest cap instead of sharing articles_shown/INITIAL_ARTICLE_LIMIT
-        // (see add_item) - otherwise a full load could build hundreds of
-        // real card widgets, each with its own image fetch, at once.
-        private Gee.HashMap<string, int>? myfeed_row_card_counts = null;
+        // Per-row real-card counts for My Feed and Front Page rows (keyed by section key), reset each fetch.
+        // Each row gets its own cap instead of sharing articles_shown/INITIAL_ARTICLE_LIMIT.
+        private Gee.HashMap<string, int>? row_card_counts = null;
         private const int MYFEED_ROW_CARD_CAP = 10;
 
         // Track URLs seen in current view to prevent duplicate cards
@@ -111,6 +107,26 @@ namespace Managers {
         
         private bool load_more_button_visible = false;
         public uint buffer_flush_timeout_id = 0;
+
+        // Front Page "Recommended for you" picks are held until the batch settles, then ranked into the panel.
+        private const int RECOMMENDED_MAX_PICKS = 8;
+        private const int RECOMMENDED_MAX_PER_CATEGORY = 2;
+        // Looser cap used only to top up a short panel.
+        private const int RECOMMENDED_FILL_PER_CATEGORY = 4;
+        private const uint RECOMMENDED_SETTLE_MS = 500;
+        private class RecommendedPick {
+            public ArticleItem item;
+            public double score;
+            public RecommendedPick(ArticleItem item, double score) { this.item = item; this.score = score; }
+        }
+        private Gee.ArrayList<RecommendedPick> recommended_picks = new Gee.ArrayList<RecommendedPick>();
+        private bool recommendations_finalized = false;
+        private uint recommendations_settle_id = 0;
+        // What the panel shows (in slot order), and the next-best picks to fill in for a dislike.
+        private Gee.ArrayList<RecommendedPick> panel_picks = new Gee.ArrayList<RecommendedPick>();
+        private Gee.ArrayList<RecommendedPick> panel_reserve = new Gee.ArrayList<RecommendedPick>();
+        private int panel_rail_rows = 0;
+        private bool feedback_connected = false;
         
         // Signals for UI operations
         public signal void request_show_load_more_button();
@@ -174,12 +190,13 @@ namespace Managers {
         }
 
         // Returns false if the article is a duplicate (already queued this view).
+        // already_marked: the caller has already claimed this URL in seen_urls.
         private bool queue_overflow_article(string title, string url, string? thumbnail_url,
-                                            string category_id, string? source_name, string? published = null, string? snippet = null) {
+                                            string category_id, string? source_name, string? published = null, string? snippet = null, bool already_marked = false) {
             string normalized_url = "";
             normalized_url = window.normalize_article_url(url); 
             
-            if (normalized_url.length > 0 && seen_urls.contains(normalized_url)) {
+            if (!already_marked && normalized_url.length > 0 && seen_urls.contains(normalized_url)) {
                 return false;  // Duplicate
             }
             if (normalized_url.length > 0) {
@@ -193,7 +210,7 @@ namespace Managers {
             var queued_item = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source, published);
             queued_item.snippet = snippet;
             remaining_articles.add(queued_item);
-            string display_cat = extract_display_category(queued_item);
+            string display_cat = overflow_key_for(queued_item);
             remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) + 1);
 
             // Register for unread tracking
@@ -238,6 +255,12 @@ namespace Managers {
             return resolve_display_category(item.category_id, item.source_name);
         }
 
+        // Front Page overflow is grouped by row, so each row's arrow finds its own queued articles.
+        private string overflow_key_for(ArticleItem item) {
+            string cat = extract_display_category(item);
+            return window.prefs.category == "frontpage" ? LayoutManager.frontpage_row_for(cat) : cat;
+        }
+
         public int remaining_count_for_category(string cat) {
             if (remaining_category_counts == null) return 0;
             return remaining_category_counts.get(cat);
@@ -270,7 +293,7 @@ namespace Managers {
             int i = 0;
             while (i < remaining_articles.size && loaded < max_to_load) {
                 var item = remaining_articles.get(i);
-                if (extract_display_category(item) == cat) {
+                if (overflow_key_for(item) == cat) {
                     remaining_articles.remove_at(i);
                     remaining_category_counts.set(cat, remaining_category_counts.get(cat) - 1);
                     article_buffer.add(item);
@@ -350,6 +373,10 @@ namespace Managers {
         public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null, bool is_trending = false) {
             if (!view_allows_item(category_id)) return;
             bool is_myfeed = window.category_manager.is_myfeed_view();
+            // "Recommended for you" picks get their own budget instead of the Front Page cap.
+            double recommended_score = is_trending ? -1 : score_recommendation(title, url, category_id, source_name);
+            bool recommended = recommended_score >= InterestProfile.MATCH_THRESHOLD;
+            if (recommended) recommended_score = rank_recommendation(recommended_score, title, published);
 
             // My Feed doesn't use the flat article-count cap: its rows are
             // independent scrolling strips, not one shared grid, and several
@@ -358,7 +385,14 @@ namespace Managers {
             // Trending is exempt too - it's a second, independently-capped
             // fetch layered onto the Front Page and must not share (or
             // exhaust) the Front Page's own INITIAL_ARTICLE_LIMIT counter.
-            if (!is_myfeed && !is_trending && is_limited_category(window.prefs.category)) {
+            if (!is_trending && !recommended && window.prefs.category == "frontpage") {
+                if (frontpage_featured_full() && frontpage_row_full(frontpage_row_key(category_id, source_name))) {
+                    if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published, snippet)) {
+                        show_load_more_button();
+                    }
+                    return;
+                }
+            } else if (!is_myfeed && !is_trending && !recommended && is_limited_category(window.prefs.category)) {
                 lock (articles_shown) {
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
                         if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published, snippet)) {
@@ -459,7 +493,244 @@ namespace Managers {
                 }
             }
 
+            if (recommended) {
+                var held = new ArticleItem(title, url, thumbnail_url, category_id, final_source_name, published);
+                held.snippet = snippet;
+                hold_recommended_pick(new RecommendedPick(held, recommended_score));
+                return;
+            }
+
             add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published, snippet, myfeed_row_key_hint, is_trending);
+        }
+
+        // -1 when this article can't be a "Recommended for you" pick right now.
+        private double score_recommendation(string title, string url, string category_id, string? source_name) {
+            if (recommendations_finalized || window.prefs.category != "frontpage" || window.layout_manager == null) return -1;
+            var profile = window.layout_manager.recommendation_profile;
+            if (profile == null) return -1;
+            if (window.article_state_store != null) {
+                string norm = window.normalize_article_url(url);
+                if (window.article_state_store.is_viewed(norm) || window.article_state_store.get_feedback(norm) != 0) return -1;
+            }
+            return profile.score(title, url, category_id, source_name);
+        }
+
+        // Ordering only, so a qualifying pick is never dropped just for being shown before.
+        private double rank_recommendation(double score, string title, string? published) {
+            var profile = window.layout_manager.recommendation_profile;
+            int impressions = window.article_state_store != null ? window.article_state_store.get_recommendation_impressions(story_key(title)) : 0;
+            return profile.adjust(score, published, impressions);
+        }
+
+        // The same story can arrive under several URLs.
+        private static string story_key(string title) {
+            return title.strip().down();
+        }
+
+        private void hold_recommended_pick(RecommendedPick pick) {
+            recommended_picks.add(pick);
+            ViewSession.remove_source(ref recommendations_settle_id);
+            recommendations_settle_id = ViewSession.view_timeout(RECOMMENDED_SETTLE_MS, () => {
+                recommendations_settle_id = 0;
+                finalize_recommendations();
+                return false;
+            });
+        }
+
+        // Ranks the held picks into the "Recommended for you" panel; the rest go back to their category rows.
+        // Runs once per fetch: when picks stop arriving, or when the Front Page list finishes.
+        public void finalize_recommendations() {
+            if (recommendations_finalized) return;
+            recommendations_finalized = true;
+            ViewSession.remove_source(ref recommendations_settle_id);
+
+            var picks = recommended_picks;
+            recommended_picks = new Gee.ArrayList<RecommendedPick>();
+            if (picks.size == 0) return;
+            picks.sort((a, b) => a.score < b.score ? 1 : (a.score > b.score ? -1 : 0));
+
+            var chosen = new Gee.ArrayList<RecommendedPick>();
+            var per_category = new Gee.HashMap<string, int>();
+            var chosen_titles = new Gee.HashSet<string>();
+            foreach (int cap in new int[] { RECOMMENDED_MAX_PER_CATEGORY, RECOMMENDED_FILL_PER_CATEGORY }) {
+                foreach (var pick in picks) {
+                    string cat = extract_display_category(pick.item);
+                    string title_key = story_key(pick.item.title);
+                    if (chosen.size < RECOMMENDED_MAX_PICKS && !chosen.contains(pick) && !chosen_titles.contains(title_key) && per_category.get(cat) < cap) {
+                        chosen.add(pick);
+                        chosen_titles.add(title_key);
+                        per_category.set(cat, per_category.get(cat) + 1);
+                    }
+                }
+            }
+            chosen.sort((a, b) => a.score < b.score ? 1 : (a.score > b.score ? -1 : 0));
+            // Trim to a size that fills the layout; the rest wait as dislike replacements.
+            while (chosen.size > RecommendedSection.panel_size_for(chosen.size)) chosen.remove_at(chosen.size - 1);
+
+            var leftovers = new Gee.ArrayList<ArticleItem>();
+            var reserve = new Gee.ArrayList<RecommendedPick>();
+            foreach (var pick in picks) {
+                if (chosen.contains(pick)) continue;
+                leftovers.add(pick.item);
+                reserve.add(pick);
+            }
+
+            RecommendedSection? section = window.layout_manager != null ? window.layout_manager.recommended_section : null;
+            if (section != null && chosen.size >= RecommendedSection.MIN_PICKS && window.prefs.category == "frontpage") {
+                panel_reserve = reserve;
+                build_recommended_panel(section, chosen);
+                record_impressions(chosen);
+                if (!feedback_connected && window.article_state_store != null) {
+                    window.article_state_store.feedback_changed.connect(on_feedback_changed);
+                    feedback_connected = true;
+                }
+            } else {
+                for (int i = 0; i < chosen.size; i++) leftovers.insert(i, chosen.get(i).item);
+            }
+
+            foreach (var item in leftovers) {
+                add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, false, item.published, item.snippet);
+            }
+        }
+
+        private void record_impressions(Gee.List<RecommendedPick> shown) {
+            if (window.article_state_store == null) return;
+            var keys = new Gee.ArrayList<string>();
+            foreach (var pick in shown) keys.add(story_key(pick.item.title));
+            window.article_state_store.record_recommendation_impressions(keys);
+        }
+
+        // Lead hero, then rail rows, then grid cards, in score order (see RecommendedSection.rail_rows_for).
+        private void build_recommended_panel(RecommendedSection section, Gee.ArrayList<RecommendedPick> chosen) {
+            panel_picks = chosen;
+            panel_rail_rows = RecommendedSection.rail_rows_for(chosen.size);
+            for (int i = 0; i < chosen.size; i++) place_recommended_pick(section, chosen.get(i).item, i);
+        }
+
+        // Slot i's card: the lead, a rail row, or a grid card.
+        private void place_recommended_pick(RecommendedSection section, ArticleItem item, int i) {
+            int rail_rows = panel_rail_rows;
+            int lead_h = section.lead_height(rail_rows);
+            string decoded_title = stripHtmlUtils.strip_html(item.title);
+            string category_text = window.category_chip_text(extract_display_category(item));
+            // Snippet/published fallback for the preview pane, as add_item_immediate_to_column does.
+            article_buffer.add(item);
+
+            if (i == 0) {
+                var hero = new HeroCard.for_topten(decoded_title, item.url, lead_h, category_text, true, window.article_state_store, window, item.published);
+                hero.title_label.set_lines(3);
+                // Fixed text area instead of for_topten's 70/30 split, so the lead stays exactly lead_h tall.
+                int lead_image_h = lead_h - RecommendedSection.LEAD_TEXT_HEIGHT;
+                hero.image.set_size_request(-1, lead_image_h);
+                hero.title_box.set_size_request(-1, RecommendedSection.LEAD_TEXT_HEIGHT - hero.title_box.get_margin_top() - hero.title_box.get_margin_bottom());
+                section.set_lead(hero.root);
+                wire_hero_card(hero, decoded_title, item.url, item.thumbnail_url, item.category_id, item.source_name, item.published, true, false, section.lead_width, lead_image_h);
+            } else if (i <= rail_rows) {
+                var row = new HistoryCard(decoded_title, item.url, item.source_name, 0, category_text, section.rail_min_width, DateUtils.time_ago(item.published), RecommendedSection.RAIL_ROW_HEIGHT);
+                row.enable_hover_actions(window);
+                section.add_rail(row.root);
+                wire_history_card(row, decoded_title, item.url, item.thumbnail_url, item.source_name, item.published, item.category_id);
+            } else {
+                place_regular_article_card(decoded_title, item.url, item.thumbnail_url, item.category_id, item.source_name, false, item.published, LayoutManager.RECOMMENDED_SECTION_KEY, true, false, section.grid_card_min_width);
+            }
+        }
+
+        // A dislike on a panel card fades it out, then the next-best reserve pick takes its slot.
+        private void on_feedback_changed(string url, int vote) {
+            if (vote >= 0 || window.prefs.category != "frontpage" || panel_index_of(url) < 0) return;
+            var old = window.view_state != null ? window.view_state.get_card_for_url(url) : null;
+            if (old != null) Managers.AnimationManager.fade_opacity(old, 0.0);
+            ViewSession.view_timeout(180, () => {
+                // Un-disliked during the fade.
+                if (window.article_state_store.get_feedback(url) >= 0) {
+                    var card = window.view_state != null ? window.view_state.get_card_for_url(url) : null;
+                    if (card != null) Managers.AnimationManager.fade_opacity(card, 1.0);
+                    return false;
+                }
+                replace_panel_pick(url);
+                return false;
+            });
+        }
+
+        private int panel_index_of(string normalized) {
+            for (int i = 0; i < panel_picks.size; i++) {
+                if (window.normalize_article_url(panel_picks.get(i).item.url) == normalized) return i;
+            }
+            return -1;
+        }
+
+        private void replace_panel_pick(string normalized) {
+            RecommendedSection? section = window.layout_manager != null ? window.layout_manager.recommended_section : null;
+            int idx = panel_index_of(normalized);
+            if (section == null || idx < 0 || window.view_state == null) return;
+
+            var old = window.view_state.get_card_for_url(normalized);
+            window.view_state.unregister_card_for_url(normalized);
+            window.view_state.url_to_picture.unset(normalized);
+
+            var next = take_reserve_pick(idx);
+            if (next != null && old != null) {
+                panel_picks.set(idx, next);
+                section.begin_swap(old);
+                place_recommended_pick(section, next.item, idx);
+                var swapped_in = new Gee.ArrayList<RecommendedPick>();
+                swapped_in.add(next);
+                record_impressions(swapped_in);
+                var added = window.view_state.get_card_for_url(window.normalize_article_url(next.item.url));
+                if (added != null && window.animation_manager != null) window.animation_manager.animate_card_entrance(added, 0);
+                return;
+            }
+
+            // Nothing to fill in with: rebuild from what's left; picks that don't fit go back to the category rows.
+            panel_picks.remove_at(idx);
+            foreach (var pick in panel_picks) window.view_state.unregister_card_for_url(window.normalize_article_url(pick.item.url));
+            section.clear();
+            var rest = new Gee.ArrayList<RecommendedPick>();
+            int keep = RecommendedSection.panel_size_for(panel_picks.size);
+            while (panel_picks.size > keep) rest.insert(0, panel_picks.remove_at(panel_picks.size - 1));
+            if (keep > 0) build_recommended_panel(section, panel_picks);
+            foreach (var pick in rest) {
+                var item = pick.item;
+                add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, true, item.published, item.snippet);
+            }
+        }
+
+        // Best reserve pick that fits slot idx's category cap; its plain card leaves its category row.
+        private RecommendedPick? take_reserve_pick(int idx) {
+            var rows_container = window.layout_manager.category_sections_container;
+            if (rows_container == null) return null;
+            var per_category = new Gee.HashMap<string, int>();
+            for (int i = 0; i < panel_picks.size; i++) {
+                if (i == idx) continue;
+                string cat = extract_display_category(panel_picks.get(i).item);
+                per_category.set(cat, per_category.get(cat) + 1);
+            }
+
+            for (int r = 0; r < panel_reserve.size; r++) {
+                var pick = panel_reserve.get(r);
+                string norm = window.normalize_article_url(pick.item.url);
+                if (per_category.get(extract_display_category(pick.item)) >= RECOMMENDED_MAX_PER_CATEGORY) continue;
+                panel_reserve.remove_at(r--);
+                if (window.article_state_store != null && window.article_state_store.get_feedback(norm) < 0) continue;
+
+                // Only cards showing in a category row; heroes, carousel slides and queued overflow stay put.
+                var cards = window.view_state.get_cards_for_url(norm);
+                if (cards == null || cards.size == 0) continue;
+                bool movable = true;
+                foreach (var card in cards) {
+                    if (card.get_data<string>("hero-url") != null || !card.is_ancestor(rows_container)) movable = false;
+                }
+                if (!movable) continue;
+
+                var row_cards = new Gee.ArrayList<Gtk.Widget>();
+                row_cards.add_all(cards);
+                window.view_state.unregister_card_for_url(norm);
+                foreach (var card in row_cards) {
+                    if (window.animation_manager != null) window.animation_manager.animate_card_exit_and_remove(card, 0);
+                }
+                return pick;
+            }
+            return null;
         }
 
         public void add_item_immediate_to_column(string title, string url, string? thumbnail_url, string category_id, string? original_category = null, string? source_name = null, bool bypass_limit = false, string? published = null, string? snippet = null, string? myfeed_row_key_hint = null, bool is_trending = false) {
@@ -479,8 +750,20 @@ namespace Managers {
 
             string check_category = original_category ?? window.prefs.category;
 
+            if (window.prefs.category == "frontpage" && !is_trending) {
+                if (frontpage_featured_full()) {
+                    string row_key = frontpage_row_key(category_id, source_name);
+                    if (!bypass_limit && frontpage_row_full(row_key)) {
+                        string normalized_src = normalize_source_name(source_name, category_id, url);
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, normalized_src, published, snippet, true)) {
+                            show_load_more_button();
+                        }
+                        return;
+                    }
+                    count_frontpage_row_card(row_key);
+                }
             // My Feed is exempt here too - see add_item() above.
-            if (is_limited_category(check_category) && !bypass_limit && !is_trending && window.prefs.category != "myfeed") {
+            } else if (is_limited_category(check_category) && !bypass_limit && !is_trending && window.prefs.category != "myfeed") {
                 lock (articles_shown) {
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
                         if (title == null || url == null) {
@@ -548,124 +831,7 @@ namespace Managers {
                 );
 
                 // Skipped for Trending: its stacked layout only has room for the title.
-                if (!is_trending) {
-                    ArticleSnippetService.attach_hero_snippet(hero_card, url, source_name, article_buffer);
-                }
-
-                var hero_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
-                CardBuilder.attach_source_badge(window, hero_card.root, hero_card.overlay, hero_source_badge, url, source_name, window.prefs.category == "frontpage");
-
-                string _norm = window.normalize_article_url(url);
-
-                bool hero_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
-                    (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
-
-                if (!hero_will_load) {
-                    if (category_id == "local_news")
-                        window.set_local_placeholder_image(hero_card.image, default_hero_w, default_hero_h);
-                    else
-                        set_smart_placeholder(hero_card.image, default_hero_w, default_hero_h, source_name, url);
-                }
-
-                    if (hero_will_load) {
-                    // Hero images are the most prominent feature - always use maximum quality
-                    int multiplier = 6;
-                    if (window.loading_state != null) window.loading_state.track_pending_image(hero_card.image);
-                    if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(hero_card.image, category_id == "local_news");
-                    window.image_manager.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, true);
-                    window.image_manager.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
-                    if (window.article_state_store != null) {
-                        bool was = window.article_state_store.is_viewed(_norm);
-                        window.append_debug_log("meta_check: hero url=" + _norm + " was=" + (was ? "true" : "false"));
-                        if (was) window.mark_article_viewed(_norm);
-                    }
-                    schedule_hero_refetch(window, hero_card.image);
-                }
-
-                hero_card.image.set_data<bool>("has-real-thumbnail", hero_will_load);
-                // hero_card.image is sized (-1, height) - its width is
-                // "natural", so get_size_request() alone can't be trusted as
-                // a fallback size (see the article-pane fix earlier this
-                // session); pass the intended width explicitly.
-                if (!hero_will_load) ThumbnailBackfillService.enqueue(window, url, hero_card.image, default_hero_w, default_hero_h);
-                if (window.view_state != null) {
-                    window.view_state.register_picture_for_url(_norm, hero_card.image);
-                    window.view_state.normalized_to_url.set(_norm, url);
-                    window.view_state.register_card_for_url(_norm, hero_card.root);
-                }
-
-                hero_card.source_name = source_name;
-                hero_card.category_id = category_id;
-                hero_card.thumbnail_url = thumbnail_url;
-
-                // Note: source_name is already normalized by add_item() before being passed here
-                if (window.article_state_store != null) {
-                    window.article_state_store.register_article(_norm, category_id, source_name);
-                }
-
-                // Capture plain widget locals instead of referencing
-                // hero_card.root/save_ribbon inside these callbacks - see
-                // HeroCard.wire_interactions().
-                var hero_root = hero_card.root;
-                var hero_save_ribbon = hero_card.save_ribbon;
-                // Unowned in the callbacks: they live on the hero's own widgets, and a strong
-                // capture of its root is a reference cycle that kept every hero alive.
-                unowned Gtk.Widget hero_root_ref = hero_root;
-                unowned Gtk.Widget hero_ribbon_ref = hero_save_ribbon;
-                HeroCard.wire_interactions(
-                    hero_root,
-                    url,
-                    enable_hero_context_menu,
-                    window.article_state_store,
-                    window,
-                    source_name,
-                    category_id,
-                    thumbnail_url,
-                    hero_card.title_label,
-                    hero_card.image,
-                    hero_card.viewed_badge_slot,
-                    hero_card.footer_box,
-                    hero_card.overlay,
-                    (s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); },
-                    (article_url) => { open_article_in_app_if_online(article_url, null, source_name, decoded_title, thumbnail_url, published, category_id); },
-                    (article_url) => { open_article_in_browser_if_online(article_url, source_name, decoded_title, thumbnail_url, published, category_id); },
-                    (article_url, src_name) => {
-                        request_show_toast("Searching for feed...", true);
-                        window.source_manager.follow_rss_source(article_url, src_name);
-                    },
-                    (article_url) => {
-                        if (window.article_state_store != null) {
-                            bool is_saved = window.article_state_store.is_saved(article_url);
-                            if (is_saved) {
-                                window.article_state_store.unsave_article(article_url);
-                                request_show_toast("Removed article from saved");
-                                if (window.animation_manager != null) {
-                                    window.animation_manager.animate_save_toggle(hero_root_ref, hero_ribbon_ref, decoded_title, false);
-                                }
-
-                                if (window.prefs.category == "saved") {
-                                    if (window.animation_manager != null) {
-                                        var w = hero_root_ref;
-                                        string? normalized = null;
-                                        if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
-                                        if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
-                                        window.animation_manager.animate_card_exit_and_remove(w, 0);
-                                    } else {
-                                        window.fetch_news();
-                                    }
-                                }
-                            } else {
-                                window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
-                                request_show_toast("Added article to saved");
-                                if (window.animation_manager != null) {
-                                    window.animation_manager.animate_save_toggle(hero_root_ref, hero_ribbon_ref, decoded_title, true);
-                                }
-                            }
-                        }
-                    },
-                    (article_url) => { window.show_share_dialog(article_url); },
-                    (article_url) => { open_article_in_app_if_online(article_url, true, source_name, decoded_title, thumbnail_url, published, category_id); }
-                );
+                wire_hero_card(hero_card, decoded_title, url, thumbnail_url, category_id, source_name, published, enable_hero_context_menu, !is_trending, default_hero_w, default_hero_h);
 
                 if (is_trending) {
                     if (trending_hero_count < 2) {
@@ -741,6 +907,7 @@ namespace Managers {
                 ArticleSnippetService.attach_hero_snippet(slide_hero, url, source_name, article_buffer);
                 var slide_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
                 CardBuilder.attach_source_badge(window, slide_hero.root, slide_hero.overlay, slide_source_badge, url, source_name, window.prefs.category == "frontpage");
+                CardBuilder.attach_feedback_buttons(window, slide_hero.root, slide_hero.overlay, url, decoded_title, source_name, category_id);
             }
             var slide = components.slide;
             var slide_image = components.image;
@@ -850,11 +1017,31 @@ namespace Managers {
     // a widget for it. Each row is independent - a full "Guardian" row
     // doesn't affect the "Technology" row's own budget.
     private bool try_take_myfeed_row_slot(string row_key) {
-        if (myfeed_row_card_counts == null) myfeed_row_card_counts = new Gee.HashMap<string, int>();
-        int count = myfeed_row_card_counts.has_key(row_key) ? myfeed_row_card_counts.get(row_key) : 0;
+        if (row_card_counts == null) row_card_counts = new Gee.HashMap<string, int>();
+        int count = row_card_counts.has_key(row_key) ? row_card_counts.get(row_key) : 0;
         if (count >= MYFEED_ROW_CARD_CAP) return false;
-        myfeed_row_card_counts.set(row_key, count + 1);
+        row_card_counts.set(row_key, count + 1);
         return true;
+    }
+
+    // Front Page row key for an article, e.g. "football" -> "sports".
+    private string frontpage_row_key(string category_id, string? source_name) {
+        return LayoutManager.frontpage_row_for(resolve_display_category(category_id, source_name));
+    }
+
+    // True once the hero and carousel are filled, so further Front Page articles become row cards.
+    private bool frontpage_featured_full() {
+        return featured_used && (hero_carousel == null || featured_carousel_items == null || featured_carousel_items.size >= MAX_CAROUSEL_SLIDES);
+    }
+
+    private bool frontpage_row_full(string row_key) {
+        int count = (row_card_counts != null && row_card_counts.has_key(row_key)) ? row_card_counts.get(row_key) : 0;
+        return count >= window.layout_manager.frontpage_row_initial_cards();
+    }
+
+    private void count_frontpage_row_card(string row_key) {
+        if (row_card_counts == null) row_card_counts = new Gee.HashMap<string, int>();
+        row_card_counts.set(row_key, (row_card_counts.has_key(row_key) ? row_card_counts.get(row_key) : 0) + 1);
     }
 
     // Builds one regular (non-hero, non-carousel) article card and places it
@@ -872,7 +1059,8 @@ namespace Managers {
         string? published,
         string section_key,
         bool no_fallback_section,
-        bool is_trending = false
+        bool is_trending = false,
+        int forced_col_w = 0
     ) {
         // History gets its own compact row card, not the full image-grid
         // card every other view uses - see HistoryCard.
@@ -888,7 +1076,9 @@ namespace Managers {
         // it shares LayoutManager with Front Page's own concurrently
         // streaming (3-column-cached) category sections.
         int col_w = 400;
-        if (window.layout_manager != null) {
+        if (forced_col_w > 0) {
+            col_w = forced_col_w;
+        } else if (window.layout_manager != null) {
             col_w = is_trending
                 ? window.layout_manager.estimate_column_width(4)
                 : (window.layout_manager.cached_col_w > 0
@@ -927,6 +1117,7 @@ namespace Managers {
 
         var card_badge = window.build_source_badge_dynamic(source_name, url, category_id);
         CardBuilder.attach_source_badge(window, article_card.root, article_card.overlay, card_badge, url, source_name, window.prefs.category == "frontpage");
+        CardBuilder.attach_feedback_buttons(window, article_card.root, article_card.overlay, url, decoded_title, source_name, category_id);
 
         bool card_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
             (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
@@ -1064,7 +1255,139 @@ namespace Managers {
             : null;
 
         var history_card = window.layout_manager.create_and_place_history_card(decoded_title, url, source_name, viewed_timestamp, category_display_name);
+        history_card.enable_hover_actions(window);
 
+        wire_history_card(history_card, decoded_title, url, thumbnail_url, source_name, published, original_category);
+
+        if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
+    }
+
+    // Badge, image, tracking and click/save/menu wiring shared by every hero placement.
+    private void wire_hero_card(HeroCard hero_card, string decoded_title, string url, string? thumbnail_url, string category_id, string? source_name, string? published, bool enable_hero_context_menu, bool with_snippet, int default_hero_w, int default_hero_h) {
+        if (with_snippet) {
+            ArticleSnippetService.attach_hero_snippet(hero_card, url, source_name, article_buffer);
+        }
+
+        var hero_source_badge = window.build_source_badge_dynamic(source_name, url, category_id);
+        CardBuilder.attach_source_badge(window, hero_card.root, hero_card.overlay, hero_source_badge, url, source_name, window.prefs.category == "frontpage");
+        CardBuilder.attach_feedback_buttons(window, hero_card.root, hero_card.overlay, url, decoded_title, source_name, category_id);
+
+        string _norm = window.normalize_article_url(url);
+
+        bool hero_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
+            (thumbnail_url.has_prefix("http://") || thumbnail_url.has_prefix("https://"));
+
+        if (!hero_will_load) {
+            if (category_id == "local_news")
+                window.set_local_placeholder_image(hero_card.image, default_hero_w, default_hero_h);
+            else
+                set_smart_placeholder(hero_card.image, default_hero_w, default_hero_h, source_name, url);
+        }
+
+            if (hero_will_load) {
+            // Hero images are the most prominent feature - always use maximum quality
+            int multiplier = 6;
+            if (window.loading_state != null) window.loading_state.track_pending_image(hero_card.image);
+            if (window.image_manager != null) window.image_manager.pending_local_placeholder.set(hero_card.image, category_id == "local_news");
+            window.image_manager.load_image_async(hero_card.image, thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, true);
+            window.image_manager.hero_requests.set(hero_card.image, new HeroRequest(thumbnail_url, default_hero_w * multiplier, default_hero_h * multiplier, multiplier));
+            if (window.article_state_store != null) {
+                bool was = window.article_state_store.is_viewed(_norm);
+                window.append_debug_log("meta_check: hero url=" + _norm + " was=" + (was ? "true" : "false"));
+                if (was) window.mark_article_viewed(_norm);
+            }
+            schedule_hero_refetch(window, hero_card.image);
+        }
+
+        hero_card.image.set_data<bool>("has-real-thumbnail", hero_will_load);
+        // hero_card.image is sized (-1, height) - its width is
+        // "natural", so get_size_request() alone can't be trusted as
+        // a fallback size (see the article-pane fix earlier this
+        // session); pass the intended width explicitly.
+        if (!hero_will_load) ThumbnailBackfillService.enqueue(window, url, hero_card.image, default_hero_w, default_hero_h);
+        if (window.view_state != null) {
+            window.view_state.register_picture_for_url(_norm, hero_card.image);
+            window.view_state.normalized_to_url.set(_norm, url);
+            window.view_state.register_card_for_url(_norm, hero_card.root);
+        }
+
+        hero_card.source_name = source_name;
+        hero_card.category_id = category_id;
+        hero_card.thumbnail_url = thumbnail_url;
+
+        // Note: source_name is already normalized by add_item() before being passed here
+        if (window.article_state_store != null) {
+            window.article_state_store.register_article(_norm, category_id, source_name);
+        }
+
+        // Capture plain widget locals instead of referencing
+        // hero_card.root/save_ribbon inside these callbacks - see
+        // HeroCard.wire_interactions().
+        var hero_root = hero_card.root;
+        var hero_save_ribbon = hero_card.save_ribbon;
+        // Unowned in the callbacks: they live on the hero's own widgets, and a strong
+        // capture of its root is a reference cycle that kept every hero alive.
+        unowned Gtk.Widget hero_root_ref = hero_root;
+        unowned Gtk.Widget hero_ribbon_ref = hero_save_ribbon;
+        HeroCard.wire_interactions(
+            hero_root,
+            url,
+            enable_hero_context_menu,
+            window.article_state_store,
+            window,
+            source_name,
+            category_id,
+            thumbnail_url,
+            hero_card.title_label,
+            hero_card.image,
+            hero_card.viewed_badge_slot,
+            hero_card.footer_box,
+            hero_card.overlay,
+            (s) => { if (window.article_pane != null) window.article_pane.show_article_preview(decoded_title, url, thumbnail_url, category_id, source_name); },
+            (article_url) => { open_article_in_app_if_online(article_url, null, source_name, decoded_title, thumbnail_url, published, category_id); },
+            (article_url) => { open_article_in_browser_if_online(article_url, source_name, decoded_title, thumbnail_url, published, category_id); },
+            (article_url, src_name) => {
+                request_show_toast("Searching for feed...", true);
+                window.source_manager.follow_rss_source(article_url, src_name);
+            },
+            (article_url) => {
+                if (window.article_state_store != null) {
+                    bool is_saved = window.article_state_store.is_saved(article_url);
+                    if (is_saved) {
+                        window.article_state_store.unsave_article(article_url);
+                        request_show_toast("Removed article from saved");
+                        if (window.animation_manager != null) {
+                            window.animation_manager.animate_save_toggle(hero_root_ref, hero_ribbon_ref, decoded_title, false);
+                        }
+
+                        if (window.prefs.category == "saved") {
+                            if (window.animation_manager != null) {
+                                var w = hero_root_ref;
+                                string? normalized = null;
+                                if (window.view_state != null) normalized = window.view_state.normalize_article_url(article_url);
+                                if (normalized != null && window.view_state != null) window.view_state.unregister_card_for_url(normalized);
+                                window.animation_manager.animate_card_exit_and_remove(w, 0);
+                            } else {
+                                window.fetch_news();
+                            }
+                        }
+                    } else {
+                        window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
+                        request_show_toast("Added article to saved");
+                        if (window.animation_manager != null) {
+                            window.animation_manager.animate_save_toggle(hero_root_ref, hero_ribbon_ref, decoded_title, true);
+                        }
+                    }
+                }
+            },
+            (article_url) => { window.show_share_dialog(article_url); },
+            (article_url) => { open_article_in_app_if_online(article_url, true, source_name, decoded_title, thumbnail_url, published, category_id); }
+        );
+    }
+
+    // Badge, image, tracking and click wiring for a compact row card.
+    private void wire_history_card(HistoryCard history_card, string decoded_title, string url, string? thumbnail_url, string? source_name, string? published, string? original_category) {
+        string _norm = window.normalize_article_url(url);
         var card_badge = window.build_source_badge_dynamic(source_name, url, "history");
         // build_source_badge_dynamic() styles it to sit as an overlay
         // (margin_bottom/margin_end 8, valign/halign END) so it hugs a
@@ -1075,6 +1398,10 @@ namespace Managers {
         card_badge.set_valign(Gtk.Align.CENTER);
         card_badge.set_halign(Gtk.Align.CENTER);
         history_card.badge_slot.append(card_badge);
+        if (window.prefs.category == "frontpage") {
+            CardBuilder.make_badge_followable(window, history_card.root, card_badge, url, source_name);
+        }
+        CardBuilder.attach_feedback_buttons(window, history_card.root, history_card.overlay, url, decoded_title, source_name, original_category);
 
         int img_w = history_card.image_width;
         bool card_will_load = thumbnail_url != null && thumbnail_url.length > 0 &&
@@ -1134,8 +1461,6 @@ namespace Managers {
             (article_url) => { window.show_share_dialog(article_url); },
             (article_url) => { open_article_in_app_if_online(article_url, true, source_name, decoded_title, thumbnail_url, published, original_category); }
         );
-
-        if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
     }
 
         public void load_more_articles() {
@@ -1184,7 +1509,7 @@ namespace Managers {
                 // queue is a shared pool that load_more_for_category() also
                 // pulls from out of order.
                 var article = remaining_articles.remove_at(0);
-                string display_cat = extract_display_category(article);
+                string display_cat = overflow_key_for(article);
                 remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) - 1);
                 // No need to check seen_urls - articles were already deduplicated
                 // when they were added to remaining_articles queue
@@ -1320,7 +1645,7 @@ namespace Managers {
                 remaining_category_counts.clear();
             }
             articles_shown = 0;
-            if (myfeed_row_card_counts != null) myfeed_row_card_counts.clear();
+            if (row_card_counts != null) row_card_counts.clear();
 
             if (seen_urls != null) {
                 seen_urls.clear();
@@ -1387,6 +1712,11 @@ namespace Managers {
             trending_hero_count = 0;
             // The latch's idle may have been dropped with the previous view's session.
             reveal_pending = false;
+            recommended_picks.clear();
+            recommendations_finalized = false;
+            panel_picks = new Gee.ArrayList<RecommendedPick>();
+            panel_reserve = new Gee.ArrayList<RecommendedPick>();
+            ViewSession.remove_source(ref recommendations_settle_id);
 
             if (buffer_flush_timeout_id > 0) {
                 Source.remove(buffer_flush_timeout_id);

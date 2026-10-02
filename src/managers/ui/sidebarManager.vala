@@ -54,6 +54,7 @@ public struct SidebarSectionData {
 
 public delegate void SidebarActivateHandler(string cat, string title);
 public delegate void RssFeedAddedCallback(bool success, string discovered_name);
+public delegate void PodcastRecheckDone();
 
 /**
  * Logic-only sidebar manager - handles data and business logic without GTK widgets.
@@ -85,6 +86,9 @@ public class SidebarManager : GLib.Object {
     // same value as an existing key.
     private Gee.HashMap<int64?, int> podcast_new_counts =
         new Gee.HashMap<int64?, int>((v) => { return (uint) v; }, (a, b) => { return a == b; });
+    // Periodic new-episode re-check, one show at a time; non-null while a sweep is running.
+    private const uint PODCAST_RECHECK_SECONDS = 2 * 60 * 60;
+    private Gee.ArrayList<Paperboy.PodcastSubscription>? podcast_recheck_queue = null;
     
     // Track which categories have been visited by the user
     // Popular categories show "--" until visited, then show actual count
@@ -194,6 +198,11 @@ public class SidebarManager : GLib.Object {
         foreach (var sub in podcast_store.get_all_subscriptions()) {
             refresh_podcast_new_count(sub);
         }
+        GLib.Timeout.add_seconds(PODCAST_RECHECK_SECONDS, () => {
+            if (window == null) return false;
+            start_podcast_recheck();
+            return true;
+        });
 
         // Listen for article viewed/unviewed changes so badges update immediately
         if (window.article_state_store != null) {
@@ -504,7 +513,7 @@ public class SidebarManager : GLib.Object {
     // PodcastPane/PodcastDetailDialog already do for these shows. Needs a
     // Soup.Session, so this path is skipped (badge stays 0) if `window` or
     // its session isn't available yet.
-    private void refresh_podcast_new_count(Paperboy.PodcastSubscription sub) {
+    private void refresh_podcast_new_count(Paperboy.PodcastSubscription sub, owned PodcastRecheckDone? done = null) {
         int64 feed_id = sub.feed_id;
         var playback_state_store = Paperboy.PodcastPlaybackStateStore.get_instance();
         int64 last_viewed = playback_state_store.get_last_viewed(feed_id);
@@ -513,17 +522,37 @@ public class SidebarManager : GLib.Object {
             var service = Paperboy.PodcastIndexService.get_instance();
             service.episodes_for_feed(feed_id, 10, (episodes) => {
                 apply_new_count(feed_id, episodes, last_viewed, playback_state_store);
+                if (done != null) done();
             });
         } else if (window != null && window.session != null) {
             var resolver = Paperboy.PodcastFeedResolver.get_instance();
             resolver.fetch_episodes(sub.feed_url, sub.title, sub.image_url, window.session, (episodes) => {
                 apply_new_count(feed_id, episodes, last_viewed, playback_state_store);
+                if (done != null) done();
             });
+        } else if (done != null) {
+            done();
         }
+    }
+
+    private void start_podcast_recheck() {
+        if (podcast_recheck_queue != null) return;
+        podcast_recheck_queue = new Gee.ArrayList<Paperboy.PodcastSubscription>();
+        podcast_recheck_queue.add_all(Paperboy.PodcastSubscriptionStore.get_instance().get_all_subscriptions());
+        recheck_next_podcast();
+    }
+
+    private void recheck_next_podcast() {
+        if (window == null || podcast_recheck_queue == null || podcast_recheck_queue.size == 0) {
+            podcast_recheck_queue = null;
+            return;
+        }
+        refresh_podcast_new_count(podcast_recheck_queue.remove_at(0), () => { recheck_next_podcast(); });
     }
 
     private void apply_new_count(int64 feed_id, Gee.ArrayList<Paperboy.PodcastEpisode> episodes, int64 last_viewed,
             Paperboy.PodcastPlaybackStateStore playback_state_store) {
+        if (window != null && window.podcast_playback != null) window.podcast_playback.refresh_episode_queue(episodes);
         int count = 0;
         foreach (var episode in episodes) {
             if (playback_state_store.is_episode_played(episode.episode_id)) continue;
@@ -531,6 +560,7 @@ public class SidebarManager : GLib.Object {
             if (dt == null || dt.to_unix() <= last_viewed) continue;
             count++;
         }
+        if (podcast_new_counts.has_key(feed_id) && podcast_new_counts.get(feed_id) == count) return;
         podcast_new_counts.set(feed_id, count);
         badge_updated("podcastshow:" + feed_id.to_string(), count, false);
     }

@@ -365,7 +365,10 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 result = get_source_name(inferred);
             }
         } else {
-            // Try to match to an RSS source in the database for consistent naming
+            // Try to match to an RSS source in the database for consistent naming.
+            // Keep the "##category::" tag, which Front Page uses to route the article to its row.
+            int cat_idx = result.index_of("##category::");
+            string category_tag = cat_idx >= 0 ? result.substring(cat_idx) : "";
             var rss_store = Paperboy.RssSourceStore.get_instance();
             var all_sources = rss_store.get_all_sources();
             foreach (var src in all_sources) {
@@ -373,7 +376,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 string src_lower = src.name.down();
                 string result_lower = result.down();
                 if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
-                    result = src.name;
+                    result = src.name + category_tag;
                     break;
                 }
             }

@@ -387,10 +387,12 @@ public class HeroCard : GLib.Object {
         motion.enter.connect(() => {
             root_ref.add_css_class("card-hover");
             CardBuilder.set_follow_revealed(root_ref, true);
+            CardBuilder.set_feedback_revealed(root_ref, true);
         });
         motion.leave.connect(() => {
             root_ref.remove_css_class("card-hover");
             CardBuilder.set_follow_revealed(root_ref, false);
+            CardBuilder.set_feedback_revealed(root_ref, false);
         });
         root_widget.add_controller(motion);
 

@@ -92,11 +92,10 @@ namespace Managers {
 
         private void start_playing_latest(Paperboy.PodcastShow show, Gee.ArrayList<Paperboy.PodcastEpisode> episodes) {
             if (episodes.size == 0) return;
-            playback.set_episode_queue(episodes);
             var episode = episodes[0];
             if (episode.show_title == null || episode.show_title.length == 0) episode.show_title = show.title;
             if (episode.image_url == null || episode.image_url.length == 0) episode.image_url = show.image_url;
-            playback.load_and_play(episode, NewsPreferences.get_instance().podcast_playback_speed);
+            playback.load_and_play(episode, NewsPreferences.get_instance().podcast_playback_speed, episodes);
         }
 
         public void show() {

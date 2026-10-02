@@ -59,13 +59,13 @@ public class HistoryCard : GLib.Object {
     // image. `col_w` is the full content width (a single wide row, not a
     // grid column) - without an explicit width the row shrinks to its
     // content instead of spanning the page.
-    public HistoryCard(string title, string url, string? source_name, int64 viewed_timestamp, string? category_display_name, int col_w) {
+    public HistoryCard(string title, string url, string? source_name, int64 viewed_timestamp, string? category_display_name, int col_w, string? time_text = null, int card_height_override = 0) {
         GLib.Object();
         this.url = url;
         this.title_text = title;
         this.source_name = source_name;
         this.image_width = (int)(col_w * IMAGE_WIDTH_FRACTION);
-        int card_height = (int)(col_w / CARD_ASPECT_RATIO);
+        int card_height = card_height_override > 0 ? card_height_override : (int)(col_w / CARD_ASPECT_RATIO);
 
         root = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         root.add_css_class("card");
@@ -152,7 +152,8 @@ public class HistoryCard : GLib.Object {
 
         var bottom_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
 
-        string viewed_text = "Viewed " + DateUtils.time_ago(viewed_timestamp.to_string());
+        // time_text replaces the "Viewed ..." caption when the row is reused outside History (e.g. Recommended for you).
+        string viewed_text = time_text ?? ("Viewed " + DateUtils.time_ago(viewed_timestamp.to_string()));
         time_label = new Gtk.Label(null);
         CardBuilder.set_card_time(root, time_label, viewed_text, url);
         time_label.add_css_class("article-card-time");
@@ -177,5 +178,20 @@ public class HistoryCard : GLib.Object {
 
         root.set_data("article-url", url);
         root.set_data("article-title-text", title);
+    }
+
+    // Opt-in reader/preview hover buttons on the thumbnail; call before wiring interactions.
+    public void enable_hover_actions(NewsWindow? window) {
+        var hover_actions = CardBuilder.build_hover_actions(root, window);
+        // Top-left on these rows, unlike the top-right on other cards.
+        hover_actions.set_halign(Gtk.Align.START);
+        hover_actions.set_margin_end(0);
+        hover_actions.set_margin_start(8);
+        hover_actions.add_css_class("compact");
+        foreach (string key in new string[] { "quick-reader-btn", "quick-pane-btn" }) {
+            var icon = root.get_data<Gtk.Button>(key).get_child() as Gtk.Image;
+            if (icon != null) icon.set_pixel_size(16);
+        }
+        overlay.add_overlay(hover_actions);
     }
 }

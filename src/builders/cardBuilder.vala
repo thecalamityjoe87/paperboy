@@ -317,8 +317,13 @@ public class CardBuilder : GLib.Object {
     // sources you may not follow), a follow button or check slides out of it on hover.
     public static void attach_source_badge(NewsWindow win, Gtk.Widget card_root, Gtk.Overlay overlay, Gtk.Widget badge, string url, string? source_name, bool followable) {
         overlay.add_overlay(badge);
+        if (followable) make_badge_followable(win, card_root, badge, url, source_name);
+    }
+
+    // Adds the hover follow button to a badge wherever it's placed (on the image or in a card's text area).
+    public static void make_badge_followable(NewsWindow win, Gtk.Widget card_root, Gtk.Widget badge, string url, string? source_name) {
         var badge_box = badge as Gtk.Box;
-        if (badge_box == null || !followable) return;
+        if (badge_box == null) return;
 
         string? source_label = null;
         for (var c = badge_box.get_first_child(); c != null; c = c.get_next_sibling()) {
@@ -358,6 +363,121 @@ public class CardBuilder : GLib.Object {
         badge_box.set_data<string>("follow-source-name", source_label ?? "this source");
         badge_box.set_data<string>("follow-source-url", url);
         card_root.set_data("source-badge", badge_box);
+    }
+
+    // Hover "reader view" / "preview" buttons for a card image's top-right corner, connected by
+    // ArticleCard.wire_interactions(). Always built so the hover-actions pref can toggle them live.
+    public static Gtk.Box build_hover_actions(Gtk.Widget root, NewsWindow? window) {
+        bool enabled = window == null || window.prefs == null || window.prefs.card_hover_actions_enabled;
+        var hover_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 2);
+        hover_actions.add_css_class("card-hover-actions");
+        hover_actions.set_halign(Gtk.Align.END);
+        hover_actions.set_valign(Gtk.Align.START);
+        hover_actions.set_margin_top(8);
+        hover_actions.set_margin_end(8);
+        hover_actions.set_visible(enabled);
+
+        var quick_reader_btn = new Gtk.Button();
+        quick_reader_btn.add_css_class("card-hover-action-btn");
+        quick_reader_btn.set_tooltip_text("Open in reader view");
+        var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
+        quick_reader_icon.set_pixel_size(20);
+        quick_reader_btn.set_child(quick_reader_icon);
+        hover_actions.append(quick_reader_btn);
+
+        var hover_divider = new Gtk.Separator(Gtk.Orientation.VERTICAL);
+        hover_divider.add_css_class("source-badge-divider");
+        hover_actions.append(hover_divider);
+
+        var quick_pane_btn = new Gtk.Button();
+        quick_pane_btn.add_css_class("card-hover-action-btn");
+        quick_pane_btn.set_tooltip_text("Preview article");
+        var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
+        quick_pane_icon.set_pixel_size(20);
+        quick_pane_btn.set_child(quick_pane_icon);
+        hover_actions.append(quick_pane_btn);
+
+        root.set_data("quick-reader-btn", quick_reader_btn);
+        root.set_data("quick-pane-btn", quick_pane_btn);
+        root.set_data("hover-actions-box", hover_actions);
+        return hover_actions;
+    }
+
+    // Hover-only thumbs up/down pill in the bottom-left of a Front Page card's image; votes feed InterestProfile.
+    public static void attach_feedback_buttons(NewsWindow win, Gtk.Widget card_root, Gtk.Overlay overlay, string url, string title, string? source_name, string? category_id) {
+        if (win.prefs == null || win.prefs.category != "frontpage" || win.article_state_store == null) return;
+
+        var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 2);
+        box.add_css_class("card-feedback");
+        box.set_halign(Gtk.Align.START);
+        box.set_valign(Gtk.Align.END);
+        box.set_margin_start(8);
+        // Matches the source badge's bottom edge (8px here + 8px from its CSS margin).
+        box.set_margin_bottom(16);
+        box.set_opacity(0);
+
+        var up = build_feedback_button("thumbs-up", "More like this");
+        box.append(up);
+        var divider = new Gtk.Separator(Gtk.Orientation.VERTICAL);
+        divider.add_css_class("source-badge-divider");
+        box.append(divider);
+        var down = build_feedback_button("thumbs-down", "Less like this");
+        box.append(down);
+
+        string norm = win.normalize_article_url(url);
+        // Unowned so the buttons' own handlers don't keep them (or the store) alive.
+        unowned ArticleStateStore store = win.article_state_store;
+        unowned NewsWindow win_ref = win;
+        unowned Gtk.Button up_ref = up;
+        unowned Gtk.Button down_ref = down;
+        show_feedback_vote(up, down, store.get_feedback(norm));
+
+        up.clicked.connect(() => {
+            int vote = store.get_feedback(norm) > 0 ? 0 : 1;
+            store.set_feedback(norm, title, source_name, category_id, vote);
+            show_feedback_vote(up_ref, down_ref, vote);
+            win_ref.show_toast(feedback_toast_text(vote));
+        });
+        down.clicked.connect(() => {
+            int vote = store.get_feedback(norm) < 0 ? 0 : -1;
+            store.set_feedback(norm, title, source_name, category_id, vote);
+            show_feedback_vote(up_ref, down_ref, vote);
+            win_ref.show_toast(feedback_toast_text(vote));
+        });
+
+        overlay.add_overlay(box);
+        card_root.set_data("feedback-pill", box);
+    }
+
+    // Called from a card's hover handler, alongside set_follow_revealed().
+    public static void set_feedback_revealed(Gtk.Widget card_root, bool revealed) {
+        var pill = card_root.get_data<Gtk.Widget>("feedback-pill");
+        if (pill != null) Managers.AnimationManager.fade_opacity(pill, revealed ? 1.0 : 0.0);
+    }
+
+    private static Gtk.Button build_feedback_button(string glyph, string tooltip) {
+        var btn = new Gtk.Button();
+        btn.add_css_class("card-feedback-btn");
+        btn.set_tooltip_text(tooltip);
+        string? path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", "symbolic", glyph + "-mono-white.svg"));
+        if (path != null) {
+            // FileIcon so the SVG is rendered at the display's scale.
+            var icon = new Gtk.Image.from_gicon(new GLib.FileIcon(GLib.File.new_for_path(path)));
+            icon.set_pixel_size(14);
+            btn.set_child(icon);
+        }
+        return btn;
+    }
+
+    private static string feedback_toast_text(int vote) {
+        if (vote > 0) return "You'll see more articles like this";
+        if (vote < 0) return "You'll see fewer articles like this";
+        return "Rating removed";
+    }
+
+    private static void show_feedback_vote(Gtk.Button up, Gtk.Button down, int vote) {
+        if (vote > 0) up.add_css_class("voted"); else up.remove_css_class("voted");
+        if (vote < 0) down.add_css_class("voted"); else down.remove_css_class("voted");
     }
 
     // Called from a card's hover handler. Refreshes the follow state on each

@@ -386,6 +386,20 @@ namespace Managers {
             anim.play();
         }
 
+        // Hover fade for card overlays (e.g. the feedback pill); one reusable animation per widget.
+        public static void fade_opacity(Gtk.Widget widget, double to, uint duration_ms = 150) {
+            var anim = widget.get_data<Adw.TimedAnimation>("fade-opacity-anim");
+            if (anim == null) {
+                var target = new Adw.PropertyAnimationTarget((GLib.Object) widget, "opacity");
+                anim = new Adw.TimedAnimation(widget, 0.0, 1.0, duration_ms, target);
+                anim.set_easing(Adw.Easing.EASE_OUT_CUBIC);
+                widget.set_data("fade-opacity-anim", anim);
+            }
+            anim.set_value_from(widget.get_opacity());
+            anim.set_value_to(to);
+            anim.play();
+        }
+
         // Opacity-only fade - margin-top forced a relayout every frame.
         public void animate_card_entrance(Gtk.Widget widget, uint delay_ms) {
             if (widget == null) return;

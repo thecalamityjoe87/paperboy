@@ -78,6 +78,7 @@ public class PodcastPane : GLib.Object {
     private Gtk.Label episode_empty_label;
 
     private Paperboy.PodcastShow? current_show = null;
+    private Gee.ArrayList<Paperboy.PodcastEpisode>? current_episodes = null;
     // Guards against a slow episodes_for_feed() response from an earlier
     // open_for_show() call landing after the user has since opened a
     // different show (or closed the pane) and populating the wrong rows.
@@ -261,11 +262,8 @@ public class PodcastPane : GLib.Object {
             return;
         }
 
-        // So the mini-player's back/forward buttons (see PodcastPlayerBar/
-        // PodcastPlaybackManager.play_next_episode/play_previous_episode)
-        // have something to step through once the user plays an episode
-        // from this show.
-        playback.set_episode_queue(episodes);
+        current_episodes = episodes;
+        playback.refresh_episode_queue(episodes);
 
         var state_store = Paperboy.PodcastPlaybackStateStore.get_instance();
         // Read the *previous* last-viewed time before this open overwrites
@@ -420,9 +418,14 @@ public class PodcastPane : GLib.Object {
 
         content_box.append(header_row);
 
+        // Separator sits flush on the scroller so the list's clip edge doesn't read as a second line.
+        var list_section = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        list_section.set_vexpand(true);
+        content_box.append(list_section);
+
         var separator = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
         separator.add_css_class("section-divider");
-        content_box.append(separator);
+        list_section.append(separator);
 
         var episode_scroller = new Gtk.ScrolledWindow();
         episode_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
@@ -433,8 +436,9 @@ public class PodcastPane : GLib.Object {
         episode_scroller.set_overlay_scrolling(false);
 
         episode_list_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        episode_list_box.set_margin_top(12);
         episode_scroller.set_child(episode_list_box);
-        content_box.append(episode_scroller);
+        list_section.append(episode_scroller);
 
         episode_spinner = new Gtk.Spinner();
         episode_spinner.set_size_request(24, 24);
@@ -582,7 +586,7 @@ public class PodcastPane : GLib.Object {
             if (episode.show_title == null || episode.show_title.length == 0) episode.show_title = current_show.title;
             if (episode.image_url == null || episode.image_url.length == 0) episode.image_url = current_show.image_url;
         }
-        playback.load_and_play(episode, NewsPreferences.get_instance().podcast_playback_speed);
+        playback.load_and_play(episode, NewsPreferences.get_instance().podcast_playback_speed, current_episodes);
     }
 
     private static string format_duration(int64 seconds) {

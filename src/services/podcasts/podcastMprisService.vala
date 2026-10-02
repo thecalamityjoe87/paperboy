@@ -85,6 +85,7 @@ namespace Paperboy {
             metadata = new HashTable<string, Variant>(str_hash, str_equal);
 
             playback.episode_changed.connect(() => { refresh(); });
+            playback.episode_queue_changed.connect(() => { refresh(); });
             playback.playback_state_changed.connect(() => { refresh(); });
             playback.seeked.connect((pos) => { seeked((int64) (pos / 1000)); });
             playback.position_updated.connect((pos, duration) => {

@@ -71,6 +71,34 @@ public class ArticleStateStore : GLib.Object {
     public signal void history_loaded();
     public signal void history_changed();
 
+    // Front Page thumbs up/down votes (+1/-1), stored in history.db and cleared along with history.
+    private const int FEEDBACK_MAX_ENTRIES = 500;
+    private Gee.HashMap<string, ArticleFeedback> article_feedback;
+    private GLib.Mutex feedback_lock = new GLib.Mutex();
+    // Main thread only, like the thumbs buttons that set it.
+    public signal void feedback_changed(string url, int vote);
+
+    // How often each "Recommended for you" story has been shown, keyed by lowercased title. Main thread only.
+    private const int IMPRESSION_MAX_AGE_DAYS = 3;
+    // Revisits within this window count as the same showing.
+    private const int64 IMPRESSION_MIN_GAP_SECS = 30 * 60;
+    private Gee.HashMap<string, RecommendationImpression> recommendation_impressions;
+
+    public class ArticleFeedback {
+        public string url;
+        public string? title;
+        public string? source;
+        public string? category_id;
+        public int vote;
+        public int64 timestamp;
+    }
+
+    public class RecommendationImpression {
+        public string story;
+        public int shown;
+        public int64 last_shown;
+    }
+
     public class HistoryArticle {
         public string url;
         public string title;
@@ -127,6 +155,8 @@ public class ArticleStateStore : GLib.Object {
         myfeed_displayed_urls = new Gee.HashSet<string>();
         saved_articles = new Gee.HashMap<string, SavedArticle>();
         history_articles = new Gee.HashMap<string, HistoryArticle>();
+        article_feedback = new Gee.HashMap<string, ArticleFeedback>();
+        recommendation_impressions = new Gee.HashMap<string, RecommendationImpression>();
 
         init_saved_articles_db();
         migrate_saved_articles_from_json();
@@ -136,6 +166,8 @@ public class ArticleStateStore : GLib.Object {
         load_article_tracking();
         load_saved_articles_from_db();
         load_history_from_db();
+        load_feedback_from_db();
+        load_impressions_from_db();
 
         // Saved articles need their own category tracking entry for unread-count/badge logic on startup.
         var current_saved = get_saved_articles();
@@ -1214,6 +1246,31 @@ public class ArticleStateStore : GLib.Object {
 
             // Older databases predate the "category_id" column; add it, ignoring the error if it exists.
             history_db.exec("ALTER TABLE history_articles ADD COLUMN category_id TEXT;", null, null);
+
+            rc = history_db.exec("""
+                CREATE TABLE IF NOT EXISTS article_feedback (
+                    url TEXT PRIMARY KEY,
+                    title TEXT,
+                    source TEXT,
+                    category_id TEXT,
+                    vote INTEGER NOT NULL,
+                    timestamp INTEGER NOT NULL
+                );
+            """, null, null);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to create feedback table: %s\n", history_db.errmsg());
+            }
+
+            rc = history_db.exec("""
+                CREATE TABLE IF NOT EXISTS recommendation_impressions (
+                    story TEXT PRIMARY KEY,
+                    shown INTEGER NOT NULL,
+                    last_shown INTEGER NOT NULL
+                );
+            """, null, null);
+            if (rc != Sqlite.OK) {
+                stderr.printf("Failed to create impressions table: %s\n", history_db.errmsg());
+            }
         } finally {
             history_db_lock.unlock();
         }
@@ -1318,8 +1375,15 @@ public class ArticleStateStore : GLib.Object {
         history_db_lock.lock();
         if (history_db != null) {
             history_db.exec("DELETE FROM history_articles;", null, null);
+            history_db.exec("DELETE FROM article_feedback;", null, null);
+            history_db.exec("DELETE FROM recommendation_impressions;", null, null);
         }
         history_db_lock.unlock();
+
+        feedback_lock.lock();
+        article_feedback.clear();
+        feedback_lock.unlock();
+        recommendation_impressions.clear();
 
         try { history_changed(); } catch (GLib.Error e) { }
     }
@@ -1335,6 +1399,166 @@ public class ArticleStateStore : GLib.Object {
         });
         history_lock.unlock();
         return list;
+    }
+
+    // Snapshot of reading history as a "Recommended for you" interest profile.
+    public InterestProfile build_interest_profile() {
+        var profile = new InterestProfile();
+        history_lock.lock();
+        foreach (var a in history_articles.values) {
+            profile.add_read(a.url, a.title, a.source, a.category_id, a.viewed_timestamp);
+        }
+        history_lock.unlock();
+        feedback_lock.lock();
+        foreach (var f in article_feedback.values) {
+            profile.add_feedback(f.url, f.title, f.source, f.category_id, f.vote, f.timestamp);
+        }
+        feedback_lock.unlock();
+        profile.finish();
+        return profile;
+    }
+
+    // +1 liked, -1 disliked, 0 no vote. Keyed by normalized URL.
+    public int get_feedback(string url) {
+        feedback_lock.lock();
+        var f = article_feedback.get(url);
+        int vote = f != null ? f.vote : 0;
+        feedback_lock.unlock();
+        return vote;
+    }
+
+    // vote 0 clears it.
+    public void set_feedback(string url, string? title, string? source, string? category_id, int vote) {
+        int64 now = GLib.get_real_time() / 1000000;
+        feedback_lock.lock();
+        if (vote == 0) {
+            article_feedback.unset(url);
+        } else {
+            var f = new ArticleFeedback();
+            f.url = url;
+            f.title = title;
+            f.source = source;
+            f.category_id = category_id;
+            f.vote = vote > 0 ? 1 : -1;
+            f.timestamp = now;
+            article_feedback.set(url, f);
+        }
+        feedback_lock.unlock();
+
+        history_db_lock.lock();
+        if (history_db != null) {
+            Sqlite.Statement stmt;
+            if (vote == 0) {
+                if (history_db.prepare_v2("DELETE FROM article_feedback WHERE url = ?;", -1, out stmt) == Sqlite.OK) {
+                    stmt.bind_text(1, url);
+                    stmt.step();
+                }
+            } else if (history_db.prepare_v2("""
+                INSERT OR REPLACE INTO article_feedback (url, title, source, category_id, vote, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?);
+            """, -1, out stmt) == Sqlite.OK) {
+                stmt.bind_text(1, url);
+                stmt.bind_text(2, title);
+                stmt.bind_text(3, source);
+                stmt.bind_text(4, category_id);
+                stmt.bind_int(5, vote > 0 ? 1 : -1);
+                stmt.bind_int64(6, now);
+                if (stmt.step() != Sqlite.DONE) {
+                    stderr.printf("Failed to record feedback: %s\n", history_db.errmsg());
+                }
+                history_db.exec("""
+                    DELETE FROM article_feedback WHERE url IN (
+                        SELECT url FROM article_feedback ORDER BY timestamp DESC LIMIT -1 OFFSET %d
+                    );
+                """.printf(FEEDBACK_MAX_ENTRIES), null, null);
+            }
+        }
+        history_db_lock.unlock();
+
+        feedback_changed(url, vote);
+    }
+
+    private void load_feedback_from_db() {
+        history_db_lock.lock();
+        if (history_db != null) {
+            Sqlite.Statement stmt;
+            string sql = "SELECT url, title, source, category_id, vote, timestamp FROM article_feedback ORDER BY timestamp DESC LIMIT %d;".printf(FEEDBACK_MAX_ENTRIES);
+            if (history_db.prepare_v2(sql, -1, out stmt) == Sqlite.OK) {
+                feedback_lock.lock();
+                while (stmt.step() == Sqlite.ROW) {
+                    var f = new ArticleFeedback();
+                    f.url = stmt.column_text(0);
+                    f.title = stmt.column_text(1);
+                    f.source = stmt.column_text(2);
+                    f.category_id = stmt.column_text(3);
+                    f.vote = stmt.column_int(4);
+                    f.timestamp = stmt.column_int64(5);
+                    article_feedback.set(f.url, f);
+                }
+                feedback_lock.unlock();
+            }
+        }
+        history_db_lock.unlock();
+    }
+
+    public int get_recommendation_impressions(string story) {
+        var imp = recommendation_impressions.get(story);
+        return imp != null ? imp.shown : 0;
+    }
+
+    public void record_recommendation_impressions(Gee.Collection<string> stories) {
+        int64 now = GLib.get_real_time() / 1000000;
+        var changed = new Gee.ArrayList<RecommendationImpression>();
+        foreach (string story in stories) {
+            var imp = recommendation_impressions.get(story);
+            if (imp != null && now - imp.last_shown < IMPRESSION_MIN_GAP_SECS) continue;
+            if (imp == null) {
+                imp = new RecommendationImpression();
+                imp.story = story;
+                recommendation_impressions.set(story, imp);
+            }
+            imp.shown++;
+            imp.last_shown = now;
+            changed.add(imp);
+        }
+        if (changed.size == 0) return;
+
+        history_db_lock.lock();
+        if (history_db != null) {
+            history_db.exec("BEGIN;", null, null);
+            Sqlite.Statement stmt;
+            if (history_db.prepare_v2("INSERT OR REPLACE INTO recommendation_impressions (story, shown, last_shown) VALUES (?, ?, ?);", -1, out stmt) == Sqlite.OK) {
+                foreach (var imp in changed) {
+                    stmt.reset();
+                    stmt.bind_text(1, imp.story);
+                    stmt.bind_int(2, imp.shown);
+                    stmt.bind_int64(3, imp.last_shown);
+                    stmt.step();
+                }
+            }
+            history_db.exec("COMMIT;", null, null);
+        }
+        history_db_lock.unlock();
+    }
+
+    // Drops impressions old enough that their articles have left the Front Page.
+    private void load_impressions_from_db() {
+        int64 cutoff = (GLib.get_real_time() / 1000000) - ((int64)IMPRESSION_MAX_AGE_DAYS * 24 * 60 * 60);
+        history_db_lock.lock();
+        if (history_db != null) {
+            history_db.exec("DELETE FROM recommendation_impressions WHERE last_shown < %s;".printf(cutoff.to_string()), null, null);
+            Sqlite.Statement stmt;
+            if (history_db.prepare_v2("SELECT story, shown, last_shown FROM recommendation_impressions;", -1, out stmt) == Sqlite.OK) {
+                while (stmt.step() == Sqlite.ROW) {
+                    var imp = new RecommendationImpression();
+                    imp.story = stmt.column_text(0);
+                    imp.shown = stmt.column_int(1);
+                    imp.last_shown = stmt.column_int64(2);
+                    recommendation_impressions.set(imp.story, imp);
+                }
+            }
+        }
+        history_db_lock.unlock();
     }
 
     public int get_history_count() {

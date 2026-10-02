@@ -80,6 +80,11 @@ namespace Managers {
         // don't re-roll a different target each time.
         private Gee.HashMap<string, int>? section_target_depth;
         private const string MISC_SECTION_KEY = "more";
+
+        // Front Page "Recommended for you" row, built only once reading history makes the profile ready.
+        public const string RECOMMENDED_SECTION_KEY = "recommended";
+        public InterestProfile? recommendation_profile = null;
+        public RecommendedSection? recommended_section = null;
         // These are the actual category ids the Paperboy frontpage API sends;
         // anything else falls through to the "more" catch-all.
         private static string[] FRONTPAGE_SECTION_CATEGORIES = {
@@ -89,6 +94,27 @@ namespace Managers {
             "economics",
             "more"
         };
+
+        // Sub-categories the frontpage API sends for sports stories.
+        private const string[] SPORTS_SUBCATEGORIES = {
+            "football", "american_football", "college_football", "basketball", "baseball",
+            "soccer", "hockey", "ice_hockey", "tennis", "golf", "cricket", "rugby",
+            "combat_sports", "boxing", "mma", "wrestling", "motorsport", "motorsports",
+            "racing", "formula1", "f1", "cycling", "athletics", "olympics",
+            "nfl", "nba", "mlb", "nhl", "wnba", "ncaa"
+        };
+
+        // Front Page row an article category lands in; unknown categories go to "More Stories".
+        public static string frontpage_row_for(string category) {
+            if (category in FRONTPAGE_SECTION_CATEGORIES) return category;
+            if (category in SPORTS_SUBCATEGORIES) return "sports";
+            return MISC_SECTION_KEY;
+        }
+
+        // Cards a Front Page row starts with: one visible width plus one peeking past the edge.
+        public int frontpage_row_initial_cards() {
+            return (columns_count + 1).clamp(4, 6);
+        }
 
         // The sidebar uses "general"/"us" for World/US news where the
         // frontpage API uses "world"/"nation" - map to the sidebar's id so
@@ -510,6 +536,8 @@ namespace Managers {
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) active_section_order.add(cat);
             malloc_trim(0);
 
+            prepare_recommended_section();
+
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) {
                 // Written as if/else rather than a nested ternary: mixing an
                 // owned string (category_display_name_for's return) with a
@@ -525,18 +553,10 @@ namespace Managers {
                     display_name = cat;
                 }
 
-                // ArticleManager's overflow queue tags uncategorized
-                // articles with the literal category_id "frontpage" (it
-                // only has a real category to extract when a
-                // "##category::" tag is present) - it has no notion of
-                // MISC_SECTION_KEY, which is purely a LayoutManager/UI
-                // grouping concept. Translate here so the "More Stories"
-                // section's load-more button queries the value that's
-                // actually on those queued items.
-                string query_cat = (cat == MISC_SECTION_KEY) ? "frontpage" : cat;
+                // ArticleManager queues Front Page overflow by row key (see frontpage_row_for()).
                 string? nav_target = sidebar_nav_id_for(cat);
 
-                var section = new CategorySection(window, display_name, query_cat, false, false, null, false, null, nav_target);
+                var section = new CategorySection(window, display_name, cat, false, false, null, false, null, nav_target);
                 // Faint divider between Front Page category sections,
                 // matching the hero/score/article dividers (see
                 // .section-divider in style.css). Skipped on the first
@@ -551,6 +571,22 @@ namespace Managers {
             category_sections_container.set_visible(true);
             if (hero_frontpage_separator != null) hero_frontpage_separator.set_visible(true);
             if (columns_row != null) columns_row.set_visible(false);
+        }
+
+        // Adds the (hidden until filled) "Recommended for you" panel above the category rows when there's enough history to go on.
+        private void prepare_recommended_section() {
+            recommendation_profile = null;
+            recommended_section = null;
+            if (window == null || window.article_state_store == null) return;
+            if (window.prefs != null && !window.prefs.recommendations_enabled) return;
+
+            var profile = window.article_state_store.build_interest_profile();
+            if (!profile.is_ready()) return;
+            recommendation_profile = profile;
+
+            recommended_section = new RecommendedSection(estimate_content_width());
+            recommended_section.wrapper.add_css_class("frontpage-section-divider");
+            category_sections_container.append(recommended_section.wrapper);
         }
 
         /**
@@ -589,6 +625,8 @@ namespace Managers {
             }
 
             // See the matching comment in prepare_category_sections().
+            recommendation_profile = null;
+            recommended_section = null;
             category_sections = new Gee.HashMap<string, CategorySection>();
             section_target_depth = new Gee.HashMap<string, int>();
             active_section_order = new Gee.ArrayList<string>();
@@ -702,6 +740,8 @@ namespace Managers {
             if (columns_row != null) columns_row.set_visible(true);
             category_sections = null;
             active_section_order = null;
+            recommendation_profile = null;
+            recommended_section = null;
             malloc_trim(0);
         }
 
@@ -780,9 +820,8 @@ namespace Managers {
         */
         private CategorySection? find_category_section(string category_id) {
             if (!using_category_sections || category_sections == null) return null;
-            return category_sections.has_key(category_id)
-                ? category_sections.get(category_id)
-                : category_sections.get(MISC_SECTION_KEY);
+            if (category_sections.has_key(category_id)) return category_sections.get(category_id);
+            return category_sections.get(frontpage_row_for(category_id)) ?? category_sections.get(MISC_SECTION_KEY);
         }
 
         // Reveals a section that got squeezed to zero cards by the 25-article
@@ -822,8 +861,7 @@ namespace Managers {
                 CategorySection? section = category_sections.get(cat);
                 if (section == null) continue;
 
-                string query_cat = (cat == MISC_SECTION_KEY) ? "frontpage" : cat;
-                if (window.article_manager.remaining_count_for_category(query_cat) <= 0) continue;
+                if (window.article_manager.remaining_count_for_category(cat) <= 0) continue;
 
                 section.wrapper.set_visible(true);
                 section.refresh_load_more_affordance();
@@ -834,7 +872,7 @@ namespace Managers {
 
                 int target_depth = get_or_roll_target_depth(cat);
                 if (current_count < target_depth) {
-                    window.article_manager.load_more_for_category(query_cat, target_depth - current_count);
+                    window.article_manager.load_more_for_category(cat, target_depth - current_count);
                 }
             }
         }
@@ -935,7 +973,9 @@ namespace Managers {
             // (and the Trending grid, forced flat even while Front Page's
             // sections are active) appends straight to the grid, which
             // handles row/column placement automatically.
-            if (using_category_sections && section_category_id != null && !force_flat_grid) {
+            if (section_category_id == RECOMMENDED_SECTION_KEY) {
+                if (recommended_section != null) recommended_section.add_grid(article_card.root);
+            } else if (using_category_sections && section_category_id != null && !force_flat_grid) {
                 if (no_fallback_section) {
                     add_card_to_named_section(section_category_id, article_card.root);
                 } else {
