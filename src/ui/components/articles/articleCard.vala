@@ -255,12 +255,14 @@ public class ArticleCard : GLib.Object {
             if (w == null) return;
             w.add_css_class("card-hover");
             CardBuilder.set_follow_revealed(w, true);
+            CardBuilder.set_feedback_revealed(w, true);
         });
         motion.leave.connect(() => {
             var w = motion_ref.get_widget();
             if (w == null) return;
             w.remove_css_class("card-hover");
             CardBuilder.set_follow_revealed(w, false);
+            CardBuilder.set_feedback_revealed(w, false);
         });
         root_widget.add_controller(motion);
 

@@ -19,9 +19,9 @@ using Gee;
 
 /*
  * Client-side interest model for the Front Page "Recommended for you" section, built
- * from reading history (so it decays and clears along with it). Scores an
- * article by how much the user reads its category, its site, and the
- * recurring topics in its title.
+ * from reading history and thumbs up/down votes (so it decays and clears along with
+ * them). Scores an article by how much the user reads its category, its site, and
+ * the recurring topics in its title.
  */
 public class InterestProfile : GLib.Object {
     // Reads needed before the profile is trusted enough to show anything.
@@ -29,20 +29,84 @@ public class InterestProfile : GLib.Object {
     public const double MATCH_THRESHOLD = 0.4;
 
     private const double HALF_LIFE_DAYS = 10.0;
-    // A title word only counts as a topic once it shows up in this many reads.
+    // A title word only counts as a history topic once it shows up in this many reads.
     private const int MIN_TOPIC_READS = 2;
 
     private const double CATEGORY_WEIGHT = 0.25;
     private const double SOURCE_WEIGHT = 0.35;
     private const double TOPIC_WEIGHT = 0.4;
 
-    private HashMap<string, double?> category_weights = new HashMap<string, double?>();
-    private HashMap<string, double?> source_weights = new HashMap<string, double?>();
-    private HashMap<string, double?> topic_weights = new HashMap<string, double?>();
-    private HashMap<string, int> topic_reads = new HashMap<string, int>();
-    private double max_category = 0;
-    private double max_source = 0;
-    private double max_topic = 0;
+    // Votes are scored against their own signals, so a few count even against a long history.
+    private const double LIKE_WEIGHT = 0.6;
+    private const double DISLIKE_WEIGHT = 0.8;
+
+    // Decayed category/site/topic weights for one kind of signal (reads, likes or dislikes).
+    private class Signals {
+        public HashMap<string, double?> categories = new HashMap<string, double?>();
+        public HashMap<string, double?> sources = new HashMap<string, double?>();
+        public HashMap<string, double?> topics = new HashMap<string, double?>();
+        private HashMap<string, int> topic_counts = new HashMap<string, int>();
+        private double max_category = 0;
+        private double max_source = 0;
+        private double max_topic = 0;
+
+        public void add(string url, string? title, string? source, string? category_id, double w) {
+            string? cat = resolve_category(category_id, source);
+            if (cat != null) bump(categories, cat, w);
+
+            string? host = host_for(url);
+            if (host != null) bump(sources, host, w);
+
+            if (title != null) {
+                foreach (string topic in topics_for(title)) {
+                    bump(topics, topic, w);
+                    topic_counts.set(topic, topic_counts.get(topic) + 1);
+                }
+            }
+        }
+
+        public void finish(int min_topic_count) {
+            var one_offs = new ArrayList<string>();
+            foreach (var e in topic_counts.entries) {
+                if (e.value < min_topic_count) one_offs.add(e.key);
+            }
+            foreach (string t in one_offs) topics.unset(t);
+            topic_counts.clear();
+
+            max_category = max_of(categories);
+            max_source = max_of(sources);
+            max_topic = max_of(topics);
+        }
+
+        // 0..1
+        public double score(string title, string url, string? category_id, string? source) {
+            double cat_score = 0;
+            string? cat = resolve_category(category_id, source);
+            if (cat != null && max_category > 0 && categories.has_key(cat)) {
+                cat_score = categories.get(cat) / max_category;
+            }
+
+            double src_score = 0;
+            string? host = host_for(url);
+            if (host != null && max_source > 0 && sources.has_key(host)) {
+                src_score = sources.get(host) / max_source;
+            }
+
+            double topic_sum = 0;
+            if (max_topic > 0) {
+                foreach (string topic in topics_for(title)) {
+                    if (topics.has_key(topic)) topic_sum += topics.get(topic);
+                }
+            }
+            double topic_score = max_topic > 0 ? double.min(1.0, topic_sum / max_topic) : 0;
+
+            return CATEGORY_WEIGHT * cat_score + SOURCE_WEIGHT * src_score + TOPIC_WEIGHT * topic_score;
+        }
+    }
+
+    private Signals history = new Signals();
+    private Signals likes = new Signals();
+    private Signals dislikes = new Signals();
     private int reads = 0;
     private int64 now = GLib.get_real_time() / 1000000;
 
@@ -79,61 +143,38 @@ public class InterestProfile : GLib.Object {
     }
 
     public void add_read(string url, string? title, string? source, string? category_id, int64 viewed_timestamp) {
-        double age_days = double.max(0, (now - viewed_timestamp) / 86400.0);
-        double w = Math.pow(0.5, age_days / HALF_LIFE_DAYS);
         reads++;
+        history.add(url, title, source, category_id, decay(viewed_timestamp));
+    }
 
-        string? cat = resolve_category(category_id, source);
-        if (cat != null) bump(category_weights, cat, w);
-
-        string? host = host_for(url);
-        if (host != null) bump(source_weights, host, w);
-
-        if (title != null) {
-            foreach (string topic in topics_for(title)) {
-                bump(topic_weights, topic, w);
-                topic_reads.set(topic, topic_reads.get(topic) + 1);
-            }
+    // vote is +1 (thumbs up) or -1 (thumbs down).
+    public void add_feedback(string url, string? title, string? source, string? category_id, int vote, int64 timestamp) {
+        if (vote > 0) {
+            reads++;
+            likes.add(url, title, source, category_id, decay(timestamp));
+        } else {
+            dislikes.add(url, title, source, category_id, decay(timestamp));
         }
     }
 
-    // Call once after the last add_read().
+    private double decay(int64 timestamp) {
+        double age_days = double.max(0, (now - timestamp) / 86400.0);
+        return Math.pow(0.5, age_days / HALF_LIFE_DAYS);
+    }
+
+    // Call once after the last add_read()/add_feedback().
     public void finish() {
-        var one_offs = new ArrayList<string>();
-        foreach (var e in topic_reads.entries) {
-            if (e.value < MIN_TOPIC_READS) one_offs.add(e.key);
-        }
-        foreach (string t in one_offs) topic_weights.unset(t);
-        topic_reads.clear();
-
-        max_category = max_of(category_weights);
-        max_source = max_of(source_weights);
-        max_topic = max_of(topic_weights);
+        history.finish(MIN_TOPIC_READS);
+        // A single vote is deliberate, so its title words count straight away.
+        likes.finish(1);
+        dislikes.finish(1);
     }
 
-    // 0..1; MATCH_THRESHOLD and above counts as a "Recommended for you" pick.
+    // MATCH_THRESHOLD and above counts as a "Recommended for you" pick.
     public double score(string title, string url, string? category_id, string? source) {
-        double cat_score = 0;
-        string? cat = resolve_category(category_id, source);
-        if (cat != null && max_category > 0 && category_weights.has_key(cat)) {
-            cat_score = category_weights.get(cat) / max_category;
-        }
-
-        double src_score = 0;
-        string? host = host_for(url);
-        if (host != null && max_source > 0 && source_weights.has_key(host)) {
-            src_score = source_weights.get(host) / max_source;
-        }
-
-        double topic_sum = 0;
-        if (max_topic > 0) {
-            foreach (string topic in topics_for(title)) {
-                if (topic_weights.has_key(topic)) topic_sum += topic_weights.get(topic);
-            }
-        }
-        double topic_score = max_topic > 0 ? double.min(1.0, topic_sum / max_topic) : 0;
-
-        return CATEGORY_WEIGHT * cat_score + SOURCE_WEIGHT * src_score + TOPIC_WEIGHT * topic_score;
+        return history.score(title, url, category_id, source)
+            + LIKE_WEIGHT * likes.score(title, url, category_id, source)
+            - DISLIKE_WEIGHT * dislikes.score(title, url, category_id, source);
     }
 
     // Topic category for an article; views like Front Page carry the real one in a "##category::" source suffix.

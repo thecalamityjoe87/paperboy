@@ -719,6 +719,51 @@ dialog.video-player floating-sheet > sheet {
     background-color: alpha(white, 0.15);
 }
 
+/* Front Page thumbs up/down pill, bottom-left of a card's image. */
+.card-feedback {
+    background-color: alpha(black, 0.6);
+    border-radius: 8px;
+    padding: 3px;
+    box-shadow: 0 2px 6px alpha(black, 0.25);
+}
+
+.card-feedback .source-badge-divider {
+    margin: 4px 1px;
+}
+
+.card-feedback-btn {
+    background: none;
+    color: white;
+    border-radius: 6px;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    box-shadow: none;
+}
+
+.card-feedback-btn:hover {
+    background-color: alpha(white, 0.15);
+}
+
+.card-feedback-btn.voted {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+/* Compact rows (HistoryCard) get smaller hover buttons. */
+.card-hover-actions.compact {
+    padding: 2px;
+}
+
+.card-hover-actions.compact .card-hover-action-btn {
+    min-width: 28px;
+    min-height: 28px;
+}
+
+.card-hover-actions.compact .source-badge-divider {
+    margin: 5px 2px;
+}
+
 /* Hero cards are bigger than grid cards, so their hover buttons are too. */
 .hero-card-hover-action-btn {
     min-width: 40px;

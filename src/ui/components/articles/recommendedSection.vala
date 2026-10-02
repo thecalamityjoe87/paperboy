@@ -47,6 +47,8 @@ public class RecommendedSection : GLib.Object {
     private Gtk.Box grid;
     private Gtk.Box[] grid_slots;
     private int grid_count = 0;
+    // Card the next set_lead/add_rail/add_grid replaces in place (see begin_swap()).
+    private unowned Gtk.Widget? swap_target = null;
 
     public int lead_width { get; private set; }
     public int rail_min_width { get; private set; }
@@ -115,19 +117,62 @@ public class RecommendedSection : GLib.Object {
 
     // How many of n picks go in the rail; the rest after the lead go in the grid.
     public static int rail_rows_for(int picks) {
-        return picks >= 8 ? MAX_RAIL_ROWS : int.min(picks - 1, MAX_RAIL_ROWS - 1);
+        return int.min(picks - 1, MAX_RAIL_ROWS);
+    }
+
+    // Largest count up to n that fills the panel: the grid shows only as a full row.
+    public static int panel_size_for(int picks) {
+        if (picks < MIN_PICKS) return 0;
+        int rail_rows = rail_rows_for(picks);
+        int grid = picks - 1 - rail_rows >= MAX_GRID_CARDS ? MAX_GRID_CARDS : 0;
+        return 1 + rail_rows + grid;
+    }
+
+    // The next card added takes old_root's slot instead of the next free one.
+    public void begin_swap(Gtk.Widget old_root) {
+        swap_target = old_root;
+    }
+
+    private bool take_swap(Gtk.Widget card_root) {
+        if (swap_target == null) return false;
+        var parent = swap_target.get_parent() as Gtk.Box;
+        if (parent != null) {
+            parent.insert_child_after(card_root, swap_target);
+            parent.remove(swap_target);
+        }
+        swap_target = null;
+        return parent != null;
+    }
+
+    // Empties the panel for a rebuild; it stays hidden until set_lead().
+    public void clear() {
+        swap_target = null;
+        clear_box(lead_slot);
+        clear_box(rail);
+        foreach (var slot in grid_slots) clear_box(slot);
+        grid_count = 0;
+        grid.set_visible(false);
+        wrapper.set_visible(false);
+    }
+
+    private static void clear_box(Gtk.Box box) {
+        Gtk.Widget? child;
+        while ((child = box.get_first_child()) != null) box.remove(child);
     }
 
     public void set_lead(Gtk.Widget card_root) {
+        if (take_swap(card_root)) return;
         lead_slot.append(card_root);
         wrapper.set_visible(true);
     }
 
     public void add_rail(Gtk.Widget card_root) {
+        if (take_swap(card_root)) return;
         rail.append(card_root);
     }
 
     public void add_grid(Gtk.Widget card_root) {
+        if (take_swap(card_root)) return;
         if (grid_count >= MAX_GRID_CARDS) return;
         grid_slots[grid_count++].append(card_root);
         grid.set_visible(true);

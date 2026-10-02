@@ -182,6 +182,16 @@ public class HistoryCard : GLib.Object {
 
     // Opt-in reader/preview hover buttons on the thumbnail; call before wiring interactions.
     public void enable_hover_actions(NewsWindow? window) {
-        overlay.add_overlay(CardBuilder.build_hover_actions(root, window));
+        var hover_actions = CardBuilder.build_hover_actions(root, window);
+        // Top-left on these rows, unlike the top-right on other cards.
+        hover_actions.set_halign(Gtk.Align.START);
+        hover_actions.set_margin_end(0);
+        hover_actions.set_margin_start(8);
+        hover_actions.add_css_class("compact");
+        foreach (string key in new string[] { "quick-reader-btn", "quick-pane-btn" }) {
+            var icon = root.get_data<Gtk.Button>(key).get_child() as Gtk.Image;
+            if (icon != null) icon.set_pixel_size(16);
+        }
+        overlay.add_overlay(hover_actions);
     }
 }
