@@ -1,3 +1,18 @@
+# v0.12.5a - Recommended For You, and Podcast Playback Order Fixes
+
+- Added a personalized "Recommended for you" panel to the Front Page, based on the topics, sites, and categories you read most. It appears once you have some reading history
+- Added thumbs up/down on Front Page cards — disliking an article fades it out and swaps in the next best pick; liking or disliking shapes future picks more than reading history alone
+- Recommendations now rotate instead of repeating the same picks, and lean slightly toward newer articles
+- Added a "Show recommendations" toggle under Personalization > Front Page to turn the section off entirely
+- Fixed sports articles landing in "More Stories" instead of the Sports row
+- Fixed the "More Stories" arrow never loading more articles
+- Front Page rows now show a tidier number of articles sized to each row instead of a flat cutoff
+- Fixed next/previous playing podcast episodes out of order — they now go by release date, so a show plays start to finish correctly
+- Next/previous grey out at the start/end of a show's episodes and always follow whichever show is actually playing
+- Your current show's episode list now works right after restarting the app, even offline
+- Fixed a doubled-up line in the podcast episode list
+- Fixed long source names pushing the article preview pane sideways
+
 # v0.12.4a - ABC News Video, Article Link, and Follow Button Fixes
 
 - Fixed every ABC News article without its own video playing the same generic "Headlines from ABC News Live" clip. Those articles (including all AP wire stories) now show no video, and ABC stories with their own clip play that clip

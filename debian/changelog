@@ -1,3 +1,17 @@
+paperboy (0.12.5a-1) unstable; urgency=low
+
+  * Added a personalized "Recommended for you" panel to the Front Page, based on your reading history
+  * Added thumbs up/down on Front Page cards to shape future recommendations
+  * Recommendations now rotate instead of repeating the same picks, and lean slightly toward newer articles
+  * Added a "Show recommendations" toggle under Personalization > Front Page
+  * Fixed sports articles landing in "More Stories" and the "More Stories" arrow never loading more articles
+  * Front Page rows now show a number of articles sized to each row
+  * Fixed next/previous playing podcast episodes out of order; they now follow release date and the show that's actually playing
+  * Fixed the current show's episode list not working after a restart, and a doubled-up line in the episode list
+  * Fixed long source names pushing the article preview pane sideways
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Fri, 02 Oct 2026 00:00:00 +0000
+
 paperboy (0.12.4a-1) unstable; urgency=low
 
   * Fixed every ABC News article without its own video playing the same generic "Headlines from ABC News Live" clip
