@@ -228,6 +228,11 @@ public class PodcastPlayerBar : GLib.Object {
     // capture self on a self-owned widget (`scrubber.change_value`, via the
     // `updating_from_playback` field) costs nothing in practice: NewsWindow
     // already keeps this object alive until the process exits either way.
+    private void update_skip_buttons(Managers.PodcastPlaybackManager playback, Gtk.Button skip_back_button, Gtk.Button skip_forward_button) {
+        skip_back_button.set_sensitive(playback.has_previous_episode());
+        skip_forward_button.set_sensitive(playback.has_next_episode());
+    }
+
     private void wire_interactions(Managers.PodcastPlaybackManager playback, NewsPreferences prefs, Gtk.Button skip_back_button, Gtk.Button skip_forward_button, Gtk.Button play_pause_button, Gtk.Button speed_button, Gtk.Scale scrubber, Gtk.Adjustment scrubber_adjustment, Gtk.Button close_button) {
         skip_back_button.clicked.connect(() => { playback.play_previous_episode(); });
         skip_forward_button.clicked.connect(() => { playback.play_next_episode(); });
@@ -260,7 +265,12 @@ public class PodcastPlayerBar : GLib.Object {
 
         playback.episode_changed.connect((episode) => {
             set_episode(episode);
+            update_skip_buttons(playback, skip_back_button, skip_forward_button);
         });
+        playback.episode_queue_changed.connect(() => {
+            update_skip_buttons(playback, skip_back_button, skip_forward_button);
+        });
+        update_skip_buttons(playback, skip_back_button, skip_forward_button);
 
         playback.playback_state_changed.connect((is_playing) => {
             play_pause_icon.set_from_icon_name(is_playing ? "media-playback-pause-symbolic" : "media-playback-start-symbolic");

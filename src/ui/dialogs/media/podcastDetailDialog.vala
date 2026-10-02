@@ -310,7 +310,7 @@ public class PodcastDetailDialog : GLib.Object {
             return;
         }
 
-        playback.set_episode_queue(episodes);
+        playback.refresh_episode_queue(episodes);
 
         var state_store = Paperboy.PodcastPlaybackStateStore.get_instance();
         // Read the *previous* last-viewed time before this open overwrites
@@ -319,7 +319,7 @@ public class PodcastDetailDialog : GLib.Object {
 
         foreach (var episode in episodes) {
             bool is_new = !state_store.is_episode_played(episode.episode_id) && episode_is_after(episode, previous_last_viewed);
-            episode_list_box.append(build_episode_row(episode, show, playback, episode_play_buttons, episode_rows, episode_new_badges, is_new));
+            episode_list_box.append(build_episode_row(episode, episodes, show, playback, episode_play_buttons, episode_rows, episode_new_badges, is_new));
         }
         update_episode_play_buttons();
 
@@ -334,7 +334,7 @@ public class PodcastDetailDialog : GLib.Object {
         return dt.to_unix() > unix_seconds;
     }
 
-    private static Gtk.Widget build_episode_row(Paperboy.PodcastEpisode episode, Paperboy.PodcastShow show,
+    private static Gtk.Widget build_episode_row(Paperboy.PodcastEpisode episode, Gee.ArrayList<Paperboy.PodcastEpisode> episodes, Paperboy.PodcastShow show,
             Managers.PodcastPlaybackManager playback, Gee.HashMap<int64?, Gtk.Button> episode_play_buttons,
             Gee.HashMap<int64?, Gtk.Widget> episode_rows, Gee.HashMap<int64?, Gtk.Widget> episode_new_badges,
             bool is_new) {
@@ -390,7 +390,7 @@ public class PodcastDetailDialog : GLib.Object {
                 if (episode.audio_url == null || episode.audio_url.length == 0) return;
                 if (episode.show_title == null || episode.show_title.length == 0) episode.show_title = show.title;
                 if (episode.image_url == null || episode.image_url.length == 0) episode.image_url = show.image_url;
-                playback.load_and_play(episode, NewsPreferences.get_instance().podcast_playback_speed);
+                playback.load_and_play(episode, NewsPreferences.get_instance().podcast_playback_speed, episodes);
             }
         });
         row.append(play_button);

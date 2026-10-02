@@ -122,6 +122,17 @@ namespace Paperboy {
                     position_ns INTEGER NOT NULL,
                     rate REAL NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS podcast_last_queue (
+                    position INTEGER PRIMARY KEY,
+                    episode_id INTEGER NOT NULL,
+                    feed_id INTEGER NOT NULL,
+                    title TEXT,
+                    audio_url TEXT NOT NULL,
+                    image_url TEXT,
+                    show_title TEXT,
+                    duration_seconds INTEGER NOT NULL,
+                    published TEXT
+                );
             """;
 
             string errmsg;
@@ -367,7 +378,66 @@ namespace Paperboy {
 
         public void clear_last_session() {
             if (db == null) return;
-            db.exec("DELETE FROM podcast_last_session;", null, null);
+            db.exec("DELETE FROM podcast_last_session; DELETE FROM podcast_last_queue;", null, null);
+        }
+
+        // The playing show's episode list, so Next/Previous work right after a restart.
+        public void save_last_queue(Gee.ArrayList<Paperboy.PodcastEpisode> episodes) {
+            if (db == null) return;
+            db.exec("BEGIN; DELETE FROM podcast_last_queue;", null, null);
+
+            string sql = """
+                INSERT INTO podcast_last_queue
+                    (position, episode_id, feed_id, title, audio_url, image_url, show_title, duration_seconds, published)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """;
+            Sqlite.Statement stmt;
+            if (db.prepare_v2(sql, -1, out stmt) != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                db.exec("ROLLBACK;", null, null);
+                return;
+            }
+            for (int i = 0; i < episodes.size; i++) {
+                var e = episodes[i];
+                stmt.reset();
+                stmt.bind_int(1, i);
+                stmt.bind_int64(2, e.episode_id);
+                stmt.bind_int64(3, e.feed_id);
+                if (e.title != null) stmt.bind_text(4, e.title); else stmt.bind_null(4);
+                stmt.bind_text(5, e.audio_url ?? "");
+                if (e.image_url != null) stmt.bind_text(6, e.image_url); else stmt.bind_null(6);
+                if (e.show_title != null) stmt.bind_text(7, e.show_title); else stmt.bind_null(7);
+                stmt.bind_int64(8, e.duration_seconds);
+                if (e.published != null) stmt.bind_text(9, e.published); else stmt.bind_null(9);
+                if (stmt.step() != Sqlite.DONE) {
+                    GLib.warning("Failed to save podcast queue: %s", db.errmsg());
+                    db.exec("ROLLBACK;", null, null);
+                    return;
+                }
+            }
+            db.exec("COMMIT;", null, null);
+        }
+
+        public Gee.ArrayList<Paperboy.PodcastEpisode> get_last_queue() {
+            var episodes = new Gee.ArrayList<Paperboy.PodcastEpisode>();
+            if (db == null) return episodes;
+
+            string sql = "SELECT episode_id, feed_id, title, audio_url, image_url, show_title, duration_seconds, published FROM podcast_last_queue ORDER BY position;";
+            Sqlite.Statement stmt;
+            if (db.prepare_v2(sql, -1, out stmt) != Sqlite.OK) return episodes;
+            while (stmt.step() == Sqlite.ROW) {
+                var e = new Paperboy.PodcastEpisode();
+                e.episode_id = stmt.column_int64(0);
+                e.feed_id = stmt.column_int64(1);
+                e.title = stmt.column_text(2) ?? "";
+                e.audio_url = stmt.column_text(3);
+                e.image_url = stmt.column_text(4);
+                e.show_title = stmt.column_text(5) ?? "";
+                e.duration_seconds = stmt.column_int64(6);
+                e.published = stmt.column_text(7);
+                episodes.add(e);
+            }
+            return episodes;
         }
     }
 }

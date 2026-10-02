@@ -50,6 +50,7 @@ namespace Managers {
         public signal void playback_state_changed(bool is_playing);
         public signal void position_updated(uint64 position_ns, uint64 duration_ns);
         public signal void episode_changed(Paperboy.PodcastEpisode episode);
+        public signal void episode_queue_changed();
         public signal void playback_error(string message);
         // Explicit position jumps (not normal playback progress), for MPRIS's Seeked signal.
         public signal void seeked(uint64 position_ns);
@@ -85,7 +86,9 @@ namespace Managers {
             });
         }
 
-        public void load_and_play(Paperboy.PodcastEpisode episode, double rate = 1.0) {
+        // `queue` is the playing show's episode list for Next/Previous; null keeps the current one.
+        public void load_and_play(Paperboy.PodcastEpisode episode, double rate = 1.0, Gee.ArrayList<Paperboy.PodcastEpisode>? queue = null) {
+            if (queue != null) set_episode_queue(queue);
             current_episode = episode;
             current_rate = rate;
             last_progress_save_us = 0;
@@ -228,46 +231,68 @@ namespace Managers {
             return current_episode != null ? (uint64) current_episode.duration_seconds * 1000000000 : 0;
         }
 
-        // Whatever show's episode list was most recently loaded (see the
-        // field comment above) - not necessarily the currently-playing
-        // episode's own show, if the user has since opened a different
-        // show's episode list without playing anything from it yet.
-        public void set_episode_queue(Gee.ArrayList<Paperboy.PodcastEpisode> episodes) {
-            episode_queue = episodes;
+        // Merges a freshly fetched episode list into the queue if it's the playing show's.
+        // Older queued episodes the fetch didn't include are kept at the end.
+        public void refresh_episode_queue(Gee.ArrayList<Paperboy.PodcastEpisode> fresh) {
+            if (current_episode == null || fresh.size == 0) return;
+            bool queue_has_current = episode_queue != null && index_in(episode_queue, current_episode.episode_id) >= 0;
+            bool same_show = index_in(fresh, current_episode.episode_id) >= 0;
+            if (!same_show && queue_has_current) {
+                foreach (var e in fresh) {
+                    if (index_in(episode_queue, e.episode_id) >= 0) { same_show = true; break; }
+                }
+            }
+            if (!same_show) return;
+
+            var merged = new Gee.ArrayList<Paperboy.PodcastEpisode>();
+            merged.add_all(fresh);
+            if (queue_has_current) {
+                foreach (var e in episode_queue) {
+                    if (index_in(fresh, e.episode_id) < 0) merged.add(e);
+                }
+            }
+            set_episode_queue(merged);
         }
 
-        private int current_episode_queue_index() {
-            if (episode_queue == null || current_episode == null) return -1;
-            for (int i = 0; i < episode_queue.size; i++) {
-                if (episode_queue[i].episode_id == current_episode.episode_id) return i;
+        private static int index_in(Gee.ArrayList<Paperboy.PodcastEpisode> episodes, int64 episode_id) {
+            for (int i = 0; i < episodes.size; i++) {
+                if (episodes[i].episode_id == episode_id) return i;
             }
             return -1;
         }
 
-        public bool has_next_episode() {
-            int idx = current_episode_queue_index();
-            return idx >= 0 && idx + 1 < episode_queue.size;
+        private void set_episode_queue(Gee.ArrayList<Paperboy.PodcastEpisode> episodes) {
+            episode_queue = episodes;
+            Paperboy.PodcastPlaybackStateStore.get_instance().save_last_queue(episodes);
+            episode_queue_changed();
         }
 
-        public bool has_previous_episode() {
+        private int current_episode_queue_index() {
+            if (episode_queue == null || current_episode == null) return -1;
+            return index_in(episode_queue, current_episode.episode_id);
+        }
+
+        // Queue is newest-first, so "next" (the following release) is index-1.
+        public bool has_next_episode() {
             int idx = current_episode_queue_index();
             return idx > 0;
         }
 
-        // Episode lists are newest-first (see PodcastIndexService/
-        // PodcastPane) - "next" steps to index+1 (older, further down the
-        // list) and "previous" to index-1 (newer, further up), matching
-        // the order episodes are actually listed in the pane.
+        public bool has_previous_episode() {
+            int idx = current_episode_queue_index();
+            return idx >= 0 && idx + 1 < episode_queue.size;
+        }
+
         public void play_next_episode() {
             int idx = current_episode_queue_index();
-            if (idx < 0 || idx + 1 >= episode_queue.size) return;
-            load_and_play(episode_queue[idx + 1], current_rate);
+            if (idx <= 0) return;
+            load_and_play(episode_queue[idx - 1], current_rate);
         }
 
         public void play_previous_episode() {
             int idx = current_episode_queue_index();
-            if (idx <= 0) return;
-            load_and_play(episode_queue[idx - 1], current_rate);
+            if (idx < 0 || idx + 1 >= episode_queue.size) return;
+            load_and_play(episode_queue[idx + 1], current_rate);
         }
     }
 }

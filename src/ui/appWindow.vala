@@ -445,6 +445,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     var last_session = Paperboy.PodcastPlaybackStateStore.get_instance().get_last_session();
     if (last_session != null) {
         podcast_playback.load_paused(last_session.episode, last_session.position_ns, last_session.rate);
+        podcast_playback.refresh_episode_queue(Paperboy.PodcastPlaybackStateStore.get_instance().get_last_queue());
+        // Subscribed shows also get refreshed by the sidebar's startup new-episode check.
+        int64 restored_feed_id = last_session.episode.feed_id;
+        if (restored_feed_id > 0) {
+            Paperboy.PodcastIndexService.get_instance().episodes_for_feed(restored_feed_id, 20, (episodes) => {
+                podcast_playback.refresh_episode_queue(episodes);
+            });
+        }
     }
 
     // Listen for category selections and trigger fetch/update from the window
