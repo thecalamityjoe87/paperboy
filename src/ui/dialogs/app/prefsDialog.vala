@@ -1347,6 +1347,22 @@ public class PrefsDialog : GLib.Object {
 
         personalization_page.add(myfeed_extras_group);
 
+        // ========== FRONT PAGE GROUP ==========
+        var frontpage_group = new Adw.PreferencesGroup();
+        frontpage_group.set_title("Front Page");
+
+        var recommendations_row = new Adw.SwitchRow();
+        recommendations_row.set_title("Show recommendations");
+        recommendations_row.set_subtitle("Suggest articles based on your reading history. This stays on your device.");
+        recommendations_row.set_active(prefs.recommendations_enabled);
+        recommendations_row.notify["active"].connect(() => {
+            prefs.recommendations_enabled = recommendations_row.get_active();
+            if (win != null && win.prefs.category == "frontpage") win.fetch_news();
+        });
+        frontpage_group.add(recommendations_row);
+
+        personalization_page.add(frontpage_group);
+
         // ========== READING GROUP ==========
         var reading_group = new Adw.PreferencesGroup();
         reading_group.set_title("Reading");

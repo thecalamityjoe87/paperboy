@@ -95,6 +95,27 @@ namespace Managers {
             "more"
         };
 
+        // Sub-categories the frontpage API sends for sports stories.
+        private const string[] SPORTS_SUBCATEGORIES = {
+            "football", "american_football", "college_football", "basketball", "baseball",
+            "soccer", "hockey", "ice_hockey", "tennis", "golf", "cricket", "rugby",
+            "combat_sports", "boxing", "mma", "wrestling", "motorsport", "motorsports",
+            "racing", "formula1", "f1", "cycling", "athletics", "olympics",
+            "nfl", "nba", "mlb", "nhl", "wnba", "ncaa"
+        };
+
+        // Front Page row an article category lands in; unknown categories go to "More Stories".
+        public static string frontpage_row_for(string category) {
+            if (category in FRONTPAGE_SECTION_CATEGORIES) return category;
+            if (category in SPORTS_SUBCATEGORIES) return "sports";
+            return MISC_SECTION_KEY;
+        }
+
+        // Cards a Front Page row starts with: one visible width plus one peeking past the edge.
+        public int frontpage_row_initial_cards() {
+            return (columns_count + 1).clamp(4, 6);
+        }
+
         // The sidebar uses "general"/"us" for World/US news where the
         // frontpage API uses "world"/"nation" - map to the sidebar's id so
         // the "..." button's navigation and highlight land on the right
@@ -532,18 +553,10 @@ namespace Managers {
                     display_name = cat;
                 }
 
-                // ArticleManager's overflow queue tags uncategorized
-                // articles with the literal category_id "frontpage" (it
-                // only has a real category to extract when a
-                // "##category::" tag is present) - it has no notion of
-                // MISC_SECTION_KEY, which is purely a LayoutManager/UI
-                // grouping concept. Translate here so the "More Stories"
-                // section's load-more button queries the value that's
-                // actually on those queued items.
-                string query_cat = (cat == MISC_SECTION_KEY) ? "frontpage" : cat;
+                // ArticleManager queues Front Page overflow by row key (see frontpage_row_for()).
                 string? nav_target = sidebar_nav_id_for(cat);
 
-                var section = new CategorySection(window, display_name, query_cat, false, false, null, false, null, nav_target);
+                var section = new CategorySection(window, display_name, cat, false, false, null, false, null, nav_target);
                 // Faint divider between Front Page category sections,
                 // matching the hero/score/article dividers (see
                 // .section-divider in style.css). Skipped on the first
@@ -565,6 +578,7 @@ namespace Managers {
             recommendation_profile = null;
             recommended_section = null;
             if (window == null || window.article_state_store == null) return;
+            if (window.prefs != null && !window.prefs.recommendations_enabled) return;
 
             var profile = window.article_state_store.build_interest_profile();
             if (!profile.is_ready()) return;
@@ -806,9 +820,8 @@ namespace Managers {
         */
         private CategorySection? find_category_section(string category_id) {
             if (!using_category_sections || category_sections == null) return null;
-            return category_sections.has_key(category_id)
-                ? category_sections.get(category_id)
-                : category_sections.get(MISC_SECTION_KEY);
+            if (category_sections.has_key(category_id)) return category_sections.get(category_id);
+            return category_sections.get(frontpage_row_for(category_id)) ?? category_sections.get(MISC_SECTION_KEY);
         }
 
         // Reveals a section that got squeezed to zero cards by the 25-article
@@ -848,8 +861,7 @@ namespace Managers {
                 CategorySection? section = category_sections.get(cat);
                 if (section == null) continue;
 
-                string query_cat = (cat == MISC_SECTION_KEY) ? "frontpage" : cat;
-                if (window.article_manager.remaining_count_for_category(query_cat) <= 0) continue;
+                if (window.article_manager.remaining_count_for_category(cat) <= 0) continue;
 
                 section.wrapper.set_visible(true);
                 section.refresh_load_more_affordance();
@@ -860,7 +872,7 @@ namespace Managers {
 
                 int target_depth = get_or_roll_target_depth(cat);
                 if (current_count < target_depth) {
-                    window.article_manager.load_more_for_category(query_cat, target_depth - current_count);
+                    window.article_manager.load_more_for_category(cat, target_depth - current_count);
                 }
             }
         }

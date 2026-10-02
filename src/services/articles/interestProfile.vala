@@ -29,6 +29,10 @@ public class InterestProfile : GLib.Object {
     public const double MATCH_THRESHOLD = 0.4;
 
     private const double HALF_LIFE_DAYS = 10.0;
+    // Older articles lose up to half their score, so newer ones win close matches.
+    private const double FRESHNESS_HALF_LIFE_HOURS = 12.0;
+    // Each showing that wasn't opened costs this much, so ignored picks rotate out.
+    private const double IMPRESSION_PENALTY = 0.75;
     // A title word only counts as a history topic once it shows up in this many reads.
     private const int MIN_TOPIC_READS = 2;
 
@@ -175,6 +179,17 @@ public class InterestProfile : GLib.Object {
         return history.score(title, url, category_id, source)
             + LIKE_WEIGHT * likes.score(title, url, category_id, source)
             - DISLIKE_WEIGHT * dislikes.score(title, url, category_id, source);
+    }
+
+    // Ranking score: freshness and the shown-but-ignored penalty applied to a score().
+    public double adjust(double score, string? published, int impressions) {
+        double factor = Math.pow(IMPRESSION_PENALTY, impressions);
+        var when = DateUtils.parse_published_datetime(published);
+        if (when != null) {
+            double age_hours = double.max(0, (now - when.to_unix()) / 3600.0);
+            factor *= 0.5 + 0.5 * Math.pow(0.5, age_hours / FRESHNESS_HALF_LIFE_HOURS);
+        }
+        return score * factor;
     }
 
     // Topic category for an article; views like Front Page carry the real one in a "##category::" source suffix.

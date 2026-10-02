@@ -53,13 +53,9 @@ namespace Managers {
         private bool reveal_pending = false;
         public int articles_shown = 0;
 
-        // Per-row real-card counts for My Feed (keyed by section key, e.g.
-        // "source:guardian" or a bare category id), reset each fetch. My Feed
-        // has many independent rows rather than one flat grid, so each row
-        // gets its own modest cap instead of sharing articles_shown/INITIAL_ARTICLE_LIMIT
-        // (see add_item) - otherwise a full load could build hundreds of
-        // real card widgets, each with its own image fetch, at once.
-        private Gee.HashMap<string, int>? myfeed_row_card_counts = null;
+        // Per-row real-card counts for My Feed and Front Page rows (keyed by section key), reset each fetch.
+        // Each row gets its own cap instead of sharing articles_shown/INITIAL_ARTICLE_LIMIT.
+        private Gee.HashMap<string, int>? row_card_counts = null;
         private const int MYFEED_ROW_CARD_CAP = 10;
 
         // Track URLs seen in current view to prevent duplicate cards
@@ -194,12 +190,13 @@ namespace Managers {
         }
 
         // Returns false if the article is a duplicate (already queued this view).
+        // already_marked: the caller has already claimed this URL in seen_urls.
         private bool queue_overflow_article(string title, string url, string? thumbnail_url,
-                                            string category_id, string? source_name, string? published = null, string? snippet = null) {
+                                            string category_id, string? source_name, string? published = null, string? snippet = null, bool already_marked = false) {
             string normalized_url = "";
             normalized_url = window.normalize_article_url(url); 
             
-            if (normalized_url.length > 0 && seen_urls.contains(normalized_url)) {
+            if (!already_marked && normalized_url.length > 0 && seen_urls.contains(normalized_url)) {
                 return false;  // Duplicate
             }
             if (normalized_url.length > 0) {
@@ -213,7 +210,7 @@ namespace Managers {
             var queued_item = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source, published);
             queued_item.snippet = snippet;
             remaining_articles.add(queued_item);
-            string display_cat = extract_display_category(queued_item);
+            string display_cat = overflow_key_for(queued_item);
             remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) + 1);
 
             // Register for unread tracking
@@ -258,6 +255,12 @@ namespace Managers {
             return resolve_display_category(item.category_id, item.source_name);
         }
 
+        // Front Page overflow is grouped by row, so each row's arrow finds its own queued articles.
+        private string overflow_key_for(ArticleItem item) {
+            string cat = extract_display_category(item);
+            return window.prefs.category == "frontpage" ? LayoutManager.frontpage_row_for(cat) : cat;
+        }
+
         public int remaining_count_for_category(string cat) {
             if (remaining_category_counts == null) return 0;
             return remaining_category_counts.get(cat);
@@ -290,7 +293,7 @@ namespace Managers {
             int i = 0;
             while (i < remaining_articles.size && loaded < max_to_load) {
                 var item = remaining_articles.get(i);
-                if (extract_display_category(item) == cat) {
+                if (overflow_key_for(item) == cat) {
                     remaining_articles.remove_at(i);
                     remaining_category_counts.set(cat, remaining_category_counts.get(cat) - 1);
                     article_buffer.add(item);
@@ -373,6 +376,7 @@ namespace Managers {
             // "Recommended for you" picks get their own budget instead of the Front Page cap.
             double recommended_score = is_trending ? -1 : score_recommendation(title, url, category_id, source_name);
             bool recommended = recommended_score >= InterestProfile.MATCH_THRESHOLD;
+            if (recommended) recommended_score = rank_recommendation(recommended_score, title, published);
 
             // My Feed doesn't use the flat article-count cap: its rows are
             // independent scrolling strips, not one shared grid, and several
@@ -381,7 +385,14 @@ namespace Managers {
             // Trending is exempt too - it's a second, independently-capped
             // fetch layered onto the Front Page and must not share (or
             // exhaust) the Front Page's own INITIAL_ARTICLE_LIMIT counter.
-            if (!is_myfeed && !is_trending && !recommended && is_limited_category(window.prefs.category)) {
+            if (!is_trending && !recommended && window.prefs.category == "frontpage") {
+                if (frontpage_featured_full() && frontpage_row_full(frontpage_row_key(category_id, source_name))) {
+                    if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published, snippet)) {
+                        show_load_more_button();
+                    }
+                    return;
+                }
+            } else if (!is_myfeed && !is_trending && !recommended && is_limited_category(window.prefs.category)) {
                 lock (articles_shown) {
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
                         if (queue_overflow_article(title, url, thumbnail_url, category_id, source_name, published, snippet)) {
@@ -504,6 +515,18 @@ namespace Managers {
             return profile.score(title, url, category_id, source_name);
         }
 
+        // Ordering only, so a qualifying pick is never dropped just for being shown before.
+        private double rank_recommendation(double score, string title, string? published) {
+            var profile = window.layout_manager.recommendation_profile;
+            int impressions = window.article_state_store != null ? window.article_state_store.get_recommendation_impressions(story_key(title)) : 0;
+            return profile.adjust(score, published, impressions);
+        }
+
+        // The same story can arrive under several URLs.
+        private static string story_key(string title) {
+            return title.strip().down();
+        }
+
         private void hold_recommended_pick(RecommendedPick pick) {
             recommended_picks.add(pick);
             ViewSession.remove_source(ref recommendations_settle_id);
@@ -528,11 +551,14 @@ namespace Managers {
 
             var chosen = new Gee.ArrayList<RecommendedPick>();
             var per_category = new Gee.HashMap<string, int>();
+            var chosen_titles = new Gee.HashSet<string>();
             foreach (int cap in new int[] { RECOMMENDED_MAX_PER_CATEGORY, RECOMMENDED_FILL_PER_CATEGORY }) {
                 foreach (var pick in picks) {
                     string cat = extract_display_category(pick.item);
-                    if (chosen.size < RECOMMENDED_MAX_PICKS && !chosen.contains(pick) && per_category.get(cat) < cap) {
+                    string title_key = story_key(pick.item.title);
+                    if (chosen.size < RECOMMENDED_MAX_PICKS && !chosen.contains(pick) && !chosen_titles.contains(title_key) && per_category.get(cat) < cap) {
                         chosen.add(pick);
+                        chosen_titles.add(title_key);
                         per_category.set(cat, per_category.get(cat) + 1);
                     }
                 }
@@ -553,6 +579,7 @@ namespace Managers {
             if (section != null && chosen.size >= RecommendedSection.MIN_PICKS && window.prefs.category == "frontpage") {
                 panel_reserve = reserve;
                 build_recommended_panel(section, chosen);
+                record_impressions(chosen);
                 if (!feedback_connected && window.article_state_store != null) {
                     window.article_state_store.feedback_changed.connect(on_feedback_changed);
                     feedback_connected = true;
@@ -564,6 +591,13 @@ namespace Managers {
             foreach (var item in leftovers) {
                 add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, false, item.published, item.snippet);
             }
+        }
+
+        private void record_impressions(Gee.List<RecommendedPick> shown) {
+            if (window.article_state_store == null) return;
+            var keys = new Gee.ArrayList<string>();
+            foreach (var pick in shown) keys.add(story_key(pick.item.title));
+            window.article_state_store.record_recommendation_impressions(keys);
         }
 
         // Lead hero, then rail rows, then grid cards, in score order (see RecommendedSection.rail_rows_for).
@@ -639,6 +673,9 @@ namespace Managers {
                 panel_picks.set(idx, next);
                 section.begin_swap(old);
                 place_recommended_pick(section, next.item, idx);
+                var swapped_in = new Gee.ArrayList<RecommendedPick>();
+                swapped_in.add(next);
+                record_impressions(swapped_in);
                 var added = window.view_state.get_card_for_url(window.normalize_article_url(next.item.url));
                 if (added != null && window.animation_manager != null) window.animation_manager.animate_card_entrance(added, 0);
                 return;
@@ -713,8 +750,20 @@ namespace Managers {
 
             string check_category = original_category ?? window.prefs.category;
 
+            if (window.prefs.category == "frontpage" && !is_trending) {
+                if (frontpage_featured_full()) {
+                    string row_key = frontpage_row_key(category_id, source_name);
+                    if (!bypass_limit && frontpage_row_full(row_key)) {
+                        string normalized_src = normalize_source_name(source_name, category_id, url);
+                        if (queue_overflow_article(title, url, thumbnail_url, category_id, normalized_src, published, snippet, true)) {
+                            show_load_more_button();
+                        }
+                        return;
+                    }
+                    count_frontpage_row_card(row_key);
+                }
             // My Feed is exempt here too - see add_item() above.
-            if (is_limited_category(check_category) && !bypass_limit && !is_trending && window.prefs.category != "myfeed") {
+            } else if (is_limited_category(check_category) && !bypass_limit && !is_trending && window.prefs.category != "myfeed") {
                 lock (articles_shown) {
                     if (articles_shown >= INITIAL_ARTICLE_LIMIT) {
                         if (title == null || url == null) {
@@ -968,11 +1017,31 @@ namespace Managers {
     // a widget for it. Each row is independent - a full "Guardian" row
     // doesn't affect the "Technology" row's own budget.
     private bool try_take_myfeed_row_slot(string row_key) {
-        if (myfeed_row_card_counts == null) myfeed_row_card_counts = new Gee.HashMap<string, int>();
-        int count = myfeed_row_card_counts.has_key(row_key) ? myfeed_row_card_counts.get(row_key) : 0;
+        if (row_card_counts == null) row_card_counts = new Gee.HashMap<string, int>();
+        int count = row_card_counts.has_key(row_key) ? row_card_counts.get(row_key) : 0;
         if (count >= MYFEED_ROW_CARD_CAP) return false;
-        myfeed_row_card_counts.set(row_key, count + 1);
+        row_card_counts.set(row_key, count + 1);
         return true;
+    }
+
+    // Front Page row key for an article, e.g. "football" -> "sports".
+    private string frontpage_row_key(string category_id, string? source_name) {
+        return LayoutManager.frontpage_row_for(resolve_display_category(category_id, source_name));
+    }
+
+    // True once the hero and carousel are filled, so further Front Page articles become row cards.
+    private bool frontpage_featured_full() {
+        return featured_used && (hero_carousel == null || featured_carousel_items == null || featured_carousel_items.size >= MAX_CAROUSEL_SLIDES);
+    }
+
+    private bool frontpage_row_full(string row_key) {
+        int count = (row_card_counts != null && row_card_counts.has_key(row_key)) ? row_card_counts.get(row_key) : 0;
+        return count >= window.layout_manager.frontpage_row_initial_cards();
+    }
+
+    private void count_frontpage_row_card(string row_key) {
+        if (row_card_counts == null) row_card_counts = new Gee.HashMap<string, int>();
+        row_card_counts.set(row_key, (row_card_counts.has_key(row_key) ? row_card_counts.get(row_key) : 0) + 1);
     }
 
     // Builds one regular (non-hero, non-carousel) article card and places it
@@ -1440,7 +1509,7 @@ namespace Managers {
                 // queue is a shared pool that load_more_for_category() also
                 // pulls from out of order.
                 var article = remaining_articles.remove_at(0);
-                string display_cat = extract_display_category(article);
+                string display_cat = overflow_key_for(article);
                 remaining_category_counts.set(display_cat, remaining_category_counts.get(display_cat) - 1);
                 // No need to check seen_urls - articles were already deduplicated
                 // when they were added to remaining_articles queue
@@ -1576,7 +1645,7 @@ namespace Managers {
                 remaining_category_counts.clear();
             }
             articles_shown = 0;
-            if (myfeed_row_card_counts != null) myfeed_row_card_counts.clear();
+            if (row_card_counts != null) row_card_counts.clear();
 
             if (seen_urls != null) {
                 seen_urls.clear();

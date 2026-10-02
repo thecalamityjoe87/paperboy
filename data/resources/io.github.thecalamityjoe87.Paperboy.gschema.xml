@@ -101,6 +101,12 @@
       <description>Lowercased resolved city of the location the Local News view is showing</description>
     </key>
 
+    <key name="recommendations-enabled" type="b">
+      <default>true</default>
+      <summary>Front Page recommendations enabled</summary>
+      <description>Whether the Front Page shows a "Recommended for you" section based on local reading history and votes</description>
+    </key>
+
     <key name="reader-view-enabled" type="b">
       <default>true</default>
       <summary>Reader view enabled</summary>

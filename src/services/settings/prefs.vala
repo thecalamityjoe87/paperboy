@@ -320,6 +320,11 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("reader-view-enabled", value); }
     }
 
+    public bool recommendations_enabled {
+        get { return settings.get_boolean("recommendations-enabled"); }
+        set { settings.set_boolean("recommendations-enabled", value); }
+    }
+
     public bool comments_enabled {
         get { return settings.get_boolean("comments-enabled"); }
         set { settings.set_boolean("comments-enabled", value); }
