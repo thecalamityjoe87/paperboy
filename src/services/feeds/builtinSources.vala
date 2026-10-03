@@ -27,7 +27,7 @@ public struct BuiltinSource {
     public string logo_file;    // bundled logo under data/icons
     public string favicon_url;
     public string url_hints;    // "|"-separated URL substrings that identify its articles
-    public string name_hints;   // "|"-separated source-name substrings that identify it
+    public string name_hints;   // "|"-separated full names it goes by (lowercase, no leading "the")
 }
 
 // The table of built-in outlets. Adding an outlet means adding a row here
@@ -42,16 +42,16 @@ public class BuiltinSources {
           "guardian-logo.png", "https://www.theguardian.com/favicon.ico", "guardian", "guardian" },
         { NewsSource.BBC, "bbc", "BBC News", "BBC News",
           "Comprehensive international and UK reporting",
-          "bbc-logo.png", "https://www.bbc.co.uk/favicon.ico", "bbc.", "bbc" },
+          "bbc-logo.png", "https://www.bbc.co.uk/favicon.ico", "bbc.", "bbc|bbc news" },
         { NewsSource.NEW_YORK_TIMES, "nytimes", "New York Times", "NY Times",
           "In-depth journalism across major categories",
-          "nytimes-logo.png", "https://www.nytimes.com/favicon.ico", "nytimes|nyti.ms", "nytimes|ny times|new york times" },
+          "nytimes-logo.png", "https://www.nytimes.com/favicon.ico", "nytimes|nyti.ms", "new york times|ny times|nytimes|nyt" },
         { NewsSource.BLOOMBERG, "bloomberg", "Bloomberg", "Bloomberg",
           "Market, business, and finance coverage",
-          "bloomberg-logo.png", "https://www.bloomberg.com/favicon.ico", "bloomberg", "bloomberg" },
+          "bloomberg-logo.png", "https://www.bloomberg.com/favicon.ico", "bloomberg", "bloomberg|bloomberg news" },
         { NewsSource.WALL_STREET_JOURNAL, "wsj", "Wall Street Journal", "Wall Street Journal",
           "Business, economic, and political reporting",
-          "wsj-logo.png", "https://www.wsj.com/favicon.ico", "wsj.com|dowjones", "wsj|wall street" },
+          "wsj-logo.png", "https://www.wsj.com/favicon.ico", "wsj.com|dowjones", "wall street journal|wsj" },
         { NewsSource.ABC_NEWS, "abc", "ABC News", "ABC News",
           "US network coverage across politics, business, and more",
           "abc-logo.png", "https://abcnews.go.com/favicon.ico", "abcnews", "abc news|abcnews" },
@@ -60,10 +60,10 @@ public class BuiltinSources {
           "npr-logo.png", "https://www.npr.org/favicon.ico", "npr.org", "npr" },
         { NewsSource.FOX, "fox", "Fox News", "Fox News",
           "U.S. politics, headlines, and commentary",
-          "foxnews-logo.png", "https://www.foxnews.com/favicon.ico", "foxnews|fox.com", "fox" },
+          "foxnews-logo.png", "https://www.foxnews.com/favicon.ico", "foxnews|fox.com", "fox news" },
         { NewsSource.PBS, "pbs", "PBS NewsHour", "PBS NewsHour",
           "Neutral, in-depth public affairs reporting",
-          "pbs-logo.png", "https://www.pbs.org/favicon.ico", "pbs.org", "pbs" }
+          "pbs-logo.png", "https://www.pbs.org/favicon.ico", "pbs.org", "pbs newshour|pbs news|pbs" }
     };
 
     // The outlet with this preferences id; null for anything else
@@ -97,14 +97,18 @@ public class BuiltinSources {
         return DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", s.logo_file));
     }
 
-    // The outlet whose name hints appear in `name` (a plain display name,
-    // not an encoded "name||logo" string), or UNKNOWN.
+    // The outlet whose full name is `name` (plain or encoded "name||logo"),
+    // or UNKNOWN. The whole name has to match: a substring match gave
+    // Fox Sports Fox News' branding and The Charlottetown Guardian The
+    // Guardian's. Callers fall back to the URL for anything else.
     public static NewsSource from_name(string? name) {
-        if (name == null || name.length == 0) return NewsSource.UNKNOWN;
-        string low = name.down();
+        string low = SourceLabel.name_of(name).strip().down();
+        if (low.has_prefix("the ")) low = low.substring(4).strip();
+        if (low.has_suffix(".com") || low.has_suffix(".org")) low = low.substring(0, low.length - 4);
+        if (low.length == 0) return NewsSource.UNKNOWN;
         foreach (unowned BuiltinSource s in ALL) {
             foreach (string hint in s.name_hints.split("|")) {
-                if (low.contains(hint)) return s.source;
+                if (low == hint) return s.source;
             }
         }
         return NewsSource.UNKNOWN;

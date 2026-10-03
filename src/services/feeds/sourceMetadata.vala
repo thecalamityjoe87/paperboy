@@ -815,6 +815,11 @@ public class SourceMetadata : GLib.Object {
                 warning("SourceMetadata: could not extract domain from URL: %s", article_url);
                 return;
             }
+            // Google News links carry every outlet's articles, so their domain
+            // says nothing about the source. Matching it gave NYT articles
+            // (fetched via Google News) whichever source was last followed
+            // from a Google News link - e.g. Dallas News's logo.
+            if (article_domain.down() == "news.google.com") return;
 
             // Scan all JSON files in source_info directory
             GLib.Dir? dir = null;

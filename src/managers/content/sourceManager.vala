@@ -135,14 +135,15 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         } else {
             // Try to match to an RSS source in the database for consistent naming.
             // Keep the category, which Front Page uses to route the article to its row.
+            // Whole-name match only: a substring match renamed "TIME" to
+            // "The New York Times" (and gave it NYT's branding).
             var label = SourceLabel.parse(result);
+            string? name_lower = label.name != null ? label.name.strip().down() : null;
             var rss_store = Paperboy.RssSourceStore.get_instance();
             var all_sources = rss_store.get_all_sources();
             foreach (var src in all_sources) {
-                if (src.name == null || result == null) continue;
-                string src_lower = src.name.down();
-                string result_lower = result.down();
-                if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
+                if (src.name == null || name_lower == null || name_lower.length == 0) continue;
+                if (src.name.strip().down() == name_lower) {
                     result = SourceLabel.encode(src.name, null, label.category);
                     break;
                 }
@@ -399,6 +400,24 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     }
 
     public void follow_rss_source(string article_url, string? source_metadata = null) {
+        // A Google News link's host is Google's, not the outlet's - follow
+        // the real article instead, or the source gets saved under news.google.com.
+        if (GoogleNewsUrlResolver.is_google_news_url(article_url)) {
+            new Thread<void*>("gnews-follow", () => {
+                string? resolved = GoogleNewsUrlResolver.resolve_sync(article_url);
+                GLib.Idle.add(() => {
+                    if (resolved != null && !GoogleNewsUrlResolver.is_google_news_url(resolved)) {
+                        follow_rss_source(resolved, source_metadata);
+                    } else {
+                        request_show_toast("Couldn't find this article's source");
+                    }
+                    return false;
+                });
+                return null;
+            });
+            return;
+        }
+
         // Built-in sources are followed by switching them on, not by adding them as a feed.
         NewsSource builtin = builtin_source_for_article(article_url);
         if (builtin != NewsSource.UNKNOWN) {
