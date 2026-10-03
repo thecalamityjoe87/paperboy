@@ -23,6 +23,24 @@ public class PaperboyApp : Adw.Application {
         GLib.Object(application_id: "io.github.thecalamityjoe87.Paperboy", flags: ApplicationFlags.FLAGS_NONE);
     }
 
+    // Launches a fresh Paperboy process and quits this one. Looked up by
+    // name (rather than re-exec'ing /proc/self/exe) so it works the same
+    // whether installed via .deb or Flatpak.
+    public void restart() {
+        string? exe_path = GLib.Environment.find_program_in_path("paperboy");
+        if (exe_path != null) {
+            try {
+                GLib.Process.spawn_async(null, { exe_path }, null, GLib.SpawnFlags.SEARCH_PATH, null, null);
+            } catch (GLib.Error e) {
+                warning("Failed to restart Paperboy: %s", e.message);
+            }
+        } else {
+            warning("Failed to restart Paperboy: could not locate the 'paperboy' executable");
+        }
+
+        quit();
+    }
+
     protected override void shutdown() {
         if (mpris != null) mpris.unregister();
         WebViewUtils.terminate_all();

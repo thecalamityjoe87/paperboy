@@ -57,9 +57,10 @@ public class SourceMetadata : GLib.Object {
     // icon" - used by card badges, hero cards, and reader view so they all
     // resolve the same way instead of each reimplementing this chain.
     public static void resolve_source_icon(string? source_name_encoded, string? article_url, string? favicon_url, out string? display_name, out string? logo_url, out string? local_path) {
-        logo_url = null;
         local_path = null;
-        CardBuilder.parse_encoded_source_name(source_name_encoded, out display_name, out logo_url);
+        var label = SourceLabel.parse(source_name_encoded);
+        display_name = label.name;
+        logo_url = label.logo_url;
 
         if (logo_url == null && display_name != null && display_name.length > 0) {
             string? by_name_display = get_display_name_for_source(display_name);
@@ -84,17 +85,31 @@ public class SourceMetadata : GLib.Object {
         }
 
         if (logo_url == null && local_path == null && display_name != null && display_name.length > 0) {
-            var builtin = CardBuilder.resolve_builtin_news_source(display_name);
-            if (builtin != null) {
-                string? fname = CardBuilder.source_icon_filename(builtin);
-                if (fname != null) local_path = DataPathsUtils.find_data_file("icons/" + fname);
-            }
+            local_path = BuiltinSources.logo_path(BuiltinSources.from_name(display_name));
         }
 
-        if (logo_url == null && local_path == null && favicon_url != null &&
-            (favicon_url.has_prefix("http://") || favicon_url.has_prefix("https://"))) {
+        if (logo_url == null && local_path == null && UrlUtils.is_http_url(favicon_url)) {
             logo_url = favicon_url;
         }
+    }
+
+    // Google's favicon service URL for a host - the fallback icon wherever
+    // a source has no logo of its own.
+    public static string google_favicon_url(string host) {
+        return "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+    }
+
+    // Remote logo for a followed source, in order: its metadata logo URL,
+    // then Google's favicon for site_url's host, then its own favicon_url.
+    // Callers check for a saved local logo first; this is the network fallback.
+    public static string? pick_logo_url(string? meta_logo_url, string? site_url, string? favicon_url) {
+        if (UrlUtils.is_http_url(meta_logo_url)) return meta_logo_url;
+
+        string host = UrlUtils.extract_host_from_url(site_url);
+        if (host.length > 0) return google_favicon_url(host);
+
+        if (UrlUtils.is_http_url(favicon_url)) return favicon_url;
+        return null;
     }
 
     // Per-provider metadata files are stored in the user's data dir under

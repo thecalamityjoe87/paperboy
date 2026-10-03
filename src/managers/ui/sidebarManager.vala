@@ -334,10 +334,10 @@ public class SidebarManager : GLib.Object {
 
         sections.add(local_section);
 
-        // Section 2: Popular Categories
+        // Section 2: Categories
         var categories_section = SidebarSectionData();
         categories_section.section_id = "popular_categories";
-        categories_section.title = "Popular Categories";
+        categories_section.title = "Categories";
         categories_section.is_expandable = true;
         categories_section.is_expanded = popular_categories_expanded;
         categories_section.items = new Gee.ArrayList<SidebarItemData?>();
@@ -406,57 +406,12 @@ public class SidebarManager : GLib.Object {
         refresh_all_badge_counts();
     }
 
+    // The categories the user follows, in their order. Every one has
+    // articles regardless of which built-in sources are enabled, since the
+    // Paperboy API fills them too.
     private void add_categories_for_sources(Gee.ArrayList<SidebarItemData?> items) {
-        // If multiple preferred sources are selected, build union of supported categories
-        if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
-            var allowed = new Gee.HashMap<string, bool>();
-            string[] default_cats = { "general", "us", "technology", "business", "science", "sports", "health", "entertainment", "politics", "lifestyle" };
-            foreach (var c in default_cats) {
-                allowed.set(c, true);
-            }
-
-            // Check if at least one source supports lifestyle
-            bool any_source_supports_lifestyle = false;
-            foreach (var id in window.prefs.preferred_sources) {
-                NewsSource src = parse_source_id(id);
-                if (NewsService.supports_category(src, "lifestyle")) {
-                    any_source_supports_lifestyle = true;
-                }
-            }
-
-            // If no source supports lifestyle, remove it from allowed categories
-            if (!any_source_supports_lifestyle) {
-                allowed.unset("lifestyle");
-            }
-
-            string[] priority = { "general", "us", "technology", "business", "sports", "science", "health", "entertainment", "politics", "lifestyle" };
-            foreach (var cat in priority) {
-                if (allowed.has_key(cat) && allowed.get(cat)) {
-                    items.add(create_item_data(window.category_display_name_for(cat), cat, SidebarItemType.CATEGORY));
-                }
-            }
-        } else {
-            // Single-source path: show categories appropriate to the selected source
-            NewsSource sidebar_eff = effective_news_source();
-            if (sidebar_eff == NewsSource.BLOOMBERG) {
-                items.add(create_item_data("Business", "business", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Technology", "technology", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Politics", "politics", SidebarItemType.CATEGORY));
-            } else {
-                items.add(create_item_data("World News", "general", SidebarItemType.CATEGORY));
-                items.add(create_item_data("US News", "us", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Technology", "technology", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Business", "business", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Sports", "sports", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Science", "science", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Health", "health", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Entertainment", "entertainment", SidebarItemType.CATEGORY));
-                items.add(create_item_data("Politics", "politics", SidebarItemType.CATEGORY));
-
-                if (NewsService.supports_category(sidebar_eff, "lifestyle")) {
-                    items.add(create_item_data("Lifestyle", "lifestyle", SidebarItemType.CATEGORY));
-                }
-            }
+        foreach (var cat in window.prefs.categories) {
+            items.add(create_item_data(window.category_display_name_for(cat), cat, SidebarItemType.CATEGORY));
         }
     }
 
@@ -661,28 +616,6 @@ public class SidebarManager : GLib.Object {
             return window.article_state_store.get_unread_count_for_source(source_name);
     }
 
-    private NewsSource effective_news_source() {
-        if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size == 1) {
-            string id = window.prefs.preferred_sources.get(0);
-            return parse_source_id(id);
-        }
-        return window.prefs.news_source;
-    }
-
-    private NewsSource parse_source_id(string id) {
-        switch (id) {
-            case "guardian": return NewsSource.GUARDIAN;
-            case "bbc": return NewsSource.BBC;
-            case "nytimes": return NewsSource.NEW_YORK_TIMES;
-            case "wsj": return NewsSource.WALL_STREET_JOURNAL;
-            case "bloomberg": return NewsSource.BLOOMBERG;
-            case "abc": return NewsSource.ABC_NEWS;
-            case "npr": return NewsSource.NPR;
-            case "fox": return NewsSource.FOX;
-            default: return window.prefs.news_source;
-        }
-    }
-
     /**
      * Handle category/item activation
      */
@@ -721,24 +654,22 @@ public class SidebarManager : GLib.Object {
             });
         }
 
-        string validated = validate_category_for_sources(id);
-
-        if (validated == "local_news") {
+        if (id == "local_news") {
             var opened_area = window.prefs.get_active_local_area();
             if (opened_area != null) mark_category_visited(opened_area.id);
         }
 
-        window.prefs.category = validated;
+        window.prefs.category = id;
         window.update_category_icon();
         window.update_local_news_ui();
         window.prefs.save_config();
 
         // Mark category as visited so badge can update from placeholder
-        mark_category_visited(validated);
+        mark_category_visited(id);
 
         // If this is an RSS source, also mark the source as visited
-        if (validated.has_prefix("rssfeed:")) {
-            string url = validated.substring(8);
+        if (id.has_prefix("rssfeed:")) {
+            string url = id.substring(8);
             var store = Paperboy.RssSourceStore.get_instance();
             var source = store.get_source_by_url(url);
             if (source != null) {
@@ -747,43 +678,14 @@ public class SidebarManager : GLib.Object {
         }
 
         // Update selection state
-        currently_selected_id = validated;
-        selection_changed(validated);
+        currently_selected_id = id;
+        selection_changed(id);
 
         // Notify listeners
-        category_selected(validated, title);
+        category_selected(id, title);
         if (activate_cb != null) {
-            activate_cb(validated, title);
+            activate_cb(id, title);
         }
-    }
-
-    private string validate_category_for_sources(string requested_cat) {
-        // App-level categories that don't depend on news sources
-        if (requested_cat == "saved" || requested_cat == "history" ||
-            requested_cat == "myfeed" || requested_cat == "local_news" ||
-            requested_cat == "podcasts" || requested_cat == "magazines" ||
-            requested_cat.has_prefix("rssfeed:")) {
-            return requested_cat;
-        }
-
-        bool category_supported = false;
-        if (window.prefs.preferred_sources != null && window.prefs.preferred_sources.size > 1) {
-            foreach (var id in window.prefs.preferred_sources) {
-                NewsSource src = parse_source_id(id);
-                if (NewsService.supports_category(src, requested_cat)) {
-                    category_supported = true;
-                    break;
-                }
-            }
-        } else {
-            NewsSource current_source = effective_news_source();
-            category_supported = NewsService.supports_category(current_source, requested_cat);
-        }
-
-        if (!category_supported) {
-            return "frontpage";
-        }
-        return requested_cat;
     }
 
     /**
@@ -840,20 +742,7 @@ public class SidebarManager : GLib.Object {
     }
 
     private string? get_icon_url_for_source(Paperboy.RssSource source) {
-        // Priority 1: API logo URL from SourceMetadata
-        string? meta_logo_url = SourceMetadata.get_logo_url_for_source(source.name);
-        if (meta_logo_url != null && meta_logo_url.length > 0 &&
-            (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
-            return meta_logo_url;
-        }
-
-        // Priority 2: Google favicon service
-        string? host = UrlUtils.extract_host_from_url(source.url);
-        if (host != null && host.length > 0) {
-            return "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
-        }
-
-        return null;
+        return SourceMetadata.pick_logo_url(SourceMetadata.get_logo_url_for_source(source.name), source.url, source.favicon_url);
     }
 
     /**
@@ -875,7 +764,7 @@ public class SidebarManager : GLib.Object {
             category_id == "podcasts" || category_id == "magazines") {
             return false;
         }
-        // RSS feeds are not popular categories
+        // RSS feeds are not categories
         if (category_id.has_prefix("rssfeed:")) {
             return false;
         }
@@ -885,7 +774,7 @@ public class SidebarManager : GLib.Object {
 
     /**
      * Mark a category as visited by the user
-     * This enables badge updates for popular categories
+     * This enables badge updates for categories
      */
     public void mark_category_visited(string category_id) {
         visited_categories.add(category_id);

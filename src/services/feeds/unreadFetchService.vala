@@ -111,7 +111,7 @@ public class UnreadFetchService {
         }
         // Built-in sources: needs source enabled, category personalized, and custom-only mode off.
         else if (source_name != null && category_id != null && prefs.personalized_feed_enabled && !prefs.myfeed_custom_only) {
-            var personalized_cats = prefs.personalized_categories;
+            var personalized_cats = prefs.categories;
             if (personalized_cats != null && personalized_cats.contains(category_id)) {
                 string? source_id = SourceManager.normalize_source_display_name_to_id(source_name);
 
@@ -237,10 +237,6 @@ public class UnreadFetchService {
         var source_mgr = win.source_manager;
         var enabled_sources = (source_mgr != null) ? source_mgr.get_enabled_source_enums() : new Gee.ArrayList<NewsSource>();
 
-        if (enabled_sources.size == 0) {
-            enabled_sources.add(win.effective_news_source());
-        }
-
         // Fetch these first so they load even if RSS feeds time out
         string[] priority_categories = {"frontpage"};
         foreach (var source in enabled_sources) {
@@ -332,16 +328,12 @@ public class UnreadFetchService {
         if (prefs == null || !prefs.personalized_feed_enabled) return;
 
         // Get personalized categories
-        var personalized_cats = prefs.personalized_categories;
+        var personalized_cats = prefs.categories;
         if (personalized_cats == null || personalized_cats.size == 0) return;
 
         // Get all enabled built-in sources
         var source_mgr = win.source_manager;
         var enabled_sources = (source_mgr != null) ? source_mgr.get_enabled_source_enums() : new Gee.ArrayList<NewsSource>();
-
-        if (enabled_sources.size == 0) {
-            enabled_sources.add(win.effective_news_source());
-        }
 
         // Fetch metadata for personalized categories from all enabled sources
         foreach (var source in enabled_sources) {

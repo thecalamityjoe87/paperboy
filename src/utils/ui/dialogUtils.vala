@@ -15,8 +15,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+public delegate void DialogConfirmFunc();
+
 // Centers Adw.Dialogs over the content column instead of the whole window.
 public class DialogUtils : GLib.Object {
+    // "Cancel" / destructive-styled confirm alert; on_confirm runs only if
+    // the user picks the confirm button. Escape and the default both cancel.
+    public static void confirm_destructive(Gtk.Widget parent, string heading, string body, string confirm_label, owned DialogConfirmFunc on_confirm) {
+        var confirm = new Adw.AlertDialog(heading, body);
+        confirm.add_response("cancel", "Cancel");
+        confirm.add_response("confirm", confirm_label);
+        confirm.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE);
+        confirm.set_default_response("cancel");
+        confirm.set_close_response("cancel");
+        confirm.response.connect((response_id) => {
+            if (response_id == "confirm") on_confirm();
+        });
+        confirm.present(parent);
+    }
+
     // AdwDialogHost is internal to libadwaita, so it's created by name; null
     // (dialogs fall back to the window) if a future version drops it.
     public static Gtk.Widget? create_host(Gtk.Widget child) {

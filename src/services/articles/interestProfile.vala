@@ -192,13 +192,12 @@ public class InterestProfile : GLib.Object {
         return score * factor;
     }
 
-    // Topic category for an article; views like Front Page carry the real one in a "##category::" source suffix.
+    // Topic category for an article; views like Front Page carry the real one in the source label (see SourceLabel).
     public static string? resolve_category(string? category_id, string? source) {
-        string? cat = category_id;
-        if (source != null) {
-            int idx = source.index_of("##category::");
-            if (idx >= 0) cat = source.substring(idx + 12).strip();
-        }
+        // Bound to a local first: Vala frees a temporary struct's fields
+        // before a ?? on them is used
+        var label = SourceLabel.parse(source);
+        string? cat = label.category ?? category_id;
         if (cat == null || cat.length == 0) return null;
         switch (cat) {
             case "frontpage": case "topten": case "saved": case "history":

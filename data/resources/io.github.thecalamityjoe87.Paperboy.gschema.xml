@@ -47,11 +47,6 @@
     </key>
 
     <!-- User Preferences -->
-    <key name="news-source" type="s">
-      <default>'guardian'</default>
-      <summary>Default news source</summary>
-      <description>The currently selected news source (guardian, bbc, nytimes, wsj, bloomberg, abc, npr, fox)</description>
-    </key>
 
     <key name="category" type="s">
       <default>'frontpage'</default>
@@ -176,13 +171,13 @@
     </key>
 
     <!-- List Preferences (stored as string arrays) -->
-    <key name="personalized-categories" type="as">
-      <default>[]</default>
-      <summary>Personalized feed categories</summary>
-      <description>List of category IDs included in the personalized feed</description>
+    <key name="categories" type="as">
+      <default>['general', 'us', 'technology', 'business', 'sports', 'science', 'health', 'entertainment', 'politics', 'lifestyle']</default>
+      <summary>Followed news categories</summary>
+      <description>Category IDs shown in the sidebar, in order; My Feed draws from the same list</description>
     </key>
 
-    <!-- Separate from personalized-categories on purpose: a custom RSS
+    <!-- Separate from the categories list on purpose: a custom RSS
          feed's own "enabled" switch (see Preferences -> Feeds) controls
          whether it exists/shows in the sidebar at all, independent of
          whether its articles are merged into My Feed. This list is that
@@ -223,7 +218,7 @@
 
     <!-- Empty means every league SportsScoresService knows about is shown;
          a league key here is hidden from the Sports score-card sections.
-         Opt-out (rather than opt-in, like personalized-categories) so a
+         Opt-out (rather than opt-in, like the categories list) so a
          newly added league shows up for existing users without requiring
          them to re-enable it. -->
     <key name="sports-scores-enabled" type="b">

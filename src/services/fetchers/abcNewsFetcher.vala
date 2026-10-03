@@ -25,9 +25,11 @@ public class AbcNewsFetcher : BaseFetcher {
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
-        string url = "https://abcnews.go.com/abcnews/internationalheadlines";
-
+        string url;
         switch (category) {
+            case "general":
+                url = "https://abcnews.go.com/abcnews/internationalheadlines";
+                break;
             case "us":
                 url = "https://abcnews.go.com/abcnews/usheadlines";
                 break;
@@ -50,8 +52,9 @@ public class AbcNewsFetcher : BaseFetcher {
                 url = "https://abcnews.go.com/abcnews/politicsheadlines";
                 break;
             default:
-                url = "https://abcnews.go.com/abcnews/internationalheadlines";
-                break;
+            // No feed for this category - fetching a fallback feed here would
+            // show its articles mislabeled under this category
+                return;
         }
 
         RssFeedProcessor.fetch_rss_url(url, "ABC News", FetcherUtils.category_display_name(category), category, search_query, session, sink);

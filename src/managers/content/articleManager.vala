@@ -239,16 +239,13 @@ namespace Managers {
         }
 
         // On Front Page, category_id is always "frontpage" - the real
-        // category travels in source_name as a "##category::<cat>" suffix.
+        // category travels in source_name's SourceLabel.
         private string resolve_display_category(string category_id, string? source_name) {
-            string cat = category_id;
-            if (cat == "frontpage" && source_name != null) {
-                int idx = source_name.index_of("##category::");
-                if (idx >= 0 && source_name.length > idx + 12) {
-                    cat = source_name.substring(idx + 12).strip();
-                }
-            }
-            return cat;
+            if (category_id != "frontpage") return category_id;
+            // Bound to a local first: Vala frees a temporary struct's fields
+            // before a ?? on them is used
+            var label = SourceLabel.parse(source_name);
+            return label.category ?? category_id;
         }
 
         private string extract_display_category(ArticleItem item) {
@@ -355,10 +352,9 @@ namespace Managers {
                 return (source_name != null && source_name.length > 0) ? "customfeed:" + source_name : null;
             }
             if (source_name == null || source_name.length == 0 || window.source_manager == null) return null;
-            foreach (var src in window.source_manager.get_enabled_source_enums()) {
-                if (SourceManager.source_name_matches(src, source_name)) {
-                    return "source:" + SourceManager.source_enum_to_id(src);
-                }
+            NewsSource named = BuiltinSources.from_name(source_name);
+            if (named != NewsSource.UNKNOWN && window.source_manager.get_enabled_source_enums().contains(named)) {
+                return "source:" + BuiltinSources.for_source(named).id;
             }
             return null;
         }
@@ -488,7 +484,11 @@ namespace Managers {
                     return;
                 }
 
-                if (!window.source_manager.should_display_article(url, category_id)) {
+                // Built-in outlets the user turned off are hidden everywhere -
+                // except in their own followed RSS feeds (a feed's page, or its
+                // "myfeed"-tagged articles in My Feed), which they chose directly.
+                bool from_followed_feed = window.category_manager.is_rssfeed_view() || category_id == "myfeed";
+                if (!from_followed_feed && window.source_manager != null && window.source_manager.is_from_disabled_source(url)) {
                     return;
                 }
             }
@@ -803,11 +803,7 @@ namespace Managers {
                 int default_hero_w = window.estimate_content_width();
                 int default_hero_h = is_trending ? TRENDING_HERO_DEFAULT_HEIGHT : HERO_DEFAULT_HEIGHT;
 
-                string hero_display_cat = category_id;
-                if (hero_display_cat == "frontpage" && source_name != null) {
-                    int idx = source_name.index_of("##category::");
-                    if (idx >= 0 && source_name.length > idx + 12) hero_display_cat = source_name.substring(idx + 12).strip();
-                }
+                string hero_display_cat = resolve_display_category(category_id, source_name);
 
                 string hero_category_text = window.category_chip_text(hero_display_cat);
 
@@ -866,11 +862,11 @@ namespace Managers {
                 } else if (featured_carousel_category != null && featured_carousel_category == category_id) {
                     allow_slide = true;
                 } else {
-                    bool has_personalized = window.prefs.personalized_categories != null && window.prefs.personalized_categories.size > 0;
+                    bool has_personalized = window.prefs.categories != null && window.prefs.categories.size > 0;
                     if (!has_personalized) {
                         allow_slide = true;
                     } else {
-                        foreach (var pc in window.prefs.personalized_categories) {
+                        foreach (var pc in window.prefs.categories) {
                             if (pc == category_id) { allow_slide = true; break; }
                         }
                     }
@@ -884,11 +880,7 @@ namespace Managers {
                 return;
             }
 
-            string slide_display_cat = category_id;
-            if (slide_display_cat == "frontpage" && source_name != null) {
-                int idx2 = source_name.index_of("##category::");
-                if (idx2 >= 0 && source_name.length > idx2 + 12) slide_display_cat = source_name.substring(idx2 + 12).strip();
-            }
+            string slide_display_cat = resolve_display_category(category_id, source_name);
 
             if (hero_carousel == null && window.layout_manager != null && window.layout_manager.featured_box != null) {
                 hero_carousel = new HeroCarousel(window.layout_manager.featured_box);
@@ -968,11 +960,7 @@ namespace Managers {
         if (window.category_manager.is_myfeed_view() && window.layout_manager.is_using_category_sections()) {
             place_myfeed_article_cards(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, myfeed_row_key_hint);
         } else {
-            string card_display_cat = category_id;
-            if (card_display_cat == "frontpage" && source_name != null) {
-                int idx3 = source_name.index_of("##category::");
-                if (idx3 >= 0 && source_name.length > idx3 + 12) card_display_cat = source_name.substring(idx3 + 12).strip();
-            }
+            string card_display_cat = resolve_display_category(category_id, source_name);
             place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, card_display_cat, false, is_trending);
         }
     }
@@ -1090,11 +1078,7 @@ namespace Managers {
         // matches even if col_w is read at slightly different times.
         int img_h = CARD_IMAGE_HEIGHT;
 
-        string card_display_cat = category_id;
-        if (card_display_cat == "frontpage" && source_name != null) {
-            int idx3 = source_name.index_of("##category::");
-            if (idx3 >= 0 && source_name.length > idx3 + 12) card_display_cat = source_name.substring(idx3 + 12).strip();
-        }
+        string card_display_cat = resolve_display_category(category_id, source_name);
 
         string category_label_text = window.category_chip_text(card_display_cat);
 
@@ -1736,23 +1720,18 @@ namespace Managers {
         }
 
         NewsSource resolved = window.resolve_source(source_name, url);
-        NewsSource default_source = window.prefs.news_source;
 
-        // A name that doesn't match the resolved default source's own name
-        // means this is actually a custom RSS feed that fell back to the default.
-        if (resolved == default_source && source_name != null && source_name.length > 0) {
-            if (!source_name_matches(resolved, source_name)) {
-                window.set_rss_placeholder_image(image, w, h, source_name);
-                return;
-            }
+        // A built-in outlet's URL under a name that isn't that outlet's means
+        // a custom RSS feed hosted on its site - brand it as the feed.
+        if (resolved != NewsSource.UNKNOWN && source_name != null && source_name.length > 0
+            && BuiltinSources.from_name(source_name) != resolved) {
+            window.set_rss_placeholder_image(image, w, h, source_name);
+            return;
         }
 
         window.set_placeholder_image_for_source(image, w, h, resolved);
     }
 
-    private bool source_name_matches(NewsSource source, string name) {
-        return SourceManager.source_name_matches(source, name);
-    }
     public void clear_article_buffer() {
         article_buffer.clear();
     }

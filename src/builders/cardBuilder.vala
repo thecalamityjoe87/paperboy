@@ -42,53 +42,6 @@ public class CardBuilder : GLib.Object {
         return lbl;
     }
 
-    private static string source_display_name(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN: return "The Guardian";
-            case NewsSource.WALL_STREET_JOURNAL: return "Wall Street Journal";
-            case NewsSource.BBC: return "BBC News";
-            case NewsSource.NEW_YORK_TIMES: return "NY Times";
-            case NewsSource.BLOOMBERG: return "Bloomberg";
-            case NewsSource.ABC_NEWS: return "ABC News";
-            case NewsSource.NPR: return "NPR";
-            case NewsSource.FOX: return "Fox News";
-            case NewsSource.PBS: return "PBS NewsHour";
-            default: return "News";
-        }
-    }
-
-    // Shared with SourceMetadata.resolve_source_icon() so other UI can find the same bundled logo.
-    public static NewsSource? resolve_builtin_news_source(string? display_name) {
-        if (display_name == null || display_name.length == 0) return null;
-        string low = display_name.down();
-        if (low.index_of("guardian") >= 0) return NewsSource.GUARDIAN;
-        if (low.index_of("bbc") >= 0) return NewsSource.BBC;
-        if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
-            (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) return NewsSource.NEW_YORK_TIMES;
-        if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) return NewsSource.WALL_STREET_JOURNAL;
-        if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
-        if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) return NewsSource.ABC_NEWS;
-        if (low.index_of("npr") >= 0) return NewsSource.NPR;
-        if (low.index_of("fox") >= 0) return NewsSource.FOX;
-        if (low.index_of("pbs") >= 0) return NewsSource.PBS;
-        return null;
-    }
-
-    public static string? source_icon_filename(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN: return "guardian-logo.png";
-            case NewsSource.BBC: return "bbc-logo.png";
-            case NewsSource.NEW_YORK_TIMES: return "nytimes-logo.png";
-            case NewsSource.BLOOMBERG: return "bloomberg-logo.png";
-            case NewsSource.ABC_NEWS: return "abc-logo.png";
-            case NewsSource.NPR: return "npr-logo.png";
-            case NewsSource.FOX: return "foxnews-logo.png";
-            case NewsSource.WALL_STREET_JOURNAL: return "wsj-logo.png";
-            case NewsSource.PBS: return "pbs-logo.png";
-            default: return null;
-        }
-    }
-
     private static Gtk.Box create_badge_box() {
         var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
         box.add_css_class("source-badge");
@@ -225,40 +178,18 @@ public class CardBuilder : GLib.Object {
     public static Gtk.Widget build_source_badge(NewsSource source) {
         var box = create_badge_box();
 
-        string? filename = source_icon_filename(source);
-        if (filename != null) {
-            string? path = DataPathsUtils.find_data_file("icons/" + filename);
+        string? path = BuiltinSources.logo_path(source);
+        if (path != null) {
             Gtk.Box? logo_wrapper = create_logo_wrapper_from_file(path);
             if (logo_wrapper != null) {
                 box.append(logo_wrapper);
             }
         }
 
-        var lbl = create_source_badge_label(source_display_name(source), 12);
+        var lbl = create_source_badge_label(BuiltinSources.short_name(source), 12);
         box.append(lbl);
 
         return box;
-    }
-
-    // API-backed articles can encode source display name and logo URL in `source_name`
-    // as "Name||logo_url##category::category_id".
-    // This function centralizes decoding of that format.
-    public static void parse_encoded_source_name(string? source_name, out string? display_name, out string? logo_url) {
-        logo_url = null;
-        display_name = source_name;
-        if (source_name != null && source_name.index_of("||") >= 0) {
-            string[] parts = source_name.split("||");
-            if (parts.length >= 1) display_name = parts[0].strip();
-            if (parts.length >= 2) {
-                logo_url = parts[1].strip();
-                int lcat_idx = logo_url.index_of("##category::");
-                if (lcat_idx >= 0 && logo_url.length > lcat_idx) logo_url = logo_url.substring(0, lcat_idx).strip();
-            }
-        }
-        if (display_name != null) {
-            int cat_idx = display_name.index_of("##category::");
-            if (cat_idx >= 0 && display_name.length > cat_idx) display_name = display_name.substring(0, cat_idx).strip();
-        }
     }
 
     private static Gtk.Widget build_badge_with_optional_logo(string display_text, Gtk.Box? logo_wrapper) {
@@ -282,23 +213,8 @@ public class CardBuilder : GLib.Object {
             }
         }
 
-        if (meta_logo_url != null && meta_logo_url.length > 0 &&
-            (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
-            return create_logo_wrapper_from_url(win, meta_logo_url);
-        }
-
-        if (rss_url != null && rss_url.length > 0) {
-            string? host = UrlUtils.extract_host_from_url(rss_url);
-            if (host != null && host.length > 0) {
-                string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
-                return create_logo_wrapper_from_url(win, google_favicon_url);
-            }
-        }
-
-        if (rss_favicon_url != null && rss_favicon_url.length > 0 &&
-            (rss_favicon_url.has_prefix("http://") || rss_favicon_url.has_prefix("https://"))) {
-            return create_logo_wrapper_from_url(win, rss_favicon_url);
-        }
+        string? logo_url = SourceMetadata.pick_logo_url(meta_logo_url, rss_url, rss_favicon_url);
+        if (logo_url != null) return create_logo_wrapper_from_url(win, logo_url);
 
         return null;
     }
@@ -512,15 +428,15 @@ public class CardBuilder : GLib.Object {
     public static bool is_source_followed(string url) {
         NewsSource builtin = SourceManager.builtin_source_for_article(url);
         if (builtin != NewsSource.UNKNOWN) {
-            return NewsPreferences.get_instance().preferred_source_enabled(SourceManager.source_enum_to_id(builtin));
+            return NewsPreferences.get_instance().preferred_source_enabled(BuiltinSources.for_source(builtin).id);
         }
         return Paperboy.RssSourceStore.get_instance().is_article_host_followed(url);
     }
 
     public static Gtk.Widget build_source_badge_dynamic(NewsWindow win, string? source_name, string? url, string? category_id) {
-        string? provided_logo_url = null;
-        string? display_name = null;
-        parse_encoded_source_name(source_name, out display_name, out provided_logo_url);
+        var label = SourceLabel.parse(source_name);
+        string? display_name = label.name;
+        string? provided_logo_url = label.logo_url;
 
         // For My Feed: first try SourceMetadata, then fall back to matching an RSS source by name or URL/domain.
         if (category_id == "myfeed") {
@@ -574,9 +490,7 @@ public class CardBuilder : GLib.Object {
                 }
 
                 if (is_match) {
-                    string? dummy_logo_url;
-                    string final_display_name;
-                    parse_encoded_source_name(src.name, out final_display_name, out dummy_logo_url);
+                    string final_display_name = SourceLabel.name_of(src.name);
 
                     string? meta_logo_url = SourceMetadata.get_logo_url_for_source(final_display_name);
                     string? meta_filename = SourceMetadata.get_saved_filename_for_source(final_display_name);
@@ -588,8 +502,8 @@ public class CardBuilder : GLib.Object {
         }
 
         if (provided_logo_url == null && display_name != null && display_name.length > 0) {
-            NewsSource? resolved = resolve_builtin_news_source(display_name);
-            if (resolved != null) {
+            NewsSource resolved = BuiltinSources.from_name(display_name);
+            if (resolved != NewsSource.UNKNOWN) {
                 return build_source_badge(resolved);
             }
         }

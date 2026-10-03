@@ -111,6 +111,12 @@ namespace Managers {
             return MISC_SECTION_KEY;
         }
 
+        // Sidebar category a frontpage API category belongs to - the one its
+        // Front Page row's "..." button leads to - or null if none does.
+        public static string? sidebar_category_for(string api_category) {
+            return sidebar_nav_id_for(frontpage_row_for(api_category));
+        }
+
         // Cards a Front Page row starts with: one visible width plus one peeking past the edge.
         public int frontpage_row_initial_cards() {
             return (columns_count + 1).clamp(4, 6);
@@ -600,8 +606,8 @@ namespace Managers {
         * Section key convention: category rows use the bare category_id
         * (unprefixed, exactly like Front Page) so find_category_section()
         * and the overflow/load-more machinery keep working unmodified for
-        * them. Source rows use "source:<id>" (see SourceManager.
-        * source_enum_to_id) so they can never collide with a category id.
+        * them. Source rows use "source:<id>" (the BuiltinSources
+        * id) so they can never collide with a category id.
         *
         * Custom RSS feeds opted into My Feed (NewsPreferences.
         * myfeed_feed_enabled, set from the My Feed Custom Feeds dialog) get
@@ -645,9 +651,9 @@ namespace Managers {
             var source_logo_urls = new Gee.ArrayList<string?>();
             if (window != null && window.source_manager != null) {
                 foreach (var src in window.source_manager.get_enabled_source_enums()) {
-                    source_keys.add("source:" + SourceManager.source_enum_to_id(src));
-                    source_names.add(SourceManager.get_source_name(src));
-                    source_logo_files.add(SourceUtils.get_source_icon_path(src));
+                    source_keys.add("source:" + BuiltinSources.for_source(src).id);
+                    source_names.add(BuiltinSources.short_name(src));
+                    source_logo_files.add(BuiltinSources.logo_path(src));
                     source_logo_urls.add(null);
                 }
             }

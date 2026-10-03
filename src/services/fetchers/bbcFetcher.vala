@@ -25,9 +25,11 @@ public class BbcFetcher : BaseFetcher {
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
-        string url = "https://feeds.bbci.co.uk/news/world/rss.xml";
-
+        string url;
         switch (category) {
+            case "general":
+                url = "https://feeds.bbci.co.uk/news/world/rss.xml";
+                break;
             case "technology":
                 url = "https://feeds.bbci.co.uk/news/technology/rss.xml";
                 break;
@@ -53,8 +55,9 @@ public class BbcFetcher : BaseFetcher {
                 url = "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml";
                 break;
             default:
-                url = "https://feeds.bbci.co.uk/news/world/rss.xml";
-                break;
+            // No feed for this category - fetching a fallback feed here would
+            // show its articles mislabeled under this category
+                return;
         }
 
         RssFeedProcessor.fetch_rss_url(url, "BBC News", category_display_name(category), category, search_query, session, sink);

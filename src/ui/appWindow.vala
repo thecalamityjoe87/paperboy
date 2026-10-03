@@ -122,13 +122,6 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Deferred download check timeout
     public uint deferred_check_timeout_id = 0;
 
-    // Return the NewsSource the UI should treat as "active". If the
-    // user has enabled exactly one preferred source, map that id to the
-    // corresponding enum; otherwise use the explicit prefs.news_source.
-    public NewsSource effective_news_source() {
-        return source_manager.effective_news_source();
-    }
-
     // Determine if the system is currently using dark mode
     public bool is_dark_mode() {
         var sm = Adw.StyleManager.get_default();
@@ -1198,11 +1191,11 @@ public class NewsWindow : Adw.ApplicationWindow {
     }
 
     public string get_source_name(NewsSource source) {
-        return SourceManager.get_source_name(source);
+        return BuiltinSources.short_name(source);
     }
 
     public NewsSource infer_source_from_url(string? url) {
-        return SourceManager.infer_source_from_url(url);
+        return BuiltinSources.from_url(url);
     }
 
     public NewsSource resolve_source(string? source_name, string url) {
@@ -1257,9 +1250,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         }
     }
 
-    // Variant that honors an explicit NewsSource so the UI can render a
-    // per-article branded placeholder even when the application's global
-    // prefs.news_source differs (useful when multiple sources are enabled).
+    // Branded placeholder for a specific article's built-in source.
     public void set_placeholder_image_for_source(Gtk.Picture image, int width, int height, NewsSource source) {
         PlaceholderBuilder.set_placeholder_image_for_source(image, width, height, source);
     }

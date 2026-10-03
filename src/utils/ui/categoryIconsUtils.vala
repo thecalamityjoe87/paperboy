@@ -86,34 +86,42 @@ public class CategoryIconsUtils : GLib.Object {
         }
     }
 
-    // Create a category icon widget for sidebar-sized use.
-    public static Gtk.Widget? create_category_icon(string cat) {
-        string? filename = null;
+    // Bundled "<name>-mono.svg" basename for a category's sidebar icon, or
+    // null if it has none (then create_category_icon() uses a theme icon).
+    public static string? icon_file_for(string cat) {
         switch (cat) {
-            case "topten": filename = "topten-mono.svg"; break;
-            case "frontpage": filename = "frontpage-mono.svg"; break;
-            case "myfeed": filename = "myfeed-mono.svg"; break;
-            case "saved": filename = "saved-mono.svg"; break;
-            case "history": filename = "history-mono.svg"; break;
-            case "magazines": filename = "magazine-mono.svg"; break;
-            case "podcasts": filename = "podcast-mono.svg"; break;
+            case "topten": return "topten-mono.svg";
+            case "frontpage": return "frontpage-mono.svg";
+            case "myfeed": return "myfeed-mono.svg";
+            case "saved": return "saved-mono.svg";
+            case "history": return "history-mono.svg";
+            case "magazines": return "magazine-mono.svg";
+            case "podcasts": return "podcast-mono.svg";
             // Sidebar's "Find Podcasts" row only - distinct from "podcasts"
             // above (used by subscription rows) so this icon swap doesn't
             // affect them.
-            case "podcasts_discover": filename = "antenna-mono.svg"; break;
-            case "general": filename = "world-mono.svg"; break;
-            case "us": filename = "us-mono.svg"; break;
-            case "local_news": filename = "local-mono.svg"; break;
-            case "technology": filename = "technology-mono.svg"; break;
-            case "business": filename = "business-mono.svg"; break;
-            case "science": filename = "science-mono.svg"; break;
-            case "sports": filename = "sports-mono.svg"; break;
-            case "health": filename = "health-mono.svg"; break;
-            case "entertainment": filename = "entertainment-mono.svg"; break;
-            case "politics": filename = "politics-mono.svg"; break;
-            case "lifestyle": filename = "lifestyle-mono.svg"; break;
-            default: filename = null; break;
+            case "podcasts_discover": return "antenna-mono.svg";
+            case "general": return "world-mono.svg";
+            case "us": return "us-mono.svg";
+            case "local_news": return "local-mono.svg";
+            case "technology": return "technology-mono.svg";
+            case "business": return "business-mono.svg";
+            case "markets": return "markets-mono.svg";
+            case "industries": return "industries-mono.svg";
+            case "economics": return "economics-mono.svg";
+            case "science": return "science-mono.svg";
+            case "sports": return "sports-mono.svg";
+            case "health": return "health-mono.svg";
+            case "entertainment": return "entertainment-mono.svg";
+            case "politics": return "politics-mono.svg";
+            case "lifestyle": return "lifestyle-mono.svg";
+            default: return null;
         }
+    }
+
+    // Create a category icon widget for sidebar-sized use.
+    public static Gtk.Widget? create_category_icon(string cat) {
+        string? filename = icon_file_for(cat);
 
         if (filename != null) {
             string[] candidates = {

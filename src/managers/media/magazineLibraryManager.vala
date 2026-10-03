@@ -664,17 +664,9 @@ namespace Managers {
         private void confirm_delete_selected() {
             if (window == null || selected_ids.size == 0) return;
             int count = selected_ids.size;
-            var confirm_dialog = new Adw.AlertDialog(
-                count == 1 ? "Delete 1 magazine?" : "Delete %d magazines?".printf(count),
-                "Their downloaded files are removed too. This can't be undone."
-            );
-            confirm_dialog.add_response("cancel", "Cancel");
-            confirm_dialog.add_response("delete", "Delete");
-            confirm_dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE);
-            confirm_dialog.set_default_response("cancel");
-            confirm_dialog.set_close_response("cancel");
-            confirm_dialog.response.connect((response_id) => {
-                if (response_id != "delete") return;
+            string heading = count == 1 ? "Delete 1 magazine?" : "Delete %d magazines?".printf(count);
+            DialogUtils.confirm_destructive((Gtk.Window) window, heading,
+                "Their downloaded files are removed too. This can't be undone.", "Delete", () => {
                 var ids = new Gee.ArrayList<int64?>();
                 ids.add_all(selected_ids);
                 exit_selection_mode();
@@ -685,7 +677,6 @@ namespace Managers {
                     window.toast_manager.show_toast(ids.size == 1 ? "Removed 1 magazine" : "Removed %d magazines".printf(ids.size));
                 }
             });
-            confirm_dialog.present((Gtk.Window) window);
         }
 
         private void wire_selection_bar() {

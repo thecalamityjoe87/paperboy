@@ -29,13 +29,13 @@ public class PbsFetcher : BaseFetcher {
         // /newshour/feeds/rss/<section> (verified by hand - the more
         // obvious-looking /newshour/<section>/feed URLs return an
         // unrelated HTML article page, not a feed, despite a 200 status).
-        // It has no dedicated technology, business, or sports desk, so
-        // those (and anything else unmapped) fall back to World News,
-        // matching how BbcFetcher handle sections a source
-        // simply doesn't cover.
-        string url = "https://www.pbs.org/newshour/feeds/rss/world";
-
+        // It has no technology, sports, or lifestyle desk, so it fetches
+        // nothing for those.
+        string url;
         switch (category) {
+            case "general":
+                url = "https://www.pbs.org/newshour/feeds/rss/world";
+                break;
             case "us":
                 url = "https://www.pbs.org/newshour/feeds/rss/nation";
                 break;
@@ -55,8 +55,9 @@ public class PbsFetcher : BaseFetcher {
                 url = "https://www.pbs.org/newshour/feeds/rss/arts";
                 break;
             default:
-                url = "https://www.pbs.org/newshour/feeds/rss/world";
-                break;
+            // No feed for this category - fetching a fallback feed here would
+            // show its articles mislabeled under this category
+                return;
         }
 
         RssFeedProcessor.fetch_rss_url(url, "PBS NewsHour", category_display_name(category), category, search_query, session, sink);

@@ -27,12 +27,6 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
  public class SourceManager : GLib.Object {
 
-    // All available built-in sources
-    private const string[] ALL_BUILTIN_SOURCES = {
-        "guardian", "bbc", "nytimes", "wsj",
-        "bloomberg", "abc", "npr", "fox", "pbs"
-    };
-
     // Currently enabled sources (references prefs)
     private weak NewsPreferences prefs;
     private weak NewsWindow window;
@@ -50,174 +44,18 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
     // Get list of currently enabled sources
     public ArrayList<string> get_enabled_sources() {
-        if (prefs.preferred_sources == null || prefs.preferred_sources.size == 0) {
-            // Default to all sources if none specified
-            var result = new ArrayList<string>();
-            foreach (var src in ALL_BUILTIN_SOURCES) {
-                result.add(src);
-            }
-            return result;
-        }
         return prefs.preferred_sources;
     }
 
-    // Check if we're in single-source mode
-    public bool is_single_source_mode() {
-        var enabled = get_enabled_sources();
-        return enabled.size == 1;
-    }
-
-    // Check if we're in multi-source mode
-    public bool is_multi_source_mode() {
-        var enabled = get_enabled_sources();
-        return enabled.size > 1;
-    }
-
-    // Get the single enabled source (only valid in single-source mode)
-    public string? get_single_source() {
-        var enabled = get_enabled_sources();
-        if (enabled.size == 1) {
-            return enabled.get(0);
-        }
-        return null;
-    }
-
-    // Check if a specific source is enabled
-    public bool is_source_enabled(string source_id) {
-        var enabled = get_enabled_sources();
-        foreach (var src in enabled) {
-            if (src == source_id) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // Convert source ID string to NewsSource enum
-    public static NewsSource source_id_to_enum(string source_id) {
-        switch (source_id) {
-            case "guardian": return NewsSource.GUARDIAN;
-            case "bbc": return NewsSource.BBC;
-            case "nytimes": return NewsSource.NEW_YORK_TIMES;
-            case "wsj": return NewsSource.WALL_STREET_JOURNAL;
-            case "bloomberg": return NewsSource.BLOOMBERG;
-            case "abc": return NewsSource.ABC_NEWS;
-            case "npr": return NewsSource.NPR;
-            case "fox": return NewsSource.FOX;
-            case "pbs": return NewsSource.PBS;
-            default: return NewsSource.GUARDIAN; // fallback
-        }
-    }
-
-    // Convert NewsSource enum to source ID string
-    public static string source_enum_to_id(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN: return "guardian";
-            case NewsSource.BBC: return "bbc";
-            case NewsSource.NEW_YORK_TIMES: return "nytimes";
-            case NewsSource.WALL_STREET_JOURNAL: return "wsj";
-            case NewsSource.BLOOMBERG: return "bloomberg";
-            case NewsSource.ABC_NEWS: return "abc";
-            case NewsSource.NPR: return "npr";
-            case NewsSource.FOX: return "fox";
-            case NewsSource.PBS: return "pbs";
-            default: return "guardian";
-        }
-    }
-
-    // Get human-readable display name for a NewsSource
-    public static string get_source_name(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN:
-                return "The Guardian";
-            case NewsSource.WALL_STREET_JOURNAL:
-                return "Wall Street Journal";
-            case NewsSource.BBC:
-                return "BBC News";
-            case NewsSource.NEW_YORK_TIMES:
-                return "NY Times";
-            case NewsSource.BLOOMBERG:
-                return "Bloomberg";
-            case NewsSource.ABC_NEWS:
-                return "ABC News";
-            case NewsSource.NPR:
-                return "NPR";
-            case NewsSource.FOX:
-                return "Fox News";
-            case NewsSource.PBS:
-                return "PBS NewsHour";
-            default:
-                return "News";
-        }
-    }
-
-    // Filters out "custom:<url>" entries first - source_id_to_enum() falls back to
-    // GUARDIAN for unrecognized ids, which would otherwise map every custom feed to a bogus GUARDIAN entry.
+    // Enabled built-in sources only - "custom:<url>" feeds and any other
+    // unrecognized ids are skipped.
     public ArrayList<NewsSource> get_enabled_source_enums() {
         var result = new ArrayList<NewsSource>();
-        var enabled = get_enabled_sources();
-        foreach (var src_id in enabled) {
-            if (src_id.has_prefix("custom:")) continue;
-            result.add(source_id_to_enum(src_id));
+        foreach (var src_id in get_enabled_sources()) {
+            var builtin = BuiltinSources.for_id(src_id);
+            if (builtin != null) result.add(builtin.source);
         }
         return result;
-    }
-
-    // Return the NewsSource the UI should treat as "active". If the
-    // user has enabled exactly one preferred source, map that id to the
-    // corresponding enum; otherwise use the explicit prefs.news_source.
-    public NewsSource effective_news_source() {
-        if (prefs.preferred_sources != null && prefs.preferred_sources.size == 1) {
-            return source_id_to_enum(prefs.preferred_sources.get(0));
-        }
-        return prefs.news_source;
-    }
-
-    // Helper: Strip metadata separators from display name (||logo_url and ##category::cat)
-    private static string strip_metadata_separators(string? name) {
-        if (name == null || name.length == 0) return "";
-
-        string result = name;
-
-        // Strip logo URL separator
-        int pipe_idx = result.index_of("||");
-        if (pipe_idx >= 0) {
-            result = result.substring(0, pipe_idx);
-        }
-
-        // Strip category suffix
-        int cat_idx = result.index_of("##category::");
-        if (cat_idx >= 0) {
-            result = result.substring(0, cat_idx);
-        }
-
-        return result.strip();
-    }
-
-    // Helper: Construct Google favicon URL for a given host
-    private static string get_favicon_url(string host) {
-        return "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
-    }
-
-    // Helper: Parse source metadata string and extract display name and logo URL
-    // Format: "Display Name||logo_url##category::cat"
-    private static void parse_source_metadata(string? metadata, out string? display_name, out string? logo_url) {
-        display_name = null;
-        logo_url = null;
-
-        if (metadata == null || metadata.length == 0) return;
-
-        display_name = metadata;
-        int pipe_idx = metadata.index_of("||");
-        if (pipe_idx >= 0 && metadata.length > pipe_idx + 2) {
-            display_name = metadata.substring(0, pipe_idx).strip();
-            logo_url = metadata.substring(pipe_idx + 2).strip();
-            // Remove category suffix from logo URL
-            logo_url = strip_metadata_separators(logo_url);
-        }
-
-        // Remove category suffix from display name
-        display_name = strip_metadata_separators(display_name);
     }
 
     // Helper: Resolve metadata with priority fallback
@@ -250,7 +88,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
         // Resolve with priority: API > article > existing > fallback
         resolved_display_name = resolve_metadata_value(api_display_name, article_display_name, existing_display_name, fallback_display_name);
-        resolved_logo_url = resolve_metadata_value(api_logo_url, article_logo_url, existing_logo_url, get_favicon_url(host));
+        resolved_logo_url = resolve_metadata_value(api_logo_url, article_logo_url, existing_logo_url, SourceMetadata.google_favicon_url(host));
     }
 
     // Normalize source display name to canonical ID
@@ -261,95 +99,26 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             return null;
         }
 
-        string clean_name = strip_metadata_separators(display_name);
-        string low = clean_name.down();
+        string clean_name = SourceLabel.name_of(display_name);
+        var builtin = BuiltinSources.for_source(BuiltinSources.from_name(clean_name));
+        if (builtin != null) return builtin.id;
 
-        // Map display names to source IDs
-        if (low.index_of("guardian") >= 0) return "guardian";
-        if (low == "bbc" || low == "bbc news" || low.index_of("bbc") >= 0) return "bbc";
-        if (low.index_of("new york times") >= 0 || low.index_of("ny times") >= 0 || low.index_of("nytimes") >= 0) return "nytimes";
-        if (low.index_of("wall street") >= 0 || low == "wsj") return "wsj";
-        if (low.index_of("bloomberg") >= 0) return "bloomberg";
-        if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) return "abc";
-        if (low == "npr") return "npr";
-        if (low.index_of("fox") >= 0) return "fox";
-        if (low.index_of("pbs") >= 0) return "pbs";
+        // Not a built-in outlet, but tracked by id the same way
+        string low = clean_name.down();
         if (low.index_of("hacker news") >= 0 || low == "hackernews") return "hackernews";
 
-        return null; // Not a recognized built-in source
-    }
-
-    // Infer source from URL by checking known domain substrings.
-    // Returns UNKNOWN for unrecognized URLs to avoid incorrect branding.
-    public static NewsSource infer_source_from_url(string? url) {
-        if (url == null || url.length == 0) {
-            return NewsSource.UNKNOWN;
-        }
-
-        string low = url.down();
-
-        if (low.index_of("guardian") >= 0 || low.index_of("theguardian") >= 0) {
-            return NewsSource.GUARDIAN;
-        }
-        if (low.index_of("bbc.co") >= 0 || low.index_of("bbc.") >= 0) {
-            return NewsSource.BBC;
-        }
-        if (low.index_of("nytimes") >= 0 || low.index_of("nyti.ms") >= 0) {
-            return NewsSource.NEW_YORK_TIMES;
-        }
-        if (low.index_of("wsj.com") >= 0 || low.index_of("dowjones") >= 0) {
-            return NewsSource.WALL_STREET_JOURNAL;
-        }
-        if (low.index_of("bloomberg") >= 0) {
-            return NewsSource.BLOOMBERG;
-        }
-        if (low.index_of("abcnews") >= 0) {
-            return NewsSource.ABC_NEWS;
-        }
-        if (low.index_of("npr.org") >= 0) {
-            return NewsSource.NPR;
-        }
-        if (low.index_of("foxnews") >= 0 || low.index_of("fox.com") >= 0) {
-            return NewsSource.FOX;
-        }
-        if (low.index_of("pbs.org") >= 0) {
-            return NewsSource.PBS;
-        }
-
-        // Unknown source - don't default to user preference to avoid incorrect branding
-        return NewsSource.UNKNOWN;
-    }
-
-
-    // Infer source ID from URL
-    public static string infer_source_id_from_url(string? url) {
-        return source_enum_to_id(infer_source_from_url(url));
+        return null;
     }
 
     // Resolve a NewsSource from a provided display/source name if possible;
     // fall back to URL inference when the name is missing or unrecognized.
     public static NewsSource resolve_source(string? source_name, string url) {
         // Strip metadata separators
-        string? clean_name = strip_metadata_separators(source_name);
+        string? clean_name = SourceLabel.name_of(source_name);
 
-        // Start with URL-inferred source as a sensible default
-        NewsSource resolved = infer_source_from_url(url);
-        if (clean_name != null && clean_name.length > 0) {
-            string low = clean_name.down();
-            if (low.index_of("guardian") >= 0) resolved = NewsSource.GUARDIAN;
-            else if (low.index_of("bbc") >= 0) resolved = NewsSource.BBC;
-            // NYTimes: check for "nytimes" or "ny times" but exclude "new york post"
-            else if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
-            (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) resolved = NewsSource.NEW_YORK_TIMES;
-            else if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) resolved = NewsSource.WALL_STREET_JOURNAL;
-            else if (low.index_of("bloomberg") >= 0) resolved = NewsSource.BLOOMBERG;
-            else if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) resolved = NewsSource.ABC_NEWS;
-            else if (low.index_of("npr") >= 0) resolved = NewsSource.NPR;
-            else if (low.index_of("fox") >= 0) resolved = NewsSource.FOX;
-            else if (low.index_of("pbs") >= 0) resolved = NewsSource.PBS;
-            // If we couldn't match the provided name, keep the URL-inferred value
-        }
-        return resolved;
+        // The name wins; the URL decides when the name isn't a built-in outlet's
+        NewsSource by_name = BuiltinSources.from_name(clean_name);
+        return by_name != NewsSource.UNKNOWN ? by_name : BuiltinSources.from_url(url);
     }
 
     // Normalize a source name for consistent tracking across the app.
@@ -361,14 +130,12 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 var local_area = NewsPreferences.get_instance().get_active_local_area();
                 result = local_area != null ? local_area.city : "Local News";
             } else {
-                NewsSource inferred = infer_source_from_url(url);
-                result = get_source_name(inferred);
+                result = BuiltinSources.short_name(BuiltinSources.from_url(url));
             }
         } else {
             // Try to match to an RSS source in the database for consistent naming.
-            // Keep the "##category::" tag, which Front Page uses to route the article to its row.
-            int cat_idx = result.index_of("##category::");
-            string category_tag = cat_idx >= 0 ? result.substring(cat_idx) : "";
+            // Keep the category, which Front Page uses to route the article to its row.
+            var label = SourceLabel.parse(result);
             var rss_store = Paperboy.RssSourceStore.get_instance();
             var all_sources = rss_store.get_all_sources();
             foreach (var src in all_sources) {
@@ -376,7 +143,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 string src_lower = src.name.down();
                 string result_lower = result.down();
                 if (src_lower != null && result_lower != null && (src_lower.contains(result_lower) || result_lower.contains(src_lower))) {
-                    result = src.name + category_tag;
+                    result = SourceLabel.encode(src.name, null, label.category);
                     break;
                 }
             }
@@ -384,28 +151,8 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         return result;
     }
 
-    // Check if a source name string matches a known NewsSource enum.
-    // Used to determine if a provided name corresponds to a built-in source.
-    public static bool source_name_matches(NewsSource source, string name) {
-        if (name == null || name.length == 0) return false;
-        string n = name.down();
-        if (n == null) return false;
-        switch (source) {
-            case NewsSource.GUARDIAN: return n.contains("guardian");
-            case NewsSource.BBC: return n.contains("bbc");
-            case NewsSource.NEW_YORK_TIMES: return n.contains("nytimes") || n.contains("new york times");
-            case NewsSource.WALL_STREET_JOURNAL: return n.contains("wsj") || n.contains("wall street");
-            case NewsSource.BLOOMBERG: return n.contains("bloomberg");
-            case NewsSource.ABC_NEWS: return n.contains("abc news") || n.contains("abcnews");
-            case NewsSource.NPR: return n.contains("npr");
-            case NewsSource.FOX: return n.contains("fox");
-            case NewsSource.PBS: return n.contains("pbs");
-            default: return false;
-        }
-    }
-
     // Determine whether the given article URL belongs to a built-in source.
-    // Returns true if infer_source_from_url returns a known source (not UNKNOWN).
+    // Returns true if BuiltinSources.from_url() recognizes it (not UNKNOWN).
     public static bool is_article_from_builtin(string? article_url) {
         return builtin_source_for_article(article_url) != NewsSource.UNKNOWN;
     }
@@ -413,160 +160,16 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Matched on the host, so another site's article with "bloomberg" in its slug doesn't count.
     public static NewsSource builtin_source_for_article(string? article_url) {
         if (article_url == null || article_url.length == 0) return NewsSource.UNKNOWN;
-        return infer_source_from_url(UrlUtils.extract_host_from_url(article_url));
+        return BuiltinSources.from_url(UrlUtils.extract_host_from_url(article_url));
     }
 
-
-    // Check if a source supports a given category
-    public static bool source_supports_category(string source_id, string category) {
-        // Bloomberg has exclusive categories
-        if (source_id == "bloomberg") {
-            return is_bloomberg_category(category);
-        }
-
-        // Special views are handled separately
-        if (category == "frontpage" || category == "topten" || category == "local_news") {
-            return false; // These are backend aggregates, not source-specific
-        }
-
-        // "myfeed" is a special personalized view
-        if (category == "myfeed") {
-            return true;
-        }
-
-        // Check if this is a Bloomberg-exclusive category
-        if (is_bloomberg_exclusive_category(category)) {
-            return source_id == "bloomberg";
-        }
-
-        // Lifestyle is not provided by BBC, ABC News, or PBS NewsHour
-        if (category == "lifestyle") {
-            if (source_id == "bbc" || source_id == "abc" || source_id == "pbs") {
-                return false;
-            }
-        }
-
-        // PBS NewsHour also has no dedicated technology or sports desk -
-        // see NewsService.supports_category for the matching enum-based check.
-        if (source_id == "pbs" && (category == "technology" || category == "sports")) {
-            return false;
-        }
-
-        // All other sources support standard categories
-        return is_standard_category(category);
+    // Whether `article_url` is from a built-in outlet the user has turned off.
+    // Matched on the host; articles from other sites never are.
+    public bool is_from_disabled_source(string article_url) {
+        var builtin = BuiltinSources.for_source(builtin_source_for_article(article_url));
+        return builtin != null && !get_enabled_sources().contains(builtin.id);
     }
 
-
-    // Check if a category is a Bloomberg category (including overlaps with standard categories)
-    public static bool is_bloomberg_category(string category) {
-        return is_bloomberg_exclusive_category(category) ||
-               category == "politics" || category == "technology" || category == "business";
-    }
-
-
-    // Check if a category is Bloomberg-exclusive (not available on other sources)
-    public static bool is_bloomberg_exclusive_category(string category) {
-        switch (category) {
-            case "markets":
-            case "industries":
-            case "economics":
-                return true;
-            default:
-                return false;
-        }
-    }
-
-
-    // Check if a category is a standard category (available on most sources)
-    public static bool is_standard_category(string category) {
-        switch (category) {
-            case "general":
-            case "us":
-            case "technology":
-            case "business":
-            case "science":
-            case "sports":
-            case "health":
-            case "entertainment":
-            case "politics":
-            case "lifestyle":
-                return true;
-            default:
-                return false;
-        }
-    }
-
-
-    // Filter enabled sources to only those that support the given category
-    public ArrayList<string> get_sources_for_category(string category) {
-        var result = new ArrayList<string>();
-        var enabled = get_enabled_sources();
-
-        foreach (var src_id in enabled) {
-            if (source_supports_category(src_id, category)) {
-                result.add(src_id);
-            }
-        }
-
-        return result;
-    }
-
-
-    // Check if an article should be displayed based on source filtering
-    // Returns true if article should be shown, false if filtered out
-    public bool should_display_article(string article_url, string category) {
-        // Front Page, Top Ten, and Local News are always shown (backend aggregates)
-        if (category == "frontpage" || category == "topten" || category == "local_news") {
-            return true;
-        }
-
-        // Sports articles come from the Paperboy backend's sports supplement, which pulls from
-        // third-party sites that don't map to any built-in source id, so skip the enabled-source check.
-        if (category == "sports") {
-            return true;
-        }
-
-        // Business is supplemented with stock market news from the Paperboy
-        // backend's Finnhub-backed endpoint, from third-party sites that don't
-        // map to any built-in source id, so skip the enabled-source check here too.
-        if (category == "business") {
-            return true;
-        }
-
-        // RSS feed views - show all articles from that feed (no source filtering)
-        if (category.has_prefix("rssfeed:")) {
-            return true;
-        }
-
-        // My Feed with custom RSS sources - allow articles from custom sources
-        // Custom RSS articles will have category "myfeed" but URLs that don't match built-in sources
-        if (category == "myfeed") {
-            // Check if this URL belongs to a built-in source
-            if (!is_article_from_builtin(article_url)) {
-                // This is likely a custom RSS source - allow it in My Feed
-                return true;
-            }
-
-            // For built-in sources in My Feed, check if they're enabled
-            string article_source_id = infer_source_id_from_url(article_url);
-            return is_source_enabled(article_source_id);
-        }
-
-        // Infer article's source
-        string article_source_id = infer_source_id_from_url(article_url);
-
-        // Check if article's source is enabled
-        if (!is_source_enabled(article_source_id)) {
-            return false;
-        }
-
-        // Check if the source supports this category
-        if (!source_supports_category(article_source_id, category)) {
-            return false;
-        }
-
-        return true;
-    }
 
     // Fetches the feed to discover its real title and a favicon before adding it.
     public void add_rss_feed_with_discovery(string feed_url, string? user_provided_name, owned RssFeedAddCallback callback) {
@@ -659,7 +262,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                 }
 
                 if (logo_url == null && host != null) {
-                    logo_url = get_favicon_url(host);
+                    logo_url = SourceMetadata.google_favicon_url(host);
                 }
 
                 var store = Paperboy.RssSourceStore.get_instance();
@@ -783,14 +386,15 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     }
 
     private void enable_builtin_source(NewsSource source) {
+        var builtin = BuiltinSources.for_source(source);
+        if (builtin == null) return;
         if (window != null) window.clear_persistent_toast();
         var prefs = NewsPreferences.get_instance();
-        string id = source_enum_to_id(source);
-        if (!prefs.preferred_source_enabled(id)) {
-            prefs.set_preferred_source_enabled(id, true);
+        if (!prefs.preferred_source_enabled(builtin.id)) {
+            prefs.set_preferred_source_enabled(builtin.id, true);
             prefs.save_config();
         }
-        request_show_toast("Enabled " + get_source_name(source));
+        request_show_toast("Enabled " + builtin.short_name);
         if (window != null && window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("myfeed");
     }
 
@@ -813,9 +417,9 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     return null;
                 }
 
-                string? article_display_name = null;
-                string? article_logo_url = null;
-                parse_source_metadata(source_metadata, out article_display_name, out article_logo_url);
+                var article_label = SourceLabel.parse(source_metadata);
+                string? article_display_name = article_label.name.length > 0 ? article_label.name : null;
+                string? article_logo_url = article_label.logo_url;
 
                 bool rss_discovery_succeeded = false;
                 try {
@@ -1032,7 +636,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                 string? logo_url_to_save = existing_logo_url;
 
                                 if (logo_url_to_save == null || logo_url_to_save.length == 0) {
-                                    logo_url_to_save = (article_logo_url != null && article_logo_url.length > 0) ? article_logo_url : get_favicon_url(host);
+                                    logo_url_to_save = (article_logo_url != null && article_logo_url.length > 0) ? article_logo_url : SourceMetadata.google_favicon_url(host);
                                 }
 
                                 SourceMetadata.update_index_and_fetch(host, feed_name, logo_url_to_save, "https://" + host, window.session, gen_feed);
