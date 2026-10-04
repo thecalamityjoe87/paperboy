@@ -130,6 +130,16 @@ namespace Managers {
             player.set_rate(rate);
             if (position_ns > 0) player.seek(position_ns);
             episode_changed(episode);
+            // Gst.Player only emits position_updated on its timer while
+            // PLAYING, so without this the mini-player's scrubber/labels
+            // (and the pane's progress row) sat at 0:00 until play was
+            // pressed, even though the audio itself resumes at position_ns.
+            // Skipped when the feed has no listed duration - the scrubber
+            // would otherwise read the position against its 0..1 placeholder
+            // range and show the episode as finished.
+            if (position_ns > 0 && last_duration_ns > 0) {
+                position_updated(position_ns, last_duration_ns);
+            }
         }
 
         public void play() { player.play(); }

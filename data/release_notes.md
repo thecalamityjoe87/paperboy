@@ -1,3 +1,15 @@
+# v0.13.1a - Sidebar Footer with Notes and Now Playing
+
+- Added a fixed footer to the bottom of the sidebar with Notes and a new Now Playing button, so they're always in reach without scrolling the list
+- Notes moved from the sidebar list into the new footer
+- Now Playing shows or hides the podcast controls without stopping playback. It's highlighted while the controls are open, and greyed out when nothing is loaded
+- Now Playing shows animated bars while a podcast is playing, lined up with the sidebar's unread counts
+- Added a minimize button next to the podcast controls' close button, so you can tuck them away without stopping playback. The close button's tooltip now says "Stop and close" to make the difference clear
+- The podcast controls now stay hidden when the next episode starts on its own, instead of popping back up
+- New Now Playing icon, with a white version for dark mode
+- Sidebar icons and unread counts now sit closer to the edges of the sidebar, giving names a little more room
+- Fixed the podcast controls showing 0:00 after reopening the app, even though the episode resumes where you left off. They now show your saved spot right away
+
 # v0.13.0a - Categories First, Sources as Filters, and a New Categories Page
 
 - Categories are now the main way to browse news. They're filled from the Paperboy service alongside your enabled sources, so a category never comes up empty or sends you back to the Front Page just because none of your sources cover it

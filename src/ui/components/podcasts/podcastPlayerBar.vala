@@ -23,8 +23,9 @@ using GLib;
  * via Adw.ToolbarView.add_bottom_bar() in SidebarView.build_navigation_page),
  * independent of the main content pane. Slides up (Gtk.Revealer, SLIDE_UP -
  * matching the app's existing revealer-based show/hide idiom, e.g.
- * SidebarView's own sidebar_revealer) the first time an episode plays, and
- * stays visible for the rest of the session once anything has played.
+ * SidebarView's own sidebar_revealer) the first time an episode plays. After
+ * that it can be slid away/back with the sidebar footer's player toggle
+ * (see SidebarView.build_footer) without affecting playback.
  *
  * Binds to Managers.PodcastPlaybackManager's signals rather than owning
  * playback itself - the manager lives on NewsWindow so audio keeps playing
@@ -32,6 +33,11 @@ using GLib;
  */
 public class PodcastPlayerBar : GLib.Object {
     public Gtk.Revealer revealer;
+
+    // True from the first set_episode() until the close button is hit.
+    // SidebarView's footer toggle binds its sensitivity to this, so the
+    // show/hide button is only clickable while there's something to show.
+    public bool has_episode { get; private set; default = false; }
 
     private Gtk.Picture cover;
     private MarqueeLabel title_label;
@@ -58,12 +64,12 @@ public class PodcastPlayerBar : GLib.Object {
         revealer.set_transition_duration(200);
         revealer.set_reveal_child(false);
 
-        // Flush against the sidebar's left/right/bottom edges (no margins
-        // here - see PodcastPane for the same reasoning), so its border/
-        // shadow actually reach them. Padding for the actual controls lives
-        // on the inner content_box below instead.
+        // Flush against the sidebar's left/right edges (no margins here -
+        // see PodcastPane for the same reasoning). Border/shadow come from
+        // SidebarView's .sidebar-bottom wrapper, shared with the footer.
+        // Padding for the actual controls lives on the inner content_box
+        // below instead.
         var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-        box.add_css_class("podcast-player-bar");
         box.set_hexpand(true);
         box.set_halign(Gtk.Align.FILL);
 
@@ -100,11 +106,27 @@ public class PodcastPlayerBar : GLib.Object {
         title_label.add_css_class("podcast-player-title");
         title_row.append(title_label);
 
+        // Slides the bar away without touching playback - same as the
+        // sidebar footer's Now Playing row, which brings it back. Sits next
+        // to close (which stops playback) so the two aren't mistaken for
+        // each other.
+        var minimize_button = new Gtk.Button.from_icon_name("pan-down-symbolic");
+        minimize_button.add_css_class("flat");
+        minimize_button.add_css_class("circular");
+        minimize_button.set_tooltip_text("Minimize");
+        minimize_button.clicked.connect(() => { revealer.set_reveal_child(false); });
+
+        // Own box (not title_row's 8px spacing) so minimize and close read
+        // as one tight pair of window-style controls.
+        var window_buttons = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        window_buttons.append(minimize_button);
+
         var close_button = new Gtk.Button.from_icon_name("window-close-symbolic");
         close_button.add_css_class("flat");
         close_button.add_css_class("circular");
-        close_button.set_tooltip_text("Close");
-        title_row.append(close_button);
+        close_button.set_tooltip_text("Stop and close");
+        window_buttons.append(close_button);
+        title_row.append(window_buttons);
 
         content_box.append(title_row);
 
@@ -165,7 +187,12 @@ public class PodcastPlayerBar : GLib.Object {
 
     // Push a newly-playing episode's title/cover into the bar and reveal it.
     // Called from the manager's episode_changed handler (see wire_interactions).
+    // Only reveals on the first episode after startup/close - once the user
+    // has hidden the bar via the sidebar footer toggle, a queue auto-advance
+    // shouldn't pop it back up.
     public void set_episode(Paperboy.PodcastEpisode episode) {
+        bool reveal = !has_episode || revealer.get_reveal_child();
+        has_episode = true;
         title_label.text = episode.title; // also resets the marquee's scroll offset
         if (window != null && window.animation_manager != null) {
             window.animation_manager.stop_title_marquee(title_label);
@@ -180,7 +207,7 @@ public class PodcastPlayerBar : GLib.Object {
                 try {
                     var pixbuf = new Gdk.Pixbuf.from_file_at_scale(episode.cover_local_path, 36, 36, false);
                     cover.set_paintable(Gdk.Texture.for_pixbuf(pixbuf));
-                    revealer.set_reveal_child(true);
+                    revealer.set_reveal_child(reveal);
                     return;
                 } catch (GLib.Error e) {
                     // Fall through to the network path below.
@@ -202,7 +229,7 @@ public class PodcastPlayerBar : GLib.Object {
                 window.image_manager.load_image_async(cover, art_url, 36, 36, false, true);
             }
         }
-        revealer.set_reveal_child(true);
+        revealer.set_reveal_child(reveal);
     }
 
     private static string format_speed(double rate) {
@@ -240,6 +267,7 @@ public class PodcastPlayerBar : GLib.Object {
 
         close_button.clicked.connect(() => {
             playback.stop();
+            has_episode = false;
             revealer.set_reveal_child(false);
         });
 

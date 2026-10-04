@@ -28,6 +28,14 @@ using Cairo;
 public class SidebarView : GLib.Object {
     private NewsWindow window;
     private SidebarManager manager;
+
+    // Shared horizontal layout for every item row (not the section headers,
+    // which are Adw.ExpanderRow's own): how far the icon/badge sit in from
+    // the row's edges, and the gap between icon, text and badge. Text lands
+    // at ROW_INSET + icon slot + ROW_SPACING, so trading inset for spacing
+    // pushes icons/badges outward without moving the text.
+    private const int ROW_INSET = 4;
+    private const int ROW_SPACING = 10;
     
     // UI widgets
     private Gtk.ListBox sidebar_list;
@@ -45,6 +53,10 @@ public class SidebarView : GLib.Object {
     private Gee.HashMap<string, Gtk.Widget> live_pill_widgets;
     private Gee.HashMap<string, Gtk.Widget> section_containers;
     private Gtk.Widget? currently_selected_widget = null;
+    // Footer's "Now Playing" icon slot. Built once (not part of the
+    // rebuilt list, so not in icon_holders), but update_icons_for_theme()
+    // still has to swap its mono/white variant.
+    private Gtk.Box? footer_podcast_icon_holder = null;
     private string? currently_selected_item_id = null;
     private Gtk.Button? add_rss_button = null;
     private Gtk.Button? add_podcast_button = null;
@@ -435,10 +447,10 @@ public class SidebarView : GLib.Object {
     // build_category_button/build_rss_item_widget below so their icon,
     // text, and count columns all line up with each other.
     private Gtk.Widget build_item_row(SidebarItemData item) {
-        var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, ROW_SPACING);
         row_box.add_css_class("sidebar-row-vspace");
-        row_box.set_margin_start(8);
-        row_box.set_margin_end(8);
+        row_box.set_margin_start(ROW_INSET);
+        row_box.set_margin_end(ROW_INSET);
 
         var icon_holder = build_icon_slot();
         var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
@@ -470,10 +482,10 @@ public class SidebarView : GLib.Object {
     }
     
     private Gtk.Widget build_category_button(SidebarItemData item) {
-        var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, ROW_SPACING);
         row_box.add_css_class("sidebar-row-vspace");
-        row_box.set_margin_start(8);
-        row_box.set_margin_end(8);
+        row_box.set_margin_start(ROW_INSET);
+        row_box.set_margin_end(ROW_INSET);
 
         var icon_holder = build_icon_slot();
         var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
@@ -560,10 +572,10 @@ public class SidebarView : GLib.Object {
     }
 
     private Gtk.Widget build_rss_item_widget(SidebarItemData item) {
-        var feed_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var feed_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, ROW_SPACING);
         feed_box.add_css_class("sidebar-row-vspace");
-        feed_box.set_margin_start(8);
-        feed_box.set_margin_end(8);
+        feed_box.set_margin_start(ROW_INSET);
+        feed_box.set_margin_end(ROW_INSET);
         
         // Create icon with proper RSS source handling
         var source_data = manager.get_rss_source_data(item.id.has_prefix("rssfeed:") ? item.id.substring(8) : "");
@@ -672,10 +684,10 @@ public class SidebarView : GLib.Object {
     }
     
     private Gtk.Button create_add_rss_button() {
-        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, ROW_SPACING);
         button_box.add_css_class("sidebar-row-vspace");
-        button_box.set_margin_start(8);
-        button_box.set_margin_end(8);
+        button_box.set_margin_start(ROW_INSET);
+        button_box.set_margin_end(ROW_INSET);
         
         // Same icon slot as the source rows above it, so it's in the same column.
         var icon_holder = build_icon_slot();
@@ -762,10 +774,10 @@ public class SidebarView : GLib.Object {
 
     // A section's trailing "Manage ..." row, e.g. under Local News.
     private Gtk.Button create_manage_button(string label_text, owned ManageClickedFunc on_click) {
-        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, ROW_SPACING);
         button_box.add_css_class("sidebar-row-vspace");
-        button_box.set_margin_start(8);
-        button_box.set_margin_end(8);
+        button_box.set_margin_start(ROW_INSET);
+        button_box.set_margin_end(ROW_INSET);
 
         var icon_holder = build_icon_slot();
         var icon = new Gtk.Image.from_icon_name("emblem-system-symbolic");
@@ -790,10 +802,10 @@ public class SidebarView : GLib.Object {
     }
 
     private Gtk.Button create_add_podcast_button() {
-        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, ROW_SPACING);
         button_box.add_css_class("sidebar-row-vspace");
-        button_box.set_margin_start(8);
-        button_box.set_margin_end(8);
+        button_box.set_margin_start(ROW_INSET);
+        button_box.set_margin_end(ROW_INSET);
 
         var icon_holder = build_icon_slot();
         var icon = new Gtk.Image.from_icon_name("list-add-symbolic");
@@ -1177,20 +1189,130 @@ public class SidebarView : GLib.Object {
         }
     }
     
-    public Adw.NavigationPage build_navigation_page(Adw.HeaderBar header, Gtk.Widget? podcast_player_bar = null) {
+    public Adw.NavigationPage build_navigation_page(Adw.HeaderBar header, PodcastPlayerBar? podcast_player_bar = null) {
         var toolbar = new Adw.ToolbarView();
         toolbar.add_top_bar(header);
         toolbar.set_content(sidebar_scrolled);
         // Pinned to the sidebar's own bottom edge (same width as the
-        // sidebar column, independent of the scrollable content above it) -
-        // see PodcastPlayerBar, revealed only while a podcast is playing.
-        if (podcast_player_bar != null) toolbar.add_bottom_bar(podcast_player_bar);
+        // sidebar column, independent of the scrollable content above it):
+        // the podcast mini-player (see PodcastPlayerBar, revealed only while
+        // a podcast is playing) stacked on the fixed footer. The footer
+        // always has its own separator; the wrapper only adds the raised
+        // border/shadow while the player is open (.player-open), so a
+        // hidden player leaves just the one line.
+        var bottom = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        bottom.add_css_class("sidebar-bottom");
+        if (podcast_player_bar != null) {
+            var revealer = podcast_player_bar.revealer;
+            // child-revealed too, so the shadow stays until the slide-down
+            // animation finishes instead of vanishing as it starts.
+            revealer.notify["reveal-child"].connect(() => { sync_player_open(revealer, bottom); });
+            revealer.notify["child-revealed"].connect(() => { sync_player_open(revealer, bottom); });
+            sync_player_open(revealer, bottom);
+            bottom.append(revealer);
+        }
+        bottom.append(build_footer(podcast_player_bar));
+        toolbar.add_bottom_bar(bottom);
 
         sidebar_revealer.set_child(toolbar);
         sidebar_page = new Adw.NavigationPage(sidebar_revealer, "Categories");
         return sidebar_page;
     }
-    
+
+    private static void sync_footer_active(Gtk.Widget button, bool active) {
+        if (active) {
+            button.add_css_class("selected");
+        } else {
+            button.remove_css_class("selected");
+        }
+    }
+
+    private static void sync_player_open(Gtk.Revealer revealer, Gtk.Widget bottom) {
+        if (revealer.get_reveal_child() || revealer.get_child_revealed()) {
+            bottom.add_css_class("player-open");
+        } else {
+            bottom.remove_css_class("player-open");
+        }
+    }
+
+    // Fixed strip under the scrollable list: Notes (a modal dialog, not a
+    // category page, so it doesn't belong in the selectable list) stacked
+    // over a button that slides the podcast mini-player in/out without
+    // stopping playback.
+    private Gtk.Widget build_footer(PodcastPlayerBar? podcast_player_bar) {
+        var footer = new Gtk.Box(Gtk.Orientation.VERTICAL, 2);
+        footer.add_css_class("sidebar-footer");
+
+        var notes_icon = new Gtk.Image.from_icon_name("document-edit-symbolic");
+        notes_icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
+        Gtk.Label notes_label;
+        Gtk.Box notes_icon_holder;
+        var notes_button = build_footer_row(notes_icon, "Notes", out notes_label, out notes_icon_holder);
+        notes_button.clicked.connect(() => { NotesBrowserDialog.show(window); });
+        footer.append(notes_button);
+
+        if (podcast_player_bar != null) {
+            // Fixed "Now Playing" label (the standard podcast-app term); the
+            // row shows the list's selected highlight while the controls are
+            // open instead of flipping its text between Show/Hide.
+            // Bouncing bars in the unread-count badge column while audio is
+            // actually playing (hidden while paused/stopped).
+            var visualizer = new NowPlayingVisualizer();
+            var playback = window.podcast_playback;
+            visualizer.playing = playback.is_playing();
+            playback.playback_state_changed.connect((is_playing) => {
+                visualizer.playing = is_playing;
+            });
+            Gtk.Label player_label;
+            Gtk.Box player_icon_holder;
+            var player_button = build_footer_row(CategoryIconsUtils.create_category_icon("nowplaying"),
+                "Now Playing", out player_label, out player_icon_holder, visualizer);
+            footer_podcast_icon_holder = player_icon_holder;
+            var revealer = podcast_player_bar.revealer;
+            player_button.clicked.connect(() => {
+                revealer.set_reveal_child(!revealer.get_reveal_child());
+            });
+            // Highlight follows the revealer either way it changes (this
+            // button, a new episode revealing it, or the player's own close
+            // button).
+            revealer.notify["reveal-child"].connect(() => {
+                sync_footer_active(player_button, revealer.get_reveal_child());
+            });
+            sync_footer_active(player_button, revealer.get_reveal_child());
+            podcast_player_bar.bind_property("has-episode", player_button, "sensitive",
+                BindingFlags.SYNC_CREATE);
+            footer.append(player_button);
+        }
+
+        return footer;
+    }
+
+    // Full-width flat button laid out like build_item_row's rows (same
+    // icon slot, margins and spacing) so the footer's icons and labels line
+    // up with the list's columns above.
+    private Gtk.Button build_footer_row(Gtk.Widget? icon, string text, out Gtk.Label label, out Gtk.Box icon_holder, Gtk.Widget? trailing = null) {
+        var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, ROW_SPACING);
+        row_box.add_css_class("sidebar-row-vspace");
+        row_box.set_margin_start(ROW_INSET);
+        row_box.set_margin_end(ROW_INSET);
+
+        icon_holder = build_icon_slot();
+        if (icon != null) icon_holder.append(icon);
+        row_box.append(icon_holder);
+
+        label = new Gtk.Label(text);
+        label.set_xalign(0);
+        label.set_hexpand(true);
+        row_box.append(label);
+        if (trailing != null) row_box.append(trailing);
+
+        var button = new Gtk.Button();
+        button.set_child(row_box);
+        button.add_css_class("flat");
+        button.add_css_class("sidebar-footer-row");
+        return button;
+    }
+
     public Adw.NavigationPage get_page() {
         return sidebar_page;
     }
@@ -1216,6 +1338,12 @@ public class SidebarView : GLib.Object {
     }
     
     public void update_icons_for_theme() {
+        if (footer_podcast_icon_holder != null) {
+            clear_children(footer_podcast_icon_holder);
+            var podcast_icon = CategoryIconsUtils.create_category_icon("nowplaying");
+            if (podcast_icon != null) footer_podcast_icon_holder.append(podcast_icon);
+        }
+
         // Rebuild icons for all tracked icon holders
         foreach (var entry in icon_holders.entries) {
             string id_key = entry.key;

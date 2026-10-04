@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.13.0a',
+  version : '0.13.1a',
   meson_version : '>=0.59.0'
 )
 
@@ -51,6 +51,7 @@ cairo = dependency('cairo')
     'src/ui/components/podcasts/podcastCard.vala',
     'src/ui/components/podcasts/podcastHeroCard.vala',
     'src/ui/components/podcasts/podcastPane.vala',
+    'src/ui/components/podcasts/nowPlayingVisualizer.vala',
     'src/ui/components/podcasts/podcastPlayerBar.vala',
     'src/ui/components/reader/readerVideoEmbed.vala',
     'src/ui/components/reader/readerView.vala',

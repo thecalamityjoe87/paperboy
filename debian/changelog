@@ -1,3 +1,16 @@
+paperboy (0.13.1a-1) unstable; urgency=low
+
+  * Added a fixed sidebar footer with Notes and a Now Playing button; Notes moved there from the sidebar list
+  * Now Playing shows or hides the podcast controls without stopping playback, is highlighted while they're open, and is greyed out when nothing is loaded
+  * Now Playing shows animated bars while a podcast is playing
+  * Added a minimize button next to the podcast controls' close button, which now says "Stop and close"
+  * The podcast controls now stay hidden when the next episode starts on its own
+  * New Now Playing icon, with a white version for dark mode
+  * Sidebar icons and unread counts now sit closer to the sidebar's edges
+  * Fixed the podcast controls showing 0:00 after reopening the app instead of the saved listening position
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Sun, 04 Oct 2026 00:00:00 +0000
+
 paperboy (0.13.0a-1) unstable; urgency=low
 
   * Categories are now the main way to browse news, filled from the Paperboy service alongside enabled sources so they never come up empty
