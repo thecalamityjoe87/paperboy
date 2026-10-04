@@ -17,6 +17,7 @@
 - Fixed outlets with similar names getting another outlet's name and logo, such as TIME showing as the New York Times or Fox Sports as Fox News
 - Fixed settings failing to load properly on first launch
 - Fixed crashes when saving some settings and opening some dropdown menus
+- Fixed empty spots in the Front Page's Trending grid when some trending stories came from sources you've turned off, and Trending repeating stories already shown in the hero carousel
 - Fixed a typo on the My Feed page when My Feed is turned off
 
 # v0.12.5a - Recommended For You, and Podcast Playback Order Fixes

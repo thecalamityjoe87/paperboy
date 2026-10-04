@@ -37,6 +37,8 @@ namespace Managers {
         public const int HERO_DEFAULT_HEIGHT = 460;
         public const int TRENDING_HERO_MAX_HEIGHT = 480;
         public const int TRENDING_HERO_DEFAULT_HEIGHT = 480;
+        // Two rows of four under Trending's two hero cards.
+        public const int TRENDING_GRID_MAX = 8;
         public const int CARD_IMAGE_HEIGHT = 220;  // Fixed, never derived from column width
         public const int CARD_HEIGHT_ESTIMATE_OFFSET = 120;
         public const int IMAGE_QUALITY_MULTIPLIER_HIGH = 6;
@@ -100,6 +102,7 @@ namespace Managers {
         public Gee.ArrayList<string> recent_category_queue;
         
         public int trending_hero_count = 0;
+        public int trending_grid_count = 0;
         public Gee.ArrayList<ArticleItem>? featured_carousel_items;
         public HeroCarousel? hero_carousel;
         public string? featured_carousel_category = null;
@@ -368,6 +371,7 @@ namespace Managers {
 
         public void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null, bool is_trending = false) {
             if (!view_allows_item(category_id)) return;
+            if (is_trending && (trending_full() || in_hero_carousel(url))) return;
             bool is_myfeed = window.category_manager.is_myfeed_view();
             // "Recommended for you" picks get their own budget instead of the Front Page cap.
             double recommended_score = is_trending ? -1 : score_recommendation(title, url, category_id, source_name);
@@ -501,6 +505,23 @@ namespace Managers {
             }
 
             add_item_immediate_to_column(title, url, thumbnail_url, category_id, null, final_source_name, false, published, snippet, myfeed_row_key_hint, is_trending);
+        }
+
+        // Trending's fetcher sends Front Page backfill after its headlines, so
+        // it can over-supply; the cap here keeps the grid at two full rows.
+        private bool trending_full() {
+            return trending_hero_count >= 2 && trending_grid_count >= TRENDING_GRID_MAX;
+        }
+
+        // Backfill comes from the same feed as the hero carousel, so skip
+        // anything already showing up there.
+        private bool in_hero_carousel(string? url) {
+            if (url == null || featured_carousel_items == null) return false;
+            string norm = window.normalize_article_url(url);
+            foreach (var item in featured_carousel_items) {
+                if (item.url != null && window.normalize_article_url(item.url) == norm) return true;
+            }
+            return false;
         }
 
         // -1 when this article can't be a "Recommended for you" pick right now.
@@ -961,6 +982,10 @@ namespace Managers {
             place_myfeed_article_cards(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, myfeed_row_key_hint);
         } else {
             string card_display_cat = resolve_display_category(category_id, source_name);
+            if (is_trending) {
+                if (trending_grid_count >= TRENDING_GRID_MAX) return;
+                trending_grid_count++;
+            }
             place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, card_display_cat, false, is_trending);
         }
     }
@@ -1652,6 +1677,7 @@ namespace Managers {
             }
 
             trending_hero_count = 0;
+            trending_grid_count = 0;
 
             if (featured_carousel_items != null) {
                 featured_carousel_items.clear();
@@ -1694,6 +1720,7 @@ namespace Managers {
             featured_carousel_category = null;
             featured_used = false;
             trending_hero_count = 0;
+            trending_grid_count = 0;
             // The latch's idle may have been dropped with the previous view's session.
             reveal_pending = false;
             recommended_picks.clear();
@@ -1739,6 +1766,7 @@ namespace Managers {
     public void reset_featured_state() {
         featured_used = false;
         trending_hero_count = 0;
+        trending_grid_count = 0;
         if (featured_carousel_items != null) featured_carousel_items.clear();
         // Must stop the timer before dropping the reference, or its
         // GLib.Timeout source stays registered forever.

@@ -167,8 +167,13 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
     // Whether `article_url` is from a built-in outlet the user has turned off.
     // Matched on the host; articles from other sites never are.
     public bool is_from_disabled_source(string article_url) {
+        return is_from_disabled_builtin(article_url, get_enabled_sources());
+    }
+
+    // Static form for fetchers, which filter before counting toward a cap.
+    public static bool is_from_disabled_builtin(string article_url, Gee.List<string> enabled_sources) {
         var builtin = BuiltinSources.for_source(builtin_source_for_article(article_url));
-        return builtin != null && !get_enabled_sources().contains(builtin.id);
+        return builtin != null && !enabled_sources.contains(builtin.id);
     }
 
 

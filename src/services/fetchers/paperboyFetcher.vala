@@ -403,16 +403,10 @@ public class PaperboyFetcher : BaseFetcher {
                     var seen_titles = new Gee.HashSet<string>();
                     int added_count = 0;
 
-                    string normalize_article_url(string u) {
-                        if (u == null) return "";
-                        string s = u.strip();
-                        int q = s.index_of("?");
-                        if (q >= 0 && s.length > q) s = s.substring(0, q);
-                        int h = s.index_of("#");
-                        if (h >= 0 && s.length > h) s = s.substring(0, h);
-                        while (s.length > 1 && s.has_suffix("/")) s = s.substring(0, s.length - 1);
-                        return s;
-                    }
+                    // ArticleManager drops these (and URL duplicates) after the
+                    // fact, so skip them here too - otherwise they count toward
+                    // the 10 and leave empty slots in the Trending grid.
+                    var enabled_sources = NewsPreferences.get_instance().preferred_sources;
 
                     for (uint i = 0; i < len && added_count < 10; i++) {
                         var art = articles.get_element(i).get_object();
@@ -536,7 +530,9 @@ public class PaperboyFetcher : BaseFetcher {
                             }
                         }
 
-                        string norm = normalize_article_url(article_url);
+                        if (SourceManager.is_from_disabled_builtin(article_url, enabled_sources)) continue;
+
+                        string norm = UrlUtils.normalize_article_url(article_url);
                         string norm_title = title != null ? title.down().strip() : "";
                         if ((norm.length > 0 && seen_urls.contains(norm)) || (norm_title.length > 0 && seen_titles.contains(norm_title))) {
                             continue;
@@ -547,77 +543,77 @@ public class PaperboyFetcher : BaseFetcher {
                         added_count++;
                     }
 
-                    if (added_count < 10) {
-                        // Async: this runs on the main thread, and a sync fetch froze the UI while the backend cold-starts.
-                        client.fetch_json_with(BASE_URL + "/news/frontpage", cancellable, (fp_response, p2, r2) => {
-                            if (fp_response.is_success() && r2 != null) {
-                                Json.Array front_articles = null;
-                                if (r2.get_node_type() == Json.NodeType.ARRAY) {
-                                    front_articles = r2.get_array();
-                                } else {
-                                    var o2 = r2.get_object();
-                                    if (o2.has_member("articles")) front_articles = o2.get_array_member("articles");
-                                    else if (o2.has_member("data")) {
-                                        var d2 = o2.get_object_member("data");
-                                        if (d2.has_member("articles")) front_articles = d2.get_array_member("articles");
-                                    }
-                                }
-                                if (front_articles != null) {
-                                    record_reading_times(front_articles);
-                                    uint total_candidates = front_articles.get_length();
-                                    uint max_candidates = 20;
-                                    uint len2 = total_candidates;
-                                    if (len2 > max_candidates) len2 = max_candidates;
-                                    for (uint j = 0; j < len2 && added_count < 10; j++) {
-                                        var a = front_articles.get_element(j).get_object();
-                                        string t = json_get_string_safe(a, "title") != null ? json_get_string_safe(a, "title") : (json_get_string_safe(a, "headline") != null ? json_get_string_safe(a, "headline") : "No title");
-                                        string u = json_get_string_safe(a, "url") != null ? json_get_string_safe(a, "url") : (json_get_string_safe(a, "link") != null ? json_get_string_safe(a, "link") : "");
-                                        string? thumb = null;
-                                        if (json_get_string_safe(a, "thumbnail") != null) thumb = json_get_string_safe(a, "thumbnail");
-                                        else if (json_get_string_safe(a, "image") != null) thumb = json_get_string_safe(a, "image");
-                                        else if (json_get_string_safe(a, "image_url") != null) thumb = json_get_string_safe(a, "image_url");
-                                        string? pub = json_get_string_safe(a, "publishedAt");
-
-                                        // Filter by search query if provided
-                                        if (current_search_query.length > 0) {
-                                            if (!t.contains(current_search_query) && !u.contains(current_search_query)) {
-                                                continue;
-                                            }
-                                        }
-
-                                        string n = normalize_article_url(u);
-                                        string nt = t != null ? t.down().strip() : "";
-                                        if ((n.length > 0 && seen_urls.contains(n)) || (nt.length > 0 && seen_titles.contains(nt))) continue;
-                                        if (n.length > 0) seen_urls.add(n);
-                                        if (nt.length > 0) seen_titles.add(nt);
-
-                                        string ds = "Paperboy API";
-                                        string? logo = null;
-                                        if (a.has_member("source")) {
-                                            var s_node = a.get_member("source");
-                                            if (s_node != null && s_node.get_node_type() == Json.NodeType.OBJECT) {
-                                                var s_obj = s_node.get_object();
-                                                string? nname = json_get_string_safe(s_obj, "name");
-                                                if (nname == null) nname = json_get_string_safe(s_obj, "title");
-                                                if (nname != null) ds = nname;
-                                                if (json_get_string_safe(s_obj, "logo_url") != null) logo = json_get_string_safe(s_obj, "logo_url");
-                                                else if (json_get_string_safe(s_obj, "logo") != null) logo = json_get_string_safe(s_obj, "logo");
-                                                else if (json_get_string_safe(s_obj, "favicon") != null) logo = json_get_string_safe(s_obj, "favicon");
-                                            } else {
-                                                string? s2 = json_get_string_safe(a, "source");
-                                                if (s2 != null) ds = s2;
-                                            }
-                                        }
-                                        add_item(t, u, thumb, "topten", SourceLabel.encode(ds, logo), pub);
-                                        added_count++;
-                                    }
+                    // Always send Front Page backfill after the headlines: ArticleManager
+                    // drops any that duplicate the hero carousel and caps Trending,
+                    // so these only fill slots the headlines couldn't.
+                    // Async: this runs on the main thread, and a sync fetch froze the UI while the backend cold-starts.
+                    client.fetch_json_with(BASE_URL + "/news/frontpage", cancellable, (fp_response, p2, r2) => {
+                        if (fp_response.is_success() && r2 != null) {
+                            Json.Array front_articles = null;
+                            if (r2.get_node_type() == Json.NodeType.ARRAY) {
+                                front_articles = r2.get_array();
+                            } else {
+                                var o2 = r2.get_object();
+                                if (o2.has_member("articles")) front_articles = o2.get_array_member("articles");
+                                else if (o2.has_member("data")) {
+                                    var d2 = o2.get_object_member("data");
+                                    if (d2.has_member("articles")) front_articles = d2.get_array_member("articles");
                                 }
                             }
-                            done();
-                        });
-                        return false;
-                    }
-                    done();
+                            if (front_articles != null) {
+                                record_reading_times(front_articles);
+                                uint total_candidates = front_articles.get_length();
+                                uint max_candidates = 20;
+                                uint len2 = total_candidates;
+                                if (len2 > max_candidates) len2 = max_candidates;
+                                for (uint j = 0; j < len2; j++) {
+                                    var a = front_articles.get_element(j).get_object();
+                                    string t = json_get_string_safe(a, "title") != null ? json_get_string_safe(a, "title") : (json_get_string_safe(a, "headline") != null ? json_get_string_safe(a, "headline") : "No title");
+                                    string u = json_get_string_safe(a, "url") != null ? json_get_string_safe(a, "url") : (json_get_string_safe(a, "link") != null ? json_get_string_safe(a, "link") : "");
+                                    string? thumb = null;
+                                    if (json_get_string_safe(a, "thumbnail") != null) thumb = json_get_string_safe(a, "thumbnail");
+                                    else if (json_get_string_safe(a, "image") != null) thumb = json_get_string_safe(a, "image");
+                                    else if (json_get_string_safe(a, "image_url") != null) thumb = json_get_string_safe(a, "image_url");
+                                    string? pub = json_get_string_safe(a, "publishedAt");
+
+                                    // Filter by search query if provided
+                                    if (current_search_query.length > 0) {
+                                        if (!t.contains(current_search_query) && !u.contains(current_search_query)) {
+                                            continue;
+                                        }
+                                    }
+
+                                    if (SourceManager.is_from_disabled_builtin(u, enabled_sources)) continue;
+
+                                    string n = UrlUtils.normalize_article_url(u);
+                                    string nt = t != null ? t.down().strip() : "";
+                                    if ((n.length > 0 && seen_urls.contains(n)) || (nt.length > 0 && seen_titles.contains(nt))) continue;
+                                    if (n.length > 0) seen_urls.add(n);
+                                    if (nt.length > 0) seen_titles.add(nt);
+
+                                    string ds = "Paperboy API";
+                                    string? logo = null;
+                                    if (a.has_member("source")) {
+                                        var s_node = a.get_member("source");
+                                        if (s_node != null && s_node.get_node_type() == Json.NodeType.OBJECT) {
+                                            var s_obj = s_node.get_object();
+                                            string? nname = json_get_string_safe(s_obj, "name");
+                                            if (nname == null) nname = json_get_string_safe(s_obj, "title");
+                                            if (nname != null) ds = nname;
+                                            if (json_get_string_safe(s_obj, "logo_url") != null) logo = json_get_string_safe(s_obj, "logo_url");
+                                            else if (json_get_string_safe(s_obj, "logo") != null) logo = json_get_string_safe(s_obj, "logo");
+                                            else if (json_get_string_safe(s_obj, "favicon") != null) logo = json_get_string_safe(s_obj, "favicon");
+                                        } else {
+                                            string? s2 = json_get_string_safe(a, "source");
+                                            if (s2 != null) ds = s2;
+                                        }
+                                    }
+                                    add_item(t, u, thumb, "topten", SourceLabel.encode(ds, logo), pub);
+                                }
+                            }
+                        }
+                        done();
+                    });
                     return false;
                 });
             } catch (GLib.Error e) {

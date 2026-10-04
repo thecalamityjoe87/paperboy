@@ -12,6 +12,7 @@ paperboy (0.13.0a-1) unstable; urgency=low
   * Turning off all sources is now remembered instead of restoring the defaults
   * Fixed PBS being ignored, and ABC News, WSJ, and NPR articles filed under the wrong category
   * Fixed settings failing to load properly on first launch, and crashes when saving some settings and opening some dropdown menus
+  * Fixed empty spots in the Front Page's Trending grid, and Trending repeating stories from the hero carousel
 
  -- Isaac Joseph <calamityjoe87@gmail.com>  Fri, 02 Oct 2026 00:00:00 +0000
 
