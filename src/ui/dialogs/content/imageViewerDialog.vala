@@ -303,18 +303,18 @@ public class ImageViewerDialog : GLib.Object {
         var close_button = new Gtk.Button.from_icon_name("window-close-symbolic");
         close_button.add_css_class("osd");
         close_button.add_css_class("circular");
-        close_button.set_tooltip_text("Close");
+        close_button.set_tooltip_text(_("Close"));
         close_button.clicked.connect(() => { handle.target?.close(); });
 
         var zoom_out_button = new Gtk.Button.from_icon_name("zoom-out-symbolic");
         zoom_out_button.add_css_class("osd");
         zoom_out_button.add_css_class("circular");
-        zoom_out_button.set_tooltip_text("Zoom Out");
+        zoom_out_button.set_tooltip_text(_("Zoom Out"));
 
         var zoom_in_button = new Gtk.Button.from_icon_name("zoom-in-symbolic");
         zoom_in_button.add_css_class("osd");
         zoom_in_button.add_css_class("circular");
-        zoom_in_button.set_tooltip_text("Zoom In");
+        zoom_in_button.set_tooltip_text(_("Zoom In"));
 
         var zoom_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         zoom_box.append(zoom_out_button);

@@ -56,7 +56,7 @@ public class ScrollNavButtons : GLib.Object {
         // block, present in every GNOME distro's default font stack
         // (Cantarell, Noto, DejaVu), so this needs no icon theme lookup or
         // bundled asset.
-        left_button = new Gtk.Button.with_label("←");
+        left_button = new Gtk.Button.with_label(_("←"));
         left_button.add_css_class("scroll-nav-arrow-label");
         left_button.add_css_class(css_class);
         left_button.add_css_class(css_class + "-left");
@@ -66,7 +66,7 @@ public class ScrollNavButtons : GLib.Object {
         left_button.set_margin_end(edge_margin);
         overlay.add_overlay(left_button);
 
-        right_button = new Gtk.Button.with_label("→");
+        right_button = new Gtk.Button.with_label(_("→"));
         right_button.add_css_class("scroll-nav-arrow-label");
         right_button.add_css_class(css_class);
         right_button.add_css_class(css_class + "-right");

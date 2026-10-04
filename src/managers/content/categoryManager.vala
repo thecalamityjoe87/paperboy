@@ -187,25 +187,25 @@ using Gee;
     // Get display name for a category
     public static string get_category_display_name(string category) {
         switch (category) {
-            case "general": return "General";
-            case "us": return "U.S.";
-            case "technology": return "Technology";
-            case "business": return "Business";
-            case "science": return "Science";
-            case "sports": return "Sports";
-            case "health": return "Health";
-            case "entertainment": return "Entertainment";
-            case "politics": return "Politics";
-            case "lifestyle": return "Lifestyle";
-            case "markets": return "Markets";
-            case "industries": return "Industries";
-            case "economics": return "Economics";
-            case "frontpage": return "Front Page";
-            case "topten": return "Trending";
-            case "myfeed": return "My Feed";
-            case "local_news": return "Local News";
-            case "saved": return "Saved";
-            case "history": return "History";
+            case "general": return _("General");
+            case "us": return _("U.S.");
+            case "technology": return _("Technology");
+            case "business": return _("Business");
+            case "science": return _("Science");
+            case "sports": return _("Sports");
+            case "health": return _("Health");
+            case "entertainment": return _("Entertainment");
+            case "politics": return _("Politics");
+            case "lifestyle": return _("Lifestyle");
+            case "markets": return _("Markets");
+            case "industries": return _("Industries");
+            case "economics": return _("Economics");
+            case "frontpage": return _("Front Page");
+            case "topten": return _("Trending");
+            case "myfeed": return _("My Feed");
+            case "local_news": return _("Local News");
+            case "saved": return _("Saved");
+            case "history": return _("History");
             default: return category;
         }
     }

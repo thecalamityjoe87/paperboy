@@ -160,8 +160,8 @@ public class PodcastPane : GLib.Object {
 
         int64 remaining_seconds = (int64) ((effective_duration_ns - position_ns) / 1000000000);
         if (remaining_seconds < 0) remaining_seconds = 0;
-        string duration_text = format_duration(remaining_seconds) + " left";
-        row.meta_label.set_text(duration_text.length > 0 ? "%s · %s".printf(row.when_text, duration_text) : row.when_text);
+        string duration_text = format_duration(remaining_seconds) + _(" left");
+        row.meta_label.set_text(duration_text.length > 0 ? _("%s · %s").printf(row.when_text, duration_text) : row.when_text);
     }
 
     // Reflects the playback manager's current episode/play-state on every
@@ -447,7 +447,7 @@ public class PodcastPane : GLib.Object {
         episode_spinner.set_visible(false);
         content_box.append(episode_spinner);
 
-        episode_empty_label = new Gtk.Label("No episodes found for this show.");
+        episode_empty_label = new Gtk.Label(_("No episodes found for this show."));
         episode_empty_label.add_css_class("dim-label");
         episode_empty_label.set_margin_top(20);
         episode_empty_label.set_halign(Gtk.Align.CENTER);
@@ -458,7 +458,7 @@ public class PodcastPane : GLib.Object {
     private void update_subscribe_button_state() {
         if (current_show == null) return;
         bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(current_show.feed_id);
-        subscribe_button.set_label(subscribed ? "Subscribed" : "Subscribe");
+        subscribe_button.set_label(subscribed ? _("Subscribed") : _("Subscribe"));
         if (subscribed) {
             subscribe_button.remove_css_class("suggested-action");
         } else {
@@ -503,7 +503,7 @@ public class PodcastPane : GLib.Object {
 
         Gtk.Widget? new_badge = null;
         if (is_new) {
-            var badge = new Gtk.Label("New");
+            var badge = new Gtk.Label(_("New"));
             badge.add_css_class("podcast-episode-new-badge");
             badge.set_valign(Gtk.Align.CENTER);
             title_row.append(badge);
@@ -517,10 +517,10 @@ public class PodcastPane : GLib.Object {
             && progress.position_ns < progress.duration_ns - 10000000000;
 
         string duration_text = has_progress
-            ? format_duration((int64) ((progress.duration_ns - progress.position_ns) / 1000000000)) + " left"
+            ? format_duration((int64) ((progress.duration_ns - progress.position_ns) / 1000000000)) + _(" left")
             : format_duration(episode.duration_seconds);
         string when_text = DateUtils.time_ago(episode.published);
-        var meta_label = new Gtk.Label(duration_text.length > 0 ? "%s · %s".printf(when_text, duration_text) : when_text);
+        var meta_label = new Gtk.Label(duration_text.length > 0 ? _("%s · %s").printf(when_text, duration_text) : when_text);
         meta_label.add_css_class("article-card-time");
         meta_label.set_xalign(0);
 
@@ -594,8 +594,8 @@ public class PodcastPane : GLib.Object {
         int64 mins = seconds / 60;
         int64 hrs = mins / 60;
         mins = mins % 60;
-        if (hrs > 0) return "%lldh %lldm".printf(hrs, mins);
-        return "%lldm".printf(mins);
+        if (hrs > 0) return _("%lldh %lldm").printf(hrs, mins);
+        return _("%lldm").printf(mins);
     }
 
     // Gtk.Revealer sizes to its child's natural size, which would

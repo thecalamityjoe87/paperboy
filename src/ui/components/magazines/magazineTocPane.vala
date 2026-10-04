@@ -131,7 +131,7 @@ namespace Paperboy {
                 picture.set_can_shrink(true);
                 picture.set_size_request(THUMB_WIDTH, THUMB_WIDTH * 4 / 3); // typical portrait aspect - letterboxed if a page is a different shape
 
-                var label = new Gtk.Label("%d".printf(i + 1));
+                var label = new Gtk.Label(_("%d").printf(i + 1));
                 label.add_css_class("caption");
 
                 var item_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);

@@ -180,7 +180,7 @@ public class HeroCard : GLib.Object {
         var quick_reader_btn = new Gtk.Button();
         quick_reader_btn.add_css_class("card-hover-action-btn");
         quick_reader_btn.add_css_class("hero-card-hover-action-btn");
-        quick_reader_btn.set_tooltip_text("Open in reader view");
+        quick_reader_btn.set_tooltip_text(_("Open in reader view"));
         var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
         quick_reader_icon.set_pixel_size(22);
         quick_reader_btn.set_child(quick_reader_icon);
@@ -193,7 +193,7 @@ public class HeroCard : GLib.Object {
         var quick_pane_btn = new Gtk.Button();
         quick_pane_btn.add_css_class("card-hover-action-btn");
         quick_pane_btn.add_css_class("hero-card-hover-action-btn");
-        quick_pane_btn.set_tooltip_text("Preview article");
+        quick_pane_btn.set_tooltip_text(_("Preview article"));
         var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
         quick_pane_icon.set_pixel_size(22);
         quick_pane_btn.set_child(quick_pane_icon);

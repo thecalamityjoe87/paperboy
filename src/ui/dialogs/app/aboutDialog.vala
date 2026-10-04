@@ -49,7 +49,7 @@ public class AboutDialog : GLib.Object {
         var dialog = new Adw.Window();
         dialog.set_transient_for(parent);
         dialog.set_modal(true);
-        dialog.set_title("About Paperboy");
+        dialog.set_title(_("About Paperboy"));
         dialog.set_default_size(500, 650);
 
         var nav = new Adw.NavigationView();
@@ -73,10 +73,10 @@ public class AboutDialog : GLib.Object {
                 notes_label_temp.set_markup(format_release_notes(release_notes_text));
             } catch (Error e) {
                 warning("Failed to load release notes: %s", e.message);
-                notes_label_temp.set_text("Release notes not available");
+                notes_label_temp.set_text(_("Release notes not available"));
             }
         } else {
-            notes_label_temp.set_text("Release notes not available");
+            notes_label_temp.set_text(_("Release notes not available"));
         }
         notes_label_temp.set_wrap(true);
         notes_label_temp.set_natural_wrap_mode(Gtk.NaturalWrapMode.WORD);
@@ -90,7 +90,7 @@ public class AboutDialog : GLib.Object {
         var notes_header_temp = new Adw.HeaderBar();
         notes_toolbar_temp.add_top_bar(notes_header_temp);
         notes_toolbar_temp.set_content(notes_scroll_temp);
-        var notes_page_temp = new Adw.NavigationPage.with_tag(notes_toolbar_temp, "Release notes", "notes");
+        var notes_page_temp = new Adw.NavigationPage.with_tag(notes_toolbar_temp, _("Release notes"), "notes");
 
         var scroll = new Gtk.ScrolledWindow();
         scroll.set_vexpand(true);
@@ -123,7 +123,7 @@ public class AboutDialog : GLib.Object {
         version.set_margin_top(8);
         page.append(version);
 
-        var desc = new Gtk.Label("An all-in-one news app written in Vala, built with GTK4 and Libadwaita.");
+        var desc = new Gtk.Label(_("An all-in-one news app written in Vala, built with GTK4 and Libadwaita."));
         desc.set_wrap(true);
         desc.set_justify(Gtk.Justification.CENTER);
         desc.add_css_class("dim-label");
@@ -136,7 +136,7 @@ public class AboutDialog : GLib.Object {
         info.set_margin_top(20);
 
         var notes_row = new Adw.ActionRow();
-        notes_row.set_title("Release notes");
+        notes_row.set_title(_("Release notes"));
         notes_row.set_activatable(true);
         var notes_arrow = new Gtk.Image.from_icon_name("go-next-symbolic");
         notes_row.add_suffix(notes_arrow);
@@ -145,7 +145,7 @@ public class AboutDialog : GLib.Object {
 
         page.append(info);
 
-        var links_title = new Gtk.Label("Links");
+        var links_title = new Gtk.Label(_("Links"));
         links_title.add_css_class("heading");
         links_title.set_halign(Gtk.Align.START);
         links_title.set_margin_top(20);
@@ -174,13 +174,13 @@ public class AboutDialog : GLib.Object {
             links.append(row);
         }
 
-        add_link("GitHub Repository", "https://github.com/thecalamityjoe87/paperboy");
-        add_link("Releases", "https://github.com/thecalamityjoe87/paperboy/releases");
-        add_link("Report an issue", "https://github.com/thecalamityjoe87/paperboy/issues");
+        add_link(_("GitHub Repository"), "https://github.com/thecalamityjoe87/paperboy");
+        add_link(_("Releases"), "https://github.com/thecalamityjoe87/paperboy/releases");
+        add_link(_("Report an issue"), "https://github.com/thecalamityjoe87/paperboy/issues");
 
         page.append(links);
 
-        var footer = new Gtk.Label("© 2025 thecalamityjoe87 (Isaac Joseph)");
+        var footer = new Gtk.Label(_("© 2025 thecalamityjoe87 (Isaac Joseph)"));
         footer.add_css_class("dim-label");
         footer.add_css_class("caption");
         footer.set_wrap(true);
@@ -197,7 +197,7 @@ public class AboutDialog : GLib.Object {
         toolbar.add_top_bar(header);
         toolbar.set_content(scroll);
 
-        nav.add(new Adw.NavigationPage.with_tag(toolbar, "About Paperboy", "main"));
+        nav.add(new Adw.NavigationPage.with_tag(toolbar, _("About Paperboy"), "main"));
         nav.add(notes_page_temp);
 
         dialog.set_content(nav);

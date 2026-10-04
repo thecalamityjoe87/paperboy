@@ -93,7 +93,7 @@ public class PodcastCard : GLib.Object {
         this.episode_id = episode_id;
         this.feed_id = 0;
         this.show = null;
-        build(title, "%s · %s".printf(show_title, format_duration(duration_seconds)));
+        build(title, _("%s · %s").printf(show_title, format_duration(duration_seconds)));
     }
 
     private static string format_duration(int64 seconds) {
@@ -101,8 +101,8 @@ public class PodcastCard : GLib.Object {
         int64 mins = seconds / 60;
         int64 hrs = mins / 60;
         mins = mins % 60;
-        if (hrs > 0) return "%lldh %lldm".printf(hrs, mins);
-        return "%lldm".printf(mins);
+        if (hrs > 0) return _("%lldh %lldm").printf(hrs, mins);
+        return _("%lldm").printf(mins);
     }
 
     private void build(string title, string subtitle) {
@@ -159,7 +159,7 @@ public class PodcastCard : GLib.Object {
 
             play_button = new Gtk.Button.from_icon_name("media-playback-start-symbolic");
             play_button.add_css_class("podcast-card-badge-btn");
-            play_button.set_tooltip_text("Play");
+            play_button.set_tooltip_text(_("Play"));
             badge_row.append(play_button);
 
             subscribe_button = new Gtk.Button();
@@ -177,7 +177,7 @@ public class PodcastCard : GLib.Object {
             info_hint.set_valign(Gtk.Align.START);
             info_hint.set_margin_start(8);
             info_hint.set_margin_top(8);
-            info_hint.set_tooltip_text("Click for details");
+            info_hint.set_tooltip_text(_("Click for details"));
             overlay.add_overlay(info_hint);
         }
 
@@ -227,7 +227,7 @@ public class PodcastCard : GLib.Object {
         if (subscribe_button == null) return;
         bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(feed_id);
         subscribe_button.set_icon_name(subscribed ? CheckIconUtils.icon_name() : "list-add-symbolic");
-        subscribe_button.set_tooltip_text(subscribed ? "Subscribed" : "Subscribe");
+        subscribe_button.set_tooltip_text(subscribed ? _("Subscribed") : _("Subscribe"));
         if (subscribed) {
             subscribe_button.add_css_class("subscribed");
         } else {

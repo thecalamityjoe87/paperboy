@@ -261,7 +261,7 @@ public class MagazineReaderSheet : GLib.Object {
     // of Poppler.
     public void open_for_entry(Paperboy.MagazineEntry entry) {
         save_position();
-        if (window != null && window.toast_manager != null) window.toast_manager.show_persistent_toast("Opening magazine…");
+        if (window != null && window.toast_manager != null) window.toast_manager.show_persistent_toast(_("Opening magazine…"));
 
         new GLib.Thread<void*>("magazine-open", () => {
             Poppler.Document? loaded = null;
@@ -287,14 +287,14 @@ public class MagazineReaderSheet : GLib.Object {
             GLib.warning("Failed to open magazine: %s", error ?? "unknown error");
             if (window != null && window.toast_manager != null) {
                 window.toast_manager.clear_persistent_toast();
-                window.toast_manager.show_toast("Failed to open magazine");
+                window.toast_manager.show_toast(_("Failed to open magazine"));
             }
             return;
         }
         document = loaded;
         spread_cache.clear(); // stale page indices from whatever was open before, if anything
 
-        title_label.set_text(entry.title.length > 0 ? entry.title : "Magazine");
+        title_label.set_text(entry.title.length > 0 ? entry.title : _("Magazine"));
         page_count = document.get_n_pages();
         open_entry = entry;
         current_page = entry.last_page.clamp(0, int.max(page_count - 1, 0));
@@ -373,11 +373,11 @@ public class MagazineReaderSheet : GLib.Object {
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         header_row.append(title_label);
 
-        spread_toggle_button = new Gtk.Button.with_label("Single Page");
-        spread_toggle_button.set_tooltip_text("Toggle two-page spread");
+        spread_toggle_button = new Gtk.Button.with_label(_("Single Page"));
+        spread_toggle_button.set_tooltip_text(_("Toggle two-page spread"));
         spread_toggle_button.clicked.connect(() => {
             spread_mode = !spread_mode;
-            spread_toggle_button.set_label(spread_mode ? "Single Page" : "Two-Page");
+            spread_toggle_button.set_label(spread_mode ? _("Single Page") : _("Two-Page"));
             // Land on an even page so the spread reads as (2,3), (4,5), ...
             // rather than a half-page offset.
             if (spread_mode && current_page % 2 != 0 && current_page > 0) current_page -= 1;
@@ -390,32 +390,32 @@ public class MagazineReaderSheet : GLib.Object {
 
         var toc_button = new Gtk.Button.from_icon_name("view-grid-symbolic");
         toc_button.add_css_class("flat");
-        toc_button.set_tooltip_text("Browse pages");
+        toc_button.set_tooltip_text(_("Browse pages"));
         toc_button.clicked.connect(() => { toc_pane.toggle(); });
         header_row.append(toc_button);
 
         var zoom_out_button = new Gtk.Button.from_icon_name("zoom-out-symbolic");
         zoom_out_button.add_css_class("flat");
-        zoom_out_button.set_tooltip_text("Zoom out");
+        zoom_out_button.set_tooltip_text(_("Zoom out"));
         zoom_out_button.clicked.connect(() => { set_zoom(zoom - 0.25); });
         header_row.append(zoom_out_button);
 
         var zoom_fit_button = new Gtk.Button.from_icon_name("zoom-fit-best-symbolic");
         zoom_fit_button.add_css_class("flat");
-        zoom_fit_button.set_tooltip_text("Fit to view");
+        zoom_fit_button.set_tooltip_text(_("Fit to view"));
         zoom_fit_button.clicked.connect(() => { fit_to_view(); });
         header_row.append(zoom_fit_button);
 
         var zoom_in_button = new Gtk.Button.from_icon_name("zoom-in-symbolic");
         zoom_in_button.add_css_class("flat");
-        zoom_in_button.set_tooltip_text("Zoom in");
+        zoom_in_button.set_tooltip_text(_("Zoom in"));
         zoom_in_button.clicked.connect(() => { set_zoom(zoom + 0.25); });
         header_row.append(zoom_in_button);
 
         var close_button = new Gtk.Button.from_icon_name("window-close-symbolic");
         close_button.add_css_class("flat");
         close_button.add_css_class("circular");
-        close_button.set_tooltip_text("Close");
+        close_button.set_tooltip_text(_("Close"));
         close_button.clicked.connect(() => { close(); });
         header_row.append(close_button);
 
@@ -632,7 +632,7 @@ public class MagazineReaderSheet : GLib.Object {
         // counter stranded in the middle on its own.
         var nav_group = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
         prev_button = new Gtk.Button.from_icon_name("go-previous-symbolic");
-        prev_button.set_tooltip_text("Previous page");
+        prev_button.set_tooltip_text(_("Previous page"));
         prev_button.clicked.connect(() => { go_to_page(current_page - (spread_mode ? 2 : 1)); });
         nav_group.append(prev_button);
 
@@ -640,7 +640,7 @@ public class MagazineReaderSheet : GLib.Object {
         nav_group.append(page_label);
 
         next_button = new Gtk.Button.from_icon_name("go-next-symbolic");
-        next_button.set_tooltip_text("Next page");
+        next_button.set_tooltip_text(_("Next page"));
         next_button.clicked.connect(() => { go_to_page(current_page + (spread_mode ? 2 : 1)); });
         nav_group.append(next_button);
 
@@ -1144,9 +1144,9 @@ public class MagazineReaderSheet : GLib.Object {
     private void update_page_indicator_and_buttons() {
         int right_index = current_page + 1;
         if (spread_mode && right_index < page_count) {
-            page_label.set_text("Pages %d–%d of %d".printf(current_page + 1, right_index + 1, page_count));
+            page_label.set_text(_("Pages %d–%d of %d").printf(current_page + 1, right_index + 1, page_count));
         } else {
-            page_label.set_text("Page %d of %d".printf(current_page + 1, page_count));
+            page_label.set_text(_("Page %d of %d").printf(current_page + 1, page_count));
         }
         prev_button.set_sensitive(current_page > 0);
         next_button.set_sensitive(current_page + 1 < page_count);

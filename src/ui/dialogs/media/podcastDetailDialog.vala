@@ -143,7 +143,7 @@ public class PodcastDetailDialog : GLib.Object {
         // above" - good enough to decide whether "See more" is worth
         // showing without measuring the actual Pango layout.
         if (desc != null && desc.length > 220) {
-            var see_more_button = new Gtk.Button.with_label("See more");
+            var see_more_button = new Gtk.Button.with_label(_("See more"));
             see_more_button.add_css_class("flat");
             see_more_button.add_css_class("caption");
             see_more_button.set_halign(Gtk.Align.END);
@@ -161,7 +161,7 @@ public class PodcastDetailDialog : GLib.Object {
 
         VoidFunc update_subscribe_state = () => {
             bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(show.feed_id);
-            subscribe_button.set_label(subscribed ? "Subscribed" : "Subscribe");
+            subscribe_button.set_label(subscribed ? _("Subscribed") : _("Subscribe"));
             if (subscribed) {
                 subscribe_button.remove_css_class("suggested-action");
             } else {
@@ -177,7 +177,7 @@ public class PodcastDetailDialog : GLib.Object {
         // the description text next to the cover art, even though the
         // button isn't anywhere near that text visually. Lock the width
         // to whichever label is widest so toggling never reflows the row.
-        subscribe_button.set_label("Subscribed");
+        subscribe_button.set_label(_("Subscribed"));
         int subscribe_min_w, subscribe_nat_w;
         subscribe_button.measure(Gtk.Orientation.HORIZONTAL, -1, out subscribe_min_w, out subscribe_nat_w, null, null);
         subscribe_button.set_size_request(subscribe_nat_w, -1);
@@ -198,7 +198,7 @@ public class PodcastDetailDialog : GLib.Object {
         close_button.add_css_class("flat");
         close_button.add_css_class("circular");
         close_button.set_valign(Gtk.Align.START);
-        close_button.set_tooltip_text("Close");
+        close_button.set_tooltip_text(_("Close"));
         close_button.clicked.connect(() => { dialog.close(); });
         header_row.append(close_button);
 
@@ -225,7 +225,7 @@ public class PodcastDetailDialog : GLib.Object {
         episode_spinner.set_margin_top(20);
         episode_spinner.start();
 
-        var episode_empty_label = new Gtk.Label("No episodes found for this show.");
+        var episode_empty_label = new Gtk.Label(_("No episodes found for this show."));
         episode_empty_label.add_css_class("dim-label");
         episode_empty_label.set_margin_top(20);
         episode_empty_label.set_halign(Gtk.Align.CENTER);
@@ -361,7 +361,7 @@ public class PodcastDetailDialog : GLib.Object {
 
         Gtk.Widget? new_badge = null;
         if (is_new) {
-            var badge = new Gtk.Label("New");
+            var badge = new Gtk.Label(_("New"));
             badge.add_css_class("podcast-episode-new-badge");
             badge.set_valign(Gtk.Align.CENTER);
             title_row.append(badge);
@@ -371,7 +371,7 @@ public class PodcastDetailDialog : GLib.Object {
 
         string duration_text = format_duration(episode.duration_seconds);
         string when_text = DateUtils.time_ago(episode.published);
-        var meta_label = new Gtk.Label(duration_text.length > 0 ? "%s · %s".printf(when_text, duration_text) : when_text);
+        var meta_label = new Gtk.Label(duration_text.length > 0 ? _("%s · %s").printf(when_text, duration_text) : when_text);
         meta_label.add_css_class("article-card-time");
         meta_label.set_xalign(0);
         text_box.append(meta_label);
@@ -442,7 +442,7 @@ public class PodcastDetailDialog : GLib.Object {
         int64 mins = seconds / 60;
         int64 hrs = mins / 60;
         mins = mins % 60;
-        if (hrs > 0) return "%lldh %lldm".printf(hrs, mins);
-        return "%lldm".printf(mins);
+        if (hrs > 0) return _("%lldh %lldm").printf(hrs, mins);
+        return _("%lldm").printf(mins);
     }
 }

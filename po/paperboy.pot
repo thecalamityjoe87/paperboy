@@ -1,0 +1,2661 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the paperboy package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: paperboy\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-04 11:58-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/builders/cardBuilder.vala:350
+#: src/ui/components/articles/heroCard.vala:183
+msgid "Open in reader view"
+msgstr ""
+
+#: src/builders/cardBuilder.vala:362
+#: src/ui/components/articles/heroCard.vala:196
+msgid "Preview article"
+msgstr ""
+
+#: src/builders/cardBuilder.vala:660
+msgid "Read"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:190
+msgid "General"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:191
+msgid "U.S."
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:192
+#: src/managers/ui/headerManager.vala:471
+#: src/managers/ui/sidebarManager.vala:442
+#: src/managers/ui/sidebarManager.vala:447
+#: src/ui/dialogs/app/prefsDialog.vala:278
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "Technology"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:193
+#: src/managers/ui/headerManager.vala:472
+#: src/managers/ui/sidebarManager.vala:441
+#: src/managers/ui/sidebarManager.vala:448
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "Business"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:194
+#: src/managers/ui/headerManager.vala:474
+#: src/managers/ui/sidebarManager.vala:450
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "Science"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:195
+#: src/managers/ui/headerManager.vala:473
+#: src/managers/ui/sidebarManager.vala:449
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "Sports"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:196
+#: src/managers/ui/headerManager.vala:475
+#: src/managers/ui/sidebarManager.vala:451
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "Health"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:197
+#: src/managers/ui/headerManager.vala:476
+#: src/managers/ui/sidebarManager.vala:452
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "Entertainment"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:198
+#: src/managers/ui/headerManager.vala:477
+#: src/managers/ui/sidebarManager.vala:443
+#: src/managers/ui/sidebarManager.vala:453
+#: src/ui/dialogs/app/prefsDialog.vala:278
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "Politics"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:199
+#: src/managers/ui/headerManager.vala:478
+#: src/managers/ui/sidebarManager.vala:456
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "Lifestyle"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:200
+#: src/managers/ui/headerManager.vala:479
+#: src/ui/dialogs/app/prefsDialog.vala:278
+#: src/ui/dialogs/app/prefsDialog.vala:1322
+msgid "Markets"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:201
+#: src/managers/ui/headerManager.vala:480
+#: src/ui/dialogs/app/prefsDialog.vala:278
+msgid "Industries"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:202
+#: src/managers/ui/headerManager.vala:481
+#: src/ui/dialogs/app/prefsDialog.vala:278
+msgid "Economics"
+msgstr ""
+
+#. ========== FRONT PAGE GROUP ==========
+#: src/managers/content/categoryManager.vala:203
+#: src/managers/ui/headerManager.vala:463
+#: src/managers/ui/sidebarManager.vala:307
+#: src/ui/dialogs/app/prefsDialog.vala:1355
+msgid "Front Page"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:204
+#: src/managers/ui/headerManager.vala:464
+msgid "Trending"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:205
+#: src/managers/ui/headerManager.vala:482
+#: src/managers/ui/sidebarManager.vala:308
+msgid "My Feed"
+msgstr ""
+
+#. Local News locations
+#: src/managers/content/categoryManager.vala:206
+#: src/managers/ui/headerManager.vala:485
+#: src/managers/ui/sidebarManager.vala:320
+#: src/ui/dialogs/app/prefsDialog.vala:969
+msgid "Local News"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:207
+#: src/managers/ui/headerManager.vala:465
+#: src/managers/ui/sidebarManager.vala:310
+msgid "Saved"
+msgstr ""
+
+#: src/managers/content/categoryManager.vala:208
+#: src/managers/ui/headerManager.vala:466
+#: src/managers/ui/sidebarManager.vala:311
+msgid "History"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:154
+#, c-format
+msgid "No magazines found matching \"%s\""
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:155
+#: src/managers/media/podcastManager.vala:264 src/ui/contentView.vala:1197
+#, c-format
+msgid "Search results: found %d %s matching \"%s\""
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:155
+msgid "magazine"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:155
+msgid "magazines"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:177
+msgid "Your library is empty"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:228
+#: src/managers/media/magazineLibraryManager.vala:588
+msgid "Removed from library"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:460
+msgid "Your library is empty. Add a magazine to get started."
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:648
+msgid "1 selected"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:648
+#, c-format
+msgid "%d selected"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:649
+#, c-format
+msgid "Delete (%d)"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:649
+#: src/managers/media/magazineLibraryManager.vala:672
+#: src/ui/contentView.vala:852
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:379
+msgid "Delete"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:668
+msgid "Delete 1 magazine?"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:668
+#, c-format
+msgid "Delete %d magazines?"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:669
+msgid "Their downloaded files are removed too. This can't be undone."
+msgstr ""
+
+#. "Are you sure you want to remove \"%s\"?".printf(current_source_name)
+#. dialog.set_body("This will remove this source and all its content");
+#: src/managers/media/magazineLibraryManager.vala:671
+#: src/managers/media/magazineLibraryManager.vala:733
+#: src/managers/media/magazineLibraryManager.vala:789
+#: src/managers/media/magazineLibraryManager.vala:925
+#: src/managers/ui/headerManager.vala:151 src/ui/contentView.vala:849
+#: src/ui/dialogs/app/locationDialog.vala:125
+#: src/ui/dialogs/app/prefsDialog.vala:650
+#: src/ui/dialogs/app/prefsDialog.vala:834
+#: src/ui/dialogs/app/prefsDialog.vala:860
+#: src/ui/dialogs/app/prefsDialog.vala:933
+#: src/ui/dialogs/app/prefsDialog.vala:1732
+#: src/ui/dialogs/app/prefsDialog.vala:1799
+#: src/ui/dialogs/app/prefsDialog.vala:1986
+#: src/ui/dialogs/content/feedRenameDialog.vala:42
+#: src/ui/dialogs/content/shareDialog.vala:222
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:192
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:343
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:378
+#: src/ui/dialogs/media/podcastPickerDialog.vala:99
+#: src/ui/menus/sidebarMenu.vala:186
+msgid "Cancel"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:685
+msgid "Removed 1 magazine"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:685
+#, c-format
+msgid "Removed %d magazines"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:723
+msgid "Set Category"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:724
+#, c-format
+msgid "Group \"%s\" under a category - leave blank for Uncategorized."
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:727
+msgid "e.g. Technology, History, Comics"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:734
+msgid "Set"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:755
+#: src/ui/contentView.vala:244
+msgid "Add Magazines"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:756
+msgid ""
+"Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
+"choose a PDF you've already downloaded."
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:767
+msgid "Title (optional, direct PDF links/local files only)"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:771
+msgid "Category (optional, e.g. Technology, History)"
+msgstr ""
+
+#. Local file import - shares the title/category fields above,
+#. just skips the URL field and closes this dialog immediately
+#. rather than waiting for "Add" (there's no URL to type once a
+#. file is picked).
+#: src/managers/media/magazineLibraryManager.vala:778
+msgid "Choose a PDF on This Computer…"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:790
+#: src/ui/dialogs/app/locationDialog.vala:81
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:485
+msgid "Add"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:812
+msgid "Choose a PDF"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:815
+msgid "PDF files"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:842
+msgid "Only https:// links are supported"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:873
+msgid "Scanning for PDFs…"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:883
+msgid "No PDF links found on that page"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:894
+msgid "No new PDFs found - everything's already in your library"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:905
+msgid "Select magazines to add"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:906
+#, c-format
+msgid "Found %d PDF %s on %s."
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:906
+msgid "link"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:906
+msgid "links"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:926
+#: src/ui/dialogs/media/podcastPickerDialog.vala:100
+msgid "Add Selected"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:945
+msgid "Downloading magazine…"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:956
+#: src/managers/media/magazineLibraryManager.vala:976
+msgid "Added: "
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:958
+#: src/managers/media/magazineLibraryManager.vala:978
+msgid "Failed to add magazine"
+msgstr ""
+
+#: src/managers/media/magazineLibraryManager.vala:965
+msgid "Adding magazines…"
+msgstr ""
+
+#: src/managers/media/podcastManager.vala:131
+msgid "Loading podcasts..."
+msgstr ""
+
+#: src/managers/media/podcastManager.vala:201
+#, c-format
+msgid "Searching for \"%s\"..."
+msgstr ""
+
+#: src/managers/media/podcastManager.vala:263
+#, c-format
+msgid "No podcasts found matching \"%s\""
+msgstr ""
+
+#: src/managers/media/podcastManager.vala:264
+msgid "podcast"
+msgstr ""
+
+#: src/managers/media/podcastManager.vala:264
+msgid "podcasts"
+msgstr ""
+
+#: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
+msgid "Loading..."
+msgstr ""
+
+#: src/managers/media/podcastManager.vala:474
+#: src/managers/media/podcastManager.vala:505
+msgid "Show More Categories"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:128
+#, c-format
+msgid "Weather in %s"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:129
+msgid ""
+"\n"
+"Open Weather for the full forecast"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:148
+msgid "Clear history?"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:149
+msgid ""
+"This will permanently delete your reading history. This can't be undone."
+msgstr ""
+
+#. History page action - lives in the title row since the date row is hidden there.
+#: src/managers/ui/headerManager.vala:152 src/ui/contentView.vala:164
+msgid "Clear History"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:161
+msgid "History cleared"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:196
+msgid "Browse podcasts"
+msgstr ""
+
+#. "Subscribed" is wider than "Subscribe" - without a locked width,
+#. toggling subscription state changes the button's own width,
+#. which (since it's a non-expanding sibling of title_box in
+#. header_row) eats into title_box's available width and reflows
+#. the description text next to the cover art, even though the
+#. button isn't anywhere near that text visually. Lock the width
+#. to whichever label is widest so toggling never reflows the row.
+#: src/managers/ui/headerManager.vala:206
+#: src/ui/components/podcasts/podcastCard.vala:230
+#: src/ui/components/podcasts/podcastHeroCard.vala:169
+#: src/ui/components/podcasts/podcastPane.vala:461
+#: src/ui/dialogs/media/podcastDetailDialog.vala:164
+#: src/ui/dialogs/media/podcastDetailDialog.vala:180
+msgid "Subscribed"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:206 src/ui/contentView.vala:216
+msgid "Add podcast"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:260
+msgid "Couldn't add podcast: "
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:260
+msgid "unknown error"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:266
+msgid "Podcast added: "
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:440
+msgid "1 saved article"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:440
+#, c-format
+msgid "%d saved articles"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:451
+#: src/managers/ui/headerManager.vala:459
+msgid "RSS Feed"
+msgstr ""
+
+#. Create horizontal box for category label and source info
+#. Add category label (bigger size) - left aligned
+#: src/managers/ui/headerManager.vala:467
+#: src/managers/ui/headerManager.vala:469
+#: src/managers/ui/sidebarManager.vala:445 src/ui/contentView.vala:144
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "World News"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:468
+#: src/managers/ui/headerManager.vala:470
+#: src/managers/ui/sidebarManager.vala:446
+#: src/ui/dialogs/app/prefsDialog.vala:287
+msgid "US News"
+msgstr ""
+
+#. id stays "podcasts" (the routing key) - only title/icon change.
+#: src/managers/ui/headerManager.vala:486
+#: src/managers/ui/sidebarManager.vala:378
+msgid "Find Podcasts"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:487
+#: src/managers/ui/sidebarManager.vala:309
+#: src/ui/dialogs/app/prefsDialog.vala:1342
+msgid "Magazine Rack"
+msgstr ""
+
+#: src/managers/ui/headerManager.vala:490
+#: src/managers/ui/headerManager.vala:492
+#: src/managers/ui/headerManager.vala:522
+msgid "News"
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:198
+msgid "Loading local news..."
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:200
+msgid "Loading content..."
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:255
+msgid ""
+"No articles could be loaded. Try refreshing or check your source settings."
+msgstr ""
+
+#. Centered empty state for a view that legitimately has nothing to
+#. show (History/Saved/Magazines library when empty). `icon_file` is a
+#. bundled "<name>-mono.svg" (the view's own header icon, or
+#. search-mono.svg for an empty search), shown large and dimmed. Reuses the error overlay minus
+#. its Refresh button. Also ends the initial phase and cancels the reveal
+#. timeouts - left armed, INITIAL_MAX_WAIT_MS later fires
+#. show_error_message() over this since no items were ever populated.
+#: src/managers/ui/loadingStateManager.vala:269
+msgid "Nothing here yet"
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:401
+msgid "Personalized feed is disabled."
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:403
+msgid ""
+"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
+"'Enable prsonalized feed' toggle to see content from your feeds."
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:409
+msgid "No custom RSS feeds followed."
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:411
+msgid ""
+"You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by "
+"clicking the button below or open the main menu (☰) → Preferences → "
+"'Personalization' tab."
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:417
+msgid "Personalized Feed is enabled but no categories are selected."
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:419
+msgid ""
+"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
+"'Enable personalized feed' toggle and click its settings icon to select "
+"categories, or follow custom RSS feeds."
+msgstr ""
+
+#: src/managers/ui/sidebarManager.vala:312
+#: src/ui/components/articles/articleSheet.vala:164
+#: src/ui/components/articles/articleSheet.vala:351
+#: src/ui/dialogs/app/prefsDialog.vala:1914
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:43
+msgid "Notes"
+msgstr ""
+
+#: src/managers/ui/sidebarManager.vala:340
+msgid "Popular Categories"
+msgstr ""
+
+#. Page header label, e.g. "Dallas News". The " News" suffix is a
+#. translatable wrapper so it reads naturally per locale (pt: "Notícias
+#. de Osasco").
+#: src/models/news/localArea.vala:54
+#, c-format
+msgid "%s News"
+msgstr ""
+
+#. The conditions shown next to the temperature. Translated with an
+#. explicit "Weather" context (msgctxt), not a prefix in the text: a
+#. bare "Clear" is already a translated msgid in pt_BR and means
+#. "Limpar" (the cache-clear button in prefsDialog), which would label
+#. the sky as "Limpar". A context keeps this set unambiguous without
+#. the context word ever reaching the user - a "Weather: " prefix would
+#. show up in the English UI as "Weather: Clear".
+#: src/models/weather/weatherReport.vala:50
+msgctxt "Weather"
+msgid "Clear"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:51
+msgctxt "Weather"
+msgid "Mostly clear"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:52
+msgctxt "Weather"
+msgid "Partly cloudy"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:53
+msgctxt "Weather"
+msgid "Overcast"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:54
+msgctxt "Weather"
+msgid "Fog"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:55
+msgctxt "Weather"
+msgid "Drizzle"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:56
+msgctxt "Weather"
+msgid "Freezing drizzle"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:57
+msgctxt "Weather"
+msgid "Rain"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:58
+msgctxt "Weather"
+msgid "Freezing rain"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:59
+msgctxt "Weather"
+msgid "Snow"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:60
+msgctxt "Weather"
+msgid "Rain showers"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:61
+msgctxt "Weather"
+msgid "Snow showers"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:62
+msgctxt "Weather"
+msgid "Thunderstorm"
+msgstr ""
+
+#: src/models/weather/weatherReport.vala:63
+msgctxt "Weather"
+msgid "Thunderstorm with hail"
+msgstr ""
+
+#: src/processors/rssFeedProcessor.vala:684
+msgid "Error loading feed — invalid (empty) URL"
+msgstr ""
+
+#: src/processors/rssFeedProcessor.vala:689
+msgid "Error loading feed — invalid URL"
+msgstr ""
+
+#. regeneration is handled by FeedUpdateManager, not here
+#: src/processors/rssFeedProcessor.vala:699
+msgid "Generating feed... (this may take 30-40 seconds)"
+msgstr ""
+
+#: src/processors/rssFeedProcessor.vala:706
+msgid "Failed to read local RSS file"
+msgstr ""
+
+#: src/processors/rssFeedProcessor.vala:769
+msgid "Error loading feed — network/DNS error"
+msgstr ""
+
+#: src/processors/rssFeedProcessor.vala:781
+msgid "Error loading feed — empty response"
+msgstr ""
+
+#: src/processors/rssFeedProcessor.vala:791
+msgid "Error loading feed"
+msgstr ""
+
+#: src/ui/appWindow.vala:313
+msgid "Refresh news"
+msgstr ""
+
+#. Main menu, on the sidebar's trailing (right) side
+#. Create PreferencesDialog
+#: src/ui/appWindow.vala:327 src/ui/dialogs/app/prefsDialog.vala:358
+msgid "Preferences"
+msgstr ""
+
+#: src/ui/appWindow.vala:328 src/ui/sidebarView.vala:763
+msgid "Manage Locations"
+msgstr ""
+
+#: src/ui/appWindow.vala:329
+msgid "Show Welcome Tour"
+msgstr ""
+
+#: src/ui/appWindow.vala:330 src/ui/dialogs/app/aboutDialog.vala:52
+#: src/ui/dialogs/app/aboutDialog.vala:200
+msgid "About Paperboy"
+msgstr ""
+
+#: src/ui/appWindow.vala:335
+msgid "Main Menu"
+msgstr ""
+
+#: src/ui/appWindow.vala:349
+msgid "Toggle Sidebar"
+msgstr ""
+
+#: src/ui/appWindow.vala:356
+msgid "Search news for keywords…"
+msgstr ""
+
+#. Podcasts renders into ContentView's own hero_container/
+#. category_sections_container - the exact containers Top
+#. Ten/Front Page already use - instead of a separate page, so
+#. it inherits the same header, margins, scroll-fade chrome,
+#. and hero-card layout. See PodcastManager.show(). Leaving
+#. podcasts back to any news category runs through fetch_news()
+#. below as normal, whose LayoutManager.prepare_for_new_fetch()
+#. already clears these same containers unconditionally, so no
+#. podcast-specific teardown is needed here.
+#. If viewing "saved" category, check if saved articles are already loaded
+#. (they load synchronously in ArticleStateStore constructor, so signal may have
+#. already fired before we connected the handler at line 333)
+#. Podcasts isn't a FetchNewsController category - it renders
+#. directly into ContentView's containers via PodcastManager
+#. (see the sidebar's category_selected handler above).
+#. Calling fetch_news() here instead would leave the loading
+#. spinner stuck forever, since nothing in that pipeline
+#. recognizes "podcasts" or ever calls fetch_finished().
+#: src/ui/appWindow.vala:512 src/ui/appWindow.vala:1021
+msgid "Search podcasts…"
+msgstr ""
+
+#. Same reasoning as the podcasts branch above - Magazines
+#. isn't a FetchNewsController category either.
+#: src/ui/appWindow.vala:1026
+msgid "Search magazines…"
+msgstr ""
+
+#: src/ui/components/articles/articlePane.vala:57
+msgid "Failed to open link in browser"
+msgstr ""
+
+#: src/ui/components/articles/articlePane.vala:228
+msgid "Loading snippet…"
+msgstr ""
+
+#: src/ui/components/articles/articlePane.vala:253
+#: src/ui/components/articles/articleSheet.vala:150
+#: src/ui/components/magazines/magazineReaderSheet.vala:418
+#: src/ui/components/podcasts/podcastPlayerBar.vala:106
+#: src/ui/dialogs/app/prefsDialog.vala:345
+#: src/ui/dialogs/content/imageViewerDialog.vala:306
+#: src/ui/dialogs/media/podcastDetailDialog.vala:201
+#: src/ui/dialogs/media/videoPlayerDialog.vala:126
+msgid "Close"
+msgstr ""
+
+#: src/ui/components/articles/articlePane.vala:293
+#: src/ui/components/articles/articleSheet.vala:518
+msgid "Searching for feed..."
+msgstr ""
+
+#: src/ui/components/articles/articlePane.vala:302
+#: src/ui/components/articles/articleSheet.vala:525
+msgid "Removed article from saved"
+msgstr ""
+
+#: src/ui/components/articles/articlePane.vala:309
+#: src/ui/components/articles/articleSheet.vala:530
+msgid "Added article to saved"
+msgstr ""
+
+#: src/ui/components/articles/articlePane.vala:341
+#: src/ui/components/articles/articleSheet.vala:157
+msgid "Article options"
+msgstr ""
+
+#: src/ui/components/articles/articlePane.vala:346
+msgid "Article view and source options"
+msgstr ""
+
+#. Fetch snippet asynchronously. ArticlePreviewService will consult any
+#. provided article buffer (cached feed entries) for quick results.
+#. Ensure the preview UI is still present before mutating widgets
+#: src/ui/components/articles/articlePane.vala:398
+msgid "No preview available. Open the article to read more."
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:107
+#: src/ui/dialogs/app/onboardingDialog.vala:73
+msgid "Back"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:113
+msgid "Forward"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:119
+msgid "Reload article"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:131
+msgid "Reader view"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:152
+msgid "Close article"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:247
+msgid "View comments"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:287
+msgid "Comments"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:292
+msgid "Close comments"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:356
+#: src/ui/dialogs/notes/noteEditorDialog.vala:48
+msgid "New note"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:364
+msgid "Close notes"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:385
+msgid "No notes yet."
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:720
+msgid "9+"
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:823
+msgid "No comments yet."
+msgstr ""
+
+#: src/ui/components/articles/articleSheet.vala:823
+msgid "Couldn't load comments."
+msgstr ""
+
+#. Styled like the content view's other card chips
+#. (.category-chip/.source-badge), not the sidebar's
+#. theme-aware .live-pill - see .live-pill-header in style.css.
+#. "Live" pill shown to the left of the Sports category's count badge
+#. while SportsLiveIndicatorManager reports a game in progress.
+#: src/ui/components/articles/categorySection.vala:146
+#: src/ui/components/sports/leagueBadge.vala:101 src/ui/sidebarView.vala:531
+msgid "Live"
+msgstr ""
+
+#. Plain "Go to <title>" button under the row (not overlaid on the
+#. cards), fixed in place - jumps to nav_target_id's full page via the
+#. sidebar. Names the destination directly rather than "See all", which
+#. reads as "load more into this row" - the row's own nav arrows already
+#. do that. Static for the same reason as add_nav_buttons: it hangs a
+#. closure off a signal owned by `wrapper`.
+#: src/ui/components/articles/categorySection.vala:459
+#, c-format
+msgid "Go to %s →"
+msgstr ""
+
+#: src/ui/components/articles/categorySection.vala:499
+#: src/ui/components/articles/categorySection.vala:507
+#: src/ui/components/common/scrollNavButtons.vala:69
+msgid "→"
+msgstr ""
+
+#. Margins live in CSS (.top-stories-title), not set_margin_top/
+#. bottom here: the top margin was silently not taking effect via
+#. the widget API (bottom did), so app-level CSS - which always
+#. wins over the GTK theme's own defaults - is the reliable place
+#. to control this regardless of what was overriding it.
+#. Use Pango markup to match the subtitle sizing used elsewhere.
+#: src/ui/components/articles/heroCarousel.vala:82
+msgid "<span size='26000'><b>FEATURED</b></span>"
+msgstr ""
+
+#: src/ui/components/articles/recommendedSection.vala:75
+msgid "RECOMMENDED FOR YOU"
+msgstr ""
+
+#: src/ui/components/articles/recommendedSection.vala:79
+msgid "Picked from the topics and sites you read"
+msgstr ""
+
+#. No standard GTK/Adwaita icon actually renders as a literal arrow
+#. (shaft + head) - go-previous/pan-start/media-playback-start all
+#. land back on a chevron or triangle. Using the plain Unicode arrow
+#. glyphs as bold button text instead: they're in the core Arrows
+#. block, present in every GNOME distro's default font stack
+#. (Cantarell, Noto, DejaVu), so this needs no icon theme lookup or
+#. bundled asset.
+#: src/ui/components/common/scrollNavButtons.vala:59
+msgid "←"
+msgstr ""
+
+#: src/ui/components/magazines/magazineCard.vala:290
+msgid "Select"
+msgstr ""
+
+#: src/ui/components/magazines/magazineCard.vala:291
+msgid "Set Category…"
+msgstr ""
+
+#: src/ui/components/magazines/magazineCard.vala:292
+msgid "Remove from Library"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:264
+msgid "Opening magazine…"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:290
+msgid "Failed to open magazine"
+msgstr ""
+
+#. stale page indices from whatever was open before, if anything
+#: src/ui/components/magazines/magazineReaderSheet.vala:297
+msgid "Magazine"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:376
+#: src/ui/components/magazines/magazineReaderSheet.vala:380
+msgid "Single Page"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:377
+msgid "Toggle two-page spread"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:380
+msgid "Two-Page"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:393
+msgid "Browse pages"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:399
+msgid "Zoom out"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:405
+msgid "Fit to view"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:411
+msgid "Zoom in"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:635
+msgid "Previous page"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:643
+msgid "Next page"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:1147
+#, c-format
+msgid "Pages %d–%d of %d"
+msgstr ""
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:1149
+#, c-format
+msgid "Page %d of %d"
+msgstr ""
+
+#. typical portrait aspect - letterboxed if a page is a different shape
+#: src/ui/components/magazines/magazineTocPane.vala:134
+#, c-format
+msgid "%d"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastCard.vala:96
+#: src/ui/components/podcasts/podcastPane.vala:164
+#: src/ui/components/podcasts/podcastPane.vala:523
+#: src/ui/components/sports/highlightCard.vala:124
+#: src/ui/components/sports/scoreCard.vala:103
+#: src/ui/components/sports/scoreCard.vala:121
+#: src/ui/components/sports/scoreCard.vala:123
+#: src/ui/dialogs/media/podcastDetailDialog.vala:374
+#: src/ui/dialogs/media/podcastPickerDialog.vala:60
+#, c-format
+msgid "%s · %s"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastCard.vala:104
+#: src/ui/components/podcasts/podcastPane.vala:597
+#: src/ui/dialogs/media/podcastDetailDialog.vala:445
+#, c-format
+msgid "%lldh %lldm"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastCard.vala:105
+#: src/ui/components/podcasts/podcastPane.vala:598
+#: src/ui/dialogs/media/podcastDetailDialog.vala:446
+#, c-format
+msgid "%lldm"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastCard.vala:162
+#: src/ui/components/podcasts/podcastHeroCard.vala:150
+#: src/ui/menus/podcastMenu.vala:52
+msgid "Play"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastCard.vala:180
+msgid "Click for details"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastCard.vala:230
+#: src/ui/components/podcasts/podcastHeroCard.vala:169
+#: src/ui/components/podcasts/podcastPane.vala:461
+#: src/ui/dialogs/media/podcastDetailDialog.vala:164
+#: src/ui/menus/podcastMenu.vala:80
+msgid "Subscribe"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastPane.vala:163
+#: src/ui/components/podcasts/podcastPane.vala:520
+msgid " left"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastPane.vala:450
+#: src/ui/dialogs/media/podcastDetailDialog.vala:228
+msgid "No episodes found for this show."
+msgstr ""
+
+#: src/ui/components/podcasts/podcastPane.vala:506
+#: src/ui/dialogs/media/podcastDetailDialog.vala:364
+msgid "New"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:139
+msgid "Previous episode"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:151
+msgid "Next episode"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:156
+msgid "Playback speed"
+msgstr ""
+
+#. Labelled so tapping it reads as "leaves the reader" rather than "broken".
+#: src/ui/components/reader/readerVideoEmbed.vala:72
+msgid "Watch on site"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:116
+msgid "Loading reader view…"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:124
+msgid ""
+"Couldn't extract a reader view for this article.\n"
+"Turn off reader view above to read it on the live webpage instead."
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:482
+msgid "Open note"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:511
+msgid "Reader view settings"
+msgstr ""
+
+#. ---- Text size ----
+#: src/ui/components/reader/readerView.vala:524
+msgid "Text size"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:531
+msgid "Decrease text size"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:536
+msgid "Increase text size"
+msgstr ""
+
+#. ---- Font family ----
+#: src/ui/components/reader/readerView.vala:555
+msgid "Font"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:562
+msgid "Sans"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:563
+msgid "Serif"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:564
+msgid "Mono"
+msgstr ""
+
+#. ---- Color scheme ----
+#: src/ui/components/reader/readerView.vala:584
+msgid "Color"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:628
+#: src/ui/dialogs/app/onboardingDialog.vala:308
+#: src/ui/dialogs/app/prefsDialog.vala:1003
+msgid "Light"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:629
+msgid "Sepia"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:630
+msgid "Gray"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:631
+#: src/ui/dialogs/app/onboardingDialog.vala:309
+#: src/ui/dialogs/app/prefsDialog.vala:1003
+msgid "Dark"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:632
+msgid "Night"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:633
+msgid "Auto (match app theme)"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:649
+#, c-format
+msgid "%d%%"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:847
+msgid "Untitled article"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:992
+#: src/ui/components/reader/readerView.vala:1001
+msgid "Add note"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:1075
+msgid "View full size"
+msgstr ""
+
+#: src/ui/components/reader/readerView.vala:1092
+msgid "By "
+msgstr ""
+
+#: src/ui/components/sports/leagueBadgeCarousel.vala:203
+msgid "Add more leagues"
+msgstr ""
+
+#: src/ui/components/sports/leagueBadgeCarousel.vala:210
+msgid "Settings"
+msgstr ""
+
+#: src/ui/components/sports/scoreCard.vala:102
+msgid "LIVE"
+msgstr ""
+
+#: src/ui/components/sports/scoreCard.vala:122
+msgid "TBD"
+msgstr ""
+
+#: src/ui/components/sports/scoreCard.vala:133
+msgid "Today"
+msgstr ""
+
+#: src/ui/components/sports/scoreCard.vala:134
+msgid "Yesterday"
+msgstr ""
+
+#: src/ui/components/sports/scoreCard.vala:135
+msgid "Tomorrow"
+msgstr ""
+
+#: src/ui/contentView.vala:241
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:48
+msgid "Organize Rack"
+msgstr ""
+
+#: src/ui/contentView.vala:342
+msgid "<span size='26000'><b>START LISTENING</b></span>"
+msgstr ""
+
+#: src/ui/contentView.vala:386
+msgid "TRENDING"
+msgstr ""
+
+#: src/ui/contentView.vala:458
+msgid "MY TEAMS"
+msgstr ""
+
+#: src/ui/contentView.vala:689
+msgid "Personalize My Feed"
+msgstr ""
+
+#: src/ui/contentView.vala:711
+msgid "To See Local News, Set Your Location in Preferences"
+msgstr ""
+
+#: src/ui/contentView.vala:720
+msgid ""
+"Open the main menu (☰) → choose 'Manage locations' to configure your city or "
+"ZIP code."
+msgstr ""
+
+#: src/ui/contentView.vala:728
+msgid "Set Location"
+msgstr ""
+
+#: src/ui/contentView.vala:754
+msgid "Something went wrong. Try refreshing..."
+msgstr ""
+
+#: src/ui/contentView.vala:762 src/ui/dialogs/app/prefsDialog.vala:2057
+msgid "Refresh"
+msgstr ""
+
+#: src/ui/contentView.vala:846
+msgid "Select all"
+msgstr ""
+
+#: src/ui/contentView.vala:942 src/ui/contentView.vala:1017
+msgid "Load more articles"
+msgstr ""
+
+#. Search spans every category, not just the one on screen (e.g.
+#. "Sports") - keeping that category's name/icon while showing
+#. unrelated global results was confusing, so swap both for a clear
+#. search-mode title. Restored in RESTORE MODE above. Only touch the
+#. icon on the transition into search mode (not every debounced
+#. keystroke) - update_category_icon() rebuilds/rasterizes it, and
+#. it's already correct for every keystroke after the first.
+#: src/ui/contentView.vala:1155 src/ui/contentView.vala:1156
+msgid "Search results"
+msgstr ""
+
+#: src/ui/contentView.vala:1193
+#, c-format
+msgid "No articles found matching \"%s\""
+msgstr ""
+
+#. Special switch when only one matching article is found
+#: src/ui/contentView.vala:1196
+msgid "article"
+msgstr ""
+
+#: src/ui/contentView.vala:1196
+msgid "articles"
+msgstr ""
+
+#: src/ui/dialogs/app/aboutDialog.vala:76
+#: src/ui/dialogs/app/aboutDialog.vala:79
+msgid "Release notes not available"
+msgstr ""
+
+#: src/ui/dialogs/app/aboutDialog.vala:93
+#: src/ui/dialogs/app/aboutDialog.vala:139
+msgid "Release notes"
+msgstr ""
+
+#: src/ui/dialogs/app/aboutDialog.vala:126
+msgid "An all-in-one news app written in Vala, built with GTK4 and Libadwaita."
+msgstr ""
+
+#: src/ui/dialogs/app/aboutDialog.vala:148
+msgid "Links"
+msgstr ""
+
+#: src/ui/dialogs/app/aboutDialog.vala:177
+msgid "GitHub Repository"
+msgstr ""
+
+#: src/ui/dialogs/app/aboutDialog.vala:178
+msgid "Releases"
+msgstr ""
+
+#: src/ui/dialogs/app/aboutDialog.vala:179
+msgid "Report an issue"
+msgstr ""
+
+#: src/ui/dialogs/app/aboutDialog.vala:183
+msgid "© 2025 thecalamityjoe87 (Isaac Joseph)"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:81
+#: src/ui/dialogs/notes/noteEditorDialog.vala:51
+msgid "Save"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:83
+msgid "Add city"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:83
+#: src/ui/dialogs/app/prefsDialog.vala:2132 src/ui/menus/sidebarMenu.vala:56
+msgid "Change location"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:84
+msgid ""
+"Enter a city name or a ZIP code, or use your current location.\n"
+"Examples: \"San Francisco, CA\" or \"94103\" or \"94103-1234\""
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:88
+msgid "City name or ZIP code (e.g. San Francisco, 94103)"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:104
+msgid "Current location: "
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:140
+msgid "Searching..."
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:155
+msgid "Search"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:157
+msgid "Use my location"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:214
+#, c-format
+msgid "You can save up to %d locations."
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:221
+msgid " (already added)"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:248
+msgid ""
+"Couldn't resolve a location for that. Try a different city name or ZIP code."
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:267
+#: src/ui/dialogs/app/locationDialog.vala:272
+msgid "Detected: "
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:267
+msgid " — click "
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:267
+msgid " to use this location"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:272
+msgid " — choose which news to add:"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:273
+msgid "Smaller towns may have limited coverage."
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:274
+msgid "Nearby metro area"
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:282
+msgid "1 location slot left — pick one, or remove a location to add both."
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:314
+msgid "Enter a city name or ZIP code and press Search."
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:65
+msgid "Skip"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:77
+#: src/ui/dialogs/app/onboardingDialog.vala:117
+msgid "Next"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:117
+msgid "Get Started"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:141
+msgid "No Sources Enabled"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:142
+msgid ""
+"You didn't enable any news sources, so Popular Categories (World News, "
+"Technology, Sports, and others) will appear empty until you turn some on. "
+"You can enable built-in sources or add your own RSS feeds anytime from "
+"Preferences."
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:144
+#: src/ui/dialogs/app/prefsDialog.vala:2056
+msgid "Not Now"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:145
+msgid "Open Preferences"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:182
+msgid "Welcome to Paperboy"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:189
+msgid ""
+"Paperboy brings together news from the sources you trust, into one clean, "
+"distraction-free reader.\n"
+"\n"
+"Let's set a few things up before you get started."
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:213
+msgid "Pick a Theme"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:219
+msgid "You can change this anytime from Preferences."
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:307
+#: src/ui/dialogs/app/prefsDialog.vala:1003
+msgid "Follow System"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:380
+msgid "Choose Your Sources"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:385
+msgid ""
+"Paperboy comes with a set of prebuilt news sources to get you started. Tap "
+"the outlets you'd like to see - you can change these anytime from "
+"Preferences."
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:514
+msgid "Live Sports Scores"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:519
+msgid ""
+"See live scores from your favorite leagues right in the Sports category. "
+"Choose which leagues to follow and drag to set their order - you can change "
+"this anytime from Preferences."
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:527
+msgid "Show Score Cards"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:571
+msgid "Local News, Too"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:578
+msgid ""
+"Set your location to get a Local News feed for your area. You can do this "
+"now or anytime later from the main menu."
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:585
+msgid "Set My Location"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:85
+#: src/ui/dialogs/app/prefsDialog.vala:2128
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:296
+msgid "Drag to reorder"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:159
+msgid "Personalized Feed Categories"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:160
+msgid "Select which categories to include in your personalized feed"
+msgstr ""
+
+#. Track if sources changed for refresh on close
+#. ========== SOURCES PAGE ==========
+#: src/ui/dialogs/app/prefsDialog.vala:371
+msgid "Sources"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:525
+msgid "Followed feeds"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:529
+#: src/ui/dialogs/app/prefsDialog.vala:1107
+msgid "No feeds followed yet"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:530
+msgid "No feeds followed yet. Add one from the sidebar's Feeds section."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:532
+msgid "1 followed feed"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:532
+#, c-format
+msgid "%d followed feeds"
+msgstr ""
+
+#. Remove this source
+#: src/ui/dialogs/app/prefsDialog.vala:642 src/ui/menus/sidebarMenu.vala:110
+msgid "Remove this source"
+msgstr ""
+
+#. Confirm before removing the followed source
+#: src/ui/dialogs/app/prefsDialog.vala:647 src/ui/menus/sidebarMenu.vala:181
+msgid "Remove this source?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:648
+msgid "Are you sure you want to remove '"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:648
+msgid "' and all of its articles?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:651
+#: src/ui/dialogs/app/prefsDialog.vala:835
+#: src/ui/dialogs/app/prefsDialog.vala:934 src/ui/menus/sidebarMenu.vala:187
+msgid "Remove"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:734
+msgid "Rename this source"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:762
+#: src/ui/dialogs/app/prefsDialog.vala:766
+msgid "Built-in sources"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:763
+#: src/ui/dialogs/app/prefsDialog.vala:780
+msgid "Custom feeds"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:767
+msgid "News outlets that come with Paperboy"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:769
+msgid "News outlets"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:770
+msgid "Choose which outlets to follow"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:781
+msgid "RSS feeds you've followed"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:796
+msgid "Subscribed podcasts"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:799
+msgid "Remove all podcasts"
+msgstr ""
+
+#. if/else, not a nested ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefsDialog.vala:808
+msgid "No podcasts yet"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:809
+msgid "1 podcast"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:810
+#, c-format
+msgid "%d podcasts"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:811
+msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:830 src/ui/menus/podcastMenu.vala:69
+msgid "Remove podcast"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:833
+msgid "Remove podcast?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:833
+#, c-format
+msgid "\"%s\" will be removed from your podcasts."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:858
+msgid "Remove all podcasts?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:859
+msgid "Your 1 podcast will be removed."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:859
+#, c-format
+msgid "All %d of your podcasts will be removed."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:861
+msgid "Remove all"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:876
+#: src/ui/dialogs/app/prefsDialog.vala:879
+#: src/ui/dialogs/app/prefsDialog.vala:1332
+msgid "Podcasts"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:880
+msgid "Shows you've subscribed to"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:895
+#: src/ui/dialogs/app/prefsDialog.vala:954
+msgid "Magazine sources"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:899
+msgid "No sources yet"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:900
+msgid "1 source"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:901
+#, c-format
+msgid "%d sources"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:902
+msgid "No sources yet. Websites you add from the Magazines page show up here."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:920
+msgid "Remove source"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:926
+#, c-format
+msgid "\"%s\" will be removed."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:928
+#, c-format
+msgid ""
+"\"%s\" and the 1 magazine added from it will be removed, including its "
+"downloaded file."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:930
+#, c-format
+msgid ""
+"\"%s\" and the %d magazines added from it will be removed, including their "
+"downloaded files."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:932
+msgid "Remove source?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:957
+msgid "Magazines"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:958
+msgid "Websites scanned for magazine PDFs"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:972
+msgid "Add a location"
+msgstr ""
+
+#. Note: Sources changes will be reflected when user switches views
+#. ========== APP PAGE ==========
+#: src/ui/dialogs/app/prefsDialog.vala:991
+msgid "App"
+msgstr ""
+
+#. ========== APPEARANCE GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:996
+msgid "Appearance"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:999
+msgid "Theme"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1000
+msgid "Follow the system theme, or force light or dark mode"
+msgstr ""
+
+#. ========== PERSONALIZATION PAGE ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1027
+#: src/ui/dialogs/app/prefsDialog.vala:1031
+msgid "Personalization"
+msgstr ""
+
+#. Personalized feed toggle (using ActionRow to add settings button)
+#: src/ui/dialogs/app/prefsDialog.vala:1035
+msgid "Enable personalized feed"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1036
+msgid "Enable a personalized feed based on your reading habits"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1067
+msgid "Personalized feed settings"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1097
+msgid "Choose which of your followed RSS feeds appear in My Feed"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1108
+msgid ""
+"Follow a custom RSS feed in Preferences -> Feeds first, then come back here "
+"to include it in My Feed."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1199
+#: src/ui/dialogs/app/prefsDialog.vala:1205
+msgid "Custom feeds in My Feed"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1206
+msgid "Choose which followed RSS feeds appear in My Feed"
+msgstr ""
+
+#. Custom sources only toggle
+#: src/ui/dialogs/app/prefsDialog.vala:1218
+msgid "Custom feeds only in My Feed"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1219
+msgid "Only show followed RSS feeds in My Feed, hide built-in sources"
+msgstr ""
+
+#. Unread badges toggle (using ActionRow to add settings button)
+#: src/ui/dialogs/app/prefsDialog.vala:1229
+msgid "Show unread count badges"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1230
+msgid "Display unread article counts in the sidebar"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1248
+msgid "Badge visibility settings"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1259
+msgid "Show on special categories"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1269
+msgid "Show on Feeds"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1279
+msgid "Show on popular categories"
+msgstr ""
+
+#. ========== MY FEED EXTRAS GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1308
+msgid "My Feed Extras"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1309
+msgid ""
+"Show a preview row for other features at the top of My Feed, with a button "
+"to jump to the full page"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1312
+msgid "Sports scores"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1358
+msgid "Show recommendations"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1359
+msgid ""
+"Suggest articles based on your reading history. This stays on your device."
+msgstr ""
+
+#. ========== READING GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1371
+msgid "Reading"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1374
+msgid "Open articles in reader view"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1375
+msgid ""
+"Show an extracted, distraction-free view of the article text instead of the "
+"full webpage by default. You can still switch views per article."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1383
+msgid "Clicking an article opens reader view directly"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1384
+msgid ""
+"Skip the preview pane and jump straight into reader view when you click an "
+"article card"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1392
+msgid "Show quick-open buttons on hover"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1393
+msgid ""
+"Show reader view / preview buttons over an article card's image when you "
+"hover it"
+msgstr ""
+
+#. ========== MARKET CARDS GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1406
+msgid "Market Cards"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1407
+msgid "Choose whether the Business category shows live market index cards"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1410
+msgid "Show market cards"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1411
+msgid "Turn off to hide the live market index cards from the Business category"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1425
+msgid "Show market status pill"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1426
+msgid ""
+"Show an \"Open\" pill next to the Business sidebar count while the market is "
+"open"
+msgstr ""
+
+#. ========== SPORTS SCORE CARDS GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1441
+msgid "Sports Score Cards"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1442
+msgid ""
+"Choose which leagues show score cards, and drag a row (by its handle) to set "
+"the order their sections appear in the Sports category"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1456
+msgid "Loading teams…"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1471
+msgid "Couldn't load teams"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1472
+msgid "Check your connection and try again later."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1510
+msgid ""
+"Pick a league, then choose teams to follow - each followed team gets its own "
+"score-card row in \"My Teams\""
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1539
+#: src/ui/dialogs/app/prefsDialog.vala:1545
+msgid "Favorite Teams"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1546
+msgid "Follow specific teams to show their own score cards"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1559
+msgid "Show score cards"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1560
+msgid "Turn off to hide all live score cards from the Sports category"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1573
+msgid "Show live indicator"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1574
+msgid ""
+"Show a \"Live\" pill next to the Sports sidebar count while a game is in "
+"progress"
+msgstr ""
+
+#. ========== UPDATE INTERVAL GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1613
+msgid "Update Interval"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1614
+msgid ""
+"Short update intervals can trigger rate limits or cause requests to be "
+"blocked."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1615
+msgid ""
+"Updating feeds too often may look like automated traffic. Sites could "
+"temporarily block requests or refuse articles if too many are made in a "
+"short time. Choose a longer interval to avoid this."
+msgstr ""
+
+#. Manual row
+#: src/ui/dialogs/app/prefsDialog.vala:1619
+msgid "Manual"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1620
+msgid "No automatic synchronization"
+msgstr ""
+
+#. Sync Every row with dropdown
+#: src/ui/dialogs/app/prefsDialog.vala:1629
+msgid "Sync Every"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1637
+msgid "15 Minutes"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1637
+msgid "30 Minutes"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1637
+msgid "1 Hour"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1637
+msgid "2 Hours"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1637
+msgid "4 Hours"
+msgstr ""
+
+#. ========== DATA GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1710
+msgid "Data"
+msgstr ""
+
+#. Article Content Cache row (MetaCache)
+#: src/ui/dialogs/app/prefsDialog.vala:1714
+msgid "Article content cache"
+msgstr ""
+
+#. Get formatted cache information from the metacache service
+#. Get metacache size
+#: src/ui/dialogs/app/prefsDialog.vala:1722
+#: src/ui/dialogs/app/prefsDialog.vala:1789
+msgid "Clear"
+msgstr ""
+
+#. Show confirmation dialog
+#: src/ui/dialogs/app/prefsDialog.vala:1729
+msgid "Clear article content cache?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1730
+msgid ""
+"This will delete cached article content and images. Previously read articles "
+"will need to be re-downloaded."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1733
+#: src/ui/dialogs/app/prefsDialog.vala:1800
+msgid "Clear Cache"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1745
+msgid "0 bytes"
+msgstr ""
+
+#. Show toast notification
+#: src/ui/dialogs/app/prefsDialog.vala:1749
+msgid "Cache cleared successfully"
+msgstr ""
+
+#. RSS Feed Cache row
+#: src/ui/dialogs/app/prefsDialog.vala:1769
+msgid "RSS feed cache"
+msgstr ""
+
+#. Show confirmation dialog
+#: src/ui/dialogs/app/prefsDialog.vala:1796
+msgid "Clear RSS Feed Cache?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1797
+msgid ""
+"This will delete all cached RSS feed listings. Feeds will load from the "
+"network next time."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1809
+msgid "0 bytes (0 articles)"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1814
+msgid "RSS feed cache cleared"
+msgstr ""
+
+#. ========== IMPORT & EXPORT GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1835
+msgid "Backup &amp; Restore"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1838
+msgid "Feeds"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1839
+msgid ""
+"Export or import your custom RSS feeds and podcast subscriptions as an OPML "
+"file."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1841
+#: src/ui/dialogs/app/prefsDialog.vala:1917
+msgid "Export"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1845
+msgid "Export Feeds & Podcasts"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1848
+#: src/ui/dialogs/app/prefsDialog.vala:1870
+msgid "OPML files"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1857
+msgid "Exported feeds and podcasts"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1864
+#: src/ui/dialogs/app/prefsDialog.vala:1940
+msgid "Import"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1868
+msgid "Import Feeds & Podcasts"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1880
+msgid "Importing feeds and podcasts…"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1898
+#, c-format
+msgid "Imported %d feed(s) and %d podcast(s)"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1915
+msgid "Export or import your article notes as a JSON file."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1921
+msgid "Export Notes"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1924
+#: src/ui/dialogs/app/prefsDialog.vala:1946
+msgid "JSON files"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1933
+msgid "Exported notes"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1944
+msgid "Import Notes"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1955
+#, c-format
+msgid "Imported %d note(s)"
+msgstr ""
+
+#. ========== DANGER ZONE GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:1972
+msgid "Danger Zone"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1975
+msgid "Reset app to factory settings"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1976
+msgid ""
+"Erases all sources, saved articles, notes, settings, and cached data, then "
+"restarts Paperboy as if freshly installed."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1978
+msgid "Reset"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1983
+msgid "Reset to factory settings?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1984
+msgid ""
+"This permanently deletes all sources, saved articles, notes, and settings, "
+"and cannot be undone. Paperboy will restart as if freshly installed."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:1987
+msgid "Reset App"
+msgstr ""
+
+#. ========== EXPERIMENTAL GROUP ==========
+#: src/ui/dialogs/app/prefsDialog.vala:2008
+msgid "Experimental"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:2011
+msgid "Show article comments"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:2012
+msgid ""
+"Show a comments button on the reader page for articles with a discoverable "
+"comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
+"limited - many sites don't expose comments through any of these."
+msgstr ""
+
+#. Show confirmation dialog asking if user wants to refresh
+#: src/ui/dialogs/app/prefsDialog.vala:2053
+msgid "Refresh Content?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:2054
+msgid ""
+"Changes have been made to your news sources. Would you like to refresh the "
+"content now?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:2113
+#, c-format
+msgid "%d of %d locations added. Remove one to add another."
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:2115
+#, c-format
+msgid "Up to %d locations · %d added"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:2134 src/ui/menus/sidebarMenu.vala:65
+msgid "Remove location"
+msgstr ""
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:34
+msgid "Rename feed"
+msgstr ""
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:34
+msgid "Leave empty to use the default name."
+msgstr ""
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:43
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:344
+#: src/ui/menus/sidebarMenu.vala:100
+msgid "Rename"
+msgstr ""
+
+#: src/ui/dialogs/content/imageViewerDialog.vala:312
+msgid "Zoom Out"
+msgstr ""
+
+#: src/ui/dialogs/content/imageViewerDialog.vala:317
+msgid "Zoom In"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:34
+msgid "Share Article"
+msgstr ""
+
+#. Email section
+#: src/ui/dialogs/content/shareDialog.vala:40
+msgid "Share via email"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:49
+msgid "Send link"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:55
+msgid "Opening email client"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:59
+msgid "Failed to open email client"
+msgstr ""
+
+#. Social media section
+#: src/ui/dialogs/content/shareDialog.vala:66
+msgid "Share on social media"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:75
+msgid "Reddit"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:81
+msgid "Opening browser to Reddit"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:85
+msgid "Failed to share on Reddit"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:94
+msgid "X (Twitter)"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:100
+msgid "Opening browser to X"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:104
+msgid "Failed to share on X"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:113
+msgid "Facebook"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:119
+msgid "Opening browser to Facebook"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:123
+msgid "Failed to share on Facebook"
+msgstr ""
+
+#. Messaging apps section
+#: src/ui/dialogs/content/shareDialog.vala:130
+msgid "Share via messaging app"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:139
+msgid "Telegram"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:145
+msgid "Opening browser to Telegram"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:149
+msgid "Failed to share on Telegram"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:158
+msgid "WhatsApp"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:164
+msgid "Opening browser to WhatsApp"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:168
+msgid "Failed to share on WhatsApp"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:178
+msgid "Signal"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:187
+msgid "Signal isn't installed"
+msgstr ""
+
+#. Copy link section
+#: src/ui/dialogs/content/shareDialog.vala:194
+msgid "Share via copied link"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:203
+msgid "Copy link to clipboard"
+msgstr ""
+
+#: src/ui/dialogs/content/shareDialog.vala:209
+msgid "Link copied to clipboard"
+msgstr ""
+
+#. Undoes all organizing - category order, grid/row choice, and
+#. every magazine's category. Click handler wired below, after
+#. refresh() exists.
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:94
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:193
+msgid "Reset View"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:105
+msgid "Show uncategorized magazines as a grid"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:189
+msgid "Reset view?"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:190
+msgid ""
+"Moves every magazine back to Uncategorized, clears your custom category "
+"order, and switches back to the grid view. This can't be undone, though no "
+"magazines themselves are removed from your library."
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:234
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:311
+msgid " magazine"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:234
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:311
+msgid " magazines"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:318
+msgid "Rename category"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:324
+msgid "Delete category"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:334
+msgid "Rename Category"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:335
+#, c-format
+msgid "Choose a new name for \"%s\"."
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:375
+#, c-format
+msgid "Delete \"%s\"?"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:376
+msgid ""
+"Moves its magazines back to Uncategorized. This can't be undone, though no "
+"magazines themselves are removed from your library."
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:481
+msgid "New category name"
+msgstr ""
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:513
+msgid ""
+"Type a name above and tap Add to create a category row first, then drag "
+"magazines into it. Drag a row's handle to reorder categories."
+msgstr ""
+
+#. Rough heuristic for "probably got truncated by the 4-line cap
+#. above" - good enough to decide whether "See more" is worth
+#. showing without measuring the actual Pango layout.
+#: src/ui/dialogs/media/podcastDetailDialog.vala:146
+msgid "See more"
+msgstr ""
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:32
+msgid "Choose Podcasts"
+msgstr ""
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:33
+msgid "This site publishes more than one podcast - select which ones to add."
+msgstr ""
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:59
+#, c-format
+msgid "%d episode%s"
+msgstr ""
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:63
+#, c-format
+msgid "%s · Already subscribed"
+msgstr ""
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:63
+msgid "Already subscribed"
+msgstr ""
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:130
+msgid "Podcast added"
+msgstr ""
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:130
+#, c-format
+msgid "%d podcasts added"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:48
+msgid "Edit note"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:57
+msgid "Delete note"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:68
+msgid "Title (optional)"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:159
+msgid "Bold"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:160
+msgid "Italic"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:161
+msgid "Underline"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:162
+msgid "Strikethrough"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:166
+msgid "Highlight"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:181
+msgid "Yellow"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:182
+msgid "Green"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:183
+msgid "Blue"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:184
+msgid "Pink"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:185
+msgid "Orange"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:201
+msgid "Remove highlight"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:211
+msgid "Bulleted list"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:212
+msgid "Numbered list"
+msgstr ""
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:213
+msgid "Clear formatting"
+msgstr ""
+
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:59
+msgid ""
+"No notes yet.\n"
+"Open an article and tap the notes icon to add one."
+msgstr ""
+
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:167
+msgid "Open article"
+msgstr ""
+
+#. View in app
+#: src/ui/menus/articleMenu.vala:52
+msgid "View article in app"
+msgstr ""
+
+#. Open in browser
+#: src/ui/menus/articleMenu.vala:61
+msgid "Open article in browser"
+msgstr ""
+
+#: src/ui/menus/articleMenu.vala:81
+msgid "Follow this source"
+msgstr ""
+
+#: src/ui/menus/articleMenu.vala:81
+msgid "Built-in source"
+msgstr ""
+
+#: src/ui/menus/articleMenu.vala:81
+msgid "Enable built-in source"
+msgstr ""
+
+#: src/ui/menus/articleMenu.vala:86
+msgid "This is a built-in source. You can enable or disable it in preferences."
+msgstr ""
+
+#: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:151
+msgid "Remove from saved"
+msgstr ""
+
+#: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:175
+msgid "Add to saved"
+msgstr ""
+
+#. Mark as unread (only active when article is currently viewed)
+#: src/ui/menus/articleMenu.vala:107
+msgid "Mark as unread"
+msgstr ""
+
+#. Share
+#: src/ui/menus/articleMenu.vala:117
+msgid "Share this article"
+msgstr ""
+
+#: src/ui/menus/podcastMenu.vala:60
+msgid "More info"
+msgstr ""
+
+#. Mark all as read
+#: src/ui/menus/sidebarMenu.vala:85
+msgid "Mark all as read"
+msgstr ""
+
+#. Mark all as unread
+#: src/ui/menus/sidebarMenu.vala:93
+msgid "Mark all as unread"
+msgstr ""
+
+#: src/ui/menus/sidebarMenu.vala:155
+msgid "Marked all articles as read"
+msgstr ""
+
+#: src/ui/menus/sidebarMenu.vala:169
+msgid "Marked all articles as unread"
+msgstr ""
+
+#: src/ui/menus/sidebarMenu.vala:182
+#, c-format
+msgid "Are you sure you want to remove \"%s\""
+msgstr ""
+
+#: src/ui/menus/sidebarMenu.vala:182
+msgid " and all of its articles?"
+msgstr ""
+
+#: src/ui/menus/sidebarMenu.vala:197
+msgid "Feed removed"
+msgstr ""
+
+#. "Open" pill shown to the left of the Business category's count badge
+#. while MarketStatusManager reports the US market as in its regular
+#. trading session. Same shape as Sports' ".live-pill" above, but its
+#. own green ".market-open-pill" class instead of that pill's red.
+#: src/ui/sidebarView.vala:544
+msgid "Open"
+msgstr ""
+
+#: src/ui/sidebarView.vala:677 src/ui/sidebarView.vala:696
+msgid "Add RSS Feed"
+msgstr ""
+
+#: src/ui/sidebarView.vala:697
+msgid "Enter the RSS feed URL:"
+msgstr ""
+
+#: src/ui/sidebarView.vala:708
+msgid "Feed name (optional)"
+msgstr ""
+
+#: src/ui/sidebarView.vala:793 src/ui/sidebarView.vala:812
+msgid "Add a Podcast"
+msgstr ""
+
+#: src/ui/sidebarView.vala:813
+msgid "Enter the podcast's RSS feed URL:"
+msgstr ""

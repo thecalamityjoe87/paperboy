@@ -3,6 +3,22 @@ project('paperboy', 'vala',
   meson_version : '>=0.59.0'
 )
 
+# gettext domain + the locale install dir, exposed to Vala as constants via
+# a generated file (valac has no usable string -D). bindtextdomain() in
+# main() points at LOCALEDIR; GETTEXT_PACKAGE is the domain _() looks up in.
+GETTEXT_PACKAGE = 'paperboy'
+LOCALEDIR = join_paths(get_option('prefix'), get_option('localedir'))
+config_vala = configure_file(
+  input: 'src/config.vala.in',
+  output: 'config.vala',
+  configuration: {
+    'GETTEXT_PACKAGE': GETTEXT_PACKAGE,
+    'LOCALEDIR': LOCALEDIR,
+  })
+# dgettext's generated C includes gi18n-lib.h, which #errors unless the
+# GETTEXT_PACKAGE macro is defined for the C compiler too.
+add_project_arguments('-DGETTEXT_PACKAGE="@0@"'.format(GETTEXT_PACKAGE), language: 'c')
+
 gtk = dependency('gtk4')
 libsoup = dependency('libsoup-3.0')
 json = dependency('json-glib-1.0')
@@ -22,6 +38,7 @@ cairo = dependency('cairo')
 
   executable('paperboy', [
     'src/main.vala',
+    config_vala,
 
     # UI
     'src/ui/appWindow.vala',
@@ -232,6 +249,10 @@ install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: jo
 # Install and compile GSettings schema
 install_data('data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml',
   install_dir: join_paths(get_option('datadir'), 'glib-2.0', 'schemas'))
+
+# Translations (gettext): the po/ subdir carries LINGUAS, POTFILES.in and the
+# .po catalogs; po/meson.build calls i18n.gettext().
+subdir('po')
 
 gnome = import('gnome')
 gnome.compile_schemas(depend_files: 'data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml')

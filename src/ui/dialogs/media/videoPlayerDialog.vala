@@ -123,7 +123,7 @@ public class VideoPlayerDialog : GLib.Object {
         var close_button = new Gtk.Button.from_icon_name("window-close-symbolic");
         close_button.add_css_class("osd");
         close_button.add_css_class("circular");
-        close_button.set_tooltip_text("Close");
+        close_button.set_tooltip_text(_("Close"));
         close_button.clicked.connect(() => { handle.target?.close(); });
 
         int btn_w;
