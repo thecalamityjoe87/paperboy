@@ -86,12 +86,14 @@ public class LocationLookupService : GLib.Object {
         });
     }
 
-    // Bare ZIP codes match postal codes worldwide; prefer a US result.
+    // Bare ZIP codes match postal codes worldwide; prefer a result in the
+    // user's own region (derived from the system time zone) instead of
+    // hard-coding one country.
     private static Json.Object? pick_result(Json.Array results) {
         if (results.get_length() == 0) return null;
         for (uint i = 0; i < results.get_length(); i++) {
             var candidate = results.get_object_element(i);
-            if (get_address_field(candidate, "country_code") == "us") return candidate;
+            if (get_address_field(candidate, "country_code") == RegionUtils.country()) return candidate;
         }
         return results.get_object_element(0);
     }

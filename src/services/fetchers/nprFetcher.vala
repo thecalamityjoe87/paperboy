@@ -74,7 +74,7 @@ public class NprFetcher : BaseFetcher {
         string source_name
     ) {
         string base_url = "https://news.google.com/rss/search";
-        string ceid = "hl=en-US&gl=US&ceid=US:en";
+        string ceid = RegionUtils.google_news_query_suffix();
         string category_name = FetcherUtils.category_display_name(current_category);
         string query = @"site:$(domain)";
         if (current_search_query.length > 0) {

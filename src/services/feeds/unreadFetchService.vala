@@ -198,7 +198,7 @@ public class UnreadFetchService {
                     string local_query = GLib.Uri.escape_string(task.news_query ?? task.rss_name, null, false);
                     string local_tracking_id = task.category_id;
                     RssFeedProcessor.fetch_rss_url(
-                        "https://news.google.com/rss/search?q=" + local_query + "&hl=en-US&gl=US&ceid=US:en",
+                        "https://news.google.com/rss/search?q=" + local_query + "&" + RegionUtils.google_news_query_suffix(),
                         task.rss_name,
                         "Local News",
                         "local_news",

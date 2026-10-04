@@ -1181,7 +1181,7 @@ if (is_myfeed_mode) {
 
     private static void fetch_local_news_query(FetchContext ctx, string city, string category_id, string current_search_query, Soup.Session session) {
         string query = GLib.Uri.escape_string(city.strip(), null, false);
-        string url = "https://news.google.com/rss/search?q=" + query + "&hl=en-US&gl=US&ceid=US:en";
+        string url = "https://news.google.com/rss/search?q=" + query + "&" + RegionUtils.google_news_query_suffix();
 
         // Cache is merged with the live feed rather than shown first, since
         // anything appended after it would land out of date order.
