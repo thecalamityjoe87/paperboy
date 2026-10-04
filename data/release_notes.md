@@ -18,6 +18,8 @@
 - Fixed settings failing to load properly on first launch
 - Fixed crashes when saving some settings and opening some dropdown menus
 - Fixed empty spots in the Front Page's Trending grid when some trending stories came from sources you've turned off, and Trending repeating stories already shown in the hero carousel
+- Fixed the follow button sliding under the thumbs up/down buttons on narrow Front Page cards, such as Trending, when the source has a long name. The name is now shortened to make room
+- The thumbs up/down buttons on Front Page cards are now the same height as the source badge beside them
 - Fixed a typo on the My Feed page when My Feed is turned off
 
 # v0.12.5a - Recommended For You, and Podcast Playback Order Fixes

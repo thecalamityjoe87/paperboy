@@ -241,10 +241,11 @@ public class CardBuilder : GLib.Object {
         var badge_box = badge as Gtk.Box;
         if (badge_box == null) return;
 
-        string? source_label = null;
+        Gtk.Label? name_label = null;
         for (var c = badge_box.get_first_child(); c != null; c = c.get_next_sibling()) {
-            if (c is Gtk.Label) source_label = ((Gtk.Label) c).get_text();
+            if (c is Gtk.Label) name_label = (Gtk.Label) c;
         }
+        string? source_label = name_label != null ? name_label.get_text() : null;
 
         var follow_btn = new Gtk.Button.from_icon_name("list-add-symbolic");
         follow_btn.add_css_class("source-badge-follow-btn");
@@ -270,7 +271,11 @@ public class CardBuilder : GLib.Object {
         revealer.set_visible(false);
         revealer.notify["child-revealed"].connect((obj, pspec) => {
             var r = (Gtk.Revealer) obj;
-            if (!r.get_reveal_child() && !r.get_child_revealed()) r.set_visible(false);
+            if (!r.get_reveal_child() && !r.get_child_revealed()) {
+                r.set_visible(false);
+                // Undo fit_badge_for_follow()'s trim once the slide back has finished.
+                if (name_label != null && source_label != null) name_label.set_text(source_label);
+            }
         });
         badge_box.prepend(revealer);
 
@@ -278,6 +283,7 @@ public class CardBuilder : GLib.Object {
         badge_box.set_data("follow-source-revealer", revealer);
         badge_box.set_data<string>("follow-source-name", source_label ?? "this source");
         badge_box.set_data<string>("follow-source-url", url);
+        if (name_label != null) badge_box.set_data("follow-source-label", name_label);
         card_root.set_data("source-badge", badge_box);
     }
 
@@ -420,8 +426,54 @@ public class CardBuilder : GLib.Object {
             btn.remove_css_class("following");
         }
 
+        fit_badge_for_follow(card_root, badge, revealer);
         revealer.set_visible(true);
         revealer.set_reveal_child(true);
+    }
+
+    // On narrow cards (e.g. Trending) a long source name plus the revealed follow button would slide
+    // the badge under the thumbs pill and make it unclickable. So before the reveal starts, the name is
+    // trimmed once to the width it can have with the button open - the slide then plays with a still
+    // label, like every other card. The full name comes back after the collapse (see make_badge_followable).
+    // Measured on hover since the card's sizes aren't known until it's shown.
+    private static void fit_badge_for_follow(Gtk.Widget card_root, Gtk.Widget badge, Gtk.Revealer revealer) {
+        var pill = card_root.get_data<Gtk.Widget>("feedback-pill");
+        var label = badge.get_data<Gtk.Label>("follow-source-label");
+        string? full_name = badge.get_data<string>("follow-source-name");
+        var overlay = badge.get_parent();
+        // Only a badge on the image, beside the pill, can collide with it - not one in a
+        // card's text area (e.g. history cards).
+        if (pill == null || label == null || full_name == null || overlay == null || pill.get_parent() != overlay) return;
+
+        label.set_text(full_name);
+        badge.set_margin_start(0);
+        int pill_w, badge_w, row_w, label_w, unused;
+        pill.measure(Gtk.Orientation.HORIZONTAL, -1, out unused, out pill_w, null, null);
+        badge.measure(Gtk.Orientation.HORIZONTAL, -1, out unused, out badge_w, null, null);
+        revealer.get_child().measure(Gtk.Orientation.HORIZONTAL, -1, out unused, out row_w, null, null);
+        label.measure(Gtk.Orientation.HORIZONTAL, -1, out unused, out label_w, null, null);
+
+        int reserved = pill.get_margin_start() + pill_w + 6;
+        // Safety net: GtkOverlay never allocates a child wider than itself, so this margin keeps the
+        // badge off the pill even if the trim below comes up a pixel short.
+        badge.set_margin_start(reserved);
+
+        // The revealed row joins the badge with its 6px box spacing.
+        int excess = badge_w + row_w + 6 - (overlay.get_width() - reserved);
+        if (excess > 0) label.set_text(ellipsize_to_width(label, full_name, label_w - excess));
+    }
+
+    // Longest prefix of `text` (plus "…") that renders within `max_px` in `label`'s font.
+    private static string ellipsize_to_width(Gtk.Label label, string text, int max_px) {
+        var layout = label.create_pango_layout(null);
+        for (int n = text.char_count() - 1; n > 0; n--) {
+            string candidate = text.substring(0, text.index_of_nth_char(n)).chomp() + "…";
+            layout.set_text(candidate, -1);
+            int w, h;
+            layout.get_pixel_size(out w, out h);
+            if (w <= max_px) return candidate;
+        }
+        return "…";
     }
 
     // Built-in sources are followed while switched on in Preferences, others while they're a followed feed.
