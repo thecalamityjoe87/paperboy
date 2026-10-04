@@ -554,7 +554,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     // Request the completed navigation page from the view (use the
     // `sidebar_header` built earlier above), with the podcast mini-player
     // pinned to the sidebar's bottom edge.
-    Adw.NavigationPage sidebar_page = sidebar_view.build_navigation_page(sidebar_header, podcast_player_bar.revealer);
+    Adw.NavigationPage sidebar_page = sidebar_view.build_navigation_page(sidebar_header, podcast_player_bar);
 
     // Wrap content in a NavigationPage for NavigationSplitView
     // We need to create the content page after setting up root_overlay

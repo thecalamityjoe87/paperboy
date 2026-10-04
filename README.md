@@ -182,4 +182,4 @@ Put [`appimagetool`](https://github.com/AppImage/appimagetool) somewhere on your
 ./packaging/appimage/build-appimage.sh -M
 ```
 
-`-M` names the output after the version in `meson.build` (for example `paperboy-0.13.0a-x86_64.AppImage`); leave it off to get a plain `paperboy.AppImage`.
+`-M` names the output after the version in `meson.build` (for example `paperboy-0.13.1a-x86_64.AppImage`); leave it off to get a plain `paperboy.AppImage`.

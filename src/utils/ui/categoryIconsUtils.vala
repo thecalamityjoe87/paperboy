@@ -101,6 +101,8 @@ public class CategoryIconsUtils : GLib.Object {
             // above (used by subscription rows) so this icon swap doesn't
             // affect them.
             case "podcasts_discover": return "antenna-mono.svg";
+            // Sidebar footer's "Now Playing" row (podcast controls toggle).
+            case "nowplaying": return "nowplaying-mono.svg";
             case "general": return "world-mono.svg";
             case "us": return "us-mono.svg";
             case "local_news": return "local-mono.svg";

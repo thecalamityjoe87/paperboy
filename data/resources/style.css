@@ -504,13 +504,56 @@ dialog.video-player floating-sheet > sheet {
     font-weight: 450;
 }
 
-/* Persistent mini-player pinned to the sidebar's bottom edge (see
-   PodcastPlayerBar), slid up via Gtk.Revealer while a podcast is playing. */
-.podcast-player-bar {
+/* Sidebar's pinned bottom block (see SidebarView.build_navigation_page):
+   the podcast mini-player (PodcastPlayerBar, slid up via Gtk.Revealer while
+   a podcast is playing) stacked on the fixed footer. The raised border +
+   shadow only apply while the player is open (.player-open, toggled from
+   SidebarView); otherwise .sidebar-footer's own separator is the only edge. */
+.sidebar-bottom.player-open {
     border-top: 1px solid alpha(@borders, 0.7);
     /* Same top-edge shadow idea as .podcast-pane/.article-preview-panel,
-       just lighter since this bar is much smaller. */
+       just lighter since this block is much smaller. */
     box-shadow: 0 -2px 8px alpha(black, 0.18);
+}
+
+/* Notes + show/hide player rows, stacked (see SidebarView.build_footer).
+   Row text matches .navigation-sidebar .sidebar-item-row in the list above. */
+.sidebar-footer {
+    /* 6px sides matches the listbox row margin above, so each row's button
+       (and its hover/selected highlight) spans the same x/width as the
+       list's .sidebar-item-row buttons. */
+    padding: 6px;
+    border-top: 1px solid alpha(@borders, 0.7);
+}
+
+.sidebar-footer-row {
+    /* Same 10px content inset as the list's row buttons, so icons and
+       labels stay lined up with theirs too. */
+    padding-left: 10px;
+    padding-right: 10px;
+    font-weight: 600;
+    font-size: 0.924em;
+}
+
+/* "Now Playing" while the podcast controls are open - same highlight as the
+   list's manually-selected rows (.navigation-sidebar button.sidebar-item-row
+   .selected). */
+.sidebar-footer-row.selected {
+    background-color: alpha(@window_fg_color, 0.18);
+}
+
+.sidebar-footer-row.selected:hover {
+    background-color: alpha(@window_fg_color, 0.20);
+}
+
+/* Now Playing row's bouncing bars (NowPlayingVisualizer). Same color as the
+   unread-count badges' plain text, and its right edge sits where their last
+   digit does (the badge pill's 8px right padding), so it lines up with the
+   count column in the list above. */
+.now-playing-visualizer {
+    color: alpha(@window_fg_color, 0.6);
+    margin-left: 8px;
+    margin-right: 8px;
 }
 
 .podcast-player-cover {
@@ -533,7 +576,7 @@ dialog.video-player floating-sheet > sheet {
    base color), not @card_bg_color (a tinted layer that needs something
    solid already behind it) - this pane has nothing behind it, so
    @card_bg_color rendered as visibly transparent in dark mode. Border +
-   shadow match .podcast-player-bar's own recipe above. */
+   shadow match .sidebar-bottom.player-open's own recipe above. */
 .podcast-pane {
     background-color: @window_bg_color;
     border-top: 1px solid alpha(@borders, 0.7);
