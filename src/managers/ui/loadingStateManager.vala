@@ -381,7 +381,7 @@ public class LoadingStateManager : GLib.Object {
         var prefs = NewsPreferences.get_instance();
         bool enabled = prefs.personalized_feed_enabled;
         bool is_myfeed = prefs.category == "myfeed";
-        bool has_personalized = prefs.personalized_categories != null && prefs.personalized_categories.size > 0;
+        bool has_personalized = prefs.categories != null && prefs.categories.size > 0;
 
         // Must match what fetchNewsController.vala actually fetches for My Feed
         // (enabled AND opted into My Feed), so the message doesn't disagree with the view.
@@ -400,7 +400,7 @@ public class LoadingStateManager : GLib.Object {
             if (!enabled) {
                 if (personalized_message_label != null) personalized_message_label.set_text("Personalized feed is disabled.");
                 if (personalized_message_sub_label != null) {
-                    personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable prsonalized feed' toggle to see content from your feeds.");
+                    personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle to see content from your feeds.");
                     personalized_message_sub_label.set_visible(true);
                 }
                 if (personalized_message_action != null) personalized_message_action.set_visible(true);

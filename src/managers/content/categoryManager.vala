@@ -102,7 +102,7 @@ using Gee;
         if (!prefs.personalized_feed_enabled) {
             return false;
         }
-        if (prefs.personalized_categories == null || prefs.personalized_categories.size == 0) {
+        if (prefs.categories == null || prefs.categories.size == 0) {
             return false;
         }
         return true;
@@ -111,8 +111,8 @@ using Gee;
     // Get categories configured for My Feed
     public ArrayList<string> get_myfeed_categories() {
         var result = new ArrayList<string>();
-        if (prefs.personalized_categories != null) {
-            foreach (var cat in prefs.personalized_categories) {
+        if (prefs.categories != null) {
+            foreach (var cat in prefs.categories) {
                 result.add(cat);
             }
         }
@@ -172,7 +172,7 @@ using Gee;
                 return false; //Drop everything if not configured
             }
             // Check if article's category is in personalized list
-            foreach (var cat in prefs.personalized_categories) {
+            foreach (var cat in prefs.categories) {
                 if (cat == article_category) {
                     return true;
                 }

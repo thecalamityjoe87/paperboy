@@ -42,53 +42,6 @@ public class CardBuilder : GLib.Object {
         return lbl;
     }
 
-    private static string source_display_name(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN: return "The Guardian";
-            case NewsSource.WALL_STREET_JOURNAL: return "Wall Street Journal";
-            case NewsSource.BBC: return "BBC News";
-            case NewsSource.NEW_YORK_TIMES: return "NY Times";
-            case NewsSource.BLOOMBERG: return "Bloomberg";
-            case NewsSource.ABC_NEWS: return "ABC News";
-            case NewsSource.NPR: return "NPR";
-            case NewsSource.FOX: return "Fox News";
-            case NewsSource.PBS: return "PBS NewsHour";
-            default: return "News";
-        }
-    }
-
-    // Shared with SourceMetadata.resolve_source_icon() so other UI can find the same bundled logo.
-    public static NewsSource? resolve_builtin_news_source(string? display_name) {
-        if (display_name == null || display_name.length == 0) return null;
-        string low = display_name.down();
-        if (low.index_of("guardian") >= 0) return NewsSource.GUARDIAN;
-        if (low.index_of("bbc") >= 0) return NewsSource.BBC;
-        if (low.index_of("nytimes") >= 0 || low.index_of("ny times") >= 0 ||
-            (low.index_of("new york times") >= 0 && low.index_of("post") < 0)) return NewsSource.NEW_YORK_TIMES;
-        if (low.index_of("wsj") >= 0 || low.index_of("wall street") >= 0) return NewsSource.WALL_STREET_JOURNAL;
-        if (low.index_of("bloomberg") >= 0) return NewsSource.BLOOMBERG;
-        if (low.index_of("abc news") >= 0 || low.index_of("abcnews") >= 0) return NewsSource.ABC_NEWS;
-        if (low.index_of("npr") >= 0) return NewsSource.NPR;
-        if (low.index_of("fox") >= 0) return NewsSource.FOX;
-        if (low.index_of("pbs") >= 0) return NewsSource.PBS;
-        return null;
-    }
-
-    public static string? source_icon_filename(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN: return "guardian-logo.png";
-            case NewsSource.BBC: return "bbc-logo.png";
-            case NewsSource.NEW_YORK_TIMES: return "nytimes-logo.png";
-            case NewsSource.BLOOMBERG: return "bloomberg-logo.png";
-            case NewsSource.ABC_NEWS: return "abc-logo.png";
-            case NewsSource.NPR: return "npr-logo.png";
-            case NewsSource.FOX: return "foxnews-logo.png";
-            case NewsSource.WALL_STREET_JOURNAL: return "wsj-logo.png";
-            case NewsSource.PBS: return "pbs-logo.png";
-            default: return null;
-        }
-    }
-
     private static Gtk.Box create_badge_box() {
         var box = new Gtk.Box(Orientation.HORIZONTAL, 6);
         box.add_css_class("source-badge");
@@ -225,40 +178,18 @@ public class CardBuilder : GLib.Object {
     public static Gtk.Widget build_source_badge(NewsSource source) {
         var box = create_badge_box();
 
-        string? filename = source_icon_filename(source);
-        if (filename != null) {
-            string? path = DataPathsUtils.find_data_file("icons/" + filename);
+        string? path = BuiltinSources.logo_path(source);
+        if (path != null) {
             Gtk.Box? logo_wrapper = create_logo_wrapper_from_file(path);
             if (logo_wrapper != null) {
                 box.append(logo_wrapper);
             }
         }
 
-        var lbl = create_source_badge_label(source_display_name(source), 12);
+        var lbl = create_source_badge_label(BuiltinSources.short_name(source), 12);
         box.append(lbl);
 
         return box;
-    }
-
-    // API-backed articles can encode source display name and logo URL in `source_name`
-    // as "Name||logo_url##category::category_id".
-    // This function centralizes decoding of that format.
-    public static void parse_encoded_source_name(string? source_name, out string? display_name, out string? logo_url) {
-        logo_url = null;
-        display_name = source_name;
-        if (source_name != null && source_name.index_of("||") >= 0) {
-            string[] parts = source_name.split("||");
-            if (parts.length >= 1) display_name = parts[0].strip();
-            if (parts.length >= 2) {
-                logo_url = parts[1].strip();
-                int lcat_idx = logo_url.index_of("##category::");
-                if (lcat_idx >= 0 && logo_url.length > lcat_idx) logo_url = logo_url.substring(0, lcat_idx).strip();
-            }
-        }
-        if (display_name != null) {
-            int cat_idx = display_name.index_of("##category::");
-            if (cat_idx >= 0 && display_name.length > cat_idx) display_name = display_name.substring(0, cat_idx).strip();
-        }
     }
 
     private static Gtk.Widget build_badge_with_optional_logo(string display_text, Gtk.Box? logo_wrapper) {
@@ -282,23 +213,8 @@ public class CardBuilder : GLib.Object {
             }
         }
 
-        if (meta_logo_url != null && meta_logo_url.length > 0 &&
-            (meta_logo_url.has_prefix("http://") || meta_logo_url.has_prefix("https://"))) {
-            return create_logo_wrapper_from_url(win, meta_logo_url);
-        }
-
-        if (rss_url != null && rss_url.length > 0) {
-            string? host = UrlUtils.extract_host_from_url(rss_url);
-            if (host != null && host.length > 0) {
-                string google_favicon_url = "https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
-                return create_logo_wrapper_from_url(win, google_favicon_url);
-            }
-        }
-
-        if (rss_favicon_url != null && rss_favicon_url.length > 0 &&
-            (rss_favicon_url.has_prefix("http://") || rss_favicon_url.has_prefix("https://"))) {
-            return create_logo_wrapper_from_url(win, rss_favicon_url);
-        }
+        string? logo_url = SourceMetadata.pick_logo_url(meta_logo_url, rss_url, rss_favicon_url);
+        if (logo_url != null) return create_logo_wrapper_from_url(win, logo_url);
 
         return null;
     }
@@ -325,10 +241,11 @@ public class CardBuilder : GLib.Object {
         var badge_box = badge as Gtk.Box;
         if (badge_box == null) return;
 
-        string? source_label = null;
+        Gtk.Label? name_label = null;
         for (var c = badge_box.get_first_child(); c != null; c = c.get_next_sibling()) {
-            if (c is Gtk.Label) source_label = ((Gtk.Label) c).get_text();
+            if (c is Gtk.Label) name_label = (Gtk.Label) c;
         }
+        string? source_label = name_label != null ? name_label.get_text() : null;
 
         var follow_btn = new Gtk.Button.from_icon_name("list-add-symbolic");
         follow_btn.add_css_class("source-badge-follow-btn");
@@ -354,7 +271,11 @@ public class CardBuilder : GLib.Object {
         revealer.set_visible(false);
         revealer.notify["child-revealed"].connect((obj, pspec) => {
             var r = (Gtk.Revealer) obj;
-            if (!r.get_reveal_child() && !r.get_child_revealed()) r.set_visible(false);
+            if (!r.get_reveal_child() && !r.get_child_revealed()) {
+                r.set_visible(false);
+                // Undo fit_badge_for_follow()'s trim once the slide back has finished.
+                if (name_label != null && source_label != null) name_label.set_text(source_label);
+            }
         });
         badge_box.prepend(revealer);
 
@@ -362,6 +283,7 @@ public class CardBuilder : GLib.Object {
         badge_box.set_data("follow-source-revealer", revealer);
         badge_box.set_data<string>("follow-source-name", source_label ?? "this source");
         badge_box.set_data<string>("follow-source-url", url);
+        if (name_label != null) badge_box.set_data("follow-source-label", name_label);
         card_root.set_data("source-badge", badge_box);
     }
 
@@ -504,23 +426,69 @@ public class CardBuilder : GLib.Object {
             btn.remove_css_class("following");
         }
 
+        fit_badge_for_follow(card_root, badge, revealer);
         revealer.set_visible(true);
         revealer.set_reveal_child(true);
+    }
+
+    // On narrow cards (e.g. Trending) a long source name plus the revealed follow button would slide
+    // the badge under the thumbs pill and make it unclickable. So before the reveal starts, the name is
+    // trimmed once to the width it can have with the button open - the slide then plays with a still
+    // label, like every other card. The full name comes back after the collapse (see make_badge_followable).
+    // Measured on hover since the card's sizes aren't known until it's shown.
+    private static void fit_badge_for_follow(Gtk.Widget card_root, Gtk.Widget badge, Gtk.Revealer revealer) {
+        var pill = card_root.get_data<Gtk.Widget>("feedback-pill");
+        var label = badge.get_data<Gtk.Label>("follow-source-label");
+        string? full_name = badge.get_data<string>("follow-source-name");
+        var overlay = badge.get_parent();
+        // Only a badge on the image, beside the pill, can collide with it - not one in a
+        // card's text area (e.g. history cards).
+        if (pill == null || label == null || full_name == null || overlay == null || pill.get_parent() != overlay) return;
+
+        label.set_text(full_name);
+        badge.set_margin_start(0);
+        int pill_w, badge_w, row_w, label_w, unused;
+        pill.measure(Gtk.Orientation.HORIZONTAL, -1, out unused, out pill_w, null, null);
+        badge.measure(Gtk.Orientation.HORIZONTAL, -1, out unused, out badge_w, null, null);
+        revealer.get_child().measure(Gtk.Orientation.HORIZONTAL, -1, out unused, out row_w, null, null);
+        label.measure(Gtk.Orientation.HORIZONTAL, -1, out unused, out label_w, null, null);
+
+        int reserved = pill.get_margin_start() + pill_w + 6;
+        // Safety net: GtkOverlay never allocates a child wider than itself, so this margin keeps the
+        // badge off the pill even if the trim below comes up a pixel short.
+        badge.set_margin_start(reserved);
+
+        // The revealed row joins the badge with its 6px box spacing.
+        int excess = badge_w + row_w + 6 - (overlay.get_width() - reserved);
+        if (excess > 0) label.set_text(ellipsize_to_width(label, full_name, label_w - excess));
+    }
+
+    // Longest prefix of `text` (plus "…") that renders within `max_px` in `label`'s font.
+    private static string ellipsize_to_width(Gtk.Label label, string text, int max_px) {
+        var layout = label.create_pango_layout(null);
+        for (int n = text.char_count() - 1; n > 0; n--) {
+            string candidate = text.substring(0, text.index_of_nth_char(n)).chomp() + "…";
+            layout.set_text(candidate, -1);
+            int w, h;
+            layout.get_pixel_size(out w, out h);
+            if (w <= max_px) return candidate;
+        }
+        return "…";
     }
 
     // Built-in sources are followed while switched on in Preferences, others while they're a followed feed.
     public static bool is_source_followed(string url) {
         NewsSource builtin = SourceManager.builtin_source_for_article(url);
         if (builtin != NewsSource.UNKNOWN) {
-            return NewsPreferences.get_instance().preferred_source_enabled(SourceManager.source_enum_to_id(builtin));
+            return NewsPreferences.get_instance().preferred_source_enabled(BuiltinSources.for_source(builtin).id);
         }
         return Paperboy.RssSourceStore.get_instance().is_article_host_followed(url);
     }
 
     public static Gtk.Widget build_source_badge_dynamic(NewsWindow win, string? source_name, string? url, string? category_id) {
-        string? provided_logo_url = null;
-        string? display_name = null;
-        parse_encoded_source_name(source_name, out display_name, out provided_logo_url);
+        var label = SourceLabel.parse(source_name);
+        string? display_name = label.name;
+        string? provided_logo_url = label.logo_url;
 
         // For My Feed: first try SourceMetadata, then fall back to matching an RSS source by name or URL/domain.
         if (category_id == "myfeed") {
@@ -574,9 +542,7 @@ public class CardBuilder : GLib.Object {
                 }
 
                 if (is_match) {
-                    string? dummy_logo_url;
-                    string final_display_name;
-                    parse_encoded_source_name(src.name, out final_display_name, out dummy_logo_url);
+                    string final_display_name = SourceLabel.name_of(src.name);
 
                     string? meta_logo_url = SourceMetadata.get_logo_url_for_source(final_display_name);
                     string? meta_filename = SourceMetadata.get_saved_filename_for_source(final_display_name);
@@ -588,8 +554,8 @@ public class CardBuilder : GLib.Object {
         }
 
         if (provided_logo_url == null && display_name != null && display_name.length > 0) {
-            NewsSource? resolved = resolve_builtin_news_source(display_name);
-            if (resolved != null) {
+            NewsSource resolved = BuiltinSources.from_name(display_name);
+            if (resolved != NewsSource.UNKNOWN) {
                 return build_source_badge(resolved);
             }
         }

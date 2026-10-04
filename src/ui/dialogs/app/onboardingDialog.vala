@@ -41,6 +41,7 @@ public class OnboardingDialog : GLib.Object {
         carousel.set_interactive(true);
         carousel.append(build_welcome_page());
         carousel.append(build_theme_page(prefs));
+        carousel.append(build_categories_page(prefs, parent as NewsWindow));
         carousel.append(build_sources_page(prefs));
         carousel.append(build_sports_page(prefs));
         carousel.append(build_finish_page(parent));
@@ -82,13 +83,6 @@ public class OnboardingDialog : GLib.Object {
             prefs.onboarding_completed = true;
             prefs.save_config();
             dialog.close();
-
-            // Covers both an explicit Skip and clicking through without
-            // enabling anything on the sources page - either way, Popular
-            // Categories will be empty until the user turns some sources on.
-            if (prefs.preferred_sources.size == 0) {
-                show_no_sources_dialog(parent);
-            }
         }
 
         skip_btn.clicked.connect(() => finish());
@@ -125,28 +119,12 @@ public class OnboardingDialog : GLib.Object {
                 prefs.onboarding_completed = true;
                 prefs.save_config();
             }
-        });
 
-        dialog.present(parent);
-    }
-
-    // Shown after onboarding finishes with no built-in sources enabled -
-    // otherwise Popular Categories and My Feed silently render empty with
-    // no indication why, since they only pull from enabled sources.
-    private static void show_no_sources_dialog(Gtk.Window parent) {
-        var dialog = new Adw.AlertDialog(
-            "No Sources Enabled",
-            "You didn't enable any news sources, so Popular Categories (World News, Technology, Sports, and others) will appear empty until you turn some on. You can enable built-in sources or add your own RSS feeds anytime from Preferences."
-        );
-        dialog.add_response("later", "Not Now");
-        dialog.add_response("open", "Open Preferences");
-        dialog.set_default_response("open");
-        dialog.set_close_response("later");
-        dialog.set_response_appearance("open", Adw.ResponseAppearance.SUGGESTED);
-
-        dialog.response.connect((response_id) => {
-            if (response_id == "open") {
-                PrefsDialog.show_source_dialog(parent);
+            // Show the chosen categories and sources right away
+            var win = parent as NewsWindow;
+            if (win != null) {
+                if (win.sidebar_manager != null) win.sidebar_manager.rebuild_sidebar();
+                win.fetch_news();
             }
         });
 
@@ -367,6 +345,132 @@ public class OnboardingDialog : GLib.Object {
         return Gdk.Texture.for_pixbuf(pixbuf);
     }
 
+    private delegate bool TileToggleFunc();
+
+    // A tappable tile with a check badge in its corner, for the onboarding
+    // pickers' independent on/off choices. on_toggle flips the choice and
+    // returns the new state.
+    private static Gtk.Widget make_toggle_tile(Gtk.Widget art, string title_text, bool initially_on, owned TileToggleFunc on_toggle, int tile_height = 96) {
+        var tile_frame = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+        tile_frame.add_css_class("onboarding-source-tile");
+        tile_frame.set_halign(Gtk.Align.CENTER);
+        tile_frame.set_valign(Gtk.Align.CENTER);
+        tile_frame.set_size_request(96, tile_height);
+
+        tile_frame.append(art);
+
+        var badge = CheckIconUtils.new_image(14, true);
+        badge.add_css_class("onboarding-source-badge");
+        badge.set_halign(Gtk.Align.END);
+        badge.set_valign(Gtk.Align.START);
+        badge.set_margin_end(-4);
+        badge.set_margin_top(-4);
+        badge.set_visible(initially_on);
+
+        // Clip only the tile artwork (the logo image) to the tile's
+        // rounded corners. This lives on tile_frame itself rather than
+        // on the button, because an element's own overflow clip does
+        // not cut off its own box-shadow (only its children's content
+        // that spills past its edge) - so the hover shadow below,
+        // which is declared on this same element, still renders in
+        // full even though the image inside it is clipped.
+        tile_frame.set_overflow(Gtk.Overflow.HIDDEN);
+
+        var btn = new Gtk.Button();
+        btn.add_css_class("onboarding-source-tile-btn");
+        btn.set_child(tile_frame);
+        btn.set_tooltip_text(title_text);
+        btn.set_halign(Gtk.Align.CENTER);
+        btn.set_valign(Gtk.Align.CENTER);
+        btn.set_hexpand(false);
+        btn.set_vexpand(false);
+        btn.clicked.connect(() => badge.set_visible(on_toggle()));
+
+        // The badge lives in its own overlay wrapped *around* the
+        // button rather than inside it, so its corner-hugging negative
+        // margin isn't clipped by tile_frame's rounded-corner overflow.
+        // This outer overlay must shrink-wrap and center like btn used
+        // to (a FlowBoxChild otherwise stretches its child to fill the
+        // whole homogeneous cell) - without that, the badge positions
+        // itself relative to the overlay's own (much larger) box
+        // instead of the tile's actual corner.
+        var overlay = new Gtk.Overlay();
+        overlay.set_child(btn);
+        overlay.add_overlay(badge);
+        overlay.set_halign(Gtk.Align.CENTER);
+        overlay.set_valign(Gtk.Align.CENTER);
+        overlay.set_hexpand(false);
+        overlay.set_vexpand(false);
+
+        return overlay;
+    }
+
+    private static Gtk.Widget build_categories_page(NewsPreferences prefs, NewsWindow? win) {
+        var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
+        box.set_margin_start(36);
+        box.set_margin_end(36);
+        box.set_margin_top(36);
+        box.set_margin_bottom(18);
+
+        var title = new Gtk.Label("What Do You Want to Read?");
+        title.add_css_class("title-2");
+        title.set_halign(Gtk.Align.CENTER);
+        box.append(title);
+
+        var subtitle = new Gtk.Label("Pick the topics you care about. They show up in the sidebar and make up My Feed - you can change them anytime from Preferences.");
+        subtitle.set_wrap(true);
+        subtitle.set_justify(Gtk.Justification.CENTER);
+        subtitle.set_halign(Gtk.Align.CENTER);
+        subtitle.add_css_class("dim-label");
+        box.append(subtitle);
+
+        var grid = new Gtk.FlowBox();
+        grid.add_css_class("onboarding-sources-grid");
+        grid.set_selection_mode(Gtk.SelectionMode.NONE);
+        grid.set_homogeneous(true);
+        grid.set_row_spacing(12);
+        grid.set_column_spacing(16);
+        grid.set_valign(Gtk.Align.START);
+        // Room for the top row's badge, which pokes above its tile
+        grid.set_margin_top(18);
+        grid.set_max_children_per_line(3);
+        grid.set_min_children_per_line(3);
+
+        foreach (var cat in NewsPreferences.ALL_CATEGORIES) {
+            // The sidebar's names for these categories ("World News", not "General")
+            string display_name = win != null ? win.category_display_name_for(cat) : FetcherUtils.category_display_name(cat);
+
+            var art = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+            art.set_valign(Gtk.Align.CENTER);
+            var icon = new Gtk.Image();
+            icon.set_pixel_size(28);
+            string? icon_file = CategoryIconsUtils.icon_file_for(cat);
+            string? icon_path = icon_file != null ? CategoryIconsUtils.resolve_themed_icon_path(icon_file) : null;
+            if (icon_path != null) icon.set_from_file(icon_path);
+            art.append(icon);
+            var label = new Gtk.Label(display_name);
+            label.add_css_class("caption");
+            label.set_wrap(true);
+            label.set_justify(Gtk.Justification.CENTER);
+            art.append(label);
+
+            string category_id = cat;
+            grid.append(make_toggle_tile(art, display_name, prefs.category_enabled(category_id), () => {
+                // Keep the user's order: a newly chosen category goes last
+                var chosen = prefs.categories;
+                bool now_on = !chosen.contains(category_id);
+                if (now_on) chosen.add(category_id);
+                else chosen.remove(category_id);
+                prefs.categories = chosen;
+                return now_on;
+            }, 72));
+        }
+
+        box.append(grid);
+
+        return box;
+    }
+
     private static Gtk.Widget build_sources_page(NewsPreferences prefs) {
         var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         box.set_margin_start(36);
@@ -379,17 +483,12 @@ public class OnboardingDialog : GLib.Object {
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
 
-        var subtitle = new Gtk.Label("Paperboy comes with a set of prebuilt news sources to get you started. Tap the outlets you'd like to see - you can change these anytime from Preferences.");
+        var subtitle = new Gtk.Label("Paperboy pulls articles from across the web, including these outlets. Tap any you'd rather not see to hide their articles everywhere - you can change these anytime from Preferences.");
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
         subtitle.add_css_class("dim-label");
         box.append(subtitle);
-
-        var scroller = new Gtk.ScrolledWindow();
-        scroller.set_vexpand(true);
-        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-        scroller.set_margin_top(12);
 
         var grid = new Gtk.FlowBox();
         grid.add_css_class("onboarding-sources-grid");
@@ -398,23 +497,12 @@ public class OnboardingDialog : GLib.Object {
         grid.set_row_spacing(16);
         grid.set_column_spacing(16);
         grid.set_valign(Gtk.Align.START);
-        // The badge on the top row's tiles pokes a few px above the tile
-        // itself (see make_tile below). scroller's own margin_top sits
-        // outside its clipped viewport, so it gives no room *inside* the
-        // scrollable area - without this, only the top row's badge (the
-        // only one not already buffered by row_spacing) gets clipped by
-        // the viewport's top edge.
-        grid.set_margin_top(12);
+        // Room for the top row's badge, which pokes above its tile
+        grid.set_margin_top(18);
         grid.set_max_children_per_line(3);
         grid.set_min_children_per_line(3);
 
-        Gtk.Widget make_tile(string title_text, string source_id, string logo_file) {
-            var tile_frame = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-            tile_frame.add_css_class("onboarding-source-tile");
-            tile_frame.set_halign(Gtk.Align.CENTER);
-            tile_frame.set_valign(Gtk.Align.CENTER);
-            tile_frame.set_size_request(96, 96);
-
+        foreach (unowned BuiltinSource s in BuiltinSources.ALL) {
             // Gtk.Image with a fixed pixel_size always requests exactly that
             // square, letterboxing the source image within it regardless of
             // its original aspect ratio - unlike Gtk.Picture, whose natural
@@ -425,79 +513,25 @@ public class OnboardingDialog : GLib.Object {
             picture.set_pixel_size(68);
             picture.set_halign(Gtk.Align.CENTER);
             picture.set_valign(Gtk.Align.CENTER);
-            string? logo_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", logo_file));
+            string? logo_path = DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", s.logo_file));
             if (logo_path != null) picture.set_from_file(logo_path);
-            tile_frame.append(picture);
 
-            var badge = CheckIconUtils.new_image(14, true);
-            badge.add_css_class("onboarding-source-badge");
-            badge.set_halign(Gtk.Align.END);
-            badge.set_valign(Gtk.Align.START);
-            badge.set_margin_end(-4);
-            badge.set_margin_top(-4);
-            badge.set_visible(prefs.preferred_source_enabled(source_id));
-
-            // Clip only the tile artwork (the logo image) to the tile's
-            // rounded corners. This lives on tile_frame itself rather than
-            // on the button, because an element's own overflow clip does
-            // not cut off its own box-shadow (only its children's content
-            // that spills past its edge) - so the hover shadow below,
-            // which is declared on this same element, still renders in
-            // full even though the image inside it is clipped.
-            tile_frame.set_overflow(Gtk.Overflow.HIDDEN);
-
-            var btn = new Gtk.Button();
-            btn.add_css_class("onboarding-source-tile-btn");
-            btn.set_child(tile_frame);
-            btn.set_tooltip_text(title_text);
-            btn.set_halign(Gtk.Align.CENTER);
-            btn.set_valign(Gtk.Align.CENTER);
-            btn.set_hexpand(false);
-            btn.set_vexpand(false);
-            btn.clicked.connect(() => {
+            string source_id = s.id;
+            grid.append(make_toggle_tile(picture, s.name, prefs.preferred_source_enabled(source_id), () => {
                 bool now_enabled = !prefs.preferred_source_enabled(source_id);
                 prefs.set_preferred_source_enabled(source_id, now_enabled);
                 prefs.save_config();
-                badge.set_visible(now_enabled);
-            });
-
-            // The badge lives in its own overlay wrapped *around* the
-            // button rather than inside it, so its corner-hugging negative
-            // margin isn't clipped by tile_frame's rounded-corner overflow.
-            // This outer overlay must shrink-wrap and center like btn used
-            // to (a FlowBoxChild otherwise stretches its child to fill the
-            // whole homogeneous cell) - without that, the badge positions
-            // itself relative to the overlay's own (much larger) box
-            // instead of the tile's actual corner.
-            var overlay = new Gtk.Overlay();
-            overlay.set_child(btn);
-            overlay.add_overlay(badge);
-            overlay.set_halign(Gtk.Align.CENTER);
-            overlay.set_valign(Gtk.Align.CENTER);
-            overlay.set_hexpand(false);
-            overlay.set_vexpand(false);
-
-            return overlay;
+                return now_enabled;
+            }));
         }
 
-        grid.append(make_tile("The Guardian", "guardian", "guardian-logo.png"));
-        grid.append(make_tile("BBC News", "bbc", "bbc-logo.png"));
-        grid.append(make_tile("New York Times", "nytimes", "nytimes-logo.png"));
-        grid.append(make_tile("Bloomberg", "bloomberg", "bloomberg-logo.png"));
-        grid.append(make_tile("Wall Street Journal", "wsj", "wsj-logo.png"));
-        grid.append(make_tile("ABC News", "abc", "abc-logo.png"));
-        grid.append(make_tile("NPR", "npr", "npr-logo.png"));
-        grid.append(make_tile("Fox News", "fox", "foxnews-logo.png"));
-        grid.append(make_tile("PBS NewsHour", "pbs", "pbs-logo.png"));
-
-        scroller.set_child(grid);
-        box.append(scroller);
+        box.append(grid);
 
         return box;
     }
 
     // No NewsWindow exists yet during onboarding, so this reuses
-    // PrefsDialog.build_sports_league_list_box(prefs, null) - the same
+    // SportsPrefsGroup.build_league_list_box(prefs, null) - the same
     // drag-reorderable list Preferences shows later - rather than
     // duplicating its enable/reorder logic here.
     private static Gtk.Widget build_sports_page(NewsPreferences prefs) {
@@ -534,7 +568,7 @@ public class OnboardingDialog : GLib.Object {
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         scroller.set_margin_top(12);
 
-        var sports_list_box = PrefsDialog.build_sports_league_list_box(prefs, null);
+        var sports_list_box = SportsPrefsGroup.build_league_list_box(prefs, null);
         sports_list_box.set_sensitive(prefs.sports_scores_enabled);
         scroller.set_child(sports_list_box);
 

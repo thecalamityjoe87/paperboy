@@ -25,11 +25,11 @@ public class BloombergFetcher : BaseFetcher {
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
-        if (search_query.length > 0) {
-            fetch_google_domain(category, search_query, session, "bloomberg.com", "Bloomberg");
-            return;
-        }
         if (category == "business") {
+            if (search_query.length > 0) {
+                fetch_google_domain(category, search_query, session, "bloomberg.com", "Bloomberg");
+                return;
+            }
             // Bloomberg has no single "business" feed - Business pulls its
             // industries/markets/economics desks together instead. Additive
             // calls (view sinks have no clear handler), so these three don't
@@ -45,26 +45,23 @@ public class BloombergFetcher : BaseFetcher {
             return;
         }
 
-        string url = "https://feeds.bloomberg.com/markets/news.rss";
+        string url;
         switch (category) {
             case "technology":
                 url = "https://feeds.bloomberg.com/technology/news.rss";
-                break;
-            case "industries":
-                url = "https://feeds.bloomberg.com/industries/news.rss";
-                break;
-            case "markets":
-                url = "https://feeds.bloomberg.com/markets/news.rss";
-                break;
-            case "economics":
-                url = "https://feeds.bloomberg.com/economics/news.rss";
                 break;
             case "politics":
                 url = "https://feeds.bloomberg.com/politics/news.rss";
                 break;
             default:
-                url = "https://feeds.bloomberg.com/markets/news.rss";
-                break;
+            // No feed for this category - fetching a fallback feed here would
+            // show its articles mislabeled under this category
+                return;
+        }
+        // Searches stay within categories this source has a feed for
+        if (search_query.length > 0) {
+            fetch_google_domain(category, search_query, session, "bloomberg.com", "Bloomberg");
+            return;
         }
         RssFeedProcessor.fetch_rss_url(url, "Bloomberg", FetcherUtils.category_display_name(category), category, search_query, session, sink);
     }

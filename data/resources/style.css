@@ -728,15 +728,16 @@ dialog.video-player floating-sheet > sheet {
 }
 
 .card-feedback .source-badge-divider {
-    margin: 4px 1px;
+    margin: 6px 1px;
 }
 
 .card-feedback-btn {
     background: none;
     color: white;
     border-radius: 6px;
-    min-width: 24px;
-    min-height: 24px;
+    /* 3px pill padding + 28 = 34px, the height of a .source-badge with a logo. */
+    min-width: 28px;
+    min-height: 28px;
     padding: 0;
     box-shadow: none;
 }

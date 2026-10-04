@@ -25,7 +25,6 @@ private class ImageDownloadJob : GLib.Object {
     public int target_h;
     public uint gen_seq;
     public int device_scale;
-    public NewsSource news_src;
     public Soup.Session session;
     public MetaCache? meta_cache;
     public ImageCache? img_cache;
@@ -208,7 +207,6 @@ public class ImageManager : GLib.Object {
         job.target_h = target_h;
         job.gen_seq = FetchContext.current;
         job.device_scale = device_scale;
-        job.news_src = window.prefs.news_source;
         job.session = window.session;
         job.meta_cache = window.meta_cache;
         job.img_cache = window.image_cache;

@@ -138,15 +138,6 @@ public class FetchNewsController {
         return new FetchSink(ctx.session, (it) => route_item(ctx, it), (text) => forward_label(ctx, text), null, (owned) on_done);
     }
 
-    // My Feed's custom RSS sources: straight into ArticleManager, header-only labels.
-    // Built here rather than inline so its handlers never capture fetch_news()'s locals.
-    private static FetchSink myfeed_rss_sink(FetchContext ctx) {
-        return new FetchSink(ctx.session, (it) => {
-            if (!ctx.still_owns_view()) return;
-            ctx.window.article_manager.add_item(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published);
-        }, (text) => { if (ctx.still_owns_view()) ctx.window.update_content_header(); });
-    }
-
     // Front Page's Trending section: a second fetch layered onto the same view that
     // skips section routing/buffering and goes straight in as trending items.
     private static FetchSink trending_sink(FetchContext ctx) {
@@ -454,7 +445,6 @@ public class FetchNewsController {
             w.article_manager.add_item(title, url, thumbnail, category_id, source_name, published);
         };
 
-        bool used_multi = false;
         bool is_myfeed_mode = win.category_manager.is_myfeed_view();
         string[] myfeed_cats = new string[0];
 
@@ -477,23 +467,24 @@ public class FetchNewsController {
         // must be set before any fetch starts streaming back, or whichever source's HTTP
         // response lands first wins the hero slot even if its article is oldest
         bool is_saved_view = (win.prefs.category == "saved" || win.prefs.category == "history");
-        int total_sources = (win.prefs.preferred_sources != null ? win.prefs.preferred_sources.size : 0);
-        if (is_myfeed_mode && custom_rss_sources != null) {
-            total_sources += custom_rss_sources.size;
-        }
-        // frontpage always issues one backend request regardless of source count
+        // Every other view draws on several fetches at once (the API, each
+        // enabled source, My Feed's feeds). The Front Page is one backend request.
         bool is_frontpage = win.category_manager.is_frontpage_view();
-        ctx.is_multi_source = !is_frontpage && ((win.prefs.category == "sports") ||
-            (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))));
+        ctx.is_multi_source = !is_frontpage && !is_saved_view;
 
         // always query the sports endpoint too, so users whose enabled sources have no
         // sports desk (e.g. PBS) still see content; runs alongside the normal fetch below
         if (win.prefs.category == "sports") {
             var paperboy_sports_fetcher = new PaperboyFetcher(news_sink(ctx));
             paperboy_sports_fetcher.fetch("sports", current_search_query, win.session);
+        } else if (!is_saved_view && !win.category_manager.is_special_view() && win.prefs.category != "topten") {
+            // Other categories get the Paperboy frontpage's articles for that
+            // category, alongside whatever the enabled built-in sources add below
+            var paperboy_category_fetcher = new PaperboyFetcher(news_sink(ctx));
+            paperboy_category_fetcher.fetch(win.prefs.category, current_search_query, win.session);
         }
 
-if (is_myfeed_mode) {
+        if (is_myfeed_mode) {
             if (win.category_manager.is_myfeed_configured()) {
                 var cats = win.category_manager.get_myfeed_categories();
                 myfeed_cats = new string[cats.size];
@@ -527,22 +518,20 @@ if (is_myfeed_mode) {
             if (FetchNewsController.handle_rss_feed(win, ctx, wrapped_set_label, wrapped_clear, wrapped_add, win.session, current_search_query))
                 return;
         }
-        // handled before the multi-source branch so it works with zero/one preferred sources
+        // The Front Page comes entirely from the backend, whatever sources are enabled
         if (win.category_manager.is_frontpage_view()) {
-            used_multi = true;
-
-                wrapped_clear();
-                wrapped_set_label("Frontpage — Loading from backend (branch 1)");
+            wrapped_clear();
+            wrapped_set_label("Frontpage — Loading from backend (branch 1)");
             AppDebugger.log_rss("fetch_news: frontpage floor");
             // Hold the initial reveal until both the frontpage list and
             // Trending have reported in (see mark_frontpage_endpoint_done),
             // so they always appear together instead of Trending lagging
             // in visibly after the frontpage list.
             if (win.loading_state != null) win.loading_state.awaiting_frontpage_endpoints = true;
-            NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, news_sink(ctx, () => {
+            new PaperboyFetcher(news_sink(ctx, () => {
                 if (ctx.still_owns_view() && ctx.window.article_manager != null) ctx.window.article_manager.finalize_recommendations();
                 FetchNewsController.mark_frontpage_endpoint_done(ctx);
-            }));
+            })).fetch("frontpage", current_search_query, win.session);
 
             // Trending section: a second, independent fetch layered onto the
             // Front Page (see trending_sink()) - same
@@ -559,163 +548,46 @@ if (is_myfeed_mode) {
             return;
         }
 
-        // saved articles, local news, and individual RSS feeds have their own header setup above
-        if (!is_saved_view && (total_sources > 1 || (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0))) {
-            // frontpage is visually a multi-source view, but preferred_sources shouldn't
-            // influence which providers get queried - just hit the backend frontpage endpoint once
-            if (win.category_manager.is_frontpage_view()) {
-                used_multi = true;
+        // Saved and History are handled above; they never fetch
+        if (is_saved_view) return;
 
-                // Clear UI and ask the backend frontpage fetcher once. NewsService
-                // will route a request with current_category == "frontpage" to
-                // the Paperboy backend fetcher regardless of the NewsSource value.
-                wrapped_clear();
-                NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, news_sink(ctx));
-                
-                // Schedule badge refresh for frontpage
-                var sidebar_mgr = win.sidebar_manager;
-                if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh("frontpage");
+        // A regular category or My Feed: every enabled built-in source (with
+        // none enabled, the Paperboy API fills a category on its own), plus
+        // My Feed's custom feeds. A source with no feed for a category
+        // simply fetches nothing for it.
+        // Clear once up front so a later-completing fetch can't wipe an earlier one's results
+        wrapped_clear();
+
+        string[] fetch_categories = is_myfeed_mode ? myfeed_cats : new string[] { win.prefs.category };
+        if (!(is_myfeed_mode && win.prefs.myfeed_custom_only)) {
+            foreach (var s in win.source_manager.get_enabled_source_enums()) {
+                foreach (var cat in fetch_categories) {
+                    NewsService.fetch(s, cat, current_search_query, win.session, news_sink(ctx));
                 }
-                return;
             }
+        }
 
-            used_multi = true;
-
-            Gee.ArrayList<NewsSource> srcs = win.source_manager.get_enabled_source_enums();
-
-            if (srcs.size == 0) {
-                NewsService.fetch(
-                    win.prefs.news_source,
-                    win.prefs.category,
+        if (is_myfeed_mode && custom_rss_sources != null) {
+            foreach (var rss_src in custom_rss_sources) {
+                if (win.feed_updater != null) win.feed_updater.request_refresh(rss_src);
+                // generated feeds (file:// URLs) use original_url as cache key so it survives regeneration
+                string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
+                RssFeedProcessor.fetch_rss_url(
+                    rss_src.url,
+                    rss_src.url,  // use URL, not name, for source filtering
+                    "My Feed",
+                    "myfeed",
                     current_search_query,
                     win.session,
-                    news_sink(ctx)
+                    news_sink(ctx),
+                    cache_key
                 );
-            } else {
-                // "myfeed" isn't a real provider category, so check support per personalized
-                // category instead (e.g. Bloomberg supports markets/industries but not "myfeed")
-                var filtered = new Gee.ArrayList<NewsSource>();
-                foreach (var s in srcs) {
-                    bool include = false;
-                    if (is_myfeed_mode) {
-                        if (myfeed_cats == null || myfeed_cats.length == 0) {
-                            include = true;
-                        } else {
-                            foreach (var cat in myfeed_cats) {
-                                if (NewsService.supports_category(s, cat)) { include = true; break; }
-                            }
-                        }
-                    } else {
-                        if (NewsService.supports_category(s, win.prefs.category)) include = true;
-                    }
-                    if (include) filtered.add(s);
-                }
-
-                var use_srcs = filtered.size > 0 ? filtered : srcs;
-
-                // clear once up front so a later-completing fetch can't wipe an earlier one's results
-                wrapped_clear();
-
-                bool skip_builtin = is_myfeed_mode && win.prefs.myfeed_custom_only;
-                if (!skip_builtin) {
-                    foreach (var s in use_srcs) {
-                        if (is_myfeed_mode) {
-                            foreach (var cat in myfeed_cats) {
-                                NewsService.fetch(s, cat, current_search_query, win.session, news_sink(ctx));
-                            }
-                        } else {
-                            NewsService.fetch(s, win.prefs.category, current_search_query, win.session, news_sink(ctx));
-                        }
-                    }
-                }
-
-                if (!is_myfeed_mode) {
-                    var sidebar_mgr = win.sidebar_manager;
-                    if (sidebar_mgr != null) {
-                        sidebar_mgr.schedule_badge_refresh(win.prefs.category);
-                    }
-                }
-
-                if (is_myfeed_mode && custom_rss_sources != null && custom_rss_sources.size > 0) {
-                    foreach (var rss_src in custom_rss_sources) {
-                        if (win.feed_updater != null) win.feed_updater.request_refresh(rss_src);
-                        // generated feeds (file:// URLs) use original_url as cache key so it survives regeneration
-                        string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
-                        RssFeedProcessor.fetch_rss_url(
-                            rss_src.url,
-                            rss_src.url,  // use URL, not name, for source filtering
-                            "My Feed",
-                            "myfeed",
-                            current_search_query,
-                            win.session,
-                            news_sink(ctx),
-                            cache_key
-                        );
-                    }
-                }
             }
-        } else {
-            if (win.category_manager.is_frontpage_view()) {
-                wrapped_clear();
-                wrapped_set_label("Frontpage — Loading from backend (single-source)");
-                NewsService.fetch(win.prefs.news_source, "frontpage", current_search_query, win.session, news_sink(ctx));
+        }
 
-                var sidebar_mgr = win.sidebar_manager;
-                if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh("frontpage");
-                }
-                return;
-            }
-
-            if (is_myfeed_mode) {
-                wrapped_clear();
-
-                // Fetch from built-in source (unless custom_only mode is enabled in My Feed)
-                if (!win.prefs.myfeed_custom_only) {
-                    foreach (var cat in myfeed_cats) {
-                        NewsService.fetch(win.effective_news_source(), cat, current_search_query, win.session, news_sink(ctx));
-                    }
-                }
-
-                // Fetch from custom RSS sources if sources are enabled
-                if (custom_rss_sources != null && custom_rss_sources.size > 0) {
-                    win.article_manager.featured_used = true;
-                    foreach (var rss_src in custom_rss_sources) {
-                        if (win.feed_updater != null) win.feed_updater.request_refresh(rss_src);
-                        string? cache_key = (rss_src.url.has_prefix("file://") && rss_src.original_url != null) ? rss_src.original_url : null;
-                        RssFeedProcessor.fetch_rss_url(
-                            rss_src.url,
-                            rss_src.url,  // use URL, not name, for source filtering
-                            "My Feed",
-                            "myfeed",
-                            current_search_query,
-                            win.session,
-                            myfeed_rss_sink(ctx),
-                            cache_key
-                        );
-                    }
-                }
-
-                var sidebar_mgr = win.sidebar_manager;
-                if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh("myfeed");
-                }
-            } else {
-                wrapped_clear();
-                NewsService.fetch(
-                    win.effective_news_source(),
-                    win.prefs.category,
-                    current_search_query,
-                    win.session,
-                    news_sink(ctx)
-                );
-
-                var sidebar_mgr = win.sidebar_manager;
-                if (sidebar_mgr != null) {
-                    sidebar_mgr.schedule_badge_refresh(win.prefs.category);
-                }
-            }
+        var sidebar_mgr = win.sidebar_manager;
+        if (sidebar_mgr != null) {
+            sidebar_mgr.schedule_badge_refresh(is_myfeed_mode ? "myfeed" : win.prefs.category);
         }
     }
 
@@ -750,12 +622,9 @@ if (is_myfeed_mode) {
             win.feed_updater.request_refresh(rss_source, true);
         }
 
-        // Build display name with logo URL for article cards (format: "Name||logo_url")
-        string feed_name = feed_name_plain;
+        // The feed's name with its logo, for article cards
         string? logo_url = SourceMetadata.get_logo_url_for_source(feed_name_plain);
-        if (logo_url != null && logo_url.length > 0) {
-            feed_name = feed_name_plain + "||" + logo_url;
-        }
+        string feed_name = SourceLabel.encode(feed_name_plain, logo_url);
 
         // Clear UI and schedule feed fetch
         wrapped_clear();
@@ -1188,8 +1057,7 @@ if (is_myfeed_mode) {
         var batch = new LocalNewsBatch(ctx);
         var cache = Paperboy.RssArticleCache.get_instance();
         foreach (var article in cache.get_cached_articles(url)) {
-            string cached_source = article.source_name ?? city;
-            if (article.source_name != null && article.logo_url != null) cached_source += "||" + article.logo_url;
+            string cached_source = article.source_name != null ? SourceLabel.encode(article.source_name, article.logo_url) : city;
             batch.items.set(article.url, new ArticleItem(article.title, article.url, article.thumbnail_url, category_id, cached_source, article.published_date));
         }
         if (batch.items.size > 0) {

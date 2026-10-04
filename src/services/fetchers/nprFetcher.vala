@@ -25,12 +25,11 @@ public class NprFetcher : BaseFetcher {
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
-        if (search_query.length > 0) {
-            fetch_google_domain(category, search_query, session, "npr.org", "NPR");
-            return;
-        }
-        string url = "https://feeds.npr.org/1001/rss.xml";
+        string url;
         switch (category) {
+            case "general":
+                url = "https://feeds.npr.org/1001/rss.xml";
+                break;
             case "technology":
                 url = "https://feeds.npr.org/1019/rss.xml";
                 break;
@@ -49,6 +48,9 @@ public class NprFetcher : BaseFetcher {
             case "politics":
                 url = "https://feeds.npr.org/1014/rss.xml";
                 break;
+            case "business":
+                url = "https://feeds.npr.org/1006/rss.xml";
+                break;
             case "entertainment":
                 url = "https://feeds.npr.org/1008/rss.xml";
                 break;
@@ -56,8 +58,14 @@ public class NprFetcher : BaseFetcher {
                 url = "https://feeds.npr.org/1053/rss.xml";
                 break;
             default:
-                url = "https://feeds.npr.org/1001/rss.xml";
-                break;
+            // No feed for this category - fetching a fallback feed here would
+            // show its articles mislabeled under this category
+                return;
+        }
+        // Searches stay within categories this source has a feed for
+        if (search_query.length > 0) {
+            fetch_google_domain(category, search_query, session, "npr.org", "NPR");
+            return;
         }
         RssFeedProcessor.fetch_rss_url(url, "NPR", FetcherUtils.category_display_name(category), category, search_query, session, sink);
     }

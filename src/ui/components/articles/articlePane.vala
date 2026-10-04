@@ -399,7 +399,7 @@ public class ArticlePane : GLib.Object {
             snippet_label.set_text(to_show);
 
             if (preview.published != null && preview.published.length > 0) {
-                string label_to_use = (display_source != null && display_source.length > 0) ? display_source : SourceUtils.get_source_name(article_src);
+                string label_to_use = (display_source != null && display_source.length > 0) ? display_source : BuiltinSources.short_name(article_src);
                 set_meta_text(meta_source_label, meta_date_label, label_to_use, preview.published);
             }
         }, article_src, display_source, parent_window.article_manager.article_buffer);

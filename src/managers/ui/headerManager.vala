@@ -144,25 +144,12 @@ public class HeaderManager : GLib.Object {
         if (button == null) return;
 
         button.clicked.connect(() => {
-            var confirm_dialog = new Adw.AlertDialog(
-                "Clear history?",
-                "This will permanently delete your reading history. This can't be undone."
-            );
-            confirm_dialog.add_response("cancel", "Cancel");
-            confirm_dialog.add_response("clear", "Clear History");
-            confirm_dialog.set_response_appearance("clear", Adw.ResponseAppearance.DESTRUCTIVE);
-            confirm_dialog.set_default_response("cancel");
-            confirm_dialog.set_close_response("cancel");
-
-            confirm_dialog.response.connect((response_id) => {
-                if (response_id == "clear") {
-                    if (window.article_state_store != null) window.article_state_store.clear_history();
-                    if (window.prefs != null && window.prefs.category == "history") window.fetch_news();
-                    if (window.toast_manager != null) window.toast_manager.show_toast("History cleared");
-                }
+            DialogUtils.confirm_destructive(window, "Clear history?",
+                "This will permanently delete your reading history. This can't be undone.", "Clear History", () => {
+                if (window.article_state_store != null) window.article_state_store.clear_history();
+                if (window.prefs != null && window.prefs.category == "history") window.fetch_news();
+                if (window.toast_manager != null) window.toast_manager.show_toast("History cleared");
             });
-
-            confirm_dialog.present((Gtk.Widget) window);
         });
     }
 

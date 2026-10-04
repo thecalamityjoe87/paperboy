@@ -33,40 +33,15 @@ public class ArticleSourceResolver : GLib.Object {
 
         // Map source name if found in buffer
         if (found_article_item && article_source_name != null && article_source_name.length > 0) {
-            string lower = article_source_name.down();
-            if (lower.contains("abc news") || lower.contains("abcnews")) { article_src = NewsSource.ABC_NEWS; source_mapped = true; }
-            else if (lower.contains("guardian")) { article_src = NewsSource.GUARDIAN; source_mapped = true; }
-            else if (lower.contains("bbc")) { article_src = NewsSource.BBC; source_mapped = true; }
-            else if (lower.contains("nytimes")) { article_src = NewsSource.NEW_YORK_TIMES; source_mapped = true; }
-            else if (lower.contains("wsj") || lower.contains("wall street journal")) { article_src = NewsSource.WALL_STREET_JOURNAL; source_mapped = true; }
-            else if (lower.contains("bloomberg")) { article_src = NewsSource.BLOOMBERG; source_mapped = true; }
-            else if (lower.contains("npr")) { article_src = NewsSource.NPR; source_mapped = true; }
-            else if (lower.contains("fox")) { article_src = NewsSource.FOX; source_mapped = true; }
-            else if (lower.contains("pbs")) { article_src = NewsSource.PBS; source_mapped = true; }
+            article_src = BuiltinSources.from_name(article_source_name);
+            source_mapped = article_src != NewsSource.UNKNOWN;
         }
 
         // If not found in buffer or mapping failed, infer from URL
         if (!found_article_item || !source_mapped) {
-            article_src = SourceUtils.infer_source_from_url(url);
-
-            // Check actual match
-            bool is_actual_match = false;
-            string url_lower = url.down();
-            switch (article_src) {
-                case NewsSource.GUARDIAN: is_actual_match = url_lower.contains("guardian") || url_lower.contains("theguardian"); break;
-                case NewsSource.BBC: is_actual_match = url_lower.contains("bbc."); break;
-                case NewsSource.NEW_YORK_TIMES: is_actual_match = url_lower.contains("nytimes") || url_lower.contains("nyti.ms"); break;
-                case NewsSource.WALL_STREET_JOURNAL: is_actual_match = url_lower.contains("wsj.com") || url_lower.contains("dowjones"); break;
-                case NewsSource.BLOOMBERG: is_actual_match = url_lower.contains("bloomberg"); break;
-                case NewsSource.ABC_NEWS: is_actual_match = url_lower.contains("abcnews"); break;
-                case NewsSource.NPR: is_actual_match = url_lower.contains("npr.org"); break;
-                case NewsSource.FOX: is_actual_match = url_lower.contains("foxnews") || url_lower.contains("fox.com"); break;
-                case NewsSource.PBS: is_actual_match = url_lower.contains("pbs.org"); break;
-                default: is_actual_match = false; break;
-            }
-
-            if (is_actual_match) source_mapped = true; // treat inferred match as mapped
-            else source_mapped = false; // fallback, will trigger generic placeholder
+            article_src = BuiltinSources.from_url(url);
+            // An unrecognized URL stays unmapped, which triggers the generic placeholder
+            source_mapped = article_src != NewsSource.UNKNOWN;
         }
 
         resolved_source = article_src;

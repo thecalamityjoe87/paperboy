@@ -45,44 +45,12 @@ public class NewsPreferences : GLib.Object {
     // sources that look "disabled" despite having been added intentionally.
     // Runs once per install; see load_config()/save_config().
     private bool custom_sources_enable_migration_done = false;
+    // One-time migration guard: an empty preferred_sources list used to mean
+    // "every built-in source on". It's now seeded with those sources
+    // explicitly, so afterwards an empty list really means none.
+    private bool builtin_sources_seeded = false;
 
     // GSettings-backed properties (automatically persisted)
-    public NewsSource news_source {
-        get {
-            string source_str = settings.get_string("news-source");
-            switch (source_str) {
-                case "guardian": return NewsSource.GUARDIAN;
-                case "bbc": return NewsSource.BBC;
-                case "wsj": return NewsSource.WALL_STREET_JOURNAL;
-                case "nytimes": return NewsSource.NEW_YORK_TIMES;
-                case "bloomberg": return NewsSource.BLOOMBERG;
-                case "abc": return NewsSource.ABC_NEWS;
-                case "npr": return NewsSource.NPR;
-                case "fox": return NewsSource.FOX;
-                case "pbs": return NewsSource.PBS;
-                case "unknown": return NewsSource.UNKNOWN;
-                default: return NewsSource.GUARDIAN;
-            }
-        }
-        set {
-            string source_str = "";
-            switch (value) {
-                case NewsSource.GUARDIAN: source_str = "guardian"; break;
-                case NewsSource.BBC: source_str = "bbc"; break;
-                case NewsSource.WALL_STREET_JOURNAL: source_str = "wsj"; break;
-                case NewsSource.NEW_YORK_TIMES: source_str = "nytimes"; break;
-                case NewsSource.BLOOMBERG: source_str = "bloomberg"; break;
-                case NewsSource.ABC_NEWS: source_str = "abc"; break;
-                case NewsSource.NPR: source_str = "npr"; break;
-                case NewsSource.FOX: source_str = "fox"; break;
-                case NewsSource.PBS: source_str = "pbs"; break;
-                case NewsSource.UNKNOWN: source_str = "unknown"; break;
-                default: source_str = "guardian"; break;
-            }
-            settings.set_string("news-source", source_str);
-        }
-    }
-
     public string category {
         owned get {
             string cat = settings.get_string("category");
@@ -392,34 +360,38 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_int("podcast-skip-seconds", value); }
     }
 
-    public Gee.ArrayList<string> personalized_categories {
+    // Every news category, in default order.
+    public const string[] ALL_CATEGORIES = {
+        "general", "us", "technology", "business", "sports",
+        "science", "health", "entertainment", "politics", "lifestyle"
+    };
+
+    // The news categories the user follows, in their sidebar order. Drives
+    // the sidebar's Categories list and what My Feed draws from.
+    public Gee.ArrayList<string> categories {
         owned get {
             var list = new Gee.ArrayList<string>();
-            string[] arr = settings.get_strv("personalized-categories");
-            // Defensive: an earlier iteration of My Feed's custom-feed
-            // opt-in briefly stored "customfeed:<url>" entries in this same
-            // list before that was moved to its own dedicated
-            // myfeed_included_feeds preference. Any such entries left over
-            // from that on a real install aren't a real topic category and
-            // would otherwise build a permanently-empty, oddly-labeled row
-            // in My Feed - filter them out here so stale data can't
-            // resurface that bug.
-            foreach (var s in arr) {
-                if (!s.has_prefix("customfeed:")) list.add(s);
+            // An installed schema older than this key (not yet reinstalled)
+            // reads as every category chosen, rather than aborting.
+            if (!settings.settings_schema.has_key("categories")) {
+                foreach (var c in ALL_CATEGORIES) list.add(c);
+                return list;
+            }
+            foreach (var c in settings.get_strv("categories")) {
+                if (c in ALL_CATEGORIES && !list.contains(c)) list.add(c);
             }
             return list;
         }
         set {
-            if (value == null) {
-                settings.set_strv("personalized-categories", new string[0]);
-            } else {
-                string[] arr = new string[value.size];
-                for (int i = 0; i < value.size; i++) {
-                    arr[i] = value.get(i);
-                    warning("  - writing category: %s", arr[i]);
-                }
-                settings.set_strv("personalized-categories", arr);
+            if (!settings.settings_schema.has_key("categories")) {
+                warning("Can't save categories: the installed GSettings schema predates the \"categories\" key - reinstall Paperboy");
+                return;
             }
+            // A fresh Vala string[] is NULL-terminated, as set_strv() needs;
+            // Gee's to_array() isn't guaranteed to be.
+            string[] arr = new string[value.size];
+            for (int i = 0; i < value.size; i++) arr[i] = value.get(i);
+            settings.set_strv("categories", arr);
         }
     }
 
@@ -602,78 +574,12 @@ public class NewsPreferences : GLib.Object {
                 foreach (var r in to_remove) preferred_sources.remove(r);
             }
         }
-        // Keep the single-source `news_source` value (drives regular category
-        // browsing) in sync with the "Built-in News Sources" switches.
-        // Sync directly off `id`/`enabled` rather than requiring
-        // `preferred_sources` to shrink to one entry - that list also holds
-        // followed custom RSS feeds, so it rarely has just one entry.
-        if (enabled) {
-            switch (id) {
-                case "guardian": news_source = NewsSource.GUARDIAN; break;
-                case "bbc": news_source = NewsSource.BBC; break;
-                case "nytimes": news_source = NewsSource.NEW_YORK_TIMES; break;
-                case "wsj": news_source = NewsSource.WALL_STREET_JOURNAL; break;
-                case "bloomberg": news_source = NewsSource.BLOOMBERG; break;
-                case "abc": news_source = NewsSource.ABC_NEWS; break;
-                case "npr": news_source = NewsSource.NPR; break;
-                case "fox": news_source = NewsSource.FOX; break;
-                default: /* not a built-in source id (e.g. a "custom:" feed) - leave news_source unchanged */ break;
-            }
-        }
         // Persist changes to KeyFile
         if (!loading) save_config();
     }
 
-    // Convenience helpers for managing personalized categories
-    public bool personalized_category_enabled(string cat) {
-        if (personalized_categories == null) return false;
-        foreach (var c in personalized_categories) if (c == cat) return true;
-        return false;
-    }
-
-    public void set_personalized_category_enabled(string cat, bool enabled) {
-        // Get current list from GSettings
-        var current_list = personalized_categories;
-        if (current_list == null) current_list = new Gee.ArrayList<string>();
-
-        // Create a new list for modification
-        var updated_list = new Gee.ArrayList<string>();
-        foreach (var c in current_list) updated_list.add(c);
-
-        if (enabled) {
-            // Add category if not already present
-            bool already_present = false;
-            foreach (var c in updated_list) {
-                if (c == cat) {
-                    already_present = true;
-                    break;
-                }
-            }
-            if (!already_present) {
-                updated_list.add(cat);
-                warning("set_personalized_category_enabled: adding category '%s'", cat);
-            }
-        } else {
-            // Remove all occurrences of category
-            var to_remove = new Gee.ArrayList<string>();
-            foreach (var c in updated_list) {
-                if (c == cat) to_remove.add(c);
-            }
-            foreach (var r in to_remove) {
-                updated_list.remove(r);
-                warning("set_personalized_category_enabled: removing category '%s'", r);
-            }
-        }
-
-        // Write back to GSettings by triggering the property setter
-        personalized_categories = updated_list;
-
-        // Debug: verify what was written
-        var verify_list = personalized_categories;
-        warning("set_personalized_category_enabled: after save, GSettings contains %d categories", verify_list.size);
-        foreach (var c in verify_list) {
-            warning("  - category: %s", c);
-        }
+    public bool category_enabled(string cat) {
+        return categories.contains(cat);
     }
 
     // User-chosen top-to-bottom order for sports league sections. Only
@@ -883,31 +789,26 @@ public class NewsPreferences : GLib.Object {
                 clean_config.set_boolean("preferences", "custom_sources_enable_migration_v1", true);
             }
 
-            if (_preferred_sources != null && _preferred_sources.size > 0) {
+            if (builtin_sources_seeded) {
+                clean_config.set_boolean("preferences", "builtin_sources_seeded_v1", true);
+            }
+
+            if (_preferred_sources != null) {
+                // Written even when empty: an empty list means every source is off
                 string[] parr = new string[_preferred_sources.size];
                 for (int i = 0; i < _preferred_sources.size; i++) parr[i] = _preferred_sources.get(i);
                 clean_config.set_string_list("preferences", "preferred_sources", parr);
-            } else {
-                // If the running instance has no in-memory preferred list, try to preserve
-                // the existing value from disk rather than overwriting with an empty config.
-                if (GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
-                    try {
-                        var temp_config = new GLib.KeyFile();
-                        temp_config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
-                        if (temp_config.has_key("preferences", "preferred_sources")) {
-                            string[] parr = temp_config.get_string_list("preferences", "preferred_sources");
-                            clean_config.set_string_list("preferences", "preferred_sources", parr);
-                        }
-                    } catch (GLib.Error e) {
-                        warning("Failed to load existing preferred_sources: %s", e.message);
+            } else if (GLib.FileUtils.test(config_path, GLib.FileTest.EXISTS)) {
+                // Not loaded yet - keep whatever is on disk rather than wiping it
+                try {
+                    var temp_config = new GLib.KeyFile();
+                    temp_config.load_from_file(config_path, GLib.KeyFileFlags.NONE);
+                    if (temp_config.has_key("preferences", "preferred_sources")) {
+                        string[] parr = temp_config.get_string_list("preferences", "preferred_sources");
+                        clean_config.set_string_list("preferences", "preferred_sources", parr);
                     }
-                }
-                // Only seed the default list on a true first-run (config file did
-                // not exist at startup). If the config file exists but lacks the
-                // key, leave it empty rather than seeding defaults.
-                if (first_run && !clean_config.has_key("preferences", "preferred_sources")) {
-                    string[] default_sources = {"guardian", "bbc", "nytimes", "wsj", "bloomberg", "abc", "npr", "fox"};
-                    clean_config.set_string_list("preferences", "preferred_sources", default_sources);
+                } catch (GLib.Error e) {
+                    warning("Failed to load existing preferred_sources: %s", e.message);
                 }
             }
 
@@ -971,15 +872,12 @@ public class NewsPreferences : GLib.Object {
                 }
             }
             
-            // MIGRATION: If old preferences exist in KeyFile, migrate them to GSettings
-            bool needs_migration = config.has_key("preferences", "news_source");
+            // MIGRATION: If old preferences exist in KeyFile, migrate them to GSettings.
+            // An old-format config is recognized by its news_source key (whose
+            // single-default-source setting no longer exists, so it isn't migrated).
+            // has_key() throws when the group is missing, as on a fresh install
+            bool needs_migration = config.has_group("preferences") && config.has_key("preferences", "news_source");
             if (needs_migration) {
-                // Migrate news_source
-                if (config.has_key("preferences", "news_source")) {
-                    string source_name = config.get_string("preferences", "news_source");
-                    settings.set_string("news-source", source_name);
-                }
-                
                 // Migrate category
                 if (config.has_key("preferences", "category")) {
                     string cat = config.get_string("preferences", "category");
@@ -1036,14 +934,6 @@ public class NewsPreferences : GLib.Object {
                     try {
                         string city = config.get_string("preferences", "user_location_city");
                         settings.set_string("user-location-city", city);
-                    } catch (GLib.Error e) { }
-                }
-                
-                // Migrate personalized_categories
-                if (config.has_key("preferences", "personalized_categories")) {
-                    try {
-                        string[] arr = config.get_string_list("preferences", "personalized_categories");
-                        settings.set_strv("personalized-categories", arr);
                     } catch (GLib.Error e) { }
                 }
                 
@@ -1113,9 +1003,26 @@ public class NewsPreferences : GLib.Object {
                 custom_sources_enable_migration_done = config.has_key("preferences", "custom_sources_enable_migration_v1")
                     && config.get_boolean("preferences", "custom_sources_enable_migration_v1");
             } catch (GLib.Error e) { custom_sources_enable_migration_done = false; }
+            try {
+                builtin_sources_seeded = config.has_key("preferences", "builtin_sources_seeded_v1")
+                    && config.get_boolean("preferences", "builtin_sources_seeded_v1");
+            } catch (GLib.Error e) { builtin_sources_seeded = false; }
 
             // Unset loading marker so setters/save operations can run normally
             loading = false;
+
+            // One-time migration (see the field comment above). Only a
+            // completely empty list - a fresh install, or one that never
+            // chose - was treated as "all on"; a list holding just custom
+            // feeds already meant every built-in source was off. Runs before
+            // the custom-sources migration below, which can add to the list.
+            if (!builtin_sources_seeded) {
+                if (_preferred_sources.size == 0) {
+                    foreach (unowned BuiltinSource src in BuiltinSources.ALL) _preferred_sources.add(src.id);
+                }
+                builtin_sources_seeded = true;
+                save_config();
+            }
 
             // One-time migration: enable every existing custom RSS source
             // that isn't already tracked (see the field comment above).

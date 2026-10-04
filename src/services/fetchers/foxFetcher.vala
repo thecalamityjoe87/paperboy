@@ -56,7 +56,9 @@ public class FoxFetcher : BaseFetcher {
                     section_urls.add("https://www.foxnews.com/world");
                     section_urls.add("https://www.foxnews.com");
                     break;
-                default: section_urls.add("https://www.foxnews.com"); break;
+                // No section for this category - a fallback page here would
+                // show its articles mislabeled under this category
+                default: return null;
             }
 
             if (current_search_query.length > 0) {

@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.12.5a',
+  version : '0.13.0a',
   meson_version : '>=0.59.0'
 )
 
@@ -67,6 +67,11 @@ cairo = dependency('cairo')
     'src/ui/dialogs/app/locationDialog.vala',
     'src/ui/dialogs/app/onboardingDialog.vala',
     'src/ui/dialogs/app/prefsDialog.vala',
+    'src/ui/dialogs/app/prefs/appPrefsPage.vala',
+    'src/ui/dialogs/app/prefs/personalizationPrefsPage.vala',
+    'src/ui/dialogs/app/prefs/prefsRows.vala',
+    'src/ui/dialogs/app/prefs/sourcesPrefsPage.vala',
+    'src/ui/dialogs/app/prefs/sportsPrefsGroup.vala',
     'src/ui/dialogs/content/feedRenameDialog.vala',
     'src/ui/dialogs/content/imageViewerDialog.vala',
     'src/ui/dialogs/content/shareDialog.vala',
@@ -140,6 +145,7 @@ cairo = dependency('cairo')
     'src/services/feeds/viewSession.vala',
     'src/services/feeds/generatedFeedService.vala',
     'src/services/feeds/locationLookupService.vala',
+    'src/services/feeds/builtinSources.vala',
     'src/services/feeds/newsService.vala',
     'src/services/feeds/opmlService.vala',
     'src/services/feeds/rssSourceStore.vala',
@@ -191,13 +197,13 @@ cairo = dependency('cairo')
     'src/models/weather/weatherReport.vala',
     'src/models/news/newsArticle.vala',
     'src/models/news/rssSource.vala',
+    'src/models/news/sourceLabel.vala',
 
     # Utils
     'src/utils/core/appDebugger.vala',
     'src/utils/core/dataPathsUtils.vala',
     'src/utils/core/workerPool.vala',
     'src/utils/lookup/majorCitiesUtils.vala',
-    'src/utils/lookup/sourceUtils.vala',
     'src/utils/net/browserUtils.vala',
     'src/utils/net/httpClientUtils.vala',
     'src/utils/net/urlUtils.vala',

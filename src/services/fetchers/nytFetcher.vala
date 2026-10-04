@@ -26,8 +26,11 @@ public class NytFetcher : BaseFetcher {
 
     public override void fetch(string category, string search_query, Soup.Session session) {
         string base_url = "https://rss.nytimes.com/services/xml/rss/nyt/";
-        string path = "World.xml";
+        string path;
         switch (category) {
+            case "general":
+                path = "World.xml";
+                break;
             case "us":
                 path = "US.xml";
                 break;
@@ -52,8 +55,9 @@ public class NytFetcher : BaseFetcher {
                 fetch_google_domain(category, search_query, session, "nytimes.com", "New York Times");
                 return;
             default:
-                path = "World.xml";
-                break;
+            // No feed for this category - fetching a fallback feed here would
+            // show its articles mislabeled under this category
+                return;
         }
         if (search_query.length > 0) {
             fetch_google_domain(category, search_query, session, "nytimes.com", "New York Times");

@@ -205,7 +205,7 @@ public class PlaceholderBuilder : GLib.Object {
             }
 
             // Fallback to text-based placeholder
-            PlaceholderBuilder.create_source_text_placeholder(image, PlaceholderBuilder.get_source_name(source), source, width, height);
+            PlaceholderBuilder.create_source_text_placeholder(image, placeholder_source_name(source), source, width, height);
     }
 
     // Create a text-based placeholder using a brand gradient and name
@@ -284,13 +284,16 @@ public class PlaceholderBuilder : GLib.Object {
 
     // Public wrapper to pick icon vs text based on available icon path
     public static void set_placeholder_image_for_source(Gtk.Picture image, int width, int height, NewsSource source) {
-        string? icon_path = PlaceholderBuilder.get_source_icon_path(source);
-        string source_name = PlaceholderBuilder.get_source_name(source);
+        string? icon_path = BuiltinSources.logo_path(source);
         if (icon_path != null) {
             PlaceholderBuilder.create_icon_placeholder(image, icon_path, source, width, height);
         } else {
-            PlaceholderBuilder.create_source_text_placeholder(image, source_name, source, width, height);
+            PlaceholderBuilder.create_source_text_placeholder(image, placeholder_source_name(source), source, width, height);
         }
+    }
+
+    private static string placeholder_source_name(NewsSource source) {
+        return source == NewsSource.UNKNOWN ? "News Source" : BuiltinSources.short_name(source);
     }
 
     // Local-news specific placeholder
@@ -428,42 +431,6 @@ public class PlaceholderBuilder : GLib.Object {
             var tex = ImageCache.get_global().get_texture(key);
             if (tex != null) image.set_paintable(tex);
             else PlaceholderBuilder.create_gradient_placeholder(image, width, height);
-    }
-
-    // Minimal source name/icon mapping duplicated here so placeholder helper
-    // can be used without depending on NewsWindow internals.
-    public static string get_source_name(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN: return "The Guardian";
-            case NewsSource.WALL_STREET_JOURNAL: return "Wall Street Journal";
-            case NewsSource.BBC: return "BBC News";
-            case NewsSource.NEW_YORK_TIMES: return "NY Times";
-            case NewsSource.BLOOMBERG: return "Bloomberg";
-            case NewsSource.ABC_NEWS: return "ABC News";
-            case NewsSource.NPR: return "NPR";
-            case NewsSource.FOX: return "Fox News";
-            case NewsSource.PBS: return "PBS NewsHour";
-            case NewsSource.UNKNOWN: return "News Source";
-            default: return "News";
-        }
-    }
-
-    public static string? get_source_icon_path(NewsSource source) {
-        string icon_filename;
-        switch (source) {
-            case NewsSource.GUARDIAN: icon_filename = "guardian-logo.png"; break;
-            case NewsSource.BBC: icon_filename = "bbc-logo.png"; break;
-            case NewsSource.NEW_YORK_TIMES: icon_filename = "nytimes-logo.png"; break;
-            case NewsSource.BLOOMBERG: icon_filename = "bloomberg-logo.png"; break;
-            case NewsSource.ABC_NEWS: icon_filename = "abc-logo.png"; break;
-            case NewsSource.NPR: icon_filename = "npr-logo.png"; break;
-            case NewsSource.FOX: icon_filename = "foxnews-logo.png"; break;
-            case NewsSource.WALL_STREET_JOURNAL: icon_filename = "wsj-logo.png"; break;
-            case NewsSource.PBS: icon_filename = "pbs-logo.png"; break;
-            case NewsSource.UNKNOWN: return null;
-            default: return null;
-        }
-        return DataPathsUtils.find_data_file(GLib.Path.build_filename("icons", icon_filename));
     }
 
     // Create a placeholder for RSS feed sources using their logo from source_logos directory

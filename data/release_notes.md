@@ -1,3 +1,27 @@
+# v0.13.0a - Categories First, Sources as Filters, and a New Categories Page
+
+- Categories are now the main way to browse news. They're filled from the Paperboy service alongside your enabled sources, so a category never comes up empty or sends you back to the Front Page just because none of your sources cover it
+- Turning a source off now works as a filter: its articles are hidden everywhere except Saved, History, and your own RSS feeds
+- Added a Categories page to Preferences where you can switch categories on or off and drag them into the order you want. The same list drives the sidebar and My Feed, and all ten categories are on by default
+- Renamed the sidebar's "Popular Categories" section to "Categories" and added a "Manage Categories" row to it
+- Changes to categories and My Feed now apply right away, without the refresh prompt
+- Onboarding has a new "What Do You Want to Read?" page, clearer wording on the sources page, and no longer shows the outdated "No Sources Enabled" warning
+- There's no longer a single "default source," so Paperboy no longer falls back to The Guardian
+- Removed the Markets, Industries, and Economics categories, which only Bloomberg provided
+- Sources without a feed for a category now show nothing there instead of filling it with world news
+- Added NPR's Business feed
+- Turning off all your sources is now remembered instead of bringing the defaults back
+- Confirmation prompts now look the same throughout the app, and icons in Preferences are a consistent size
+- Fixed PBS being ignored when you turned it on or used it as your only source
+- Fixed ABC News and WSJ articles being filed under Science, and NPR articles under Business, by mistake
+- Fixed outlets with similar names getting another outlet's name and logo, such as TIME showing as the New York Times or Fox Sports as Fox News
+- Fixed settings failing to load properly on first launch
+- Fixed crashes when saving some settings and opening some dropdown menus
+- Fixed empty spots in the Front Page's Trending grid when some trending stories came from sources you've turned off, and Trending repeating stories already shown in the hero carousel
+- Fixed the follow button sliding under the thumbs up/down buttons on narrow Front Page cards, such as Trending, when the source has a long name. The name is now shortened to make room
+- The thumbs up/down buttons on Front Page cards are now the same height as the source badge beside them
+- Fixed a typo on the My Feed page when My Feed is turned off
+
 # v0.12.5a - Recommended For You, and Podcast Playback Order Fixes
 
 - Added a personalized "Recommended for you" panel to the Front Page, based on the topics, sites, and categories you read most. It appears once you have some reading history

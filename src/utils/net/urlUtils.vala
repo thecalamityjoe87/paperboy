@@ -56,6 +56,11 @@ public class UrlUtils {
         return u;
     }
 
+    // True for http:// and https:// URLs - i.e. something we can fetch an image from.
+    public static bool is_http_url(string? url) {
+        return url != null && (url.has_prefix("http://") || url.has_prefix("https://"));
+    }
+
     // Extract host portion from a URL (e.g., "https://www.example.com/path" -> "example.com").
     public static string extract_host_from_url(string? url) {
         if (url == null) return "";

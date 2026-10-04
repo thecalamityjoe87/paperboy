@@ -367,11 +367,10 @@ public class RssFeedProcessor {
                                         string? src = c->get_content();
                                         if (src != null && src.strip().length > 0) {
                                             item_source_label = src.strip();
-                                            item_source = item_source_label;
                                             string? src_url = c->get_prop("url");
                                             string? host = src_url != null ? UrlUtils.extract_host_from_url(src_url) : null;
-                                            if (host != null && host.length > 0)
-                                                item_source += "||https://www.google.com/s2/favicons?domain=" + host + "&sz=128";
+                                            item_source = SourceLabel.encode(item_source_label,
+                                                (host != null && host.length > 0) ? SourceMetadata.google_favicon_url(host) : null);
                                         }
                                     } else if (c->name == "commentRss" && c->ns != null && c->ns->prefix == "wfw") {
                                         string? content = c->get_content();
@@ -578,29 +577,16 @@ public class RssFeedProcessor {
                         var cache = Paperboy.RssArticleCache.get_instance();
                         string cache_key = (cache_key_override != null && cache_key_override.length > 0) ? cache_key_override : feed_url;
 
-                        // source_name format: "Name||logo_url##category::cat"
+                        // source_name is a SourceLabel-encoded name, logo and category
                         string? extracted_source_name = null;
                         string? extracted_logo_url = null;
                         string? extracted_category_id = null;
 
                         if (item_source_name != null && item_source_name.length > 0) {
-                            extracted_source_name = item_source_name;
-
-                            int cat_idx = item_source_name.index_of("##category::");
-                            if (cat_idx >= 0) {
-                                extracted_source_name = item_source_name.substring(0, cat_idx);
-                                if (item_source_name.length > cat_idx + 12) {
-                                    extracted_category_id = item_source_name.substring(cat_idx + 12);
-                                }
-                            }
-
-                            int pipe_idx = extracted_source_name.index_of("||");
-                            if (pipe_idx >= 0) {
-                                if (extracted_source_name.length > pipe_idx + 2) {
-                                    extracted_logo_url = extracted_source_name.substring(pipe_idx + 2);
-                                }
-                                extracted_source_name = extracted_source_name.substring(0, pipe_idx);
-                            }
+                            var label = SourceLabel.parse(item_source_name);
+                            extracted_source_name = label.name;
+                            extracted_logo_url = label.logo_url;
+                            extracted_category_id = label.category;
                         }
 
                         cache.cache_article(url, title, row[2], pub_date, cache_key, extracted_source_name, extracted_logo_url, extracted_category_id);

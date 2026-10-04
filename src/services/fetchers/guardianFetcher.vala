@@ -58,9 +58,12 @@ public class GuardianFetcher : BaseFetcher {
                 url = base_url + "section=lifeandstyle";
                 break;
             case "general":
-            default:
                 url = base_url + "section=world";
                 break;
+            default:
+            // No feed for this category - fetching a fallback feed here would
+            // show its articles mislabeled under this category
+                return;
         }
 
         client.fetch_json_with(url, cancellable, (response, parser, root) => {

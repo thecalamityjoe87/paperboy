@@ -240,13 +240,23 @@ public class SidebarView : GLib.Object {
                 }
             }
 
+            Gtk.Button? manage_button = null;
             if (section.section_id == "local_news_entry") {
-                var add_row = new Gtk.ListBoxRow();
-                add_row.set_child(create_manage_locations_button());
-                add_row.set_activatable(false);
-                add_row.set_selectable(false);
-                add_row.add_css_class("sidebar-expander-item");
-                expander.add_row(add_row);
+                manage_button = create_manage_button("Manage Locations", () => {
+                    PrefsDialog.show_preferences_dialog(window, false, false, true);
+                });
+            } else if (section.section_id == "popular_categories") {
+                manage_button = create_manage_button("Manage Categories", () => {
+                    PrefsDialog.show_preferences_dialog(window, false, false, false, true);
+                });
+            }
+            if (manage_button != null) {
+                var manage_row = new Gtk.ListBoxRow();
+                manage_row.set_child(manage_button);
+                manage_row.set_activatable(false);
+                manage_row.set_selectable(false);
+                manage_row.add_css_class("sidebar-expander-item");
+                expander.add_row(manage_row);
             }
 
             // Optional "Add RSS Feed" button
@@ -748,7 +758,10 @@ public class SidebarView : GLib.Object {
         });
     }
     
-    private Gtk.Button create_manage_locations_button() {
+    private delegate void ManageClickedFunc();
+
+    // A section's trailing "Manage ..." row, e.g. under Local News.
+    private Gtk.Button create_manage_button(string label_text, owned ManageClickedFunc on_click) {
         var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         button_box.add_css_class("sidebar-row-vspace");
         button_box.set_margin_start(8);
@@ -760,7 +773,7 @@ public class SidebarView : GLib.Object {
         icon_holder.append(icon);
         button_box.append(icon_holder);
 
-        var label = new Gtk.Label("Manage Locations");
+        var label = new Gtk.Label(label_text);
         label.set_xalign(0);
         label.set_hexpand(true);
         button_box.append(label);
@@ -771,9 +784,7 @@ public class SidebarView : GLib.Object {
         manage_button.add_css_class("flat");
         manage_button.add_css_class("sidebar-item-row");
 
-        manage_button.clicked.connect(() => {
-            PrefsDialog.show_preferences_dialog(window, false, false, true);
-        });
+        manage_button.clicked.connect(() => on_click());
 
         return manage_button;
     }
@@ -911,7 +922,7 @@ public class SidebarView : GLib.Object {
     private Gtk.Widget build_badge_widget(int count, bool is_source, string item_id) {
         var label = new Gtk.Label(null);
         label.add_css_class("unread-count-badge");
-        // Wider gap before the count on Feeds/Popular Categories rows,
+        // Wider gap before the count on Feeds/Categories rows,
         // not on the special items.
         if (is_source || !is_special_category_id(item_id)) {
             label.add_css_class("unread-count-badge-wide-gap");

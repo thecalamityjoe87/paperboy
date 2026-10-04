@@ -177,7 +177,7 @@ namespace Paperboy {
                     if (host_for_icon != null && host_for_icon.length > 0) {
                         string icon_url = (entry.icon_url != null && entry.icon_url.length > 0)
                             ? entry.icon_url
-                            : "https://www.google.com/s2/favicons?domain=" + host_for_icon + "&sz=128";
+                            : SourceMetadata.google_favicon_url(host_for_icon);
                         SourceMetadata.update_index_and_fetch(host_for_icon, entry.name, icon_url, entry.html_url, null, entry.url);
                     }
 

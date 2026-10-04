@@ -25,12 +25,11 @@ public class WsjFetcher : BaseFetcher {
     }
 
     public override void fetch(string category, string search_query, Soup.Session session) {
-        if (search_query.length > 0) {
-            fetch_google_domain(category, search_query, session, "wsj.com", "WSJ");
-            return;
-        }
-        string url = "https://feeds.content.dowjones.io/public/rss/RSSWorldNews";
+        string url;
         switch (category) {
+            case "general":
+                url = "https://feeds.content.dowjones.io/public/rss/RSSWorldNews";
+                break;
             case "technology":
                 url = "https://feeds.content.dowjones.io/public/rss/RSSWSJD";
                 break;
@@ -56,8 +55,14 @@ public class WsjFetcher : BaseFetcher {
                 url = "https://feeds.content.dowjones.io/public/rss/RSSLifestyle";
                 break;
             default:
-                url = "https://feeds.content.dowjones.io/public/rss/RSSWorldNews";
-                break;
+            // No feed for this category - fetching a fallback feed here would
+            // show its articles mislabeled under this category
+                return;
+        }
+        // Searches stay within categories this source has a feed for
+        if (search_query.length > 0) {
+            fetch_google_domain(category, search_query, session, "wsj.com", "WSJ");
+            return;
         }
         RssFeedProcessor.fetch_rss_url(url, "WSJ", FetcherUtils.category_display_name(category), category, search_query, session, sink);
     }

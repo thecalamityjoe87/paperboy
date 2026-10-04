@@ -1,3 +1,23 @@
+paperboy (0.13.0a-1) unstable; urgency=low
+
+  * Categories are now the main way to browse news, filled from the Paperboy service alongside enabled sources so they never come up empty
+  * Turning a source off now hides its articles everywhere except Saved, History, and your own RSS feeds
+  * Added a Categories page to Preferences to switch categories on or off and reorder them; the same list drives the sidebar and My Feed
+  * Renamed "Popular Categories" to "Categories" in the sidebar and added a "Manage Categories" row
+  * Category and My Feed changes now apply right away, without the refresh prompt
+  * Added a "What Do You Want to Read?" onboarding page and removed the outdated "No Sources Enabled" warning
+  * Removed the single default source and The Guardian fallback, and the Bloomberg-only Markets, Industries, and Economics categories
+  * Sources without a feed for a category now show nothing there instead of world news
+  * Added NPR's Business feed
+  * Turning off all sources is now remembered instead of restoring the defaults
+  * Fixed PBS being ignored, and ABC News, WSJ, and NPR articles filed under the wrong category
+  * Fixed settings failing to load properly on first launch, and crashes when saving some settings and opening some dropdown menus
+  * Fixed empty spots in the Front Page's Trending grid, and Trending repeating stories from the hero carousel
+  * Fixed the follow button sliding under the thumbs up/down buttons on narrow Front Page cards when the source has a long name
+  * Thumbs up/down buttons on Front Page cards now match the source badge's height
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Fri, 02 Oct 2026 00:00:00 +0000
+
 paperboy (0.12.5a-1) unstable; urgency=low
 
   * Added a personalized "Recommended for you" panel to the Front Page, based on your reading history

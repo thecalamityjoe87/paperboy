@@ -238,18 +238,13 @@ public class ArticleSnippetService : GLib.Object {
                     var local_area = prefs.get_active_local_area();
                     display_source = local_area != null ? local_area.city : "Local News";
                 } else {
-                    if (article_src == prefs.news_source) {
-                        string host = UrlUtils.extract_host_from_url(url);
-                        if (host != null && host.length > 0) {
-                            string lowhost = host.down();
-                            if (lowhost.index_of("bbc") >= 0 || lowhost.index_of("guardian") >= 0 || lowhost.index_of("nytimes") >= 0 || lowhost.index_of("wsj") >= 0 || lowhost.index_of("bloomberg") >= 0 || lowhost.index_of("abcnews") >= 0 || lowhost.index_of("npr") >= 0 || lowhost.index_of("fox") >= 0 || lowhost.index_of("pbs") >= 0) {
-                                display_source = SourceUtils.get_source_name(article_src);
-                            } else {
-                                display_source = UrlUtils.prettify_host(host);
-                            }
-                        }
+                    // A built-in outlet's name, otherwise the site it's from
+                    string host = UrlUtils.extract_host_from_url(url);
+                    if (article_src == NewsSource.UNKNOWN && host.length > 0) {
+                        display_source = UrlUtils.prettify_host(host);
+                    } else {
+                        display_source = BuiltinSources.short_name(article_src);
                     }
-                    if (display_source == null) display_source = SourceUtils.get_source_name(article_src);
                 }
             }
 
@@ -272,14 +267,7 @@ public class ArticleSnippetService : GLib.Object {
             homepage_published_any_out = null;
 
             if (explicit_source_name_out != null && explicit_source_name_out.length > 0) {
-                int pipe_idx = explicit_source_name_out.index_of("||");
-                if (pipe_idx >= 0 && explicit_source_name_out.length > pipe_idx) {
-                    explicit_source_name_out = explicit_source_name_out.substring(0, pipe_idx);
-                }
-                int cat_idx = explicit_source_name_out.index_of("##category::");
-                if (cat_idx >= 0 && explicit_source_name_out.length > cat_idx) {
-                    explicit_source_name_out = explicit_source_name_out.substring(0, cat_idx);
-                }
+                explicit_source_name_out = SourceLabel.name_of(explicit_source_name_out);
 
                 string? meta_display_name = SourceMetadata.get_display_name_for_source(explicit_source_name_out);
                 if (meta_display_name == null || meta_display_name.length == 0) {

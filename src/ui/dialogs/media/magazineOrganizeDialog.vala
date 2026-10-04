@@ -185,31 +185,19 @@ public class MagazineOrganizeDialog : GLib.Object {
         };
 
         reset_button.clicked.connect(() => {
-            var confirm_dialog = new Adw.AlertDialog(
-                "Reset view?",
-                "Moves every magazine back to Uncategorized, clears your custom category order, and switches back to the grid view. This can't be undone, though no magazines themselves are removed from your library."
-            );
-            confirm_dialog.add_response("cancel", "Cancel");
-            confirm_dialog.add_response("reset", "Reset View");
-            confirm_dialog.set_response_appearance("reset", Adw.ResponseAppearance.DESTRUCTIVE);
-            confirm_dialog.set_default_response("cancel");
-            confirm_dialog.set_close_response("cancel");
-
-            confirm_dialog.response.connect((response_id) => {
-                if (response_id == "reset") {
-                    var store = Paperboy.MagazineLibraryStore.get_instance();
-                    foreach (var entry in store.get_all_entries()) {
-                        if (entry.category != null) store.update_category(entry.id, null);
-                    }
-                    window.prefs.magazine_category_order = new Gee.ArrayList<string>();
-                    window.prefs.magazine_uncategorized_as_grid = true;
-                    grid_toggle_switch.set_active(true);
-                    manager.request_render();
-                    refresh();
+            DialogUtils.confirm_destructive(dialog, "Reset view?",
+                "Moves every magazine back to Uncategorized, clears your custom category order, and switches back to the grid view. This can't be undone, though no magazines themselves are removed from your library.",
+                "Reset View", () => {
+                var store = Paperboy.MagazineLibraryStore.get_instance();
+                foreach (var entry in store.get_all_entries()) {
+                    if (entry.category != null) store.update_category(entry.id, null);
                 }
+                window.prefs.magazine_category_order = new Gee.ArrayList<string>();
+                window.prefs.magazine_uncategorized_as_grid = true;
+                grid_toggle_switch.set_active(true);
+                manager.request_render();
+                refresh();
             });
-
-            confirm_dialog.present(dialog);
         });
 
         refresh();
@@ -371,30 +359,18 @@ public class MagazineOrganizeDialog : GLib.Object {
         });
 
         delete_button.clicked.connect(() => {
-            var confirm_dialog = new Adw.AlertDialog(
-                "Delete \"%s\"?".printf(current_category_name),
-                "Moves its magazines back to Uncategorized. This can't be undone, though no magazines themselves are removed from your library."
-            );
-            confirm_dialog.add_response("cancel", "Cancel");
-            confirm_dialog.add_response("delete", "Delete");
-            confirm_dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE);
-            confirm_dialog.set_default_response("cancel");
-            confirm_dialog.set_close_response("cancel");
-
-            confirm_dialog.response.connect((response_id) => {
-                if (response_id == "delete") {
-                    var store = Paperboy.MagazineLibraryStore.get_instance();
-                    foreach (var entry in store.get_all_entries()) {
-                        if (entry.category != null && entry.category.strip() == current_category_name) {
-                            store.update_category(entry.id, null);
-                        }
+            DialogUtils.confirm_destructive((Gtk.Window) window, "Delete \"%s\"?".printf(current_category_name),
+                "Moves its magazines back to Uncategorized. This can't be undone, though no magazines themselves are removed from your library.",
+                "Delete", () => {
+                var store = Paperboy.MagazineLibraryStore.get_instance();
+                foreach (var entry in store.get_all_entries()) {
+                    if (entry.category != null && entry.category.strip() == current_category_name) {
+                        store.update_category(entry.id, null);
                     }
-                    pending_categories.remove(current_category_name);
-                    on_changed();
                 }
+                pending_categories.remove(current_category_name);
+                on_changed();
             });
-
-            confirm_dialog.present((Gtk.Window) window);
         });
 
         // Fills the row's width so several chips pack left-to-right before

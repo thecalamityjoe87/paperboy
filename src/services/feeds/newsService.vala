@@ -45,14 +45,7 @@ public class NewsService {
             return;
         }
 
-        // Don't let a source fetch (and mistag) content for a category it
-        // doesn't actually cover, e.g. PBS falling back to World News for
-        // "sports" - callers that already pre-filter via supports_category()
-        // (the multi-source path) just get a redundant true here.
-        if (!supports_category(source, current_category)) {
-            return;
-        }
-
+        // Each fetcher fetches nothing for a category it has no feed for
         BaseFetcher? fetcher = null;
 
         switch (source) {
@@ -88,69 +81,5 @@ public class NewsService {
         if (fetcher != null) {
             fetcher.fetch(current_category, current_search_query, session);
         }
-    }
-
-    public static string get_source_name(NewsSource source) {
-        switch (source) {
-            case NewsSource.GUARDIAN:
-                return "The Guardian";
-            case NewsSource.WALL_STREET_JOURNAL:
-                return "Wall Street Journal";
-            case NewsSource.BBC:
-                return "BBC News";
-            case NewsSource.NEW_YORK_TIMES:
-                return "New York Times";
-            case NewsSource.BLOOMBERG:
-                return "Bloomberg";
-            case NewsSource.ABC_NEWS:
-                return "ABC News";
-            case NewsSource.NPR:
-                return "NPR";
-            case NewsSource.FOX:
-                return "Fox News";
-            case NewsSource.PBS:
-                return "PBS NewsHour";
-            default:
-                return "News";
-        }
-    }
-
-    public static bool supports_category(NewsSource source, string category) {
-        // BBC and ABC News do not provide dedicated "lifestyle" content
-        if (source == NewsSource.BBC || source == NewsSource.ABC_NEWS) {
-            if (category == "lifestyle") return false;
-        }
-
-        // Bloomberg only supports specific categories
-        if (source == NewsSource.BLOOMBERG) {
-            switch (category) {
-                case "markets":
-                case "industries":
-                case "economics":
-                case "politics":
-                case "technology":
-                // Business pulls from Bloomberg's industries/markets/economics
-                // feeds together - see BloombergFetcher.fetch()'s "business" case.
-                case "business":
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
-        // PBS NewsHour has no technology, sports, or lifestyle desk -
-        // PbsFetcher falls back to World News for those, which would be
-        // confusing to show under those category labels specifically.
-        if (source == NewsSource.PBS) {
-            switch (category) {
-                case "technology":
-                case "sports":
-                case "lifestyle":
-                    return false;
-                default:
-                    return true;
-            }
-        }
-        return true;
     }
 }
