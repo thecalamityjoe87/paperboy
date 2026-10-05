@@ -53,7 +53,7 @@ public class SidebarMenu : GLib.Object {
         var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         menu_box.add_css_class("menu");
 
-        var change_btn = create_menu_item("document-edit-symbolic", "Change location");
+        var change_btn = create_menu_item("document-edit-symbolic", _("Change location"));
         change_btn.clicked.connect(() => {
             popover.popdown();
             LocationDialog.choose(window, area, (chosen) => {
@@ -62,7 +62,7 @@ public class SidebarMenu : GLib.Object {
         });
         menu_box.append(change_btn);
 
-        var remove_btn = create_menu_item("user-trash-symbolic", "Remove location");
+        var remove_btn = create_menu_item("user-trash-symbolic", _("Remove location"));
         remove_btn.add_css_class("destructive-action");
         remove_btn.clicked.connect(() => {
             popover.popdown();
@@ -82,7 +82,7 @@ public class SidebarMenu : GLib.Object {
         menu_box.add_css_class("menu");
         
         // Mark all as read
-        var mark_read_btn = create_menu_item(CheckIconUtils.icon_name(), "Mark all as read");
+        var mark_read_btn = create_menu_item(CheckIconUtils.icon_name(), _("Mark all as read"));
         mark_read_btn.clicked.connect(() => {
             on_mark_all_read();
             popover.popdown();
@@ -90,14 +90,14 @@ public class SidebarMenu : GLib.Object {
         menu_box.append(mark_read_btn);
         
         // Mark all as unread
-        var mark_unread_btn = create_menu_item("edit-undo-symbolic", "Mark all as unread");
+        var mark_unread_btn = create_menu_item("edit-undo-symbolic", _("Mark all as unread"));
         mark_unread_btn.clicked.connect(() => {
             on_mark_all_unread();
             popover.popdown();
         });
         menu_box.append(mark_unread_btn);
         
-        var rename_btn = create_menu_item("document-edit-symbolic", "Rename");
+        var rename_btn = create_menu_item("document-edit-symbolic", _("Rename"));
         rename_btn.clicked.connect(() => {
             popover.popdown();
             if (current_source_url.length > 0) {
@@ -107,7 +107,7 @@ public class SidebarMenu : GLib.Object {
         menu_box.append(rename_btn);
         
         // Remove this source
-        var remove_btn = create_menu_item("user-trash-symbolic", "Remove this source");
+        var remove_btn = create_menu_item("user-trash-symbolic", _("Remove this source"));
         remove_btn.add_css_class("destructive-action");
         remove_btn.clicked.connect(() => {
             on_remove_source();
@@ -152,7 +152,7 @@ public class SidebarMenu : GLib.Object {
         }
         
         if (window.toast_manager != null) {
-            window.toast_manager.show_toast("Marked all articles as read");
+            window.toast_manager.show_toast(_("Marked all articles as read"));
         }
     }
     
@@ -166,7 +166,7 @@ public class SidebarMenu : GLib.Object {
         }
         
         if (window.toast_manager != null) {
-            window.toast_manager.show_toast("Marked all articles as unread");
+            window.toast_manager.show_toast(_("Marked all articles as unread"));
         }
     }
     
@@ -175,13 +175,13 @@ public class SidebarMenu : GLib.Object {
             return;
         }
         
-        DialogUtils.confirm_destructive((Gtk.Window) window, "Remove this source?",
-            "Are you sure you want to remove \"%s\" and all of its articles?".printf(current_source_name), "Remove", () => {
+        DialogUtils.confirm_destructive((Gtk.Window) window, _("Remove this source?"),
+            _("Are you sure you want to remove \"%s\" and all of its articles?").printf(current_source_name), _("Remove"), () => {
             if (window.sidebar_manager != null) {
                 window.sidebar_manager.remove_rss_source(current_source_url);
             }
             if (window.toast_manager != null) {
-                window.toast_manager.show_toast("Feed removed");
+                window.toast_manager.show_toast(_("Feed removed"));
             }
         });
     }

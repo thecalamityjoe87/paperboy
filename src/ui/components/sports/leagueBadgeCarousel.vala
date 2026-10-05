@@ -200,14 +200,14 @@ public class LeagueBadgeCarousel : GLib.Object {
         button.add_css_class("circular");
         button.set_halign(Gtk.Align.CENTER);
         button.set_child(footprint);
-        button.set_tooltip_text("Add more leagues");
+        button.set_tooltip_text(_("Add more leagues"));
         button.clicked.connect(() => {
             GLib.debug("LeagueBadgeCarousel: settings badge clicked, emitting settings_requested");
             settings_requested();
         });
         wrapper.append(button);
 
-        var caption = new Gtk.Label("Settings");
+        var caption = new Gtk.Label(_("Settings"));
         caption.add_css_class("caption");
         caption.add_css_class("dim-label");
         wrapper.append(caption);

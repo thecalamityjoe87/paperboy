@@ -107,9 +107,11 @@ public class PaperboyFetcher : BaseFetcher {
             then();
         };
         // RssFeedProcessor signals no completion, but on success it sets the
-        // label, clears, then queues every item in order on the main loop - so
-        // an idle queued from the clear runs after the last item. Failures
-        // only set an "Error ..." label. The timeout covers anything else.
+        // label "<category> — <source>", clears, then queues every item in
+        // order on the main loop - so an idle queued from the clear runs after
+        // the last item. Failures set any other label - translated, so check
+        // for the success form rather than the word "Error". The timeout
+        // covers anything else.
         var pad_sink = new FetchSink(null,
             (item) => {
                 if (finished || added >= max) return;
@@ -126,7 +128,7 @@ public class PaperboyFetcher : BaseFetcher {
                 add_item(item.title, item.url, item.thumbnail_url, category_id, source, item.published);
                 added++;
             },
-            (label) => { if (label.has_prefix("Error")) finish(); },
+            (label) => { if (!label.has_suffix(" — " + GoogleNewsUtils.AGGREGATOR_NAME)) finish(); },
             () => { GLib.Idle.add(() => { finish(); return false; }); });
         timeout_id = GLib.Timeout.add_seconds(20, () => {
             timeout_id = 0;

@@ -121,7 +121,7 @@ public class HighlightCard : GLib.Object {
 
         string league = SportsScoresService.display_name_for(highlight.league_key);
         string ago = highlight.published != null ? DateUtils.time_ago(highlight.published.format_iso8601()) : "";
-        caption_label.set_text(ago.length > 0 ? "%s · %s".printf(league, ago) : league);
+        caption_label.set_text(ago.length > 0 ? _("%s · %s").printf(league, ago) : league);
 
         duration_label.set_text(format_duration(highlight.duration_seconds));
         duration_label.set_visible(highlight.duration_seconds > 0);

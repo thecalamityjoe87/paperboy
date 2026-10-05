@@ -130,8 +130,8 @@ public class HeaderManager : GLib.Object {
         view.weather_range_label.set_markup("H <b>%s</b> · L <b>%s</b>".printf(WeatherReport.format_degrees(report.high), WeatherReport.format_degrees(report.low)));
 
         bool has_weather_app = new GLib.DesktopAppInfo("org.gnome.Weather.desktop") != null;
-        string tooltip = "Weather in %s".printf(area.name);
-        if (has_weather_app) tooltip += "\nOpen Weather for the full forecast";
+        string tooltip = _("Weather in %s").printf(area.name);
+        if (has_weather_app) tooltip += _("\nOpen Weather for the full forecast");
         view.weather_box.set_tooltip_text(tooltip);
         view.weather_box.set_cursor_from_name(has_weather_app ? "pointer" : null);
         view.weather_box.set_visible(true);
@@ -149,11 +149,11 @@ public class HeaderManager : GLib.Object {
         if (button == null) return;
 
         button.clicked.connect(() => {
-            DialogUtils.confirm_destructive(window, "Clear history?",
-                "This will permanently delete your reading history. This can't be undone.", "Clear History", () => {
+            DialogUtils.confirm_destructive(window, _("Clear history?"),
+                _("This will permanently delete your reading history. This can't be undone."), _("Clear History"), () => {
                 if (window.article_state_store != null) window.article_state_store.clear_history();
                 if (window.prefs != null && window.prefs.category == "history") window.fetch_news();
-                if (window.toast_manager != null) window.toast_manager.show_toast("History cleared");
+                if (window.toast_manager != null) window.toast_manager.show_toast(_("History cleared"));
             });
         });
     }
@@ -185,7 +185,7 @@ public class HeaderManager : GLib.Object {
         // Multiple podcasts: no single "the" one to be "Subscribed" to.
         if (rss_source.podcast_candidate_count > 1) {
             if (window.content_view.rss_podcast_button_label != null) {
-                window.content_view.rss_podcast_button_label.set_text("Browse podcasts");
+                window.content_view.rss_podcast_button_label.set_text(_("Browse podcasts"));
             }
             button.add_css_class("suggested-action");
             return;
@@ -195,7 +195,7 @@ public class HeaderManager : GLib.Object {
         int64 synthetic_id = Paperboy.PodcastFeedResolver.get_instance().compute_synthetic_feed_id(rss_source.podcast_feed_url);
         bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(synthetic_id);
         if (window.content_view.rss_podcast_button_label != null) {
-            window.content_view.rss_podcast_button_label.set_text(subscribed ? "Subscribed" : "Add podcast");
+            window.content_view.rss_podcast_button_label.set_text(subscribed ? _("Subscribed") : _("Add podcast"));
         }
         if (subscribed) {
             button.remove_css_class("suggested-action");
@@ -249,13 +249,13 @@ public class HeaderManager : GLib.Object {
                 Paperboy.PodcastFeedResolver.get_instance().resolve_show(podcast_feed_url, window.session, (success, show, error_message) => {
                     if (!success || show == null) {
                         if (window.toast_manager != null) {
-                            window.toast_manager.show_toast("Couldn't add podcast: " + (error_message ?? "unknown error"));
+                            window.toast_manager.show_toast(_("Couldn't add podcast: ") + (error_message ?? _("unknown error")));
                         }
                         return;
                     }
                     sub_store.subscribe(show);
                     if (window.toast_manager != null) {
-                        window.toast_manager.show_toast("Podcast added: " + show.title);
+                        window.toast_manager.show_toast(_("Podcast added: ") + show.title);
                     }
                 });
             });
@@ -429,7 +429,7 @@ public class HeaderManager : GLib.Object {
 
         if (cat == "saved") {
             int count = window.article_state_store != null ? window.article_state_store.get_saved_count() : 0;
-            view.date_label.set_text(count == 1 ? "1 saved article" : "%d saved articles".printf(count));
+            view.date_label.set_text(count == 1 ? _("1 saved article") : _("%d saved articles").printf(count));
         } else {
             view.date_label.set_text(new DateTime.now_local().format("%A, %B %d"));
         }
@@ -440,7 +440,7 @@ public class HeaderManager : GLib.Object {
         if (cat != null && cat.has_prefix("rssfeed:")) {
             if (cat.length <= 8) {
                 warning("Malformed rssfeed category in display name");
-                return "RSS Feed";
+                return _("RSS Feed");
             }
             string feed_url = cat.substring(8); // Extract URL after "rssfeed:" prefix
             var rss_store = Paperboy.RssSourceStore.get_instance();
@@ -448,40 +448,40 @@ public class HeaderManager : GLib.Object {
             if (rss_source != null) {
                 return rss_source.get_display_name();
             }
-            return "RSS Feed";
+            return _("RSS Feed");
         }
 
         switch (cat) {
-            case "frontpage": return "Front Page";
-            case "topten": return "Trending";
-            case "saved": return "Saved";
-            case "history": return "History";
-            case "general": return "World News";
+            case "frontpage": return _("Front Page");
+            case "topten": return _("Trending");
+            case "saved": return _("Saved");
+            case "history": return _("History");
+            case "general": return _("World News");
             case "us": return GoogleNewsUtils.national_label();
-            case "world": return "World News";
+            case "world": return _("World News");
             case "nation": return GoogleNewsUtils.national_label();
-            case "technology": return "Technology";
-            case "business": return "Business";
-            case "sports": return "Sports";
-            case "science": return "Science";
-            case "health": return "Health";
-            case "entertainment": return "Entertainment";
-            case "politics": return "Politics";
-            case "lifestyle": return "Lifestyle";
-            case "markets": return "Markets";
-            case "industries": return "Industries";
-            case "economics": return "Economics";
-            case "myfeed": return "My Feed";
+            case "technology": return _("Technology");
+            case "business": return _("Business");
+            case "sports": return _("Sports");
+            case "science": return _("Science");
+            case "health": return _("Health");
+            case "entertainment": return _("Entertainment");
+            case "politics": return _("Politics");
+            case "lifestyle": return _("Lifestyle");
+            case "markets": return _("Markets");
+            case "industries": return _("Industries");
+            case "economics": return _("Economics");
+            case "myfeed": return _("My Feed");
             case "local_news":
                 var local_area = NewsPreferences.get_instance().get_active_local_area();
-                return local_area != null ? local_area.display_name : "Local News";
-            case "podcasts": return "Find Podcasts";
-            case "magazines": return "Magazine Rack";
+                return local_area != null ? local_area.display_name : _("Local News");
+            case "podcasts": return _("Find Podcasts");
+            case "magazines": return _("Magazine Rack");
             default: break;
         }
-        if (cat == null || cat.length == 0) return "News";
+        if (cat == null || cat.length == 0) return _("News");
         string s = cat.strip();
-        if (s.length == 0) return "News";
+        if (s.length == 0) return _("News");
         s = s.replace("_", " ").replace("-", " ");
         int st = 0;
         while (st < s.length) {
@@ -511,7 +511,7 @@ public class HeaderManager : GLib.Object {
             string rest = w.length > 1 ? w.substring(1).down() : "";
             out += (out.length > 0 ? " " : "") + first + rest;
         }
-        if (out.length == 0) return "News";
+        if (out.length == 0) return _("News");
         return out;
     }
 

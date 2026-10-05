@@ -49,7 +49,7 @@ public class PodcastMenu : GLib.Object {
         var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         menu_box.add_css_class("menu");
 
-        var play_btn = create_menu_item("media-playback-start-symbolic", "Play");
+        var play_btn = create_menu_item("media-playback-start-symbolic", _("Play"));
         play_btn.clicked.connect(() => {
             play_requested();
             if (popover != null) popover.popdown();
@@ -57,7 +57,7 @@ public class PodcastMenu : GLib.Object {
         menu_box.append(play_btn);
 
         if (show_info_item) {
-            var info_btn = create_menu_item("dialog-information-symbolic", "More info");
+            var info_btn = create_menu_item("dialog-information-symbolic", _("More info"));
             info_btn.clicked.connect(() => {
                 info_requested();
                 if (popover != null) popover.popdown();
@@ -66,7 +66,7 @@ public class PodcastMenu : GLib.Object {
         }
 
         if (is_subscribed) {
-            var remove_btn = create_menu_item("user-trash-symbolic", "Remove podcast");
+            var remove_btn = create_menu_item("user-trash-symbolic", _("Remove podcast"));
             // Matches SidebarMenu's own "Remove this source" button exactly
             // - GTK's built-in destructive-action style class, which colors
             // both the icon and label red.
@@ -77,7 +77,7 @@ public class PodcastMenu : GLib.Object {
             });
             menu_box.append(remove_btn);
         } else {
-            var sub_btn = create_menu_item("list-add-symbolic", "Subscribe");
+            var sub_btn = create_menu_item("list-add-symbolic", _("Subscribe"));
             sub_btn.clicked.connect(() => {
                 subscribe_requested();
                 if (popover != null) popover.popdown();

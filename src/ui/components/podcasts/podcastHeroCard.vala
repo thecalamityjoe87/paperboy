@@ -147,7 +147,7 @@ public class PodcastHeroCard : GLib.Object {
 
         play_button = new Gtk.Button.from_icon_name("media-playback-start-symbolic");
         play_button.add_css_class("podcast-card-badge-btn");
-        play_button.set_tooltip_text("Play");
+        play_button.set_tooltip_text(_("Play"));
         badge_row.append(play_button);
 
         subscribe_button = new Gtk.Button();
@@ -166,7 +166,7 @@ public class PodcastHeroCard : GLib.Object {
     private void update_subscribe_button_state() {
         bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(feed_id);
         subscribe_button.set_icon_name(subscribed ? CheckIconUtils.icon_name() : "list-add-symbolic");
-        subscribe_button.set_tooltip_text(subscribed ? "Subscribed" : "Subscribe");
+        subscribe_button.set_tooltip_text(subscribed ? _("Subscribed") : _("Subscribe"));
         if (subscribed) {
             subscribe_button.add_css_class("subscribed");
         } else {

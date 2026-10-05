@@ -45,7 +45,7 @@ public class MagazineOrganizeDialog : GLib.Object {
         // bigger thumbnails/column below room to breathe.
         dialog.set_content_width(1100);
         dialog.set_content_height(760);
-        dialog.set_title("Organize Rack");
+        dialog.set_title(_("Organize Rack"));
 
         var header = new Adw.HeaderBar();
 
@@ -91,7 +91,7 @@ public class MagazineOrganizeDialog : GLib.Object {
         // Undoes all organizing - category order, grid/row choice, and
         // every magazine's category. Click handler wired below, after
         // refresh() exists.
-        var reset_button = new Gtk.Button.with_label("Reset View");
+        var reset_button = new Gtk.Button.with_label(_("Reset View"));
         reset_button.set_valign(Gtk.Align.CENTER);
         reset_button.add_css_class("destructive-action");
         bottom_bar.append(reset_button);
@@ -102,7 +102,7 @@ public class MagazineOrganizeDialog : GLib.Object {
         grid_toggle_group.set_halign(Gtk.Align.END);
         grid_toggle_group.set_hexpand(true);
 
-        var grid_toggle_label = new Gtk.Label("Show uncategorized magazines as a grid");
+        var grid_toggle_label = new Gtk.Label(_("Show uncategorized magazines as a grid"));
         var grid_toggle_switch = new Gtk.Switch();
         grid_toggle_switch.set_valign(Gtk.Align.CENTER);
         grid_toggle_switch.set_active(window.prefs.magazine_uncategorized_as_grid);
@@ -185,9 +185,9 @@ public class MagazineOrganizeDialog : GLib.Object {
         };
 
         reset_button.clicked.connect(() => {
-            DialogUtils.confirm_destructive(dialog, "Reset view?",
-                "Moves every magazine back to Uncategorized, clears your custom category order, and switches back to the grid view. This can't be undone, though no magazines themselves are removed from your library.",
-                "Reset View", () => {
+            DialogUtils.confirm_destructive(dialog, _("Reset view?"),
+                _("Moves every magazine back to Uncategorized, clears your custom category order, and switches back to the grid view. This can't be undone, though no magazines themselves are removed from your library."),
+                _("Reset View"), () => {
                 var store = Paperboy.MagazineLibraryStore.get_instance();
                 foreach (var entry in store.get_all_entries()) {
                     if (entry.category != null) store.update_category(entry.id, null);
@@ -219,7 +219,7 @@ public class MagazineOrganizeDialog : GLib.Object {
         header.set_ellipsize(Pango.EllipsizeMode.END);
         bucket.append(header);
 
-        var count_label = new Gtk.Label(bucket_entries.size.to_string() + (bucket_entries.size == 1 ? " magazine" : " magazines"));
+        var count_label = new Gtk.Label(bucket_entries.size.to_string() + (bucket_entries.size == 1 ? _(" magazine") : _(" magazines")));
         count_label.add_css_class("dim-label");
         count_label.add_css_class("caption");
         count_label.set_xalign(0);
@@ -281,7 +281,7 @@ public class MagazineOrganizeDialog : GLib.Object {
 
         var drag_handle = new Gtk.Image.from_icon_name("list-drag-handle-symbolic");
         drag_handle.add_css_class("dim-label");
-        drag_handle.set_tooltip_text("Drag to reorder");
+        drag_handle.set_tooltip_text(_("Drag to reorder"));
         drag_handle.set_pixel_size(22);
         // Taller than the icon needs - a bigger hit target, not just a
         // bigger glyph.
@@ -296,20 +296,20 @@ public class MagazineOrganizeDialog : GLib.Object {
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         header_row.append(title_label);
 
-        var count_label = new Gtk.Label(row_entries.size.to_string() + (row_entries.size == 1 ? " magazine" : " magazines"));
+        var count_label = new Gtk.Label(row_entries.size.to_string() + (row_entries.size == 1 ? _(" magazine") : _(" magazines")));
         count_label.add_css_class("dim-label");
         count_label.add_css_class("caption");
         header_row.append(count_label);
 
         var rename_button = new Gtk.Button.from_icon_name("document-edit-symbolic");
         rename_button.add_css_class("flat");
-        rename_button.set_tooltip_text("Rename category");
+        rename_button.set_tooltip_text(_("Rename category"));
         rename_button.set_valign(Gtk.Align.CENTER);
         header_row.append(rename_button);
 
         var delete_button = new Gtk.Button.from_icon_name("user-trash-symbolic");
         delete_button.add_css_class("flat");
-        delete_button.set_tooltip_text("Delete category");
+        delete_button.set_tooltip_text(_("Delete category"));
         delete_button.set_valign(Gtk.Align.CENTER);
         header_row.append(delete_button);
 
@@ -319,8 +319,8 @@ public class MagazineOrganizeDialog : GLib.Object {
         // renaming doesn't touch that (on_changed() rebuilds the row).
         string current_category_name = category_name;
         rename_button.clicked.connect(() => {
-            var rename_dialog = new Adw.MessageDialog((Gtk.Window) window, "Rename Category",
-                "Choose a new name for \"%s\".".printf(current_category_name));
+            var rename_dialog = new Adw.MessageDialog((Gtk.Window) window, _("Rename Category"),
+                _("Choose a new name for \"%s\".").printf(current_category_name));
 
             var name_entry = new Gtk.Entry();
             name_entry.set_text(current_category_name);
@@ -328,8 +328,8 @@ public class MagazineOrganizeDialog : GLib.Object {
             name_entry.set_margin_bottom(12);
             rename_dialog.set_extra_child(name_entry);
 
-            rename_dialog.add_response("cancel", "Cancel");
-            rename_dialog.add_response("rename", "Rename");
+            rename_dialog.add_response("cancel", _("Cancel"));
+            rename_dialog.add_response("rename", _("Rename"));
             rename_dialog.set_response_appearance("rename", Adw.ResponseAppearance.SUGGESTED);
             rename_dialog.set_default_response("rename");
             rename_dialog.set_close_response("cancel");
@@ -359,9 +359,9 @@ public class MagazineOrganizeDialog : GLib.Object {
         });
 
         delete_button.clicked.connect(() => {
-            DialogUtils.confirm_destructive((Gtk.Window) window, "Delete \"%s\"?".printf(current_category_name),
-                "Moves its magazines back to Uncategorized. This can't be undone, though no magazines themselves are removed from your library.",
-                "Delete", () => {
+            DialogUtils.confirm_destructive((Gtk.Window) window, _("Delete \"%s\"?").printf(current_category_name),
+                _("Moves its magazines back to Uncategorized. This can't be undone, though no magazines themselves are removed from your library."),
+                _("Delete"), () => {
                 var store = Paperboy.MagazineLibraryStore.get_instance();
                 foreach (var entry in store.get_all_entries()) {
                     if (entry.category != null && entry.category.strip() == current_category_name) {
@@ -454,11 +454,11 @@ public class MagazineOrganizeDialog : GLib.Object {
         content.set_margin_end(10);
 
         var entry_field = new Gtk.Entry();
-        entry_field.set_placeholder_text("New category name");
+        entry_field.set_placeholder_text(_("New category name"));
         entry_field.set_hexpand(true);
         content.append(entry_field);
 
-        var add_button = new Gtk.Button.with_label("Add");
+        var add_button = new Gtk.Button.with_label(_("Add"));
         add_button.add_css_class("suggested-action");
         content.append(add_button);
 
@@ -486,7 +486,7 @@ public class MagazineOrganizeDialog : GLib.Object {
         list_row.set_activatable(false);
         list_row.set_selectable(false);
 
-        var hint_label = new Gtk.Label("Type a name above and tap Add to create a category row first, then drag magazines into it. Drag a row's handle to reorder categories.");
+        var hint_label = new Gtk.Label(_("Type a name above and tap Add to create a category row first, then drag magazines into it. Drag a row's handle to reorder categories."));
         hint_label.add_css_class("dim-label");
         hint_label.add_css_class("caption");
         hint_label.set_halign(Gtk.Align.START);

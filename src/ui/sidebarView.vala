@@ -254,7 +254,7 @@ public class SidebarView : GLib.Object {
 
             Gtk.Button? manage_button = null;
             if (section.section_id == "local_news_entry") {
-                manage_button = create_manage_button("Manage Locations", () => {
+                manage_button = create_manage_button(_("Manage Locations"), () => {
                     PrefsDialog.show_preferences_dialog(window, false, false, true);
                 });
             } else if (section.section_id == "popular_categories") {
@@ -550,7 +550,7 @@ public class SidebarView : GLib.Object {
     // "Live" pill shown to the left of the Sports category's count badge
     // while SportsLiveIndicatorManager reports a game in progress.
     private Gtk.Widget build_live_pill_widget() {
-        var pill = new Gtk.Label("Live");
+        var pill = new Gtk.Label(_("Live"));
         pill.add_css_class("live-pill");
         pill.set_valign(Gtk.Align.CENTER);
         bool is_live = window.sports_live_indicator != null && window.sports_live_indicator.get_is_live();
@@ -563,7 +563,7 @@ public class SidebarView : GLib.Object {
     // trading session. Same shape as Sports' ".live-pill" above, but its
     // own green ".market-open-pill" class instead of that pill's red.
     private Gtk.Widget build_market_open_pill_widget() {
-        var pill = new Gtk.Label("Open");
+        var pill = new Gtk.Label(_("Open"));
         pill.add_css_class("market-open-pill");
         pill.set_valign(Gtk.Align.CENTER);
         bool is_open = window.market_status != null && window.market_status.get_is_open();
@@ -696,7 +696,7 @@ public class SidebarView : GLib.Object {
         icon_holder.append(icon);
         button_box.append(icon_holder);
         
-        var label = new Gtk.Label("Add RSS Feed");
+        var label = new Gtk.Label(_("Add RSS Feed"));
         label.set_xalign(0);
         label.set_hexpand(true);
         button_box.append(label);
@@ -715,8 +715,8 @@ public class SidebarView : GLib.Object {
     }
     
     private void show_add_rss_dialog() {
-        var dialog = new Adw.MessageDialog((Gtk.Window)window, "Add RSS Feed", null);
-        dialog.set_body("Enter the RSS feed URL:");
+        var dialog = new Adw.MessageDialog((Gtk.Window)window, _("Add RSS Feed"), null);
+        dialog.set_body(_("Enter the RSS feed URL:"));
         
         var entry_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
         entry_box.set_margin_top(12);
@@ -727,7 +727,7 @@ public class SidebarView : GLib.Object {
         entry_box.append(url_entry);
         
         var name_entry = new Gtk.Entry();
-        name_entry.set_placeholder_text("Feed name (optional)");
+        name_entry.set_placeholder_text(_("Feed name (optional)"));
         entry_box.append(name_entry);
         
         dialog.set_extra_child(entry_box);
@@ -813,7 +813,7 @@ public class SidebarView : GLib.Object {
         icon_holder.append(icon);
         button_box.append(icon_holder);
 
-        var label = new Gtk.Label("Add a Podcast");
+        var label = new Gtk.Label(_("Add a Podcast"));
         label.set_xalign(0);
         label.set_hexpand(true);
         button_box.append(label);
@@ -832,8 +832,8 @@ public class SidebarView : GLib.Object {
     }
 
     private void show_add_podcast_dialog() {
-        var dialog = new Adw.MessageDialog((Gtk.Window)window, "Add a Podcast", null);
-        dialog.set_body("Enter the podcast's RSS feed URL:");
+        var dialog = new Adw.MessageDialog((Gtk.Window)window, _("Add a Podcast"), null);
+        dialog.set_body(_("Enter the podcast's RSS feed URL:"));
 
         var entry_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
         entry_box.set_margin_top(12);

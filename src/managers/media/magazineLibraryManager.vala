@@ -151,8 +151,8 @@ namespace Managers {
 
             if (content_view.category_subtitle != null) {
                 string label_text = matches.size == 0
-                    ? "No magazines found matching \"%s\"".printf(search_query)
-                    : "Search results: found %d %s matching \"%s\"".printf(matches.size, matches.size == 1 ? "magazine" : "magazines", search_query);
+                    ? _("No magazines found matching \"%s\"").printf(search_query)
+                    : _("Search results: found %d %s matching \"%s\"").printf(matches.size, matches.size == 1 ? _("magazine") : _("magazines"), search_query);
                 content_view.category_subtitle.set_label(label_text);
                 content_view.category_subtitle.set_visible(true);
             }
@@ -174,7 +174,7 @@ namespace Managers {
                     if (window == null) return;
                     var store_entries = Paperboy.MagazineLibraryStore.get_instance().get_all_entries();
                     if (store_entries.size == 0) {
-                        if (window.toast_manager != null) window.toast_manager.show_toast("Your library is empty");
+                        if (window.toast_manager != null) window.toast_manager.show_toast(_("Your library is empty"));
                         return;
                     }
                     MagazineOrganizeDialog.show(window, this);
@@ -225,7 +225,7 @@ namespace Managers {
                 if (dragged_id_str == null) return false;
                 int64 dragged_id = int64.parse(dragged_id_str);
                 handle_remove_requested(dragged_id);
-                if (window != null && window.toast_manager != null) window.toast_manager.show_toast("Removed from library");
+                if (window != null && window.toast_manager != null) window.toast_manager.show_toast(_("Removed from library"));
                 return true;
             });
             zone.add_controller(drop_target);
@@ -457,7 +457,7 @@ namespace Managers {
             var loading_state = window != null ? window.loading_state : null;
             if (entries.size == 0) {
                 exit_selection_mode();
-                if (loading_state != null) loading_state.show_empty_message("magazine-mono.svg", "Your library is empty. Add a magazine to get started.");
+                if (loading_state != null) loading_state.show_empty_message("magazine-mono.svg", _("Your library is empty. Add a magazine to get started."));
                 return;
             }
             // Covers adding the first magazine while the empty state is up.
@@ -585,7 +585,7 @@ namespace Managers {
                 else open_entry(entry_id);
             }, (entry_id) => {
                 handle_remove_requested(entry_id);
-                if (window != null && window.toast_manager != null) window.toast_manager.show_toast("Removed from library");
+                if (window != null && window.toast_manager != null) window.toast_manager.show_toast(_("Removed from library"));
             }, (entry_id) => {
                 show_set_category_dialog(entry_id);
             }, (dragged_id, target_id) => {
@@ -645,8 +645,8 @@ namespace Managers {
         private void update_selection_bar() {
             if (content_view == null || content_view.magazine_selection_label == null) return;
             int count = selected_ids.size;
-            content_view.magazine_selection_label.set_text(count == 1 ? "1 selected" : "%d selected".printf(count));
-            content_view.magazine_selection_delete_button.set_label(count > 0 ? "Delete (%d)".printf(count) : "Delete");
+            content_view.magazine_selection_label.set_text(count == 1 ? _("1 selected") : _("%d selected").printf(count));
+            content_view.magazine_selection_delete_button.set_label(count > 0 ? _("Delete (%d)").printf(count) : _("Delete"));
             content_view.magazine_selection_delete_button.set_sensitive(count > 0);
         }
 
@@ -664,9 +664,9 @@ namespace Managers {
         private void confirm_delete_selected() {
             if (window == null || selected_ids.size == 0) return;
             int count = selected_ids.size;
-            string heading = count == 1 ? "Delete 1 magazine?" : "Delete %d magazines?".printf(count);
+            string heading = count == 1 ? _("Delete 1 magazine?") : _("Delete %d magazines?").printf(count);
             DialogUtils.confirm_destructive((Gtk.Window) window, heading,
-                "Their downloaded files are removed too. This can't be undone.", "Delete", () => {
+                _("Their downloaded files are removed too. This can't be undone."), _("Delete"), () => {
                 var ids = new Gee.ArrayList<int64?>();
                 ids.add_all(selected_ids);
                 exit_selection_mode();
@@ -674,7 +674,7 @@ namespace Managers {
                 var store = Paperboy.MagazineLibraryStore.get_instance();
                 foreach (var id in ids) store.remove_entry(id);
                 if (window != null && window.toast_manager != null) {
-                    window.toast_manager.show_toast(ids.size == 1 ? "Removed 1 magazine" : "Removed %d magazines".printf(ids.size));
+                    window.toast_manager.show_toast(ids.size == 1 ? _("Removed 1 magazine") : _("Removed %d magazines").printf(ids.size));
                 }
             });
         }
@@ -711,18 +711,18 @@ namespace Managers {
             var entry = Paperboy.MagazineLibraryStore.get_instance().get_entry(entry_id);
             if (entry == null) return;
 
-            var dialog = new Adw.MessageDialog((Gtk.Window) window, "Set Category",
-                "Group \"%s\" under a category - leave blank for Uncategorized.".printf(entry.title));
+            var dialog = new Adw.MessageDialog((Gtk.Window) window, _("Set Category"),
+                _("Group \"%s\" under a category - leave blank for Uncategorized.").printf(entry.title));
 
             var category_entry = new Gtk.Entry();
-            category_entry.set_placeholder_text("e.g. Technology, History, Comics");
+            category_entry.set_placeholder_text(_("e.g. Technology, History, Comics"));
             if (entry.category != null) category_entry.set_text(entry.category);
             category_entry.set_margin_top(12);
             category_entry.set_margin_bottom(12);
             dialog.set_extra_child(category_entry);
 
-            dialog.add_response("cancel", "Cancel");
-            dialog.add_response("set", "Set");
+            dialog.add_response("cancel", _("Cancel"));
+            dialog.add_response("set", _("Set"));
             dialog.set_response_appearance("set", Adw.ResponseAppearance.SUGGESTED);
 
             dialog.response.connect((response) => {
@@ -743,8 +743,8 @@ namespace Managers {
 
         private void show_add_magazine_dialog() {
             if (window == null) return;
-            var dialog = new Adw.MessageDialog((Gtk.Window) window, "Add Magazines",
-                "Enter a direct link to a PDF, a webpage that links to one or more PDFs, or choose a PDF you've already downloaded.");
+            var dialog = new Adw.MessageDialog((Gtk.Window) window, _("Add Magazines"),
+                _("Enter a direct link to a PDF, a webpage that links to one or more PDFs, or choose a PDF you've already downloaded."));
 
             var entry_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
             entry_box.set_margin_top(12);
@@ -755,18 +755,18 @@ namespace Managers {
             entry_box.append(url_entry);
 
             var title_entry = new Gtk.Entry();
-            title_entry.set_placeholder_text("Title (optional, direct PDF links/local files only)");
+            title_entry.set_placeholder_text(_("Title (optional, direct PDF links/local files only)"));
             entry_box.append(title_entry);
 
             var category_entry = new Gtk.Entry();
-            category_entry.set_placeholder_text("Category (optional, e.g. Technology, History)");
+            category_entry.set_placeholder_text(_("Category (optional, e.g. Technology, History)"));
             entry_box.append(category_entry);
 
             // Local file import - shares the title/category fields above,
             // just skips the URL field and closes this dialog immediately
             // rather than waiting for "Add" (there's no URL to type once a
             // file is picked).
-            var file_button = new Gtk.Button.with_label("Choose a PDF on This Computer…");
+            var file_button = new Gtk.Button.with_label(_("Choose a PDF on This Computer…"));
             file_button.set_margin_top(6);
             file_button.clicked.connect(() => {
                 string title = title_entry.get_text().strip();
@@ -777,8 +777,8 @@ namespace Managers {
             entry_box.append(file_button);
 
             dialog.set_extra_child(entry_box);
-            dialog.add_response("cancel", "Cancel");
-            dialog.add_response("add", "Add");
+            dialog.add_response("cancel", _("Cancel"));
+            dialog.add_response("add", _("Add"));
             dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
 
             dialog.response.connect((response) => {
@@ -800,10 +800,10 @@ namespace Managers {
             if (window == null) return;
 
             var file_dialog = new Gtk.FileDialog();
-            file_dialog.set_title("Choose a PDF");
+            file_dialog.set_title(_("Choose a PDF"));
 
             var pdf_filter = new Gtk.FileFilter();
-            pdf_filter.name = "PDF files";
+            pdf_filter.name = _("PDF files");
             pdf_filter.add_mime_type("application/pdf");
             pdf_filter.add_suffix("pdf");
             var filters = new GLib.ListStore(typeof(Gtk.FileFilter));
@@ -830,7 +830,7 @@ namespace Managers {
             if (window == null) return;
 
             if (!url.has_prefix("https://")) {
-                if (window.toast_manager != null) window.toast_manager.show_toast("Only https:// links are supported");
+                if (window.toast_manager != null) window.toast_manager.show_toast(_("Only https:// links are supported"));
                 return;
             }
 
@@ -861,7 +861,7 @@ namespace Managers {
 
         public void scan_source(Paperboy.MagazineSource source, string? category = null) {
             if (window == null) return;
-            if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Scanning for PDFs…");
+            if (window.toast_manager != null) window.toast_manager.show_persistent_toast(_("Scanning for PDFs…"));
 
             var scanner = Paperboy.MagazineSourceScanner.get_instance();
             scanner.scan(source.website_url, window.session, (success, links, error_message) => {
@@ -871,7 +871,7 @@ namespace Managers {
                 Paperboy.MagazineLibraryStore.get_instance().update_last_scanned(source.id);
 
                 if (!success || links.size == 0) {
-                    window.toast_manager.show_toast(error_message ?? "No PDF links found on that page");
+                    window.toast_manager.show_toast(error_message ?? _("No PDF links found on that page"));
                     return;
                 }
 
@@ -882,7 +882,7 @@ namespace Managers {
                 }
 
                 if (new_links.size == 0) {
-                    window.toast_manager.show_toast("No new PDFs found - everything's already in your library");
+                    window.toast_manager.show_toast(_("No new PDFs found - everything's already in your library"));
                     return;
                 }
 
@@ -893,8 +893,8 @@ namespace Managers {
         private void show_link_picker_dialog(Paperboy.MagazineSource source, Gee.ArrayList<Paperboy.MagazineLink> links, string? category) {
             if (window == null) return;
 
-            var dialog = new Adw.MessageDialog((Gtk.Window) window, "Select magazines to add",
-                "Found %d PDF %s on %s.".printf(links.size, links.size == 1 ? "link" : "links", source.name));
+            var dialog = new Adw.MessageDialog((Gtk.Window) window, _("Select magazines to add"),
+                _("Found %d PDF %s on %s.").printf(links.size, links.size == 1 ? _("link") : _("links"), source.name));
 
             var scroller = new Gtk.ScrolledWindow();
             scroller.set_min_content_height(int.min(360, 44 * links.size));
@@ -913,8 +913,8 @@ namespace Managers {
             scroller.set_child(list_box);
             dialog.set_extra_child(scroller);
 
-            dialog.add_response("cancel", "Cancel");
-            dialog.add_response("add", "Add Selected");
+            dialog.add_response("cancel", _("Cancel"));
+            dialog.add_response("add", _("Add Selected"));
             dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
 
             dialog.response.connect((response) => {
@@ -933,7 +933,7 @@ namespace Managers {
 
         private void import_pdf(string pdf_url, string? title_override, int64 source_id, string? category = null) {
             if (window == null) return;
-            if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Downloading magazine…");
+            if (window.toast_manager != null) window.toast_manager.show_persistent_toast(_("Downloading magazine…"));
 
             var service = Paperboy.MagazinePdfImportService.get_instance();
             service.import_from_url(pdf_url, title_override, source_id, window.session, (success, entry, error_message) => {
@@ -944,16 +944,16 @@ namespace Managers {
                     if (category != null && category.strip().length > 0) {
                         Paperboy.MagazineLibraryStore.get_instance().update_category(entry.id, category);
                     }
-                    window.toast_manager.show_toast("Added: " + entry.title);
+                    window.toast_manager.show_toast(_("Added: ") + entry.title);
                 } else {
-                    window.toast_manager.show_toast(error_message ?? "Failed to add magazine");
+                    window.toast_manager.show_toast(error_message ?? _("Failed to add magazine"));
                 }
             });
         }
 
         private void import_pdf_from_path(string path, string? title_override, string? category) {
             if (window == null) return;
-            if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Adding magazines…");
+            if (window.toast_manager != null) window.toast_manager.show_persistent_toast(_("Adding magazines…"));
 
             var service = Paperboy.MagazinePdfImportService.get_instance();
             service.import_from_path(path, title_override, 0, (success, entry, error_message) => {
@@ -964,9 +964,9 @@ namespace Managers {
                     if (category != null && category.strip().length > 0) {
                         Paperboy.MagazineLibraryStore.get_instance().update_category(entry.id, category);
                     }
-                    window.toast_manager.show_toast("Added: " + entry.title);
+                    window.toast_manager.show_toast(_("Added: ") + entry.title);
                 } else {
-                    window.toast_manager.show_toast(error_message ?? "Failed to add magazine");
+                    window.toast_manager.show_toast(error_message ?? _("Failed to add magazine"));
                 }
             });
         }

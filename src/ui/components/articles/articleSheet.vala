@@ -104,19 +104,19 @@ public class ArticleSheet : GLib.Object {
 
         back_btn = new Gtk.Button.from_icon_name("go-previous-symbolic");
         back_btn.add_css_class("flat");
-        back_btn.set_tooltip_text("Back");
+        back_btn.set_tooltip_text(_("Back"));
         back_btn.set_can_focus(false);
         back_btn.clicked.connect(() => { if (!is_destroyed && webview != null) webview.go_back(); });
 
         forward_btn = new Gtk.Button.from_icon_name("go-next-symbolic");
         forward_btn.add_css_class("flat");
-        forward_btn.set_tooltip_text("Forward");
+        forward_btn.set_tooltip_text(_("Forward"));
         forward_btn.set_can_focus(false);
         forward_btn.clicked.connect(() => { if (!is_destroyed && webview != null) webview.go_forward(); });
 
         refresh_btn = new Gtk.Button.from_icon_name("view-refresh-symbolic");
         refresh_btn.add_css_class("flat");
-        refresh_btn.set_tooltip_text("Reload article");
+        refresh_btn.set_tooltip_text(_("Reload article"));
         refresh_btn.clicked.connect(() => {
             if (!is_destroyed && webview != null) webview.reload();
         });
@@ -128,7 +128,7 @@ public class ArticleSheet : GLib.Object {
         // and reads reasonably as a reading/document view toggle.
         reader_toggle_btn.set_icon_name("view-paged-symbolic");
         reader_toggle_btn.add_css_class("flat");
-        reader_toggle_btn.set_tooltip_text("Reader view");
+        reader_toggle_btn.set_tooltip_text(_("Reader view"));
         reader_toggle_btn.set_can_focus(false);
         reader_toggle_btn.toggled.connect(() => {
             if (is_destroyed) return;
@@ -147,21 +147,21 @@ public class ArticleSheet : GLib.Object {
         close_btn = new Gtk.Button();
         var close_content = new Adw.ButtonContent();
         close_content.set_icon_name("window-close-symbolic");
-        close_content.set_label("Close");
+        close_content.set_label(_("Close"));
         close_btn.set_child(close_content);
-        close_btn.set_tooltip_text("Close article");
+        close_btn.set_tooltip_text(_("Close article"));
         close_btn.clicked.connect(() => { if (!is_destroyed) dismiss(); });
 
         options_btn = new Gtk.Button.from_icon_name("view-more-symbolic");
         options_btn.add_css_class("flat");
-        options_btn.set_tooltip_text("Article options");
+        options_btn.set_tooltip_text(_("Article options"));
         options_btn.set_can_focus(false);
         options_btn.clicked.connect(() => { if (!is_destroyed) show_options_menu(); });
 
         notes_toggle_btn = new Gtk.ToggleButton();
         notes_toggle_btn.set_icon_name("document-edit-symbolic");
         notes_toggle_btn.add_css_class("flat");
-        notes_toggle_btn.set_tooltip_text("Notes");
+        notes_toggle_btn.set_tooltip_text(_("Notes"));
         notes_toggle_btn.set_can_focus(false);
         notes_toggle_btn.toggled.connect(() => {
             if (is_destroyed || notes_split == null) return;
@@ -244,7 +244,7 @@ public class ArticleSheet : GLib.Object {
         var comments_toggle_icon = new Gtk.Image.from_icon_name(bundled_comments_icon_name());
         comments_toggle_icon.set_pixel_size(24);
         comments_toggle_btn.set_child(comments_toggle_icon);
-        comments_toggle_btn.set_tooltip_text("View comments");
+        comments_toggle_btn.set_tooltip_text(_("View comments"));
         comments_toggle_btn.add_css_class("circular");
         comments_toggle_btn.add_css_class("osd");
         comments_toggle_btn.add_css_class("comments-fab");
@@ -284,12 +284,12 @@ public class ArticleSheet : GLib.Object {
         comments_header.set_margin_bottom(8);
         comments_header.set_margin_start(12);
         comments_header.set_margin_end(12);
-        var comments_title = new Gtk.Label("Comments");
+        var comments_title = new Gtk.Label(_("Comments"));
         comments_title.add_css_class("title-4");
         comments_title.set_hexpand(true);
         comments_title.set_halign(Gtk.Align.START);
         var comments_close_btn = new Gtk.Button.from_icon_name("window-close-symbolic");
-        comments_close_btn.set_tooltip_text("Close comments");
+        comments_close_btn.set_tooltip_text(_("Close comments"));
         comments_close_btn.set_can_focus(false);
         comments_close_btn.clicked.connect(() => {
             if (!is_destroyed && comments_toggle_btn != null) comments_toggle_btn.set_active(false);
@@ -348,12 +348,12 @@ public class ArticleSheet : GLib.Object {
         notes_header.set_margin_bottom(8);
         notes_header.set_margin_start(12);
         notes_header.set_margin_end(12);
-        var notes_title = new Gtk.Label("Notes");
+        var notes_title = new Gtk.Label(_("Notes"));
         notes_title.add_css_class("title-4");
         notes_title.set_hexpand(true);
         notes_title.set_halign(Gtk.Align.START);
         var new_note_btn = new Gtk.Button.from_icon_name("list-add-symbolic");
-        new_note_btn.set_tooltip_text("New note");
+        new_note_btn.set_tooltip_text(_("New note"));
         new_note_btn.set_can_focus(false);
         new_note_btn.clicked.connect(() => {
             if (is_destroyed || current_url == null || parent_window == null) return;
@@ -361,7 +361,7 @@ public class ArticleSheet : GLib.Object {
             NoteEditorDialog.show(parent_window, current_url, null, selected_quote);
         });
         var notes_close_btn = new Gtk.Button.from_icon_name("window-close-symbolic");
-        notes_close_btn.set_tooltip_text("Close notes");
+        notes_close_btn.set_tooltip_text(_("Close notes"));
         notes_close_btn.set_can_focus(false);
         notes_close_btn.clicked.connect(() => {
             if (!is_destroyed && notes_toggle_btn != null) notes_toggle_btn.set_active(false);
@@ -382,7 +382,7 @@ public class ArticleSheet : GLib.Object {
         notes_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         notes_scroller.set_child(notes_list_box);
 
-        notes_status_label = new Gtk.Label("No notes yet.");
+        notes_status_label = new Gtk.Label(_("No notes yet."));
         notes_status_label.add_css_class("dim-label");
         notes_status_label.set_halign(Gtk.Align.CENTER);
         notes_status_label.set_valign(Gtk.Align.CENTER);
@@ -515,19 +515,19 @@ public class ArticleSheet : GLib.Object {
             if (parent_window.article_manager != null) parent_window.article_manager.open_article_in_browser_if_online(article_url);
         });
         menu.follow_source_requested.connect((article_url, src_name) => {
-            parent_window.show_toast("Searching for feed...");
+            parent_window.show_toast(_("Searching for feed..."));
             if (parent_window.source_manager != null) parent_window.source_manager.follow_rss_source(article_url, src_name);
         });
         menu.save_for_later_requested.connect((article_url) => {
             if (parent_window.article_state_store == null) return;
             if (parent_window.article_state_store.is_saved(norm_url)) {
                 parent_window.article_state_store.unsave_article(article_url);
-                parent_window.show_toast("Removed article from saved");
+                parent_window.show_toast(_("Removed article from saved"));
             } else {
                 string title = (web_loaded_url != null && webview != null ? webview.get_title() : null) ?? reader_title ?? "";
                 if (title.length == 0) title = article_url;
                 parent_window.article_state_store.save_article(article_url, title, null, source_name, null);
-                parent_window.show_toast("Added article to saved");
+                parent_window.show_toast(_("Added article to saved"));
             }
         });
         menu.mark_unread_requested.connect((article_url) => {
@@ -717,7 +717,7 @@ public class ArticleSheet : GLib.Object {
             if (comments_spinner != null) comments_spinner.stop();
             if (comments_count_badge != null) {
                 if (success && comments.size > 0) {
-                    comments_count_badge.set_text(comments.size > 9 ? "9+" : comments.size.to_string());
+                    comments_count_badge.set_text(comments.size > 9 ? _("9+") : comments.size.to_string());
                     comments_count_badge.set_visible(true);
                 } else {
                     comments_count_badge.set_visible(false);
@@ -820,7 +820,7 @@ public class ArticleSheet : GLib.Object {
         if (comments_stack == null || comments_list_box == null || comments_status_label == null) return;
 
         if (comments.size == 0) {
-            comments_status_label.set_text(success ? "No comments yet." : "Couldn't load comments.");
+            comments_status_label.set_text(success ? _("No comments yet.") : _("Couldn't load comments."));
             comments_stack.set_visible_child_name("status");
             return;
         }

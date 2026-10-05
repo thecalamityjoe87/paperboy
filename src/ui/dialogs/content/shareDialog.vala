@@ -31,13 +31,13 @@ public class ShareDialog : GLib.Object {
         content_box.set_margin_top(24);
         content_box.set_margin_bottom(24);
 
-        var title_label = new Gtk.Label("Share Article");
+        var title_label = new Gtk.Label(_("Share Article"));
         title_label.add_css_class("title-2");
         title_label.set_halign(Gtk.Align.START);
         content_box.append(title_label);
 
         // Email section
-        var email_label = new Gtk.Label("Share via email");
+        var email_label = new Gtk.Label(_("Share via email"));
         email_label.add_css_class("dim-label");
         email_label.set_halign(Gtk.Align.START);
         email_label.set_margin_top(6);
@@ -46,24 +46,24 @@ public class ShareDialog : GLib.Object {
         // Email
         var email_btn = create_menu_button(
             "mail-send-symbolic",
-            "Send link",
+            _("Send link"),
             () => {
                 try {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.EMAIL, url, title);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening email client");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Opening email client"));
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open email client: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to open email client");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Failed to open email client"));
                 }
             }
         );
         content_box.append(email_btn);
 
         // Social media section
-        var social_label = new Gtk.Label("Share on social media");
+        var social_label = new Gtk.Label(_("Share on social media"));
         social_label.add_css_class("dim-label");
         social_label.set_halign(Gtk.Align.START);
         social_label.set_margin_top(6);
@@ -72,17 +72,17 @@ public class ShareDialog : GLib.Object {
         // Reddit
         var reddit_btn = create_menu_button(
             "reddit-mono",
-            "Reddit",
+            _("Reddit"),
             () => {
                 try {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.REDDIT, url, null);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to Reddit");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Opening browser to Reddit"));
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open Reddit: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on Reddit");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Failed to share on Reddit"));
                 }
             }
         );
@@ -91,17 +91,17 @@ public class ShareDialog : GLib.Object {
         // Twitter/X
         var twitter_btn = create_menu_button(
             "x-mono",
-            "X (Twitter)",
+            _("X (Twitter)"),
             () => {
                 try {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.TWITTER, url, title);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to X");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Opening browser to X"));
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open X: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on X");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Failed to share on X"));
                 }
             }
         );
@@ -110,24 +110,24 @@ public class ShareDialog : GLib.Object {
         // Facebook
         var facebook_btn = create_menu_button(
             "facebook-mono",
-            "Facebook",
+            _("Facebook"),
             () => {
                 try {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.FACEBOOK, url, null);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to Facebook");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Opening browser to Facebook"));
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open Facebook: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on Facebook");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Failed to share on Facebook"));
                 }
             }
         );
         content_box.append(facebook_btn);
 
         // Messaging apps section
-        var messaging_label = new Gtk.Label("Share via messaging app");
+        var messaging_label = new Gtk.Label(_("Share via messaging app"));
         messaging_label.add_css_class("dim-label");
         messaging_label.set_halign(Gtk.Align.START);
         messaging_label.set_margin_top(6);
@@ -136,17 +136,17 @@ public class ShareDialog : GLib.Object {
         // Telegram
         var telegram_btn = create_menu_button(
             "telegram-mono",
-            "Telegram",
+            _("Telegram"),
             () => {
                 try {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.TELEGRAM, url, title);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to Telegram");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Opening browser to Telegram"));
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open Telegram: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on Telegram");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Failed to share on Telegram"));
                 }
             }
         );
@@ -155,17 +155,17 @@ public class ShareDialog : GLib.Object {
         // WhatsApp
         var whatsapp_btn = create_menu_button(
             "whatsapp-mono",
-            "WhatsApp",
+            _("WhatsApp"),
             () => {
                 try {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.WHATSAPP, url, title);
                     var launcher = new Gtk.UriLauncher(uri);
                     launcher.launch.begin(parent_window, null);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Opening browser to WhatsApp");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Opening browser to WhatsApp"));
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open WhatsApp: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Failed to share on WhatsApp");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Failed to share on WhatsApp"));
                 }
             }
         );
@@ -175,7 +175,7 @@ public class ShareDialog : GLib.Object {
         // Desktop is installed and registered as a URI handler.
         var signal_btn = create_menu_button(
             "signal-mono",
-            "Signal",
+            _("Signal"),
             () => {
                 try {
                     string uri = ArticleShareService.build_share_uri(ArticleShareService.ShareTarget.SIGNAL, url, title);
@@ -184,14 +184,14 @@ public class ShareDialog : GLib.Object {
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to open Signal: %s", e.message);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Signal isn't installed");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Signal isn't installed"));
                 }
             }
         );
         content_box.append(signal_btn);
 
         // Copy link section
-        var copy_label = new Gtk.Label("Share via copied link");
+        var copy_label = new Gtk.Label(_("Share via copied link"));
         copy_label.add_css_class("dim-label");
         copy_label.set_halign(Gtk.Align.START);
         copy_label.set_margin_top(6);
@@ -200,13 +200,13 @@ public class ShareDialog : GLib.Object {
         // Copy link
         var copy_btn = create_menu_button(
             "edit-copy-symbolic",
-            "Copy link to clipboard",
+            _("Copy link to clipboard"),
             () => {
                 try {
                     string text = ArticleShareService.build_clipboard_text(url);
                     var clipboard = parent_window.get_clipboard();
                     clipboard.set_text(text);
-                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast("Link copied to clipboard");
+                    if (parent_window is NewsWindow) ((NewsWindow)parent_window).show_toast(_("Link copied to clipboard"));
                     dialog.close();
                 } catch (GLib.Error e) {
                     warning("shareDialog: failed to build clipboard text: %s", e.message);
@@ -219,7 +219,7 @@ public class ShareDialog : GLib.Object {
         var button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         button_box.set_halign(Gtk.Align.END);
         button_box.set_margin_top(12);
-        var cancel_btn = new Gtk.Button.with_label("Cancel");
+        var cancel_btn = new Gtk.Button.with_label(_("Cancel"));
         cancel_btn.clicked.connect(() => { dialog.close(); });
         button_box.append(cancel_btn);
         content_box.append(button_box);

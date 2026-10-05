@@ -99,8 +99,8 @@ public class ScoreCard : GLib.Object {
     }
 
     private void apply_game(GameScore game) {
-        string status_text = (preview && game.status == GameStatus.LIVE) ? "LIVE" : status_text_for(game);
-        if (show_league) status_text = "%s · %s".printf(game.league_display_name, status_text);
+        string status_text = (preview && game.status == GameStatus.LIVE) ? _("LIVE") : status_text_for(game);
+        if (show_league) status_text = _("%s · %s").printf(game.league_display_name, status_text);
         status_label.set_text(status_text);
         if (game.status == GameStatus.LIVE) {
             status_label.add_css_class("score-card-status-live");
@@ -118,9 +118,9 @@ public class ScoreCard : GLib.Object {
     private static string status_text_for(GameScore game) {
         if (game.status == GameStatus.LIVE || game.start_time == null) return game.status_detail;
         var local = game.start_time.to_local();
-        if (game.status == GameStatus.FINAL) return "%s · %s".printf(game.status_detail, day_label(local));
-        if (!game.time_valid) return "TBD";
-        return "%s · %s".printf(day_label(local), local.format(DateUtils.clock_time_format()));
+        if (game.status == GameStatus.FINAL) return _("%s · %s").printf(game.status_detail, day_label(local));
+        if (!game.time_valid) return _("TBD");
+        return _("%s · %s").printf(day_label(local), local.format(DateUtils.clock_time_format()));
     }
 
     private static string day_label(GLib.DateTime local) {
@@ -130,9 +130,9 @@ public class ScoreCard : GLib.Object {
         var t = GLib.Date();
         t.set_dmy((GLib.DateDay) today.get_day_of_month(), today.get_month(), (GLib.DateYear) today.get_year());
         int diff = (int) d.get_julian() - (int) t.get_julian();
-        if (diff == 0) return "Today";
-        if (diff == -1) return "Yesterday";
-        if (diff == 1) return "Tomorrow";
+        if (diff == 0) return _("Today");
+        if (diff == -1) return _("Yesterday");
+        if (diff == 1) return _("Tomorrow");
         return local.format("%a %-m/%-d");
     }
 

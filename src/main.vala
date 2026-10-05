@@ -132,6 +132,15 @@ public static int main(string[] args) {
     mallopt(M_ARENA_MAX, 4);
     mallopt(M_ARENA_TEST, 1);
 
+    // Set up gettext before any UI string is created: adopt the user's
+    // locale, then point the domain at the installed catalog so _() can
+    // translate. Falls back to the original English strings when the
+    // locale has no catalog.
+    Intl.setlocale(GLib.LocaleCategory.ALL, "");
+    Intl.bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
+    Intl.bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
+    Intl.textdomain(GETTEXT_PACKAGE);
+
     Gst.init(ref args);
 
     var app = new PaperboyApp();
