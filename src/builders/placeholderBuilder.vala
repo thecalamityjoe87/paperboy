@@ -293,7 +293,7 @@ public class PlaceholderBuilder : GLib.Object {
     }
 
     private static string placeholder_source_name(NewsSource source) {
-        return source == NewsSource.UNKNOWN ? "News Source" : BuiltinSources.short_name(source);
+        return source == NewsSource.UNKNOWN ? _("News Source") : BuiltinSources.short_name(source);
     }
 
     // Local-news specific placeholder

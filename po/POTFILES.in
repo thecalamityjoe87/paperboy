@@ -67,3 +67,14 @@ src/services/fetchers/paperboyFetcher.vala
 src/services/fetchers/pbsFetcher.vala
 src/services/magazines/magazineSourceScanner.vala
 src/ui/controllers/fetchNewsController.vala
+src/ui/components/articles/historyCard.vala
+src/ui/components/markets/marketIndexCard.vala
+src/services/cache/articleReadingTimeCache.vala
+src/builders/placeholderBuilder.vala
+src/managers/content/feedUpdateManager.vala
+src/managers/content/sourceManager.vala
+src/services/articles/articleShareService.vala
+src/services/feeds/builtinSources.vala
+src/services/magazines/magazinePdfImportService.vala
+src/services/podcasts/podcastFeedResolver.vala
+src/ui/controllers/stocksTickerController.vala

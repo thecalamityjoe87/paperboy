@@ -262,7 +262,7 @@ public class MarketIndexCard : GLib.Object {
         change_label.set_text("%s%.2f (%s%.2f%%)".printf(sign, quote.change, sign, quote.change_percent));
 
         string updated = DateUtils.time_ago(quote.last_updated);
-        updated_label.set_text(updated.length > 0 ? "Updated " + updated : "");
+        updated_label.set_text(updated.length > 0 ? _("Updated %s").printf(updated) : "");
         updated_label.set_visible(updated.length > 0);
     }
 

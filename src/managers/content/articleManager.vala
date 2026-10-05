@@ -154,7 +154,7 @@ namespace Managers {
         public void open_article_in_app_if_online(string article_url, bool? force_reader_view = null, string? source_name_encoded = null, string? title = null, string? thumbnail_url = null, string? published = null, string? category_id = null) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
-                request_show_toast("You're offline. Enable internet connection to view articles");
+                request_show_toast(_("You're offline. Enable internet connection to view articles"));
                 return;
             }
 
@@ -169,7 +169,7 @@ namespace Managers {
         public void open_article_in_browser_if_online(string article_url, string? source_name = null, string? title = null, string? thumbnail_url = null, string? published = null, string? category_id = null) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
-                request_show_toast("You're offline. Enable internet connection to view articles");
+                request_show_toast(_("You're offline. Enable internet connection to view articles"));
                 return;
             }
 

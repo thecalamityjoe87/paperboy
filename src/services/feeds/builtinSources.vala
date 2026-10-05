@@ -23,7 +23,7 @@ public struct BuiltinSource {
     public string id;           // preferences/settings id, e.g. "nytimes"
     public string name;         // full name, for source pickers
     public string short_name;   // card badges, labels and placeholders
-    public string description;  // one-line blurb in Preferences
+    public string description;  // one-line blurb in Preferences; untranslated - show it with _(description)
     public string logo_file;    // bundled logo under data/icons
     public string favicon_url;
     public string url_hints;    // "|"-separated URL substrings that identify its articles
@@ -38,31 +38,31 @@ public class BuiltinSources {
     // earlier row's hints win when a URL matches more than one.
     public const BuiltinSource[] ALL = {
         { NewsSource.GUARDIAN, "guardian", "The Guardian", "The Guardian",
-          "Independent global news and analysis",
+          N_("Independent global news and analysis"),
           "guardian-logo.png", "https://www.theguardian.com/favicon.ico", "guardian", "guardian" },
         { NewsSource.BBC, "bbc", "BBC News", "BBC News",
-          "Comprehensive international and UK reporting",
+          N_("Comprehensive international and UK reporting"),
           "bbc-logo.png", "https://www.bbc.co.uk/favicon.ico", "bbc.", "bbc|bbc news" },
         { NewsSource.NEW_YORK_TIMES, "nytimes", "New York Times", "NY Times",
-          "In-depth journalism across major categories",
+          N_("In-depth journalism across major categories"),
           "nytimes-logo.png", "https://www.nytimes.com/favicon.ico", "nytimes|nyti.ms", "new york times|ny times|nytimes|nyt" },
         { NewsSource.BLOOMBERG, "bloomberg", "Bloomberg", "Bloomberg",
-          "Market, business, and finance coverage",
+          N_("Market, business, and finance coverage"),
           "bloomberg-logo.png", "https://www.bloomberg.com/favicon.ico", "bloomberg", "bloomberg|bloomberg news" },
         { NewsSource.WALL_STREET_JOURNAL, "wsj", "Wall Street Journal", "Wall Street Journal",
-          "Business, economic, and political reporting",
+          N_("Business, economic, and political reporting"),
           "wsj-logo.png", "https://www.wsj.com/favicon.ico", "wsj.com|dowjones", "wall street journal|wsj" },
         { NewsSource.ABC_NEWS, "abc", "ABC News", "ABC News",
-          "US network coverage across politics, business, and more",
+          N_("US network coverage across politics, business, and more"),
           "abc-logo.png", "https://abcnews.go.com/favicon.ico", "abcnews", "abc news|abcnews" },
         { NewsSource.NPR, "npr", "NPR", "NPR",
-          "Public radio news and feature storytelling",
+          N_("Public radio news and feature storytelling"),
           "npr-logo.png", "https://www.npr.org/favicon.ico", "npr.org", "npr" },
         { NewsSource.FOX, "fox", "Fox News", "Fox News",
-          "U.S. politics, headlines, and commentary",
+          N_("U.S. politics, headlines, and commentary"),
           "foxnews-logo.png", "https://www.foxnews.com/favicon.ico", "foxnews|fox.com", "fox news" },
         { NewsSource.PBS, "pbs", "PBS NewsHour", "PBS NewsHour",
-          "Neutral, in-depth public affairs reporting",
+          N_("Neutral, in-depth public affairs reporting"),
           "pbs-logo.png", "https://www.pbs.org/favicon.ico", "pbs.org", "pbs newshour|pbs news|pbs" }
     };
 

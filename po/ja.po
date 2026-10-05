@@ -5,6 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-05 17:34-0500\n"
 "PO-Revision-Date: 2026-10-05 17:18-0500\n"
 "Last-Translator: \n"
 "Language-Team: Japanese\n"
@@ -45,6 +46,26 @@ msgstr "リーダー表示で開く"
 #: src/ui/components/articles/heroCard.vala:196
 msgid "Preview article"
 msgstr "記事をプレビュー"
+
+#: src/builders/cardBuilder.vala:341
+msgid "More like this"
+msgstr "このような記事を増やす"
+
+#: src/builders/cardBuilder.vala:346
+msgid "Less like this"
+msgstr "このような記事を減らす"
+
+#: src/builders/cardBuilder.vala:395
+msgid "You'll see more articles like this"
+msgstr "このような記事が多く表示されるようになります"
+
+#: src/builders/cardBuilder.vala:396
+msgid "You'll see fewer articles like this"
+msgstr "このような記事の表示が少なくなります"
+
+#: src/builders/cardBuilder.vala:397
+msgid "Rating removed"
+msgstr "評価を取り消しました"
 
 #: src/builders/cardBuilder.vala:658
 msgid "Read"
@@ -158,7 +179,7 @@ msgstr "トレンド"
 #: src/managers/ui/headerManager.vala:474
 #: src/managers/ui/sidebarManager.vala:308
 #: src/services/fetchers/fetcherUtils.vala:24
-#: src/ui/controllers/fetchNewsController.vala:583
+#: src/ui/controllers/fetchNewsController.vala:582
 msgid "My Feed"
 msgstr "マイフィード"
 
@@ -167,7 +188,7 @@ msgstr "マイフィード"
 #: src/managers/ui/sidebarManager.vala:319
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
 #: src/services/feeds/unreadFetchService.vala:226
-#: src/ui/controllers/fetchNewsController.vala:1082
+#: src/ui/controllers/fetchNewsController.vala:1081
 msgid "Local News"
 msgstr "地域のニュース"
 
@@ -293,8 +314,12 @@ msgid "Add Magazines"
 msgstr "雑誌を追加"
 
 #: src/managers/media/magazineLibraryManager.vala:747
-msgid "Enter a direct link to a PDF, a webpage that links to one or more PDFs, or choose a PDF you've already downloaded."
-msgstr "PDF への直接リンク、1 つ以上の PDF にリンクしているウェブページを入力するか、ダウンロード済みの PDF を選択してください。"
+msgid ""
+"Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
+"choose a PDF you've already downloaded."
+msgstr ""
+"PDF への直接リンク、1 つ以上の PDF にリンクしているウェブページを入力するか、"
+"ダウンロード済みの PDF を選択してください。"
 
 #: src/managers/media/magazineLibraryManager.vala:758
 msgid "Title (optional, direct PDF links/local files only)"
@@ -327,6 +352,7 @@ msgid "PDF files"
 msgstr "PDF ファイル"
 
 #: src/managers/media/magazineLibraryManager.vala:833
+#: src/services/magazines/magazinePdfImportService.vala:43
 msgid "Only https:// links are supported"
 msgstr "https:// のリンクのみ対応しています"
 
@@ -420,15 +446,20 @@ msgid "Weather in %s"
 msgstr "%sの天気"
 
 #: src/managers/ui/headerManager.vala:134
-msgid "\nOpen Weather for the full forecast"
-msgstr "\n詳しい予報は「天気」を開いてください"
+msgid ""
+"\n"
+"Open Weather for the full forecast"
+msgstr ""
+"\n"
+"詳しい予報は「天気」を開いてください"
 
 #: src/managers/ui/headerManager.vala:152
 msgid "Clear history?"
 msgstr "履歴を消去しますか？"
 
 #: src/managers/ui/headerManager.vala:153
-msgid "This will permanently delete your reading history. This can't be undone."
+msgid ""
+"This will permanently delete your reading history. This can't be undone."
 msgstr "閲覧履歴が完全に削除されます。この操作は元に戻せません。"
 
 #. History page action - lives in the title row since the date row is hidden there.
@@ -472,7 +503,12 @@ msgstr "ポッドキャストを追加できませんでした: "
 msgid "unknown error"
 msgstr "不明なエラー"
 
-#: src/managers/ui/headerManager.vala:258
+#. No extra rebuild_sidebar() needed here (unlike
+#. add_rss_feed()'s two-step enable dance) - subscribing is
+#. the terminal state change, and SidebarManager already
+#. listens to PodcastSubscriptionStore.subscription_added
+#. and rebuilds on its own.
+#: src/managers/ui/headerManager.vala:258 src/ui/sidebarView.vala:879
 msgid "Podcast added: "
 msgstr "ポッドキャストを追加しました: "
 
@@ -534,8 +570,10 @@ msgid "Loading content..."
 msgstr "コンテンツを読み込み中..."
 
 #: src/managers/ui/loadingStateManager.vala:255
-msgid "No articles could be loaded. Try refreshing or check your source settings."
-msgstr "記事を読み込めませんでした。更新するか、ソースの設定を確認してください。"
+msgid ""
+"No articles could be loaded. Try refreshing or check your source settings."
+msgstr ""
+"記事を読み込めませんでした。更新するか、ソースの設定を確認してください。"
 
 #. Centered empty state for a view that legitimately has nothing to
 #. show (History/Saved/Magazines library when empty). `icon_file` is a
@@ -553,24 +591,45 @@ msgid "Personalized feed is disabled."
 msgstr "パーソナライズフィードは無効です。"
 
 #: src/managers/ui/loadingStateManager.vala:403
-msgid "Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle to see content from your feeds."
-msgstr "フィードのコンテンツを表示するには、メインメニュー (☰) → 設定 → 「パーソナライズ」タブ → 「パーソナライズフィードを有効にする」をオンにしてください。"
+msgid ""
+"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
+"'Enable personalized feed' toggle to see content from your feeds."
+msgstr ""
+"フィードのコンテンツを表示するには、メインメニュー (☰) → 設定 → 「パーソナラ"
+"イズ」タブ → 「パーソナライズフィードを有効にする」をオンにしてください。"
 
 #: src/managers/ui/loadingStateManager.vala:409
 msgid "No custom RSS feeds followed."
 msgstr "フォロー中のカスタム RSS フィードはありません。"
 
 #: src/managers/ui/loadingStateManager.vala:411
-msgid "You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by clicking the button below or open the main menu (☰) → Preferences → 'Personalization' tab."
-msgstr "「カスタムソースのみ」モードが有効です。下のボタンから RSS フィードをフォローして有効にするか、メインメニュー (☰) → 設定 → 「パーソナライズ」タブを開いてください。"
+msgid ""
+"You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by "
+"clicking the button below or open the main menu (☰) → Preferences → "
+"'Personalization' tab."
+msgstr ""
+"「カスタムソースのみ」モードが有効です。下のボタンから RSS フィードをフォロー"
+"して有効にするか、メインメニュー (☰) → 設定 → 「パーソナライズ」タブを開いて"
+"ください。"
 
 #: src/managers/ui/loadingStateManager.vala:417
 msgid "Personalized Feed is enabled but no categories are selected."
 msgstr "パーソナライズフィードは有効ですが、カテゴリが選択されていません。"
 
 #: src/managers/ui/loadingStateManager.vala:419
-msgid "Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle and click its settings icon to select categories, or follow custom RSS feeds."
-msgstr "メインメニュー (☰) → 設定 → 「パーソナライズ」タブ → 「パーソナライズフィードを有効にする」をオンにして設定アイコンからカテゴリを選ぶか、カスタム RSS フィードをフォローしてください。"
+msgid ""
+"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
+"'Enable personalized feed' toggle and click its settings icon to select "
+"categories, or follow custom RSS feeds."
+msgstr ""
+"メインメニュー (☰) → 設定 → 「パーソナライズ」タブ → 「パーソナライズフィード"
+"を有効にする」をオンにして設定アイコンからカテゴリを選ぶか、カスタム RSS "
+"フィードをフォローしてください。"
+
+#: src/managers/ui/sidebarManager.vala:339
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
+msgid "Categories"
+msgstr "カテゴリ"
 
 #: src/managers/ui/sidebarManager.vala:372
 #: src/ui/controllers/myFeedExtrasController.vala:317
@@ -748,6 +807,11 @@ msgstr "ポッドキャストを検索…"
 msgid "Search magazines…"
 msgstr "雑誌を検索…"
 
+#. Also show a user-visible toast for immediate feedback
+#: src/ui/appWindow.vala:1311
+msgid "Failed to load articles. Please try again."
+msgstr "記事を読み込めませんでした。もう一度お試しください。"
+
 #: src/ui/components/articles/articlePane.vala:57
 msgid "Failed to open link in browser"
 msgstr "ブラウザーでリンクを開けませんでした"
@@ -873,6 +937,17 @@ msgstr "コメントを読み込めませんでした。"
 #: src/ui/components/sports/leagueBadge.vala:101 src/ui/sidebarView.vala:553
 msgid "Live"
 msgstr "ライブ"
+
+#. Plain "Go to <title>" button under the row (not overlaid on the
+#. cards), fixed in place - jumps to nav_target_id's full page via the
+#. sidebar. Names the destination directly rather than "See all", which
+#. reads as "load more into this row" - the row's own nav arrows already
+#. do that. Static for the same reason as add_nav_buttons: it hangs a
+#. closure off a signal owned by `wrapper`.
+#: src/ui/components/articles/categorySection.vala:459
+#, c-format
+msgid "Go to %s →"
+msgstr "%s へ →"
 
 #. Margins live in CSS (.top-stories-title), not set_margin_top/
 #. bottom here: the top margin was silently not taking effect via
@@ -1075,8 +1150,12 @@ msgid "Loading reader view…"
 msgstr "リーダー表示を読み込み中…"
 
 #: src/ui/components/reader/readerView.vala:124
-msgid "Couldn't extract a reader view for this article.\nTurn off reader view above to read it on the live webpage instead."
-msgstr "この記事のリーダー表示を作成できませんでした。\n上のリーダー表示をオフにすると、元のウェブページで読めます。"
+msgid ""
+"Couldn't extract a reader view for this article.\n"
+"Turn off reader view above to read it on the live webpage instead."
+msgstr ""
+"この記事のリーダー表示を作成できませんでした。\n"
+"上のリーダー表示をオフにすると、元のウェブページで読めます。"
 
 #: src/ui/components/reader/readerView.vala:482
 msgid "Open note"
@@ -1225,8 +1304,12 @@ msgid "To See Local News, Set Your Location in Preferences"
 msgstr "地域のニュースを表示するには、設定で地域を指定してください"
 
 #: src/ui/contentView.vala:720
-msgid "Open the main menu (☰) → choose 'Manage locations' to configure your city or postal code."
-msgstr "メインメニュー (☰) → 「地域を管理」を選び、都市名または郵便番号を設定してください。"
+msgid ""
+"Open the main menu (☰) → choose 'Manage locations' to configure your city or "
+"postal code."
+msgstr ""
+"メインメニュー (☰) → 「地域を管理」を選び、都市名または郵便番号を設定してくだ"
+"さい。"
 
 #: src/ui/contentView.vala:728
 msgid "Set Location"
@@ -1296,7 +1379,8 @@ msgstr "リリースノート"
 
 #: src/ui/dialogs/app/aboutDialog.vala:174
 msgid "An all-in-one news app written in Vala, built with GTK4 and Libadwaita."
-msgstr "Vala で書かれ、GTK4 と Libadwaita で作られたオールインワンのニュースアプリ。"
+msgstr ""
+"Vala で書かれ、GTK4 と Libadwaita で作られたオールインワンのニュースアプリ。"
 
 #: src/ui/dialogs/app/aboutDialog.vala:205
 msgid "Links"
@@ -1333,12 +1417,21 @@ msgid "Change location"
 msgstr "地域を変更"
 
 #: src/ui/dialogs/app/locationDialog.vala:84
-msgid "Enter a city name or a postal code, or use your current location.\nExamples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
-msgstr "都市名または郵便番号を入力するか、現在地を使用してください。\n例: 「San Francisco, CA」「Manchester」「10115」"
+msgid ""
+"Enter a city name or a postal code, or use your current location.\n"
+"Examples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
+msgstr ""
+"都市名または郵便番号を入力するか、現在地を使用してください。\n"
+"例: 「San Francisco, CA」「Manchester」「10115」"
 
 #: src/ui/dialogs/app/locationDialog.vala:88
 msgid "City name or postal code"
 msgstr "都市名または郵便番号"
+
+#: src/ui/dialogs/app/locationDialog.vala:104
+#, c-format
+msgid "Current location: <b>%s</b>"
+msgstr "現在の地域: <b>%s</b>"
 
 #: src/ui/dialogs/app/locationDialog.vala:140
 msgid "Searching..."
@@ -1358,22 +1451,36 @@ msgid "You can save up to %d locations."
 msgstr "地域は最大 %d 件まで保存できます。"
 
 #: src/ui/dialogs/app/locationDialog.vala:248
-msgid "Couldn't resolve a location for that. Try a different city name or postal code."
+msgid ""
+"Couldn't resolve a location for that. Try a different city name or postal "
+"code."
 msgstr "地域を特定できませんでした。別の都市名か郵便番号をお試しください。"
 
+#. TRANSLATORS: the first %s is a city, the second the dialog's save button label
+#: src/ui/dialogs/app/locationDialog.vala:268
+#, c-format
+msgid "Detected: <b>%s</b> — click %s to use this location"
+msgstr "検出: <b>%s</b> — この地域を使うには「%s」をクリックしてください"
+
 #: src/ui/dialogs/app/locationDialog.vala:273
+#, c-format
+msgid "Detected: <b>%s</b> — choose which news to add:"
+msgstr "検出: <b>%s</b> — 追加するニュースを選択してください:"
+
+#: src/ui/dialogs/app/locationDialog.vala:274
 msgid "Smaller towns may have limited coverage."
 msgstr "小さな町では情報が少ない場合があります。"
 
-#: src/ui/dialogs/app/locationDialog.vala:274
+#: src/ui/dialogs/app/locationDialog.vala:275
 msgid "Nearby metro area"
 msgstr "近くの都市圏"
 
-#: src/ui/dialogs/app/locationDialog.vala:282
+#: src/ui/dialogs/app/locationDialog.vala:283
 msgid "1 location slot left — pick one, or remove a location to add both."
-msgstr "地域の空きは残り 1 件です。1 つ選ぶか、地域を削除して両方を追加してください。"
+msgstr ""
+"地域の空きは残り 1 件です。1 つ選ぶか、地域を削除して両方を追加してください。"
 
-#: src/ui/dialogs/app/locationDialog.vala:314
+#: src/ui/dialogs/app/locationDialog.vala:315
 msgid "Enter a city name or postal code and press Search."
 msgstr "都市名または郵便番号を入力して「検索」を押してください。"
 
@@ -1395,16 +1502,29 @@ msgid "Welcome to Paperboy"
 msgstr "Paperboy へようこそ"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:165
-msgid "Paperboy brings together news from the sources you trust, into one clean, distraction-free reader.\n\nLet's set a few things up before you get started."
-msgstr "Paperboy は、信頼できるソースのニュースを、すっきりとして気が散らないリーダーにまとめます。\n\n始める前に、いくつか設定しましょう。"
+msgid ""
+"Paperboy brings together news from the sources you trust, into one clean, "
+"distraction-free reader.\n"
+"\n"
+"Let's set a few things up before you get started."
+msgstr ""
+"Paperboy は、信頼できるソースのニュースを、すっきりとして気が散らないリーダー"
+"にまとめます。\n"
+"\n"
+"始める前に、いくつか設定しましょう。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:203
 msgid "Where Are You Reading From?"
 msgstr "どこから読んでいますか？"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:209
-msgid "Your national news and Front Page come from this country. We've picked it from your system settings - change it if it's not right. You can change this anytime from Preferences."
-msgstr "国内ニュースとトップはこの国から取得されます。システム設定をもとに選びました。違う場合は変更してください。設定からいつでも変更できます。"
+msgid ""
+"Your national news and Front Page come from this country. We've picked it "
+"from your system settings - change it if it's not right. You can change this "
+"anytime from Preferences."
+msgstr ""
+"国内ニュースとトップはこの国から取得されます。システム設定をもとに選びまし"
+"た。違う場合は変更してください。設定からいつでも変更できます。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:240
 msgid "Pick a Theme"
@@ -1424,24 +1544,40 @@ msgid "What Do You Want to Read?"
 msgstr "何を読みたいですか？"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:472
-msgid "Pick the topics you care about. They show up in the sidebar and make up My Feed - you can change them anytime from Preferences."
-msgstr "興味のあるトピックを選んでください。サイドバーに表示され、マイフィードを構成します。設定からいつでも変更できます。"
+msgid ""
+"Pick the topics you care about. They show up in the sidebar and make up My "
+"Feed - you can change them anytime from Preferences."
+msgstr ""
+"興味のあるトピックを選んでください。サイドバーに表示され、マイフィードを構成"
+"します。設定からいつでも変更できます。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:533
 msgid "Choose Your Sources"
 msgstr "ソースを選択"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:538
-msgid "Paperboy pulls articles from across the web, including these outlets. Tap any you'd rather not see to hide their articles everywhere - you can change these anytime from Preferences."
-msgstr "Paperboy はこれらのメディアを含むウェブ全体から記事を集めます。見たくないメディアをタップすると、その記事をすべての場所で非表示にできます。設定からいつでも変更できます。"
+msgid ""
+"Paperboy pulls articles from across the web, including these outlets. Tap "
+"any you'd rather not see to hide their articles everywhere - you can change "
+"these anytime from Preferences."
+msgstr ""
+"Paperboy はこれらのメディアを含むウェブ全体から記事を集めます。見たくないメ"
+"ディアをタップすると、その記事をすべての場所で非表示にできます。設定からいつ"
+"でも変更できます。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:596
 msgid "Live Sports Scores"
 msgstr "スポーツのライブスコア"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:601
-msgid "See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow and drag to set their order - you can change this anytime from Preferences."
-msgstr "お気に入りのリーグのライブスコアを「スポーツ」カテゴリで直接確認できます。フォローするリーグを選び、ドラッグして順番を決めてください。設定からいつでも変更できます。"
+msgid ""
+"See live scores from your favorite leagues right in the Sports category. "
+"Choose which leagues to follow and drag to set their order - you can change "
+"this anytime from Preferences."
+msgstr ""
+"お気に入りのリーグのライブスコアを「スポーツ」カテゴリで直接確認できます。"
+"フォローするリーグを選び、ドラッグして順番を決めてください。設定からいつでも"
+"変更できます。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:609
 msgid "Show Score Cards"
@@ -1452,8 +1588,12 @@ msgid "Local News, Too"
 msgstr "地域のニュースも"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:660
-msgid "Set your location to get a Local News feed for your area. You can do this now or anytime later from the main menu."
-msgstr "地域を設定すると、お住まいの地域のニュースフィードを受け取れます。今すぐ設定するか、後でメインメニューから設定できます。"
+msgid ""
+"Set your location to get a Local News feed for your area. You can do this "
+"now or anytime later from the main menu."
+msgstr ""
+"地域を設定すると、お住まいの地域のニュースフィードを受け取れます。今すぐ設定"
+"するか、後でメインメニューから設定できます。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:667
 msgid "Set My Location"
@@ -1464,7 +1604,9 @@ msgid "Refresh Content?"
 msgstr "コンテンツを更新しますか？"
 
 #: src/ui/dialogs/app/prefsDialog.vala:79
-msgid "Changes have been made to your news sources. Would you like to refresh the content now?"
+msgid ""
+"Changes have been made to your news sources. Would you like to refresh the "
+"content now?"
 msgstr "ニュースソースが変更されました。今すぐコンテンツを更新しますか？"
 
 #: src/ui/dialogs/app/prefsDialog.vala:81
@@ -1622,8 +1764,14 @@ msgid "Reset view?"
 msgstr "表示をリセットしますか？"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:189
-msgid "Moves every magazine back to Uncategorized, clears your custom category order, and switches back to the grid view. This can't be undone, though no magazines themselves are removed from your library."
-msgstr "すべての雑誌を「未分類」に戻し、カテゴリの並び順をクリアして、グリッド表示に戻します。この操作は元に戻せませんが、ライブラリから雑誌が削除されることはありません。"
+msgid ""
+"Moves every magazine back to Uncategorized, clears your custom category "
+"order, and switches back to the grid view. This can't be undone, though no "
+"magazines themselves are removed from your library."
+msgstr ""
+"すべての雑誌を「未分類」に戻し、カテゴリの並び順をクリアして、グリッド表示に"
+"戻します。この操作は元に戻せませんが、ライブラリから雑誌が削除されることはあ"
+"りません。"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
@@ -1663,16 +1811,25 @@ msgid "Delete \"%s\"?"
 msgstr "「%s」を削除しますか？"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:363
-msgid "Moves its magazines back to Uncategorized. This can't be undone, though no magazines themselves are removed from your library."
-msgstr "このカテゴリの雑誌は「未分類」に戻ります。この操作は元に戻せませんが、ライブラリから雑誌が削除されることはありません。"
+msgid ""
+"Moves its magazines back to Uncategorized. This can't be undone, though no "
+"magazines themselves are removed from your library."
+msgstr ""
+"このカテゴリの雑誌は「未分類」に戻ります。この操作は元に戻せませんが、ライブ"
+"ラリから雑誌が削除されることはありません。"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:457
 msgid "New category name"
 msgstr "新しいカテゴリ名"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:489
-msgid "Type a name above and tap Add to create a category row first, then drag magazines into it. Drag a row's handle to reorder categories."
-msgstr "上に名前を入力して「追加」をタップし、まずカテゴリの行を作成してから、雑誌をドラッグして入れてください。行のハンドルをドラッグするとカテゴリを並べ替えられます。"
+msgid ""
+"Type a name above and tap Add to create a category row first, then drag "
+"magazines into it. Drag a row's handle to reorder categories."
+msgstr ""
+"上に名前を入力して「追加」をタップし、まずカテゴリの行を作成してから、雑誌を"
+"ドラッグして入れてください。行のハンドルをドラッグするとカテゴリを並べ替えら"
+"れます。"
 
 #. Rough heuristic for "probably got truncated by the 4-line cap
 #. above" - good enough to decide whether "See more" is worth
@@ -1687,7 +1844,9 @@ msgstr "ポッドキャストを選択"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:33
 msgid "This site publishes more than one podcast - select which ones to add."
-msgstr "このサイトは複数のポッドキャストを配信しています。追加するものを選択してください。"
+msgstr ""
+"このサイトは複数のポッドキャストを配信しています。追加するものを選択してくだ"
+"さい。"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:59
 #, c-format
@@ -1782,8 +1941,12 @@ msgid "Clear formatting"
 msgstr "書式をクリア"
 
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:59
-msgid "No notes yet.\nOpen an article and tap the notes icon to add one."
-msgstr "メモはまだありません。\n記事を開いてメモアイコンをタップすると追加できます。"
+msgid ""
+"No notes yet.\n"
+"Open an article and tap the notes icon to add one."
+msgstr ""
+"メモはまだありません。\n"
+"記事を開いてメモアイコンをタップすると追加できます。"
 
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:167
 msgid "Open article"
@@ -1877,6 +2040,7 @@ msgid "Remove this source?"
 msgstr "このソースを削除しますか？"
 
 #: src/ui/menus/sidebarMenu.vala:179
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:163
 #, c-format
 msgid "Are you sure you want to remove \"%s\" and all of its articles?"
 msgstr "「%s」とそのすべての記事を削除してもよろしいですか？"
@@ -1891,6 +2055,10 @@ msgstr "削除"
 #: src/ui/menus/sidebarMenu.vala:184
 msgid "Feed removed"
 msgstr "フィードを削除しました"
+
+#: src/ui/sidebarView.vala:261
+msgid "Manage Categories"
+msgstr "カテゴリを管理"
 
 #. "Open" pill shown to the left of the Business category's count badge
 #. while MarketStatusManager reports the US market as in its regular
@@ -1912,6 +2080,24 @@ msgstr "RSS フィードの URL を入力してください:"
 msgid "Feed name (optional)"
 msgstr "フィード名 (任意)"
 
+#: src/ui/sidebarView.vala:735
+msgid "Add Feed"
+msgstr "フィードを追加"
+
+#. Use the centralized ToastManager instead of creating Adw.Toast directly
+#: src/ui/sidebarView.vala:755
+msgid "Discovering feed..."
+msgstr "フィードを検出中..."
+
+#: src/ui/sidebarView.vala:761
+#, c-format
+msgid "RSS feed added: %s"
+msgstr "RSS フィードを追加しました: %s"
+
+#: src/ui/sidebarView.vala:768
+msgid "Failed to add RSS feed"
+msgstr "RSS フィードを追加できませんでした"
+
 #: src/ui/sidebarView.vala:816 src/ui/sidebarView.vala:835
 msgid "Add a Podcast"
 msgstr "ポッドキャストを追加"
@@ -1920,6 +2106,14 @@ msgstr "ポッドキャストを追加"
 msgid "Enter the podcast's RSS feed URL:"
 msgstr "ポッドキャストの RSS フィードの URL を入力してください:"
 
+#: src/ui/sidebarView.vala:848
+msgid "Add Podcast"
+msgstr "ポッドキャストを追加"
+
+#: src/ui/sidebarView.vala:865
+msgid "Resolving podcast feed..."
+msgstr "ポッドキャストのフィードを確認中..."
+
 #: src/ui/sidebarView.vala:881
 msgid "Failed to add podcast"
 msgstr "ポッドキャストを追加できませんでした"
@@ -1927,6 +2121,10 @@ msgstr "ポッドキャストを追加できませんでした"
 #: src/ui/sidebarView.vala:1269
 msgid "Now Playing"
 msgstr "再生中"
+
+#: src/ui/controllers/myFeedExtrasController.vala:278
+msgid "Your Scores"
+msgstr "あなたのスコア"
 
 #: src/ui/controllers/myFeedExtrasController.vala:336
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
@@ -1947,19 +2145,31 @@ msgstr "テーマ"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:57
 msgid "Follow the system theme, or force light or dark mode"
-msgstr "システムのテーマに合わせるか、ライトモードまたはダークモードに固定します"
+msgstr ""
+"システムのテーマに合わせるか、ライトモードまたはダークモードに固定します"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:87
 msgid "Update Interval"
 msgstr "更新間隔"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:88
-msgid "Short update intervals can trigger rate limits or cause requests to be blocked."
-msgstr "更新間隔が短いと、レート制限にかかったりリクエストがブロックされたりすることがあります。"
+msgid ""
+"Short update intervals can trigger rate limits or cause requests to be "
+"blocked."
+msgstr ""
+"更新間隔が短いと、レート制限にかかったりリクエストがブロックされたりすること"
+"があります。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:89
-msgid "Updating feeds too often may look like automated traffic. Sites could temporarily block requests or refuse articles if too many are made in a short time. Choose a longer interval to avoid this."
-msgstr "フィードを頻繁に更新しすぎると、自動化されたトラフィックのように見える場合があります。短時間にリクエストが多すぎると、サイトが一時的にリクエストをブロックしたり記事の提供を拒否したりすることがあります。これを避けるには、長めの間隔を選んでください。"
+msgid ""
+"Updating feeds too often may look like automated traffic. Sites could "
+"temporarily block requests or refuse articles if too many are made in a "
+"short time. Choose a longer interval to avoid this."
+msgstr ""
+"フィードを頻繁に更新しすぎると、自動化されたトラフィックのように見える場合が"
+"あります。短時間にリクエストが多すぎると、サイトが一時的にリクエストをブロッ"
+"クしたり記事の提供を拒否したりすることがあります。これを避けるには、長めの間"
+"隔を選んでください。"
 
 #. "Manual" and "Sync Every" are radio-style check buttons.
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:93
@@ -2014,6 +2224,10 @@ msgstr "消去"
 msgid "Clear article content cache?"
 msgstr "記事コンテンツのキャッシュを消去しますか？"
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:183
+msgid "This will delete cached article content and images. Previously read articles will need to be re-downloaded."
+msgstr "キャッシュされた記事のコンテンツと画像を削除します。既読の記事は再ダウンロードが必要になります。"
+
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
 msgid "Clear Cache"
@@ -2035,6 +2249,10 @@ msgstr "RSS フィードのキャッシュ"
 msgid "Clear RSS Feed Cache?"
 msgstr "RSS フィードのキャッシュを消去しますか？"
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:215
+msgid "This will delete all cached RSS feed listings. Feeds will load from the network next time."
+msgstr "キャッシュされた RSS フィードの一覧をすべて削除します。次回はネットワークからフィードを読み込みます。"
+
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
 msgid "0 bytes (0 articles)"
 msgstr "0 バイト (0 件の記事)"
@@ -2046,6 +2264,10 @@ msgstr "RSS フィードのキャッシュを消去しました"
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:232
 msgid "Backup &amp; Restore"
 msgstr "バックアップと復元"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:235
+msgid "Export or import your custom RSS feeds and podcast subscriptions as an OPML file."
+msgstr "カスタム RSS フィードとポッドキャストの登録を OPML ファイルとしてエクスポートまたはインポートします。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
 msgid "Export Feeds & Podcasts"
@@ -2108,8 +2330,12 @@ msgid "Reset app to factory settings"
 msgstr "アプリを初期状態にリセット"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:285
-msgid "Erases all sources, saved articles, notes, settings, and cached data, then restarts Paperboy as if freshly installed."
-msgstr "すべてのソース、保存した記事、メモ、設定、キャッシュデータを消去し、インストール直後の状態で Paperboy を再起動します。"
+msgid ""
+"Erases all sources, saved articles, notes, settings, and cached data, then "
+"restarts Paperboy as if freshly installed."
+msgstr ""
+"すべてのソース、保存した記事、メモ、設定、キャッシュデータを消去し、インス"
+"トール直後の状態で Paperboy を再起動します。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
 msgid "Reset"
@@ -2118,6 +2344,10 @@ msgstr "リセット"
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:291
 msgid "Reset to factory settings?"
 msgstr "初期状態にリセットしますか？"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:292
+msgid "This permanently deletes all sources, saved articles, notes, and settings, and cannot be undone. Paperboy will restart as if freshly installed."
+msgstr "すべてのソース、保存した記事、メモ、設定を完全に削除します。この操作は元に戻せません。Paperboy はインストール直後の状態で再起動します。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:293
 msgid "Reset App"
@@ -2132,8 +2362,15 @@ msgid "Show article comments"
 msgstr "記事のコメントを表示"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:313
-msgid "Show a comments button on the reader page for articles with a discoverable comment source (native feed, Disqus, or Hacker News discussion). Coverage is limited - many sites don't expose comments through any of these."
-msgstr "コメントのソース (フィード内のコメント、Disqus、Hacker News のディスカッション) が見つかる記事について、リーダーページにコメントボタンを表示します。対応範囲は限られており、多くのサイトはこれらのいずれの方法でもコメントを公開していません。"
+msgid ""
+"Show a comments button on the reader page for articles with a discoverable "
+"comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
+"limited - many sites don't expose comments through any of these."
+msgstr ""
+"コメントのソース (フィード内のコメント、Disqus、Hacker News のディスカッショ"
+"ン) が見つかる記事について、リーダーページにコメントボタンを表示します。対応"
+"範囲は限られており、多くのサイトはこれらのいずれの方法でもコメントを公開して"
+"いません。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:31
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:177
@@ -2147,10 +2384,6 @@ msgstr "地域"
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:53
 msgid "Your national news and Front Page come from this country"
 msgstr "国内ニュースとトップはこの国から取得されます"
-
-#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
-msgid "Categories"
-msgstr "カテゴリ"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:79
 msgid "The categories shown in the sidebar and used for My Feed"
@@ -2176,8 +2409,12 @@ msgid "%d of %d categories"
 msgstr "%d / %d カテゴリ"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
-msgid "Choose the categories shown in the sidebar and used for My Feed. Drag a row by its handle to reorder."
-msgstr "サイドバーに表示し、マイフィードに使うカテゴリを選択します。行のハンドルをドラッグして並べ替えます。"
+msgid ""
+"Choose the categories shown in the sidebar and used for My Feed. Drag a row "
+"by its handle to reorder."
+msgstr ""
+"サイドバーに表示し、マイフィードに使うカテゴリを選択します。行のハンドルをド"
+"ラッグして並べ替えます。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:180
 msgid "Enable personalized feed"
@@ -2197,7 +2434,8 @@ msgstr "マイフィードのカスタムフィード"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:208
 msgid "Choose which followed RSS feeds appear in My Feed"
-msgstr "フォロー中の RSS フィードのうち、マイフィードに表示するものを選択します"
+msgstr ""
+"フォロー中の RSS フィードのうち、マイフィードに表示するものを選択します"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:213
 msgid "Custom feeds only in My Feed"
@@ -2205,7 +2443,9 @@ msgstr "マイフィードはカスタムフィードのみ"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:214
 msgid "Only show followed RSS feeds in My Feed, hide built-in sources"
-msgstr "マイフィードにはフォロー中の RSS フィードのみを表示し、組み込みソースを非表示にします"
+msgstr ""
+"マイフィードにはフォロー中の RSS フィードのみを表示し、組み込みソースを非表示"
+"にします"
 
 #. ActionRow rather than SwitchRow, to fit a settings button
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:238
@@ -2235,7 +2475,8 @@ msgstr "カテゴリに表示"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:298
 msgid "Choose which of your followed RSS feeds appear in My Feed"
-msgstr "フォロー中の RSS フィードのうち、マイフィードに表示するものを選択します"
+msgstr ""
+"フォロー中の RSS フィードのうち、マイフィードに表示するものを選択します"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:307
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:131
@@ -2243,16 +2484,24 @@ msgid "No feeds followed yet"
 msgstr "フォロー中のフィードはまだありません"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:308
-msgid "Follow a custom RSS feed in Preferences -> Feeds first, then come back here to include it in My Feed."
-msgstr "まず 設定 -> フィード でカスタム RSS フィードをフォローしてから、ここに戻ってマイフィードに追加してください。"
+msgid ""
+"Follow a custom RSS feed in Preferences -> Feeds first, then come back here "
+"to include it in My Feed."
+msgstr ""
+"まず 設定 -> フィード でカスタム RSS フィードをフォローしてから、ここに戻って"
+"マイフィードに追加してください。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:343
 msgid "My Feed Extras"
 msgstr "マイフィードの追加コンテンツ"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:344
-msgid "Show a preview row for other features at the top of My Feed, with a button to jump to the full page"
-msgstr "マイフィードの上部に他の機能のプレビュー行を表示し、全体ページへ移動するボタンを付けます"
+msgid ""
+"Show a preview row for other features at the top of My Feed, with a button "
+"to jump to the full page"
+msgstr ""
+"マイフィードの上部に他の機能のプレビュー行を表示し、全体ページへ移動するボタ"
+"ンを付けます"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:345
 msgid "Sports scores"
@@ -2263,7 +2512,8 @@ msgid "Show recommendations"
 msgstr "おすすめを表示"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:381
-msgid "Suggest articles based on your reading history. This stays on your device."
+msgid ""
+"Suggest articles based on your reading history. This stays on your device."
 msgstr "閲覧履歴に基づいて記事を提案します。データはこのデバイスから出ません。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:397
@@ -2275,24 +2525,35 @@ msgid "Open articles in reader view"
 msgstr "記事をリーダー表示で開く"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:401
-msgid "Show an extracted, distraction-free view of the article text instead of the full webpage by default. You can still switch views per article."
-msgstr "既定でウェブページ全体ではなく、記事本文を抽出した気が散らない表示にします。記事ごとに表示を切り替えることもできます。"
+msgid ""
+"Show an extracted, distraction-free view of the article text instead of the "
+"full webpage by default. You can still switch views per article."
+msgstr ""
+"既定でウェブページ全体ではなく、記事本文を抽出した気が散らない表示にします。"
+"記事ごとに表示を切り替えることもできます。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:409
 msgid "Clicking an article opens reader view directly"
 msgstr "記事をクリックすると直接リーダー表示を開く"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:410
-msgid "Skip the preview pane and jump straight into reader view when you click an article card"
-msgstr "記事カードをクリックしたとき、プレビューを飛ばしてリーダー表示を開きます"
+msgid ""
+"Skip the preview pane and jump straight into reader view when you click an "
+"article card"
+msgstr ""
+"記事カードをクリックしたとき、プレビューを飛ばしてリーダー表示を開きます"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:418
 msgid "Show quick-open buttons on hover"
 msgstr "ホバー時にクイックオープンボタンを表示"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:419
-msgid "Show reader view / preview buttons over an article card's image when you hover it"
-msgstr "記事カードの画像にカーソルを合わせると、リーダー表示/プレビューのボタンを表示します"
+msgid ""
+"Show reader view / preview buttons over an article card's image when you "
+"hover it"
+msgstr ""
+"記事カードの画像にカーソルを合わせると、リーダー表示/プレビューのボタンを表示"
+"します"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:436
 msgid "Market Cards"
@@ -2300,7 +2561,8 @@ msgstr "マーケットカード"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:437
 msgid "Choose whether the Business category shows live market index cards"
-msgstr "「ビジネス」カテゴリに株価指数のライブカードを表示するかどうかを選択します"
+msgstr ""
+"「ビジネス」カテゴリに株価指数のライブカードを表示するかどうかを選択します"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:440
 msgid "Show market cards"
@@ -2315,8 +2577,11 @@ msgid "Show market status pill"
 msgstr "取引状況を表示"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:456
-msgid "Show an \"Open\" pill next to the Business sidebar count while the market is open"
-msgstr "市場の取引時間中、サイドバーの「ビジネス」の件数の横に「取引中」を表示します"
+msgid ""
+"Show an \"Open\" pill next to the Business sidebar count while the market is "
+"open"
+msgstr ""
+"市場の取引時間中、サイドバーの「ビジネス」の件数の横に「取引中」を表示します"
 
 #. TRANSLATORS: %s is the detected country, e.g. "Automatic (Germany)"
 #: src/ui/dialogs/app/prefs/prefsRows.vala:64
@@ -2372,7 +2637,9 @@ msgstr "フォロー中の RSS フィード"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:132
 msgid "No feeds followed yet. Add one from the sidebar's Feeds section."
-msgstr "フォロー中のフィードはまだありません。サイドバーの「フィード」セクションから追加してください。"
+msgstr ""
+"フォロー中のフィードはまだありません。サイドバーの「フィード」セクションから"
+"追加してください。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
 msgid "1 followed feed"
@@ -2411,7 +2678,9 @@ msgstr "ポッドキャスト %d 件"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:252
 msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
-msgstr "ポッドキャストはまだありません。サイドバーの「ポッドキャスト」セクションから探してください。"
+msgstr ""
+"ポッドキャストはまだありません。サイドバーの「ポッドキャスト」セクションから"
+"探してください。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
 msgid "Remove podcast?"
@@ -2463,7 +2732,9 @@ msgstr "ソース %d 件"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:323
 msgid "No sources yet. Websites you add from the Magazines page show up here."
-msgstr "ソースはまだありません。「雑誌」ページで追加したウェブサイトがここに表示されます。"
+msgstr ""
+"ソースはまだありません。「雑誌」ページで追加したウェブサイトがここに表示され"
+"ます。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:336
 msgid "Remove source"
@@ -2489,7 +2760,8 @@ msgstr "地域を追加"
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:404
 #, c-format
 msgid "%d of %d locations added. Remove one to add another."
-msgstr "%d / %d 件の地域を追加済みです。別の地域を追加するには 1 件削除してください。"
+msgstr ""
+"%d / %d 件の地域を追加済みです。別の地域を追加するには 1 件削除してください。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:406
 #, c-format
@@ -2501,8 +2773,12 @@ msgid "Sports Score Cards"
 msgstr "スポーツのスコアカード"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
-msgid "Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category"
-msgstr "スコアカードを表示するリーグを選び、行を (ハンドルで) ドラッグして「スポーツ」カテゴリでのセクションの順番を設定します"
+msgid ""
+"Choose which leagues show score cards, and drag a row (by its handle) to set "
+"the order their sections appear in the Sports category"
+msgstr ""
+"スコアカードを表示するリーグを選び、行を (ハンドルで) ドラッグして「スポー"
+"ツ」カテゴリでのセクションの順番を設定します"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:39
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:197
@@ -2519,19 +2795,26 @@ msgstr "スコアカードを表示"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:48
 msgid "Turn off to hide all live score cards from the Sports category"
-msgstr "オフにすると「スポーツ」カテゴリのライブスコアカードをすべて非表示にします"
+msgstr ""
+"オフにすると「スポーツ」カテゴリのライブスコアカードをすべて非表示にします"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:53
 msgid "Show live indicator"
 msgstr "ライブ表示"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:54
-msgid "Show a \"Live\" pill next to the Sports sidebar count while a game is in progress"
+msgid ""
+"Show a \"Live\" pill next to the Sports sidebar count while a game is in "
+"progress"
 msgstr "試合中、サイドバーの「スポーツ」の件数の横に「ライブ」を表示します"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:182
-msgid "Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\""
-msgstr "リーグを選んでから、フォローするチームを選択してください。フォローした各チームには「マイチーム」に専用のスコアカード行ができます"
+msgid ""
+"Pick a league, then choose teams to follow - each followed team gets its own "
+"score-card row in \"My Teams\""
+msgstr ""
+"リーグを選んでから、フォローするチームを選択してください。フォローした各チー"
+"ムには「マイチーム」に専用のスコアカード行ができます"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:209
 msgid "Loading teams…"
@@ -2909,6 +3192,76 @@ msgstr "ベトナム"
 msgid "US News"
 msgstr "米国のニュース"
 
+#. TRANSLATORS: date before the time in an article's byline, a
+#. strftime format ("man strftime"): %b is the abbreviated month,
+#. %-d the unpadded day, %Y the year. Reorder to suit, e.g. "%-d %b %Y".
+#: src/utils/text/dateUtils.vala:46
+#, no-c-format
+msgid "%b %-d, %Y"
+msgstr "%Y年%-m月%-d日"
+
+#. clock skew / future timestamp
+#: src/utils/text/dateUtils.vala:102
+msgid "Just now"
+msgstr "たった今"
+
+#. TRANSLATORS: compact relative times on article cards, where space
+#. is tight - abbreviate if your language allows it
+#: src/utils/text/dateUtils.vala:106
+#, c-format
+msgid "%dm ago"
+msgid_plural "%dm ago"
+msgstr[0] "%d 分前"
+
+#: src/utils/text/dateUtils.vala:108
+#, c-format
+msgid "%dh ago"
+msgid_plural "%dh ago"
+msgstr[0] "%d 時間前"
+
+#: src/utils/text/dateUtils.vala:110
+#, c-format
+msgid "%dd ago"
+msgid_plural "%dd ago"
+msgstr[0] "%d 日前"
+
+#. Older than a week: fall back to a short absolute date ("Aug 27").
+#. TRANSLATORS: short date on article cards older than a week, a
+#. strftime format ("man strftime"): %b is the abbreviated month and
+#. %-d the unpadded day. Reorder to suit, e.g. "%-d %b".
+#: src/utils/text/dateUtils.vala:117
+#, no-c-format
+msgid "%b %-d"
+msgstr "%-m月%-d日"
+
+#. Page header date, e.g. "Monday, October 5".
+#. TRANSLATORS: date in page headers, a strftime format ("man strftime"):
+#. %A is the weekday, %B the month and %-d the unpadded day. Reorder to
+#. suit, e.g. "%A %-d %B".
+#: src/utils/text/dateUtils.vala:126
+#, no-c-format
+msgid "%A, %B %-d"
+msgstr "%-m月%-d日 (%a)"
+
+#. Weekday and numeric date for game times, e.g. "Mon 10/5".
+#. TRANSLATORS: weekday and date on sports score cards, a strftime
+#. format ("man strftime"): %a is the abbreviated weekday, %-m the
+#. unpadded month number and %-d the unpadded day. Reorder to suit,
+#. e.g. "%a %-d.%-m.".
+#: src/utils/text/dateUtils.vala:136
+#, no-c-format
+msgid "%a %-m/%-d"
+msgstr "%-m/%-d (%a)"
+
+#: src/managers/content/articleManager.vala:157
+#: src/managers/content/articleManager.vala:172
+msgid "You're offline. Enable internet connection to view articles"
+msgstr "オフラインです。記事を表示するにはインターネットに接続してください"
+
+#: src/managers/ui/layoutManager.vala:555
+msgid "More Stories"
+msgstr "その他のニュース"
+
 #: src/services/fetchers/fetcherUtils.vala:23
 msgid "The Frontpage"
 msgstr "トップ"
@@ -2922,21 +3275,181 @@ msgstr "トップ — Paperboy"
 msgid "Paperboy: Error loading frontpage"
 msgstr "Paperboy: トップページの読み込みエラー"
 
+#: src/services/fetchers/paperboyFetcher.vala:484
+msgid "Paperboy: Error loading Top Ten"
+msgstr "Paperboy: トップ 10 の読み込みエラー"
+
 #: src/services/fetchers/paperboyFetcher.vala:524
 msgid "Top Ten — Paperboy"
 msgstr "トップ 10 — Paperboy"
 
-#: src/ui/controllers/fetchNewsController.vala:298
-#: src/ui/controllers/fetchNewsController.vala:674
+#: src/ui/controllers/fetchNewsController.vala:297
+#: src/ui/controllers/fetchNewsController.vala:673
 msgid "Offline - showing cached articles"
 msgstr "オフライン - キャッシュした記事を表示中"
 
-#: src/ui/controllers/fetchNewsController.vala:673
+#: src/ui/controllers/fetchNewsController.vala:672
 #, c-format
 msgid "%s — Offline, showing %d cached articles"
 msgstr "%s — オフライン、キャッシュした記事 %d 件を表示中"
 
-#: src/ui/controllers/fetchNewsController.vala:676
+#: src/ui/controllers/fetchNewsController.vala:675
 #, c-format
 msgid "%s — Loaded %d articles from cache"
 msgstr "%s — キャッシュから記事を %d 件読み込みました"
+
+#. time_text replaces the "Viewed ..." caption when the row is reused outside History (e.g. Recommended for you).
+#. TRANSLATORS: %s is a relative time, e.g. "Viewed 3h ago"
+#: src/ui/components/articles/historyCard.vala:157
+#, c-format
+msgid "Viewed %s"
+msgstr "%sに閲覧"
+
+#: src/ui/components/markets/marketIndexCard.vala:265
+#, c-format
+msgid "Updated %s"
+msgstr "%sに更新"
+
+#. "5 min read", or "" if unknown.
+#. TRANSLATORS: estimated reading time on article cards, e.g. "5 min read"
+#: src/services/cache/articleReadingTimeCache.vala:85
+#, c-format
+msgid "%d min read"
+msgid_plural "%d min read"
+msgstr[0] "%d 分で読めます"
+
+#: src/builders/placeholderBuilder.vala:296
+msgid "News Source"
+msgstr "ニュースソース"
+
+#: src/managers/content/feedUpdateManager.vala:251
+#, c-format
+msgid "RSS feeds: %d updated"
+msgid_plural "RSS feeds: %d updated"
+msgstr[0] "RSS フィード: %d 件更新しました"
+
+#: src/managers/content/sourceManager.vala:403
+#, c-format
+msgid "Enabled %s"
+msgstr "%s を有効にしました"
+
+#: src/managers/content/sourceManager.vala:417
+msgid "Couldn't find this article's source"
+msgstr "この記事のソースが見つかりませんでした"
+
+#: src/managers/content/sourceManager.vala:547
+#, c-format
+msgid "Following %s"
+msgstr "%s をフォローしました"
+
+#: src/managers/content/sourceManager.vala:552
+#: src/managers/content/sourceManager.vala:688
+msgid "Source already followed"
+msgstr "このソースはすでにフォローしています"
+
+#: src/managers/content/sourceManager.vala:580
+msgid "Failed to discover RSS feed"
+msgstr "RSS フィードを検出できませんでした"
+
+#: src/managers/content/sourceManager.vala:588
+msgid "Generating feed for this source..."
+msgstr "このソースのフィードを生成中..."
+
+#: src/managers/content/sourceManager.vala:601
+msgid "Generated feed has no articles"
+msgstr "生成したフィードに記事がありません"
+
+#: src/managers/content/sourceManager.vala:683
+#, c-format
+msgid "Following %s (%d article)"
+msgid_plural "Following %s (%d articles)"
+msgstr[0] "%s をフォローしました (%d 件の記事)"
+
+#: src/managers/content/sourceManager.vala:695
+msgid "No RSS feeds found"
+msgstr "RSS フィードが見つかりませんでした"
+
+#: src/managers/content/sourceManager.vala:704
+msgid "Error discovering RSS feed"
+msgstr "RSS フィードの検出中にエラーが発生しました"
+
+#: src/services/articles/articleShareService.vala:37
+msgid "Check out this article"
+msgstr "この記事をチェックしてみて"
+
+#: src/services/articles/articleShareService.vala:39
+msgid "I thought you might find this interesting:"
+msgstr "興味があるかもしれないと思って:"
+
+#: src/services/feeds/builtinSources.vala:41
+msgid "Independent global news and analysis"
+msgstr "独立系の国際ニュースと分析"
+
+#: src/services/feeds/builtinSources.vala:44
+msgid "Comprehensive international and UK reporting"
+msgstr "国際ニュースとイギリスのニュースを網羅"
+
+#: src/services/feeds/builtinSources.vala:47
+msgid "In-depth journalism across major categories"
+msgstr "主要カテゴリの掘り下げた報道"
+
+#: src/services/feeds/builtinSources.vala:50
+msgid "Market, business, and finance coverage"
+msgstr "マーケット、ビジネス、金融の報道"
+
+#: src/services/feeds/builtinSources.vala:53
+msgid "Business, economic, and political reporting"
+msgstr "ビジネス、経済、政治の報道"
+
+#: src/services/feeds/builtinSources.vala:56
+msgid "US network coverage across politics, business, and more"
+msgstr "政治やビジネスなどを伝える米国のテレビネットワーク"
+
+#: src/services/feeds/builtinSources.vala:59
+msgid "Public radio news and feature storytelling"
+msgstr "公共ラジオのニュースと特集"
+
+#: src/services/feeds/builtinSources.vala:62
+msgid "U.S. politics, headlines, and commentary"
+msgstr "米国の政治、ヘッドライン、論評"
+
+#: src/services/feeds/builtinSources.vala:65
+msgid "Neutral, in-depth public affairs reporting"
+msgstr "中立で掘り下げた公共問題の報道"
+
+#: src/services/magazines/magazinePdfImportService.vala:48
+#: src/services/magazines/magazinePdfImportService.vala:82
+msgid "Already in your library"
+msgstr "すでにライブラリにあります"
+
+#: src/services/magazines/magazinePdfImportService.vala:57
+#: src/services/magazines/magazinePdfImportService.vala:91
+msgid "Failed to save that magazine"
+msgstr "雑誌を保存できませんでした"
+
+#: src/services/magazines/magazinePdfImportService.vala:163
+msgid "That doesn't look like a valid PDF file"
+msgstr "有効な PDF ファイルではないようです"
+
+#: src/services/magazines/magazinePdfImportService.vala:222
+msgid "Untitled magazine"
+msgstr "無題の雑誌"
+
+#: src/services/podcasts/podcastFeedResolver.vala:53
+msgid "Couldn't reach that feed"
+msgstr "フィードに接続できませんでした"
+
+#: src/services/podcasts/podcastFeedResolver.vala:56
+msgid "That doesn't look like a valid podcast feed"
+msgstr "有効なポッドキャストのフィードではないようです"
+
+#. card_container=false: no wrapping bordered panel behind the
+#. row - these cards are already fully self-contained (colored
+#. tile, own border/radius), so an outer panel background just
+#. read as a redundant card-behind-cards. circular_logo=false:
+#. the markets icon is a symbolic glyph, not a team/source photo
+#. logo, so it shouldn't get CategorySection's default
+#. circular-logo treatment.
+#: src/ui/controllers/stocksTickerController.vala:243
+msgid "Markets Today"
+msgstr "今日のマーケット"

@@ -275,7 +275,7 @@ public class MyFeedExtrasController : GLib.Object {
             if (game.league != games.get(0).league) mixed = true;
             if (game.status == GameStatus.LIVE) any_live = true;
         }
-        string title = mixed ? "Your Scores" : games.get(0).league_display_name;
+        string title = mixed ? _("Your Scores") : games.get(0).league_display_name;
 
         var section = new CategorySection(win, title, "myfeed:sports", true, true, null, any_live, null, "sports");
         section.wrapper.add_css_class("frontpage-section-divider");

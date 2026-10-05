@@ -101,7 +101,7 @@ public class LocationDialog : GLib.Object {
 
         if (!adding) {
             hint.set_use_markup(true);
-            hint.set_markup("Current location: <b>" + GLib.Markup.escape_text(current.city) + "</b>");
+            hint.set_markup(_("Current location: <b>%s</b>").printf(GLib.Markup.escape_text(current.city)));
         }
 
         // Town/metro checkboxes, filled in after a lookup
@@ -264,12 +264,13 @@ public class LocationDialog : GLib.Object {
                     : new LocalArea(last_detected_query, resolved);
                 candidates.add(area);
                 checks.add(null);
-                hint.set_markup("Detected: <b>" + GLib.Markup.escape_text(area.city) + "</b> — click " + save_label + " to use this location");
+                // TRANSLATORS: the first %s is a city, the second the dialog's save button label
+                hint.set_markup(_("Detected: <b>%s</b> — click %s to use this location").printf(GLib.Markup.escape_text(area.city), GLib.Markup.escape_text(save_label)));
                 dialog.set_response_enabled("save", true);
                 return;
             }
 
-            hint.set_markup("Detected: <b>" + GLib.Markup.escape_text(resolved) + "</b> — choose which news to add:");
+            hint.set_markup(_("Detected: <b>%s</b> — choose which news to add:").printf(GLib.Markup.escape_text(resolved)));
             var town_check = add_choice(new LocalArea(last_detected_query, resolved), _("Smaller towns may have limited coverage."));
             var metro_check = add_choice(new LocalArea(news_query_city, news_query_city), _("Nearby metro area"));
 

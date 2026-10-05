@@ -248,7 +248,7 @@ public class FeedUpdateManager : GLib.Object {
     private void maybe_show_summary(int64 now, int64 base_interval) {
         if (updated_since_toast == 0) return;
         if (last_toast_at > 0 && now - last_toast_at < base_interval) return;
-        string message = "RSS feeds: %d updated".printf(updated_since_toast);
+        string message = ngettext("RSS feeds: %d updated", "RSS feeds: %d updated", updated_since_toast).printf(updated_since_toast);
         GLib.debug("Feed refresh: toast \"%s\"", message);
         request_show_toast(message);
         last_toast_at = now;

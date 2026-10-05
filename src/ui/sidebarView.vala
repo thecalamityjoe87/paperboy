@@ -258,7 +258,7 @@ public class SidebarView : GLib.Object {
                     PrefsDialog.show_preferences_dialog(window, false, false, true);
                 });
             } else if (section.section_id == "popular_categories") {
-                manage_button = create_manage_button("Manage Categories", () => {
+                manage_button = create_manage_button(_("Manage Categories"), () => {
                     PrefsDialog.show_preferences_dialog(window, false, false, false, true);
                 });
             }
@@ -732,7 +732,7 @@ public class SidebarView : GLib.Object {
         
         dialog.set_extra_child(entry_box);
         dialog.add_response("cancel", _("Cancel"));
-        dialog.add_response("add", "Add Feed");
+        dialog.add_response("add", _("Add Feed"));
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
         
         dialog.response.connect((response) => {
@@ -752,20 +752,20 @@ public class SidebarView : GLib.Object {
     
     private void add_rss_feed(string name, string url) {
         // Use the centralized ToastManager instead of creating Adw.Toast directly
-        if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Discovering feed...");
+        if (window.toast_manager != null) window.toast_manager.show_persistent_toast(_("Discovering feed..."));
 
         manager.add_rss_feed(name, url, (success, discovered_name) => {
             if (window.toast_manager != null) window.toast_manager.clear_persistent_toast();
 
             if (success) {
-                if (window.toast_manager != null) window.toast_manager.show_toast("RSS feed added: " + discovered_name);
+                if (window.toast_manager != null) window.toast_manager.show_toast(_("RSS feed added: %s").printf(discovered_name));
                 // The source's own source_added signal already queued a
                 // sidebar rebuild before this callback's enable step ran,
                 // so it can still be filtered out as "not enabled" at that
                 // point. Rebuild once more now that it's enabled.
                 manager.rebuild_sidebar();
             } else {
-                if (window.toast_manager != null) window.toast_manager.show_toast("Failed to add RSS feed");
+                if (window.toast_manager != null) window.toast_manager.show_toast(_("Failed to add RSS feed"));
             }
         });
     }
@@ -845,7 +845,7 @@ public class SidebarView : GLib.Object {
 
         dialog.set_extra_child(entry_box);
         dialog.add_response("cancel", _("Cancel"));
-        dialog.add_response("add", "Add Podcast");
+        dialog.add_response("add", _("Add Podcast"));
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
 
         dialog.response.connect((response) => {
@@ -862,7 +862,7 @@ public class SidebarView : GLib.Object {
     }
 
     private void add_podcast_by_url(string url) {
-        if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Resolving podcast feed...");
+        if (window.toast_manager != null) window.toast_manager.show_persistent_toast(_("Resolving podcast feed..."));
 
         var resolver = Paperboy.PodcastFeedResolver.get_instance();
         resolver.resolve_show(url, window.session, (success, show, error_message) => {
@@ -876,7 +876,7 @@ public class SidebarView : GLib.Object {
                 // the terminal state change, and SidebarManager already
                 // listens to PodcastSubscriptionStore.subscription_added
                 // and rebuilds on its own.
-                window.toast_manager.show_toast("Podcast added: " + show.title);
+                window.toast_manager.show_toast(_("Podcast added: ") + show.title);
             } else {
                 window.toast_manager.show_toast(error_message ?? _("Failed to add podcast"));
             }

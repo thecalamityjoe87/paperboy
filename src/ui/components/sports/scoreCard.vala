@@ -133,7 +133,7 @@ public class ScoreCard : GLib.Object {
         if (diff == 0) return _("Today");
         if (diff == -1) return _("Yesterday");
         if (diff == 1) return _("Tomorrow");
-        return local.format("%a %-m/%-d");
+        return DateUtils.short_weekday_date(local);
     }
 
     // Must stay static: Vala folds a strong ref to `self` into the shared

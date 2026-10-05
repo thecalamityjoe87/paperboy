@@ -180,7 +180,7 @@ public class AppPrefsPage : Adw.PreferencesPage {
         clear_cache_btn.add_css_class("destructive-action");
         clear_cache_btn.clicked.connect(() => {
             DialogUtils.confirm_destructive(ctx.dialog, _("Clear article content cache?"),
-                "This will delete cached article content and images. Previously read articles will need to be re-downloaded.",
+                _("This will delete cached article content and images. Previously read articles will need to be re-downloaded."),
                 _("Clear Cache"), () => {
                 if (win != null && win.meta_cache != null) {
                     win.meta_cache.clear();
@@ -212,7 +212,7 @@ public class AppPrefsPage : Adw.PreferencesPage {
         clear_rss_cache_btn.add_css_class("destructive-action");
         clear_rss_cache_btn.clicked.connect(() => {
             DialogUtils.confirm_destructive(ctx.dialog, _("Clear RSS Feed Cache?"),
-                "This will delete all cached RSS feed listings. Feeds will load from the network next time.",
+                _("This will delete all cached RSS feed listings. Feeds will load from the network next time."),
                 _("Clear Cache"), () => {
                 rss_cache.clear_all();
                 rss_cache_row.set_subtitle(_("0 bytes (0 articles)"));
@@ -232,7 +232,7 @@ public class AppPrefsPage : Adw.PreferencesPage {
         group.set_title(_("Backup &amp; Restore"));
 
         group.add(PrefsRows.backup_row(_("Feeds"),
-            "Export or import your custom RSS feeds and podcast subscriptions as an OPML file.",
+            _("Export or import your custom RSS feeds and podcast subscriptions as an OPML file."),
             () => {
                 PrefsRows.choose_save_path(win, _("Export Feeds & Podcasts"), "paperboy-feeds.opml",
                     PrefsRows.file_filter(_("OPML files"), "opml"), "export OPML", (path) => {
@@ -289,7 +289,7 @@ public class AppPrefsPage : Adw.PreferencesPage {
         reset_btn.add_css_class("destructive-action");
         reset_btn.clicked.connect(() => {
             DialogUtils.confirm_destructive(ctx.dialog, _("Reset to factory settings?"),
-                "This permanently deletes all sources, saved articles, notes, and settings, and cannot be undone. Paperboy will restart as if freshly installed.",
+                _("This permanently deletes all sources, saved articles, notes, and settings, and cannot be undone. Paperboy will restart as if freshly installed."),
                 _("Reset App"), () => {
                 ctx.prefs.factory_reset();
                 ((PaperboyApp) ctx.win.application).restart();

@@ -1308,7 +1308,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (loading_state != null) loading_state.show_error_message(msg);
 
         // Also show a user-visible toast for immediate feedback
-        string toast_msg = msg != null && msg.length > 0 ? msg : "Failed to load articles. Please try again.";
+        string toast_msg = msg != null && msg.length > 0 ? msg : _("Failed to load articles. Please try again.");
         show_toast(toast_msg);
     }
 

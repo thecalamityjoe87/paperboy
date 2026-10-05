@@ -189,7 +189,7 @@ public class ContentView : GLib.Object {
         date_overlay = new Gtk.Overlay();
 
         var date = new DateTime.now_local();
-        var date_str = date.format("%A, %B %d");
+        var date_str = DateUtils.full_date(date);
         date_label = new Gtk.Label(date_str);
         date_label.set_xalign(0);
         date_label.add_css_class("dim-label");

@@ -240,7 +240,7 @@ public class StocksTickerController : GLib.Object {
             // logo, so it shouldn't get CategorySection's default
             // circular-logo treatment.
             string? icon_path = CategoryIconsUtils.resolve_themed_icon_path("markets-mono.svg");
-            var section = new CategorySection(win, "Markets Today", "business:stocks", true, false, null, false, icon_path, null, false);
+            var section = new CategorySection(win, _("Markets Today"), "business:stocks", true, false, null, false, icon_path, null, false);
             foreach (var quote in quotes) {
                 var card = new MarketIndexCard(quote, card_size);
                 section.add_card(card.root);

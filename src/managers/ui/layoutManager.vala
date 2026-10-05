@@ -552,7 +552,7 @@ namespace Managers {
                 // use - producing garbage/invalid-UTF8 label text at runtime.
                 string display_name;
                 if (cat == MISC_SECTION_KEY) {
-                    display_name = "More Stories";
+                    display_name = _("More Stories");
                 } else if (window != null) {
                     display_name = window.category_display_name_for(cat);
                 } else {

@@ -135,7 +135,7 @@ public class FetchNewsController {
     // Sink for a view's regular fetches. Bound to ctx, so a late result from
     // a view the user already left is dropped by the sink rather than landing here.
     private static FetchSink news_sink(FetchContext ctx, owned SinkVoidHandler? on_done = null) {
-        return new FetchSink(ctx.session, (it) => route_item(ctx, it), (text) => forward_label(ctx, text), null, (owned) on_done);
+        return new FetchSink(ctx.session, (it) => route_item(ctx, it), (text, is_error) => forward_label(ctx, text, is_error), null, (owned) on_done);
     }
 
     // Front Page's Trending section: a second fetch layered onto the same view that
@@ -147,17 +147,16 @@ public class FetchNewsController {
             if (w.article_manager != null) {
                 w.article_manager.add_item(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published, it.snippet, true);
             }
-        }, (text) => { if (ctx.still_owns_view()) ctx.window.update_content_header(); }, null, () => { mark_frontpage_endpoint_done(ctx); });
+        }, (text, is_error) => { if (ctx.still_owns_view()) ctx.window.update_content_header(); }, null, () => { mark_frontpage_endpoint_done(ctx); });
     }
 
-    private static void forward_label(FetchContext ctx, string? text) {
+    private static void forward_label(FetchContext ctx, string? text, bool is_error) {
         if (ctx.is_local_only_view() || !ctx.still_owns_view()) return;
         var win = ctx.window;
 
         // With several sources, one failure isn't the whole view's; INITIAL_MAX_WAIT_MS covers all of them failing.
         if (text != null && !ctx.is_multi_source) {
-            string lower = text.down();
-            if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
+            if (is_error) {
                 if (win.loading_state != null) win.loading_state.network_failure_detected = true;
                 win.hide_loading_spinner();
                 win.show_error_message(text);
@@ -1074,7 +1073,7 @@ public class FetchNewsController {
 
         var sink = new FetchSink(ctx.session, (it) => {
             if (ctx.still_owns_view()) batch.add_live(it);
-        }, (text) => forward_label(ctx, text));
+        }, (text, is_error) => forward_label(ctx, text, is_error));
 
         RssFeedProcessor.fetch_rss_url(
             url,

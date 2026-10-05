@@ -50,10 +50,10 @@ namespace Paperboy {
                 try {
                     string? body = fetch(feed_url, session);
                     if (body == null) {
-                        error = "Couldn't reach that feed";
+                        error = _("Couldn't reach that feed");
                     } else {
                         show = parse_show(body, feed_url);
-                        if (show == null) error = "That doesn't look like a valid podcast feed";
+                        if (show == null) error = _("That doesn't look like a valid podcast feed");
                     }
                 } catch (GLib.Error e) {
                     error = e.message;

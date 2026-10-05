@@ -63,7 +63,7 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
     private Adw.PreferencesGroup build_builtin_group() {
         var builtin_sources_group = new Adw.PreferencesGroup();
         foreach (unowned BuiltinSource s in BuiltinSources.ALL) {
-            builtin_sources_group.add(create_builtin_source_row(s.name, s.description, s.id, s.favicon_url));
+            builtin_sources_group.add(create_builtin_source_row(s.name, _(s.description), s.id, s.favicon_url));
         }
 
         var builtin_page = new Adw.PreferencesPage();
@@ -160,7 +160,7 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
         var delete_btn = PrefsRows.flat_icon_button("user-trash-symbolic", _("Remove this source"), true);
         delete_btn.clicked.connect(() => {
             DialogUtils.confirm_destructive(ctx.dialog, _("Remove this source?"),
-                "Are you sure you want to remove '" + rss_source.get_display_name() + "' and all of its articles?",
+                _("Are you sure you want to remove \"%s\" and all of its articles?").printf(rss_source.get_display_name()),
                 _("Remove"), () => {
                 bool is_currently_viewing = win != null && win.prefs.category == "rssfeed:" + rss_source.url;
 

@@ -34,6 +34,7 @@ public abstract class BaseFetcher : GLib.Object {
     protected GLib.Cancellable? cancellable { get { return sink.cancellable; } }
 
     protected void set_label(string text) { sink.set_label(text); }
+    protected void set_error(string text) { sink.set_error(text); }
     protected void clear_items() { sink.clear_items(); }
     protected void add_item(string title, string url, string? thumbnail_url, string category_id, string? source_name, string? published = null, string? snippet = null) {
         if (caches_for_search) {

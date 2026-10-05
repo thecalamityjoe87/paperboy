@@ -81,7 +81,8 @@ public class ArticleReadingTimeCache : GLib.Object {
 
     // "5 min read", or "" if unknown.
     public static string label_for(int minutes) {
-        return minutes > 0 ? "%d min read".printf(minutes) : "";
+        // TRANSLATORS: estimated reading time on article cards, e.g. "5 min read"
+        return minutes > 0 ? ngettext("%d min read", "%d min read", minutes).printf(minutes) : "";
     }
 
     public static int minutes_for_words(int words) {

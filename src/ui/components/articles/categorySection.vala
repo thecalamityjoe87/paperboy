@@ -456,7 +456,7 @@ public class CategorySection : GLib.Object {
     // do that. Static for the same reason as add_nav_buttons: it hangs a
     // closure off a signal owned by `wrapper`.
     private static void add_more_button(Gtk.Box wrapper, NewsWindow? win, string nav_target_id, string title) {
-        var more_button = new Gtk.Button.with_label("Go to " + title + " →");
+        var more_button = new Gtk.Button.with_label(_("Go to %s →").printf(title));
         more_button.add_css_class("flat");
         more_button.add_css_class("section-more-button");
         more_button.set_halign(Gtk.Align.END);

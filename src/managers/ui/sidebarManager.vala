@@ -336,7 +336,7 @@ public class SidebarManager : GLib.Object {
         // Section 2: Categories
         var categories_section = SidebarSectionData();
         categories_section.section_id = "popular_categories";
-        categories_section.title = "Categories";
+        categories_section.title = _("Categories");
         categories_section.is_expandable = true;
         categories_section.is_expanded = popular_categories_expanded;
         categories_section.items = new Gee.ArrayList<SidebarItemData?>();

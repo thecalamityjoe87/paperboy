@@ -431,7 +431,7 @@ public class HeaderManager : GLib.Object {
             int count = window.article_state_store != null ? window.article_state_store.get_saved_count() : 0;
             view.date_label.set_text(count == 1 ? _("1 saved article") : _("%d saved articles").printf(count));
         } else {
-            view.date_label.set_text(new DateTime.now_local().format("%A, %B %d"));
+            view.date_label.set_text(DateUtils.full_date(new DateTime.now_local()));
         }
     }
 

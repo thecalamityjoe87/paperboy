@@ -40,12 +40,12 @@ namespace Paperboy {
         // MagazineSource website scan).
         public void import_from_url(string pdf_url, string? title_override, int64 source_id, Soup.Session session, owned ImportCallback callback) {
             if (!pdf_url.has_prefix("https://")) {
-                callback(false, null, "Only https:// links are supported");
+                callback(false, null, _("Only https:// links are supported"));
                 return;
             }
 
             if (Paperboy.MagazineLibraryStore.get_instance().entry_exists_for_url(pdf_url)) {
-                callback(false, null, "Already in your library");
+                callback(false, null, _("Already in your library"));
                 return;
             }
 
@@ -54,7 +54,7 @@ namespace Paperboy {
                 string? error = null;
                 try {
                     entry = do_import_from_url(pdf_url, title_override, source_id, session);
-                    if (entry == null) error = "Failed to save that magazine";
+                    if (entry == null) error = _("Failed to save that magazine");
                 } catch (GLib.Error e) {
                     error = e.message;
                 }
@@ -79,7 +79,7 @@ namespace Paperboy {
         public void import_from_path(string local_source_path, string? title_override, int64 source_id, owned ImportCallback callback) {
             string source_url = "file://" + local_source_path;
             if (Paperboy.MagazineLibraryStore.get_instance().entry_exists_for_url(source_url)) {
-                callback(false, null, "Already in your library");
+                callback(false, null, _("Already in your library"));
                 return;
             }
 
@@ -88,7 +88,7 @@ namespace Paperboy {
                 string? error = null;
                 try {
                     entry = do_import_from_path(local_source_path, source_url, title_override, source_id);
-                    if (entry == null) error = "Failed to save that magazine";
+                    if (entry == null) error = _("Failed to save that magazine");
                 } catch (GLib.Error e) {
                     error = e.message;
                 }
@@ -160,7 +160,7 @@ namespace Paperboy {
         // sandboxed subprocess), and the store insert.
         private Paperboy.MagazineEntry? finish_import(uint8[] data, string source_url, string? title_override, int64 source_id) throws GLib.Error {
             if (!PdfValidatorUtils.looks_like_pdf(data)) {
-                throw new GLib.IOError.FAILED("That doesn't look like a valid PDF file");
+                throw new GLib.IOError.FAILED(_("That doesn't look like a valid PDF file"));
             }
 
             var store = Paperboy.MagazineLibraryStore.get_instance();
@@ -219,7 +219,7 @@ namespace Paperboy {
                 basename = new GLib.Regex("(?<=\\S)-(?=\\S)").replace(basename, -1, 0, " ");
             } catch (GLib.RegexError e) { }
             basename = basename.strip();
-            return basename.length > 0 ? basename : "Untitled magazine";
+            return basename.length > 0 ? basename : _("Untitled magazine");
         }
 
         // Also captures the sandboxed process's stdout for the PDF's

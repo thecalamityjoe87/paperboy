@@ -128,7 +128,7 @@ public class PaperboyFetcher : BaseFetcher {
                 add_item(item.title, item.url, item.thumbnail_url, category_id, source, item.published);
                 added++;
             },
-            (label) => { if (!label.has_suffix(" — " + GoogleNewsUtils.AGGREGATOR_NAME)) finish(); },
+            (label, is_error) => { if (is_error || !label.has_suffix(" — " + GoogleNewsUtils.AGGREGATOR_NAME)) finish(); },
             () => { GLib.Idle.add(() => { finish(); return false; }); });
         timeout_id = GLib.Timeout.add_seconds(20, () => {
             timeout_id = 0;
@@ -198,7 +198,7 @@ public class PaperboyFetcher : BaseFetcher {
                 }
                 // Don't show error if we have cached articles
                 if (cached_articles.size == 0) {
-                    set_label(_("Paperboy: Error loading frontpage"));
+                    set_error(_("Paperboy: Error loading frontpage"));
                 }
                 done();
                 return;
@@ -481,7 +481,7 @@ public class PaperboyFetcher : BaseFetcher {
             if (failed) {
                 warning("Paperboy API HTTP error: %u", response.status_code);
                 if (GoogleNewsUtils.is_us_english()) {
-                    set_label("Paperboy: Error loading Top Ten");
+                    set_error(_("Paperboy: Error loading Top Ten"));
                     done();
                     return;
                 }

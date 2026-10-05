@@ -338,12 +338,12 @@ public class CardBuilder : GLib.Object {
         box.set_margin_bottom(16);
         box.set_opacity(0);
 
-        var up = build_feedback_button("thumbs-up", "More like this");
+        var up = build_feedback_button("thumbs-up", _("More like this"));
         box.append(up);
         var divider = new Gtk.Separator(Gtk.Orientation.VERTICAL);
         divider.add_css_class("source-badge-divider");
         box.append(divider);
-        var down = build_feedback_button("thumbs-down", "Less like this");
+        var down = build_feedback_button("thumbs-down", _("Less like this"));
         box.append(down);
 
         string norm = win.normalize_article_url(url);
@@ -392,9 +392,9 @@ public class CardBuilder : GLib.Object {
     }
 
     private static string feedback_toast_text(int vote) {
-        if (vote > 0) return "You'll see more articles like this";
-        if (vote < 0) return "You'll see fewer articles like this";
-        return "Rating removed";
+        if (vote > 0) return _("You'll see more articles like this");
+        if (vote < 0) return _("You'll see fewer articles like this");
+        return _("Rating removed");
     }
 
     private static void show_feedback_vote(Gtk.Button up, Gtk.Button down, int vote) {

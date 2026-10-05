@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy 0.12.5a\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 16:43-0500\n"
+"POT-Creation-Date: 2026-10-05 17:34-0500\n"
 "PO-Revision-Date: 2026-10-04 08:42-0300\n"
 "Last-Translator: Djair Guilherme\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -46,6 +46,26 @@ msgstr "Abrir na visualização de leitura"
 #: src/ui/components/articles/heroCard.vala:196
 msgid "Preview article"
 msgstr "Pré-visualizar artigo"
+
+#: src/builders/cardBuilder.vala:341
+msgid "More like this"
+msgstr "Mais como este"
+
+#: src/builders/cardBuilder.vala:346
+msgid "Less like this"
+msgstr "Menos como este"
+
+#: src/builders/cardBuilder.vala:395
+msgid "You'll see more articles like this"
+msgstr "Você verá mais artigos como este"
+
+#: src/builders/cardBuilder.vala:396
+msgid "You'll see fewer articles like this"
+msgstr "Você verá menos artigos como este"
+
+#: src/builders/cardBuilder.vala:397
+msgid "Rating removed"
+msgstr "Avaliação removida"
 
 #: src/builders/cardBuilder.vala:658
 msgid "Read"
@@ -159,7 +179,7 @@ msgstr "Em alta"
 #: src/managers/ui/headerManager.vala:474
 #: src/managers/ui/sidebarManager.vala:308
 #: src/services/fetchers/fetcherUtils.vala:24
-#: src/ui/controllers/fetchNewsController.vala:583
+#: src/ui/controllers/fetchNewsController.vala:582
 msgid "My Feed"
 msgstr "Meu feed"
 
@@ -168,7 +188,7 @@ msgstr "Meu feed"
 #: src/managers/ui/sidebarManager.vala:319
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
 #: src/services/feeds/unreadFetchService.vala:226
-#: src/ui/controllers/fetchNewsController.vala:1082
+#: src/ui/controllers/fetchNewsController.vala:1081
 msgid "Local News"
 msgstr "Notícias locais"
 
@@ -334,6 +354,7 @@ msgid "PDF files"
 msgstr "Arquivos PDF"
 
 #: src/managers/media/magazineLibraryManager.vala:833
+#: src/services/magazines/magazinePdfImportService.vala:43
 msgid "Only https:// links are supported"
 msgstr "Apenas links https:// são suportados"
 
@@ -486,7 +507,12 @@ msgstr "Não foi possível adicionar o podcast: "
 msgid "unknown error"
 msgstr "erro desconhecido"
 
-#: src/managers/ui/headerManager.vala:258
+#. No extra rebuild_sidebar() needed here (unlike
+#. add_rss_feed()'s two-step enable dance) - subscribing is
+#. the terminal state change, and SidebarManager already
+#. listens to PodcastSubscriptionStore.subscription_added
+#. and rebuilds on its own.
+#: src/managers/ui/headerManager.vala:258 src/ui/sidebarView.vala:879
 msgid "Podcast added: "
 msgstr "Podcast adicionado: "
 
@@ -605,6 +631,11 @@ msgstr ""
 "Abra o menu principal (☰) → escolha Preferências → aba 'Personalização' → "
 "ative a opção 'Ativar feed personalizado' e clique no ícone de configurações "
 "dela para selecionar categorias, ou siga feeds RSS personalizados."
+
+#: src/managers/ui/sidebarManager.vala:339
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
+msgid "Categories"
+msgstr "Categorias"
 
 #: src/managers/ui/sidebarManager.vala:372
 #: src/ui/controllers/myFeedExtrasController.vala:317
@@ -786,6 +817,11 @@ msgstr "Buscar podcasts…"
 msgid "Search magazines…"
 msgstr "Buscar revistas…"
 
+#. Also show a user-visible toast for immediate feedback
+#: src/ui/appWindow.vala:1311
+msgid "Failed to load articles. Please try again."
+msgstr "Não foi possível carregar os artigos. Tente novamente."
+
 #: src/ui/components/articles/articlePane.vala:57
 msgid "Failed to open link in browser"
 msgstr "Falha ao abrir o link no navegador"
@@ -911,6 +947,17 @@ msgstr "Não foi possível carregar os comentários."
 #: src/ui/components/sports/leagueBadge.vala:101 src/ui/sidebarView.vala:553
 msgid "Live"
 msgstr "Ao vivo"
+
+#. Plain "Go to <title>" button under the row (not overlaid on the
+#. cards), fixed in place - jumps to nav_target_id's full page via the
+#. sidebar. Names the destination directly rather than "See all", which
+#. reads as "load more into this row" - the row's own nav arrows already
+#. do that. Static for the same reason as add_nav_buttons: it hangs a
+#. closure off a signal owned by `wrapper`.
+#: src/ui/components/articles/categorySection.vala:459
+#, c-format
+msgid "Go to %s →"
+msgstr "Ir para %s →"
 
 #. Margins live in CSS (.top-stories-title), not set_margin_top/
 #. bottom here: the top margin was silently not taking effect via
@@ -1392,6 +1439,11 @@ msgstr ""
 msgid "City name or postal code"
 msgstr "Nome da cidade ou CEP"
 
+#: src/ui/dialogs/app/locationDialog.vala:104
+#, c-format
+msgid "Current location: <b>%s</b>"
+msgstr "Localização atual: <b>%s</b>"
+
 #: src/ui/dialogs/app/locationDialog.vala:140
 msgid "Searching..."
 msgstr "Buscando..."
@@ -1417,21 +1469,32 @@ msgstr ""
 "Não foi possível resolver uma localização para isso. Tente outro nome de "
 "cidade ou CEP."
 
+#. TRANSLATORS: the first %s is a city, the second the dialog's save button label
+#: src/ui/dialogs/app/locationDialog.vala:268
+#, c-format
+msgid "Detected: <b>%s</b> — click %s to use this location"
+msgstr "Detectado: <b>%s</b> — clique em “%s” para usar esta localização"
+
 #: src/ui/dialogs/app/locationDialog.vala:273
+#, c-format
+msgid "Detected: <b>%s</b> — choose which news to add:"
+msgstr "Detectado: <b>%s</b> — escolha quais notícias adicionar:"
+
+#: src/ui/dialogs/app/locationDialog.vala:274
 msgid "Smaller towns may have limited coverage."
 msgstr "Cidades menores podem ter cobertura limitada."
 
-#: src/ui/dialogs/app/locationDialog.vala:274
+#: src/ui/dialogs/app/locationDialog.vala:275
 msgid "Nearby metro area"
 msgstr "Região metropolitana próxima"
 
-#: src/ui/dialogs/app/locationDialog.vala:282
+#: src/ui/dialogs/app/locationDialog.vala:283
 msgid "1 location slot left — pick one, or remove a location to add both."
 msgstr ""
 "Resta 1 vaga de localização — escolha uma ou remova uma localização para "
 "adicionar as duas."
 
-#: src/ui/dialogs/app/locationDialog.vala:314
+#: src/ui/dialogs/app/locationDialog.vala:315
 msgid "Enter a city name or postal code and press Search."
 msgstr "Digite o nome de uma cidade ou CEP e pressione Buscar."
 
@@ -1802,8 +1865,10 @@ msgstr "Este site publica mais de um podcast — selecione quais adicionar."
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:59
 #, c-format
-msgid "%d episode%s"
-msgstr "%d episódio%s"
+msgid "%d episode"
+msgid_plural "%d episodes"
+msgstr[0] "%d episódio"
+msgstr[1] "%d episódios"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:63
 #, c-format
@@ -1993,6 +2058,7 @@ msgid "Remove this source?"
 msgstr "Remover esta fonte?"
 
 #: src/ui/menus/sidebarMenu.vala:179
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:163
 #, c-format
 msgid "Are you sure you want to remove \"%s\" and all of its articles?"
 msgstr "Tem certeza de que deseja remover \"%s\" e todos os seus artigos?"
@@ -2007,6 +2073,10 @@ msgstr "Remover"
 #: src/ui/menus/sidebarMenu.vala:184
 msgid "Feed removed"
 msgstr "Feed removido"
+
+#: src/ui/sidebarView.vala:261
+msgid "Manage Categories"
+msgstr "Gerenciar categorias"
 
 #. "Open" pill shown to the left of the Business category's count badge
 #. while MarketStatusManager reports the US market as in its regular
@@ -2028,6 +2098,24 @@ msgstr "Digite a URL do feed RSS:"
 msgid "Feed name (optional)"
 msgstr "Nome do feed (opcional)"
 
+#: src/ui/sidebarView.vala:735
+msgid "Add Feed"
+msgstr "Adicionar feed"
+
+#. Use the centralized ToastManager instead of creating Adw.Toast directly
+#: src/ui/sidebarView.vala:755
+msgid "Discovering feed..."
+msgstr "Procurando o feed..."
+
+#: src/ui/sidebarView.vala:761
+#, c-format
+msgid "RSS feed added: %s"
+msgstr "Feed RSS adicionado: %s"
+
+#: src/ui/sidebarView.vala:768
+msgid "Failed to add RSS feed"
+msgstr "Falha ao adicionar o feed RSS"
+
 #: src/ui/sidebarView.vala:816 src/ui/sidebarView.vala:835
 msgid "Add a Podcast"
 msgstr "Adicionar podcast"
@@ -2036,6 +2124,14 @@ msgstr "Adicionar podcast"
 msgid "Enter the podcast's RSS feed URL:"
 msgstr "Digite a URL do feed RSS do podcast:"
 
+#: src/ui/sidebarView.vala:848
+msgid "Add Podcast"
+msgstr "Adicionar podcast"
+
+#: src/ui/sidebarView.vala:865
+msgid "Resolving podcast feed..."
+msgstr "Verificando o feed do podcast..."
+
 #: src/ui/sidebarView.vala:881
 msgid "Failed to add podcast"
 msgstr "Falha ao adicionar podcast"
@@ -2043,6 +2139,10 @@ msgstr "Falha ao adicionar podcast"
 #: src/ui/sidebarView.vala:1269
 msgid "Now Playing"
 msgstr "Reproduzindo agora"
+
+#: src/ui/controllers/myFeedExtrasController.vala:278
+msgid "Your Scores"
+msgstr "Seus placares"
 
 #: src/ui/controllers/myFeedExtrasController.vala:336
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
@@ -2141,6 +2241,10 @@ msgstr "Limpar"
 msgid "Clear article content cache?"
 msgstr "Limpar o cache de conteúdo dos artigos?"
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:183
+msgid "This will delete cached article content and images. Previously read articles will need to be re-downloaded."
+msgstr "Isso apagará o conteúdo e as imagens dos artigos em cache. Os artigos já lidos precisarão ser baixados novamente."
+
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
 msgid "Clear Cache"
@@ -2162,6 +2266,10 @@ msgstr "Cache do feed RSS"
 msgid "Clear RSS Feed Cache?"
 msgstr "Limpar o cache dos feeds RSS?"
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:215
+msgid "This will delete all cached RSS feed listings. Feeds will load from the network next time."
+msgstr "Isso apagará todas as listas de feeds RSS em cache. Os feeds serão carregados da rede na próxima vez."
+
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
 msgid "0 bytes (0 articles)"
 msgstr "0 bytes (0 artigos)"
@@ -2173,6 +2281,10 @@ msgstr "Cache de feeds RSS limpo"
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:232
 msgid "Backup &amp; Restore"
 msgstr "Backup &amp; Restauração"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:235
+msgid "Export or import your custom RSS feeds and podcast subscriptions as an OPML file."
+msgstr "Exporte ou importe seus feeds RSS personalizados e suas assinaturas de podcasts como um arquivo OPML."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
 msgid "Export Feeds & Podcasts"
@@ -2250,6 +2362,10 @@ msgstr "Redefinir"
 msgid "Reset to factory settings?"
 msgstr "Restaurar configurações de fábrica?"
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:292
+msgid "This permanently deletes all sources, saved articles, notes, and settings, and cannot be undone. Paperboy will restart as if freshly installed."
+msgstr "Isso apaga permanentemente todas as fontes, artigos salvos, notas e configurações, e não pode ser desfeito. O Paperboy será reiniciado como se tivesse acabado de ser instalado."
+
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:293
 msgid "Reset App"
 msgstr "Redefinir aplicativo"
@@ -2285,10 +2401,6 @@ msgstr "Região"
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:53
 msgid "Your national news and Front Page come from this country"
 msgstr "Suas notícias nacionais e a Primeira página vêm deste país"
-
-#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
-msgid "Categories"
-msgstr "Categorias"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:79
 msgid "The categories shown in the sidebar and used for My Feed"
@@ -3107,6 +3219,79 @@ msgstr ""
 msgid "US News"
 msgstr "Notícias dos EUA"
 
+#. TRANSLATORS: date before the time in an article's byline, a
+#. strftime format ("man strftime"): %b is the abbreviated month,
+#. %-d the unpadded day, %Y the year. Reorder to suit, e.g. "%-d %b %Y".
+#: src/utils/text/dateUtils.vala:46
+#, no-c-format
+msgid "%b %-d, %Y"
+msgstr "%-d de %b de %Y"
+
+#. clock skew / future timestamp
+#: src/utils/text/dateUtils.vala:102
+msgid "Just now"
+msgstr "Agora mesmo"
+
+#. TRANSLATORS: compact relative times on article cards, where space
+#. is tight - abbreviate if your language allows it
+#: src/utils/text/dateUtils.vala:106
+#, c-format
+msgid "%dm ago"
+msgid_plural "%dm ago"
+msgstr[0] "há %d min"
+msgstr[1] "há %d min"
+
+#: src/utils/text/dateUtils.vala:108
+#, c-format
+msgid "%dh ago"
+msgid_plural "%dh ago"
+msgstr[0] "há %d h"
+msgstr[1] "há %d h"
+
+#: src/utils/text/dateUtils.vala:110
+#, c-format
+msgid "%dd ago"
+msgid_plural "%dd ago"
+msgstr[0] "há %d dia"
+msgstr[1] "há %d dias"
+
+#. Older than a week: fall back to a short absolute date ("Aug 27").
+#. TRANSLATORS: short date on article cards older than a week, a
+#. strftime format ("man strftime"): %b is the abbreviated month and
+#. %-d the unpadded day. Reorder to suit, e.g. "%-d %b".
+#: src/utils/text/dateUtils.vala:117
+#, no-c-format
+msgid "%b %-d"
+msgstr "%-d de %b"
+
+#. Page header date, e.g. "Monday, October 5".
+#. TRANSLATORS: date in page headers, a strftime format ("man strftime"):
+#. %A is the weekday, %B the month and %-d the unpadded day. Reorder to
+#. suit, e.g. "%A %-d %B".
+#: src/utils/text/dateUtils.vala:126
+#, no-c-format
+msgid "%A, %B %-d"
+msgstr "%A, %-d de %B"
+
+#. Weekday and numeric date for game times, e.g. "Mon 10/5".
+#. TRANSLATORS: weekday and date on sports score cards, a strftime
+#. format ("man strftime"): %a is the abbreviated weekday, %-m the
+#. unpadded month number and %-d the unpadded day. Reorder to suit,
+#. e.g. "%a %-d.%-m.".
+#: src/utils/text/dateUtils.vala:136
+#, no-c-format
+msgid "%a %-m/%-d"
+msgstr "%a, %-d/%-m"
+
+#: src/managers/content/articleManager.vala:157
+#: src/managers/content/articleManager.vala:172
+msgid "You're offline. Enable internet connection to view articles"
+msgstr "Você está offline. Conecte-se à internet para ver os artigos"
+
+#: src/managers/ui/layoutManager.vala:555
+msgid "More Stories"
+msgstr "Mais notícias"
+
 #: src/services/fetchers/fetcherUtils.vala:23
 #, fuzzy
 msgid "The Frontpage"
@@ -3122,221 +3307,185 @@ msgstr ""
 msgid "Paperboy: Error loading frontpage"
 msgstr "Erro ao carregar o feed"
 
+#: src/services/fetchers/paperboyFetcher.vala:484
+msgid "Paperboy: Error loading Top Ten"
+msgstr "Paperboy: erro ao carregar o Top 10"
+
 #: src/services/fetchers/paperboyFetcher.vala:524
 #, fuzzy
 msgid "Top Ten — Paperboy"
 msgstr "Bem-vindo ao Paperboy"
 
-#: src/ui/controllers/fetchNewsController.vala:298
-#: src/ui/controllers/fetchNewsController.vala:674
+#: src/ui/controllers/fetchNewsController.vala:297
+#: src/ui/controllers/fetchNewsController.vala:673
 msgid "Offline - showing cached articles"
 msgstr ""
 
-#: src/ui/controllers/fetchNewsController.vala:673
+#: src/ui/controllers/fetchNewsController.vala:672
 #, c-format
 msgid "%s — Offline, showing %d cached articles"
 msgstr ""
 
-#: src/ui/controllers/fetchNewsController.vala:676
+#: src/ui/controllers/fetchNewsController.vala:675
 #, fuzzy, c-format
 msgid "%s — Loaded %d articles from cache"
 msgstr "Artigo removido dos salvos"
 
-#~ msgid "Popular Categories"
-#~ msgstr "Categorias populares"
-
+#. time_text replaces the "Viewed ..." caption when the row is reused outside History (e.g. Recommended for you).
+#. TRANSLATORS: %s is a relative time, e.g. "Viewed 3h ago"
+#: src/ui/components/articles/historyCard.vala:157
 #, c-format
-#~ msgid "Go to %s →"
-#~ msgstr "Ir para %s →"
+msgid "Viewed %s"
+msgstr "Visto %s"
 
-#~ msgid ""
-#~ "Open the main menu (☰) → choose 'Manage locations' to configure your city "
-#~ "or ZIP code."
-#~ msgstr ""
-#~ "Abra o menu principal (☰) → escolha 'Gerenciar locais' para configurar "
-#~ "sua cidade ou CEP."
-
-#~ msgid ""
-#~ "Enter a city name or a ZIP code, or use your current location.\n"
-#~ "Examples: \"San Francisco, CA\" or \"94103\" or \"94103-1234\""
-#~ msgstr ""
-#~ "Insira o nome de uma cidade ou um CEP, ou use sua localização atual.\n"
-#~ "Exemplos: \"San Francisco, CA\" ou \"94103\" ou \"94103-1234\""
-
-#~ msgid "City name or ZIP code (e.g. San Francisco, 94103)"
-#~ msgstr "Nome da cidade ou CEP (ex.: San Francisco, 94103)"
-
-#~ msgid "Current location: "
-#~ msgstr "Localização atual: "
-
-#~ msgid " (already added)"
-#~ msgstr " (já adicionado)"
-
-#~ msgid ""
-#~ "Couldn't resolve a location for that. Try a different city name or ZIP "
-#~ "code."
-#~ msgstr ""
-#~ "Não foi possível resolver um local para isso. Tente outro nome de cidade "
-#~ "ou CEP."
-
-#~ msgid "Detected: "
-#~ msgstr "Detectado: "
-
-#~ msgid " — click "
-#~ msgstr " — clique em "
-
-#~ msgid " to use this location"
-#~ msgstr " para usar esta localização"
-
-#~ msgid " — choose which news to add:"
-#~ msgstr " — escolha quais notícias adicionar:"
-
-#~ msgid "Enter a city name or ZIP code and press Search."
-#~ msgstr "Digite o nome de uma cidade ou CEP e pressione Pesquisar."
-
-#~ msgid "No Sources Enabled"
-#~ msgstr "Nenhuma fonte ativada"
-
-#~ msgid ""
-#~ "You didn't enable any news sources, so Popular Categories (World News, "
-#~ "Technology, Sports, and others) will appear empty until you turn some on. "
-#~ "You can enable built-in sources or add your own RSS feeds anytime from "
-#~ "Preferences."
-#~ msgstr ""
-#~ "Você não ativou nenhuma fonte de notícias, então as Categorias Populares "
-#~ "(Mundo, Tecnologia, Esportes e outras) aparecerão vazias até você ativar "
-#~ "algumas. Você pode ativar fontes integradas ou adicionar seus próprios "
-#~ "feeds RSS a qualquer momento nas Preferências."
-
-#~ msgid "Open Preferences"
-#~ msgstr "Abrir Preferências"
-
-#~ msgid ""
-#~ "Paperboy comes with a set of prebuilt news sources to get you started. "
-#~ "Tap the outlets you'd like to see - you can change these anytime from "
-#~ "Preferences."
-#~ msgstr ""
-#~ "O Paperboy vem com um conjunto de fontes de notícias predefinidas para "
-#~ "você começar. Toque nos veículos que deseja ver — você pode mudar isso a "
-#~ "qualquer momento nas Preferências."
-
-#~ msgid "Personalized Feed Categories"
-#~ msgstr "Categorias do feed personalizado"
-
-#~ msgid "Select which categories to include in your personalized feed"
-#~ msgstr "Selecione quais categorias incluir no seu feed personalizado"
-
-#~ msgid "The Guardian"
-#~ msgstr "The Guardian"
-
-#~ msgid "Independent global news and analysis"
-#~ msgstr "Notícias e análises globais independentes"
-
-#~ msgid "PBS NewsHour"
-#~ msgstr "PBS NewsHour"
-
-#~ msgid "Neutral, in-depth public affairs reporting"
-#~ msgstr "Cobertura de assuntos públicos neutra e aprofundada"
-
-#~ msgid "BBC News"
-#~ msgstr "BBC News"
-
-#~ msgid "Comprehensive international and UK reporting"
-#~ msgstr "Cobertura internacional e do Reino Unido abrangente"
-
-#~ msgid "New York Times"
-#~ msgstr "New York Times"
-
-#~ msgid "In-depth journalism across major categories"
-#~ msgstr "Jornalismo aprofundado nas principais categorias"
-
-#~ msgid "Bloomberg"
-#~ msgstr "Bloomberg"
-
-#~ msgid "Market, business, and finance coverage"
-#~ msgstr "Cobertura de mercado, negócios e finanças"
-
-#~ msgid "Wall Street Journal"
-#~ msgstr "Wall Street Journal"
-
-#~ msgid "Business, economic, and political reporting"
-#~ msgstr "Cobertura de negócios, economia e política"
-
-#~ msgid "ABC News"
-#~ msgstr "ABC News"
-
-#~ msgid "US network coverage across politics, business, and more"
-#~ msgstr "Cobertura de redes dos EUA em política, negócios e mais"
-
-#~ msgid "NPR"
-#~ msgstr "NPR"
-
-#~ msgid "Public radio news and feature storytelling"
-#~ msgstr "Notícias de rádio pública e reportagens especiais"
-
-#~ msgid "Fox News"
-#~ msgstr "Fox News"
-
-#~ msgid "U.S. politics, headlines, and commentary"
-#~ msgstr "Política, manchetes e comentários dos EUA"
-
-#~ msgid "Are you sure you want to remove '"
-#~ msgstr "Tem certeza de que deseja remover '"
-
-#~ msgid "' and all of its articles?"
-#~ msgstr "' e todos os seus artigos?"
-
+#: src/ui/components/markets/marketIndexCard.vala:265
 #, c-format
-#~ msgid ""
-#~ "\"%s\" and the 1 magazine added from it will be removed, including its "
-#~ "downloaded file."
-#~ msgstr ""
-#~ "\"%s\" e a 1 revista adicionada a partir dele serão removidos, incluindo "
-#~ "o arquivo baixado."
+msgid "Updated %s"
+msgstr "Atualizado %s"
 
+#. "5 min read", or "" if unknown.
+#. TRANSLATORS: estimated reading time on article cards, e.g. "5 min read"
+#: src/services/cache/articleReadingTimeCache.vala:85
 #, c-format
-#~ msgid ""
-#~ "\"%s\" and the %d magazines added from it will be removed, including "
-#~ "their downloaded files."
-#~ msgstr ""
-#~ "\"%s\" e as %d revistas adicionadas a partir dele serão removidas, "
-#~ "incluindo seus arquivos baixados."
+msgid "%d min read"
+msgid_plural "%d min read"
+msgstr[0] "%d min de leitura"
+msgstr[1] "%d min de leitura"
 
-#~ msgid "Personalized feed settings"
-#~ msgstr "Configurações do feed personalizado"
+#: src/builders/placeholderBuilder.vala:296
+msgid "News Source"
+msgstr "Fonte de notícias"
 
-#~ msgid "Show on popular categories"
-#~ msgstr "Mostrar em categorias populares"
+#: src/managers/content/feedUpdateManager.vala:251
+#, c-format
+msgid "RSS feeds: %d updated"
+msgid_plural "RSS feeds: %d updated"
+msgstr[0] "Feeds RSS: %d atualizado"
+msgstr[1] "Feeds RSS: %d atualizados"
 
-#~ msgid ""
-#~ "This will delete cached article content and images. Previously read "
-#~ "articles will need to be re-downloaded."
-#~ msgstr ""
-#~ "Isso excluirá o conteúdo e as imagens de artigos em cache. Os artigos "
-#~ "lidos anteriormente precisarão ser baixados novamente."
+#: src/managers/content/sourceManager.vala:403
+#, c-format
+msgid "Enabled %s"
+msgstr "%s ativado"
 
-#~ msgid ""
-#~ "This will delete all cached RSS feed listings. Feeds will load from the "
-#~ "network next time."
-#~ msgstr ""
-#~ "Isso excluirá todas as listagens de feeds RSS em cache. Os feeds serão "
-#~ "carregados da rede na próxima vez."
+#: src/managers/content/sourceManager.vala:417
+msgid "Couldn't find this article's source"
+msgstr "Não foi possível encontrar a fonte deste artigo"
 
-#~ msgid ""
-#~ "Export or import your custom RSS feeds and podcast subscriptions as an "
-#~ "OPML file."
-#~ msgstr ""
-#~ "Exporte ou importe seus feeds RSS personalizados e assinaturas de podcast "
-#~ "como um arquivo OPML."
+#: src/managers/content/sourceManager.vala:547
+#, c-format
+msgid "Following %s"
+msgstr "Seguindo %s"
 
-#~ msgid ""
-#~ "This permanently deletes all sources, saved articles, notes, and "
-#~ "settings, and cannot be undone. Paperboy will restart as if freshly "
-#~ "installed."
-#~ msgstr ""
-#~ "Isso exclui permanentemente todas as fontes, artigos salvos, notas e "
-#~ "configurações, e não pode ser desfeito. O Paperboy será reiniciado como "
-#~ "se tivesse sido recém-instalado."
+#: src/managers/content/sourceManager.vala:552
+#: src/managers/content/sourceManager.vala:688
+msgid "Source already followed"
+msgstr "Você já segue esta fonte"
 
-#~ msgid " and all of its articles?"
-#~ msgstr " e todos os seus artigos?"
+#: src/managers/content/sourceManager.vala:580
+msgid "Failed to discover RSS feed"
+msgstr "Falha ao detectar o feed RSS"
+
+#: src/managers/content/sourceManager.vala:588
+msgid "Generating feed for this source..."
+msgstr "Gerando um feed para esta fonte..."
+
+#: src/managers/content/sourceManager.vala:601
+msgid "Generated feed has no articles"
+msgstr "O feed gerado não tem artigos"
+
+#: src/managers/content/sourceManager.vala:683
+#, c-format
+msgid "Following %s (%d article)"
+msgid_plural "Following %s (%d articles)"
+msgstr[0] "Seguindo %s (%d artigo)"
+msgstr[1] "Seguindo %s (%d artigos)"
+
+#: src/managers/content/sourceManager.vala:695
+msgid "No RSS feeds found"
+msgstr "Nenhum feed RSS encontrado"
+
+#: src/managers/content/sourceManager.vala:704
+msgid "Error discovering RSS feed"
+msgstr "Erro ao detectar o feed RSS"
+
+#: src/services/articles/articleShareService.vala:37
+msgid "Check out this article"
+msgstr "Confira este artigo"
+
+#: src/services/articles/articleShareService.vala:39
+msgid "I thought you might find this interesting:"
+msgstr "Achei que você poderia se interessar:"
+
+#: src/services/feeds/builtinSources.vala:41
+msgid "Independent global news and analysis"
+msgstr "Notícias e análises globais independentes"
+
+#: src/services/feeds/builtinSources.vala:44
+msgid "Comprehensive international and UK reporting"
+msgstr "Cobertura completa do mundo e do Reino Unido"
+
+#: src/services/feeds/builtinSources.vala:47
+msgid "In-depth journalism across major categories"
+msgstr "Jornalismo aprofundado nas principais categorias"
+
+#: src/services/feeds/builtinSources.vala:50
+msgid "Market, business, and finance coverage"
+msgstr "Mercados, negócios e finanças"
+
+#: src/services/feeds/builtinSources.vala:53
+msgid "Business, economic, and political reporting"
+msgstr "Cobertura de negócios, economia e política"
+
+#: src/services/feeds/builtinSources.vala:56
+msgid "US network coverage across politics, business, and more"
+msgstr "Rede americana com política, negócios e mais"
+
+#: src/services/feeds/builtinSources.vala:59
+msgid "Public radio news and feature storytelling"
+msgstr "Notícias e reportagens da rádio pública"
+
+#: src/services/feeds/builtinSources.vala:62
+msgid "U.S. politics, headlines, and commentary"
+msgstr "Política, manchetes e opinião dos EUA"
+
+#: src/services/feeds/builtinSources.vala:65
+msgid "Neutral, in-depth public affairs reporting"
+msgstr "Cobertura neutra e aprofundada de assuntos públicos"
+
+#: src/services/magazines/magazinePdfImportService.vala:48
+#: src/services/magazines/magazinePdfImportService.vala:82
+msgid "Already in your library"
+msgstr "Já está na sua biblioteca"
+
+#: src/services/magazines/magazinePdfImportService.vala:57
+#: src/services/magazines/magazinePdfImportService.vala:91
+msgid "Failed to save that magazine"
+msgstr "Falha ao salvar a revista"
+
+#: src/services/magazines/magazinePdfImportService.vala:163
+msgid "That doesn't look like a valid PDF file"
+msgstr "Não parece ser um arquivo PDF válido"
+
+#: src/services/magazines/magazinePdfImportService.vala:222
+msgid "Untitled magazine"
+msgstr "Revista sem título"
+
+#: src/services/podcasts/podcastFeedResolver.vala:53
+msgid "Couldn't reach that feed"
+msgstr "Não foi possível acessar o feed"
+
+#: src/services/podcasts/podcastFeedResolver.vala:56
+msgid "That doesn't look like a valid podcast feed"
+msgstr "Não parece ser um feed de podcast válido"
+
+#. card_container=false: no wrapping bordered panel behind the
+#. row - these cards are already fully self-contained (colored
+#. tile, own border/radius), so an outer panel background just
+#. read as a redundant card-behind-cards. circular_logo=false:
+#. the markets icon is a symbolic glyph, not a team/source photo
+#. logo, so it shouldn't get CategorySection's default
+#. circular-logo treatment.
+#: src/ui/controllers/stocksTickerController.vala:243
+msgid "Markets Today"
+msgstr "Mercados hoje"

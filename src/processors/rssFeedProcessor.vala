@@ -668,12 +668,12 @@ public class RssFeedProcessor {
                 string trimmed = url.strip();
                 if (trimmed.length == 0) {
                     warning("RSS fetch called with empty URL for source '%s'", source_name);
-                    try { sink.set_label(_("Error loading feed — invalid (empty) URL")); } catch (GLib.Error e) { }
+                    try { sink.set_error(_("Error loading feed — invalid (empty) URL")); } catch (GLib.Error e) { }
                     return null;
                 }
                 if (trimmed.contains(" ") || !(trimmed.has_prefix("http://") || trimmed.has_prefix("https://") || trimmed.has_prefix("file://"))) {
                     warning("RSS fetch called with malformed/unsupported URL for source '%s': %s", source_name, url);
-                    try { sink.set_label(_("Error loading feed — invalid URL")); } catch (GLib.Error e) { }
+                    try { sink.set_error(_("Error loading feed — invalid URL")); } catch (GLib.Error e) { }
                     return null;
                 }
                 if (url.has_prefix("file://")) {
@@ -690,7 +690,7 @@ public class RssFeedProcessor {
                         bool ok = GLib.FileUtils.get_contents(path, out body);
                         if (!ok || body.length == 0) {
                             warning("Failed to read local RSS file: %s", path);
-                            try { sink.set_label(_("Failed to read local RSS file")); } catch (GLib.Error e) { }
+                            try { sink.set_error(_("Failed to read local RSS file")); } catch (GLib.Error e) { }
                             return null;
                         }
                         parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, sink, session, url, cache_key_override);
@@ -753,7 +753,7 @@ public class RssFeedProcessor {
                     } else {
                         warning("Network error fetching RSS for '%s' (%s): unknown error", source_name, url);
                     }
-                    try { sink.set_label(_("Error loading feed — network/DNS error")); } catch (GLib.Error e) { }
+                    try { sink.set_error(_("Error loading feed — network/DNS error")); } catch (GLib.Error e) { }
                     return null;
                 }
 
@@ -765,7 +765,7 @@ public class RssFeedProcessor {
 
                 if (http_response.body == null) {
                     warning("Empty response for RSS from '%s' (%s)", source_name, url);
-                    try { sink.set_label(_("Error loading feed — empty response")); } catch (GLib.Error e) { }
+                    try { sink.set_error(_("Error loading feed — empty response")); } catch (GLib.Error e) { }
                     return null;
                 }
 
@@ -775,7 +775,7 @@ public class RssFeedProcessor {
                 parse_rss_and_display(body, source_name, category_name, category_id, current_search_query, sink, session, url, cache_key_override);
             } catch (GLib.Error e) {
                 warning("RSS fetch error: %s", e.message);
-                try { sink.set_label(_("Error loading feed")); } catch (GLib.Error _) { }
+                try { sink.set_error(_("Error loading feed")); } catch (GLib.Error _) { }
             }
             return null;
         });
