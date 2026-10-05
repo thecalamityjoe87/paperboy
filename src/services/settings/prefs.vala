@@ -77,6 +77,16 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("onboarding-completed", value); }
     }
 
+    // Google News edition id ("DE:de"), or "" to follow the system.
+    // Setting it pushes the choice to GoogleNewsUtils.
+    public string news_edition {
+        owned get { return settings.get_string("news-edition"); }
+        set {
+            settings.set_string("news-edition", value);
+            GoogleNewsUtils.set_chosen(value);
+        }
+    }
+
     // Preferred app color scheme: "system", "light", or "dark". Setting
     // this immediately applies it via Adw.StyleManager so callers don't
     // need to separately push the change to the UI.
@@ -709,6 +719,7 @@ public class NewsPreferences : GLib.Object {
     private NewsPreferences() {
         // Initialize GSettings for UI preferences
         settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
+        GoogleNewsUtils.set_chosen(news_edition);
         
         // Initialize KeyFile for user-generated data (preferred_sources)
         config = new GLib.KeyFile();

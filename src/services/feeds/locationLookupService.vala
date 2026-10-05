@@ -17,7 +17,7 @@
 
 /*
  * Resolves a user's location to a "City, State" display string, either
- * from typed text (a ZIP code or city name) or from the OS location
+ * from typed text (a postal code or city name) or from the OS location
  * service (GeoClue2), using Nominatim's JSON API directly.
  *
  * Also resolves a "news query" city: the nearest bundled major city (see
@@ -40,7 +40,7 @@ public class LocationLookupService : GLib.Object {
     // Both NaN on failure.
     public delegate void CoordsCallback(double lat, double lon);
 
-    // Looks up free text (a ZIP code or a city name). `callback`
+    // Looks up free text (a postal code or a city name). `callback`
     // always runs on the main loop.
     public static void resolve_text_async(string query, owned ResolvedCallback callback) {
         string url = NOMINATIM + "/search?format=jsonv2&addressdetails=1&limit=10&q="
@@ -64,7 +64,7 @@ public class LocationLookupService : GLib.Object {
                 finish(display, lat, lon, (owned) callback);
                 return;
             }
-            // No town in the match itself (some ZIP codes); ask what's at its point.
+            // No town in the match itself (some postal codes); ask what's at its point.
             reverse(lat, lon, (owned) callback);
         });
     }
@@ -86,12 +86,13 @@ public class LocationLookupService : GLib.Object {
         });
     }
 
-    // Bare ZIP codes match postal codes worldwide; prefer a US result.
+    // Bare postal codes match worldwide; prefer one in the user's country.
     private static Json.Object? pick_result(Json.Array results) {
         if (results.get_length() == 0) return null;
+        string home = RegionUtils.country().down();
         for (uint i = 0; i < results.get_length(); i++) {
             var candidate = results.get_object_element(i);
-            if (get_address_field(candidate, "country_code") == "us") return candidate;
+            if (get_address_field(candidate, "country_code") == home) return candidate;
         }
         return results.get_object_element(0);
     }

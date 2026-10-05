@@ -77,14 +77,12 @@ public class BloombergFetcher : BaseFetcher {
         string domain,
         string source_name
     ) {
-        string base_url = "https://news.google.com/rss/search";
-        string ceid = "hl=en-US&gl=US&ceid=US:en";
         string category_name = FetcherUtils.category_display_name(current_category);
         string query = @"site:$(domain)";
         if (current_search_query.length > 0) {
             query = query + " " + current_search_query;
         }
-        string url = @"$(base_url)?q=$(Uri.escape_string(query))&$(ceid)";
+        string url = GoogleNewsUtils.search_url(query);
 
         RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, sink);
     }

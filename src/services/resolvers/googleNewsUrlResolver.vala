@@ -60,7 +60,7 @@ public class GoogleNewsUrlResolver : GLib.Object {
         string? ts = match_attr(html, "data-n-a-ts");
         if (sig == null || ts == null) return null;
 
-        string inner = "[\"garturlreq\",[[\"X\",\"X\",[\"X\",\"X\"],null,null,1,1,\"US:en\",null,1,null,null,null,null,null,0,1],\"X\",\"X\",1,[1,1,1],1,1,null,0,0,null,0],\"%s\",%s,\"%s\"]".printf(id, ts, sig);
+        string inner = "[\"garturlreq\",[[\"X\",\"X\",[\"X\",\"X\"],null,null,1,1,\"%s\",null,1,null,null,null,null,null,0,1],\"X\",\"X\",1,[1,1,1],1,1,null,0,0,null,0],\"%s\",%s,\"%s\"]".printf(GoogleNewsUtils.ceid(), id, ts, sig);
         string freq = "[[[\"Fbv4je\",%s,null,\"generic\"]]]".printf(json_string(inner));
         string body = "f.req=" + GLib.Uri.escape_string(freq, null, false);
 

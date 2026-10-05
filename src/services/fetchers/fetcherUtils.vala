@@ -23,7 +23,7 @@ namespace FetcherUtils {
             case "frontpage": return "The Frontpage";
             case "myfeed": return "My Feed";
             case "general": return "World News";
-            case "us": return "US News";
+            case "us": return GoogleNewsUtils.national_label();
             case "technology": return "Technology";
             case "business": return "Business";
             case "markets": return "Markets";

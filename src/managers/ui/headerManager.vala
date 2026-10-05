@@ -20,6 +20,11 @@ using Gtk;
 using Adw;
 
 public class HeaderManager : GLib.Object {
+    // Size of the icon beside the page title (category icons and feed
+    // logos). Sized up from 36 so the square icons match the 4:3 national
+    // flags, which only fill their box's width.
+    private const int HEADER_ICON_SIZE = 42;
+
     private weak NewsWindow window;
 
     public Gtk.Label category_label;
@@ -296,7 +301,7 @@ public class HeaderManager : GLib.Object {
 
         // Search swaps the header title too (see ContentView.filter_by_query).
         if (is_searching()) {
-            var search_icon = CategoryIconsUtils.create_category_header_icon("search", 36);
+            var search_icon = CategoryIconsUtils.create_category_header_icon("search", HEADER_ICON_SIZE);
             if (search_icon != null) category_icon_holder.append(search_icon);
             return;
         }
@@ -308,7 +313,7 @@ public class HeaderManager : GLib.Object {
         }
 
         // Handle regular category icons
-        var icon = CategoryIconsUtils.create_category_header_icon(window.prefs.category, 36);
+        var icon = CategoryIconsUtils.create_category_header_icon(window.prefs.category, HEADER_ICON_SIZE);
         if (icon != null) category_icon_holder.append(icon);
     }
 
@@ -362,19 +367,19 @@ public class HeaderManager : GLib.Object {
             return false;
         }
 
-        string key = "pixbuf::file:%s::%dx%d".printf(logo_path, 36, 36);
-        var pixbuf = ImageCache.get_global().get_or_load_file(key, logo_path, 36, 36);
+        string key = "pixbuf::file:%s::%dx%d".printf(logo_path, HEADER_ICON_SIZE, HEADER_ICON_SIZE);
+        var pixbuf = ImageCache.get_global().get_or_load_file(key, logo_path, HEADER_ICON_SIZE, HEADER_ICON_SIZE);
 
         if (pixbuf == null || pixbuf.get_width() <= 1 || pixbuf.get_height() <= 1) {
             return false;
         }
 
-        var circular = create_circular_pixbuf(pixbuf, 36);
+        var circular = create_circular_pixbuf(pixbuf, HEADER_ICON_SIZE);
         if (circular == null) return false;
 
         var texture = Gdk.Texture.for_pixbuf(circular);
         var img = new Gtk.Image.from_paintable(texture);
-        img.set_pixel_size(36);
+        img.set_pixel_size(HEADER_ICON_SIZE);
         category_icon_holder.append(img);
         return true;
     }
@@ -382,7 +387,7 @@ public class HeaderManager : GLib.Object {
     private void set_fallback_rss_icon() {
         var img = new Gtk.Image();
         img.set_from_icon_name("application-rss+xml-symbolic");
-        img.set_pixel_size(36);
+        img.set_pixel_size(HEADER_ICON_SIZE);
         category_icon_holder.append(img);
     }
 
@@ -452,9 +457,9 @@ public class HeaderManager : GLib.Object {
             case "saved": return "Saved";
             case "history": return "History";
             case "general": return "World News";
-            case "us": return "US News";
+            case "us": return GoogleNewsUtils.national_label();
             case "world": return "World News";
-            case "nation": return "US News";
+            case "nation": return GoogleNewsUtils.national_label();
             case "technology": return "Technology";
             case "business": return "Business";
             case "sports": return "Sports";

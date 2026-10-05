@@ -477,9 +477,11 @@ public class FetchNewsController {
         if (win.prefs.category == "sports") {
             var paperboy_sports_fetcher = new PaperboyFetcher(news_sink(ctx));
             paperboy_sports_fetcher.fetch("sports", current_search_query, win.session);
-        } else if (!is_saved_view && !win.category_manager.is_special_view() && win.prefs.category != "topten") {
+        } else if (!is_saved_view && !win.category_manager.is_special_view() && win.prefs.category != "topten"
+                   && !(win.prefs.category == "us" && !GoogleNewsUtils.is_us_edition())) {
             // Other categories get the Paperboy frontpage's articles for that
-            // category, alongside whatever the enabled built-in sources add below
+            // category, alongside whatever the enabled built-in sources add below.
+            // Its "us" articles are US national news, so a non-US edition skips them.
             var paperboy_category_fetcher = new PaperboyFetcher(news_sink(ctx));
             paperboy_category_fetcher.fetch(win.prefs.category, current_search_query, win.session);
         }
@@ -564,6 +566,9 @@ public class FetchNewsController {
                 foreach (var cat in fetch_categories) {
                     NewsService.fetch(s, cat, current_search_query, win.session, news_sink(ctx));
                 }
+            }
+            if (!GoogleNewsUtils.is_us_edition() && "us" in fetch_categories) {
+                NewsService.fetch_national(current_search_query, win.session, news_sink(ctx));
             }
         }
 
@@ -1049,8 +1054,7 @@ public class FetchNewsController {
     }
 
     private static void fetch_local_news_query(FetchContext ctx, string city, string category_id, string current_search_query, Soup.Session session) {
-        string query = GLib.Uri.escape_string(city.strip(), null, false);
-        string url = "https://news.google.com/rss/search?q=" + query + "&hl=en-US&gl=US&ceid=US:en";
+        string url = GoogleNewsUtils.search_url(city.strip());
 
         // Cache is merged with the live feed rather than shown first, since
         // anything appended after it would land out of date order.

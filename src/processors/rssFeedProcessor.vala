@@ -558,9 +558,10 @@ public class RssFeedProcessor {
                     string title = row[0] ?? "No title";
                     string url = row[1] ?? "";
                     string? pub_date = row.size > 3 ? row[3] : null;
-                    // Local news comes from one Google News search, so use each item's own publisher
+                    // Local and national news come from one Google News feed, so use each item's own publisher
                     string item_source_name = source_name;
-                    if (category_id == "local_news" && row.size > 5 && row[5] != null) item_source_name = row[5];
+                    bool aggregated = category_id == "local_news" || source_name == GoogleNewsUtils.AGGREGATOR_NAME;
+                    if (aggregated && row.size > 5 && row[5] != null) item_source_name = row[5];
 
                     if (current_search_query.length > 0) {
                         string query_lower = current_search_query.down();

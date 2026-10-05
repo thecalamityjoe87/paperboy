@@ -45,6 +45,10 @@ public class NewsService {
             return;
         }
 
+        // Outside the US the "us" category is national news, fetched once by
+        // the caller via fetch_national() rather than once per outlet.
+        if (current_category == "us" && !GoogleNewsUtils.is_us_edition()) return;
+
         // Each fetcher fetches nothing for a category it has no feed for
         BaseFetcher? fetcher = null;
 
@@ -81,5 +85,13 @@ public class NewsService {
         if (fetcher != null) {
             fetcher.fetch(current_category, current_search_query, session);
         }
+    }
+
+    // The "us" category for a non-US edition: Google News' national
+    // headlines. Call once per category fetch, alongside the per-source
+    // fetch() calls (which skip it).
+    public static void fetch_national(string current_search_query, Soup.Session session, FetchSink sink) {
+        RssFeedProcessor.fetch_rss_url(GoogleNewsUtils.national_url(), GoogleNewsUtils.AGGREGATOR_NAME,
+            GoogleNewsUtils.national_label(), "us", current_search_query, session, sink);
     }
 }

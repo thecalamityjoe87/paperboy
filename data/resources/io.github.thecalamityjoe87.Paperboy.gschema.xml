@@ -54,6 +54,12 @@
       <description>The currently selected news category</description>
     </key>
 
+    <key name="news-edition" type="s">
+      <default>''</default>
+      <summary>Google News edition</summary>
+      <description>Google News edition id (e.g. "DE:de") used for national news, local news and search; empty follows the system's region and language</description>
+    </key>
+
     <key name="personalized-feed-enabled" type="b">
       <default>false</default>
       <summary>Personalized feed enabled</summary>
@@ -69,7 +75,7 @@
     <key name="user-location" type="s">
       <default>''</default>
       <summary>User location</summary>
-      <description>User-provided location (city, region, ZIP code, or coordinates) for local news</description>
+      <description>User-provided location (city, region, postal code, or coordinates) for local news</description>
     </key>
 
     <key name="user-location-city" type="s">

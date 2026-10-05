@@ -19,7 +19,7 @@ using Gtk;
 using Adw;
 
 /*
- * Location search dialog. Resolves a city name, ZIP code, or the current
+ * Location search dialog. Resolves a city name, postal code, or the current
  * location into a LocalArea and hands it to the caller on save.
  */
 
@@ -81,11 +81,11 @@ public class LocationDialog : GLib.Object {
         string save_label = adding ? "Add" : "Save";
 
         var dialog = new Adw.AlertDialog(adding ? "Add city" : "Change location",
-            "Enter a city name or a ZIP code, or use your current location.\nExamples: \"San Francisco, CA\" or \"94103\" or \"94103-1234\"");
+            "Enter a city name or a postal code, or use your current location.\nExamples: \"San Francisco, CA\", \"Manchester\" or \"10115\"");
         dialog.set_body_use_markup(false);
 
         var entry = new Gtk.Entry();
-        entry.set_placeholder_text("City name or ZIP code (e.g. San Francisco, 94103)");
+        entry.set_placeholder_text("City name or postal code");
         entry.set_hexpand(true);
         entry.set_margin_top(6);
         entry.set_margin_bottom(6);
@@ -245,7 +245,7 @@ public class LocationDialog : GLib.Object {
 
             if (resolved.length == 0) {
                 hint.set_use_markup(false);
-                hint.set_text("Couldn't resolve a location for that. Try a different city name or ZIP code.");
+                hint.set_text("Couldn't resolve a location for that. Try a different city name or postal code.");
                 dialog.set_response_enabled("save", false);
                 return;
             }
@@ -311,7 +311,7 @@ public class LocationDialog : GLib.Object {
             string txt = entry.get_text().strip();
             if (txt.length == 0) {
                 hint.set_use_markup(false);
-                hint.set_text("Enter a city name or ZIP code and press Search.");
+                hint.set_text("Enter a city name or postal code and press Search.");
                 return;
             }
             begin_lookup(txt);

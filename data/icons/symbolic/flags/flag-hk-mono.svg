@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Flag from lipis/flag-icons (MIT), in shades of one color for Paperboy -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.75 3.5625) scale(0.03515625 0.03515625)"><path fill="#ffffff" d="M0 0h640v480H0" />
+  <path id="hk-a" fill="#000000" d="M346.3 103.1C267 98 230.6 201.9 305.6 240.3c-26-22.4-20.6-55.3-10.1-72.4l1.9 1.1c-13.8 23.5-11.2 52.7 11.1 71-12.7-12.3-9.5-39 12.1-48.9s23.6-39.3 16.4-49.1q-14.7-25.6 9.3-38.9M307.9 164l-4.7 7.4-1.8-8.6-8.6-2.3 7.8-4.3-.6-8.9 6.5 6.1 8.3-3.3-3.7 8.1 5.6 6.8z" />
+  <use xlink:href="#hk-a" transform="rotate(72 312.5 243.5)" />
+  <use xlink:href="#hk-a" transform="rotate(144 312.5 243.5)" />
+  <use xlink:href="#hk-a" transform="rotate(216 312.5 243.5)" />
+  <use xlink:href="#hk-a" transform="rotate(288 312.5 243.5)" />
+</g></mask></defs><rect x="0.75" y="3.5625" width="22.5" height="16.875" fill="#000000" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" fill="none" stroke="#000000" stroke-width="1.5" /></svg>
