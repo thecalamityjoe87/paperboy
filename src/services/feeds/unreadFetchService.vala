@@ -222,7 +222,7 @@ public class UnreadFetchService {
                     RssFeedProcessor.fetch_rss_url(
                         GoogleNewsUtils.search_url(task.news_query ?? task.rss_name),
                         task.rss_name,
-                        "Local News",
+                        _("Local News"),
                         "local_news",
                         "",  // no search query
                         get_metadata_session(),

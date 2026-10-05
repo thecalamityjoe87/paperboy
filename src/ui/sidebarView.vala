@@ -731,7 +731,7 @@ public class SidebarView : GLib.Object {
         entry_box.append(name_entry);
         
         dialog.set_extra_child(entry_box);
-        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("cancel", _("Cancel"));
         dialog.add_response("add", "Add Feed");
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
         
@@ -844,7 +844,7 @@ public class SidebarView : GLib.Object {
         entry_box.append(url_entry);
 
         dialog.set_extra_child(entry_box);
-        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("cancel", _("Cancel"));
         dialog.add_response("add", "Add Podcast");
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
 
@@ -1247,7 +1247,7 @@ public class SidebarView : GLib.Object {
         notes_icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
         Gtk.Label notes_label;
         Gtk.Box notes_icon_holder;
-        var notes_button = build_footer_row(notes_icon, "Notes", out notes_label, out notes_icon_holder);
+        var notes_button = build_footer_row(notes_icon, _("Notes"), out notes_label, out notes_icon_holder);
         notes_button.clicked.connect(() => { NotesBrowserDialog.show(window); });
         footer.append(notes_button);
 

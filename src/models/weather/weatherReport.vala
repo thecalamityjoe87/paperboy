@@ -40,20 +40,20 @@ public class WeatherReport : GLib.Object {
     }
 
     public string description() {
-        if (code == 0) return "Clear";
-        if (code == 1) return "Mostly clear";
-        if (code == 2) return "Partly cloudy";
-        if (code == 3) return "Overcast";
-        if (code == 45 || code == 48) return "Fog";
-        if (code >= 51 && code <= 55) return "Drizzle";
-        if (code == 56 || code == 57) return "Freezing drizzle";
-        if (code >= 61 && code <= 65) return "Rain";
-        if (code == 66 || code == 67) return "Freezing rain";
-        if ((code >= 71 && code <= 75) || code == 77) return "Snow";
-        if (code >= 80 && code <= 82) return "Rain showers";
-        if (code == 85 || code == 86) return "Snow showers";
-        if (code == 95) return "Thunderstorm";
-        if (code >= 96) return "Thunderstorm with hail";
+        if (code == 0) return C_("Weather", "Clear");
+        if (code == 1) return C_("Weather", "Mostly clear");
+        if (code == 2) return C_("Weather", "Partly cloudy");
+        if (code == 3) return C_("Weather", "Overcast");
+        if (code == 45 || code == 48) return C_("Weather", "Fog");
+        if (code >= 51 && code <= 55) return C_("Weather", "Drizzle");
+        if (code == 56 || code == 57) return C_("Weather", "Freezing drizzle");
+        if (code >= 61 && code <= 65) return C_("Weather", "Rain");
+        if (code == 66 || code == 67) return C_("Weather", "Freezing rain");
+        if ((code >= 71 && code <= 75) || code == 77) return C_("Weather", "Snow");
+        if (code >= 80 && code <= 82) return C_("Weather", "Rain showers");
+        if (code == 85 || code == 86) return C_("Weather", "Snow showers");
+        if (code == 95) return C_("Weather", "Thunderstorm");
+        if (code >= 96) return C_("Weather", "Thunderstorm with hail");
         return "";
     }
 

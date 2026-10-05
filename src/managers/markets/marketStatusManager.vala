@@ -20,7 +20,7 @@ using GLib;
 /**
  * Tracks whether the US stock market is currently in its regular trading
  * session, independent of whether the user is actually viewing Business, so
- * the sidebar can show an "Open" pill next to the Business badge at any
+ * the sidebar can show an _("Open") pill next to the Business badge at any
  * time. Mirrors SportsLiveIndicatorManager's shape, but this is a pure
  * clock computation (regular hours only, no holiday calendar) rather than a
  * network poll, so it just rechecks the time once a minute.

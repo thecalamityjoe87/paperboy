@@ -284,7 +284,7 @@ public class MagazineReaderSheet : GLib.Object {
 
     private void finish_open_for_entry(Paperboy.MagazineEntry entry, Poppler.Document? loaded, string? error) {
         if (loaded == null) {
-            GLib.warning("Failed to open magazine: %s", error ?? "unknown error");
+            GLib.warning("Failed to open magazine: %s", error ?? _("unknown error"));
             if (window != null && window.toast_manager != null) {
                 window.toast_manager.clear_persistent_toast();
                 window.toast_manager.show_toast(_("Failed to open magazine"));

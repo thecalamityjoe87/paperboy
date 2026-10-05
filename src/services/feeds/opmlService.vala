@@ -52,8 +52,8 @@ namespace Paperboy {
             Xml.Node* body = root->new_child(null, "body");
 
             Xml.Node* feeds_outline = body->new_child(null, "outline");
-            feeds_outline->set_prop("text", "Feeds");
-            feeds_outline->set_prop("title", "Feeds");
+            feeds_outline->set_prop("text", _("Feeds"));
+            feeds_outline->set_prop("title", _("Feeds"));
 
             var sources = RssSourceStore.get_instance().get_all_sources();
             foreach (var source in sources) {
@@ -75,8 +75,8 @@ namespace Paperboy {
             }
 
             Xml.Node* podcasts_outline = body->new_child(null, "outline");
-            podcasts_outline->set_prop("text", "Podcasts");
-            podcasts_outline->set_prop("title", "Podcasts");
+            podcasts_outline->set_prop("text", _("Podcasts"));
+            podcasts_outline->set_prop("title", _("Podcasts"));
 
             var subscriptions = PodcastSubscriptionStore.get_instance().get_all_subscriptions();
             foreach (var sub in subscriptions) {

@@ -77,7 +77,7 @@ public class BbcFetcher : BaseFetcher {
             case "us": return "US News";
             case "politics": return "Politics";
             case "entertainment": return "Entertainment";
-            default: return "World News";
+            default: return _("World News");
         }
     }
 }

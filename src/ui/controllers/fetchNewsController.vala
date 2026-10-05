@@ -580,7 +580,7 @@ public class FetchNewsController {
                 RssFeedProcessor.fetch_rss_url(
                     rss_src.url,
                     rss_src.url,  // use URL, not name, for source filtering
-                    "My Feed",
+                    _("My Feed"),
                     "myfeed",
                     current_search_query,
                     win.session,
@@ -619,7 +619,7 @@ public class FetchNewsController {
         // Get the RSS source details from the database
         var rss_store = Paperboy.RssSourceStore.get_instance();
         var rss_source = rss_store.get_source_by_url(feed_url);
-        string feed_name_plain = rss_source != null ? rss_source.name : "RSS Feed";
+        string feed_name_plain = rss_source != null ? rss_source.name : _("RSS Feed");
 
         // Opening a feed can surface its podcast button, and a due generated feed jumps the regen queue.
         if (rss_source != null && win.feed_updater != null) {
@@ -791,7 +791,7 @@ public class FetchNewsController {
 
             // Add saved articles immediately after clearing
                 foreach (var article in saved_articles) {
-                    if (article != null) w.article_manager.add_item(article.title, article.url, article.thumbnail, "saved", article.source ?? "Saved", article.published);
+                    if (article != null) w.article_manager.add_item(article.title, article.url, article.thumbnail, "saved", article.source ?? _("Saved"), article.published);
                 }
 
             // Give the new cards the same hidden/offset starting state
@@ -1079,7 +1079,7 @@ public class FetchNewsController {
         RssFeedProcessor.fetch_rss_url(
             url,
             city,
-            "Local News",
+            _("Local News"),
             category_id,
             current_search_query,
             session,

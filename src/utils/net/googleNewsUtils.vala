@@ -146,7 +146,7 @@ public class GoogleNewsUtils {
 
     // "US News", "Germany News", "Canada News".
     public static string national_label() {
-        return is_us_edition() ? "US News" : country_name() + " News";
+        return is_us_edition() ? _("US News") : country_name() + " News";
     }
 
     // The edition's country without its language: "Canada", not "Canada (French)".

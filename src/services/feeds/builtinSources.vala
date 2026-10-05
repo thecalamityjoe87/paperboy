@@ -86,7 +86,7 @@ public class BuiltinSources {
 
     public static string short_name(NewsSource source) {
         var s = for_source(source);
-        return s != null ? s.short_name : "News";
+        return s != null ? s.short_name : _("News");
     }
 
     // Full path of the outlet's bundled logo, or null if it has none or

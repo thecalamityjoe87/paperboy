@@ -42,7 +42,7 @@ public class ArticleReadingTimeCache : GLib.Object {
         GLib.DirUtils.create_with_parents(GLib.Path.get_dirname(db_path), 0755);
 
         if (Sqlite.Database.open(db_path, out db) != Sqlite.OK) {
-            GLib.warning("ArticleReadingTimeCache: failed to open database: %s", db != null ? db.errmsg() : "unknown error");
+            GLib.warning("ArticleReadingTimeCache: failed to open database: %s", db != null ? db.errmsg() : _("unknown error"));
             db = null;
             return;
         }

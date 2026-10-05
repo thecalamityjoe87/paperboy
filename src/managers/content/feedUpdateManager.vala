@@ -387,11 +387,11 @@ public class FeedUpdateManager : GLib.Object {
         var gen_result = generate_feed_via_webkit_blocking(source.original_url);
         if ((!gen_result.success || gen_result.rss_xml == null)
             && Paperboy.GeneratedFeedService.is_retryable_error(gen_result.error_message)) {
-            GLib.print("  ⟳ Retrying generation for %s (%s)\n", source.name, gen_result.error_message ?? "unknown error");
+            GLib.print("  ⟳ Retrying generation for %s (%s)\n", source.name, gen_result.error_message ?? _("unknown error"));
             gen_result = generate_feed_via_webkit_blocking(source.original_url);
         }
         if (!gen_result.success || gen_result.rss_xml == null) {
-            GLib.warning("  ✗ Feed generation failed for %s: %s", source.name, gen_result.error_message ?? "unknown error");
+            GLib.warning("  ✗ Feed generation failed for %s: %s", source.name, gen_result.error_message ?? _("unknown error"));
             return false;
         }
 

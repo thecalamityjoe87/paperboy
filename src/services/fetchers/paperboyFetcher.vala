@@ -135,7 +135,7 @@ public class PaperboyFetcher : BaseFetcher {
             finish();
             return false;
         });
-        RssFeedProcessor.fetch_rss_url(feed_url, GoogleNewsUtils.AGGREGATOR_NAME, "Front Page", category_id,
+        RssFeedProcessor.fetch_rss_url(feed_url, GoogleNewsUtils.AGGREGATOR_NAME, _("Front Page"), category_id,
                                        current_search_query, session, pad_sink);
     }
 

@@ -176,7 +176,7 @@ public class PrefsRows : GLib.Object {
     public static void add_drag_handle(Adw.ActionRow row, string drag_label, owned DragContentFunc content) {
         var drag_handle = new Gtk.Image.from_icon_name("list-drag-handle-symbolic");
         drag_handle.add_css_class("dim-label");
-        drag_handle.set_tooltip_text("Drag to reorder");
+        drag_handle.set_tooltip_text(_("Drag to reorder"));
         row.add_prefix(drag_handle);
 
         var drag_source = new Gtk.DragSource();
@@ -203,11 +203,11 @@ public class PrefsRows : GLib.Object {
         row.set_title(title);
         row.set_subtitle(subtitle);
 
-        var export_btn = new Gtk.Button.with_label("Export");
+        var export_btn = new Gtk.Button.with_label(_("Export"));
         export_btn.set_valign(Gtk.Align.CENTER);
         export_btn.clicked.connect(() => on_export());
 
-        var import_btn = new Gtk.Button.with_label("Import");
+        var import_btn = new Gtk.Button.with_label(_("Import"));
         import_btn.set_valign(Gtk.Align.CENTER);
         import_btn.clicked.connect(() => on_import());
 

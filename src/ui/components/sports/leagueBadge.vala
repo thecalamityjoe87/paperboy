@@ -20,7 +20,7 @@ using Gtk;
 /**
  * One league's badge in the Sports category's league carousel
  * (see SportsScoresController) - a colored circular badge showing that
- * league's shield logo, a "Live" pill overlaid on its corner when it has a
+ * league's shield logo, a _("Live") pill overlaid on its corner when it has a
  * game in progress, and a short label underneath. Clicking selects the
  * badge (see set_selected()) and filters the score-card row below to just
  * that league.

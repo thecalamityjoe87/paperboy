@@ -281,8 +281,8 @@ public class MetaCache : GLib.Object {
         if (etag != null) kf.set_string("cache", "etag", etag);
         if (last_modified != null) kf.set_string("cache", "last_modified", last_modified);
         long now_s = (long)(GLib.get_real_time() / 1000000);
-        kf.set_string("cache", "last_access", "%d".printf((int)now_s));
-        kf.set_string("cache", "size", "%d".printf((int)data.length));
+        kf.set_string("cache", "last_access", _("%d").printf((int)now_s));
+        kf.set_string("cache", "size", _("%d").printf((int)data.length));
         write_meta(url, kf);
         // If cache folder grew too large, clear it (best-effort) to avoid
         // unbounded disk usage between application runs.
@@ -293,7 +293,7 @@ public class MetaCache : GLib.Object {
         var kf = read_meta(url);
         if (kf == null) return;
     long now_s = (long)(GLib.get_real_time() / 1000000);
-    kf.set_string("cache", "last_access", "%d".printf((int)now_s));
+    kf.set_string("cache", "last_access", _("%d").printf((int)now_s));
         write_meta(url, kf);
     }
 

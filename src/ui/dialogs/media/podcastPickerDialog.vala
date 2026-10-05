@@ -19,7 +19,7 @@ using Gtk;
 
 /**
  * Lets the user choose which of several podcasts discovered for a followed
- * RSS site to subscribe to - see HeaderManager's "Add podcast" button. A
+ * RSS site to subscribe to - see HeaderManager's _("Add podcast") button. A
  * site can genuinely run more than one podcast (e.g. USA Today has ~7 in
  * PodcastIndex), so silently subscribing to just the first match found
  * isn't good enough. Only shown when PodcastIndexService.

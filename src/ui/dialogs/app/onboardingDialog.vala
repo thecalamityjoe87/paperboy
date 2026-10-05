@@ -22,7 +22,7 @@ using Adw;
  * First-run welcome flow. A short multi-page carousel that introduces the
  * app, lets the user pick a few built-in sources, and points them at
  * local news. Shown automatically the first time the app runs, and can be
- * re-opened later from the main menu ("Welcome to Paperboy").
+ * re-opened later from the main menu (_("Welcome to Paperboy")).
  */
 public class OnboardingDialog : GLib.Object {
 
@@ -61,7 +61,7 @@ public class OnboardingDialog : GLib.Object {
         nav_box.set_margin_bottom(20);
         nav_box.set_margin_top(4);
 
-        var skip_btn = new Gtk.Button.with_label("Skip");
+        var skip_btn = new Gtk.Button.with_label(_("Skip"));
         skip_btn.add_css_class("flat");
         nav_box.append(skip_btn);
 
@@ -69,11 +69,11 @@ public class OnboardingDialog : GLib.Object {
         spacer.set_hexpand(true);
         nav_box.append(spacer);
 
-        var back_btn = new Gtk.Button.with_label("Back");
+        var back_btn = new Gtk.Button.with_label(_("Back"));
         back_btn.set_visible(false);
         nav_box.append(back_btn);
 
-        var next_btn = new Gtk.Button.with_label("Next");
+        var next_btn = new Gtk.Button.with_label(_("Next"));
         next_btn.add_css_class("suggested-action");
         nav_box.append(next_btn);
 
@@ -106,7 +106,7 @@ public class OnboardingDialog : GLib.Object {
             bool is_last = (index + 1 == carousel.get_n_pages());
             back_btn.set_visible(index > 0);
             skip_btn.set_visible(!is_last);
-            next_btn.set_label(is_last ? "Get Started" : "Next");
+            next_btn.set_label(is_last ? _("Get Started") : _("Next"));
         }
 
         carousel.page_changed.connect((index) => update_nav_for_page(index));
@@ -155,7 +155,7 @@ public class OnboardingDialog : GLib.Object {
             box.append(icon);
         }
 
-        var title = new Gtk.Label("Welcome to Paperboy");
+        var title = new Gtk.Label(_("Welcome to Paperboy"));
         title.add_css_class("title-1");
         title.set_halign(Gtk.Align.CENTER);
         title.set_margin_top(12);
@@ -237,13 +237,13 @@ public class OnboardingDialog : GLib.Object {
         icon.add_css_class("dim-label");
         box.append(icon);
 
-        var title = new Gtk.Label("Pick a Theme");
+        var title = new Gtk.Label(_("Pick a Theme"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         title.set_margin_top(12);
         box.append(title);
 
-        var subtitle = new Gtk.Label("You can change this anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("You can change this anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -331,9 +331,9 @@ public class OnboardingDialog : GLib.Object {
             return overlay;
         }
 
-        swatch_row.append(make_theme_tile("system", "Follow System"));
-        swatch_row.append(make_theme_tile("light", "Light"));
-        swatch_row.append(make_theme_tile("dark", "Dark"));
+        swatch_row.append(make_theme_tile("system", _("Follow System")));
+        swatch_row.append(make_theme_tile("light", _("Light")));
+        swatch_row.append(make_theme_tile("dark", _("Dark")));
 
         box.append(swatch_row);
 
@@ -530,7 +530,7 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(36);
         box.set_margin_bottom(18);
 
-        var title = new Gtk.Label("Choose Your Sources");
+        var title = new Gtk.Label(_("Choose Your Sources"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
@@ -593,7 +593,7 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(36);
         box.set_margin_bottom(18);
 
-        var title = new Gtk.Label("Live Sports Scores");
+        var title = new Gtk.Label(_("Live Sports Scores"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
@@ -606,7 +606,7 @@ public class OnboardingDialog : GLib.Object {
         box.append(subtitle);
 
         var master_row = new Adw.SwitchRow();
-        master_row.set_title("Show Score Cards");
+        master_row.set_title(_("Show Score Cards"));
         master_row.set_active(prefs.sports_scores_enabled);
 
         var master_list_box = new Gtk.ListBox();
@@ -650,7 +650,7 @@ public class OnboardingDialog : GLib.Object {
         icon.add_css_class("dim-label");
         box.append(icon);
 
-        var title = new Gtk.Label("Local News, Too");
+        var title = new Gtk.Label(_("Local News, Too"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         title.set_margin_top(12);
@@ -664,7 +664,7 @@ public class OnboardingDialog : GLib.Object {
         body.add_css_class("dim-label");
         box.append(body);
 
-        var location_btn = new Gtk.Button.with_label("Set My Location");
+        var location_btn = new Gtk.Button.with_label(_("Set My Location"));
         location_btn.set_halign(Gtk.Align.CENTER);
         location_btn.set_margin_top(12);
         location_btn.clicked.connect(() => {

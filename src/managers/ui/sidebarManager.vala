@@ -304,11 +304,11 @@ public class SidebarManager : GLib.Object {
         special_section.is_expanded = true;
         special_section.items = new Gee.ArrayList<SidebarItemData?>();
 
-        special_section.items.add(create_item_data("Front Page", "frontpage", SidebarItemType.SPECIAL));
-        special_section.items.add(create_item_data("My Feed", "myfeed", SidebarItemType.SPECIAL));
-        special_section.items.add(create_item_data("Magazine Rack", "magazines", SidebarItemType.SPECIAL));
-        special_section.items.add(create_item_data("Saved", "saved", SidebarItemType.SPECIAL));
-        special_section.items.add(create_item_data("History", "history", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data(_("Front Page"), "frontpage", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data(_("My Feed"), "myfeed", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data(_("Magazine Rack"), "magazines", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data(_("Saved"), "saved", SidebarItemType.SPECIAL));
+        special_section.items.add(create_item_data(_("History"), "history", SidebarItemType.SPECIAL));
 
         sections.add(special_section);
 
@@ -316,7 +316,7 @@ public class SidebarManager : GLib.Object {
         // "local_news" routing id; the others switch to it when clicked.
         var local_section = SidebarSectionData();
         local_section.section_id = "local_news_entry";
-        local_section.title = "Local News";
+        local_section.title = _("Local News");
         local_section.is_expandable = true;
         local_section.is_expanded = local_news_expanded;
         local_section.items = new Gee.ArrayList<SidebarItemData?>();
@@ -349,7 +349,7 @@ public class SidebarManager : GLib.Object {
         // Section 3: Followed Sources (RSS feeds)
         var followed_section = SidebarSectionData();
         followed_section.section_id = "followed_sources";
-        followed_section.title = "Feeds";
+        followed_section.title = _("Feeds");
         followed_section.is_expandable = true;
         followed_section.is_expanded = followed_sources_expanded;
         followed_section.items = new Gee.ArrayList<SidebarItemData?>();
@@ -369,12 +369,12 @@ public class SidebarManager : GLib.Object {
         // grow the same way as the user subscribes to more shows.
         var podcasts_section = SidebarSectionData();
         podcasts_section.section_id = "podcasts_entry";
-        podcasts_section.title = "Podcasts";
+        podcasts_section.title = _("Podcasts");
         podcasts_section.is_expandable = true;
         podcasts_section.is_expanded = podcasts_expanded;
         podcasts_section.items = new Gee.ArrayList<SidebarItemData?>();
         // id stays "podcasts" (the routing key) - only title/icon change.
-        var discover_item = create_item_data("Find Podcasts", "podcasts", SidebarItemType.SPECIAL);
+        var discover_item = create_item_data(_("Find Podcasts"), "podcasts", SidebarItemType.SPECIAL);
         discover_item.icon_key = "podcasts_discover";
         podcasts_section.items.add(discover_item);
 
@@ -695,7 +695,7 @@ public class SidebarManager : GLib.Object {
 
         // If this removed source was selected, fall back to Front Page
         if (currently_selected_id == "rssfeed:" + source.url) {
-            handle_item_activation("frontpage", "Front Page");
+            handle_item_activation("frontpage", _("Front Page"));
         }
     }
 

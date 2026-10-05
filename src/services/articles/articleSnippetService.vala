@@ -236,7 +236,7 @@ public class ArticleSnippetService : GLib.Object {
             if (display_source == null || display_source.length == 0) {
                 if (category_id != null && category_id == "local_news") {
                     var local_area = prefs.get_active_local_area();
-                    display_source = local_area != null ? local_area.city : "Local News";
+                    display_source = local_area != null ? local_area.city : _("Local News");
                 } else {
                     // A built-in outlet's name, otherwise the site it's from
                     string host = UrlUtils.extract_host_from_url(url);

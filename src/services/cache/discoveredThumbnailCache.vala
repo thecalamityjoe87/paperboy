@@ -37,7 +37,7 @@ public class DiscoveredThumbnailCache : GLib.Object {
 
         int rc = Sqlite.Database.open(db_path, out db);
         if (rc != Sqlite.OK) {
-            GLib.warning("DiscoveredThumbnailCache: failed to open database: %s", db != null ? db.errmsg() : "unknown error");
+            GLib.warning("DiscoveredThumbnailCache: failed to open database: %s", db != null ? db.errmsg() : _("unknown error"));
             db = null;
             return;
         }

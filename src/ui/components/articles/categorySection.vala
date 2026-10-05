@@ -143,7 +143,7 @@ public class CategorySection : GLib.Object {
             // Styled like the content view's other card chips
             // (.category-chip/.source-badge), not the sidebar's
             // theme-aware .live-pill - see .live-pill-header in style.css.
-            var live_pill = new Gtk.Label("Live");
+            var live_pill = new Gtk.Label(_("Live"));
             live_pill.add_css_class("live-pill-header");
             live_pill.set_valign(Gtk.Align.CENTER);
             live_pill.set_visible(show_live_pill);
@@ -496,7 +496,7 @@ public class CategorySection : GLib.Object {
 
         bool can_scroll_more = adj.get_value() < adj.get_upper() - adj.get_page_size() - 1.0;
         if (can_scroll_more) {
-            right_btn.set_label("→");
+            right_btn.set_label(_("→"));
             right_btn.set_sensitive(true);
             return;
         }
@@ -504,7 +504,7 @@ public class CategorySection : GLib.Object {
         int remaining = (window != null && window.article_manager != null)
             ? window.article_manager.remaining_count_for_category(query_category)
             : 0;
-        right_btn.set_label("→");
+        right_btn.set_label(_("→"));
         right_btn.set_sensitive(remaining > 0);
     }
 

@@ -134,7 +134,7 @@ public class DateUtils {
                 }
             });
             // Read (unlike the newer ReadOne) exists on every portal version, but nests the value twice.
-            var result = settings_portal.call_sync("Read", new GLib.Variant("(ss)", "org.gnome.desktop.interface", "clock-format"),
+            var result = settings_portal.call_sync(_("Read"), new GLib.Variant("(ss)", "org.gnome.desktop.interface", "clock-format"),
                 GLib.DBusCallFlags.NONE, 1000, null);
             var value = result.get_child_value(0).get_variant();
             if (value.is_of_type(GLib.VariantType.VARIANT)) value = value.get_variant();

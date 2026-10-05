@@ -259,7 +259,7 @@ public class PlaceholderBuilder : GLib.Object {
             cr.rectangle(0, 0, width, height);
             cr.fill();
 
-            cr.select_font_face("Sans", FontSlant.NORMAL, FontWeight.BOLD);
+            cr.select_font_face(_("Sans"), FontSlant.NORMAL, FontWeight.BOLD);
             double font_size = double.min(width / 8.0, height / 4.0);
             font_size = double.max(font_size, 12.0);
             cr.set_font_size(font_size);

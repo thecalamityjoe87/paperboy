@@ -21,7 +21,7 @@ using Gee;
 /**
  * Tracks whether any sports game is currently live, independent of whether
  * the user is actually viewing the Sports category, so the sidebar can show
- * a "Live" pill next to the Sports badge at any time. Mirrors the adaptive
+ * a _("Live") pill next to the Sports badge at any time. Mirrors the adaptive
  * polling cadence in SportsScoresController (fast while a game is live or
  * about to start, slow otherwise) but runs for the lifetime of the window
  * instead of being gated on prefs.category == "sports".

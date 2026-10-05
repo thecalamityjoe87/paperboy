@@ -81,7 +81,7 @@ namespace Paperboy {
         private void init_database() {
             int rc = Sqlite.Database.open(db_path, out db);
             if (rc != Sqlite.OK) {
-                GLib.critical("RssArticleCache: Failed to open database: %s", db != null ? db.errmsg() : "unknown error");
+                GLib.critical("RssArticleCache: Failed to open database: %s", db != null ? db.errmsg() : _("unknown error"));
                 db = null;
                 return;
             }

@@ -273,7 +273,7 @@ public class ArticleStateStore : GLib.Object {
         if (kf == null) kf = new KeyFile();
         long now_s = (long)(GLib.get_real_time() / 1000000);
         kf.set_string("meta", "viewed", "1");
-        kf.set_string("meta", "viewed_at", "%d".printf((int)now_s));
+        kf.set_string("meta", "viewed_at", _("%d").printf((int)now_s));
         write_meta_for_url(url, kf);
         meta_lock_add_viewed(meta_path);
         try {

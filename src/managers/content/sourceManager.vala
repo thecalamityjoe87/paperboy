@@ -128,7 +128,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (result == null || result.length == 0) {
             if (category_id == "local_news") {
                 var local_area = NewsPreferences.get_instance().get_active_local_area();
-                result = local_area != null ? local_area.city : "Local News";
+                result = local_area != null ? local_area.city : _("Local News");
             } else {
                 result = BuiltinSources.short_name(BuiltinSources.from_url(url));
             }
@@ -690,7 +690,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                 });
                             }
                         } else {
-                            GLib.warning("WebKit feed generation failed for %s: %s", host, gen_result.error_message ?? "unknown error");
+                            GLib.warning("WebKit feed generation failed for %s: %s", host, gen_result.error_message ?? _("unknown error"));
                             GLib.Idle.add(() => {
                                 request_show_toast("No RSS feeds found");
                                 return false;
