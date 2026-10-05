@@ -152,7 +152,7 @@ namespace Managers {
             if (content_view.category_subtitle != null) {
                 string label_text = matches.size == 0
                     ? _("No magazines found matching \"%s\"").printf(search_query)
-                    : _("Search results: found %d %s matching \"%s\"").printf(matches.size, matches.size == 1 ? _("magazine") : _("magazines"), search_query);
+                    : ngettext("Search results: found %d magazine matching \"%s\"", "Search results: found %d magazines matching \"%s\"", matches.size).printf(matches.size, search_query);
                 content_view.category_subtitle.set_label(label_text);
                 content_view.category_subtitle.set_visible(true);
             }
@@ -645,7 +645,8 @@ namespace Managers {
         private void update_selection_bar() {
             if (content_view == null || content_view.magazine_selection_label == null) return;
             int count = selected_ids.size;
-            content_view.magazine_selection_label.set_text(count == 1 ? _("1 selected") : _("%d selected").printf(count));
+            // TRANSLATORS: number of selected magazines
+            content_view.magazine_selection_label.set_text(ngettext("%d selected", "%d selected", count).printf(count));
             content_view.magazine_selection_delete_button.set_label(count > 0 ? _("Delete (%d)").printf(count) : _("Delete"));
             content_view.magazine_selection_delete_button.set_sensitive(count > 0);
         }
@@ -664,7 +665,7 @@ namespace Managers {
         private void confirm_delete_selected() {
             if (window == null || selected_ids.size == 0) return;
             int count = selected_ids.size;
-            string heading = count == 1 ? _("Delete 1 magazine?") : _("Delete %d magazines?").printf(count);
+            string heading = ngettext("Delete %d magazine?", "Delete %d magazines?", count).printf(count);
             DialogUtils.confirm_destructive((Gtk.Window) window, heading,
                 _("Their downloaded files are removed too. This can't be undone."), _("Delete"), () => {
                 var ids = new Gee.ArrayList<int64?>();
@@ -674,7 +675,7 @@ namespace Managers {
                 var store = Paperboy.MagazineLibraryStore.get_instance();
                 foreach (var id in ids) store.remove_entry(id);
                 if (window != null && window.toast_manager != null) {
-                    window.toast_manager.show_toast(ids.size == 1 ? _("Removed 1 magazine") : _("Removed %d magazines").printf(ids.size));
+                    window.toast_manager.show_toast(ngettext("Removed %d magazine", "Removed %d magazines", ids.size).printf(ids.size));
                 }
             });
         }
@@ -894,7 +895,7 @@ namespace Managers {
             if (window == null) return;
 
             var dialog = new Adw.MessageDialog((Gtk.Window) window, _("Select magazines to add"),
-                _("Found %d PDF %s on %s.").printf(links.size, links.size == 1 ? _("link") : _("links"), source.name));
+                ngettext("Found %d PDF link on %s.", "Found %d PDF links on %s.", links.size).printf(links.size, source.name));
 
             var scroller = new Gtk.ScrolledWindow();
             scroller.set_min_content_height(int.min(360, 44 * links.size));

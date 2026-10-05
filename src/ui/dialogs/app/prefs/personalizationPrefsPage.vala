@@ -90,9 +90,9 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         int n = ctx.prefs.categories.size;
         int total = NewsPreferences.ALL_CATEGORIES.length;
         // if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
-        if (n == total) nav_row.set_subtitle(_("All %d categories").printf(total));
+        if (n == total) nav_row.set_subtitle(ngettext("All %d category", "All %d categories", total).printf(total));
         else if (n == 0) nav_row.set_subtitle(_("None"));
-        else nav_row.set_subtitle(_("%d of %d categories").printf(n, total));
+        else nav_row.set_subtitle(ngettext("%d of %d category", "%d of %d categories", total).printf(n, total));
     }
 
     // The chooser: every category gets a row - its switch adds or removes

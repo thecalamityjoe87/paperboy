@@ -211,7 +211,7 @@ public class LocationDialog : GLib.Object {
             if (toggled.get_active() && selected_areas().size > remaining) {
                 toggled.set_active(false);
                 hint.set_use_markup(false);
-                hint.set_text(_("You can save up to %d locations.").printf(NewsPreferences.MAX_LOCAL_AREAS));
+                hint.set_text(ngettext("You can save up to %d location.", "You can save up to %d locations.", NewsPreferences.MAX_LOCAL_AREAS).printf(NewsPreferences.MAX_LOCAL_AREAS));
             }
             dialog.set_response_enabled("save", selected_areas().size > 0);
         }

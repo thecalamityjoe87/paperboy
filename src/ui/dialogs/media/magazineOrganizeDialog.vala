@@ -219,7 +219,7 @@ public class MagazineOrganizeDialog : GLib.Object {
         header.set_ellipsize(Pango.EllipsizeMode.END);
         bucket.append(header);
 
-        var count_label = new Gtk.Label(bucket_entries.size.to_string() + (bucket_entries.size == 1 ? _(" magazine") : _(" magazines")));
+        var count_label = new Gtk.Label(ngettext("%d magazine", "%d magazines", bucket_entries.size).printf(bucket_entries.size));
         count_label.add_css_class("dim-label");
         count_label.add_css_class("caption");
         count_label.set_xalign(0);
@@ -296,7 +296,7 @@ public class MagazineOrganizeDialog : GLib.Object {
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         header_row.append(title_label);
 
-        var count_label = new Gtk.Label(row_entries.size.to_string() + (row_entries.size == 1 ? _(" magazine") : _(" magazines")));
+        var count_label = new Gtk.Label(ngettext("%d magazine", "%d magazines", row_entries.size).printf(row_entries.size));
         count_label.add_css_class("dim-label");
         count_label.add_css_class("caption");
         header_row.append(count_label);

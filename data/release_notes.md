@@ -13,10 +13,10 @@
 - Paperboy is now translated into Spanish, French, German, Italian, Russian, Japanese, and Simplified Chinese, covering the whole interface. One Spanish, French, or German translation serves every country that speaks it, such as Mexico and Argentina, Canada and Belgium, or Austria and Switzerland
 - Country names in the Country setting are now shown in your language, and sorted alphabetically in it
 - The national news category's name, such as "Brazil News", and Local News headers, such as "Dallas News", are now translated, along with "Automatic" in the Country setting and the category names in page headers
-- The podcast picker's episode count now uses the right plural in every language
 - Fixed some interface text never being offered for translation, including the Front Page and Trending headers and several loading and error messages
 - Article times and dates now follow your language, both in wording and in date order: the "7m ago" on article cards, the date on cards older than a week, the date in page headers, article bylines, and game days on sports score cards. In German, for example, they read "vor 3 Std." and "5. Okt."
 - Notifications, buttons, and dialogs that were still in English are now translated, including the messages when you follow a source, add a feed or podcast, go offline, or rate an article; the reading time on article cards; the built-in outlets' descriptions in Preferences; the Clear Cache and Reset confirmations; the "Go to" buttons in My Feed; and the subject and message of articles shared by email
+- Counts now use the right plural in every language, including ones with more than one plural form such as Russian, for example in search results, saved articles, followed feeds, podcasts and their episodes, magazines, sources, categories, locations, and import messages. Search results are now translated as whole sentences, so they read naturally instead of having the word "articles", "podcasts", or "magazines" dropped into them
 - Article bylines now follow your system's 12-hour or 24-hour clock setting
 - Fixed a failed feed showing a loading spinner until it timed out, instead of an error message, when Paperboy is in a language other than English
 - Fixed dates on article cards older than a week sometimes being a day off, since they didn't use your time zone

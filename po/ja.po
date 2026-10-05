@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 17:34-0500\n"
+"POT-Creation-Date: 2026-10-05 17:43-0500\n"
 "PO-Revision-Date: 2026-10-05 17:18-0500\n"
 "Last-Translator: \n"
 "Language-Team: Japanese\n"
@@ -186,7 +186,7 @@ msgstr "マイフィード"
 #: src/managers/content/categoryManager.vala:206
 #: src/managers/ui/headerManager.vala:477
 #: src/managers/ui/sidebarManager.vala:319
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:375
 #: src/services/feeds/unreadFetchService.vala:226
 #: src/ui/controllers/fetchNewsController.vala:1081
 msgid "Local News"
@@ -210,18 +210,10 @@ msgid "No magazines found matching \"%s\""
 msgstr "「%s」に一致する雑誌は見つかりませんでした"
 
 #: src/managers/media/magazineLibraryManager.vala:155
-#: src/managers/media/podcastManager.vala:264 src/ui/contentView.vala:1197
 #, c-format
-msgid "Search results: found %d %s matching \"%s\""
-msgstr "検索結果: 「%3$s」に一致する%2$sが %1$d 件見つかりました"
-
-#: src/managers/media/magazineLibraryManager.vala:155
-msgid "magazine"
-msgstr "雑誌"
-
-#: src/managers/media/magazineLibraryManager.vala:155
-msgid "magazines"
-msgstr "雑誌"
+msgid "Search results: found %d magazine matching \"%s\""
+msgid_plural "Search results: found %d magazines matching \"%s\""
+msgstr[0] "検索結果: 「%2$s」に一致する雑誌が %1$d 件見つかりました"
 
 #: src/managers/media/magazineLibraryManager.vala:177
 msgid "Your library is empty"
@@ -236,65 +228,57 @@ msgstr "ライブラリから削除しました"
 msgid "Your library is empty. Add a magazine to get started."
 msgstr "ライブラリは空です。雑誌を追加して始めましょう。"
 
-#: src/managers/media/magazineLibraryManager.vala:648
-msgid "1 selected"
-msgstr "1 件選択中"
-
-#: src/managers/media/magazineLibraryManager.vala:648
+#. TRANSLATORS: number of selected magazines
+#: src/managers/media/magazineLibraryManager.vala:649
 #, c-format
 msgid "%d selected"
-msgstr "%d 件選択中"
+msgid_plural "%d selected"
+msgstr[0] "%d 件選択中"
 
-#: src/managers/media/magazineLibraryManager.vala:649
+#: src/managers/media/magazineLibraryManager.vala:650
 #, c-format
 msgid "Delete (%d)"
 msgstr "削除 (%d)"
 
-#: src/managers/media/magazineLibraryManager.vala:649
-#: src/managers/media/magazineLibraryManager.vala:669
+#: src/managers/media/magazineLibraryManager.vala:650
+#: src/managers/media/magazineLibraryManager.vala:670
 #: src/ui/contentView.vala:852
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:364
 msgid "Delete"
 msgstr "削除"
 
-#: src/managers/media/magazineLibraryManager.vala:667
-msgid "Delete 1 magazine?"
-msgstr "雑誌を 1 冊削除しますか？"
-
-#: src/managers/media/magazineLibraryManager.vala:667
+#: src/managers/media/magazineLibraryManager.vala:668
 #, c-format
-msgid "Delete %d magazines?"
-msgstr "雑誌を %d 冊削除しますか？"
+msgid "Delete %d magazine?"
+msgid_plural "Delete %d magazines?"
+msgstr[0] "雑誌を %d 冊削除しますか？"
 
-#: src/managers/media/magazineLibraryManager.vala:669
+#: src/managers/media/magazineLibraryManager.vala:670
 msgid "Their downloaded files are removed too. This can't be undone."
 msgstr "ダウンロード済みのファイルも削除されます。この操作は元に戻せません。"
 
-#: src/managers/media/magazineLibraryManager.vala:677
-msgid "Removed 1 magazine"
-msgstr "雑誌を 1 冊削除しました"
-
-#: src/managers/media/magazineLibraryManager.vala:677
+#: src/managers/media/magazineLibraryManager.vala:678
 #, c-format
-msgid "Removed %d magazines"
-msgstr "雑誌を %d 冊削除しました"
+msgid "Removed %d magazine"
+msgid_plural "Removed %d magazines"
+msgstr[0] "雑誌を %d 冊削除しました"
 
-#: src/managers/media/magazineLibraryManager.vala:714
+#: src/managers/media/magazineLibraryManager.vala:715
 msgid "Set Category"
 msgstr "カテゴリを設定"
 
-#: src/managers/media/magazineLibraryManager.vala:715
+#: src/managers/media/magazineLibraryManager.vala:716
 #, c-format
 msgid "Group \"%s\" under a category - leave blank for Uncategorized."
 msgstr "「%s」をカテゴリにまとめます。空欄にすると「未分類」になります。"
 
-#: src/managers/media/magazineLibraryManager.vala:718
+#: src/managers/media/magazineLibraryManager.vala:719
 msgid "e.g. Technology, History, Comics"
 msgstr "例: テクノロジー、歴史、コミック"
 
-#: src/managers/media/magazineLibraryManager.vala:724
-#: src/managers/media/magazineLibraryManager.vala:780
-#: src/managers/media/magazineLibraryManager.vala:916
+#: src/managers/media/magazineLibraryManager.vala:725
+#: src/managers/media/magazineLibraryManager.vala:781
+#: src/managers/media/magazineLibraryManager.vala:917
 #: src/ui/contentView.vala:849 src/ui/dialogs/app/locationDialog.vala:125
 #: src/ui/dialogs/content/feedRenameDialog.vala:42
 #: src/ui/dialogs/content/shareDialog.vala:222
@@ -304,16 +288,16 @@ msgstr "例: テクノロジー、歴史、コミック"
 msgid "Cancel"
 msgstr "キャンセル"
 
-#: src/managers/media/magazineLibraryManager.vala:725
+#: src/managers/media/magazineLibraryManager.vala:726
 msgid "Set"
 msgstr "設定"
 
-#: src/managers/media/magazineLibraryManager.vala:746
+#: src/managers/media/magazineLibraryManager.vala:747
 #: src/ui/contentView.vala:244
 msgid "Add Magazines"
 msgstr "雑誌を追加"
 
-#: src/managers/media/magazineLibraryManager.vala:747
+#: src/managers/media/magazineLibraryManager.vala:748
 msgid ""
 "Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
 "choose a PDF you've already downloaded."
@@ -321,11 +305,11 @@ msgstr ""
 "PDF への直接リンク、1 つ以上の PDF にリンクしているウェブページを入力するか、"
 "ダウンロード済みの PDF を選択してください。"
 
-#: src/managers/media/magazineLibraryManager.vala:758
+#: src/managers/media/magazineLibraryManager.vala:759
 msgid "Title (optional, direct PDF links/local files only)"
 msgstr "タイトル (任意、PDF の直接リンクとローカルファイルのみ)"
 
-#: src/managers/media/magazineLibraryManager.vala:762
+#: src/managers/media/magazineLibraryManager.vala:763
 msgid "Category (optional, e.g. Technology, History)"
 msgstr "カテゴリ (任意、例: テクノロジー、歴史)"
 
@@ -333,79 +317,72 @@ msgstr "カテゴリ (任意、例: テクノロジー、歴史)"
 #. just skips the URL field and closes this dialog immediately
 #. rather than waiting for "Add" (there's no URL to type once a
 #. file is picked).
-#: src/managers/media/magazineLibraryManager.vala:769
+#: src/managers/media/magazineLibraryManager.vala:770
 msgid "Choose a PDF on This Computer…"
 msgstr "このコンピューターの PDF を選択…"
 
-#: src/managers/media/magazineLibraryManager.vala:781
+#: src/managers/media/magazineLibraryManager.vala:782
 #: src/ui/dialogs/app/locationDialog.vala:81
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:461
 msgid "Add"
 msgstr "追加"
 
-#: src/managers/media/magazineLibraryManager.vala:803
+#: src/managers/media/magazineLibraryManager.vala:804
 msgid "Choose a PDF"
 msgstr "PDF を選択"
 
-#: src/managers/media/magazineLibraryManager.vala:806
+#: src/managers/media/magazineLibraryManager.vala:807
 msgid "PDF files"
 msgstr "PDF ファイル"
 
-#: src/managers/media/magazineLibraryManager.vala:833
+#: src/managers/media/magazineLibraryManager.vala:834
 #: src/services/magazines/magazinePdfImportService.vala:43
 msgid "Only https:// links are supported"
 msgstr "https:// のリンクのみ対応しています"
 
-#: src/managers/media/magazineLibraryManager.vala:864
+#: src/managers/media/magazineLibraryManager.vala:865
 msgid "Scanning for PDFs…"
 msgstr "PDF を検索中…"
 
-#: src/managers/media/magazineLibraryManager.vala:874
+#: src/managers/media/magazineLibraryManager.vala:875
 #: src/services/magazines/magazineSourceScanner.vala:77
 msgid "No PDF links found on that page"
 msgstr "そのページに PDF へのリンクは見つかりませんでした"
 
-#: src/managers/media/magazineLibraryManager.vala:885
+#: src/managers/media/magazineLibraryManager.vala:886
 msgid "No new PDFs found - everything's already in your library"
 msgstr "新しい PDF は見つかりませんでした。すべてライブラリに追加済みです"
 
-#: src/managers/media/magazineLibraryManager.vala:896
+#: src/managers/media/magazineLibraryManager.vala:897
 msgid "Select magazines to add"
 msgstr "追加する雑誌を選択"
 
-#: src/managers/media/magazineLibraryManager.vala:897
+#: src/managers/media/magazineLibraryManager.vala:898
 #, c-format
-msgid "Found %d PDF %s on %s."
-msgstr "%3$s で PDF の%2$sが %1$d 件見つかりました。"
+msgid "Found %d PDF link on %s."
+msgid_plural "Found %d PDF links on %s."
+msgstr[0] "%2$s で PDF のリンクが %1$d 件見つかりました。"
 
-#: src/managers/media/magazineLibraryManager.vala:897
-msgid "link"
-msgstr "リンク"
-
-#: src/managers/media/magazineLibraryManager.vala:897
-msgid "links"
-msgstr "リンク"
-
-#: src/managers/media/magazineLibraryManager.vala:917
+#: src/managers/media/magazineLibraryManager.vala:918
 #: src/ui/dialogs/media/podcastPickerDialog.vala:100
 msgid "Add Selected"
 msgstr "選択した雑誌を追加"
 
-#: src/managers/media/magazineLibraryManager.vala:936
+#: src/managers/media/magazineLibraryManager.vala:937
 msgid "Downloading magazine…"
 msgstr "雑誌をダウンロード中…"
 
-#: src/managers/media/magazineLibraryManager.vala:947
-#: src/managers/media/magazineLibraryManager.vala:967
+#: src/managers/media/magazineLibraryManager.vala:948
+#: src/managers/media/magazineLibraryManager.vala:968
 msgid "Added: "
 msgstr "追加しました: "
 
-#: src/managers/media/magazineLibraryManager.vala:949
-#: src/managers/media/magazineLibraryManager.vala:969
+#: src/managers/media/magazineLibraryManager.vala:950
+#: src/managers/media/magazineLibraryManager.vala:970
 msgid "Failed to add magazine"
 msgstr "雑誌を追加できませんでした"
 
-#: src/managers/media/magazineLibraryManager.vala:956
+#: src/managers/media/magazineLibraryManager.vala:957
 msgid "Adding magazines…"
 msgstr "雑誌を追加中…"
 
@@ -424,12 +401,10 @@ msgid "No podcasts found matching \"%s\""
 msgstr "「%s」に一致するポッドキャストは見つかりませんでした"
 
 #: src/managers/media/podcastManager.vala:264
-msgid "podcast"
-msgstr "ポッドキャスト"
-
-#: src/managers/media/podcastManager.vala:264
-msgid "podcasts"
-msgstr "ポッドキャスト"
+#, c-format
+msgid "Search results: found %d podcast matching \"%s\""
+msgid_plural "Search results: found %d podcasts matching \"%s\""
+msgstr[0] "検索結果: 「%2$s」に一致するポッドキャストが %1$d 件見つかりました"
 
 #: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
 msgid "Loading..."
@@ -513,13 +488,10 @@ msgid "Podcast added: "
 msgstr "ポッドキャストを追加しました: "
 
 #: src/managers/ui/headerManager.vala:432
-msgid "1 saved article"
-msgstr "保存した記事 1 件"
-
-#: src/managers/ui/headerManager.vala:432
 #, c-format
-msgid "%d saved articles"
-msgstr "保存した記事 %d 件"
+msgid "%d saved article"
+msgid_plural "%d saved articles"
+msgstr[0] "保存した記事 %d 件"
 
 #: src/managers/ui/headerManager.vala:443
 #: src/managers/ui/headerManager.vala:451
@@ -634,8 +606,8 @@ msgstr "カテゴリ"
 #: src/managers/ui/sidebarManager.vala:372
 #: src/ui/controllers/myFeedExtrasController.vala:317
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:347
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:298
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:297
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:300
 msgid "Podcasts"
 msgstr "ポッドキャスト"
 
@@ -887,7 +859,7 @@ msgstr "記事を閉じる"
 #: src/ui/components/articles/articleSheet.vala:164
 #: src/ui/components/articles/articleSheet.vala:351
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:43 src/ui/sidebarView.vala:1250
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:258
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
 msgid "Notes"
 msgstr "メモ"
 
@@ -1349,12 +1321,10 @@ msgstr "「%s」に一致する記事は見つかりませんでした"
 
 #. Special switch when only one matching article is found
 #: src/ui/contentView.vala:1196
-msgid "article"
-msgstr "記事"
-
-#: src/ui/contentView.vala:1196
-msgid "articles"
-msgstr "記事"
+#, c-format
+msgid "Search results: found %d article matching \"%s\""
+msgid_plural "Search results: found %d articles matching \"%s\""
+msgstr[0] "検索結果: 「%2$s」に一致する記事が %1$d 件見つかりました"
 
 #: src/ui/dialogs/app/aboutDialog.vala:73
 msgid "Country detection and the Portuguese (Brazil) translation"
@@ -1412,7 +1382,7 @@ msgid "Add city"
 msgstr "都市を追加"
 
 #: src/ui/dialogs/app/locationDialog.vala:83 src/ui/menus/sidebarMenu.vala:56
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:418
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:416
 msgid "Change location"
 msgstr "地域を変更"
 
@@ -1447,8 +1417,9 @@ msgstr "現在地を使用"
 
 #: src/ui/dialogs/app/locationDialog.vala:214
 #, c-format
-msgid "You can save up to %d locations."
-msgstr "地域は最大 %d 件まで保存できます。"
+msgid "You can save up to %d location."
+msgid_plural "You can save up to %d locations."
+msgstr[0] "地域は最大 %d 件まで保存できます。"
 
 #: src/ui/dialogs/app/locationDialog.vala:248
 msgid ""
@@ -1775,13 +1746,10 @@ msgstr ""
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
-msgid " magazine"
-msgstr " 冊"
-
-#: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
-#: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
-msgid " magazines"
-msgstr " 冊"
+#, c-format
+msgid "%d magazine"
+msgid_plural "%d magazines"
+msgstr[0] "%d 冊"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:284
 #: src/ui/dialogs/app/prefs/prefsRows.vala:180
@@ -1869,8 +1837,9 @@ msgstr "ポッドキャストを追加しました"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:130
 #, c-format
-msgid "%d podcasts added"
-msgstr "ポッドキャストを %d 件追加しました"
+msgid "%d podcast added"
+msgid_plural "%d podcasts added"
+msgstr[0] "ポッドキャストを %d 件追加しました"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:48
 msgid "Edit note"
@@ -2001,12 +1970,12 @@ msgid "More info"
 msgstr "詳細情報"
 
 #: src/ui/menus/podcastMenu.vala:69
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:267
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:266
 msgid "Remove podcast"
 msgstr "ポッドキャストを削除"
 
 #: src/ui/menus/sidebarMenu.vala:65
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:419
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:417
 msgid "Remove location"
 msgstr "地域を削除"
 
@@ -2047,8 +2016,8 @@ msgstr "「%s」とそのすべての記事を削除してもよろしいです�
 
 #: src/ui/menus/sidebarMenu.vala:179
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:164
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:270
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:347
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:345
 msgid "Remove"
 msgstr "削除"
 
@@ -2127,7 +2096,7 @@ msgid "Your Scores"
 msgstr "あなたのスコア"
 
 #: src/ui/controllers/myFeedExtrasController.vala:336
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:364
 msgid "Magazines"
 msgstr "雑誌"
 
@@ -2225,8 +2194,12 @@ msgid "Clear article content cache?"
 msgstr "記事コンテンツのキャッシュを消去しますか？"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:183
-msgid "This will delete cached article content and images. Previously read articles will need to be re-downloaded."
-msgstr "キャッシュされた記事のコンテンツと画像を削除します。既読の記事は再ダウンロードが必要になります。"
+msgid ""
+"This will delete cached article content and images. Previously read articles "
+"will need to be re-downloaded."
+msgstr ""
+"キャッシュされた記事のコンテンツと画像を削除します。既読の記事は再ダウンロー"
+"ドが必要になります。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
@@ -2250,8 +2223,12 @@ msgid "Clear RSS Feed Cache?"
 msgstr "RSS フィードのキャッシュを消去しますか？"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:215
-msgid "This will delete all cached RSS feed listings. Feeds will load from the network next time."
-msgstr "キャッシュされた RSS フィードの一覧をすべて削除します。次回はネットワークからフィードを読み込みます。"
+msgid ""
+"This will delete all cached RSS feed listings. Feeds will load from the "
+"network next time."
+msgstr ""
+"キャッシュされた RSS フィードの一覧をすべて削除します。次回はネットワークから"
+"フィードを読み込みます。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
 msgid "0 bytes (0 articles)"
@@ -2266,8 +2243,12 @@ msgid "Backup &amp; Restore"
 msgstr "バックアップと復元"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:235
-msgid "Export or import your custom RSS feeds and podcast subscriptions as an OPML file."
-msgstr "カスタム RSS フィードとポッドキャストの登録を OPML ファイルとしてエクスポートまたはインポートします。"
+msgid ""
+"Export or import your custom RSS feeds and podcast subscriptions as an OPML "
+"file."
+msgstr ""
+"カスタム RSS フィードとポッドキャストの登録を OPML ファイルとしてエクスポート"
+"またはインポートします。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
 msgid "Export Feeds & Podcasts"
@@ -2292,44 +2273,59 @@ msgstr "フィードとポッドキャストをインポート中…"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:252
 #, c-format
-msgid "Imported %d feed(s) and %d podcast(s)"
-msgstr "フィード %d 件とポッドキャスト %d 件をインポートしました"
+msgid "%d feed"
+msgid_plural "%d feeds"
+msgstr[0] "フィード %d 件"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:259
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:253
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
+#, c-format
+msgid "%d podcast"
+msgid_plural "%d podcasts"
+msgstr[0] "ポッドキャスト %d 件"
+
+#. TRANSLATORS: e.g. "Imported 3 feeds and 1 podcast"
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:255
+#, c-format
+msgid "Imported %s and %s"
+msgstr "%sと%sをインポートしました"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
 msgid "Export or import your article notes as a JSON file."
 msgstr "記事のメモを JSON ファイルとしてエクスポートまたはインポートします。"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
 msgid "Export Notes"
 msgstr "メモをエクスポート"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:265
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:272
 msgid "JSON files"
 msgstr "JSON ファイル"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:267
 msgid "Exported notes"
 msgstr "メモをエクスポートしました"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:268
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
 msgid "Import Notes"
 msgstr "メモをインポート"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:274
 #, c-format
-msgid "Imported %d note(s)"
-msgstr "メモを %d 件インポートしました"
+msgid "Imported %d note"
+msgid_plural "Imported %d notes"
+msgstr[0] "メモを %d 件インポートしました"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:281
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
 msgid "Danger Zone"
 msgstr "危険な操作"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
 msgid "Reset app to factory settings"
 msgstr "アプリを初期状態にリセット"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:285
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:288
 msgid ""
 "Erases all sources, saved articles, notes, settings, and cached data, then "
 "restarts Paperboy as if freshly installed."
@@ -2337,31 +2333,35 @@ msgstr ""
 "すべてのソース、保存した記事、メモ、設定、キャッシュデータを消去し、インス"
 "トール直後の状態で Paperboy を再起動します。"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:290
 msgid "Reset"
 msgstr "リセット"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:291
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:294
 msgid "Reset to factory settings?"
 msgstr "初期状態にリセットしますか？"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:292
-msgid "This permanently deletes all sources, saved articles, notes, and settings, and cannot be undone. Paperboy will restart as if freshly installed."
-msgstr "すべてのソース、保存した記事、メモ、設定を完全に削除します。この操作は元に戻せません。Paperboy はインストール直後の状態で再起動します。"
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:295
+msgid ""
+"This permanently deletes all sources, saved articles, notes, and settings, "
+"and cannot be undone. Paperboy will restart as if freshly installed."
+msgstr ""
+"すべてのソース、保存した記事、メモ、設定を完全に削除します。この操作は元に戻"
+"せません。Paperboy はインストール直後の状態で再起動します。"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:293
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:296
 msgid "Reset App"
 msgstr "アプリをリセット"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:309
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
 msgid "Experimental"
 msgstr "試験的な機能"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:315
 msgid "Show article comments"
 msgstr "記事のコメントを表示"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:313
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:316
 msgid ""
 "Show a comments button on the reader page for articles with a discoverable "
 "comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
@@ -2396,8 +2396,9 @@ msgstr "表示するカテゴリ"
 #. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
 #, c-format
-msgid "All %d categories"
-msgstr "全 %d カテゴリ"
+msgid "All %d category"
+msgid_plural "All %d categories"
+msgstr[0] "全 %d カテゴリ"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
 msgid "None"
@@ -2405,8 +2406,9 @@ msgstr "なし"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
 #, c-format
-msgid "%d of %d categories"
-msgstr "%d / %d カテゴリ"
+msgid "%d of %d category"
+msgid_plural "%d of %d categories"
+msgstr[0] "%d / %d カテゴリ"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
 msgid ""
@@ -2642,13 +2644,10 @@ msgstr ""
 "追加してください。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
-msgid "1 followed feed"
-msgstr "フォロー中のフィード 1 件"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
 #, c-format
-msgid "%d followed feeds"
-msgstr "フォロー中のフィード %d 件"
+msgid "%d followed feed"
+msgid_plural "%d followed feeds"
+msgstr[0] "フォロー中のフィード %d 件"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:153
 msgid "Rename this source"
@@ -2667,106 +2666,96 @@ msgstr "すべてのポッドキャストを削除"
 msgid "No podcasts yet"
 msgstr "ポッドキャストはまだありません"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
-msgid "1 podcast"
-msgstr "ポッドキャスト 1 件"
-
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:251
-#, c-format
-msgid "%d podcasts"
-msgstr "ポッドキャスト %d 件"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:252
 msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
 msgstr ""
 "ポッドキャストはまだありません。サイドバーの「ポッドキャスト」セクションから"
 "探してください。"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:268
 msgid "Remove podcast?"
 msgstr "ポッドキャストを削除しますか？"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:270
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
 #, c-format
 msgid "\"%s\" will be removed from your podcasts."
 msgstr "「%s」をポッドキャストから削除します。"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
 msgid "Your 1 podcast will be removed."
 msgstr "ポッドキャストを 1 件削除します。"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
 #, c-format
 msgid "All %d of your podcasts will be removed."
-msgstr "%d 件のポッドキャストをすべて削除します。"
+msgid_plural "All %d of your podcasts will be removed."
+msgstr[0] "%d 件のポッドキャストをすべて削除します。"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:288
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Remove all podcasts?"
 msgstr "すべてのポッドキャストを削除しますか？"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:288
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Remove all"
 msgstr "すべて削除"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:302
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
 msgid "Shows you've subscribed to"
 msgstr "登録している番組"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:316
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:363
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:315
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:361
 msgid "Magazine sources"
 msgstr "雑誌のソース"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:319
 msgid "No sources yet"
 msgstr "ソースはまだありません"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
-msgid "1 source"
-msgstr "ソース 1 件"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:322
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
 #, c-format
-msgid "%d sources"
-msgstr "ソース %d 件"
+msgid "%d source"
+msgid_plural "%d sources"
+msgstr[0] "ソース %d 件"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:323
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
 msgid "No sources yet. Websites you add from the Magazines page show up here."
 msgstr ""
 "ソースはまだありません。「雑誌」ページで追加したウェブサイトがここに表示され"
 "ます。"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:336
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:334
 msgid "Remove source"
 msgstr "ソースを削除"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:341
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:339
 #, c-format
 msgid "\"%s\" will be removed."
 msgstr "「%s」を削除します。"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:347
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:345
 msgid "Remove source?"
 msgstr "ソースを削除しますか？"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:367
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:365
 msgid "Websites scanned for magazine PDFs"
 msgstr "雑誌の PDF を探すウェブサイト"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:379
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
 msgid "Add a location"
 msgstr "地域を追加"
 
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:402
+#, c-format
+msgid "%d of %d location added. Remove one to add another."
+msgid_plural "%d of %d locations added. Remove one to add another."
+msgstr[0] "%d / %d 件の地域を追加済みです。別の地域を追加するには 1 件削除してください。"
+
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:404
 #, c-format
-msgid "%d of %d locations added. Remove one to add another."
-msgstr ""
-"%d / %d 件の地域を追加済みです。別の地域を追加するには 1 件削除してください。"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:406
-#, c-format
-msgid "Up to %d locations · %d added"
-msgstr "最大 %d 件 · %d 件追加済み"
+msgid "Up to %d location · %d added"
+msgid_plural "Up to %d locations · %d added"
+msgstr[0] "最大 %d 件 · %d 件追加済み"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:35
 msgid "Sports Score Cards"

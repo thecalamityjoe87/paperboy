@@ -1193,8 +1193,7 @@ public class ContentView : GLib.Object {
             label_text = _("No articles found matching \"%s\"").printf(query);
         } else {
             // Special switch when only one matching article is found
-            string article_word = (match_count == 1) ? _("article") : _("articles");
-            label_text = _("Search results: found %d %s matching \"%s\"").printf(match_count, article_word, query);
+            label_text = ngettext("Search results: found %d article matching \"%s\"", "Search results: found %d articles matching \"%s\"", match_count).printf(match_count, query);
         }
 
         category_subtitle.set_label(label_text);

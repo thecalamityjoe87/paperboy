@@ -131,7 +131,7 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
             feeds_nav_row.set_subtitle(_("No feeds followed yet"));
             rss_sources_group.set_description(_("No feeds followed yet. Add one from the sidebar's Feeds section."));
         } else {
-            feeds_nav_row.set_subtitle(feed_row_count == 1 ? _("1 followed feed") : _("%d followed feeds").printf(feed_row_count));
+            feeds_nav_row.set_subtitle(ngettext("%d followed feed", "%d followed feeds", feed_row_count).printf(feed_row_count));
             rss_sources_group.set_description(null);
         }
     }
@@ -247,8 +247,7 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
             int n = podcast_rows.size;
             // if/else, not a nested ternary: Vala frees the printf() temp in that form before it's used.
             if (n == 0) podcasts_nav_row.set_subtitle(_("No podcasts yet"));
-            else if (n == 1) podcasts_nav_row.set_subtitle(_("1 podcast"));
-            else podcasts_nav_row.set_subtitle(_("%d podcasts").printf(n));
+            else podcasts_nav_row.set_subtitle(ngettext("%d podcast", "%d podcasts", n).printf(n));
             podcasts_list_group.set_description(n == 0 ? _("No podcasts yet. Find some from the sidebar's Podcasts section.") : null);
             remove_all_podcasts_group.set_visible(n > 0);
         }
@@ -284,7 +283,7 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
 
         remove_all_podcasts_row.activated.connect(() => {
             int n = podcast_rows.size;
-            string body = n == 1 ? _("Your 1 podcast will be removed.") : _("All %d of your podcasts will be removed.").printf(n);
+            string body = n == 1 ? _("Your 1 podcast will be removed.") : ngettext("All %d of your podcasts will be removed.", "All %d of your podcasts will be removed.", n).printf(n);
             DialogUtils.confirm_destructive(ctx.dialog, _("Remove all podcasts?"), body, _("Remove all"), () => {
                 foreach (var sub in podcast_store.get_all_subscriptions()) podcast_store.unsubscribe(sub.feed_id);
                 populate_podcast_rows();
@@ -318,8 +317,7 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
         void update_magazine_sources_summary() {
             int n = magazine_source_count;
             if (n == 0) magazine_sources_nav_row.set_subtitle(_("No sources yet"));
-            else if (n == 1) magazine_sources_nav_row.set_subtitle(_("1 source"));
-            else magazine_sources_nav_row.set_subtitle(_("%d sources").printf(n));
+            else magazine_sources_nav_row.set_subtitle(ngettext("%d source", "%d sources", n).printf(n));
             magazine_sources_list_group.set_description(n == 0 ? _("No sources yet. Websites you add from the Magazines page show up here.") : null);
         }
 
@@ -401,9 +399,9 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
         var areas = prefs.get_local_areas();
         int max = NewsPreferences.MAX_LOCAL_AREAS;
         if (areas.size >= max) {
-            local_group.set_description(_("%d of %d locations added. Remove one to add another.").printf(areas.size, max));
+            local_group.set_description(ngettext("%d of %d location added. Remove one to add another.", "%d of %d locations added. Remove one to add another.", max).printf(areas.size, max));
         } else {
-            local_group.set_description(_("Up to %d locations · %d added").printf(max, areas.size));
+            local_group.set_description(ngettext("Up to %d location · %d added", "Up to %d locations · %d added", max).printf(max, areas.size));
         }
 
         for (int i = 0; i < areas.size; i++) {

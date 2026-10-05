@@ -261,7 +261,7 @@ namespace Managers {
             if (content_view.category_subtitle != null) {
                 string label_text = shows.size == 0
                     ? _("No podcasts found matching \"%s\"").printf(query)
-                    : _("Search results: found %d %s matching \"%s\"").printf(shows.size, shows.size == 1 ? _("podcast") : _("podcasts"), query);
+                    : ngettext("Search results: found %d podcast matching \"%s\"", "Search results: found %d podcasts matching \"%s\"", shows.size).printf(shows.size, query);
                 content_view.category_subtitle.set_label(label_text);
                 content_view.category_subtitle.set_visible(true);
             }

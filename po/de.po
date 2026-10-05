@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 17:34-0500\n"
+"POT-Creation-Date: 2026-10-05 17:43-0500\n"
 "PO-Revision-Date: 2026-10-05 17:10-0500\n"
 "Last-Translator: \n"
 "Language-Team: German\n"
@@ -186,7 +186,7 @@ msgstr "Mein Feed"
 #: src/managers/content/categoryManager.vala:206
 #: src/managers/ui/headerManager.vala:477
 #: src/managers/ui/sidebarManager.vala:319
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:375
 #: src/services/feeds/unreadFetchService.vala:226
 #: src/ui/controllers/fetchNewsController.vala:1081
 msgid "Local News"
@@ -210,18 +210,11 @@ msgid "No magazines found matching \"%s\""
 msgstr "Keine Magazine gefunden, die „%s“ entsprechen"
 
 #: src/managers/media/magazineLibraryManager.vala:155
-#: src/managers/media/podcastManager.vala:264 src/ui/contentView.vala:1197
 #, c-format
-msgid "Search results: found %d %s matching \"%s\""
-msgstr "Suchergebnisse: %d %s gefunden, die „%s“ entsprechen"
-
-#: src/managers/media/magazineLibraryManager.vala:155
-msgid "magazine"
-msgstr "Magazin"
-
-#: src/managers/media/magazineLibraryManager.vala:155
-msgid "magazines"
-msgstr "Magazine"
+msgid "Search results: found %d magazine matching \"%s\""
+msgid_plural "Search results: found %d magazines matching \"%s\""
+msgstr[0] "Suchergebnisse: %d Magazin gefunden, das „%s“ entspricht"
+msgstr[1] "Suchergebnisse: %d Magazine gefunden, die „%s“ entsprechen"
 
 #: src/managers/media/magazineLibraryManager.vala:177
 msgid "Your library is empty"
@@ -236,67 +229,62 @@ msgstr "Aus der Bibliothek entfernt"
 msgid "Your library is empty. Add a magazine to get started."
 msgstr "Ihre Bibliothek ist leer. Fügen Sie ein Magazin hinzu, um loszulegen."
 
-#: src/managers/media/magazineLibraryManager.vala:648
-msgid "1 selected"
-msgstr "1 ausgewählt"
-
-#: src/managers/media/magazineLibraryManager.vala:648
+#. TRANSLATORS: number of selected magazines
+#: src/managers/media/magazineLibraryManager.vala:649
 #, c-format
 msgid "%d selected"
-msgstr "%d ausgewählt"
+msgid_plural "%d selected"
+msgstr[0] "%d ausgewählt"
+msgstr[1] "%d ausgewählt"
 
-#: src/managers/media/magazineLibraryManager.vala:649
+#: src/managers/media/magazineLibraryManager.vala:650
 #, c-format
 msgid "Delete (%d)"
 msgstr "Löschen (%d)"
 
-#: src/managers/media/magazineLibraryManager.vala:649
-#: src/managers/media/magazineLibraryManager.vala:669
+#: src/managers/media/magazineLibraryManager.vala:650
+#: src/managers/media/magazineLibraryManager.vala:670
 #: src/ui/contentView.vala:852
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:364
 msgid "Delete"
 msgstr "Löschen"
 
-#: src/managers/media/magazineLibraryManager.vala:667
-msgid "Delete 1 magazine?"
-msgstr "1 Magazin löschen?"
-
-#: src/managers/media/magazineLibraryManager.vala:667
+#: src/managers/media/magazineLibraryManager.vala:668
 #, c-format
-msgid "Delete %d magazines?"
-msgstr "%d Magazine löschen?"
+msgid "Delete %d magazine?"
+msgid_plural "Delete %d magazines?"
+msgstr[0] "%d Magazin löschen?"
+msgstr[1] "%d Magazine löschen?"
 
-#: src/managers/media/magazineLibraryManager.vala:669
+#: src/managers/media/magazineLibraryManager.vala:670
 msgid "Their downloaded files are removed too. This can't be undone."
 msgstr ""
 "Die heruntergeladenen Dateien werden ebenfalls entfernt. Dies kann nicht "
 "rückgängig gemacht werden."
 
-#: src/managers/media/magazineLibraryManager.vala:677
-msgid "Removed 1 magazine"
-msgstr "1 Magazin entfernt"
-
-#: src/managers/media/magazineLibraryManager.vala:677
+#: src/managers/media/magazineLibraryManager.vala:678
 #, c-format
-msgid "Removed %d magazines"
-msgstr "%d Magazine entfernt"
+msgid "Removed %d magazine"
+msgid_plural "Removed %d magazines"
+msgstr[0] "%d Magazin entfernt"
+msgstr[1] "%d Magazine entfernt"
 
-#: src/managers/media/magazineLibraryManager.vala:714
+#: src/managers/media/magazineLibraryManager.vala:715
 msgid "Set Category"
 msgstr "Kategorie festlegen"
 
-#: src/managers/media/magazineLibraryManager.vala:715
+#: src/managers/media/magazineLibraryManager.vala:716
 #, c-format
 msgid "Group \"%s\" under a category - leave blank for Uncategorized."
 msgstr "„%s“ einer Kategorie zuordnen – leer lassen für „Ohne Kategorie“."
 
-#: src/managers/media/magazineLibraryManager.vala:718
+#: src/managers/media/magazineLibraryManager.vala:719
 msgid "e.g. Technology, History, Comics"
 msgstr "z. B. Technik, Geschichte, Comics"
 
-#: src/managers/media/magazineLibraryManager.vala:724
-#: src/managers/media/magazineLibraryManager.vala:780
-#: src/managers/media/magazineLibraryManager.vala:916
+#: src/managers/media/magazineLibraryManager.vala:725
+#: src/managers/media/magazineLibraryManager.vala:781
+#: src/managers/media/magazineLibraryManager.vala:917
 #: src/ui/contentView.vala:849 src/ui/dialogs/app/locationDialog.vala:125
 #: src/ui/dialogs/content/feedRenameDialog.vala:42
 #: src/ui/dialogs/content/shareDialog.vala:222
@@ -306,16 +294,16 @@ msgstr "z. B. Technik, Geschichte, Comics"
 msgid "Cancel"
 msgstr "Abbrechen"
 
-#: src/managers/media/magazineLibraryManager.vala:725
+#: src/managers/media/magazineLibraryManager.vala:726
 msgid "Set"
 msgstr "Festlegen"
 
-#: src/managers/media/magazineLibraryManager.vala:746
+#: src/managers/media/magazineLibraryManager.vala:747
 #: src/ui/contentView.vala:244
 msgid "Add Magazines"
 msgstr "Magazine hinzufügen"
 
-#: src/managers/media/magazineLibraryManager.vala:747
+#: src/managers/media/magazineLibraryManager.vala:748
 msgid ""
 "Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
 "choose a PDF you've already downloaded."
@@ -324,11 +312,11 @@ msgstr ""
 "eine oder mehrere PDF-Dateien verlinkt, oder wählen Sie eine bereits "
 "heruntergeladene PDF-Datei."
 
-#: src/managers/media/magazineLibraryManager.vala:758
+#: src/managers/media/magazineLibraryManager.vala:759
 msgid "Title (optional, direct PDF links/local files only)"
 msgstr "Titel (optional, nur direkte PDF-Links/lokale Dateien)"
 
-#: src/managers/media/magazineLibraryManager.vala:762
+#: src/managers/media/magazineLibraryManager.vala:763
 msgid "Category (optional, e.g. Technology, History)"
 msgstr "Kategorie (optional, z. B. Technik, Geschichte)"
 
@@ -336,80 +324,74 @@ msgstr "Kategorie (optional, z. B. Technik, Geschichte)"
 #. just skips the URL field and closes this dialog immediately
 #. rather than waiting for "Add" (there's no URL to type once a
 #. file is picked).
-#: src/managers/media/magazineLibraryManager.vala:769
+#: src/managers/media/magazineLibraryManager.vala:770
 msgid "Choose a PDF on This Computer…"
 msgstr "PDF-Datei auf diesem Computer wählen…"
 
-#: src/managers/media/magazineLibraryManager.vala:781
+#: src/managers/media/magazineLibraryManager.vala:782
 #: src/ui/dialogs/app/locationDialog.vala:81
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:461
 msgid "Add"
 msgstr "Hinzufügen"
 
-#: src/managers/media/magazineLibraryManager.vala:803
+#: src/managers/media/magazineLibraryManager.vala:804
 msgid "Choose a PDF"
 msgstr "PDF-Datei wählen"
 
-#: src/managers/media/magazineLibraryManager.vala:806
+#: src/managers/media/magazineLibraryManager.vala:807
 msgid "PDF files"
 msgstr "PDF-Dateien"
 
-#: src/managers/media/magazineLibraryManager.vala:833
+#: src/managers/media/magazineLibraryManager.vala:834
 #: src/services/magazines/magazinePdfImportService.vala:43
 msgid "Only https:// links are supported"
 msgstr "Nur https://-Links werden unterstützt"
 
-#: src/managers/media/magazineLibraryManager.vala:864
+#: src/managers/media/magazineLibraryManager.vala:865
 msgid "Scanning for PDFs…"
 msgstr "Nach PDF-Dateien wird gesucht…"
 
-#: src/managers/media/magazineLibraryManager.vala:874
+#: src/managers/media/magazineLibraryManager.vala:875
 #: src/services/magazines/magazineSourceScanner.vala:77
 msgid "No PDF links found on that page"
 msgstr "Auf dieser Seite wurden keine PDF-Links gefunden"
 
-#: src/managers/media/magazineLibraryManager.vala:885
+#: src/managers/media/magazineLibraryManager.vala:886
 msgid "No new PDFs found - everything's already in your library"
 msgstr ""
 "Keine neuen PDF-Dateien gefunden – alles ist bereits in Ihrer Bibliothek"
 
-#: src/managers/media/magazineLibraryManager.vala:896
+#: src/managers/media/magazineLibraryManager.vala:897
 msgid "Select magazines to add"
 msgstr "Hinzuzufügende Magazine auswählen"
 
-#: src/managers/media/magazineLibraryManager.vala:897
+#: src/managers/media/magazineLibraryManager.vala:898
 #, c-format
-msgid "Found %d PDF %s on %s."
-msgstr "%d PDF-%s auf %s gefunden."
+msgid "Found %d PDF link on %s."
+msgid_plural "Found %d PDF links on %s."
+msgstr[0] "%d PDF-Link auf %s gefunden."
+msgstr[1] "%d PDF-Links auf %s gefunden."
 
-#: src/managers/media/magazineLibraryManager.vala:897
-msgid "link"
-msgstr "Link"
-
-#: src/managers/media/magazineLibraryManager.vala:897
-msgid "links"
-msgstr "Links"
-
-#: src/managers/media/magazineLibraryManager.vala:917
+#: src/managers/media/magazineLibraryManager.vala:918
 #: src/ui/dialogs/media/podcastPickerDialog.vala:100
 msgid "Add Selected"
 msgstr "Auswahl hinzufügen"
 
-#: src/managers/media/magazineLibraryManager.vala:936
+#: src/managers/media/magazineLibraryManager.vala:937
 msgid "Downloading magazine…"
 msgstr "Magazin wird heruntergeladen…"
 
-#: src/managers/media/magazineLibraryManager.vala:947
-#: src/managers/media/magazineLibraryManager.vala:967
+#: src/managers/media/magazineLibraryManager.vala:948
+#: src/managers/media/magazineLibraryManager.vala:968
 msgid "Added: "
 msgstr "Hinzugefügt: "
 
-#: src/managers/media/magazineLibraryManager.vala:949
-#: src/managers/media/magazineLibraryManager.vala:969
+#: src/managers/media/magazineLibraryManager.vala:950
+#: src/managers/media/magazineLibraryManager.vala:970
 msgid "Failed to add magazine"
 msgstr "Magazin konnte nicht hinzugefügt werden"
 
-#: src/managers/media/magazineLibraryManager.vala:956
+#: src/managers/media/magazineLibraryManager.vala:957
 msgid "Adding magazines…"
 msgstr "Magazine werden hinzugefügt…"
 
@@ -428,12 +410,11 @@ msgid "No podcasts found matching \"%s\""
 msgstr "Keine Podcasts gefunden, die „%s“ entsprechen"
 
 #: src/managers/media/podcastManager.vala:264
-msgid "podcast"
-msgstr "Podcast"
-
-#: src/managers/media/podcastManager.vala:264
-msgid "podcasts"
-msgstr "Podcasts"
+#, c-format
+msgid "Search results: found %d podcast matching \"%s\""
+msgid_plural "Search results: found %d podcasts matching \"%s\""
+msgstr[0] "Suchergebnisse: %d Podcast gefunden, der „%s“ entspricht"
+msgstr[1] "Suchergebnisse: %d Podcasts gefunden, die „%s“ entsprechen"
 
 #: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
 msgid "Loading..."
@@ -519,13 +500,11 @@ msgid "Podcast added: "
 msgstr "Podcast hinzugefügt: "
 
 #: src/managers/ui/headerManager.vala:432
-msgid "1 saved article"
-msgstr "1 gespeicherter Artikel"
-
-#: src/managers/ui/headerManager.vala:432
 #, c-format
-msgid "%d saved articles"
-msgstr "%d gespeicherte Artikel"
+msgid "%d saved article"
+msgid_plural "%d saved articles"
+msgstr[0] "%d gespeicherter Artikel"
+msgstr[1] "%d gespeicherte Artikel"
 
 #: src/managers/ui/headerManager.vala:443
 #: src/managers/ui/headerManager.vala:451
@@ -645,8 +624,8 @@ msgstr "Kategorien"
 #: src/managers/ui/sidebarManager.vala:372
 #: src/ui/controllers/myFeedExtrasController.vala:317
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:347
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:298
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:297
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:300
 msgid "Podcasts"
 msgstr "Podcasts"
 
@@ -898,7 +877,7 @@ msgstr "Artikel schließen"
 #: src/ui/components/articles/articleSheet.vala:164
 #: src/ui/components/articles/articleSheet.vala:351
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:43 src/ui/sidebarView.vala:1250
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:258
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
 msgid "Notes"
 msgstr "Notizen"
 
@@ -1362,12 +1341,11 @@ msgstr "Keine Artikel gefunden, die „%s“ entsprechen"
 
 #. Special switch when only one matching article is found
 #: src/ui/contentView.vala:1196
-msgid "article"
-msgstr "Artikel"
-
-#: src/ui/contentView.vala:1196
-msgid "articles"
-msgstr "Artikel"
+#, c-format
+msgid "Search results: found %d article matching \"%s\""
+msgid_plural "Search results: found %d articles matching \"%s\""
+msgstr[0] "Suchergebnisse: %d Artikel gefunden, der „%s“ entspricht"
+msgstr[1] "Suchergebnisse: %d Artikel gefunden, die „%s“ entsprechen"
 
 #: src/ui/dialogs/app/aboutDialog.vala:73
 msgid "Country detection and the Portuguese (Brazil) translation"
@@ -1426,7 +1404,7 @@ msgid "Add city"
 msgstr "Stadt hinzufügen"
 
 #: src/ui/dialogs/app/locationDialog.vala:83 src/ui/menus/sidebarMenu.vala:56
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:418
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:416
 msgid "Change location"
 msgstr "Ort ändern"
 
@@ -1462,8 +1440,10 @@ msgstr "Meinen Standort verwenden"
 
 #: src/ui/dialogs/app/locationDialog.vala:214
 #, c-format
-msgid "You can save up to %d locations."
-msgstr "Sie können bis zu %d Orte speichern."
+msgid "You can save up to %d location."
+msgid_plural "You can save up to %d locations."
+msgstr[0] "Sie können bis zu %d Ort speichern."
+msgstr[1] "Sie können bis zu %d Orte speichern."
 
 #: src/ui/dialogs/app/locationDialog.vala:248
 msgid ""
@@ -1482,7 +1462,9 @@ msgstr "Erkannt: <b>%s</b> – klicken Sie auf „%s“, um diesen Ort zu verwen
 #: src/ui/dialogs/app/locationDialog.vala:273
 #, c-format
 msgid "Detected: <b>%s</b> — choose which news to add:"
-msgstr "Erkannt: <b>%s</b> – wählen Sie, welche Nachrichten hinzugefügt werden sollen:"
+msgstr ""
+"Erkannt: <b>%s</b> – wählen Sie, welche Nachrichten hinzugefügt werden "
+"sollen:"
 
 #: src/ui/dialogs/app/locationDialog.vala:274
 msgid "Smaller towns may have limited coverage."
@@ -1801,13 +1783,11 @@ msgstr ""
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
-msgid " magazine"
-msgstr " Magazin"
-
-#: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
-#: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
-msgid " magazines"
-msgstr " Magazine"
+#, c-format
+msgid "%d magazine"
+msgid_plural "%d magazines"
+msgstr[0] "%d Magazin"
+msgstr[1] "%d Magazine"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:284
 #: src/ui/dialogs/app/prefs/prefsRows.vala:180
@@ -1897,8 +1877,10 @@ msgstr "Podcast hinzugefügt"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:130
 #, c-format
-msgid "%d podcasts added"
-msgstr "%d Podcasts hinzugefügt"
+msgid "%d podcast added"
+msgid_plural "%d podcasts added"
+msgstr[0] "%d Podcast hinzugefügt"
+msgstr[1] "%d Podcasts hinzugefügt"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:48
 msgid "Edit note"
@@ -2032,12 +2014,12 @@ msgid "More info"
 msgstr "Weitere Informationen"
 
 #: src/ui/menus/podcastMenu.vala:69
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:267
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:266
 msgid "Remove podcast"
 msgstr "Podcast entfernen"
 
 #: src/ui/menus/sidebarMenu.vala:65
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:419
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:417
 msgid "Remove location"
 msgstr "Ort entfernen"
 
@@ -2078,8 +2060,8 @@ msgstr "Möchten Sie „%s“ und alle zugehörigen Artikel wirklich entfernen?"
 
 #: src/ui/menus/sidebarMenu.vala:179
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:164
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:270
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:347
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:345
 msgid "Remove"
 msgstr "Entfernen"
 
@@ -2158,7 +2140,7 @@ msgid "Your Scores"
 msgstr "Ihre Ergebnisse"
 
 #: src/ui/controllers/myFeedExtrasController.vala:336
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:364
 msgid "Magazines"
 msgstr "Magazine"
 
@@ -2255,8 +2237,12 @@ msgid "Clear article content cache?"
 msgstr "Zwischenspeicher für Artikelinhalte leeren?"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:183
-msgid "This will delete cached article content and images. Previously read articles will need to be re-downloaded."
-msgstr "Zwischengespeicherte Artikelinhalte und Bilder werden gelöscht. Bereits gelesene Artikel müssen erneut heruntergeladen werden."
+msgid ""
+"This will delete cached article content and images. Previously read articles "
+"will need to be re-downloaded."
+msgstr ""
+"Zwischengespeicherte Artikelinhalte und Bilder werden gelöscht. Bereits "
+"gelesene Artikel müssen erneut heruntergeladen werden."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
@@ -2280,8 +2266,12 @@ msgid "Clear RSS Feed Cache?"
 msgstr "RSS-Feed-Zwischenspeicher leeren?"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:215
-msgid "This will delete all cached RSS feed listings. Feeds will load from the network next time."
-msgstr "Alle zwischengespeicherten RSS-Feed-Listen werden gelöscht. Feeds werden beim nächsten Mal aus dem Netz geladen."
+msgid ""
+"This will delete all cached RSS feed listings. Feeds will load from the "
+"network next time."
+msgstr ""
+"Alle zwischengespeicherten RSS-Feed-Listen werden gelöscht. Feeds werden "
+"beim nächsten Mal aus dem Netz geladen."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
 msgid "0 bytes (0 articles)"
@@ -2296,8 +2286,12 @@ msgid "Backup &amp; Restore"
 msgstr "Sichern &amp; Wiederherstellen"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:235
-msgid "Export or import your custom RSS feeds and podcast subscriptions as an OPML file."
-msgstr "Exportieren oder importieren Sie Ihre eigenen RSS-Feeds und Podcast-Abonnements als OPML-Datei."
+msgid ""
+"Export or import your custom RSS feeds and podcast subscriptions as an OPML "
+"file."
+msgstr ""
+"Exportieren oder importieren Sie Ihre eigenen RSS-Feeds und Podcast-"
+"Abonnements als OPML-Datei."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
 msgid "Export Feeds & Podcasts"
@@ -2322,44 +2316,62 @@ msgstr "Feeds und Podcasts werden importiert…"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:252
 #, c-format
-msgid "Imported %d feed(s) and %d podcast(s)"
-msgstr "%d Feed(s) und %d Podcast(s) importiert"
+msgid "%d feed"
+msgid_plural "%d feeds"
+msgstr[0] "%d Feed"
+msgstr[1] "%d Feeds"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:259
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:253
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
+#, c-format
+msgid "%d podcast"
+msgid_plural "%d podcasts"
+msgstr[0] "%d Podcast"
+msgstr[1] "%d Podcasts"
+
+#. TRANSLATORS: e.g. "Imported 3 feeds and 1 podcast"
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:255
+#, c-format
+msgid "Imported %s and %s"
+msgstr "%s und %s importiert"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
 msgid "Export or import your article notes as a JSON file."
 msgstr "Exportieren oder importieren Sie Ihre Artikelnotizen als JSON-Datei."
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
 msgid "Export Notes"
 msgstr "Notizen exportieren"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:265
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:272
 msgid "JSON files"
 msgstr "JSON-Dateien"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:267
 msgid "Exported notes"
 msgstr "Notizen exportiert"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:268
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
 msgid "Import Notes"
 msgstr "Notizen importieren"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:274
 #, c-format
-msgid "Imported %d note(s)"
-msgstr "%d Notiz(en) importiert"
+msgid "Imported %d note"
+msgid_plural "Imported %d notes"
+msgstr[0] "%d Notiz importiert"
+msgstr[1] "%d Notizen importiert"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:281
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
 msgid "Danger Zone"
 msgstr "Gefahrenbereich"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
 msgid "Reset app to factory settings"
 msgstr "App auf Werkseinstellungen zurücksetzen"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:285
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:288
 msgid ""
 "Erases all sources, saved articles, notes, settings, and cached data, then "
 "restarts Paperboy as if freshly installed."
@@ -2368,31 +2380,36 @@ msgstr ""
 "zwischengespeicherten Daten und startet Paperboy dann wie frisch installiert "
 "neu."
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:290
 msgid "Reset"
 msgstr "Zurücksetzen"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:291
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:294
 msgid "Reset to factory settings?"
 msgstr "Auf Werkseinstellungen zurücksetzen?"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:292
-msgid "This permanently deletes all sources, saved articles, notes, and settings, and cannot be undone. Paperboy will restart as if freshly installed."
-msgstr "Dadurch werden alle Quellen, gespeicherten Artikel, Notizen und Einstellungen dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden. Paperboy startet danach wie frisch installiert neu."
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:295
+msgid ""
+"This permanently deletes all sources, saved articles, notes, and settings, "
+"and cannot be undone. Paperboy will restart as if freshly installed."
+msgstr ""
+"Dadurch werden alle Quellen, gespeicherten Artikel, Notizen und "
+"Einstellungen dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden. "
+"Paperboy startet danach wie frisch installiert neu."
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:293
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:296
 msgid "Reset App"
 msgstr "App zurücksetzen"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:309
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
 msgid "Experimental"
 msgstr "Experimentell"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:315
 msgid "Show article comments"
 msgstr "Artikelkommentare anzeigen"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:313
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:316
 msgid ""
 "Show a comments button on the reader page for articles with a discoverable "
 "comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
@@ -2429,8 +2446,10 @@ msgstr "Angezeigte Kategorien"
 #. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
 #, c-format
-msgid "All %d categories"
-msgstr "Alle %d Kategorien"
+msgid "All %d category"
+msgid_plural "All %d categories"
+msgstr[0] "Alle %d Kategorie"
+msgstr[1] "Alle %d Kategorien"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
 msgid "None"
@@ -2438,8 +2457,10 @@ msgstr "Keine"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
 #, c-format
-msgid "%d of %d categories"
-msgstr "%d von %d Kategorien"
+msgid "%d of %d category"
+msgid_plural "%d of %d categories"
+msgstr[0] "%d von %d Kategorie"
+msgstr[1] "%d von %d Kategorien"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
 msgid ""
@@ -2682,13 +2703,11 @@ msgstr ""
 "Seitenleiste hinzu."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
-msgid "1 followed feed"
-msgstr "1 gefolgter Feed"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
 #, c-format
-msgid "%d followed feeds"
-msgstr "%d gefolgte Feeds"
+msgid "%d followed feed"
+msgid_plural "%d followed feeds"
+msgstr[0] "%d gefolgter Feed"
+msgstr[1] "%d gefolgte Feeds"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:153
 msgid "Rename this source"
@@ -2707,107 +2726,100 @@ msgstr "Alle Podcasts entfernen"
 msgid "No podcasts yet"
 msgstr "Noch keine Podcasts"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
-msgid "1 podcast"
-msgstr "1 Podcast"
-
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:251
-#, c-format
-msgid "%d podcasts"
-msgstr "%d Podcasts"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:252
 msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
 msgstr ""
 "Noch keine Podcasts. Finden Sie welche im Bereich „Podcasts“ der "
 "Seitenleiste."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:268
 msgid "Remove podcast?"
 msgstr "Podcast entfernen?"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:270
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
 #, c-format
 msgid "\"%s\" will be removed from your podcasts."
 msgstr "„%s“ wird aus Ihren Podcasts entfernt."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
 msgid "Your 1 podcast will be removed."
 msgstr "Ihr Podcast wird entfernt."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
 #, c-format
 msgid "All %d of your podcasts will be removed."
-msgstr "Alle %d Podcasts werden entfernt."
+msgid_plural "All %d of your podcasts will be removed."
+msgstr[0] "Alle %d Podcasts werden entfernt."
+msgstr[1] "Alle %d Podcasts werden entfernt."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:288
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Remove all podcasts?"
 msgstr "Alle Podcasts entfernen?"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:288
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Remove all"
 msgstr "Alle entfernen"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:302
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
 msgid "Shows you've subscribed to"
 msgstr "Sendungen, die Sie abonniert haben"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:316
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:363
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:315
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:361
 msgid "Magazine sources"
 msgstr "Magazinquellen"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:319
 msgid "No sources yet"
 msgstr "Noch keine Quellen"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
-msgid "1 source"
-msgstr "1 Quelle"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:322
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
 #, c-format
-msgid "%d sources"
-msgstr "%d Quellen"
+msgid "%d source"
+msgid_plural "%d sources"
+msgstr[0] "%d Quelle"
+msgstr[1] "%d Quellen"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:323
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
 msgid "No sources yet. Websites you add from the Magazines page show up here."
 msgstr ""
 "Noch keine Quellen. Websites, die Sie auf der Seite „Magazine“ hinzufügen, "
 "erscheinen hier."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:336
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:334
 msgid "Remove source"
 msgstr "Quelle entfernen"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:341
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:339
 #, c-format
 msgid "\"%s\" will be removed."
 msgstr "„%s“ wird entfernt."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:347
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:345
 msgid "Remove source?"
 msgstr "Quelle entfernen?"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:367
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:365
 msgid "Websites scanned for magazine PDFs"
 msgstr "Websites, die nach Magazin-PDFs durchsucht werden"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:379
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
 msgid "Add a location"
 msgstr "Ort hinzufügen"
 
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:402
+#, c-format
+msgid "%d of %d location added. Remove one to add another."
+msgid_plural "%d of %d locations added. Remove one to add another."
+msgstr[0] "%d von %d Ort hinzugefügt. Entfernen Sie einen, um einen weiteren hinzuzufügen."
+msgstr[1] "%d von %d Orten hinzugefügt. Entfernen Sie einen, um einen weiteren hinzuzufügen."
+
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:404
 #, c-format
-msgid "%d of %d locations added. Remove one to add another."
-msgstr ""
-"%d von %d Orten hinzugefügt. Entfernen Sie einen, um einen weiteren "
-"hinzuzufügen."
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:406
-#, c-format
-msgid "Up to %d locations · %d added"
-msgstr "Bis zu %d Orte · %d hinzugefügt"
+msgid "Up to %d location · %d added"
+msgid_plural "Up to %d locations · %d added"
+msgstr[0] "Bis zu %d Ort · %d hinzugefügt"
+msgstr[1] "Bis zu %d Orte · %d hinzugefügt"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:35
 msgid "Sports Score Cards"
@@ -3303,7 +3315,9 @@ msgstr "%a, %-d.%-m."
 #: src/managers/content/articleManager.vala:157
 #: src/managers/content/articleManager.vala:172
 msgid "You're offline. Enable internet connection to view articles"
-msgstr "Sie sind offline. Stellen Sie eine Internetverbindung her, um Artikel anzusehen"
+msgstr ""
+"Sie sind offline. Stellen Sie eine Internetverbindung her, um Artikel "
+"anzusehen"
 
 #: src/managers/ui/layoutManager.vala:555
 msgid "More Stories"

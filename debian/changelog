@@ -9,10 +9,10 @@ paperboy (0.14.0a-1) unstable; urgency=low
   * Place names with mixed casing are kept as written, and two-letter town names are no longer capitalized as US states
   * Added translation support, with translations for Portuguese (Brazil), Spanish, French, German, Italian, Russian, Japanese, and Simplified Chinese
   * Country names, national and Local News headers, and category names in page headers are now translated
-  * The podcast picker's episode count now uses the right plural in every language
   * Fixed some interface text never being offered for translation
   * Article times and dates now use the interface language's wording and date order
   * Translated the remaining English notifications, buttons, and dialogs, the reading time, the built-in outlets' descriptions, and email share text
+  * Counts and search results now use the right plural in every language, including languages with several plural forms
   * Article bylines now follow the system's 12-hour or 24-hour clock setting
   * Fixed failed feeds showing a spinner until timeout instead of an error in languages other than English
   * Fixed dates on older article cards sometimes being a day off, and the header date padding the day with a zero

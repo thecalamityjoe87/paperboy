@@ -429,7 +429,7 @@ public class HeaderManager : GLib.Object {
 
         if (cat == "saved") {
             int count = window.article_state_store != null ? window.article_state_store.get_saved_count() : 0;
-            view.date_label.set_text(count == 1 ? _("1 saved article") : _("%d saved articles").printf(count));
+            view.date_label.set_text(ngettext("%d saved article", "%d saved articles", count).printf(count));
         } else {
             view.date_label.set_text(DateUtils.full_date(new DateTime.now_local()));
         }

@@ -249,7 +249,10 @@ public class AppPrefsPage : Adw.PreferencesPage {
                         if (import_result.feeds_added > 0) feeds_imported();
                         if (win.sidebar_manager != null) win.sidebar_manager.rebuild_sidebar();
                         if (win.toast_manager != null) {
-                            win.toast_manager.show_toast(_("Imported %d feed(s) and %d podcast(s)").printf(import_result.feeds_added, import_result.podcasts_added));
+                            string feeds = ngettext("%d feed", "%d feeds", import_result.feeds_added).printf(import_result.feeds_added);
+                            string podcasts = ngettext("%d podcast", "%d podcasts", import_result.podcasts_added).printf(import_result.podcasts_added);
+                            // TRANSLATORS: e.g. "Imported 3 feeds and 1 podcast"
+                            win.toast_manager.show_toast(_("Imported %s and %s").printf(feeds, podcasts));
                         }
                     });
                 });
@@ -268,7 +271,7 @@ public class AppPrefsPage : Adw.PreferencesPage {
                 PrefsRows.choose_open_path(win, _("Import Notes"),
                     PrefsRows.file_filter(_("JSON files"), "json"), "import notes", (path) => {
                     int imported = Paperboy.NotesExportService.import_from_file(path);
-                    if (win.toast_manager != null) win.toast_manager.show_toast(_("Imported %d note(s)").printf(imported));
+                    if (win.toast_manager != null) win.toast_manager.show_toast(ngettext("Imported %d note", "Imported %d notes", imported).printf(imported));
                 });
             }));
         return group;

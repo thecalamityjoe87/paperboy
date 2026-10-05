@@ -127,7 +127,7 @@ public class PodcastPickerDialog : GLib.Object {
                 }
             }
             if (window != null && window.toast_manager != null && added > 0) {
-                window.toast_manager.show_toast(added == 1 ? _("Podcast added") : _("%d podcasts added").printf(added));
+                window.toast_manager.show_toast(added == 1 ? _("Podcast added") : ngettext("%d podcast added", "%d podcasts added", added).printf(added));
             }
         });
 

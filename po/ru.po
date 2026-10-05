@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 17:34-0500\n"
+"POT-Creation-Date: 2026-10-05 17:43-0500\n"
 "PO-Revision-Date: 2026-10-05 17:13-0500\n"
 "Last-Translator: \n"
 "Language-Team: Russian\n"
@@ -187,7 +187,7 @@ msgstr "Моя лента"
 #: src/managers/content/categoryManager.vala:206
 #: src/managers/ui/headerManager.vala:477
 #: src/managers/ui/sidebarManager.vala:319
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:375
 #: src/services/feeds/unreadFetchService.vala:226
 #: src/ui/controllers/fetchNewsController.vala:1081
 msgid "Local News"
@@ -211,18 +211,12 @@ msgid "No magazines found matching \"%s\""
 msgstr "Журналы по запросу «%s» не найдены"
 
 #: src/managers/media/magazineLibraryManager.vala:155
-#: src/managers/media/podcastManager.vala:264 src/ui/contentView.vala:1197
 #, c-format
-msgid "Search results: found %d %s matching \"%s\""
-msgstr "Результаты поиска по запросу «%3$s» (%2$s): %1$d"
-
-#: src/managers/media/magazineLibraryManager.vala:155
-msgid "magazine"
-msgstr "журналы"
-
-#: src/managers/media/magazineLibraryManager.vala:155
-msgid "magazines"
-msgstr "журналы"
+msgid "Search results: found %d magazine matching \"%s\""
+msgid_plural "Search results: found %d magazines matching \"%s\""
+msgstr[0] "Результаты поиска: найден %d журнал по запросу «%s»"
+msgstr[1] "Результаты поиска: найдены %d журнала по запросу «%s»"
+msgstr[2] "Результаты поиска: найдено %d журналов по запросу «%s»"
 
 #: src/managers/media/magazineLibraryManager.vala:177
 msgid "Your library is empty"
@@ -237,65 +231,63 @@ msgstr "Удалено из библиотеки"
 msgid "Your library is empty. Add a magazine to get started."
 msgstr "Ваша библиотека пуста. Добавьте журнал, чтобы начать."
 
-#: src/managers/media/magazineLibraryManager.vala:648
-msgid "1 selected"
-msgstr "Выбрано: 1"
-
-#: src/managers/media/magazineLibraryManager.vala:648
+#. TRANSLATORS: number of selected magazines
+#: src/managers/media/magazineLibraryManager.vala:649
 #, c-format
 msgid "%d selected"
-msgstr "Выбрано: %d"
+msgid_plural "%d selected"
+msgstr[0] "Выбрано: %d"
+msgstr[1] "Выбрано: %d"
+msgstr[2] "Выбрано: %d"
 
-#: src/managers/media/magazineLibraryManager.vala:649
+#: src/managers/media/magazineLibraryManager.vala:650
 #, c-format
 msgid "Delete (%d)"
 msgstr "Удалить (%d)"
 
-#: src/managers/media/magazineLibraryManager.vala:649
-#: src/managers/media/magazineLibraryManager.vala:669
+#: src/managers/media/magazineLibraryManager.vala:650
+#: src/managers/media/magazineLibraryManager.vala:670
 #: src/ui/contentView.vala:852
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:364
 msgid "Delete"
 msgstr "Удалить"
 
-#: src/managers/media/magazineLibraryManager.vala:667
-msgid "Delete 1 magazine?"
-msgstr "Удалить 1 журнал?"
-
-#: src/managers/media/magazineLibraryManager.vala:667
+#: src/managers/media/magazineLibraryManager.vala:668
 #, c-format
-msgid "Delete %d magazines?"
-msgstr "Удалить журналы (%d)?"
+msgid "Delete %d magazine?"
+msgid_plural "Delete %d magazines?"
+msgstr[0] "Удалить %d журнал?"
+msgstr[1] "Удалить %d журнала?"
+msgstr[2] "Удалить %d журналов?"
 
-#: src/managers/media/magazineLibraryManager.vala:669
+#: src/managers/media/magazineLibraryManager.vala:670
 msgid "Their downloaded files are removed too. This can't be undone."
 msgstr "Скачанные файлы тоже будут удалены. Это действие нельзя отменить."
 
-#: src/managers/media/magazineLibraryManager.vala:677
-msgid "Removed 1 magazine"
-msgstr "Удалён 1 журнал"
-
-#: src/managers/media/magazineLibraryManager.vala:677
+#: src/managers/media/magazineLibraryManager.vala:678
 #, c-format
-msgid "Removed %d magazines"
-msgstr "Удалено журналов: %d"
+msgid "Removed %d magazine"
+msgid_plural "Removed %d magazines"
+msgstr[0] "Удалён %d журнал"
+msgstr[1] "Удалено %d журнала"
+msgstr[2] "Удалено %d журналов"
 
-#: src/managers/media/magazineLibraryManager.vala:714
+#: src/managers/media/magazineLibraryManager.vala:715
 msgid "Set Category"
 msgstr "Задать категорию"
 
-#: src/managers/media/magazineLibraryManager.vala:715
+#: src/managers/media/magazineLibraryManager.vala:716
 #, c-format
 msgid "Group \"%s\" under a category - leave blank for Uncategorized."
 msgstr "Поместить «%s» в категорию — оставьте пустым для «Без категории»."
 
-#: src/managers/media/magazineLibraryManager.vala:718
+#: src/managers/media/magazineLibraryManager.vala:719
 msgid "e.g. Technology, History, Comics"
 msgstr "например, Технологии, История, Комиксы"
 
-#: src/managers/media/magazineLibraryManager.vala:724
-#: src/managers/media/magazineLibraryManager.vala:780
-#: src/managers/media/magazineLibraryManager.vala:916
+#: src/managers/media/magazineLibraryManager.vala:725
+#: src/managers/media/magazineLibraryManager.vala:781
+#: src/managers/media/magazineLibraryManager.vala:917
 #: src/ui/contentView.vala:849 src/ui/dialogs/app/locationDialog.vala:125
 #: src/ui/dialogs/content/feedRenameDialog.vala:42
 #: src/ui/dialogs/content/shareDialog.vala:222
@@ -305,16 +297,16 @@ msgstr "например, Технологии, История, Комиксы"
 msgid "Cancel"
 msgstr "Отмена"
 
-#: src/managers/media/magazineLibraryManager.vala:725
+#: src/managers/media/magazineLibraryManager.vala:726
 msgid "Set"
 msgstr "Задать"
 
-#: src/managers/media/magazineLibraryManager.vala:746
+#: src/managers/media/magazineLibraryManager.vala:747
 #: src/ui/contentView.vala:244
 msgid "Add Magazines"
 msgstr "Добавить журналы"
 
-#: src/managers/media/magazineLibraryManager.vala:747
+#: src/managers/media/magazineLibraryManager.vala:748
 msgid ""
 "Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
 "choose a PDF you've already downloaded."
@@ -322,12 +314,12 @@ msgstr ""
 "Введите прямую ссылку на PDF, адрес веб-страницы со ссылками на один или "
 "несколько PDF или выберите уже скачанный PDF."
 
-#: src/managers/media/magazineLibraryManager.vala:758
+#: src/managers/media/magazineLibraryManager.vala:759
 msgid "Title (optional, direct PDF links/local files only)"
 msgstr ""
 "Название (необязательно, только для прямых ссылок на PDF и локальных файлов)"
 
-#: src/managers/media/magazineLibraryManager.vala:762
+#: src/managers/media/magazineLibraryManager.vala:763
 msgid "Category (optional, e.g. Technology, History)"
 msgstr "Категория (необязательно, например, Технологии, История)"
 
@@ -335,79 +327,74 @@ msgstr "Категория (необязательно, например, Тех
 #. just skips the URL field and closes this dialog immediately
 #. rather than waiting for "Add" (there's no URL to type once a
 #. file is picked).
-#: src/managers/media/magazineLibraryManager.vala:769
+#: src/managers/media/magazineLibraryManager.vala:770
 msgid "Choose a PDF on This Computer…"
 msgstr "Выбрать PDF на этом компьютере…"
 
-#: src/managers/media/magazineLibraryManager.vala:781
+#: src/managers/media/magazineLibraryManager.vala:782
 #: src/ui/dialogs/app/locationDialog.vala:81
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:461
 msgid "Add"
 msgstr "Добавить"
 
-#: src/managers/media/magazineLibraryManager.vala:803
+#: src/managers/media/magazineLibraryManager.vala:804
 msgid "Choose a PDF"
 msgstr "Выбрать PDF"
 
-#: src/managers/media/magazineLibraryManager.vala:806
+#: src/managers/media/magazineLibraryManager.vala:807
 msgid "PDF files"
 msgstr "Файлы PDF"
 
-#: src/managers/media/magazineLibraryManager.vala:833
+#: src/managers/media/magazineLibraryManager.vala:834
 #: src/services/magazines/magazinePdfImportService.vala:43
 msgid "Only https:// links are supported"
 msgstr "Поддерживаются только ссылки https://"
 
-#: src/managers/media/magazineLibraryManager.vala:864
+#: src/managers/media/magazineLibraryManager.vala:865
 msgid "Scanning for PDFs…"
 msgstr "Поиск PDF…"
 
-#: src/managers/media/magazineLibraryManager.vala:874
+#: src/managers/media/magazineLibraryManager.vala:875
 #: src/services/magazines/magazineSourceScanner.vala:77
 msgid "No PDF links found on that page"
 msgstr "На этой странице не найдено ссылок на PDF"
 
-#: src/managers/media/magazineLibraryManager.vala:885
+#: src/managers/media/magazineLibraryManager.vala:886
 msgid "No new PDFs found - everything's already in your library"
 msgstr "Новых PDF не найдено — всё уже есть в вашей библиотеке"
 
-#: src/managers/media/magazineLibraryManager.vala:896
+#: src/managers/media/magazineLibraryManager.vala:897
 msgid "Select magazines to add"
 msgstr "Выберите журналы для добавления"
 
-#: src/managers/media/magazineLibraryManager.vala:897
+#: src/managers/media/magazineLibraryManager.vala:898
 #, c-format
-msgid "Found %d PDF %s on %s."
-msgstr "На %3$s найдены PDF-%2$s: %1$d."
+msgid "Found %d PDF link on %s."
+msgid_plural "Found %d PDF links on %s."
+msgstr[0] "На %2$s найдена %1$d ссылка на PDF."
+msgstr[1] "На %2$s найдены %1$d ссылки на PDF."
+msgstr[2] "На %2$s найдено %1$d ссылок на PDF."
 
-#: src/managers/media/magazineLibraryManager.vala:897
-msgid "link"
-msgstr "ссылки"
-
-#: src/managers/media/magazineLibraryManager.vala:897
-msgid "links"
-msgstr "ссылки"
-
-#: src/managers/media/magazineLibraryManager.vala:917
+#: src/managers/media/magazineLibraryManager.vala:918
 #: src/ui/dialogs/media/podcastPickerDialog.vala:100
 msgid "Add Selected"
 msgstr "Добавить выбранные"
 
-#: src/managers/media/magazineLibraryManager.vala:936
+#: src/managers/media/magazineLibraryManager.vala:937
 msgid "Downloading magazine…"
 msgstr "Скачивание журнала…"
 
-#: src/managers/media/magazineLibraryManager.vala:947
-#: src/managers/media/magazineLibraryManager.vala:967
+#: src/managers/media/magazineLibraryManager.vala:948
+#: src/managers/media/magazineLibraryManager.vala:968
 msgid "Added: "
 msgstr "Добавлено: "
 
-#: src/managers/media/magazineLibraryManager.vala:949
-#: src/managers/media/magazineLibraryManager.vala:969
+#: src/managers/media/magazineLibraryManager.vala:950
+#: src/managers/media/magazineLibraryManager.vala:970
 msgid "Failed to add magazine"
 msgstr "Не удалось добавить журнал"
 
-#: src/managers/media/magazineLibraryManager.vala:956
+#: src/managers/media/magazineLibraryManager.vala:957
 msgid "Adding magazines…"
 msgstr "Добавление журналов…"
 
@@ -426,12 +413,12 @@ msgid "No podcasts found matching \"%s\""
 msgstr "Подкасты по запросу «%s» не найдены"
 
 #: src/managers/media/podcastManager.vala:264
-msgid "podcast"
-msgstr "подкасты"
-
-#: src/managers/media/podcastManager.vala:264
-msgid "podcasts"
-msgstr "подкасты"
+#, c-format
+msgid "Search results: found %d podcast matching \"%s\""
+msgid_plural "Search results: found %d podcasts matching \"%s\""
+msgstr[0] "Результаты поиска: найден %d подкаст по запросу «%s»"
+msgstr[1] "Результаты поиска: найдены %d подкаста по запросу «%s»"
+msgstr[2] "Результаты поиска: найдено %d подкастов по запросу «%s»"
 
 #: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
 msgid "Loading..."
@@ -516,13 +503,12 @@ msgid "Podcast added: "
 msgstr "Подкаст добавлен: "
 
 #: src/managers/ui/headerManager.vala:432
-msgid "1 saved article"
-msgstr "1 сохранённая статья"
-
-#: src/managers/ui/headerManager.vala:432
 #, c-format
-msgid "%d saved articles"
-msgstr "Сохранённых статей: %d"
+msgid "%d saved article"
+msgid_plural "%d saved articles"
+msgstr[0] "%d сохранённая статья"
+msgstr[1] "%d сохранённые статьи"
+msgstr[2] "%d сохранённых статей"
 
 #: src/managers/ui/headerManager.vala:443
 #: src/managers/ui/headerManager.vala:451
@@ -638,8 +624,8 @@ msgstr "Категории"
 #: src/managers/ui/sidebarManager.vala:372
 #: src/ui/controllers/myFeedExtrasController.vala:317
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:347
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:298
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:297
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:300
 msgid "Podcasts"
 msgstr "Подкасты"
 
@@ -891,7 +877,7 @@ msgstr "Закрыть статью"
 #: src/ui/components/articles/articleSheet.vala:164
 #: src/ui/components/articles/articleSheet.vala:351
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:43 src/ui/sidebarView.vala:1250
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:258
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
 msgid "Notes"
 msgstr "Заметки"
 
@@ -1353,12 +1339,12 @@ msgstr "Статьи по запросу «%s» не найдены"
 
 #. Special switch when only one matching article is found
 #: src/ui/contentView.vala:1196
-msgid "article"
-msgstr "статьи"
-
-#: src/ui/contentView.vala:1196
-msgid "articles"
-msgstr "статьи"
+#, c-format
+msgid "Search results: found %d article matching \"%s\""
+msgid_plural "Search results: found %d articles matching \"%s\""
+msgstr[0] "Результаты поиска: найдена %d статья по запросу «%s»"
+msgstr[1] "Результаты поиска: найдены %d статьи по запросу «%s»"
+msgstr[2] "Результаты поиска: найдено %d статей по запросу «%s»"
 
 #: src/ui/dialogs/app/aboutDialog.vala:73
 msgid "Country detection and the Portuguese (Brazil) translation"
@@ -1417,7 +1403,7 @@ msgid "Add city"
 msgstr "Добавить город"
 
 #: src/ui/dialogs/app/locationDialog.vala:83 src/ui/menus/sidebarMenu.vala:56
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:418
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:416
 msgid "Change location"
 msgstr "Изменить местоположение"
 
@@ -1453,8 +1439,11 @@ msgstr "Использовать моё местоположение"
 
 #: src/ui/dialogs/app/locationDialog.vala:214
 #, c-format
-msgid "You can save up to %d locations."
-msgstr "Максимальное число сохранённых местоположений: %d."
+msgid "You can save up to %d location."
+msgid_plural "You can save up to %d locations."
+msgstr[0] "Можно сохранить не более %d местоположения."
+msgstr[1] "Можно сохранить не более %d местоположений."
+msgstr[2] "Можно сохранить не более %d местоположений."
 
 #: src/ui/dialogs/app/locationDialog.vala:248
 msgid ""
@@ -1468,7 +1457,8 @@ msgstr ""
 #: src/ui/dialogs/app/locationDialog.vala:268
 #, c-format
 msgid "Detected: <b>%s</b> — click %s to use this location"
-msgstr "Найдено: <b>%s</b> — нажмите «%s», чтобы использовать это местоположение"
+msgstr ""
+"Найдено: <b>%s</b> — нажмите «%s», чтобы использовать это местоположение"
 
 #: src/ui/dialogs/app/locationDialog.vala:273
 #, c-format
@@ -1785,13 +1775,12 @@ msgstr ""
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
-msgid " magazine"
-msgstr " журн."
-
-#: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
-#: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
-msgid " magazines"
-msgstr " журн."
+#, c-format
+msgid "%d magazine"
+msgid_plural "%d magazines"
+msgstr[0] "%d журнал"
+msgstr[1] "%d журнала"
+msgstr[2] "%d журналов"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:284
 #: src/ui/dialogs/app/prefs/prefsRows.vala:180
@@ -1879,8 +1868,11 @@ msgstr "Подкаст добавлен"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:130
 #, c-format
-msgid "%d podcasts added"
-msgstr "Добавлено подкастов: %d"
+msgid "%d podcast added"
+msgid_plural "%d podcasts added"
+msgstr[0] "Добавлен %d подкаст"
+msgstr[1] "Добавлено %d подкаста"
+msgstr[2] "Добавлено %d подкастов"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:48
 msgid "Edit note"
@@ -2012,12 +2004,12 @@ msgid "More info"
 msgstr "Подробнее"
 
 #: src/ui/menus/podcastMenu.vala:69
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:267
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:266
 msgid "Remove podcast"
 msgstr "Удалить подкаст"
 
 #: src/ui/menus/sidebarMenu.vala:65
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:419
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:417
 msgid "Remove location"
 msgstr "Удалить местоположение"
 
@@ -2058,8 +2050,8 @@ msgstr "Вы действительно хотите удалить «%s» и в
 
 #: src/ui/menus/sidebarMenu.vala:179
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:164
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:270
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:347
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:345
 msgid "Remove"
 msgstr "Удалить"
 
@@ -2138,7 +2130,7 @@ msgid "Your Scores"
 msgstr "Ваши результаты"
 
 #: src/ui/controllers/myFeedExtrasController.vala:336
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:364
 msgid "Magazines"
 msgstr "Журналы"
 
@@ -2236,8 +2228,12 @@ msgid "Clear article content cache?"
 msgstr "Очистить кэш содержимого статей?"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:183
-msgid "This will delete cached article content and images. Previously read articles will need to be re-downloaded."
-msgstr "Кэшированное содержимое и изображения статей будут удалены. Уже прочитанные статьи придётся скачать заново."
+msgid ""
+"This will delete cached article content and images. Previously read articles "
+"will need to be re-downloaded."
+msgstr ""
+"Кэшированное содержимое и изображения статей будут удалены. Уже прочитанные "
+"статьи придётся скачать заново."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
@@ -2261,8 +2257,12 @@ msgid "Clear RSS Feed Cache?"
 msgstr "Очистить кэш RSS-лент?"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:215
-msgid "This will delete all cached RSS feed listings. Feeds will load from the network next time."
-msgstr "Все кэшированные списки RSS-лент будут удалены. В следующий раз ленты загрузятся из сети."
+msgid ""
+"This will delete all cached RSS feed listings. Feeds will load from the "
+"network next time."
+msgstr ""
+"Все кэшированные списки RSS-лент будут удалены. В следующий раз ленты "
+"загрузятся из сети."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
 msgid "0 bytes (0 articles)"
@@ -2277,8 +2277,12 @@ msgid "Backup &amp; Restore"
 msgstr "Резервное копирование и восстановление"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:235
-msgid "Export or import your custom RSS feeds and podcast subscriptions as an OPML file."
-msgstr "Экспортируйте или импортируйте свои RSS-ленты и подписки на подкасты в виде файла OPML."
+msgid ""
+"Export or import your custom RSS feeds and podcast subscriptions as an OPML "
+"file."
+msgstr ""
+"Экспортируйте или импортируйте свои RSS-ленты и подписки на подкасты в виде "
+"файла OPML."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
 msgid "Export Feeds & Podcasts"
@@ -2303,44 +2307,65 @@ msgstr "Импорт лент и подкастов…"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:252
 #, c-format
-msgid "Imported %d feed(s) and %d podcast(s)"
-msgstr "Импортировано лент: %d, подкастов: %d"
+msgid "%d feed"
+msgid_plural "%d feeds"
+msgstr[0] "%d лента"
+msgstr[1] "%d ленты"
+msgstr[2] "%d лент"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:259
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:253
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
+#, c-format
+msgid "%d podcast"
+msgid_plural "%d podcasts"
+msgstr[0] "%d подкаст"
+msgstr[1] "%d подкаста"
+msgstr[2] "%d подкастов"
+
+#. TRANSLATORS: e.g. "Imported 3 feeds and 1 podcast"
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:255
+#, c-format
+msgid "Imported %s and %s"
+msgstr "Импортировано: %s и %s"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
 msgid "Export or import your article notes as a JSON file."
 msgstr "Экспортируйте или импортируйте заметки к статьям в виде файла JSON."
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
 msgid "Export Notes"
 msgstr "Экспортировать заметки"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:265
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:272
 msgid "JSON files"
 msgstr "Файлы JSON"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:267
 msgid "Exported notes"
 msgstr "Заметки экспортированы"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:268
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
 msgid "Import Notes"
 msgstr "Импортировать заметки"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:274
 #, c-format
-msgid "Imported %d note(s)"
-msgstr "Импортировано заметок: %d"
+msgid "Imported %d note"
+msgid_plural "Imported %d notes"
+msgstr[0] "Импортирована %d заметка"
+msgstr[1] "Импортировано %d заметки"
+msgstr[2] "Импортировано %d заметок"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:281
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
 msgid "Danger Zone"
 msgstr "Опасная зона"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
 msgid "Reset app to factory settings"
 msgstr "Сбросить приложение к заводским настройкам"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:285
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:288
 msgid ""
 "Erases all sources, saved articles, notes, settings, and cached data, then "
 "restarts Paperboy as if freshly installed."
@@ -2348,31 +2373,36 @@ msgstr ""
 "Удаляет все источники, сохранённые статьи, заметки, настройки и кэшированные "
 "данные, а затем перезапускает Paperboy, как после новой установки."
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:290
 msgid "Reset"
 msgstr "Сбросить"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:291
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:294
 msgid "Reset to factory settings?"
 msgstr "Сбросить к заводским настройкам?"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:292
-msgid "This permanently deletes all sources, saved articles, notes, and settings, and cannot be undone. Paperboy will restart as if freshly installed."
-msgstr "Все источники, сохранённые статьи, заметки и настройки будут удалены безвозвратно. Это действие нельзя отменить. Paperboy перезапустится, как после новой установки."
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:295
+msgid ""
+"This permanently deletes all sources, saved articles, notes, and settings, "
+"and cannot be undone. Paperboy will restart as if freshly installed."
+msgstr ""
+"Все источники, сохранённые статьи, заметки и настройки будут удалены "
+"безвозвратно. Это действие нельзя отменить. Paperboy перезапустится, как "
+"после новой установки."
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:293
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:296
 msgid "Reset App"
 msgstr "Сбросить приложение"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:309
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
 msgid "Experimental"
 msgstr "Экспериментальные"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:315
 msgid "Show article comments"
 msgstr "Показывать комментарии к статьям"
 
-#: src/ui/dialogs/app/prefs/appPrefsPage.vala:313
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:316
 msgid ""
 "Show a comments button on the reader page for articles with a discoverable "
 "comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
@@ -2407,8 +2437,11 @@ msgstr "Показанные категории"
 #. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
 #, c-format
-msgid "All %d categories"
-msgstr "Все категории (%d)"
+msgid "All %d category"
+msgid_plural "All %d categories"
+msgstr[0] "Все категории (%d)"
+msgstr[1] "Все категории (%d)"
+msgstr[2] "Все категории (%d)"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
 msgid "None"
@@ -2416,8 +2449,11 @@ msgstr "Нет"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
 #, c-format
-msgid "%d of %d categories"
-msgstr "Категорий: %d из %d"
+msgid "%d of %d category"
+msgid_plural "%d of %d categories"
+msgstr[0] "%d из %d категории"
+msgstr[1] "%d из %d категорий"
+msgstr[2] "%d из %d категорий"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
 msgid ""
@@ -2658,13 +2694,12 @@ msgstr ""
 "боковой панели."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
-msgid "1 followed feed"
-msgstr "1 отслеживаемая лента"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
 #, c-format
-msgid "%d followed feeds"
-msgstr "Отслеживаемых лент: %d"
+msgid "%d followed feed"
+msgid_plural "%d followed feeds"
+msgstr[0] "%d отслеживаемая лента"
+msgstr[1] "%d отслеживаемые ленты"
+msgstr[2] "%d отслеживаемых лент"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:153
 msgid "Rename this source"
@@ -2683,104 +2718,102 @@ msgstr "Удалить все подкасты"
 msgid "No podcasts yet"
 msgstr "Подкастов пока нет"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
-msgid "1 podcast"
-msgstr "1 подкаст"
-
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:251
-#, c-format
-msgid "%d podcasts"
-msgstr "Подкастов: %d"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:252
 msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
 msgstr "Подкастов пока нет. Найдите их в разделе «Подкасты» на боковой панели."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:268
 msgid "Remove podcast?"
 msgstr "Удалить подкаст?"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:270
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
 #, c-format
 msgid "\"%s\" will be removed from your podcasts."
 msgstr "«%s» будет удалён из ваших подкастов."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
 msgid "Your 1 podcast will be removed."
 msgstr "Ваш подкаст будет удалён."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
 #, c-format
 msgid "All %d of your podcasts will be removed."
-msgstr "Все ваши подкасты (%d) будут удалены."
+msgid_plural "All %d of your podcasts will be removed."
+msgstr[0] "Все ваши подкасты (%d) будут удалены."
+msgstr[1] "Все ваши подкасты (%d) будут удалены."
+msgstr[2] "Все ваши подкасты (%d) будут удалены."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:288
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Remove all podcasts?"
 msgstr "Удалить все подкасты?"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:288
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Remove all"
 msgstr "Удалить все"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:302
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
 msgid "Shows you've subscribed to"
 msgstr "Передачи, на которые вы подписаны"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:316
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:363
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:315
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:361
 msgid "Magazine sources"
 msgstr "Источники журналов"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:319
 msgid "No sources yet"
 msgstr "Источников пока нет"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
-msgid "1 source"
-msgstr "1 источник"
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:322
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
 #, c-format
-msgid "%d sources"
-msgstr "Источников: %d"
+msgid "%d source"
+msgid_plural "%d sources"
+msgstr[0] "%d источник"
+msgstr[1] "%d источника"
+msgstr[2] "%d источников"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:323
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
 msgid "No sources yet. Websites you add from the Magazines page show up here."
 msgstr ""
 "Источников пока нет. Здесь появятся сайты, которые вы добавите на странице "
 "«Журналы»."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:336
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:334
 msgid "Remove source"
 msgstr "Удалить источник"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:341
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:339
 #, c-format
 msgid "\"%s\" will be removed."
 msgstr "«%s» будет удалён."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:347
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:345
 msgid "Remove source?"
 msgstr "Удалить источник?"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:367
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:365
 msgid "Websites scanned for magazine PDFs"
 msgstr "Сайты, на которых ищутся журналы в PDF"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:379
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
 msgid "Add a location"
 msgstr "Добавить местоположение"
 
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:402
+#, c-format
+msgid "%d of %d location added. Remove one to add another."
+msgid_plural "%d of %d locations added. Remove one to add another."
+msgstr[0] "Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
+msgstr[1] "Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
+msgstr[2] "Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
+
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:404
 #, c-format
-msgid "%d of %d locations added. Remove one to add another."
-msgstr ""
-"Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
-
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:406
-#, c-format
-msgid "Up to %d locations · %d added"
-msgstr "Максимум: %d · добавлено: %d"
+msgid "Up to %d location · %d added"
+msgid_plural "Up to %d locations · %d added"
+msgstr[0] "Не более %d местоположения · добавлено %d"
+msgstr[1] "Не более %d местоположений · добавлено %d"
+msgstr[2] "Не более %d местоположений · добавлено %d"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:35
 msgid "Sports Score Cards"
@@ -3281,7 +3314,8 @@ msgstr "%a, %d.%m"
 #: src/managers/content/articleManager.vala:157
 #: src/managers/content/articleManager.vala:172
 msgid "You're offline. Enable internet connection to view articles"
-msgstr "Нет подключения к сети. Подключитесь к интернету, чтобы просматривать статьи"
+msgstr ""
+"Нет подключения к сети. Подключитесь к интернету, чтобы просматривать статьи"
 
 #: src/managers/ui/layoutManager.vala:555
 msgid "More Stories"
