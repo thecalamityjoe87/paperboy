@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Flag from lipis/flag-icons (MIT), in shades of one color for Paperboy -->
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.75 3.5625) scale(0.03515625 0.03515625)"><g fill-rule="evenodd" stroke-width="1pt">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.5 3.375) scale(0.0359375 0.0359375)"><g fill-rule="evenodd" stroke-width="1pt">
     <path fill="#ffffff" d="M0 0h640v480H0z" />
     <g fill="#000000">
       <path d="M170 195h300v90H170z" />
       <path d="M275 90h90v300h-90z" />
     </g>
   </g>
-</g></mask></defs><rect x="0.75" y="3.5625" width="22.5" height="16.875" fill="#ffffff" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1.5" /></svg>
+</g></mask></defs><rect x="0.5" y="3.375" width="23" height="17.25" fill="#ffffff" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1" /></svg>

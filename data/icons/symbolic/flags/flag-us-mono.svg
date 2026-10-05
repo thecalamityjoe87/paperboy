@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Flag from lipis/flag-icons (MIT), in shades of one color for Paperboy -->
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.75 3.5625) scale(0.03515625 0.03515625)"><path fill="#acacac" d="M0 0h640v480H0" />
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.5 3.375) scale(0.0359375 0.0359375)"><path fill="#acacac" d="M0 0h640v480H0" />
   <path stroke="#000000" stroke-width="37" d="M0 55.3h640M0 129h640M0 203h640M0 277h640M0 351h640M0 425h640" />
   <path fill="#ffffff" d="M0 0h364.8v258.5H0" />
   <marker id="us-a" markerHeight="30" markerWidth="30">
     <path fill="#000000" d="m14 0 9 27L0 10h28L5 27z" />
   </marker>
   <path fill="none" marker-mid="url(#us-a)" d="m0 0 16 11h61 61 61 61 60L47 37h61 61 60 61L16 63h61 61 61 61 60L47 89h61 61 60 61L16 115h61 61 61 61 60L47 141h61 61 60 61L16 166h61 61 61 61 60L47 192h61 61 60 61L16 218h61 61 61 61 60z" />
-</g></mask></defs><rect x="0.75" y="3.5625" width="22.5" height="16.875" fill="#000000" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" fill="none" stroke="#000000" stroke-width="1.5" /></svg>
+</g></mask></defs><rect x="0.5" y="3.375" width="23" height="17.25" fill="#000000" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" fill="none" stroke="#000000" stroke-width="1" /></svg>

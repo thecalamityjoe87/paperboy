@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Flag from lipis/flag-icons (MIT), in shades of one color for Paperboy -->
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.75 3.5625) scale(0.03515625 0.03515625)"><defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.5 3.375) scale(0.0359375 0.0359375)"><defs>
     <clipPath id="na-a">
       <path fill-opacity=".7" d="M0 0h640v480H0z" />
     </clipPath>
@@ -14,4 +14,4 @@
     <path fill="#ffffff" d="M232.4 112.4c0 25.6-20.9 46.3-46.6 46.3s-46.6-20.7-46.6-46.3 20.8-46.2 46.6-46.2 46.6 20.7 46.6 46.2" />
     <path fill="#030303" d="M222.3 112.4a36.5 36.5 0 1 1-73 0 36.5 36.5 0 0 1 73 0" />
   </g>
-</g></mask></defs><rect x="0.75" y="3.5625" width="22.5" height="16.875" fill="#000000" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" fill="none" stroke="#000000" stroke-width="1.5" /></svg>
+</g></mask></defs><rect x="0.5" y="3.375" width="23" height="17.25" fill="#000000" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" fill="none" stroke="#000000" stroke-width="1" /></svg>

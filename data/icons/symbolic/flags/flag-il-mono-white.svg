@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Flag from lipis/flag-icons (MIT), in shades of one color for Paperboy -->
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.75 3.5625) scale(0.03515625 0.03515625)"><defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.5 3.375) scale(0.0359375 0.0359375)"><defs>
     <clipPath id="il-a">
       <path fill-opacity=".7" d="M-87.6 0H595v512H-87.6z" />
     </clipPath>
@@ -12,4 +12,4 @@
     <path fill="#ffffff" d="M136 320.6 246.2 129l112.4 190.8z" />
     <path fill="#000000" d="m225.8 191.6 20.9-35.5 21.4 35.4zM182 271.1l-21.7 36 41-.1-19.3-36zm-21.3-66.5 41.2.3-19.8 36.3zm151.2 67 20.9 35.5-41.7-.5zm20.5-67-41.2.3 19.8 36.3zm-114.3 0L189.7 256l28.8 50.3 52.8 1.2 32-51.5-29.6-52z" />
   </g>
-</g></mask></defs><rect x="0.75" y="3.5625" width="22.5" height="16.875" fill="#ffffff" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.75" y="3.5625" width="22.5" height="16.875" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1.5" /></svg>
+</g></mask></defs><rect x="0.5" y="3.375" width="23" height="17.25" fill="#ffffff" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1" /></svg>
