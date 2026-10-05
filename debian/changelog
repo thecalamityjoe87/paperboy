@@ -1,3 +1,23 @@
+paperboy (0.14.0a-1) unstable; urgency=low
+
+  * Added a Country setting (Preferences > Personalization > Region) with the 87 Google News country and language editions, set to Automatic by default from the system's time zone and language
+  * Added a "Where Are You Reading From?" onboarding page to check or change the detected country
+  * Outside the US, "US News" becomes the country's national news, with a flag icon for light and dark mode
+  * Outside the US, the Front Page, Trending, and each category's Google News section show the country's news in its language
+  * NPR, WSJ, the New York Times, and Bloomberg searches always use Google News' US edition so they return a full set of articles
+  * Local News now asks for a postal code and prefers results in the user's country
+  * Place names with mixed casing are kept as written, and two-letter town names are no longer capitalized as US states
+  * Added translation support, with translations for Portuguese (Brazil), Spanish, French, German, Italian, Russian, Japanese, and Simplified Chinese
+  * Country names, national and Local News headers, and category names in page headers are now translated
+  * The podcast picker's episode count now uses the right plural in every language
+  * Fixed some interface text never being offered for translation
+  * Added a Contributors page to the About dialog
+  * Websites are asked for pages in the user's language
+  * Fixed reader view failing on pages that aren't in UTF-8
+  * Fixed the Front Page's hero carousel sometimes not appearing after picking a new country
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 05 Oct 2026 00:00:00 +0000
+
 paperboy (0.13.1a-1) unstable; urgency=low
 
   * Added a fixed sidebar footer with Notes and a Now Playing button; Notes moved there from the sidebar list

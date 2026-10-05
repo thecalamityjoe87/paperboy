@@ -56,7 +56,7 @@ public class PodcastPickerDialog : GLib.Object {
 
             string subtitle = show_item.author ?? "";
             if (show_item.episode_count > 0) {
-                string ep_text = _("%d episode%s").printf(show_item.episode_count, show_item.episode_count == 1 ? "" : "s");
+                string ep_text = ngettext("%d episode", "%d episodes", show_item.episode_count).printf(show_item.episode_count);
                 subtitle = subtitle.length > 0 ? _("%s · %s").printf(subtitle, ep_text) : ep_text;
             }
             if (already_subscribed) {

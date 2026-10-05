@@ -1,34 +1,30 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the paperboy package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Chinese (simplified) translations for the Paperboy UI.
+# This file is distributed under the same license as the Paperboy package.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 17:04-0500\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"PO-Revision-Date: 2026-10-05 17:17-0500\n"
+"Last-Translator: \n"
+"Language-Team: Chinese (simplified)\n"
+"Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #: src/builders/cardBuilder.vala:31 src/managers/ui/sidebarManager.vala:352
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:234
 msgid "Feeds"
-msgstr ""
+msgstr "订阅源"
 
 #: src/builders/cardBuilder.vala:229 src/managers/ui/headerManager.vala:482
 #: src/managers/ui/headerManager.vala:484
 #: src/managers/ui/headerManager.vala:514
 #: src/services/fetchers/fetcherUtils.vala:39
 msgid "News"
-msgstr ""
+msgstr "新闻"
 
 #: src/builders/cardBuilder.vala:255
 #: src/ui/components/articles/articlePane.vala:293
@@ -38,36 +34,36 @@ msgstr ""
 #: src/managers/content/articleManager.vala:1458
 #: src/managers/content/articleManager.vala:1875
 msgid "Searching for feed..."
-msgstr ""
+msgstr "正在搜索订阅源..."
 
 #: src/builders/cardBuilder.vala:304
 #: src/ui/components/articles/heroCard.vala:183
 msgid "Open in reader view"
-msgstr ""
+msgstr "在阅读视图中打开"
 
 #: src/builders/cardBuilder.vala:316
 #: src/ui/components/articles/heroCard.vala:196
 msgid "Preview article"
-msgstr ""
+msgstr "预览文章"
 
 #: src/builders/cardBuilder.vala:658
 msgid "Read"
-msgstr ""
+msgstr "已读"
 
 #: src/managers/content/categoryManager.vala:190
 msgid "General"
-msgstr ""
+msgstr "综合"
 
 #: src/managers/content/categoryManager.vala:191
 msgid "U.S."
-msgstr ""
+msgstr "美国"
 
 #: src/managers/content/categoryManager.vala:192
 #: src/managers/ui/headerManager.vala:463
 #: src/services/fetchers/bbcFetcher.vala:72
 #: src/services/fetchers/fetcherUtils.vala:27
 msgid "Technology"
-msgstr ""
+msgstr "科技"
 
 #: src/managers/content/categoryManager.vala:193
 #: src/managers/ui/headerManager.vala:464
@@ -75,7 +71,7 @@ msgstr ""
 #: src/services/fetchers/fetcherUtils.vala:28
 #: src/services/fetchers/pbsFetcher.vala:73
 msgid "Business"
-msgstr ""
+msgstr "商业"
 
 #: src/managers/content/categoryManager.vala:194
 #: src/managers/ui/headerManager.vala:466
@@ -83,14 +79,14 @@ msgstr ""
 #: src/services/fetchers/fetcherUtils.vala:32
 #: src/services/fetchers/pbsFetcher.vala:74
 msgid "Science"
-msgstr ""
+msgstr "科学"
 
 #: src/managers/content/categoryManager.vala:195
 #: src/managers/ui/headerManager.vala:465
 #: src/services/fetchers/bbcFetcher.vala:75
 #: src/services/fetchers/fetcherUtils.vala:33
 msgid "Sports"
-msgstr ""
+msgstr "体育"
 
 #: src/managers/content/categoryManager.vala:196
 #: src/managers/ui/headerManager.vala:467
@@ -98,7 +94,7 @@ msgstr ""
 #: src/services/fetchers/fetcherUtils.vala:34
 #: src/services/fetchers/pbsFetcher.vala:75
 msgid "Health"
-msgstr ""
+msgstr "健康"
 
 #: src/managers/content/categoryManager.vala:197
 #: src/managers/ui/headerManager.vala:468
@@ -106,7 +102,7 @@ msgstr ""
 #: src/services/fetchers/fetcherUtils.vala:35
 #: src/services/fetchers/pbsFetcher.vala:77
 msgid "Entertainment"
-msgstr ""
+msgstr "娱乐"
 
 #: src/managers/content/categoryManager.vala:198
 #: src/managers/ui/headerManager.vala:469
@@ -114,13 +110,13 @@ msgstr ""
 #: src/services/fetchers/fetcherUtils.vala:36
 #: src/services/fetchers/pbsFetcher.vala:76
 msgid "Politics"
-msgstr ""
+msgstr "政治"
 
 #: src/managers/content/categoryManager.vala:199
 #: src/managers/ui/headerManager.vala:470
 #: src/services/fetchers/fetcherUtils.vala:37
 msgid "Lifestyle"
-msgstr ""
+msgstr "生活"
 
 #: src/managers/content/categoryManager.vala:200
 #: src/managers/ui/headerManager.vala:471
@@ -128,19 +124,19 @@ msgstr ""
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:346
 #: src/services/fetchers/fetcherUtils.vala:29
 msgid "Markets"
-msgstr ""
+msgstr "市场"
 
 #: src/managers/content/categoryManager.vala:201
 #: src/managers/ui/headerManager.vala:472
 #: src/services/fetchers/fetcherUtils.vala:30
 msgid "Industries"
-msgstr ""
+msgstr "产业"
 
 #: src/managers/content/categoryManager.vala:202
 #: src/managers/ui/headerManager.vala:473
 #: src/services/fetchers/fetcherUtils.vala:31
 msgid "Economics"
-msgstr ""
+msgstr "经济"
 
 #. If this removed source was selected, fall back to Front Page
 #: src/managers/content/categoryManager.vala:203
@@ -150,12 +146,12 @@ msgstr ""
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:377
 #: src/services/fetchers/paperboyFetcher.vala:138
 msgid "Front Page"
-msgstr ""
+msgstr "头版"
 
 #: src/managers/content/categoryManager.vala:204
 #: src/managers/ui/headerManager.vala:456
 msgid "Trending"
-msgstr ""
+msgstr "热门"
 
 #. use URL, not name, for source filtering
 #: src/managers/content/categoryManager.vala:205
@@ -164,7 +160,7 @@ msgstr ""
 #: src/services/fetchers/fetcherUtils.vala:24
 #: src/ui/controllers/fetchNewsController.vala:583
 msgid "My Feed"
-msgstr ""
+msgstr "我的订阅"
 
 #: src/managers/content/categoryManager.vala:206
 #: src/managers/ui/headerManager.vala:477
@@ -173,107 +169,107 @@ msgstr ""
 #: src/services/feeds/unreadFetchService.vala:226
 #: src/ui/controllers/fetchNewsController.vala:1082
 msgid "Local News"
-msgstr ""
+msgstr "本地新闻"
 
 #: src/managers/content/categoryManager.vala:207
 #: src/managers/ui/headerManager.vala:457
 #: src/managers/ui/sidebarManager.vala:310
 msgid "Saved"
-msgstr ""
+msgstr "已收藏"
 
 #: src/managers/content/categoryManager.vala:208
 #: src/managers/ui/headerManager.vala:458
 #: src/managers/ui/sidebarManager.vala:311
 msgid "History"
-msgstr ""
+msgstr "历史记录"
 
 #: src/managers/media/magazineLibraryManager.vala:154
 #, c-format
 msgid "No magazines found matching \"%s\""
-msgstr ""
+msgstr "未找到与“%s”匹配的杂志"
 
 #: src/managers/media/magazineLibraryManager.vala:155
 #: src/managers/media/podcastManager.vala:264 src/ui/contentView.vala:1197
 #, c-format
 msgid "Search results: found %d %s matching \"%s\""
-msgstr ""
+msgstr "搜索结果：找到 %1$d 个与“%3$s”匹配的%2$s"
 
 #: src/managers/media/magazineLibraryManager.vala:155
 msgid "magazine"
-msgstr ""
+msgstr "杂志"
 
 #: src/managers/media/magazineLibraryManager.vala:155
 msgid "magazines"
-msgstr ""
+msgstr "杂志"
 
 #: src/managers/media/magazineLibraryManager.vala:177
 msgid "Your library is empty"
-msgstr ""
+msgstr "你的书库是空的"
 
 #: src/managers/media/magazineLibraryManager.vala:228
 #: src/managers/media/magazineLibraryManager.vala:588
 msgid "Removed from library"
-msgstr ""
+msgstr "已从书库中移除"
 
 #: src/managers/media/magazineLibraryManager.vala:460
 msgid "Your library is empty. Add a magazine to get started."
-msgstr ""
+msgstr "你的书库是空的。添加一本杂志即可开始。"
 
 #: src/managers/media/magazineLibraryManager.vala:648
 msgid "1 selected"
-msgstr ""
+msgstr "已选择 1 项"
 
 #: src/managers/media/magazineLibraryManager.vala:648
 #, c-format
 msgid "%d selected"
-msgstr ""
+msgstr "已选择 %d 项"
 
 #: src/managers/media/magazineLibraryManager.vala:649
 #, c-format
 msgid "Delete (%d)"
-msgstr ""
+msgstr "删除（%d）"
 
 #: src/managers/media/magazineLibraryManager.vala:649
 #: src/managers/media/magazineLibraryManager.vala:669
 #: src/ui/contentView.vala:852
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:364
 msgid "Delete"
-msgstr ""
+msgstr "删除"
 
 #: src/managers/media/magazineLibraryManager.vala:667
 msgid "Delete 1 magazine?"
-msgstr ""
+msgstr "要删除 1 本杂志吗？"
 
 #: src/managers/media/magazineLibraryManager.vala:667
 #, c-format
 msgid "Delete %d magazines?"
-msgstr ""
+msgstr "要删除 %d 本杂志吗？"
 
 #: src/managers/media/magazineLibraryManager.vala:669
 msgid "Their downloaded files are removed too. This can't be undone."
-msgstr ""
+msgstr "已下载的文件也会被移除。此操作无法撤销。"
 
 #: src/managers/media/magazineLibraryManager.vala:677
 msgid "Removed 1 magazine"
-msgstr ""
+msgstr "已移除 1 本杂志"
 
 #: src/managers/media/magazineLibraryManager.vala:677
 #, c-format
 msgid "Removed %d magazines"
-msgstr ""
+msgstr "已移除 %d 本杂志"
 
 #: src/managers/media/magazineLibraryManager.vala:714
 msgid "Set Category"
-msgstr ""
+msgstr "设置分类"
 
 #: src/managers/media/magazineLibraryManager.vala:715
 #, c-format
 msgid "Group \"%s\" under a category - leave blank for Uncategorized."
-msgstr ""
+msgstr "将“%s”归入一个分类——留空则为“未分类”。"
 
 #: src/managers/media/magazineLibraryManager.vala:718
 msgid "e.g. Technology, History, Comics"
-msgstr ""
+msgstr "例如：科技、历史、漫画"
 
 #: src/managers/media/magazineLibraryManager.vala:724
 #: src/managers/media/magazineLibraryManager.vala:780
@@ -285,30 +281,28 @@ msgstr ""
 #: src/ui/dialogs/media/podcastPickerDialog.vala:99 src/ui/sidebarView.vala:734
 #: src/ui/sidebarView.vala:847 src/utils/ui/dialogUtils.vala:26
 msgid "Cancel"
-msgstr ""
+msgstr "取消"
 
 #: src/managers/media/magazineLibraryManager.vala:725
 msgid "Set"
-msgstr ""
+msgstr "设置"
 
 #: src/managers/media/magazineLibraryManager.vala:746
 #: src/ui/contentView.vala:244
 msgid "Add Magazines"
-msgstr ""
+msgstr "添加杂志"
 
 #: src/managers/media/magazineLibraryManager.vala:747
-msgid ""
-"Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
-"choose a PDF you've already downloaded."
-msgstr ""
+msgid "Enter a direct link to a PDF, a webpage that links to one or more PDFs, or choose a PDF you've already downloaded."
+msgstr "输入 PDF 的直接链接、包含一个或多个 PDF 链接的网页，或选择一个已下载的 PDF。"
 
 #: src/managers/media/magazineLibraryManager.vala:758
 msgid "Title (optional, direct PDF links/local files only)"
-msgstr ""
+msgstr "标题（可选，仅限 PDF 直接链接/本地文件）"
 
 #: src/managers/media/magazineLibraryManager.vala:762
 msgid "Category (optional, e.g. Technology, History)"
-msgstr ""
+msgstr "分类（可选，例如：科技、历史）"
 
 #. Local file import - shares the title/category fields above,
 #. just skips the URL field and closes this dialog immediately
@@ -316,142 +310,139 @@ msgstr ""
 #. file is picked).
 #: src/managers/media/magazineLibraryManager.vala:769
 msgid "Choose a PDF on This Computer…"
-msgstr ""
+msgstr "从此电脑选择 PDF…"
 
 #: src/managers/media/magazineLibraryManager.vala:781
 #: src/ui/dialogs/app/locationDialog.vala:81
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:461
 msgid "Add"
-msgstr ""
+msgstr "添加"
 
 #: src/managers/media/magazineLibraryManager.vala:803
 msgid "Choose a PDF"
-msgstr ""
+msgstr "选择 PDF"
 
 #: src/managers/media/magazineLibraryManager.vala:806
 msgid "PDF files"
-msgstr ""
+msgstr "PDF 文件"
 
 #: src/managers/media/magazineLibraryManager.vala:833
 msgid "Only https:// links are supported"
-msgstr ""
+msgstr "仅支持 https:// 链接"
 
 #: src/managers/media/magazineLibraryManager.vala:864
 msgid "Scanning for PDFs…"
-msgstr ""
+msgstr "正在扫描 PDF…"
 
 #: src/managers/media/magazineLibraryManager.vala:874
 #: src/services/magazines/magazineSourceScanner.vala:77
 msgid "No PDF links found on that page"
-msgstr ""
+msgstr "该页面上未找到 PDF 链接"
 
 #: src/managers/media/magazineLibraryManager.vala:885
 msgid "No new PDFs found - everything's already in your library"
-msgstr ""
+msgstr "未找到新的 PDF——所有内容都已在你的书库中"
 
 #: src/managers/media/magazineLibraryManager.vala:896
 msgid "Select magazines to add"
-msgstr ""
+msgstr "选择要添加的杂志"
 
 #: src/managers/media/magazineLibraryManager.vala:897
 #, c-format
 msgid "Found %d PDF %s on %s."
-msgstr ""
+msgstr "在 %3$s 上找到 %1$d 个 PDF %2$s。"
 
 #: src/managers/media/magazineLibraryManager.vala:897
 msgid "link"
-msgstr ""
+msgstr "链接"
 
 #: src/managers/media/magazineLibraryManager.vala:897
 msgid "links"
-msgstr ""
+msgstr "链接"
 
 #: src/managers/media/magazineLibraryManager.vala:917
 #: src/ui/dialogs/media/podcastPickerDialog.vala:100
 msgid "Add Selected"
-msgstr ""
+msgstr "添加所选"
 
 #: src/managers/media/magazineLibraryManager.vala:936
 msgid "Downloading magazine…"
-msgstr ""
+msgstr "正在下载杂志…"
 
 #: src/managers/media/magazineLibraryManager.vala:947
 #: src/managers/media/magazineLibraryManager.vala:967
 msgid "Added: "
-msgstr ""
+msgstr "已添加： "
 
 #: src/managers/media/magazineLibraryManager.vala:949
 #: src/managers/media/magazineLibraryManager.vala:969
 msgid "Failed to add magazine"
-msgstr ""
+msgstr "无法添加杂志"
 
 #: src/managers/media/magazineLibraryManager.vala:956
 msgid "Adding magazines…"
-msgstr ""
+msgstr "正在添加杂志…"
 
 #: src/managers/media/podcastManager.vala:131
 msgid "Loading podcasts..."
-msgstr ""
+msgstr "正在加载播客..."
 
 #: src/managers/media/podcastManager.vala:201
 #, c-format
 msgid "Searching for \"%s\"..."
-msgstr ""
+msgstr "正在搜索“%s”..."
 
 #: src/managers/media/podcastManager.vala:263
 #, c-format
 msgid "No podcasts found matching \"%s\""
-msgstr ""
+msgstr "未找到与“%s”匹配的播客"
 
 #: src/managers/media/podcastManager.vala:264
 msgid "podcast"
-msgstr ""
+msgstr "播客"
 
 #: src/managers/media/podcastManager.vala:264
 msgid "podcasts"
-msgstr ""
+msgstr "播客"
 
 #: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
 msgid "Loading..."
-msgstr ""
+msgstr "正在加载..."
 
 #: src/managers/media/podcastManager.vala:474
 #: src/managers/media/podcastManager.vala:505
 msgid "Show More Categories"
-msgstr ""
+msgstr "显示更多分类"
 
 #: src/managers/ui/headerManager.vala:133
 #, c-format
 msgid "Weather in %s"
-msgstr ""
+msgstr "%s的天气"
 
 #: src/managers/ui/headerManager.vala:134
-msgid ""
-"\n"
-"Open Weather for the full forecast"
-msgstr ""
+msgid "\nOpen Weather for the full forecast"
+msgstr "\n打开“天气”查看完整预报"
 
 #: src/managers/ui/headerManager.vala:152
 msgid "Clear history?"
-msgstr ""
+msgstr "要清除历史记录吗？"
 
 #: src/managers/ui/headerManager.vala:153
-msgid ""
-"This will permanently delete your reading history. This can't be undone."
-msgstr ""
+msgid "This will permanently delete your reading history. This can't be undone."
+msgstr "这将永久删除你的阅读历史。此操作无法撤销。"
 
 #. History page action - lives in the title row since the date row is hidden there.
 #: src/managers/ui/headerManager.vala:153 src/ui/contentView.vala:164
 msgid "Clear History"
-msgstr ""
+msgstr "清除历史记录"
 
 #: src/managers/ui/headerManager.vala:156
 msgid "History cleared"
-msgstr ""
+msgstr "历史记录已清除"
 
 #: src/managers/ui/headerManager.vala:188
 msgid "Browse podcasts"
-msgstr ""
+msgstr "浏览播客"
 
 #. "Subscribed" is wider than "Subscribe" - without a locked width,
 #. toggling subscription state changes the button's own width,
@@ -467,37 +458,37 @@ msgstr ""
 #: src/ui/dialogs/media/podcastDetailDialog.vala:164
 #: src/ui/dialogs/media/podcastDetailDialog.vala:180
 msgid "Subscribed"
-msgstr ""
+msgstr "已订阅"
 
 #: src/managers/ui/headerManager.vala:198 src/ui/contentView.vala:216
 msgid "Add podcast"
-msgstr ""
+msgstr "添加播客"
 
 #: src/managers/ui/headerManager.vala:252
 msgid "Couldn't add podcast: "
-msgstr ""
+msgstr "无法添加播客： "
 
 #: src/managers/ui/headerManager.vala:252
 msgid "unknown error"
-msgstr ""
+msgstr "未知错误"
 
 #: src/managers/ui/headerManager.vala:258
 msgid "Podcast added: "
-msgstr ""
+msgstr "已添加播客： "
 
 #: src/managers/ui/headerManager.vala:432
 msgid "1 saved article"
-msgstr ""
+msgstr "1 篇已收藏的文章"
 
 #: src/managers/ui/headerManager.vala:432
 #, c-format
 msgid "%d saved articles"
-msgstr ""
+msgstr "%d 篇已收藏的文章"
 
 #: src/managers/ui/headerManager.vala:443
 #: src/managers/ui/headerManager.vala:451
 msgid "RSS Feed"
-msgstr ""
+msgstr "RSS 订阅源"
 
 #. Create horizontal box for category label and source info
 #. Add category label (bigger size) - left aligned
@@ -507,45 +498,44 @@ msgstr ""
 #: src/services/fetchers/fetcherUtils.vala:25
 #: src/services/fetchers/pbsFetcher.vala:78
 msgid "World News"
-msgstr ""
+msgstr "国际新闻"
 
 #. id stays "podcasts" (the routing key) - only title/icon change.
 #: src/managers/ui/headerManager.vala:478
 #: src/managers/ui/sidebarManager.vala:377
 msgid "Find Podcasts"
-msgstr ""
+msgstr "查找播客"
 
 #: src/managers/ui/headerManager.vala:479
 #: src/managers/ui/sidebarManager.vala:309
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:348
 msgid "Magazine Rack"
-msgstr ""
+msgstr "杂志架"
 
 #: src/managers/ui/loadingStateManager.vala:187
 #: src/managers/ui/loadingStateManager.vala:656
 #: src/managers/ui/loadingStateManager.vala:662 src/ui/appWindow.vala:1401
 #: src/ui/contentView.vala:1034 src/managers/ui/layoutManager.vala:505
 msgid "<b>No more articles</b>"
-msgstr ""
+msgstr "<b>没有更多文章了</b>"
 
 #: src/managers/ui/loadingStateManager.vala:187
 #: src/managers/ui/loadingStateManager.vala:656 src/ui/contentView.vala:1034
 #: src/managers/ui/layoutManager.vala:505
 msgid "No more articles"
-msgstr ""
+msgstr "没有更多文章了"
 
 #: src/managers/ui/loadingStateManager.vala:198
 msgid "Loading local news..."
-msgstr ""
+msgstr "正在加载本地新闻..."
 
 #: src/managers/ui/loadingStateManager.vala:200
 msgid "Loading content..."
-msgstr ""
+msgstr "正在加载内容..."
 
 #: src/managers/ui/loadingStateManager.vala:255
-msgid ""
-"No articles could be loaded. Try refreshing or check your source settings."
-msgstr ""
+msgid "No articles could be loaded. Try refreshing or check your source settings."
+msgstr "无法加载任何文章。请尝试刷新或检查来源设置。"
 
 #. Centered empty state for a view that legitimately has nothing to
 #. show (History/Saved/Magazines library when empty). `icon_file` is a
@@ -556,39 +546,31 @@ msgstr ""
 #. show_error_message() over this since no items were ever populated.
 #: src/managers/ui/loadingStateManager.vala:269
 msgid "Nothing here yet"
-msgstr ""
+msgstr "这里还没有内容"
 
 #: src/managers/ui/loadingStateManager.vala:401
 msgid "Personalized feed is disabled."
-msgstr ""
+msgstr "个性化订阅已关闭。"
 
 #: src/managers/ui/loadingStateManager.vala:403
-msgid ""
-"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
-"'Enable personalized feed' toggle to see content from your feeds."
-msgstr ""
+msgid "Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle to see content from your feeds."
+msgstr "打开主菜单（☰）→ 选择“首选项”→“个性化”标签页 → 打开“启用个性化订阅”开关，即可查看来自你订阅源的内容。"
 
 #: src/managers/ui/loadingStateManager.vala:409
 msgid "No custom RSS feeds followed."
-msgstr ""
+msgstr "尚未关注任何自定义 RSS 订阅源。"
 
 #: src/managers/ui/loadingStateManager.vala:411
-msgid ""
-"You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by "
-"clicking the button below or open the main menu (☰) → Preferences → "
-"'Personalization' tab."
-msgstr ""
+msgid "You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by clicking the button below or open the main menu (☰) → Preferences → 'Personalization' tab."
+msgstr "你已启用“仅自定义来源”模式。点击下方按钮关注并启用 RSS 订阅源，或打开主菜单（☰）→“首选项”→“个性化”标签页。"
 
 #: src/managers/ui/loadingStateManager.vala:417
 msgid "Personalized Feed is enabled but no categories are selected."
-msgstr ""
+msgstr "个性化订阅已启用，但未选择任何分类。"
 
 #: src/managers/ui/loadingStateManager.vala:419
-msgid ""
-"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
-"'Enable personalized feed' toggle and click its settings icon to select "
-"categories, or follow custom RSS feeds."
-msgstr ""
+msgid "Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle and click its settings icon to select categories, or follow custom RSS feeds."
+msgstr "打开主菜单（☰）→ 选择“首选项”→“个性化”标签页 → 打开“启用个性化订阅”开关并点击其设置图标来选择分类，或关注自定义 RSS 订阅源。"
 
 #: src/managers/ui/sidebarManager.vala:372
 #: src/ui/controllers/myFeedExtrasController.vala:317
@@ -596,147 +578,147 @@ msgstr ""
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:298
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
 msgid "Podcasts"
-msgstr ""
+msgstr "播客"
 
 #. Page header label, e.g. "Dallas News".
 #. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
 #: src/models/news/localArea.vala:53 src/utils/net/googleNewsUtils.vala:181
 #, c-format
 msgid "%s News"
-msgstr ""
+msgstr "%s新闻"
 
 #: src/models/weather/weatherReport.vala:43
 msgctxt "Weather"
 msgid "Clear"
-msgstr ""
+msgstr "晴"
 
 #: src/models/weather/weatherReport.vala:44
 msgctxt "Weather"
 msgid "Mostly clear"
-msgstr ""
+msgstr "大部晴朗"
 
 #: src/models/weather/weatherReport.vala:45
 msgctxt "Weather"
 msgid "Partly cloudy"
-msgstr ""
+msgstr "局部多云"
 
 #: src/models/weather/weatherReport.vala:46
 msgctxt "Weather"
 msgid "Overcast"
-msgstr ""
+msgstr "阴"
 
 #: src/models/weather/weatherReport.vala:47
 msgctxt "Weather"
 msgid "Fog"
-msgstr ""
+msgstr "雾"
 
 #: src/models/weather/weatherReport.vala:48
 msgctxt "Weather"
 msgid "Drizzle"
-msgstr ""
+msgstr "毛毛雨"
 
 #: src/models/weather/weatherReport.vala:49
 msgctxt "Weather"
 msgid "Freezing drizzle"
-msgstr ""
+msgstr "冻毛毛雨"
 
 #: src/models/weather/weatherReport.vala:50
 msgctxt "Weather"
 msgid "Rain"
-msgstr ""
+msgstr "雨"
 
 #: src/models/weather/weatherReport.vala:51
 msgctxt "Weather"
 msgid "Freezing rain"
-msgstr ""
+msgstr "冻雨"
 
 #: src/models/weather/weatherReport.vala:52
 msgctxt "Weather"
 msgid "Snow"
-msgstr ""
+msgstr "雪"
 
 #: src/models/weather/weatherReport.vala:53
 msgctxt "Weather"
 msgid "Rain showers"
-msgstr ""
+msgstr "阵雨"
 
 #: src/models/weather/weatherReport.vala:54
 msgctxt "Weather"
 msgid "Snow showers"
-msgstr ""
+msgstr "阵雪"
 
 #: src/models/weather/weatherReport.vala:55
 msgctxt "Weather"
 msgid "Thunderstorm"
-msgstr ""
+msgstr "雷暴"
 
 #: src/models/weather/weatherReport.vala:56
 msgctxt "Weather"
 msgid "Thunderstorm with hail"
-msgstr ""
+msgstr "雷暴伴有冰雹"
 
 #: src/processors/rssFeedProcessor.vala:671
 msgid "Error loading feed — invalid (empty) URL"
-msgstr ""
+msgstr "加载订阅源出错——URL 无效（为空）"
 
 #: src/processors/rssFeedProcessor.vala:676
 msgid "Error loading feed — invalid URL"
-msgstr ""
+msgstr "加载订阅源出错——URL 无效"
 
 #. regeneration is handled by FeedUpdateManager, not here
 #: src/processors/rssFeedProcessor.vala:686
 msgid "Generating feed... (this may take 30-40 seconds)"
-msgstr ""
+msgstr "正在生成订阅源...（可能需要 30–40 秒）"
 
 #: src/processors/rssFeedProcessor.vala:693
 msgid "Failed to read local RSS file"
-msgstr ""
+msgstr "无法读取本地 RSS 文件"
 
 #: src/processors/rssFeedProcessor.vala:756
 msgid "Error loading feed — network/DNS error"
-msgstr ""
+msgstr "加载订阅源出错——网络/DNS 错误"
 
 #: src/processors/rssFeedProcessor.vala:768
 msgid "Error loading feed — empty response"
-msgstr ""
+msgstr "加载订阅源出错——响应为空"
 
 #: src/processors/rssFeedProcessor.vala:778
 msgid "Error loading feed"
-msgstr ""
+msgstr "加载订阅源出错"
 
 #: src/ui/appWindow.vala:306
 msgid "Refresh news"
-msgstr ""
+msgstr "刷新新闻"
 
 #. Main menu, on the sidebar's trailing (right) side
 #: src/ui/appWindow.vala:320 src/ui/dialogs/app/prefsDialog.vala:39
 msgid "Preferences"
-msgstr ""
+msgstr "首选项"
 
 #: src/ui/appWindow.vala:321 src/ui/sidebarView.vala:257
 msgid "Manage Locations"
-msgstr ""
+msgstr "管理位置"
 
 #: src/ui/appWindow.vala:322
 msgid "Show Welcome Tour"
-msgstr ""
+msgstr "显示欢迎导览"
 
 #: src/ui/appWindow.vala:323 src/ui/dialogs/app/aboutDialog.vala:100
 #: src/ui/dialogs/app/aboutDialog.vala:257
 msgid "About Paperboy"
-msgstr ""
+msgstr "关于 Paperboy"
 
 #: src/ui/appWindow.vala:328
 msgid "Main Menu"
-msgstr ""
+msgstr "主菜单"
 
 #: src/ui/appWindow.vala:342
 msgid "Toggle Sidebar"
-msgstr ""
+msgstr "切换侧边栏"
 
 #: src/ui/appWindow.vala:349 src/ui/appWindow.vala:522
 msgid "Search news for keywords…"
-msgstr ""
+msgstr "按关键词搜索新闻…"
 
 #. Podcasts renders into ContentView's own hero_container/
 #. category_sections_container - the exact containers Top
@@ -758,21 +740,21 @@ msgstr ""
 #. recognizes "podcasts" or ever calls fetch_finished().
 #: src/ui/appWindow.vala:505 src/ui/appWindow.vala:1014
 msgid "Search podcasts…"
-msgstr ""
+msgstr "搜索播客…"
 
 #. Same reasoning as the podcasts branch above - Magazines
 #. isn't a FetchNewsController category either.
 #: src/ui/appWindow.vala:522 src/ui/appWindow.vala:1019
 msgid "Search magazines…"
-msgstr ""
+msgstr "搜索杂志…"
 
 #: src/ui/components/articles/articlePane.vala:57
 msgid "Failed to open link in browser"
-msgstr ""
+msgstr "无法在浏览器中打开链接"
 
 #: src/ui/components/articles/articlePane.vala:228
 msgid "Loading snippet…"
-msgstr ""
+msgstr "正在加载摘要…"
 
 #: src/ui/components/articles/articlePane.vala:253
 #: src/ui/components/articles/articleSheet.vala:150
@@ -781,7 +763,7 @@ msgstr ""
 #: src/ui/dialogs/media/podcastDetailDialog.vala:201
 #: src/ui/dialogs/media/videoPlayerDialog.vala:126
 msgid "Close"
-msgstr ""
+msgstr "关闭"
 
 #: src/ui/components/articles/articlePane.vala:302
 #: src/ui/components/articles/articleSheet.vala:525
@@ -790,7 +772,7 @@ msgstr ""
 #: src/managers/content/articleManager.vala:1466
 #: src/managers/content/articleManager.vala:1904
 msgid "Removed article from saved"
-msgstr ""
+msgstr "已将文章从收藏中移除"
 
 #: src/ui/components/articles/articlePane.vala:309
 #: src/ui/components/articles/articleSheet.vala:530
@@ -799,88 +781,88 @@ msgstr ""
 #: src/managers/content/articleManager.vala:1469
 #: src/managers/content/articleManager.vala:1907
 msgid "Added article to saved"
-msgstr ""
+msgstr "已收藏文章"
 
 #: src/ui/components/articles/articlePane.vala:341
 #: src/ui/components/articles/articleSheet.vala:157
 msgid "Article options"
-msgstr ""
+msgstr "文章选项"
 
 #: src/ui/components/articles/articlePane.vala:346
 msgid "Article view and source options"
-msgstr ""
+msgstr "文章视图和来源选项"
 
 #. Fetch snippet asynchronously. ArticlePreviewService will consult any
 #. provided article buffer (cached feed entries) for quick results.
 #. Ensure the preview UI is still present before mutating widgets
 #: src/ui/components/articles/articlePane.vala:398
 msgid "No preview available. Open the article to read more."
-msgstr ""
+msgstr "暂无预览。打开文章以阅读更多内容。"
 
 #: src/ui/components/articles/articleSheet.vala:107
 #: src/ui/dialogs/app/onboardingDialog.vala:72
 msgid "Back"
-msgstr ""
+msgstr "后退"
 
 #: src/ui/components/articles/articleSheet.vala:113
 msgid "Forward"
-msgstr ""
+msgstr "前进"
 
 #: src/ui/components/articles/articleSheet.vala:119
 msgid "Reload article"
-msgstr ""
+msgstr "重新加载文章"
 
 #: src/ui/components/articles/articleSheet.vala:131
 msgid "Reader view"
-msgstr ""
+msgstr "阅读视图"
 
 #: src/ui/components/articles/articleSheet.vala:152
 msgid "Close article"
-msgstr ""
+msgstr "关闭文章"
 
 #: src/ui/components/articles/articleSheet.vala:164
 #: src/ui/components/articles/articleSheet.vala:351
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:43 src/ui/sidebarView.vala:1250
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:258
 msgid "Notes"
-msgstr ""
+msgstr "笔记"
 
 #: src/ui/components/articles/articleSheet.vala:247
 msgid "View comments"
-msgstr ""
+msgstr "查看评论"
 
 #: src/ui/components/articles/articleSheet.vala:287
 msgid "Comments"
-msgstr ""
+msgstr "评论"
 
 #: src/ui/components/articles/articleSheet.vala:292
 msgid "Close comments"
-msgstr ""
+msgstr "关闭评论"
 
 #: src/ui/components/articles/articleSheet.vala:356
 #: src/ui/dialogs/notes/noteEditorDialog.vala:48
 msgid "New note"
-msgstr ""
+msgstr "新建笔记"
 
 #: src/ui/components/articles/articleSheet.vala:364
 msgid "Close notes"
-msgstr ""
+msgstr "关闭笔记"
 
 #: src/ui/components/articles/articleSheet.vala:385
 msgid "No notes yet."
-msgstr ""
+msgstr "还没有笔记。"
 
 #: src/ui/components/articles/articleSheet.vala:720
 msgid "9+"
-msgstr ""
+msgstr "9+"
 
 #: src/ui/components/articles/articleSheet.vala:823
 msgid "No comments yet."
-msgstr ""
+msgstr "还没有评论。"
 
 #: src/ui/components/articles/articleSheet.vala:823
 msgid "Couldn't load comments."
-msgstr ""
+msgstr "无法加载评论。"
 
 #. Styled like the content view's other card chips
 #. (.category-chip/.source-badge), not the sidebar's
@@ -890,7 +872,7 @@ msgstr ""
 #: src/ui/components/articles/categorySection.vala:146
 #: src/ui/components/sports/leagueBadge.vala:101 src/ui/sidebarView.vala:553
 msgid "Live"
-msgstr ""
+msgstr "直播"
 
 #. Margins live in CSS (.top-stories-title), not set_margin_top/
 #. bottom here: the top margin was silently not taking effect via
@@ -900,15 +882,15 @@ msgstr ""
 #. Use Pango markup to match the subtitle sizing used elsewhere.
 #: src/ui/components/articles/heroCarousel.vala:82
 msgid "<span size='26000'><b>FEATURED</b></span>"
-msgstr ""
+msgstr "<span size='26000'><b>精选</b></span>"
 
 #: src/ui/components/articles/recommendedSection.vala:75
 msgid "RECOMMENDED FOR YOU"
-msgstr ""
+msgstr "为你推荐"
 
 #: src/ui/components/articles/recommendedSection.vala:79
 msgid "Picked from the topics and sites you read"
-msgstr ""
+msgstr "根据你阅读的话题和网站挑选"
 
 #. No standard GTK/Adwaita icon actually renders as a literal arrow
 #. (shaft + head) - go-previous/pan-start/media-playback-start all
@@ -919,89 +901,89 @@ msgstr ""
 #. bundled asset.
 #: src/ui/components/common/scrollNavButtons.vala:59
 msgid "←"
-msgstr ""
+msgstr "←"
 
 #: src/ui/components/common/scrollNavButtons.vala:69
 msgid "→"
-msgstr ""
+msgstr "→"
 
 #: src/ui/components/magazines/magazineCard.vala:290
 msgid "Select"
-msgstr ""
+msgstr "选择"
 
 #: src/ui/components/magazines/magazineCard.vala:291
 msgid "Set Category…"
-msgstr ""
+msgstr "设置分类…"
 
 #: src/ui/components/magazines/magazineCard.vala:292
 msgid "Remove from Library"
-msgstr ""
+msgstr "从书库中移除"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:264
 msgid "Opening magazine…"
-msgstr ""
+msgstr "正在打开杂志…"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:290
 msgid "Failed to open magazine"
-msgstr ""
+msgstr "无法打开杂志"
 
 #. stale page indices from whatever was open before, if anything
 #: src/ui/components/magazines/magazineReaderSheet.vala:297
 msgid "Magazine"
-msgstr ""
+msgstr "杂志"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:376
 #: src/ui/components/magazines/magazineReaderSheet.vala:380
 msgid "Single Page"
-msgstr ""
+msgstr "单页"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:377
 msgid "Toggle two-page spread"
-msgstr ""
+msgstr "切换双页视图"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:380
 msgid "Two-Page"
-msgstr ""
+msgstr "双页"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:393
 msgid "Browse pages"
-msgstr ""
+msgstr "浏览页面"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:399
 msgid "Zoom out"
-msgstr ""
+msgstr "缩小"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:405
 msgid "Fit to view"
-msgstr ""
+msgstr "适合视图"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:411
 msgid "Zoom in"
-msgstr ""
+msgstr "放大"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:635
 msgid "Previous page"
-msgstr ""
+msgstr "上一页"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:643
 msgid "Next page"
-msgstr ""
+msgstr "下一页"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:1147
 #, c-format
 msgid "Pages %d–%d of %d"
-msgstr ""
+msgstr "第 %d–%d 页，共 %d 页"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:1149
 #, c-format
 msgid "Page %d of %d"
-msgstr ""
+msgstr "第 %d 页，共 %d 页"
 
 #. typical portrait aspect - letterboxed if a page is a different shape
 #: src/ui/components/magazines/magazineTocPane.vala:134
 #, c-format
 msgid "%d"
-msgstr ""
+msgstr "%d"
 
 #: src/ui/components/podcasts/podcastCard.vala:96
 #: src/ui/components/podcasts/podcastPane.vala:164
@@ -1014,31 +996,31 @@ msgstr ""
 #: src/ui/dialogs/media/podcastPickerDialog.vala:60
 #, c-format
 msgid "%s · %s"
-msgstr ""
+msgstr "%s · %s"
 
 #: src/ui/components/podcasts/podcastCard.vala:104
 #: src/ui/components/podcasts/podcastPane.vala:597
 #: src/ui/dialogs/media/podcastDetailDialog.vala:445
 #, c-format
 msgid "%lldh %lldm"
-msgstr ""
+msgstr "%lld 小时 %lld 分钟"
 
 #: src/ui/components/podcasts/podcastCard.vala:105
 #: src/ui/components/podcasts/podcastPane.vala:598
 #: src/ui/dialogs/media/podcastDetailDialog.vala:446
 #, c-format
 msgid "%lldm"
-msgstr ""
+msgstr "%lld 分钟"
 
 #: src/ui/components/podcasts/podcastCard.vala:162
 #: src/ui/components/podcasts/podcastHeroCard.vala:150
 #: src/ui/menus/podcastMenu.vala:52
 msgid "Play"
-msgstr ""
+msgstr "播放"
 
 #: src/ui/components/podcasts/podcastCard.vala:180
 msgid "Click for details"
-msgstr ""
+msgstr "点击查看详情"
 
 #: src/ui/components/podcasts/podcastCard.vala:230
 #: src/ui/components/podcasts/podcastHeroCard.vala:169
@@ -1046,229 +1028,225 @@ msgstr ""
 #: src/ui/dialogs/media/podcastDetailDialog.vala:164
 #: src/ui/menus/podcastMenu.vala:80
 msgid "Subscribe"
-msgstr ""
+msgstr "订阅"
 
 #: src/ui/components/podcasts/podcastPane.vala:163
 #: src/ui/components/podcasts/podcastPane.vala:520
 msgid " left"
-msgstr ""
+msgstr " 剩余"
 
 #: src/ui/components/podcasts/podcastPane.vala:450
 #: src/ui/dialogs/media/podcastDetailDialog.vala:228
 msgid "No episodes found for this show."
-msgstr ""
+msgstr "未找到该节目的剧集。"
 
 #: src/ui/components/podcasts/podcastPane.vala:506
 #: src/ui/dialogs/media/podcastDetailDialog.vala:364
 msgid "New"
-msgstr ""
+msgstr "新"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:116
 msgid "Minimize"
-msgstr ""
+msgstr "最小化"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:127
 msgid "Stop and close"
-msgstr ""
+msgstr "停止并关闭"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:161
 msgid "Previous episode"
-msgstr ""
+msgstr "上一集"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:173
 msgid "Next episode"
-msgstr ""
+msgstr "下一集"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:178
 msgid "Playback speed"
-msgstr ""
+msgstr "播放速度"
 
 #. Labelled so tapping it reads as "leaves the reader" rather than "broken".
 #: src/ui/components/reader/readerVideoEmbed.vala:72
 msgid "Watch on site"
-msgstr ""
+msgstr "在网站上观看"
 
 #: src/ui/components/reader/readerView.vala:116
 msgid "Loading reader view…"
-msgstr ""
+msgstr "正在加载阅读视图…"
 
 #: src/ui/components/reader/readerView.vala:124
-msgid ""
-"Couldn't extract a reader view for this article.\n"
-"Turn off reader view above to read it on the live webpage instead."
-msgstr ""
+msgid "Couldn't extract a reader view for this article.\nTurn off reader view above to read it on the live webpage instead."
+msgstr "无法为这篇文章生成阅读视图。\n关闭上方的阅读视图即可在原网页上阅读。"
 
 #: src/ui/components/reader/readerView.vala:482
 msgid "Open note"
-msgstr ""
+msgstr "打开笔记"
 
 #: src/ui/components/reader/readerView.vala:511
 msgid "Reader view settings"
-msgstr ""
+msgstr "阅读视图设置"
 
 #. ---- Text size ----
 #: src/ui/components/reader/readerView.vala:524
 msgid "Text size"
-msgstr ""
+msgstr "文字大小"
 
 #: src/ui/components/reader/readerView.vala:531
 msgid "Decrease text size"
-msgstr ""
+msgstr "减小文字"
 
 #: src/ui/components/reader/readerView.vala:536
 msgid "Increase text size"
-msgstr ""
+msgstr "增大文字"
 
 #. ---- Font family ----
 #: src/ui/components/reader/readerView.vala:555
 msgid "Font"
-msgstr ""
+msgstr "字体"
 
 #: src/ui/components/reader/readerView.vala:562
 msgid "Sans"
-msgstr ""
+msgstr "无衬线"
 
 #: src/ui/components/reader/readerView.vala:563
 msgid "Serif"
-msgstr ""
+msgstr "衬线"
 
 #: src/ui/components/reader/readerView.vala:564
 msgid "Mono"
-msgstr ""
+msgstr "等宽"
 
 #. ---- Color scheme ----
 #: src/ui/components/reader/readerView.vala:584
 msgid "Color"
-msgstr ""
+msgstr "颜色"
 
 #: src/ui/components/reader/readerView.vala:628
 #: src/ui/dialogs/app/onboardingDialog.vala:335
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
 msgid "Light"
-msgstr ""
+msgstr "浅色"
 
 #: src/ui/components/reader/readerView.vala:629
 msgid "Sepia"
-msgstr ""
+msgstr "护眼"
 
 #: src/ui/components/reader/readerView.vala:630
 msgid "Gray"
-msgstr ""
+msgstr "灰色"
 
 #: src/ui/components/reader/readerView.vala:631
 #: src/ui/dialogs/app/onboardingDialog.vala:336
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
 msgid "Dark"
-msgstr ""
+msgstr "深色"
 
 #: src/ui/components/reader/readerView.vala:632
 msgid "Night"
-msgstr ""
+msgstr "夜间"
 
 #: src/ui/components/reader/readerView.vala:633
 msgid "Auto (match app theme)"
-msgstr ""
+msgstr "自动（跟随应用主题）"
 
 #: src/ui/components/reader/readerView.vala:649
 #, c-format
 msgid "%d%%"
-msgstr ""
+msgstr "%d%%"
 
 #: src/ui/components/reader/readerView.vala:847
 msgid "Untitled article"
-msgstr ""
+msgstr "无标题文章"
 
 #: src/ui/components/reader/readerView.vala:992
 #: src/ui/components/reader/readerView.vala:1001
 msgid "Add note"
-msgstr ""
+msgstr "添加笔记"
 
 #: src/ui/components/reader/readerView.vala:1075
 msgid "View full size"
-msgstr ""
+msgstr "查看原图"
 
 #: src/ui/components/reader/readerView.vala:1092
 msgid "By "
-msgstr ""
+msgstr "作者： "
 
 #: src/ui/components/sports/leagueBadgeCarousel.vala:203
 msgid "Add more leagues"
-msgstr ""
+msgstr "添加更多联赛"
 
 #: src/ui/components/sports/leagueBadgeCarousel.vala:210
 msgid "Settings"
-msgstr ""
+msgstr "设置"
 
 #: src/ui/components/sports/scoreCard.vala:102
 msgid "LIVE"
-msgstr ""
+msgstr "直播"
 
 #: src/ui/components/sports/scoreCard.vala:122
 msgid "TBD"
-msgstr ""
+msgstr "待定"
 
 #: src/ui/components/sports/scoreCard.vala:133
 msgid "Today"
-msgstr ""
+msgstr "今天"
 
 #: src/ui/components/sports/scoreCard.vala:134
 msgid "Yesterday"
-msgstr ""
+msgstr "昨天"
 
 #: src/ui/components/sports/scoreCard.vala:135
 msgid "Tomorrow"
-msgstr ""
+msgstr "明天"
 
 #: src/ui/contentView.vala:241
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:48
 msgid "Organize Rack"
-msgstr ""
+msgstr "整理杂志架"
 
 #: src/ui/contentView.vala:342
 msgid "<span size='26000'><b>START LISTENING</b></span>"
-msgstr ""
+msgstr "<span size='26000'><b>开始收听</b></span>"
 
 #: src/ui/contentView.vala:386
 msgid "TRENDING"
-msgstr ""
+msgstr "热门"
 
 #: src/ui/contentView.vala:458
 msgid "MY TEAMS"
-msgstr ""
+msgstr "我的球队"
 
 #: src/ui/contentView.vala:689
 msgid "Personalize My Feed"
-msgstr ""
+msgstr "个性化我的订阅"
 
 #: src/ui/contentView.vala:711
 msgid "To See Local News, Set Your Location in Preferences"
-msgstr ""
+msgstr "要查看本地新闻，请在首选项中设置你的位置"
 
 #: src/ui/contentView.vala:720
-msgid ""
-"Open the main menu (☰) → choose 'Manage locations' to configure your city or "
-"postal code."
-msgstr ""
+msgid "Open the main menu (☰) → choose 'Manage locations' to configure your city or postal code."
+msgstr "打开主菜单（☰）→ 选择“管理位置”来设置你的城市或邮政编码。"
 
 #: src/ui/contentView.vala:728
 msgid "Set Location"
-msgstr ""
+msgstr "设置位置"
 
 #: src/ui/contentView.vala:754
 msgid "Something went wrong. Try refreshing..."
-msgstr ""
+msgstr "出了点问题。请尝试刷新..."
 
 #: src/ui/contentView.vala:762 src/ui/dialogs/app/prefsDialog.vala:82
 msgid "Refresh"
-msgstr ""
+msgstr "刷新"
 
 #: src/ui/contentView.vala:846
 msgid "Select all"
-msgstr ""
+msgstr "全选"
 
 #: src/ui/contentView.vala:942 src/ui/contentView.vala:1017
 msgid "Load more articles"
-msgstr ""
+msgstr "加载更多文章"
 
 #. Search spans every category, not just the one on screen (e.g.
 #. "Sports") - keeping that category's name/icon while showing
@@ -1279,376 +1257,353 @@ msgstr ""
 #. it's already correct for every keystroke after the first.
 #: src/ui/contentView.vala:1155 src/ui/contentView.vala:1156
 msgid "Search results"
-msgstr ""
+msgstr "搜索结果"
 
 #: src/ui/contentView.vala:1193
 #, c-format
 msgid "No articles found matching \"%s\""
-msgstr ""
+msgstr "未找到与“%s”匹配的文章"
 
 #. Special switch when only one matching article is found
 #: src/ui/contentView.vala:1196
 msgid "article"
-msgstr ""
+msgstr "文章"
 
 #: src/ui/contentView.vala:1196
 msgid "articles"
-msgstr ""
+msgstr "文章"
 
 #: src/ui/dialogs/app/aboutDialog.vala:73
 msgid "Country detection and the Portuguese (Brazil) translation"
-msgstr ""
+msgstr "国家检测和葡萄牙语（巴西）翻译"
 
 #. Contributors get their own page, so the list can grow without
 #. making this one longer
 #: src/ui/dialogs/app/aboutDialog.vala:93
 #: src/ui/dialogs/app/aboutDialog.vala:197
 msgid "Contributors"
-msgstr ""
+msgstr "贡献者"
 
 #: src/ui/dialogs/app/aboutDialog.vala:124
 #: src/ui/dialogs/app/aboutDialog.vala:127
 msgid "Release notes not available"
-msgstr ""
+msgstr "暂无发行说明"
 
 #: src/ui/dialogs/app/aboutDialog.vala:141
 #: src/ui/dialogs/app/aboutDialog.vala:187
 msgid "Release notes"
-msgstr ""
+msgstr "发行说明"
 
 #: src/ui/dialogs/app/aboutDialog.vala:174
 msgid "An all-in-one news app written in Vala, built with GTK4 and Libadwaita."
-msgstr ""
+msgstr "一款用 Vala 编写、基于 GTK4 和 Libadwaita 构建的一体化新闻应用。"
 
 #: src/ui/dialogs/app/aboutDialog.vala:205
 msgid "Links"
-msgstr ""
+msgstr "链接"
 
 #: src/ui/dialogs/app/aboutDialog.vala:234
 msgid "GitHub Repository"
-msgstr ""
+msgstr "GitHub 仓库"
 
 #: src/ui/dialogs/app/aboutDialog.vala:235
 msgid "Releases"
-msgstr ""
+msgstr "版本发布"
 
 #: src/ui/dialogs/app/aboutDialog.vala:236
 msgid "Report an issue"
-msgstr ""
+msgstr "报告问题"
 
 #: src/ui/dialogs/app/aboutDialog.vala:240
 msgid "© 2025 thecalamityjoe87 (Isaac Joseph)"
-msgstr ""
+msgstr "© 2025 thecalamityjoe87 (Isaac Joseph)"
 
 #: src/ui/dialogs/app/locationDialog.vala:81
 #: src/ui/dialogs/notes/noteEditorDialog.vala:51
 msgid "Save"
-msgstr ""
+msgstr "保存"
 
 #: src/ui/dialogs/app/locationDialog.vala:83
 msgid "Add city"
-msgstr ""
+msgstr "添加城市"
 
 #: src/ui/dialogs/app/locationDialog.vala:83 src/ui/menus/sidebarMenu.vala:56
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:418
 msgid "Change location"
-msgstr ""
+msgstr "更改位置"
 
 #: src/ui/dialogs/app/locationDialog.vala:84
-msgid ""
-"Enter a city name or a postal code, or use your current location.\n"
-"Examples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
-msgstr ""
+msgid "Enter a city name or a postal code, or use your current location.\nExamples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
+msgstr "输入城市名称或邮政编码，或使用你的当前位置。\n例如：“San Francisco, CA”、“Manchester”或“10115”"
 
 #: src/ui/dialogs/app/locationDialog.vala:88
 msgid "City name or postal code"
-msgstr ""
+msgstr "城市名称或邮政编码"
 
 #: src/ui/dialogs/app/locationDialog.vala:140
 msgid "Searching..."
-msgstr ""
+msgstr "正在搜索..."
 
 #: src/ui/dialogs/app/locationDialog.vala:155
 msgid "Search"
-msgstr ""
+msgstr "搜索"
 
 #: src/ui/dialogs/app/locationDialog.vala:157
 msgid "Use my location"
-msgstr ""
+msgstr "使用我的位置"
 
 #: src/ui/dialogs/app/locationDialog.vala:214
 #, c-format
 msgid "You can save up to %d locations."
-msgstr ""
+msgstr "最多可保存 %d 个位置。"
 
 #: src/ui/dialogs/app/locationDialog.vala:248
-msgid ""
-"Couldn't resolve a location for that. Try a different city name or postal "
-"code."
-msgstr ""
+msgid "Couldn't resolve a location for that. Try a different city name or postal code."
+msgstr "无法找到对应的位置。请尝试其他城市名称或邮政编码。"
 
 #: src/ui/dialogs/app/locationDialog.vala:273
 msgid "Smaller towns may have limited coverage."
-msgstr ""
+msgstr "较小城镇的新闻覆盖可能有限。"
 
 #: src/ui/dialogs/app/locationDialog.vala:274
 msgid "Nearby metro area"
-msgstr ""
+msgstr "附近的都市区"
 
 #: src/ui/dialogs/app/locationDialog.vala:282
 msgid "1 location slot left — pick one, or remove a location to add both."
-msgstr ""
+msgstr "仅剩 1 个位置名额——请选择一个，或移除一个位置以同时添加两者。"
 
 #: src/ui/dialogs/app/locationDialog.vala:314
 msgid "Enter a city name or postal code and press Search."
-msgstr ""
+msgstr "输入城市名称或邮政编码，然后按“搜索”。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:64
 msgid "Skip"
-msgstr ""
+msgstr "跳过"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:76
 #: src/ui/dialogs/app/onboardingDialog.vala:109
 msgid "Next"
-msgstr ""
+msgstr "下一步"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:109
 msgid "Get Started"
-msgstr ""
+msgstr "开始使用"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:158
 msgid "Welcome to Paperboy"
-msgstr ""
+msgstr "欢迎使用 Paperboy"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:165
-msgid ""
-"Paperboy brings together news from the sources you trust, into one clean, "
-"distraction-free reader.\n"
-"\n"
-"Let's set a few things up before you get started."
-msgstr ""
+msgid "Paperboy brings together news from the sources you trust, into one clean, distraction-free reader.\n\nLet's set a few things up before you get started."
+msgstr "Paperboy 将你信任的来源的新闻汇集到一个简洁、无干扰的阅读器中。\n\n开始之前，先进行几项设置吧。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:203
 msgid "Where Are You Reading From?"
-msgstr ""
+msgstr "你在哪里阅读？"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:209
-msgid ""
-"Your national news and Front Page come from this country. We've picked it "
-"from your system settings - change it if it's not right. You can change this "
-"anytime from Preferences."
-msgstr ""
+msgid "Your national news and Front Page come from this country. We've picked it from your system settings - change it if it's not right. You can change this anytime from Preferences."
+msgstr "你的国内新闻和头版来自这个国家。我们根据你的系统设置进行了选择——如果不正确请更改。你可以随时在首选项中更改。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:240
 msgid "Pick a Theme"
-msgstr ""
+msgstr "选择主题"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:246
 msgid "You can change this anytime from Preferences."
-msgstr ""
+msgstr "你可以随时在首选项中更改。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:334
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
 msgid "Follow System"
-msgstr ""
+msgstr "跟随系统"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:467
 msgid "What Do You Want to Read?"
-msgstr ""
+msgstr "你想读什么？"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:472
-msgid ""
-"Pick the topics you care about. They show up in the sidebar and make up My "
-"Feed - you can change them anytime from Preferences."
-msgstr ""
+msgid "Pick the topics you care about. They show up in the sidebar and make up My Feed - you can change them anytime from Preferences."
+msgstr "选择你关心的话题。它们会显示在侧边栏中并组成“我的订阅”——你可以随时在首选项中更改。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:533
 msgid "Choose Your Sources"
-msgstr ""
+msgstr "选择你的来源"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:538
-msgid ""
-"Paperboy pulls articles from across the web, including these outlets. Tap "
-"any you'd rather not see to hide their articles everywhere - you can change "
-"these anytime from Preferences."
-msgstr ""
+msgid "Paperboy pulls articles from across the web, including these outlets. Tap any you'd rather not see to hide their articles everywhere - you can change these anytime from Preferences."
+msgstr "Paperboy 从整个网络汇集文章，包括以下媒体。点按你不想看到的媒体，即可在所有地方隐藏其文章——你可以随时在首选项中更改。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:596
 msgid "Live Sports Scores"
-msgstr ""
+msgstr "实时体育比分"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:601
-msgid ""
-"See live scores from your favorite leagues right in the Sports category. "
-"Choose which leagues to follow and drag to set their order - you can change "
-"this anytime from Preferences."
-msgstr ""
+msgid "See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow and drag to set their order - you can change this anytime from Preferences."
+msgstr "直接在“体育”分类中查看你喜爱联赛的实时比分。选择要关注的联赛并拖动以设置顺序——你可以随时在首选项中更改。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:609
 msgid "Show Score Cards"
-msgstr ""
+msgstr "显示比分卡片"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:653
 msgid "Local News, Too"
-msgstr ""
+msgstr "还有本地新闻"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:660
-msgid ""
-"Set your location to get a Local News feed for your area. You can do this "
-"now or anytime later from the main menu."
-msgstr ""
+msgid "Set your location to get a Local News feed for your area. You can do this now or anytime later from the main menu."
+msgstr "设置你的位置以获取所在地区的本地新闻。你可以现在设置，也可以之后从主菜单设置。"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:667
 msgid "Set My Location"
-msgstr ""
+msgstr "设置我的位置"
 
 #: src/ui/dialogs/app/prefsDialog.vala:78
 msgid "Refresh Content?"
-msgstr ""
+msgstr "要刷新内容吗？"
 
 #: src/ui/dialogs/app/prefsDialog.vala:79
-msgid ""
-"Changes have been made to your news sources. Would you like to refresh the "
-"content now?"
-msgstr ""
+msgid "Changes have been made to your news sources. Would you like to refresh the content now?"
+msgstr "你的新闻来源已更改。要立即刷新内容吗？"
 
 #: src/ui/dialogs/app/prefsDialog.vala:81
 msgid "Not Now"
-msgstr ""
+msgstr "以后再说"
 
 #: src/ui/dialogs/content/feedRenameDialog.vala:34
 msgid "Rename feed"
-msgstr ""
+msgstr "重命名订阅源"
 
 #: src/ui/dialogs/content/feedRenameDialog.vala:34
 msgid "Leave empty to use the default name."
-msgstr ""
+msgstr "留空则使用默认名称。"
 
 #: src/ui/dialogs/content/feedRenameDialog.vala:43
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:332
 #: src/ui/menus/sidebarMenu.vala:100
 msgid "Rename"
-msgstr ""
+msgstr "重命名"
 
 #: src/ui/dialogs/content/imageViewerDialog.vala:312
 msgid "Zoom Out"
-msgstr ""
+msgstr "缩小"
 
 #: src/ui/dialogs/content/imageViewerDialog.vala:317
 msgid "Zoom In"
-msgstr ""
+msgstr "放大"
 
 #: src/ui/dialogs/content/shareDialog.vala:34
 msgid "Share Article"
-msgstr ""
+msgstr "分享文章"
 
 #. Email section
 #: src/ui/dialogs/content/shareDialog.vala:40
 msgid "Share via email"
-msgstr ""
+msgstr "通过电子邮件分享"
 
 #: src/ui/dialogs/content/shareDialog.vala:49
 msgid "Send link"
-msgstr ""
+msgstr "发送链接"
 
 #: src/ui/dialogs/content/shareDialog.vala:55
 msgid "Opening email client"
-msgstr ""
+msgstr "正在打开电子邮件客户端"
 
 #: src/ui/dialogs/content/shareDialog.vala:59
 msgid "Failed to open email client"
-msgstr ""
+msgstr "无法打开电子邮件客户端"
 
 #. Social media section
 #: src/ui/dialogs/content/shareDialog.vala:66
 msgid "Share on social media"
-msgstr ""
+msgstr "分享到社交媒体"
 
 #: src/ui/dialogs/content/shareDialog.vala:75
 msgid "Reddit"
-msgstr ""
+msgstr "Reddit"
 
 #: src/ui/dialogs/content/shareDialog.vala:81
 msgid "Opening browser to Reddit"
-msgstr ""
+msgstr "正在浏览器中打开 Reddit"
 
 #: src/ui/dialogs/content/shareDialog.vala:85
 msgid "Failed to share on Reddit"
-msgstr ""
+msgstr "无法分享到 Reddit"
 
 #: src/ui/dialogs/content/shareDialog.vala:94
 msgid "X (Twitter)"
-msgstr ""
+msgstr "X (Twitter)"
 
 #: src/ui/dialogs/content/shareDialog.vala:100
 msgid "Opening browser to X"
-msgstr ""
+msgstr "正在浏览器中打开 X"
 
 #: src/ui/dialogs/content/shareDialog.vala:104
 msgid "Failed to share on X"
-msgstr ""
+msgstr "无法分享到 X"
 
 #: src/ui/dialogs/content/shareDialog.vala:113
 msgid "Facebook"
-msgstr ""
+msgstr "Facebook"
 
 #: src/ui/dialogs/content/shareDialog.vala:119
 msgid "Opening browser to Facebook"
-msgstr ""
+msgstr "正在浏览器中打开 Facebook"
 
 #: src/ui/dialogs/content/shareDialog.vala:123
 msgid "Failed to share on Facebook"
-msgstr ""
+msgstr "无法分享到 Facebook"
 
 #. Messaging apps section
 #: src/ui/dialogs/content/shareDialog.vala:130
 msgid "Share via messaging app"
-msgstr ""
+msgstr "通过即时通讯应用分享"
 
 #: src/ui/dialogs/content/shareDialog.vala:139
 msgid "Telegram"
-msgstr ""
+msgstr "Telegram"
 
 #: src/ui/dialogs/content/shareDialog.vala:145
 msgid "Opening browser to Telegram"
-msgstr ""
+msgstr "正在浏览器中打开 Telegram"
 
 #: src/ui/dialogs/content/shareDialog.vala:149
 msgid "Failed to share on Telegram"
-msgstr ""
+msgstr "无法分享到 Telegram"
 
 #: src/ui/dialogs/content/shareDialog.vala:158
 msgid "WhatsApp"
-msgstr ""
+msgstr "WhatsApp"
 
 #: src/ui/dialogs/content/shareDialog.vala:164
 msgid "Opening browser to WhatsApp"
-msgstr ""
+msgstr "正在浏览器中打开 WhatsApp"
 
 #: src/ui/dialogs/content/shareDialog.vala:168
 msgid "Failed to share on WhatsApp"
-msgstr ""
+msgstr "无法分享到 WhatsApp"
 
 #: src/ui/dialogs/content/shareDialog.vala:178
 msgid "Signal"
-msgstr ""
+msgstr "Signal"
 
 #: src/ui/dialogs/content/shareDialog.vala:187
 msgid "Signal isn't installed"
-msgstr ""
+msgstr "未安装 Signal"
 
 #. Copy link section
 #: src/ui/dialogs/content/shareDialog.vala:194
 msgid "Share via copied link"
-msgstr ""
+msgstr "通过复制链接分享"
 
 #: src/ui/dialogs/content/shareDialog.vala:203
 msgid "Copy link to clipboard"
-msgstr ""
+msgstr "复制链接到剪贴板"
 
 #: src/ui/dialogs/content/shareDialog.vala:209
 msgid "Link copied to clipboard"
-msgstr ""
+msgstr "链接已复制到剪贴板"
 
 #. Undoes all organizing - category order, grid/row choice, and
 #. every magazine's category. Click handler wired below, after
@@ -1656,296 +1611,286 @@ msgstr ""
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:94
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:190
 msgid "Reset View"
-msgstr ""
+msgstr "重置视图"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:105
 msgid "Show uncategorized magazines as a grid"
-msgstr ""
+msgstr "以网格显示未分类的杂志"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:188
 msgid "Reset view?"
-msgstr ""
+msgstr "要重置视图吗？"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:189
-msgid ""
-"Moves every magazine back to Uncategorized, clears your custom category "
-"order, and switches back to the grid view. This can't be undone, though no "
-"magazines themselves are removed from your library."
-msgstr ""
+msgid "Moves every magazine back to Uncategorized, clears your custom category order, and switches back to the grid view. This can't be undone, though no magazines themselves are removed from your library."
+msgstr "将所有杂志移回“未分类”，清除你的自定义分类顺序，并切换回网格视图。此操作无法撤销，但不会从书库中移除任何杂志。"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
 msgid " magazine"
-msgstr ""
+msgstr " 本杂志"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
 msgid " magazines"
-msgstr ""
+msgstr " 本杂志"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:284
 #: src/ui/dialogs/app/prefs/prefsRows.vala:180
 msgid "Drag to reorder"
-msgstr ""
+msgstr "拖动以重新排序"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:306
 msgid "Rename category"
-msgstr ""
+msgstr "重命名分类"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:312
 msgid "Delete category"
-msgstr ""
+msgstr "删除分类"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:322
 msgid "Rename Category"
-msgstr ""
+msgstr "重命名分类"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:323
 #, c-format
 msgid "Choose a new name for \"%s\"."
-msgstr ""
+msgstr "为“%s”输入新名称。"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:362
 #, c-format
 msgid "Delete \"%s\"?"
-msgstr ""
+msgstr "要删除“%s”吗？"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:363
-msgid ""
-"Moves its magazines back to Uncategorized. This can't be undone, though no "
-"magazines themselves are removed from your library."
-msgstr ""
+msgid "Moves its magazines back to Uncategorized. This can't be undone, though no magazines themselves are removed from your library."
+msgstr "将其中的杂志移回“未分类”。此操作无法撤销，但不会从书库中移除任何杂志。"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:457
 msgid "New category name"
-msgstr ""
+msgstr "新分类名称"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:489
-msgid ""
-"Type a name above and tap Add to create a category row first, then drag "
-"magazines into it. Drag a row's handle to reorder categories."
-msgstr ""
+msgid "Type a name above and tap Add to create a category row first, then drag magazines into it. Drag a row's handle to reorder categories."
+msgstr "先在上方输入名称并点按“添加”以创建分类行，然后将杂志拖入其中。拖动行的手柄可重新排列分类。"
 
 #. Rough heuristic for "probably got truncated by the 4-line cap
 #. above" - good enough to decide whether "See more" is worth
 #. showing without measuring the actual Pango layout.
 #: src/ui/dialogs/media/podcastDetailDialog.vala:146
 msgid "See more"
-msgstr ""
+msgstr "查看更多"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:32
 msgid "Choose Podcasts"
-msgstr ""
+msgstr "选择播客"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:33
 msgid "This site publishes more than one podcast - select which ones to add."
-msgstr ""
+msgstr "该网站发布了多个播客——请选择要添加的播客。"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:59
 #, c-format
 msgid "%d episode"
 msgid_plural "%d episodes"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d 集"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:63
 #, c-format
 msgid "%s · Already subscribed"
-msgstr ""
+msgstr "%s · 已订阅"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:63
 msgid "Already subscribed"
-msgstr ""
+msgstr "已订阅"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:130
 msgid "Podcast added"
-msgstr ""
+msgstr "已添加播客"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:130
 #, c-format
 msgid "%d podcasts added"
-msgstr ""
+msgstr "已添加 %d 个播客"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:48
 msgid "Edit note"
-msgstr ""
+msgstr "编辑笔记"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:57
 msgid "Delete note"
-msgstr ""
+msgstr "删除笔记"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:68
 msgid "Title (optional)"
-msgstr ""
+msgstr "标题（可选）"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:159
 msgid "Bold"
-msgstr ""
+msgstr "粗体"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:160
 msgid "Italic"
-msgstr ""
+msgstr "斜体"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:161
 msgid "Underline"
-msgstr ""
+msgstr "下划线"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:162
 msgid "Strikethrough"
-msgstr ""
+msgstr "删除线"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:166
 msgid "Highlight"
-msgstr ""
+msgstr "高亮"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:181
 msgid "Yellow"
-msgstr ""
+msgstr "黄色"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:182
 msgid "Green"
-msgstr ""
+msgstr "绿色"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:183
 msgid "Blue"
-msgstr ""
+msgstr "蓝色"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:184
 msgid "Pink"
-msgstr ""
+msgstr "粉色"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:185
 msgid "Orange"
-msgstr ""
+msgstr "橙色"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:201
 msgid "Remove highlight"
-msgstr ""
+msgstr "移除高亮"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:211
 msgid "Bulleted list"
-msgstr ""
+msgstr "项目符号列表"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:212
 msgid "Numbered list"
-msgstr ""
+msgstr "编号列表"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:213
 msgid "Clear formatting"
-msgstr ""
+msgstr "清除格式"
 
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:59
-msgid ""
-"No notes yet.\n"
-"Open an article and tap the notes icon to add one."
-msgstr ""
+msgid "No notes yet.\nOpen an article and tap the notes icon to add one."
+msgstr "还没有笔记。\n打开一篇文章并点按笔记图标即可添加。"
 
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:167
 msgid "Open article"
-msgstr ""
+msgstr "打开文章"
 
 #. View in app
 #: src/ui/menus/articleMenu.vala:52
 msgid "View article in app"
-msgstr ""
+msgstr "在应用中查看文章"
 
 #. Open in browser
 #: src/ui/menus/articleMenu.vala:61
 msgid "Open article in browser"
-msgstr ""
+msgstr "在浏览器中打开文章"
 
 #: src/ui/menus/articleMenu.vala:81
 msgid "Follow this source"
-msgstr ""
+msgstr "关注此来源"
 
 #: src/ui/menus/articleMenu.vala:81
 msgid "Built-in source"
-msgstr ""
+msgstr "内置来源"
 
 #: src/ui/menus/articleMenu.vala:81
 msgid "Enable built-in source"
-msgstr ""
+msgstr "启用内置来源"
 
 #: src/ui/menus/articleMenu.vala:86
 msgid "This is a built-in source. You can enable or disable it in preferences."
-msgstr ""
+msgstr "这是一个内置来源。你可以在首选项中启用或停用它。"
 
 #: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:151
 msgid "Remove from saved"
-msgstr ""
+msgstr "从收藏中移除"
 
 #: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:175
 msgid "Add to saved"
-msgstr ""
+msgstr "添加到收藏"
 
 #. Mark as unread (only active when article is currently viewed)
 #: src/ui/menus/articleMenu.vala:107
 msgid "Mark as unread"
-msgstr ""
+msgstr "标记为未读"
 
 #. Share
 #: src/ui/menus/articleMenu.vala:117
 msgid "Share this article"
-msgstr ""
+msgstr "分享这篇文章"
 
 #: src/ui/menus/podcastMenu.vala:60
 msgid "More info"
-msgstr ""
+msgstr "更多信息"
 
 #: src/ui/menus/podcastMenu.vala:69
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:267
 msgid "Remove podcast"
-msgstr ""
+msgstr "移除播客"
 
 #: src/ui/menus/sidebarMenu.vala:65
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:419
 msgid "Remove location"
-msgstr ""
+msgstr "移除位置"
 
 #. Mark all as read
 #: src/ui/menus/sidebarMenu.vala:85
 msgid "Mark all as read"
-msgstr ""
+msgstr "全部标记为已读"
 
 #. Mark all as unread
 #: src/ui/menus/sidebarMenu.vala:93
 msgid "Mark all as unread"
-msgstr ""
+msgstr "全部标记为未读"
 
 #. Remove this source
 #: src/ui/menus/sidebarMenu.vala:110
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:160
 msgid "Remove this source"
-msgstr ""
+msgstr "移除此来源"
 
 #: src/ui/menus/sidebarMenu.vala:155
 msgid "Marked all articles as read"
-msgstr ""
+msgstr "已将所有文章标记为已读"
 
 #: src/ui/menus/sidebarMenu.vala:169
 msgid "Marked all articles as unread"
-msgstr ""
+msgstr "已将所有文章标记为未读"
 
 #: src/ui/menus/sidebarMenu.vala:178
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:162
 msgid "Remove this source?"
-msgstr ""
+msgstr "要移除此来源吗？"
 
 #: src/ui/menus/sidebarMenu.vala:179
 #, c-format
 msgid "Are you sure you want to remove \"%s\" and all of its articles?"
-msgstr ""
+msgstr "确定要移除“%s”及其所有文章吗？"
 
 #: src/ui/menus/sidebarMenu.vala:179
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:164
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:270
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:347
 msgid "Remove"
-msgstr ""
+msgstr "移除"
 
 #: src/ui/menus/sidebarMenu.vala:184
 msgid "Feed removed"
-msgstr ""
+msgstr "订阅源已移除"
 
 #. "Open" pill shown to the left of the Business category's count badge
 #. while MarketStatusManager reports the US market as in its regular
@@ -1953,306 +1898,294 @@ msgstr ""
 #. own green ".market-open-pill" class instead of that pill's red.
 #: src/ui/sidebarView.vala:566
 msgid "Open"
-msgstr ""
+msgstr "打开"
 
 #: src/ui/sidebarView.vala:699 src/ui/sidebarView.vala:718
 msgid "Add RSS Feed"
-msgstr ""
+msgstr "添加 RSS 订阅源"
 
 #: src/ui/sidebarView.vala:719
 msgid "Enter the RSS feed URL:"
-msgstr ""
+msgstr "输入 RSS 订阅源 URL："
 
 #: src/ui/sidebarView.vala:730
 msgid "Feed name (optional)"
-msgstr ""
+msgstr "订阅源名称（可选）"
 
 #: src/ui/sidebarView.vala:816 src/ui/sidebarView.vala:835
 msgid "Add a Podcast"
-msgstr ""
+msgstr "添加播客"
 
 #: src/ui/sidebarView.vala:836
 msgid "Enter the podcast's RSS feed URL:"
-msgstr ""
+msgstr "输入播客的 RSS 订阅源 URL："
 
 #: src/ui/sidebarView.vala:881
 msgid "Failed to add podcast"
-msgstr ""
+msgstr "无法添加播客"
 
 #: src/ui/sidebarView.vala:1269
 msgid "Now Playing"
-msgstr ""
+msgstr "正在播放"
 
 #: src/ui/controllers/myFeedExtrasController.vala:336
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
 msgid "Magazines"
-msgstr ""
+msgstr "杂志"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:37
 msgid "App"
-msgstr ""
+msgstr "应用"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:53
 msgid "Appearance"
-msgstr ""
+msgstr "外观"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:56
 msgid "Theme"
-msgstr ""
+msgstr "主题"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:57
 msgid "Follow the system theme, or force light or dark mode"
-msgstr ""
+msgstr "跟随系统主题，或强制使用浅色或深色模式"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:87
 msgid "Update Interval"
-msgstr ""
+msgstr "更新间隔"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:88
-msgid ""
-"Short update intervals can trigger rate limits or cause requests to be "
-"blocked."
-msgstr ""
+msgid "Short update intervals can trigger rate limits or cause requests to be blocked."
+msgstr "更新间隔过短可能触发速率限制或导致请求被拦截。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:89
-msgid ""
-"Updating feeds too often may look like automated traffic. Sites could "
-"temporarily block requests or refuse articles if too many are made in a "
-"short time. Choose a longer interval to avoid this."
-msgstr ""
+msgid "Updating feeds too often may look like automated traffic. Sites could temporarily block requests or refuse articles if too many are made in a short time. Choose a longer interval to avoid this."
+msgstr "过于频繁地更新订阅源可能看起来像自动化流量。如果短时间内请求过多，网站可能会暂时拦截请求或拒绝提供文章。请选择较长的间隔以避免这种情况。"
 
 #. "Manual" and "Sync Every" are radio-style check buttons.
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:93
 msgid "Manual"
-msgstr ""
+msgstr "手动"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:94
 msgid "No automatic synchronization"
-msgstr ""
+msgstr "不自动同步"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:101
 msgid "Sync Every"
-msgstr ""
+msgstr "同步频率"
 
 #. from_strings() needs a NULL-terminated array: a fresh Vala string[]
 #. is one, the const array isn't. Literal _() here so xgettext sees them.
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:110
 msgid "15 Minutes"
-msgstr ""
+msgstr "15 分钟"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:111
 msgid "30 Minutes"
-msgstr ""
+msgstr "30 分钟"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:112
 msgid "1 Hour"
-msgstr ""
+msgstr "1 小时"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:113
 msgid "2 Hours"
-msgstr ""
+msgstr "2 小时"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:114
 msgid "4 Hours"
-msgstr ""
+msgstr "4 小时"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:171
 msgid "Data"
-msgstr ""
+msgstr "数据"
 
 #. Article content cache (MetaCache)
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:175
 msgid "Article content cache"
-msgstr ""
+msgstr "文章内容缓存"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:178
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:210
 msgid "Clear"
-msgstr ""
+msgstr "清除"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:182
 msgid "Clear article content cache?"
-msgstr ""
+msgstr "要清除文章内容缓存吗？"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
 msgid "Clear Cache"
-msgstr ""
+msgstr "清除缓存"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:187
 msgid "0 bytes"
-msgstr ""
+msgstr "0 字节"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:188
 msgid "Cache cleared successfully"
-msgstr ""
+msgstr "缓存已成功清除"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:198
 msgid "RSS feed cache"
-msgstr ""
+msgstr "RSS 订阅源缓存"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:214
 msgid "Clear RSS Feed Cache?"
-msgstr ""
+msgstr "要清除 RSS 订阅源缓存吗？"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
 msgid "0 bytes (0 articles)"
-msgstr ""
+msgstr "0 字节（0 篇文章）"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:219
 msgid "RSS feed cache cleared"
-msgstr ""
+msgstr "RSS 订阅源缓存已清除"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:232
 msgid "Backup &amp; Restore"
-msgstr ""
+msgstr "备份与恢复"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
 msgid "Export Feeds & Podcasts"
-msgstr ""
+msgstr "导出订阅源和播客"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:238
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:245
 msgid "OPML files"
-msgstr ""
+msgstr "OPML 文件"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:240
 msgid "Exported feeds and podcasts"
-msgstr ""
+msgstr "已导出订阅源和播客"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:244
 msgid "Import Feeds & Podcasts"
-msgstr ""
+msgstr "导入订阅源和播客"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:246
 msgid "Importing feeds and podcasts…"
-msgstr ""
+msgstr "正在导入订阅源和播客…"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:252
 #, c-format
 msgid "Imported %d feed(s) and %d podcast(s)"
-msgstr ""
+msgstr "已导入 %d 个订阅源和 %d 个播客"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:259
 msgid "Export or import your article notes as a JSON file."
-msgstr ""
+msgstr "将你的文章笔记导出或导入为 JSON 文件。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
 msgid "Export Notes"
-msgstr ""
+msgstr "导出笔记"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:269
 msgid "JSON files"
-msgstr ""
+msgstr "JSON 文件"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
 msgid "Exported notes"
-msgstr ""
+msgstr "已导出笔记"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:268
 msgid "Import Notes"
-msgstr ""
+msgstr "导入笔记"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
 #, c-format
 msgid "Imported %d note(s)"
-msgstr ""
+msgstr "已导入 %d 条笔记"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:281
 msgid "Danger Zone"
-msgstr ""
+msgstr "危险区域"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
 msgid "Reset app to factory settings"
-msgstr ""
+msgstr "将应用恢复出厂设置"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:285
-msgid ""
-"Erases all sources, saved articles, notes, settings, and cached data, then "
-"restarts Paperboy as if freshly installed."
-msgstr ""
+msgid "Erases all sources, saved articles, notes, settings, and cached data, then restarts Paperboy as if freshly installed."
+msgstr "清除所有来源、已收藏的文章、笔记、设置和缓存数据，然后像全新安装一样重新启动 Paperboy。"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
 msgid "Reset"
-msgstr ""
+msgstr "重置"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:291
 msgid "Reset to factory settings?"
-msgstr ""
+msgstr "要恢复出厂设置吗？"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:293
 msgid "Reset App"
-msgstr ""
+msgstr "重置应用"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:309
 msgid "Experimental"
-msgstr ""
+msgstr "实验性功能"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
 msgid "Show article comments"
-msgstr ""
+msgstr "显示文章评论"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:313
-msgid ""
-"Show a comments button on the reader page for articles with a discoverable "
-"comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
-"limited - many sites don't expose comments through any of these."
-msgstr ""
+msgid "Show a comments button on the reader page for articles with a discoverable comment source (native feed, Disqus, or Hacker News discussion). Coverage is limited - many sites don't expose comments through any of these."
+msgstr "对于可发现评论来源（原生订阅源、Disqus 或 Hacker News 讨论）的文章，在阅读页面上显示评论按钮。覆盖范围有限——许多网站不会通过以上任何方式公开评论。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:31
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:177
 msgid "Personalization"
-msgstr ""
+msgstr "个性化"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:52
 msgid "Region"
-msgstr ""
+msgstr "地区"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:53
 msgid "Your national news and Front Page come from this country"
-msgstr ""
+msgstr "你的国内新闻和头版来自这个国家"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
 msgid "Categories"
-msgstr ""
+msgstr "分类"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:79
 msgid "The categories shown in the sidebar and used for My Feed"
-msgstr ""
+msgstr "侧边栏中显示并用于“我的订阅”的分类"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:82
 msgid "Shown categories"
-msgstr ""
+msgstr "显示的分类"
 
 #. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
 #, c-format
 msgid "All %d categories"
-msgstr ""
+msgstr "全部 %d 个分类"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
 msgid "None"
-msgstr ""
+msgstr "无"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
 #, c-format
 msgid "%d of %d categories"
-msgstr ""
+msgstr "%d/%d 个分类"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
-msgid ""
-"Choose the categories shown in the sidebar and used for My Feed. Drag a row "
-"by its handle to reorder."
-msgstr ""
+msgid "Choose the categories shown in the sidebar and used for My Feed. Drag a row by its handle to reorder."
+msgstr "选择侧边栏中显示并用于“我的订阅”的分类。拖动行的手柄可重新排序。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:180
 msgid "Enable personalized feed"
-msgstr ""
+msgstr "启用个性化订阅"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:181
 msgid "Enable a personalized feed based on your reading habits"
-msgstr ""
+msgstr "根据你的阅读习惯启用个性化订阅"
 
 #. Choosing which followed feeds show up in My Feed gets its own
 #. slide-in subpage. Rebuilt on each open so it reflects feeds
@@ -2260,376 +2193,357 @@ msgstr ""
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:207
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:336
 msgid "Custom feeds in My Feed"
-msgstr ""
+msgstr "“我的订阅”中的自定义订阅源"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:208
 msgid "Choose which followed RSS feeds appear in My Feed"
-msgstr ""
+msgstr "选择哪些已关注的 RSS 订阅源显示在“我的订阅”中"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:213
 msgid "Custom feeds only in My Feed"
-msgstr ""
+msgstr "“我的订阅”仅显示自定义订阅源"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:214
 msgid "Only show followed RSS feeds in My Feed, hide built-in sources"
-msgstr ""
+msgstr "“我的订阅”中只显示已关注的 RSS 订阅源，隐藏内置来源"
 
 #. ActionRow rather than SwitchRow, to fit a settings button
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:238
 msgid "Show unread count badges"
-msgstr ""
+msgstr "显示未读数量徽章"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:239
 msgid "Display unread article counts in the sidebar"
-msgstr ""
+msgstr "在侧边栏中显示未读文章数量"
 
 #. Popover with per-area badge visibility options
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:242
 msgid "Badge visibility settings"
-msgstr ""
+msgstr "徽章显示设置"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:253
 msgid "Show on special categories"
-msgstr ""
+msgstr "在特殊分类上显示"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:261
 msgid "Show on Feeds"
-msgstr ""
+msgstr "在订阅源上显示"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:269
 msgid "Show on categories"
-msgstr ""
+msgstr "在分类上显示"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:298
 msgid "Choose which of your followed RSS feeds appear in My Feed"
-msgstr ""
+msgstr "选择你关注的哪些 RSS 订阅源显示在“我的订阅”中"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:307
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:131
 msgid "No feeds followed yet"
-msgstr ""
+msgstr "尚未关注任何订阅源"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:308
-msgid ""
-"Follow a custom RSS feed in Preferences -> Feeds first, then come back here "
-"to include it in My Feed."
-msgstr ""
+msgid "Follow a custom RSS feed in Preferences -> Feeds first, then come back here to include it in My Feed."
+msgstr "请先在“首选项 -> 订阅源”中关注一个自定义 RSS 订阅源，然后回到这里将其加入“我的订阅”。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:343
 msgid "My Feed Extras"
-msgstr ""
+msgstr "“我的订阅”附加内容"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:344
-msgid ""
-"Show a preview row for other features at the top of My Feed, with a button "
-"to jump to the full page"
-msgstr ""
+msgid "Show a preview row for other features at the top of My Feed, with a button to jump to the full page"
+msgstr "在“我的订阅”顶部显示其他功能的预览行，并提供跳转到完整页面的按钮"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:345
 msgid "Sports scores"
-msgstr ""
+msgstr "体育比分"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:380
 msgid "Show recommendations"
-msgstr ""
+msgstr "显示推荐"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:381
-msgid ""
-"Suggest articles based on your reading history. This stays on your device."
-msgstr ""
+msgid "Suggest articles based on your reading history. This stays on your device."
+msgstr "根据你的阅读历史推荐文章。这些数据只保存在你的设备上。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:397
 msgid "Reading"
-msgstr ""
+msgstr "阅读"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:400
 msgid "Open articles in reader view"
-msgstr ""
+msgstr "在阅读视图中打开文章"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:401
-msgid ""
-"Show an extracted, distraction-free view of the article text instead of the "
-"full webpage by default. You can still switch views per article."
-msgstr ""
+msgid "Show an extracted, distraction-free view of the article text instead of the full webpage by default. You can still switch views per article."
+msgstr "默认显示提取出的无干扰文章正文，而不是完整网页。你仍可以为每篇文章切换视图。"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:409
 msgid "Clicking an article opens reader view directly"
-msgstr ""
+msgstr "点击文章直接打开阅读视图"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:410
-msgid ""
-"Skip the preview pane and jump straight into reader view when you click an "
-"article card"
-msgstr ""
+msgid "Skip the preview pane and jump straight into reader view when you click an article card"
+msgstr "点击文章卡片时跳过预览面板，直接进入阅读视图"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:418
 msgid "Show quick-open buttons on hover"
-msgstr ""
+msgstr "悬停时显示快速打开按钮"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:419
-msgid ""
-"Show reader view / preview buttons over an article card's image when you "
-"hover it"
-msgstr ""
+msgid "Show reader view / preview buttons over an article card's image when you hover it"
+msgstr "鼠标悬停在文章卡片图片上时显示阅读视图/预览按钮"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:436
 msgid "Market Cards"
-msgstr ""
+msgstr "市场卡片"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:437
 msgid "Choose whether the Business category shows live market index cards"
-msgstr ""
+msgstr "选择“商业”分类是否显示实时市场指数卡片"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:440
 msgid "Show market cards"
-msgstr ""
+msgstr "显示市场卡片"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:441
 msgid "Turn off to hide the live market index cards from the Business category"
-msgstr ""
+msgstr "关闭后将在“商业”分类中隐藏实时市场指数卡片"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:455
 msgid "Show market status pill"
-msgstr ""
+msgstr "显示市场状态标签"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:456
-msgid ""
-"Show an \"Open\" pill next to the Business sidebar count while the market is "
-"open"
-msgstr ""
+msgid "Show an \"Open\" pill next to the Business sidebar count while the market is open"
+msgstr "市场开盘期间，在侧边栏“商业”数量旁显示“开盘”标签"
 
 #. TRANSLATORS: %s is the detected country, e.g. "Automatic (Germany)"
 #: src/ui/dialogs/app/prefs/prefsRows.vala:64
 #, c-format
 msgid "Automatic (%s)"
-msgstr ""
+msgstr "自动（%s）"
 
 #: src/ui/dialogs/app/prefs/prefsRows.vala:76
 msgid "Country"
-msgstr ""
+msgstr "国家/地区"
 
 #: src/ui/dialogs/app/prefs/prefsRows.vala:207
 msgid "Export"
-msgstr ""
+msgstr "导出"
 
 #: src/ui/dialogs/app/prefs/prefsRows.vala:211
 msgid "Import"
-msgstr ""
+msgstr "导入"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:42
 msgid "Sources"
-msgstr ""
+msgstr "来源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:71
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:74
 msgid "Built-in sources"
-msgstr ""
+msgstr "内置来源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:75
 msgid "News outlets that come with Paperboy"
-msgstr ""
+msgstr "Paperboy 自带的新闻媒体"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:77
 msgid "News outlets"
-msgstr ""
+msgstr "新闻媒体"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:78
 msgid "Choose which outlets to follow"
-msgstr ""
+msgstr "选择要关注的媒体"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:110
 msgid "Followed feeds"
-msgstr ""
+msgstr "已关注的订阅源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:119
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:122
 msgid "Custom feeds"
-msgstr ""
+msgstr "自定义订阅源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:123
 msgid "RSS feeds you've followed"
-msgstr ""
+msgstr "你关注的 RSS 订阅源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:132
 msgid "No feeds followed yet. Add one from the sidebar's Feeds section."
-msgstr ""
+msgstr "尚未关注任何订阅源。可从侧边栏的“订阅源”部分添加。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
 msgid "1 followed feed"
-msgstr ""
+msgstr "1 个已关注的订阅源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
 #, c-format
 msgid "%d followed feeds"
-msgstr ""
+msgstr "%d 个已关注的订阅源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:153
 msgid "Rename this source"
-msgstr ""
+msgstr "重命名此来源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:237
 msgid "Subscribed podcasts"
-msgstr ""
+msgstr "已订阅的播客"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:240
 msgid "Remove all podcasts"
-msgstr ""
+msgstr "移除所有播客"
 
 #. if/else, not a nested ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:249
 msgid "No podcasts yet"
-msgstr ""
+msgstr "还没有播客"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
 msgid "1 podcast"
-msgstr ""
+msgstr "1 个播客"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:251
 #, c-format
 msgid "%d podcasts"
-msgstr ""
+msgstr "%d 个播客"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:252
 msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
-msgstr ""
+msgstr "还没有播客。可从侧边栏的“播客”部分查找。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
 msgid "Remove podcast?"
-msgstr ""
+msgstr "要移除播客吗？"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:270
 #, c-format
 msgid "\"%s\" will be removed from your podcasts."
-msgstr ""
+msgstr "将从你的播客中移除“%s”。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Your 1 podcast will be removed."
-msgstr ""
+msgstr "将移除你的 1 个播客。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 #, c-format
 msgid "All %d of your podcasts will be removed."
-msgstr ""
+msgstr "将移除你的全部 %d 个播客。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:288
 msgid "Remove all podcasts?"
-msgstr ""
+msgstr "要移除所有播客吗？"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:288
 msgid "Remove all"
-msgstr ""
+msgstr "全部移除"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:302
 msgid "Shows you've subscribed to"
-msgstr ""
+msgstr "你订阅的节目"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:316
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:363
 msgid "Magazine sources"
-msgstr ""
+msgstr "杂志来源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
 msgid "No sources yet"
-msgstr ""
+msgstr "还没有来源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
 msgid "1 source"
-msgstr ""
+msgstr "1 个来源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:322
 #, c-format
 msgid "%d sources"
-msgstr ""
+msgstr "%d 个来源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:323
 msgid "No sources yet. Websites you add from the Magazines page show up here."
-msgstr ""
+msgstr "还没有来源。你从“杂志”页面添加的网站会显示在这里。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:336
 msgid "Remove source"
-msgstr ""
+msgstr "移除来源"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:341
 #, c-format
 msgid "\"%s\" will be removed."
-msgstr ""
+msgstr "将移除“%s”。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:347
 msgid "Remove source?"
-msgstr ""
+msgstr "要移除来源吗？"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:367
 msgid "Websites scanned for magazine PDFs"
-msgstr ""
+msgstr "用于扫描杂志 PDF 的网站"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:379
 msgid "Add a location"
-msgstr ""
+msgstr "添加位置"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:404
 #, c-format
 msgid "%d of %d locations added. Remove one to add another."
-msgstr ""
+msgstr "已添加 %d/%d 个位置。移除一个位置后才能添加新位置。"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:406
 #, c-format
 msgid "Up to %d locations · %d added"
-msgstr ""
+msgstr "最多 %d 个位置 · 已添加 %d 个"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:35
 msgid "Sports Score Cards"
-msgstr ""
+msgstr "体育比分卡片"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
-msgid ""
-"Choose which leagues show score cards, and drag a row (by its handle) to set "
-"the order their sections appear in the Sports category"
-msgstr ""
+msgid "Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category"
+msgstr "选择哪些联赛显示比分卡片，并拖动行（通过手柄）来设置它们在“体育”分类中的显示顺序"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:39
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:197
 msgid "Favorite Teams"
-msgstr ""
+msgstr "喜爱的球队"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:40
 msgid "Follow specific teams to show their own score cards"
-msgstr ""
+msgstr "关注特定球队以显示其专属比分卡片"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:47
 msgid "Show score cards"
-msgstr ""
+msgstr "显示比分卡片"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:48
 msgid "Turn off to hide all live score cards from the Sports category"
-msgstr ""
+msgstr "关闭后将在“体育”分类中隐藏所有实时比分卡片"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:53
 msgid "Show live indicator"
-msgstr ""
+msgstr "显示直播标识"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:54
-msgid ""
-"Show a \"Live\" pill next to the Sports sidebar count while a game is in "
-"progress"
-msgstr ""
+msgid "Show a \"Live\" pill next to the Sports sidebar count while a game is in progress"
+msgstr "比赛进行期间，在侧边栏“体育”数量旁显示“直播”标签"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:182
-msgid ""
-"Pick a league, then choose teams to follow - each followed team gets its own "
-"score-card row in \"My Teams\""
-msgstr ""
+msgid "Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\""
+msgstr "先选择一个联赛，再选择要关注的球队——每支关注的球队都会在“我的球队”中拥有专属的比分卡片行"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:209
 msgid "Loading teams…"
-msgstr ""
+msgstr "正在加载球队…"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:220
 msgid "Couldn't load teams"
-msgstr ""
+msgstr "无法加载球队"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:221
 msgid "Check your connection and try again later."
-msgstr ""
+msgstr "请检查网络连接，稍后重试。"
 
 #. Source name for Google's own aggregated feeds; their items each carry
 #. a <source>, which RssFeedProcessor uses instead.
@@ -2641,351 +2555,351 @@ msgstr ""
 #. splits the country off at the parenthesis.
 #: src/utils/net/googleNewsUtils.vala:45
 msgid "United States"
-msgstr ""
+msgstr "美国"
 
 #: src/utils/net/googleNewsUtils.vala:45
 msgid "United States (Spanish)"
-msgstr ""
+msgstr "美国（西班牙语）"
 
 #: src/utils/net/googleNewsUtils.vala:46
 msgid "United Kingdom"
-msgstr ""
+msgstr "英国"
 
 #: src/utils/net/googleNewsUtils.vala:46
 msgid "Ireland"
-msgstr ""
+msgstr "爱尔兰"
 
 #: src/utils/net/googleNewsUtils.vala:47
 msgid "Canada (English)"
-msgstr ""
+msgstr "加拿大（英语）"
 
 #: src/utils/net/googleNewsUtils.vala:47
 msgid "Canada (French)"
-msgstr ""
+msgstr "加拿大（法语）"
 
 #: src/utils/net/googleNewsUtils.vala:48
 msgid "Australia"
-msgstr ""
+msgstr "澳大利亚"
 
 #: src/utils/net/googleNewsUtils.vala:48
 msgid "New Zealand"
-msgstr ""
+msgstr "新西兰"
 
 #: src/utils/net/googleNewsUtils.vala:49
 msgid "India (English)"
-msgstr ""
+msgstr "印度（英语）"
 
 #: src/utils/net/googleNewsUtils.vala:49
 msgid "India (Hindi)"
-msgstr ""
+msgstr "印度（印地语）"
 
 #: src/utils/net/googleNewsUtils.vala:49
 msgid "India (Bengali)"
-msgstr ""
+msgstr "印度（孟加拉语）"
 
 #: src/utils/net/googleNewsUtils.vala:49
 msgid "India (Marathi)"
-msgstr ""
+msgstr "印度（马拉地语）"
 
 #: src/utils/net/googleNewsUtils.vala:50
 msgid "India (Tamil)"
-msgstr ""
+msgstr "印度（泰米尔语）"
 
 #: src/utils/net/googleNewsUtils.vala:50
 msgid "India (Telugu)"
-msgstr ""
+msgstr "印度（泰卢固语）"
 
 #: src/utils/net/googleNewsUtils.vala:50
 msgid "India (Malayalam)"
-msgstr ""
+msgstr "印度（马拉雅拉姆语）"
 
 #: src/utils/net/googleNewsUtils.vala:50
 msgid "India (Gujarati)"
-msgstr ""
+msgstr "印度（古吉拉特语）"
 
 #: src/utils/net/googleNewsUtils.vala:51
 msgid "Pakistan"
-msgstr ""
+msgstr "巴基斯坦"
 
 #: src/utils/net/googleNewsUtils.vala:51
 msgid "Bangladesh"
-msgstr ""
+msgstr "孟加拉国"
 
 #: src/utils/net/googleNewsUtils.vala:52
 msgid "Singapore"
-msgstr ""
+msgstr "新加坡"
 
 #: src/utils/net/googleNewsUtils.vala:52
 msgid "Malaysia (English)"
-msgstr ""
+msgstr "马来西亚（英语）"
 
 #: src/utils/net/googleNewsUtils.vala:52
 msgid "Malaysia (Malay)"
-msgstr ""
+msgstr "马来西亚（马来语）"
 
 #: src/utils/net/googleNewsUtils.vala:53
 msgid "Philippines"
-msgstr ""
+msgstr "菲律宾"
 
 #: src/utils/net/googleNewsUtils.vala:53
 msgid "Indonesia (Indonesian)"
-msgstr ""
+msgstr "印度尼西亚（印度尼西亚语）"
 
 #: src/utils/net/googleNewsUtils.vala:53
 msgid "Indonesia (English)"
-msgstr ""
+msgstr "印度尼西亚（英语）"
 
 #: src/utils/net/googleNewsUtils.vala:54
 msgid "South Africa"
-msgstr ""
+msgstr "南非"
 
 #: src/utils/net/googleNewsUtils.vala:54
 msgid "Nigeria"
-msgstr ""
+msgstr "尼日利亚"
 
 #: src/utils/net/googleNewsUtils.vala:54
 msgid "Kenya"
-msgstr ""
+msgstr "肯尼亚"
 
 #: src/utils/net/googleNewsUtils.vala:54
 msgid "Ghana"
-msgstr ""
+msgstr "加纳"
 
 #: src/utils/net/googleNewsUtils.vala:55
 msgid "Uganda"
-msgstr ""
+msgstr "乌干达"
 
 #: src/utils/net/googleNewsUtils.vala:55
 msgid "Tanzania"
-msgstr ""
+msgstr "坦桑尼亚"
 
 #: src/utils/net/googleNewsUtils.vala:55
 msgid "Ethiopia"
-msgstr ""
+msgstr "埃塞俄比亚"
 
 #: src/utils/net/googleNewsUtils.vala:55
 msgid "Zimbabwe"
-msgstr ""
+msgstr "津巴布韦"
 
 #: src/utils/net/googleNewsUtils.vala:56
 msgid "Namibia"
-msgstr ""
+msgstr "纳米比亚"
 
 #: src/utils/net/googleNewsUtils.vala:56
 msgid "Botswana"
-msgstr ""
+msgstr "博茨瓦纳"
 
 #: src/utils/net/googleNewsUtils.vala:57
 msgid "Israel (Hebrew)"
-msgstr ""
+msgstr "以色列（希伯来语）"
 
 #: src/utils/net/googleNewsUtils.vala:57
 msgid "Israel (English)"
-msgstr ""
+msgstr "以色列（英语）"
 
 #: src/utils/net/googleNewsUtils.vala:58
 msgid "Egypt"
-msgstr ""
+msgstr "埃及"
 
 #: src/utils/net/googleNewsUtils.vala:58
 msgid "Saudi Arabia"
-msgstr ""
+msgstr "沙特阿拉伯"
 
 #: src/utils/net/googleNewsUtils.vala:58
 msgid "United Arab Emirates"
-msgstr ""
+msgstr "阿拉伯联合酋长国"
 
 #: src/utils/net/googleNewsUtils.vala:58
 msgid "Lebanon"
-msgstr ""
+msgstr "黎巴嫩"
 
 #: src/utils/net/googleNewsUtils.vala:59
 msgid "Morocco"
-msgstr ""
+msgstr "摩洛哥"
 
 #: src/utils/net/googleNewsUtils.vala:59
 msgid "Senegal"
-msgstr ""
+msgstr "塞内加尔"
 
 #: src/utils/net/googleNewsUtils.vala:60
 msgid "Brazil"
-msgstr ""
+msgstr "巴西"
 
 #: src/utils/net/googleNewsUtils.vala:60
 msgid "Portugal"
-msgstr ""
+msgstr "葡萄牙"
 
 #: src/utils/net/googleNewsUtils.vala:61
 msgid "Mexico"
-msgstr ""
+msgstr "墨西哥"
 
 #: src/utils/net/googleNewsUtils.vala:61
 msgid "Argentina"
-msgstr ""
+msgstr "阿根廷"
 
 #: src/utils/net/googleNewsUtils.vala:61
 msgid "Chile"
-msgstr ""
+msgstr "智利"
 
 #: src/utils/net/googleNewsUtils.vala:62
 msgid "Colombia"
-msgstr ""
+msgstr "哥伦比亚"
 
 #: src/utils/net/googleNewsUtils.vala:62
 msgid "Peru"
-msgstr ""
+msgstr "秘鲁"
 
 #: src/utils/net/googleNewsUtils.vala:62
 msgid "Venezuela"
-msgstr ""
+msgstr "委内瑞拉"
 
 #: src/utils/net/googleNewsUtils.vala:63
 msgid "Cuba"
-msgstr ""
+msgstr "古巴"
 
 #: src/utils/net/googleNewsUtils.vala:64
 msgid "Spain"
-msgstr ""
+msgstr "西班牙"
 
 #: src/utils/net/googleNewsUtils.vala:64
 msgid "France"
-msgstr ""
+msgstr "法国"
 
 #: src/utils/net/googleNewsUtils.vala:64
 msgid "Italy"
-msgstr ""
+msgstr "意大利"
 
 #: src/utils/net/googleNewsUtils.vala:65
 msgid "Germany"
-msgstr ""
+msgstr "德国"
 
 #: src/utils/net/googleNewsUtils.vala:65
 msgid "Austria"
-msgstr ""
+msgstr "奥地利"
 
 #: src/utils/net/googleNewsUtils.vala:65
 msgid "Switzerland (German)"
-msgstr ""
+msgstr "瑞士（德语）"
 
 #: src/utils/net/googleNewsUtils.vala:65
 msgid "Switzerland (French)"
-msgstr ""
+msgstr "瑞士（法语）"
 
 #: src/utils/net/googleNewsUtils.vala:66
 msgid "Netherlands"
-msgstr ""
+msgstr "荷兰"
 
 #: src/utils/net/googleNewsUtils.vala:66
 msgid "Belgium (Dutch)"
-msgstr ""
+msgstr "比利时（荷兰语）"
 
 #: src/utils/net/googleNewsUtils.vala:66
 msgid "Belgium (French)"
-msgstr ""
+msgstr "比利时（法语）"
 
 #: src/utils/net/googleNewsUtils.vala:67
 msgid "Sweden"
-msgstr ""
+msgstr "瑞典"
 
 #: src/utils/net/googleNewsUtils.vala:67
 msgid "Norway"
-msgstr ""
+msgstr "挪威"
 
 #: src/utils/net/googleNewsUtils.vala:67
 msgid "Finland"
-msgstr ""
+msgstr "芬兰"
 
 #: src/utils/net/googleNewsUtils.vala:68
 msgid "Poland"
-msgstr ""
+msgstr "波兰"
 
 #: src/utils/net/googleNewsUtils.vala:68
 msgid "Czechia"
-msgstr ""
+msgstr "捷克"
 
 #: src/utils/net/googleNewsUtils.vala:68
 msgid "Slovakia"
-msgstr ""
+msgstr "斯洛伐克"
 
 #: src/utils/net/googleNewsUtils.vala:68
 msgid "Hungary"
-msgstr ""
+msgstr "匈牙利"
 
 #: src/utils/net/googleNewsUtils.vala:69
 msgid "Romania"
-msgstr ""
+msgstr "罗马尼亚"
 
 #: src/utils/net/googleNewsUtils.vala:69
 msgid "Bulgaria"
-msgstr ""
+msgstr "保加利亚"
 
 #: src/utils/net/googleNewsUtils.vala:69
 msgid "Greece"
-msgstr ""
+msgstr "希腊"
 
 #: src/utils/net/googleNewsUtils.vala:69
 msgid "Slovenia"
-msgstr ""
+msgstr "斯洛文尼亚"
 
 #: src/utils/net/googleNewsUtils.vala:70
 msgid "Serbia"
-msgstr ""
+msgstr "塞尔维亚"
 
 #: src/utils/net/googleNewsUtils.vala:70
 msgid "Lithuania"
-msgstr ""
+msgstr "立陶宛"
 
 #: src/utils/net/googleNewsUtils.vala:70
 msgid "Latvia"
-msgstr ""
+msgstr "拉脱维亚"
 
 #: src/utils/net/googleNewsUtils.vala:70
 msgid "Estonia"
-msgstr ""
+msgstr "爱沙尼亚"
 
 #: src/utils/net/googleNewsUtils.vala:71
 msgid "Ukraine (Ukrainian)"
-msgstr ""
+msgstr "乌克兰（乌克兰语）"
 
 #: src/utils/net/googleNewsUtils.vala:71
 msgid "Ukraine (Russian)"
-msgstr ""
+msgstr "乌克兰（俄语）"
 
 #: src/utils/net/googleNewsUtils.vala:71
 msgid "Russia"
-msgstr ""
+msgstr "俄罗斯"
 
 #: src/utils/net/googleNewsUtils.vala:71
 msgid "Turkey"
-msgstr ""
+msgstr "土耳其"
 
 #: src/utils/net/googleNewsUtils.vala:72
 msgid "China"
-msgstr ""
+msgstr "中国"
 
 #: src/utils/net/googleNewsUtils.vala:72
 msgid "Taiwan"
-msgstr ""
+msgstr "台湾"
 
 #: src/utils/net/googleNewsUtils.vala:72
 msgid "Hong Kong"
-msgstr ""
+msgstr "香港"
 
 #: src/utils/net/googleNewsUtils.vala:73
 msgid "Japan"
-msgstr ""
+msgstr "日本"
 
 #: src/utils/net/googleNewsUtils.vala:73
 msgid "South Korea"
-msgstr ""
+msgstr "韩国"
 
 #: src/utils/net/googleNewsUtils.vala:73
 msgid "Thailand"
-msgstr ""
+msgstr "泰国"
 
 #: src/utils/net/googleNewsUtils.vala:73
 msgid "Vietnam"
-msgstr ""
+msgstr "越南"
 
 #. "US News", "Germany News", "Canada News".
 #. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
@@ -2993,36 +2907,36 @@ msgstr ""
 #: src/services/fetchers/bbcFetcher.vala:77
 #: src/services/fetchers/pbsFetcher.vala:72
 msgid "US News"
-msgstr ""
+msgstr "美国新闻"
 
 #: src/services/fetchers/fetcherUtils.vala:23
 msgid "The Frontpage"
-msgstr ""
+msgstr "头版"
 
 #: src/services/fetchers/paperboyFetcher.vala:156
 msgid "The Frontpage — Paperboy"
-msgstr ""
+msgstr "头版 — Paperboy"
 
 #. Don't show error if we have cached articles
 #: src/services/fetchers/paperboyFetcher.vala:201
 msgid "Paperboy: Error loading frontpage"
-msgstr ""
+msgstr "Paperboy：加载头版时出错"
 
 #: src/services/fetchers/paperboyFetcher.vala:524
 msgid "Top Ten — Paperboy"
-msgstr ""
+msgstr "十大热门 — Paperboy"
 
 #: src/ui/controllers/fetchNewsController.vala:298
 #: src/ui/controllers/fetchNewsController.vala:674
 msgid "Offline - showing cached articles"
-msgstr ""
+msgstr "离线 - 正在显示缓存的文章"
 
 #: src/ui/controllers/fetchNewsController.vala:673
 #, c-format
 msgid "%s — Offline, showing %d cached articles"
-msgstr ""
+msgstr "%s — 离线，正在显示 %d 篇缓存的文章"
 
 #: src/ui/controllers/fetchNewsController.vala:676
 #, c-format
 msgid "%s — Loaded %d articles from cache"
-msgstr ""
+msgstr "%s — 已从缓存加载 %d 篇文章"

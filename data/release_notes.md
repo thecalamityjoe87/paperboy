@@ -1,4 +1,4 @@
-# v0.14.0a - Paperboy Goes International: Your Country's News, a Per-Country Front Page, and a Portuguese (Brazil) Translation
+# v0.14.0a - Paperboy Goes International: Your Country's News, a Per-Country Front Page, and Translations in Eight Languages
 
 - Paperboy now works outside the US. A new Country setting (Preferences → Personalization → Region) picks which country your news comes from, out of the 87 country and language editions Google News offers. It's searchable, and set to "Automatic" by default, which picks your country from your system's time zone and language
 - Onboarding has a new "Where Are You Reading From?" page, second in the tour, so you can check the country Paperboy picked and change it before you start
@@ -10,6 +10,11 @@
 - Local News now asks for a postal code instead of a ZIP code, with examples from outside the US, and postal code lookups prefer results in your country
 - Place names that already have mixed casing are kept as written, such as "Rio de Janeiro", and two-letter town names are no longer capitalized as if they were US states
 - Added translation support, and a Portuguese (Brazil) translation covering 537 interface strings, including menus, Preferences, onboarding, the reader, podcasts, magazines, notes, and weather conditions. Thanks to djairjr for the translation
+- Paperboy is now translated into Spanish, French, German, Italian, Russian, Japanese, and Simplified Chinese, covering the whole interface. One Spanish, French, or German translation serves every country that speaks it, such as Mexico and Argentina, Canada and Belgium, or Austria and Switzerland
+- Country names in the Country setting are now shown in your language, and sorted alphabetically in it
+- The national news category's name, such as "Brazil News", and Local News headers, such as "Dallas News", are now translated, along with "Automatic" in the Country setting and the category names in page headers
+- The podcast picker's episode count now uses the right plural in every language
+- Fixed some interface text never being offered for translation, including the Front Page and Trending headers and several loading and error messages
 - Added a Contributors page to the About dialog, listing each contributor and what they contributed
 - Websites are asked for pages in your language
 - Fixed articles from pages that aren't in UTF-8, such as Chinese (GB2312) or Latin-1 pages, failing to open in reader view
