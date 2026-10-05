@@ -162,7 +162,7 @@ public class OnboardingDialog : GLib.Object {
         box.append(title);
 
         var body = new Gtk.Label(
-            "Paperboy brings together news from the sources you trust, into one clean, distraction-free reader.\n\nLet's set a few things up before you get started.");
+            _("Paperboy brings together news from the sources you trust, into one clean, distraction-free reader.\n\nLet's set a few things up before you get started."));
         body.set_wrap(true);
         body.set_justify(Gtk.Justification.CENTER);
         body.set_halign(Gtk.Align.CENTER);
@@ -200,13 +200,13 @@ public class OnboardingDialog : GLib.Object {
         icon.destroy.connect(() => style_manager.disconnect(dark_handler));
         box.append(icon);
 
-        var title = new Gtk.Label("Where Are You Reading From?");
+        var title = new Gtk.Label(_("Where Are You Reading From?"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         title.set_margin_top(12);
         box.append(title);
 
-        var subtitle = new Gtk.Label("Your national news and Front Page come from this country. We've picked it from your system settings - change it if it's not right. You can change this anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("Your national news and Front Page come from this country. We've picked it from your system settings - change it if it's not right. You can change this anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -464,12 +464,12 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(36);
         box.set_margin_bottom(18);
 
-        var title = new Gtk.Label("What Do You Want to Read?");
+        var title = new Gtk.Label(_("What Do You Want to Read?"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
 
-        var subtitle = new Gtk.Label("Pick the topics you care about. They show up in the sidebar and make up My Feed - you can change them anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("Pick the topics you care about. They show up in the sidebar and make up My Feed - you can change them anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -535,7 +535,7 @@ public class OnboardingDialog : GLib.Object {
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
 
-        var subtitle = new Gtk.Label("Paperboy pulls articles from across the web, including these outlets. Tap any you'd rather not see to hide their articles everywhere - you can change these anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("Paperboy pulls articles from across the web, including these outlets. Tap any you'd rather not see to hide their articles everywhere - you can change these anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -598,7 +598,7 @@ public class OnboardingDialog : GLib.Object {
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
 
-        var subtitle = new Gtk.Label("See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow and drag to set their order - you can change this anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow and drag to set their order - you can change this anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -657,7 +657,7 @@ public class OnboardingDialog : GLib.Object {
         box.append(title);
 
         var body = new Gtk.Label(
-            "Set your location to get a Local News feed for your area. You can do this now or anytime later from the main menu.");
+            _("Set your location to get a Local News feed for your area. You can do this now or anytime later from the main menu."));
         body.set_wrap(true);
         body.set_justify(Gtk.Justification.CENTER);
         body.set_halign(Gtk.Align.CENTER);

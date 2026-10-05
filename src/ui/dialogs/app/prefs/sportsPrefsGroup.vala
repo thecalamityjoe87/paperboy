@@ -33,7 +33,7 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         var prefs = ctx.prefs;
         var win = ctx.win;
         set_title(_("Sports Score Cards"));
-        set_description("Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category");
+        set_description(_("Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category"));
 
         var favorite_teams_row = new Adw.ActionRow();
         favorite_teams_row.set_title(_("Favorite Teams"));
@@ -51,7 +51,7 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
 
         var live_indicator_row = new Adw.SwitchRow();
         live_indicator_row.set_title(_("Show live indicator"));
-        live_indicator_row.set_subtitle("Show a \"Live\" pill next to the Sports sidebar count while a game is in progress");
+        live_indicator_row.set_subtitle(_("Show a \"Live\" pill next to the Sports sidebar count while a game is in progress"));
         live_indicator_row.set_active(prefs.sports_live_indicator_enabled);
         live_indicator_row.set_sensitive(prefs.sports_scores_enabled);
 
@@ -179,7 +179,7 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
     private Adw.NavigationPage build_favorite_teams_leagues_page() {
         var page = new Adw.PreferencesPage();
         var group = new Adw.PreferencesGroup();
-        group.set_description("Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\"");
+        group.set_description(_("Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\""));
 
         foreach (var league_key in SportsScoresService.league_keys()) {
             if (league_key == "mma") continue; // individual fighters, not teams

@@ -81,11 +81,11 @@ public class LocationDialog : GLib.Object {
         string save_label = adding ? _("Add") : _("Save");
 
         var dialog = new Adw.AlertDialog(adding ? _("Add city") : _("Change location"),
-            "Enter a city name or a postal code, or use your current location.\nExamples: \"San Francisco, CA\", \"Manchester\" or \"10115\"");
+            _("Enter a city name or a postal code, or use your current location.\nExamples: \"San Francisco, CA\", \"Manchester\" or \"10115\""));
         dialog.set_body_use_markup(false);
 
         var entry = new Gtk.Entry();
-        entry.set_placeholder_text("City name or postal code");
+        entry.set_placeholder_text(_("City name or postal code"));
         entry.set_hexpand(true);
         entry.set_margin_top(6);
         entry.set_margin_bottom(6);
@@ -245,7 +245,7 @@ public class LocationDialog : GLib.Object {
 
             if (resolved.length == 0) {
                 hint.set_use_markup(false);
-                hint.set_text("Couldn't resolve a location for that. Try a different city name or postal code.");
+                hint.set_text(_("Couldn't resolve a location for that. Try a different city name or postal code."));
                 dialog.set_response_enabled("save", false);
                 return;
             }
@@ -311,7 +311,7 @@ public class LocationDialog : GLib.Object {
             string txt = entry.get_text().strip();
             if (txt.length == 0) {
                 hint.set_use_markup(false);
-                hint.set_text("Enter a city name or postal code and press Search.");
+                hint.set_text(_("Enter a city name or postal code and press Search."));
                 return;
             }
             begin_lookup(txt);

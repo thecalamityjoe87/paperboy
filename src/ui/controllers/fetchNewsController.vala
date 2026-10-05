@@ -295,7 +295,7 @@ public class FetchNewsController {
 
                     var network_monitor = GLib.NetworkMonitor.get_default();
                     if (!network_monitor.get_network_available()) {
-                        w.show_toast("Offline - showing cached articles");
+                        w.show_toast(_("Offline - showing cached articles"));
                     }
                 }
                 ls.initial_reveal_timeout_id = 0;
@@ -670,10 +670,10 @@ public class FetchNewsController {
             // Update label to show we're displaying cached content
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
-                sink.set_label("%s — Offline, showing %d cached articles".printf(feed_name_plain, cached_articles.size));
-                win.show_toast("Offline - showing cached articles");
+                sink.set_label(_("%s — Offline, showing %d cached articles").printf(feed_name_plain, cached_articles.size));
+                win.show_toast(_("Offline - showing cached articles"));
             } else {
-                sink.set_label("%s — Loaded %d articles from cache".printf(feed_name_plain, cached_articles.size));
+                sink.set_label(_("%s — Loaded %d articles from cache").printf(feed_name_plain, cached_articles.size));
             }
         }
 

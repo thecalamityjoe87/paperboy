@@ -72,7 +72,7 @@ public class PrefsRows : GLib.Object {
         }
 
         var row = new Adw.ComboRow();
-        row.set_title("Country");
+        row.set_title(_("Country"));
         // Show the choice as the subtitle - full width, so long names like
         // "Automatic (United Kingdom)" aren't truncated beside the arrow
         row.set_use_subtitle(true);

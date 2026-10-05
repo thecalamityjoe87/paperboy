@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy 0.12.5a\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 07:47-0300\n"
+"POT-Creation-Date: 2026-10-05 08:04-0300\n"
 "PO-Revision-Date: 2026-10-04 08:42-0300\n"
 "Last-Translator: Djair Guilherme\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -488,6 +488,18 @@ msgstr "Encontrar podcasts"
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:348
 msgid "Magazine Rack"
 msgstr "Revistas"
+
+#: src/managers/ui/loadingStateManager.vala:187
+#: src/managers/ui/loadingStateManager.vala:656
+#: src/managers/ui/loadingStateManager.vala:662 src/ui/appWindow.vala:1401
+#: src/ui/contentView.vala:1034
+msgid "<b>No more articles</b>"
+msgstr "<b>Não há mais artigos</b>"
+
+#: src/managers/ui/loadingStateManager.vala:187
+#: src/managers/ui/loadingStateManager.vala:656 src/ui/contentView.vala:1034
+msgid "No more articles"
+msgstr "Não há mais artigos"
 
 #: src/managers/ui/loadingStateManager.vala:198
 msgid "Loading local news..."
@@ -1025,6 +1037,14 @@ msgstr "Nenhum episódio encontrado para este programa."
 msgid "New"
 msgstr "Novo"
 
+#: src/ui/components/podcasts/podcastPlayerBar.vala:116
+msgid "Minimize"
+msgstr "Minimizar"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:127
+msgid "Stop and close"
+msgstr "Parar e fechar"
+
 #: src/ui/components/podcasts/podcastPlayerBar.vala:161
 msgid "Previous episode"
 msgstr "Episódio anterior"
@@ -1200,6 +1220,14 @@ msgstr "Personalizar meu feed"
 msgid "To See Local News, Set Your Location in Preferences"
 msgstr "Para ver notícias locais, defina sua localização nas preferências"
 
+#: src/ui/contentView.vala:720
+msgid ""
+"Open the main menu (☰) → choose 'Manage locations' to configure your city or "
+"postal code."
+msgstr ""
+"Abra o menu principal (☰) → escolha 'Gerenciar localizações' para configurar "
+"sua cidade ou CEP."
+
 #: src/ui/contentView.vala:728
 msgid "Set Location"
 msgstr "Definir localização"
@@ -1307,6 +1335,17 @@ msgstr "Adicionar cidade"
 msgid "Change location"
 msgstr "Alterar local"
 
+#: src/ui/dialogs/app/locationDialog.vala:84
+msgid ""
+"Enter a city name or a postal code, or use your current location.\n"
+"Examples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
+msgstr "Digite o nome de uma cidade ou CEP, ou use sua localização atual.\n"
+"Exemplos: \"São Paulo, SP\", \"Manchester\" ou \"10115\""
+
+#: src/ui/dialogs/app/locationDialog.vala:88
+msgid "City name or postal code"
+msgstr "Nome da cidade ou CEP"
+
 #: src/ui/dialogs/app/locationDialog.vala:140
 msgid "Searching..."
 msgstr "Buscando..."
@@ -1324,6 +1363,14 @@ msgstr "Usar minha localização"
 msgid "You can save up to %d locations."
 msgstr "Você pode salvar até %d locais."
 
+#: src/ui/dialogs/app/locationDialog.vala:248
+msgid ""
+"Couldn't resolve a location for that. Try a different city name or postal "
+"code."
+msgstr ""
+"Não foi possível resolver uma localização para isso. Tente outro nome de "
+"cidade ou CEP."
+
 #: src/ui/dialogs/app/locationDialog.vala:273
 msgid "Smaller towns may have limited coverage."
 msgstr "Cidades menores podem ter cobertura limitada."
@@ -1338,6 +1385,10 @@ msgstr ""
 "Resta 1 vaga de localização — escolha uma ou remova uma localização para "
 "adicionar as duas.Resta 1 vaga de localização — escolha uma, ou remova uma "
 "localização para adicionar ambas."
+
+#: src/ui/dialogs/app/locationDialog.vala:314
+msgid "Enter a city name or postal code and press Search."
+msgstr "Digite o nome de uma cidade ou CEP e pressione Buscar."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:64
 msgid "Skip"
@@ -1356,6 +1407,32 @@ msgstr "Começar"
 msgid "Welcome to Paperboy"
 msgstr "Bem-vindo ao Paperboy"
 
+#: src/ui/dialogs/app/onboardingDialog.vala:165
+msgid ""
+"Paperboy brings together news from the sources you trust, into one clean, "
+"distraction-free reader.\n"
+"\n"
+"Let's set a few things up before you get started."
+msgstr ""
+"O Paperboy reúne notícias das fontes em que você confia em um único leitor "
+"limpo e sem distrações.\n"
+"\n"
+"Vamos configurar algumas coisas antes de você começar."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:203
+msgid "Where Are You Reading From?"
+msgstr "De onde você está lendo?"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:209
+msgid ""
+"Your national news and Front Page come from this country. We've picked it "
+"from your system settings - change it if it's not right. You can change this "
+"anytime from Preferences."
+msgstr ""
+"Suas notícias nacionais e a Primeira página vêm deste país. Escolhemos com "
+"base nas configurações do seu sistema — mude se não estiver certo. Você pode "
+"alterar isso a qualquer momento nas Preferências."
+
 #: src/ui/dialogs/app/onboardingDialog.vala:240
 msgid "Pick a Theme"
 msgstr "Escolha um tema"
@@ -1369,13 +1446,45 @@ msgstr "Você pode mudar isso a qualquer momento nas Preferências."
 msgid "Follow System"
 msgstr "Seguir o sistema"
 
+#: src/ui/dialogs/app/onboardingDialog.vala:467
+msgid "What Do You Want to Read?"
+msgstr "O que você quer ler?"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:472
+msgid ""
+"Pick the topics you care about. They show up in the sidebar and make up My "
+"Feed - you can change them anytime from Preferences."
+msgstr ""
+"Escolha os temas que lhe interessam. Eles aparecem na barra lateral e "
+"compõem o Meu feed — você pode mudá-los a qualquer momento nas Preferências."
+
 #: src/ui/dialogs/app/onboardingDialog.vala:533
 msgid "Choose Your Sources"
 msgstr "Escolha suas fontes"
 
+#: src/ui/dialogs/app/onboardingDialog.vala:538
+msgid ""
+"Paperboy pulls articles from across the web, including these outlets. Tap "
+"any you'd rather not see to hide their articles everywhere - you can change "
+"these anytime from Preferences."
+msgstr ""
+"O Paperboy reúne artigos de toda a web, incluindo estes veículos. Toque em "
+"qualquer um que preferir não ver para ocultar seus artigos em todos os "
+"lugares — você pode mudar isso a qualquer momento nas Preferências."
+
 #: src/ui/dialogs/app/onboardingDialog.vala:596
 msgid "Live Sports Scores"
 msgstr "Placar ao vivo"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:601
+msgid ""
+"See live scores from your favorite leagues right in the Sports category. "
+"Choose which leagues to follow and drag to set their order - you can change "
+"this anytime from Preferences."
+msgstr ""
+"Veja placares ao vivo das suas ligas favoritas direto na categoria Esportes. "
+"Escolha quais ligas seguir e arraste para definir a ordem — você pode mudar "
+"isso a qualquer momento nas Preferências."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:609
 msgid "Show Score Cards"
@@ -1385,6 +1494,14 @@ msgstr "Mostrar cartões de placar"
 msgid "Local News, Too"
 msgstr "Notícias locais também"
 
+#: src/ui/dialogs/app/onboardingDialog.vala:660
+msgid ""
+"Set your location to get a Local News feed for your area. You can do this "
+"now or anytime later from the main menu."
+msgstr ""
+"Defina sua localização para receber um feed de Notícias Locais da sua "
+"região. Você pode fazer isso agora ou depois, pelo menu principal."
+
 #: src/ui/dialogs/app/onboardingDialog.vala:667
 msgid "Set My Location"
 msgstr "Definir minha localização"
@@ -1392,6 +1509,14 @@ msgstr "Definir minha localização"
 #: src/ui/dialogs/app/prefsDialog.vala:78
 msgid "Refresh Content?"
 msgstr "Atualizar conteúdo?"
+
+#: src/ui/dialogs/app/prefsDialog.vala:79
+msgid ""
+"Changes have been made to your news sources. Would you like to refresh the "
+"content now?"
+msgstr ""
+"Foram feitas alterações nas suas fontes de notícias. Deseja atualizar o "
+"conteúdo agora?"
 
 #: src/ui/dialogs/app/prefsDialog.vala:81
 msgid "Not Now"
@@ -1867,6 +1992,14 @@ msgstr "Adicionar podcast"
 msgid "Enter the podcast's RSS feed URL:"
 msgstr "Digite a URL do feed RSS do podcast:"
 
+#: src/ui/sidebarView.vala:881
+msgid "Failed to add podcast"
+msgstr "Falha ao adicionar podcast"
+
+#: src/ui/sidebarView.vala:1269
+msgid "Now Playing"
+msgstr "Reproduzindo agora"
+
 #: src/ui/controllers/myFeedExtrasController.vala:336
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
 msgid "Magazines"
@@ -1891,6 +2024,25 @@ msgstr "Siga o tema do sistema, ou force o modo claro ou escuro"
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:87
 msgid "Update Interval"
 msgstr "Intervalo de atualização"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:88
+msgid ""
+"Short update intervals can trigger rate limits or cause requests to be "
+"blocked."
+msgstr ""
+"Intervalos de atualização curtos podem acionar limites de taxa ou fazer com "
+"que as solicitações sejam bloqueadas."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:89
+msgid ""
+"Updating feeds too often may look like automated traffic. Sites could "
+"temporarily block requests or refuse articles if too many are made in a "
+"short time. Choose a longer interval to avoid this."
+msgstr ""
+"Atualizar os feeds com muita frequência pode parecer tráfego automatizado. "
+"Os sites podem bloquear solicitações temporariamente ou recusar artigos se "
+"muitas forem feitas em pouco tempo. Escolha um intervalo maior para evitar "
+"isso."
 
 #. "Manual" and "Sync Every" are radio-style check buttons.
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:93
@@ -2038,6 +2190,14 @@ msgstr "Zona de perigo"
 msgid "Reset app to factory settings"
 msgstr "Redefinir o aplicativo para as configurações de fábrica"
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:285
+msgid ""
+"Erases all sources, saved articles, notes, settings, and cached data, then "
+"restarts Paperboy as if freshly installed."
+msgstr ""
+"Apaga todas as fontes, artigos salvos, notas, configurações e dados em "
+"cache, depois reinicia o Paperboy como se tivesse sido recém-instalado."
+
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
 msgid "Reset"
 msgstr "Redefinir"
@@ -2058,10 +2218,64 @@ msgstr "Experimental"
 msgid "Show article comments"
 msgstr "Mostrar comentários do artigo"
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:313
+msgid ""
+"Show a comments button on the reader page for articles with a discoverable "
+"comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
+"limited - many sites don't expose comments through any of these."
+msgstr ""
+"Mostrar um botão de comentários na página de leitura para artigos com uma "
+"fonte de comentários detectável (feed nativo, Disqus ou discussão no Hacker "
+"News). A cobertura é limitada — muitos sites não expõem comentários por "
+"nenhum desses meios."
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:31
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:177
 msgid "Personalization"
 msgstr "Personalização"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:52
+msgid "Region"
+msgstr "Região"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:53
+msgid "Your national news and Front Page come from this country"
+msgstr "Suas notícias nacionais e a Primeira página vêm deste país"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
+msgid "Categories"
+msgstr "Categorias"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:79
+msgid "The categories shown in the sidebar and used for My Feed"
+msgstr "As categorias exibidas na barra lateral e usadas no Meu feed"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:82
+msgid "Shown categories"
+msgstr "Categorias exibidas"
+
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
+#, c-format
+msgid "All %d categories"
+msgstr "Todas as %d categorias"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
+msgid "None"
+msgstr "Nenhuma"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
+#, c-format
+msgid "%d of %d categories"
+msgstr "%d de %d categorias"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
+msgid ""
+"Choose the categories shown in the sidebar and used for My Feed. Drag a row "
+"by its handle to reorder."
+msgstr ""
+"Escolha as categorias exibidas na barra lateral e usadas no Meu feed. "
+"Arraste uma linha pela alça para reordenar."
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:180
 msgid "Enable personalized feed"
@@ -2116,6 +2330,10 @@ msgstr "Mostrar em categorias especiais"
 msgid "Show on Feeds"
 msgstr "Mostrar em Feeds"
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:269
+msgid "Show on categories"
+msgstr "Mostrar nas categorias"
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:298
 msgid "Choose which of your followed RSS feeds appear in My Feed"
 msgstr "Escolha quais dos seus feeds RSS seguidos aparecem no Meu Feed"
@@ -2125,9 +2343,25 @@ msgstr "Escolha quais dos seus feeds RSS seguidos aparecem no Meu Feed"
 msgid "No feeds followed yet"
 msgstr "Nenhum feed seguido ainda"
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:308
+msgid ""
+"Follow a custom RSS feed in Preferences -> Feeds first, then come back here "
+"to include it in My Feed."
+msgstr ""
+"Siga um feed RSS personalizado em Preferências -> Feeds primeiro, depois "
+"volte aqui para incluí-lo no Meu Feed."
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:343
 msgid "My Feed Extras"
 msgstr "Extras do Meu Feed"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:344
+msgid ""
+"Show a preview row for other features at the top of My Feed, with a button "
+"to jump to the full page"
+msgstr ""
+"Mostrar uma linha de prévia para outros recursos no topo do Meu Feed, com um "
+"botão para ir à página completa"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:345
 msgid "Sports scores"
@@ -2137,6 +2371,13 @@ msgstr "Placares de esportes"
 msgid "Show recommendations"
 msgstr "Mostrar recomendações"
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:381
+msgid ""
+"Suggest articles based on your reading history. This stays on your device."
+msgstr ""
+"Sugerir artigos com base no seu histórico de leitura. Isso permanece no seu "
+"dispositivo."
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:397
 msgid "Reading"
 msgstr "Leitura"
@@ -2145,13 +2386,38 @@ msgstr "Leitura"
 msgid "Open articles in reader view"
 msgstr "Abrir artigos no modo leitura"
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:401
+msgid ""
+"Show an extracted, distraction-free view of the article text instead of the "
+"full webpage by default. You can still switch views per article."
+msgstr ""
+"Mostrar por padrão uma visualização extraída e sem distrações do texto do "
+"artigo em vez da página completa. Você ainda pode alternar as visualizações "
+"por artigo."
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:409
 msgid "Clicking an article opens reader view directly"
 msgstr "Clicar em um artigo abre o modo de leitura diretamente"
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:410
+msgid ""
+"Skip the preview pane and jump straight into reader view when you click an "
+"article card"
+msgstr ""
+"Pule o painel de prévia e vá direto para o modo leitura ao clicar em um "
+"cartão de artigo"
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:418
 msgid "Show quick-open buttons on hover"
 msgstr "Mostrar botões de abertura rápida ao passar o mouse"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:419
+msgid ""
+"Show reader view / preview buttons over an article card's image when you "
+"hover it"
+msgstr ""
+"Mostrar os botões de modo leitura / pré-visualização sobre a imagem do "
+"cartão do artigo ao passar o mouse sobre ele"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:436
 msgid "Market Cards"
@@ -2178,6 +2444,18 @@ msgstr ""
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:455
 msgid "Show market status pill"
 msgstr "Mostrar indicador de status do mercado"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:456
+msgid ""
+"Show an \"Open\" pill next to the Business sidebar count while the market is "
+"open"
+msgstr ""
+"Mostrar uma etiqueta \"Aberto\" ao lado do contador de Negócios na barra "
+"lateral enquanto o mercado estiver aberto"
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:75
+msgid "Country"
+msgstr "País"
 
 #: src/ui/dialogs/app/prefs/prefsRows.vala:206
 msgid "Export"
@@ -2357,6 +2635,14 @@ msgstr "Até %d locais · %d adicionados"
 msgid "Sports Score Cards"
 msgstr "Cartões de placares esportivos"
 
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
+msgid ""
+"Choose which leagues show score cards, and drag a row (by its handle) to set "
+"the order their sections appear in the Sports category"
+msgstr ""
+"Escolha quais ligas mostram cartões de placares e arraste uma linha (pela "
+"alça) para definir a ordem em que as seções aparecem na categoria Sports"
+
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:39
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:197
 msgid "Favorite Teams"
@@ -2381,6 +2667,22 @@ msgstr ""
 msgid "Show live indicator"
 msgstr "Mostrar indicador ao vivo"
 
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:54
+msgid ""
+"Show a \"Live\" pill next to the Sports sidebar count while a game is in "
+"progress"
+msgstr ""
+"Mostrar uma etiqueta \"Ao vivo\" ao lado do contador de Esportes na barra "
+"lateral enquanto uma partida estiver em andamento"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:182
+msgid ""
+"Pick a league, then choose teams to follow - each followed team gets its own "
+"score-card row in \"My Teams\""
+msgstr ""
+"Escolha uma liga e depois selecione times para seguir - cada time seguido "
+"ganha sua própria linha de placar em \"Meus times\""
+
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:209
 msgid "Loading teams…"
 msgstr "Carregando equipes…"
@@ -2397,210 +2699,6 @@ msgstr "Verifique sua conexão e tente novamente mais tarde."
 #: src/utils/net/googleNewsUtils.vala:149
 msgid "US News"
 msgstr "Notícias dos EUA"
-
-#~ msgid "<b>No more articles</b>"
-#~ msgstr "<b>Não há mais artigos</b>"
-
-#~ msgid "Minimize"
-#~ msgstr "Minimizar"
-
-#~ msgid "Stop and close"
-#~ msgstr "Parar e fechar"
-
-#~ msgid ""
-#~ "Open the main menu (☰) → choose 'Manage locations' to configure your city "
-#~ "or postal code."
-#~ msgstr ""
-#~ "Abra o menu principal (☰) → escolha 'Gerenciar localizações' para "
-#~ "configurar sua cidade ou CEP."
-
-#~ msgid "City name or postal code"
-#~ msgstr "Nome da cidade ou CEP"
-
-#~ msgid ""
-#~ "Couldn't resolve a location for that. Try a different city name or postal "
-#~ "code."
-#~ msgstr ""
-#~ "Não foi possível resolver uma localização para isso. Tente outro nome de "
-#~ "cidade ou CEP."
-
-#~ msgid "Enter a city name or postal code and press Search."
-#~ msgstr "Digite o nome de uma cidade ou CEP e pressione Buscar."
-
-#~ msgid "Where Are You Reading From?"
-#~ msgstr "De onde você está lendo?"
-
-#~ msgid ""
-#~ "Your national news and Front Page come from this country. We've picked it "
-#~ "from your system settings - change it if it's not right. You can change "
-#~ "this anytime from Preferences."
-#~ msgstr ""
-#~ "Suas notícias nacionais e a Primeira página vêm deste país. Escolhemos "
-#~ "com base nas configurações do seu sistema — mude se não estiver certo. "
-#~ "Você pode alterar isso a qualquer momento nas Preferências."
-
-#~ msgid "What Do You Want to Read?"
-#~ msgstr "O que você quer ler?"
-
-#~ msgid ""
-#~ "Pick the topics you care about. They show up in the sidebar and make up "
-#~ "My Feed - you can change them anytime from Preferences."
-#~ msgstr ""
-#~ "Escolha os temas que lhe interessam. Eles aparecem na barra lateral e "
-#~ "compõem o Meu feed — você pode mudá-los a qualquer momento nas "
-#~ "Preferências."
-
-#~ msgid ""
-#~ "Paperboy pulls articles from across the web, including these outlets. Tap "
-#~ "any you'd rather not see to hide their articles everywhere - you can "
-#~ "change these anytime from Preferences."
-#~ msgstr ""
-#~ "O Paperboy reúne artigos de toda a web, incluindo estes veículos. Toque "
-#~ "em qualquer um que preferir não ver para ocultar seus artigos em todos os "
-#~ "lugares — você pode mudar isso a qualquer momento nas Preferências."
-
-#~ msgid ""
-#~ "See live scores from your favorite leagues right in the Sports category. "
-#~ "Choose which leagues to follow and drag to set their order - you can "
-#~ "change this anytime from Preferences."
-#~ msgstr ""
-#~ "Veja placares ao vivo das suas ligas favoritas direto na categoria "
-#~ "Esportes. Escolha quais ligas seguir e arraste para definir a ordem — "
-#~ "você pode mudar isso a qualquer momento nas Preferências."
-
-#~ msgid ""
-#~ "Short update intervals can trigger rate limits or cause requests to be "
-#~ "blocked."
-#~ msgstr ""
-#~ "Intervalos de atualização curtos podem acionar limites de taxa ou fazer "
-#~ "com que as solicitações sejam bloqueadas."
-
-#~ msgid ""
-#~ "Updating feeds too often may look like automated traffic. Sites could "
-#~ "temporarily block requests or refuse articles if too many are made in a "
-#~ "short time. Choose a longer interval to avoid this."
-#~ msgstr ""
-#~ "Atualizar os feeds com muita frequência pode parecer tráfego "
-#~ "automatizado. Os sites podem bloquear solicitações temporariamente ou "
-#~ "recusar artigos se muitas forem feitas em pouco tempo. Escolha um "
-#~ "intervalo maior para evitar isso."
-
-#~ msgid ""
-#~ "Erases all sources, saved articles, notes, settings, and cached data, "
-#~ "then restarts Paperboy as if freshly installed."
-#~ msgstr ""
-#~ "Apaga todas as fontes, artigos salvos, notas, configurações e dados em "
-#~ "cache, depois reinicia o Paperboy como se tivesse sido recém-instalado."
-
-#~ msgid ""
-#~ "Show a comments button on the reader page for articles with a "
-#~ "discoverable comment source (native feed, Disqus, or Hacker News "
-#~ "discussion). Coverage is limited - many sites don't expose comments "
-#~ "through any of these."
-#~ msgstr ""
-#~ "Mostrar um botão de comentários na página de leitura para artigos com uma "
-#~ "fonte de comentários detectável (feed nativo, Disqus ou discussão no "
-#~ "Hacker News). A cobertura é limitada — muitos sites não expõem "
-#~ "comentários por nenhum desses meios."
-
-#~ msgid "Region"
-#~ msgstr "Região"
-
-#~ msgid "Your national news and Front Page come from this country"
-#~ msgstr "Suas notícias nacionais e a Primeira página vêm deste país"
-
-#~ msgid "Categories"
-#~ msgstr "Categorias"
-
-#~ msgid "The categories shown in the sidebar and used for My Feed"
-#~ msgstr "As categorias exibidas na barra lateral e usadas no Meu feed"
-
-#~ msgid "Shown categories"
-#~ msgstr "Categorias exibidas"
-
-#, c-format
-#~ msgid "All %d categories"
-#~ msgstr "Todas as %d categorias"
-
-#~ msgid "None"
-#~ msgstr "Nenhuma"
-
-#, c-format
-#~ msgid "%d of %d categories"
-#~ msgstr "%d de %d categorias"
-
-#~ msgid ""
-#~ "Choose the categories shown in the sidebar and used for My Feed. Drag a "
-#~ "row by its handle to reorder."
-#~ msgstr ""
-#~ "Escolha as categorias exibidas na barra lateral e usadas no Meu feed. "
-#~ "Arraste uma linha pela alça para reordenar."
-
-#~ msgid ""
-#~ "Follow a custom RSS feed in Preferences -> Feeds first, then come back "
-#~ "here to include it in My Feed."
-#~ msgstr ""
-#~ "Siga um feed RSS personalizado em Preferências -> Feeds primeiro, depois "
-#~ "volte aqui para incluí-lo no Meu Feed."
-
-#~ msgid ""
-#~ "Show a preview row for other features at the top of My Feed, with a "
-#~ "button to jump to the full page"
-#~ msgstr ""
-#~ "Mostrar uma linha de prévia para outros recursos no topo do Meu Feed, com "
-#~ "um botão para ir à página completa"
-
-#~ msgid ""
-#~ "Suggest articles based on your reading history. This stays on your device."
-#~ msgstr ""
-#~ "Sugerir artigos com base no seu histórico de leitura. Isso permanece no "
-#~ "seu dispositivo."
-
-#~ msgid ""
-#~ "Show an extracted, distraction-free view of the article text instead of "
-#~ "the full webpage by default. You can still switch views per article."
-#~ msgstr ""
-#~ "Mostrar por padrão uma visualização extraída e sem distrações do texto do "
-#~ "artigo em vez da página completa. Você ainda pode alternar as "
-#~ "visualizações por artigo."
-
-#~ msgid ""
-#~ "Skip the preview pane and jump straight into reader view when you click "
-#~ "an article card"
-#~ msgstr ""
-#~ "Pule o painel de prévia e vá direto para o modo leitura ao clicar em um "
-#~ "cartão de artigo"
-
-#~ msgid ""
-#~ "Show reader view / preview buttons over an article card's image when you "
-#~ "hover it"
-#~ msgstr ""
-#~ "Mostrar os botões de modo leitura / pré-visualização sobre a imagem do "
-#~ "cartão do artigo ao passar o mouse sobre ele"
-
-#~ msgid ""
-#~ "Show an \"Open\" pill next to the Business sidebar count while the market "
-#~ "is open"
-#~ msgstr ""
-#~ "Mostrar uma etiqueta \"Aberto\" ao lado do contador de Negócios na barra "
-#~ "lateral enquanto o mercado estiver aberto"
-
-#~ msgid "Country"
-#~ msgstr "País"
-
-#~ msgid ""
-#~ "Show a \"Live\" pill next to the Sports sidebar count while a game is in "
-#~ "progress"
-#~ msgstr ""
-#~ "Mostrar uma etiqueta \"Ao vivo\" ao lado do contador de Esportes na barra "
-#~ "lateral enquanto uma partida estiver em andamento"
-
-#~ msgid ""
-#~ "Pick a league, then choose teams to follow - each followed team gets its "
-#~ "own score-card row in \"My Teams\""
-#~ msgstr ""
-#~ "Escolha uma liga e depois selecione times para seguir - cada time seguido "
-#~ "ganha sua própria linha de placar em \"Meus times\""
 
 #~ msgid "U.S."
 #~ msgstr "EUA"
@@ -2679,17 +2777,6 @@ msgstr "Notícias dos EUA"
 #~ msgstr "Abrir Preferências"
 
 #~ msgid ""
-#~ "Paperboy brings together news from the sources you trust, into one clean, "
-#~ "distraction-free reader.\n"
-#~ "\n"
-#~ "Let's set a few things up before you get started."
-#~ msgstr ""
-#~ "O Paperboy reúne notícias das fontes em que você confia em um único "
-#~ "leitor limpo e sem distrações.\n"
-#~ "\n"
-#~ "Vamos configurar algumas coisas antes de você começar."
-
-#~ msgid ""
 #~ "Paperboy comes with a set of prebuilt news sources to get you started. "
 #~ "Tap the outlets you'd like to see - you can change these anytime from "
 #~ "Preferences."
@@ -2697,13 +2784,6 @@ msgstr "Notícias dos EUA"
 #~ "O Paperboy vem com um conjunto de fontes de notícias predefinidas para "
 #~ "você começar. Toque nos veículos que deseja ver — você pode mudar isso a "
 #~ "qualquer momento nas Preferências."
-
-#~ msgid ""
-#~ "Set your location to get a Local News feed for your area. You can do this "
-#~ "now or anytime later from the main menu."
-#~ msgstr ""
-#~ "Defina sua localização para receber um feed de Notícias Locais da sua "
-#~ "região. Você pode fazer isso agora ou depois, pelo menu principal."
 
 #~ msgid "Personalized Feed Categories"
 #~ msgstr "Categorias do feed personalizado"
@@ -2794,13 +2874,6 @@ msgstr "Notícias dos EUA"
 #~ msgstr "Mostrar em categorias populares"
 
 #~ msgid ""
-#~ "Choose which leagues show score cards, and drag a row (by its handle) to "
-#~ "set the order their sections appear in the Sports category"
-#~ msgstr ""
-#~ "Escolha quais ligas mostram cartões de placares e arraste uma linha (pela "
-#~ "alça) para definir a ordem em que as seções aparecem na categoria Sports"
-
-#~ msgid ""
 #~ "This will delete cached article content and images. Previously read "
 #~ "articles will need to be re-downloaded."
 #~ msgstr ""
@@ -2829,13 +2902,6 @@ msgstr "Notícias dos EUA"
 #~ "Isso exclui permanentemente todas as fontes, artigos salvos, notas e "
 #~ "configurações, e não pode ser desfeito. O Paperboy será reiniciado como "
 #~ "se tivesse sido recém-instalado."
-
-#~ msgid ""
-#~ "Changes have been made to your news sources. Would you like to refresh "
-#~ "the content now?"
-#~ msgstr ""
-#~ "Foram feitas alterações nas suas fontes de notícias. Deseja atualizar o "
-#~ "conteúdo agora?"
 
 #~ msgid " and all of its articles?"
 #~ msgstr " e todos os seus artigos?"

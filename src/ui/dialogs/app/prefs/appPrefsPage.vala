@@ -85,8 +85,8 @@ public class AppPrefsPage : Adw.PreferencesPage {
         var prefs = ctx.prefs;
         var group = new Adw.PreferencesGroup();
         group.set_title(_("Update Interval"));
-        group.set_description("Short update intervals can trigger rate limits or cause requests to be blocked.");
-        group.set_tooltip_text("Updating feeds too often may look like automated traffic. Sites could temporarily block requests or refuse articles if too many are made in a short time. Choose a longer interval to avoid this.");
+        group.set_description(_("Short update intervals can trigger rate limits or cause requests to be blocked."));
+        group.set_tooltip_text(_("Updating feeds too often may look like automated traffic. Sites could temporarily block requests or refuse articles if too many are made in a short time. Choose a longer interval to avoid this."));
 
         // "Manual" and "Sync Every" are radio-style check buttons.
         var manual_row = new Adw.ActionRow();
@@ -282,7 +282,7 @@ public class AppPrefsPage : Adw.PreferencesPage {
 
         var reset_row = new Adw.ActionRow();
         reset_row.set_title(_("Reset app to factory settings"));
-        reset_row.set_subtitle("Erases all sources, saved articles, notes, settings, and cached data, then restarts Paperboy as if freshly installed.");
+        reset_row.set_subtitle(_("Erases all sources, saved articles, notes, settings, and cached data, then restarts Paperboy as if freshly installed."));
 
         var reset_btn = new Gtk.Button.with_label(_("Reset"));
         reset_btn.set_valign(Gtk.Align.CENTER);
@@ -310,7 +310,7 @@ public class AppPrefsPage : Adw.PreferencesPage {
 
         var comments_row = new Adw.SwitchRow();
         comments_row.set_title(_("Show article comments"));
-        comments_row.set_subtitle("Show a comments button on the reader page for articles with a discoverable comment source (native feed, Disqus, or Hacker News discussion). Coverage is limited - many sites don't expose comments through any of these.");
+        comments_row.set_subtitle(_("Show a comments button on the reader page for articles with a discoverable comment source (native feed, Disqus, or Hacker News discussion). Coverage is limited - many sites don't expose comments through any of these."));
         comments_row.set_active(prefs.comments_enabled);
         comments_row.notify["active"].connect(() => {
             prefs.comments_enabled = comments_row.get_active();

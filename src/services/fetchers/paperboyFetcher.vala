@@ -153,7 +153,7 @@ public class PaperboyFetcher : BaseFetcher {
             if (current_search_query.length > 0) {
                 set_label(@"Search Results: \"$(current_search_query)\" in The Frontpage — Paperboy");
             } else {
-                set_label("The Frontpage — Paperboy");
+                set_label(_("The Frontpage — Paperboy"));
             }
             clear_items();
 
@@ -198,7 +198,7 @@ public class PaperboyFetcher : BaseFetcher {
                 }
                 // Don't show error if we have cached articles
                 if (cached_articles.size == 0) {
-                    set_label("Paperboy: Error loading frontpage");
+                    set_label(_("Paperboy: Error loading frontpage"));
                 }
                 done();
                 return;
@@ -521,7 +521,7 @@ public class PaperboyFetcher : BaseFetcher {
                     if (current_search_query.length > 0) {
                         set_label(@"Search Results: \"$(current_search_query)\" in Top Ten — Paperboy");
                     } else {
-                        set_label("Top Ten — Paperboy");
+                        set_label(_("Top Ten — Paperboy"));
                     }
                     clear_items();
                     uint len = articles.get_length();

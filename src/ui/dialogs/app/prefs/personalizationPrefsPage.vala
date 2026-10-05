@@ -49,8 +49,8 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         var prefs = ctx.prefs;
         var win = ctx.win;
         var group = new Adw.PreferencesGroup();
-        group.set_title("Region");
-        group.set_description("Your national news and Front Page come from this country");
+        group.set_title(_("Region"));
+        group.set_description(_("Your national news and Front Page come from this country"));
 
         var row = PrefsRows.country_row(prefs, () => {
             if (win == null) return;
@@ -75,11 +75,11 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
     // A row summarizing the chosen categories that opens the chooser.
     private Adw.PreferencesGroup build_categories_group() {
         var group = new Adw.PreferencesGroup();
-        group.set_title("Categories");
-        group.set_description("The categories shown in the sidebar and used for My Feed");
+        group.set_title(_("Categories"));
+        group.set_description(_("The categories shown in the sidebar and used for My Feed"));
 
         var nav_row = new Adw.ActionRow();
-        nav_row.set_title("Shown categories");
+        nav_row.set_title(_("Shown categories"));
         categories_page = build_categories_page(nav_row);
         PrefsRows.make_nav_row(ctx.dialog, nav_row, () => categories_page);
         group.add(nav_row);
@@ -90,9 +90,9 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         int n = ctx.prefs.categories.size;
         int total = NewsPreferences.ALL_CATEGORIES.length;
         // if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
-        if (n == total) nav_row.set_subtitle("All %d categories".printf(total));
-        else if (n == 0) nav_row.set_subtitle("None");
-        else nav_row.set_subtitle("%d of %d categories".printf(n, total));
+        if (n == total) nav_row.set_subtitle(_("All %d categories").printf(total));
+        else if (n == 0) nav_row.set_subtitle(_("None"));
+        else nav_row.set_subtitle(_("%d of %d categories").printf(n, total));
     }
 
     // The chooser: every category gets a row - its switch adds or removes
@@ -101,7 +101,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         var prefs = ctx.prefs;
         var win = ctx.win;
         var group = new Adw.PreferencesGroup();
-        group.set_description("Choose the categories shown in the sidebar and used for My Feed. Drag a row by its handle to reorder.");
+        group.set_description(_("Choose the categories shown in the sidebar and used for My Feed. Drag a row by its handle to reorder."));
 
         var list_box = new Gtk.ListBox();
         list_box.set_selection_mode(Gtk.SelectionMode.NONE);
@@ -266,7 +266,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
                 refresh_badges();
             });
 
-            var categories_check = new Gtk.CheckButton.with_label("Show on categories");
+            var categories_check = new Gtk.CheckButton.with_label(_("Show on categories"));
             categories_check.set_active(prefs.unread_badges_categories);
             categories_check.toggled.connect(() => {
                 prefs.unread_badges_categories = categories_check.get_active();
@@ -305,7 +305,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         if (enabled_feeds.size == 0) {
             var empty_row = new Adw.ActionRow();
             empty_row.set_title(_("No feeds followed yet"));
-            empty_row.set_subtitle("Follow a custom RSS feed in Preferences -> Feeds first, then come back here to include it in My Feed.");
+            empty_row.set_subtitle(_("Follow a custom RSS feed in Preferences -> Feeds first, then come back here to include it in My Feed."));
             group.add(empty_row);
         } else {
             foreach (var src in enabled_feeds) {
@@ -341,7 +341,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
     private Adw.PreferencesGroup build_myfeed_extras_group() {
         var group = new Adw.PreferencesGroup();
         group.set_title(_("My Feed Extras"));
-        group.set_description("Show a preview row for other features at the top of My Feed, with a button to jump to the full page");
+        group.set_description(_("Show a preview row for other features at the top of My Feed, with a button to jump to the full page"));
         group.add(myfeed_extra_row(_("Sports scores"), "myfeed-show-sports"));
         group.add(myfeed_extra_row(_("Markets"), "myfeed-show-market"));
         group.add(myfeed_extra_row(_("Podcasts"), "myfeed-show-podcasts"));
@@ -378,7 +378,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
 
         var recommendations_row = new Adw.SwitchRow();
         recommendations_row.set_title(_("Show recommendations"));
-        recommendations_row.set_subtitle("Suggest articles based on your reading history. This stays on your device.");
+        recommendations_row.set_subtitle(_("Suggest articles based on your reading history. This stays on your device."));
         recommendations_row.set_active(prefs.recommendations_enabled);
         recommendations_row.notify["active"].connect(() => {
             prefs.recommendations_enabled = recommendations_row.get_active();
@@ -398,7 +398,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
 
         var reader_view_row = new Adw.SwitchRow();
         reader_view_row.set_title(_("Open articles in reader view"));
-        reader_view_row.set_subtitle("Show an extracted, distraction-free view of the article text instead of the full webpage by default. You can still switch views per article.");
+        reader_view_row.set_subtitle(_("Show an extracted, distraction-free view of the article text instead of the full webpage by default. You can still switch views per article."));
         reader_view_row.set_active(prefs.reader_view_enabled);
         reader_view_row.notify["active"].connect(() => {
             prefs.reader_view_enabled = reader_view_row.get_active();
@@ -407,7 +407,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
 
         var article_click_row = new Adw.SwitchRow();
         article_click_row.set_title(_("Clicking an article opens reader view directly"));
-        article_click_row.set_subtitle("Skip the preview pane and jump straight into reader view when you click an article card");
+        article_click_row.set_subtitle(_("Skip the preview pane and jump straight into reader view when you click an article card"));
         article_click_row.set_active(prefs.article_click_opens_reader);
         article_click_row.notify["active"].connect(() => {
             prefs.article_click_opens_reader = article_click_row.get_active();
@@ -416,7 +416,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
 
         var hover_actions_row = new Adw.SwitchRow();
         hover_actions_row.set_title(_("Show quick-open buttons on hover"));
-        hover_actions_row.set_subtitle("Show reader view / preview buttons over an article card's image when you hover it");
+        hover_actions_row.set_subtitle(_("Show reader view / preview buttons over an article card's image when you hover it"));
         hover_actions_row.set_active(prefs.card_hover_actions_enabled);
         hover_actions_row.notify["active"].connect(() => {
             bool enabled = hover_actions_row.get_active();
@@ -453,7 +453,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
 
         var market_pill_row = new Adw.SwitchRow();
         market_pill_row.set_title(_("Show market status pill"));
-        market_pill_row.set_subtitle("Show an \"Open\" pill next to the Business sidebar count while the market is open");
+        market_pill_row.set_subtitle(_("Show an \"Open\" pill next to the Business sidebar count while the market is open"));
         market_pill_row.set_active(prefs.market_pill_enabled);
         market_pill_row.notify["active"].connect(() => {
             prefs.market_pill_enabled = market_pill_row.get_active();

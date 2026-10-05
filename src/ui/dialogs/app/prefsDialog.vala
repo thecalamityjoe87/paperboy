@@ -76,7 +76,7 @@ public class PrefsDialog : GLib.Object {
     private static void offer_refresh(NewsWindow win) {
         var confirm_dialog = new Adw.AlertDialog(
             _("Refresh Content?"),
-            "Changes have been made to your news sources. Would you like to refresh the content now?"
+            _("Changes have been made to your news sources. Would you like to refresh the content now?")
         );
         confirm_dialog.add_response("cancel", _("Not Now"));
         confirm_dialog.add_response("refresh", _("Refresh"));

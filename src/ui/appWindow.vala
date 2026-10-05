@@ -1398,7 +1398,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         for (var c = content_box.get_first_child(); c != null; c = c.get_next_sibling()) {
             if (c.has_css_class("load-more-button")) load_more = true;
             var label = c as Gtk.Label;
-            if (label != null && label.get_label() == "<b>No more articles</b>") end_of_feed = true;
+            if (label != null && label.get_label() == _("<b>No more articles</b>")) end_of_feed = true;
         }
         AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log",
             "chrome %s on=%s message=%s myfeed_prompt=%s local_prompt=%s spinner=%s load_more=%s end_of_feed=%s".printf(

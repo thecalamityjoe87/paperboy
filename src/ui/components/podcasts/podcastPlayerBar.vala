@@ -113,7 +113,7 @@ public class PodcastPlayerBar : GLib.Object {
         var minimize_button = new Gtk.Button.from_icon_name("pan-down-symbolic");
         minimize_button.add_css_class("flat");
         minimize_button.add_css_class("circular");
-        minimize_button.set_tooltip_text("Minimize");
+        minimize_button.set_tooltip_text(_("Minimize"));
         minimize_button.clicked.connect(() => { revealer.set_reveal_child(false); });
 
         // Own box (not title_row's 8px spacing) so minimize and close read
@@ -124,7 +124,7 @@ public class PodcastPlayerBar : GLib.Object {
         var close_button = new Gtk.Button.from_icon_name("window-close-symbolic");
         close_button.add_css_class("flat");
         close_button.add_css_class("circular");
-        close_button.set_tooltip_text("Stop and close");
+        close_button.set_tooltip_text(_("Stop and close"));
         window_buttons.append(close_button);
         title_row.append(window_buttons);
 

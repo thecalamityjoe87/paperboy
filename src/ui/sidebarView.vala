@@ -878,7 +878,7 @@ public class SidebarView : GLib.Object {
                 // and rebuilds on its own.
                 window.toast_manager.show_toast("Podcast added: " + show.title);
             } else {
-                window.toast_manager.show_toast(error_message ?? "Failed to add podcast");
+                window.toast_manager.show_toast(error_message ?? _("Failed to add podcast"));
             }
         });
     }
@@ -1266,7 +1266,7 @@ public class SidebarView : GLib.Object {
             Gtk.Label player_label;
             Gtk.Box player_icon_holder;
             var player_button = build_footer_row(CategoryIconsUtils.create_category_icon("nowplaying"),
-                "Now Playing", out player_label, out player_icon_holder, visualizer);
+                _("Now Playing"), out player_label, out player_icon_holder, visualizer);
             footer_podcast_icon_holder = player_icon_holder;
             var revealer = podcast_player_bar.revealer;
             player_button.clicked.connect(() => {

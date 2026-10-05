@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 07:47-0300\n"
+"POT-Creation-Date: 2026-10-05 08:04-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -480,6 +480,18 @@ msgstr ""
 #: src/managers/ui/sidebarManager.vala:309
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:348
 msgid "Magazine Rack"
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:187
+#: src/managers/ui/loadingStateManager.vala:656
+#: src/managers/ui/loadingStateManager.vala:662 src/ui/appWindow.vala:1401
+#: src/ui/contentView.vala:1034
+msgid "<b>No more articles</b>"
+msgstr ""
+
+#: src/managers/ui/loadingStateManager.vala:187
+#: src/managers/ui/loadingStateManager.vala:656 src/ui/contentView.vala:1034
+msgid "No more articles"
 msgstr ""
 
 #: src/managers/ui/loadingStateManager.vala:198
@@ -1000,6 +1012,14 @@ msgstr ""
 msgid "New"
 msgstr ""
 
+#: src/ui/components/podcasts/podcastPlayerBar.vala:116
+msgid "Minimize"
+msgstr ""
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:127
+msgid "Stop and close"
+msgstr ""
+
 #: src/ui/components/podcasts/podcastPlayerBar.vala:161
 msgid "Previous episode"
 msgstr ""
@@ -1173,6 +1193,12 @@ msgstr ""
 msgid "To See Local News, Set Your Location in Preferences"
 msgstr ""
 
+#: src/ui/contentView.vala:720
+msgid ""
+"Open the main menu (☰) → choose 'Manage locations' to configure your city or "
+"postal code."
+msgstr ""
+
 #: src/ui/contentView.vala:728
 msgid "Set Location"
 msgstr ""
@@ -1277,6 +1303,16 @@ msgstr ""
 msgid "Change location"
 msgstr ""
 
+#: src/ui/dialogs/app/locationDialog.vala:84
+msgid ""
+"Enter a city name or a postal code, or use your current location.\n"
+"Examples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:88
+msgid "City name or postal code"
+msgstr ""
+
 #: src/ui/dialogs/app/locationDialog.vala:140
 msgid "Searching..."
 msgstr ""
@@ -1294,6 +1330,12 @@ msgstr ""
 msgid "You can save up to %d locations."
 msgstr ""
 
+#: src/ui/dialogs/app/locationDialog.vala:248
+msgid ""
+"Couldn't resolve a location for that. Try a different city name or postal "
+"code."
+msgstr ""
+
 #: src/ui/dialogs/app/locationDialog.vala:273
 msgid "Smaller towns may have limited coverage."
 msgstr ""
@@ -1304,6 +1346,10 @@ msgstr ""
 
 #: src/ui/dialogs/app/locationDialog.vala:282
 msgid "1 location slot left — pick one, or remove a location to add both."
+msgstr ""
+
+#: src/ui/dialogs/app/locationDialog.vala:314
+msgid "Enter a city name or postal code and press Search."
 msgstr ""
 
 #: src/ui/dialogs/app/onboardingDialog.vala:64
@@ -1323,6 +1369,25 @@ msgstr ""
 msgid "Welcome to Paperboy"
 msgstr ""
 
+#: src/ui/dialogs/app/onboardingDialog.vala:165
+msgid ""
+"Paperboy brings together news from the sources you trust, into one clean, "
+"distraction-free reader.\n"
+"\n"
+"Let's set a few things up before you get started."
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:203
+msgid "Where Are You Reading From?"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:209
+msgid ""
+"Your national news and Front Page come from this country. We've picked it "
+"from your system settings - change it if it's not right. You can change this "
+"anytime from Preferences."
+msgstr ""
+
 #: src/ui/dialogs/app/onboardingDialog.vala:240
 msgid "Pick a Theme"
 msgstr ""
@@ -1336,12 +1401,36 @@ msgstr ""
 msgid "Follow System"
 msgstr ""
 
+#: src/ui/dialogs/app/onboardingDialog.vala:467
+msgid "What Do You Want to Read?"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:472
+msgid ""
+"Pick the topics you care about. They show up in the sidebar and make up My "
+"Feed - you can change them anytime from Preferences."
+msgstr ""
+
 #: src/ui/dialogs/app/onboardingDialog.vala:533
 msgid "Choose Your Sources"
 msgstr ""
 
+#: src/ui/dialogs/app/onboardingDialog.vala:538
+msgid ""
+"Paperboy pulls articles from across the web, including these outlets. Tap "
+"any you'd rather not see to hide their articles everywhere - you can change "
+"these anytime from Preferences."
+msgstr ""
+
 #: src/ui/dialogs/app/onboardingDialog.vala:596
 msgid "Live Sports Scores"
+msgstr ""
+
+#: src/ui/dialogs/app/onboardingDialog.vala:601
+msgid ""
+"See live scores from your favorite leagues right in the Sports category. "
+"Choose which leagues to follow and drag to set their order - you can change "
+"this anytime from Preferences."
 msgstr ""
 
 #: src/ui/dialogs/app/onboardingDialog.vala:609
@@ -1352,12 +1441,24 @@ msgstr ""
 msgid "Local News, Too"
 msgstr ""
 
+#: src/ui/dialogs/app/onboardingDialog.vala:660
+msgid ""
+"Set your location to get a Local News feed for your area. You can do this "
+"now or anytime later from the main menu."
+msgstr ""
+
 #: src/ui/dialogs/app/onboardingDialog.vala:667
 msgid "Set My Location"
 msgstr ""
 
 #: src/ui/dialogs/app/prefsDialog.vala:78
 msgid "Refresh Content?"
+msgstr ""
+
+#: src/ui/dialogs/app/prefsDialog.vala:79
+msgid ""
+"Changes have been made to your news sources. Would you like to refresh the "
+"content now?"
 msgstr ""
 
 #: src/ui/dialogs/app/prefsDialog.vala:81
@@ -1821,6 +1922,14 @@ msgstr ""
 msgid "Enter the podcast's RSS feed URL:"
 msgstr ""
 
+#: src/ui/sidebarView.vala:881
+msgid "Failed to add podcast"
+msgstr ""
+
+#: src/ui/sidebarView.vala:1269
+msgid "Now Playing"
+msgstr ""
+
 #: src/ui/controllers/myFeedExtrasController.vala:336
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
 msgid "Magazines"
@@ -1844,6 +1953,19 @@ msgstr ""
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:87
 msgid "Update Interval"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:88
+msgid ""
+"Short update intervals can trigger rate limits or cause requests to be "
+"blocked."
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:89
+msgid ""
+"Updating feeds too often may look like automated traffic. Sites could "
+"temporarily block requests or refuse articles if too many are made in a "
+"short time. Choose a longer interval to avoid this."
 msgstr ""
 
 #. "Manual" and "Sync Every" are radio-style check buttons.
@@ -1992,6 +2114,12 @@ msgstr ""
 msgid "Reset app to factory settings"
 msgstr ""
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:285
+msgid ""
+"Erases all sources, saved articles, notes, settings, and cached data, then "
+"restarts Paperboy as if freshly installed."
+msgstr ""
+
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
 msgid "Reset"
 msgstr ""
@@ -2012,9 +2140,57 @@ msgstr ""
 msgid "Show article comments"
 msgstr ""
 
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:313
+msgid ""
+"Show a comments button on the reader page for articles with a discoverable "
+"comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
+"limited - many sites don't expose comments through any of these."
+msgstr ""
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:31
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:177
 msgid "Personalization"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:52
+msgid "Region"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:53
+msgid "Your national news and Front Page come from this country"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
+msgid "Categories"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:79
+msgid "The categories shown in the sidebar and used for My Feed"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:82
+msgid "Shown categories"
+msgstr ""
+
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
+#, c-format
+msgid "All %d categories"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
+msgid "None"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
+#, c-format
+msgid "%d of %d categories"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
+msgid ""
+"Choose the categories shown in the sidebar and used for My Feed. Drag a row "
+"by its handle to reorder."
 msgstr ""
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:180
@@ -2067,6 +2243,10 @@ msgstr ""
 msgid "Show on Feeds"
 msgstr ""
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:269
+msgid "Show on categories"
+msgstr ""
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:298
 msgid "Choose which of your followed RSS feeds appear in My Feed"
 msgstr ""
@@ -2076,8 +2256,20 @@ msgstr ""
 msgid "No feeds followed yet"
 msgstr ""
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:308
+msgid ""
+"Follow a custom RSS feed in Preferences -> Feeds first, then come back here "
+"to include it in My Feed."
+msgstr ""
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:343
 msgid "My Feed Extras"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:344
+msgid ""
+"Show a preview row for other features at the top of My Feed, with a button "
+"to jump to the full page"
 msgstr ""
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:345
@@ -2088,6 +2280,11 @@ msgstr ""
 msgid "Show recommendations"
 msgstr ""
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:381
+msgid ""
+"Suggest articles based on your reading history. This stays on your device."
+msgstr ""
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:397
 msgid "Reading"
 msgstr ""
@@ -2096,12 +2293,30 @@ msgstr ""
 msgid "Open articles in reader view"
 msgstr ""
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:401
+msgid ""
+"Show an extracted, distraction-free view of the article text instead of the "
+"full webpage by default. You can still switch views per article."
+msgstr ""
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:409
 msgid "Clicking an article opens reader view directly"
 msgstr ""
 
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:410
+msgid ""
+"Skip the preview pane and jump straight into reader view when you click an "
+"article card"
+msgstr ""
+
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:418
 msgid "Show quick-open buttons on hover"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:419
+msgid ""
+"Show reader view / preview buttons over an article card's image when you "
+"hover it"
 msgstr ""
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:436
@@ -2122,6 +2337,16 @@ msgstr ""
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:455
 msgid "Show market status pill"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:456
+msgid ""
+"Show an \"Open\" pill next to the Business sidebar count while the market is "
+"open"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:75
+msgid "Country"
 msgstr ""
 
 #: src/ui/dialogs/app/prefs/prefsRows.vala:206
@@ -2296,6 +2521,12 @@ msgstr ""
 msgid "Sports Score Cards"
 msgstr ""
 
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
+msgid ""
+"Choose which leagues show score cards, and drag a row (by its handle) to set "
+"the order their sections appear in the Sports category"
+msgstr ""
+
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:39
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:197
 msgid "Favorite Teams"
@@ -2315,6 +2546,18 @@ msgstr ""
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:53
 msgid "Show live indicator"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:54
+msgid ""
+"Show a \"Live\" pill next to the Sports sidebar count while a game is in "
+"progress"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:182
+msgid ""
+"Pick a league, then choose teams to follow - each followed team gets its own "
+"score-card row in \"My Teams\""
 msgstr ""
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:209
