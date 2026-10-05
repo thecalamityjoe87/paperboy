@@ -583,9 +583,9 @@ public class OnboardingDialog : GLib.Object {
     }
 
     // No NewsWindow exists yet during onboarding, so this reuses
-    // SportsPrefsGroup.build_league_list_box(prefs, null) - the same
-    // drag-reorderable list Preferences shows later - rather than
-    // duplicating its enable/reorder logic here.
+    // SportsPrefsGroup.build_league_groups(prefs, null) - the same
+    // region-grouped switches as Preferences' Leagues page - rather than
+    // duplicating them here. Section order is left to Preferences.
     private static Gtk.Widget build_sports_page(NewsPreferences prefs) {
         var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         box.set_margin_start(36);
@@ -598,7 +598,7 @@ public class OnboardingDialog : GLib.Object {
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
 
-        var subtitle = new Gtk.Label(_("See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow and drag to set their order - you can change this anytime from Preferences."));
+        var subtitle = new Gtk.Label(_("See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow - you can change this, and the order their sections appear in, anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -620,14 +620,17 @@ public class OnboardingDialog : GLib.Object {
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         scroller.set_margin_top(12);
 
-        var sports_list_box = SportsPrefsGroup.build_league_list_box(prefs, null);
-        sports_list_box.set_sensitive(prefs.sports_scores_enabled);
-        scroller.set_child(sports_list_box);
+        var leagues_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 24);
+        foreach (var group in SportsPrefsGroup.build_league_groups(prefs, null)) {
+            leagues_box.append(group);
+        }
+        leagues_box.set_sensitive(prefs.sports_scores_enabled);
+        scroller.set_child(leagues_box);
 
         master_row.notify["active"].connect(() => {
             bool enabled = master_row.get_active();
             prefs.sports_scores_enabled = enabled;
-            sports_list_box.set_sensitive(enabled);
+            leagues_box.set_sensitive(enabled);
         });
 
         box.append(master_list_box);

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 17:43-0500\n"
+"POT-Creation-Date: 2026-10-05 18:02-0500\n"
 "PO-Revision-Date: 2026-10-05 17:06-0500\n"
 "Last-Translator: \n"
 "Language-Team: Spanish\n"
@@ -213,8 +213,10 @@ msgstr "No se encontraron revistas que coincidan con «%s»"
 #, c-format
 msgid "Search results: found %d magazine matching \"%s\""
 msgid_plural "Search results: found %d magazines matching \"%s\""
-msgstr[0] "Resultados de búsqueda: se encontró %d revista que coincide con «%s»"
-msgstr[1] "Resultados de búsqueda: se encontraron %d revistas que coinciden con «%s»"
+msgstr[0] ""
+"Resultados de búsqueda: se encontró %d revista que coincide con «%s»"
+msgstr[1] ""
+"Resultados de búsqueda: se encontraron %d revistas que coinciden con «%s»"
 
 #: src/managers/media/magazineLibraryManager.vala:177
 msgid "Your library is empty"
@@ -411,8 +413,10 @@ msgstr "No se encontraron pódcasts que coincidan con «%s»"
 #, c-format
 msgid "Search results: found %d podcast matching \"%s\""
 msgid_plural "Search results: found %d podcasts matching \"%s\""
-msgstr[0] "Resultados de búsqueda: se encontró %d pódcast que coincide con «%s»"
-msgstr[1] "Resultados de búsqueda: se encontraron %d pódcasts que coinciden con «%s»"
+msgstr[0] ""
+"Resultados de búsqueda: se encontró %d pódcast que coincide con «%s»"
+msgstr[1] ""
+"Resultados de búsqueda: se encontraron %d pódcasts que coinciden con «%s»"
 
 #: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
 msgid "Loading..."
@@ -1337,8 +1341,10 @@ msgstr "No se encontraron artículos que coincidan con «%s»"
 #, c-format
 msgid "Search results: found %d article matching \"%s\""
 msgid_plural "Search results: found %d articles matching \"%s\""
-msgstr[0] "Resultados de búsqueda: se encontró %d artículo que coincide con «%s»"
-msgstr[1] "Resultados de búsqueda: se encontraron %d artículos que coinciden con «%s»"
+msgstr[0] ""
+"Resultados de búsqueda: se encontró %d artículo que coincide con «%s»"
+msgstr[1] ""
+"Resultados de búsqueda: se encontraron %d artículos que coinciden con «%s»"
 
 #: src/ui/dialogs/app/aboutDialog.vala:73
 msgid "Country detection and the Portuguese (Brazil) translation"
@@ -2432,7 +2438,9 @@ msgid_plural "All %d categories"
 msgstr[0] "La %d categoría"
 msgstr[1] "Las %d categorías"
 
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:135
 msgid "None"
 msgstr "Ninguna"
 
@@ -2805,16 +2813,11 @@ msgid "Sports Score Cards"
 msgstr "Tarjetas de resultados deportivos"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
-msgid ""
-"Choose which leagues show score cards, and drag a row (by its handle) to set "
-"the order their sections appear in the Sports category"
-msgstr ""
-"Elige qué ligas muestran tarjetas de resultados y arrastra una fila (por su "
-"asa) para establecer el orden en que aparecen sus secciones en la categoría "
-"Deportes"
+msgid "Choose which leagues show score cards in the Sports category, and the order their sections appear in"
+msgstr "Elige qué ligas muestran tarjetas de resultados en la categoría Deportes y en qué orden aparecen sus secciones"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:39
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:197
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:313
 msgid "Favorite Teams"
 msgstr "Equipos favoritos"
 
@@ -2823,21 +2826,36 @@ msgid "Follow specific teams to show their own score cards"
 msgstr ""
 "Sigue equipos concretos para mostrar sus propias tarjetas de resultados"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:47
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:44
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:167
+msgid "Leagues"
+msgstr "Ligas"
+
+#. Rebuilt each time it opens, so it lists the leagues that are on now.
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:50
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:176
+msgid "Section Order"
+msgstr "Orden de las secciones"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:51
+msgid "Drag leagues into the order their sections appear in"
+msgstr "Arrastra las ligas en el orden en que aparecen sus secciones"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:55
 msgid "Show score cards"
 msgstr "Mostrar tarjetas de resultados"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:48
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:56
 msgid "Turn off to hide all live score cards from the Sports category"
 msgstr ""
 "Desactívalo para ocultar todas las tarjetas de resultados en vivo de la "
 "categoría Deportes"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:53
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:62
 msgid "Show live indicator"
 msgstr "Mostrar indicador en vivo"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:54
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:63
 msgid ""
 "Show a \"Live\" pill next to the Sports sidebar count while a game is in "
 "progress"
@@ -2845,7 +2863,78 @@ msgstr ""
 "Muestra una etiqueta «En vivo» junto al contador de Deportes en la barra "
 "lateral mientras hay un partido en curso"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:182
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:107
+msgid "Europe"
+msgstr "Europa"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:108
+msgid "United States and Canada"
+msgstr "Estados Unidos y Canadá"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:109
+msgid "Latin America"
+msgstr "Latinoamérica"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:110
+msgid "Asia and Oceania"
+msgstr "Asia y Oceanía"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:111
+msgid "International"
+msgstr "Internacional"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:118
+msgid "Soccer"
+msgstr "Fútbol"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:119
+msgid "American football"
+msgstr "Fútbol americano"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:120
+msgid "Basketball"
+msgstr "Baloncesto"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:121
+msgid "Baseball"
+msgstr "Béisbol"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:122
+msgid "Hockey"
+msgstr "Hockey"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:123
+msgid "Rugby"
+msgstr "Rugby"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:124
+msgid "Cricket"
+msgstr "Críquet"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:125
+msgid "Mixed martial arts"
+msgstr "Artes marciales mixtas"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:136
+#, c-format
+msgid "%d of %d league on"
+msgid_plural "%d of %d leagues on"
+msgstr[0] "%d de %d liga activada"
+msgstr[1] "%d de %d ligas activadas"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:173
+msgid "Drag a league by its handle to set where its section appears in the Sports category. Only leagues that are on are listed."
+msgstr "Arrastra una liga por su asa para elegir dónde aparece su sección en la categoría Deportes. Solo se muestran las ligas activadas."
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:268
+msgid "No leagues are on"
+msgstr "No hay ligas activadas"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:269
+msgid "Turn some on in Leagues"
+msgstr "Activa algunas en Ligas"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:293
 msgid ""
 "Pick a league, then choose teams to follow - each followed team gets its own "
 "score-card row in \"My Teams\""
@@ -2853,15 +2942,15 @@ msgstr ""
 "Elige una liga y luego los equipos que quieres seguir: cada equipo seguido "
 "tiene su propia fila de tarjetas de resultados en «Mis equipos»"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:209
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:325
 msgid "Loading teams…"
 msgstr "Cargando equipos…"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:220
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:336
 msgid "Couldn't load teams"
 msgstr "No se pudieron cargar los equipos"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:221
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:337
 msgid "Check your connection and try again later."
 msgstr "Comprueba tu conexión e inténtalo de nuevo más tarde."
 
@@ -3496,3 +3585,20 @@ msgstr "No parece una fuente de pódcast válida"
 #: src/ui/controllers/stocksTickerController.vala:243
 msgid "Markets Today"
 msgstr "Mercados hoy"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:2
+msgid "Paperboy"
+msgstr "Paperboy"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:3
+msgid "News Reader"
+msgstr "Lector de noticias"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:4
+msgid "Read news from the sources you trust in one place"
+msgstr "Lee noticias de las fuentes en las que confías en un solo lugar"
+
+#. Translators: search terms for finding Paperboy, separated by semicolons; keep the ending semicolon. Don't translate them literally if your language has better words
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:10
+msgid "news;rss;reader;feed;aggregator;"
+msgstr "noticias;rss;lector;fuente;feed;periódico;agregador;"

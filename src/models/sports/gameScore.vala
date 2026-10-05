@@ -51,6 +51,11 @@ public class GameScore : GLib.Object {
     public bool time_valid;  // false when ESPN has a date but no kickoff time yet ("TBD")
     public bool no_result;   // finished without being played (postponed, canceled)
     public string espn_link;
+    // Golf/racing: the leaders of a whole-field event, in place of the
+    // home/away sides (left empty). null for head-to-head games.
+    public Gee.ArrayList<FieldEntry>? field;
+    public string event_name; // tournament or race name, e.g. "China Open"; "" for team sports
+    public string round_name; // e.g. "Semifinal" (tennis), "Qual" (F1); "" when ESPN gives none
 
     public GameScore(string league, string league_display_name, string game_id) {
         this.league = league;
@@ -67,5 +72,25 @@ public class GameScore : GLib.Object {
         this.time_valid = true;
         this.no_result = false;
         this.espn_link = "";
+        this.field = null;
+        this.event_name = "";
+        this.round_name = "";
+    }
+}
+
+// One placed athlete in a field event (see GameScore.field).
+public class FieldEntry : GLib.Object {
+    public string name;
+    public string short_name;
+    public string position; // "1", "T4" when tied on score
+    public string score;    // golf's to-par ("-12", "E"); "" for racing
+    public string? flag_url;
+
+    public FieldEntry(string name, string short_name, string position, string score, string? flag_url) {
+        this.name = name;
+        this.short_name = short_name;
+        this.position = position;
+        this.score = score;
+        this.flag_url = flag_url;
     }
 }

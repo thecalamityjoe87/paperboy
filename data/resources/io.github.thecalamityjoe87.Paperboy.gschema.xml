@@ -245,6 +245,15 @@
       <description>List of sports league keys excluded from the Sports category's score-card sections</description>
     </key>
 
+    <!-- Regional leagues (those SportsScoresService gives home editions) are
+         off outside their home countries; a key here is one the user
+         switched on anyway. -->
+    <key name="enabled-sports-leagues" type="as">
+      <default>[]</default>
+      <summary>Enabled sports leagues</summary>
+      <description>List of regional sports league keys the user switched on outside their home countries</description>
+    </key>
+
     <!-- User-chosen top-to-bottom display order for sports leagues. Only
          holds the keys the user has actually dragged into place; any league
          missing from this list (including newly added ones) falls back to

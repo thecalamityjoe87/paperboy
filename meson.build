@@ -252,15 +252,23 @@ cairo = dependency('cairo')
   link_args : ['-lm']
 )
 
-install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
+# Translations (gettext): the po/ subdir carries LINGUAS, POTFILES.in and the
+# .po catalogs; po/meson.build calls i18n.gettext().
+subdir('po')
+
+# The desktop file's Name, GenericName, Comment and Keywords are translated
+# from the same catalogs.
+i18n.merge_file(
+  input: 'data/io.github.thecalamityjoe87.Paperboy.desktop.in',
+  output: 'io.github.thecalamityjoe87.Paperboy.desktop',
+  type: 'desktop',
+  po_dir: 'po',
+  install: true,
+  install_dir: join_paths(get_option('datadir'), 'applications'))
 
 # Install and compile GSettings schema
 install_data('data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml',
   install_dir: join_paths(get_option('datadir'), 'glib-2.0', 'schemas'))
-
-# Translations (gettext): the po/ subdir carries LINGUAS, POTFILES.in and the
-# .po catalogs; po/meson.build calls i18n.gettext().
-subdir('po')
 
 gnome = import('gnome')
 gnome.compile_schemas(depend_files: 'data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml')

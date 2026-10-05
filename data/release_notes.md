@@ -25,6 +25,12 @@
 - Websites are asked for pages in your language
 - Fixed articles from pages that aren't in UTF-8, such as Chinese (GB2312) or Latin-1 pages, failing to open in reader view
 - Fixed the Front Page's hero carousel sometimes not appearing after picking a new country, until you refreshed
+- Sports score cards now cover individual sports: tennis (ATP and WTA), golf (PGA Tour, LPGA Tour, and DP World Tour), racing (Formula 1, NASCAR Cup Series, and IndyCar), and PFL. They're off by default; switch them on in Preferences → Personalization → Sports Score Cards → Leagues
+- Golf and racing cards show the top three places, with each athlete's flag, and golfers level on score share a place, such as "T2". Tennis cards show the games won in each set
+- Tennis, golf, and racing cards now show the name of the tournament or race, along with the round or session, such as the semifinal of the China Open or qualifying for the Bahrain Grand Prix
+- Tennis shows main-draw singles matches from about the last day to the next day and a half, so a tournament's earlier rounds don't flood the row. Formula 1 shows qualifying and races, not practice sessions
+- Golf tournaments that haven't started show their date instead of "TBD", and no longer show the day before in time zones west of US Eastern
+- Onboarding's Live Sports Scores page now groups leagues by region, with each league's sport underneath, the same as Preferences' Leagues page. Drag-to-reorder moved out of onboarding; set the order of league sections anytime in Preferences → Section Order
 
 # v0.13.1a - Sidebar Footer with Notes and Now Playing
 

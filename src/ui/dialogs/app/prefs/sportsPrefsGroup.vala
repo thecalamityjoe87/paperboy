@@ -18,8 +18,8 @@
 using Gtk;
 using Adw;
 
-// Preferences "Sports Score Cards" group: master switch, favorite teams,
-// live indicator, and the per-league list.
+// Preferences "Sports Score Cards" group: master switch, the Leagues and
+// Section Order pages, favorite teams, and the live indicator.
 public class SportsPrefsGroup : Adw.PreferencesGroup {
     private PrefsContext ctx;
 
@@ -27,27 +27,37 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
     public Adw.SwitchRow master_row { get; private set; }
 
     private delegate void SportsOrderPersistFunc();
+    public delegate void LeagueToggledFunc();
 
     public SportsPrefsGroup(PrefsContext ctx) {
         this.ctx = ctx;
         var prefs = ctx.prefs;
         var win = ctx.win;
         set_title(_("Sports Score Cards"));
-        set_description(_("Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category"));
+        set_description(_("Choose which leagues show score cards in the Sports category, and the order their sections appear in"));
 
         var favorite_teams_row = new Adw.ActionRow();
         favorite_teams_row.set_title(_("Favorite Teams"));
         favorite_teams_row.set_subtitle(_("Follow specific teams to show their own score cards"));
         PrefsRows.make_nav_row(ctx.dialog, favorite_teams_row, () => build_favorite_teams_leagues_page());
 
-        var sports_list_box = build_league_list_box(prefs, win);
-        sports_list_box.set_margin_top(18);
+        var leagues_row = new Adw.ActionRow();
+        leagues_row.set_title(_("Leagues"));
+        update_leagues_summary(leagues_row);
+        PrefsRows.make_nav_row(ctx.dialog, leagues_row, () => build_leagues_page(leagues_row));
+
+        // Rebuilt each time it opens, so it lists the leagues that are on now.
+        var order_row = new Adw.ActionRow();
+        order_row.set_title(_("Section Order"));
+        order_row.set_subtitle(_("Drag leagues into the order their sections appear in"));
+        PrefsRows.make_nav_row(ctx.dialog, order_row, () => build_order_page());
 
         master_row = new Adw.SwitchRow();
         master_row.set_title(_("Show score cards"));
         master_row.set_subtitle(_("Turn off to hide all live score cards from the Sports category"));
         master_row.set_active(prefs.sports_scores_enabled);
-        sports_list_box.set_sensitive(prefs.sports_scores_enabled);
+        leagues_row.set_sensitive(prefs.sports_scores_enabled);
+        order_row.set_sensitive(prefs.sports_scores_enabled);
 
         var live_indicator_row = new Adw.SwitchRow();
         live_indicator_row.set_title(_("Show live indicator"));
@@ -68,7 +78,8 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         master_row.notify["active"].connect(() => {
             bool enabled = master_row.get_active();
             prefs.sports_scores_enabled = enabled;
-            sports_list_box.set_sensitive(enabled);
+            leagues_row.set_sensitive(enabled);
+            order_row.set_sensitive(enabled);
             // The live indicator can't be enabled while score cards themselves are off.
             live_indicator_row.set_sensitive(enabled);
             sync_live_indicator();
@@ -83,16 +94,106 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         });
 
         add(master_row);
+        add(leagues_row);
+        add(order_row);
         add(favorite_teams_row);
         add(live_indicator_row);
-        add(sports_list_box);
     }
 
-    // Builds the drag-reorderable, per-league enable/disable list - shared
-    // between Preferences and the onboarding flow so both stay in sync
-    // automatically. `win` is null during onboarding (no NewsWindow yet to
-    // refresh).
-    public static Gtk.ListBox build_league_list_box(NewsPreferences prefs, NewsWindow? win) {
+    // Preferences headings for SportsScoresService's region codes, in display order.
+    private const string[] REGIONS = { "intl", "europe", "us", "latam", "asia" };
+
+    private static string region_title(string region) {
+        switch (region) {
+            case "europe": return _("Europe");
+            case "us": return _("United States and Canada");
+            case "latam": return _("Latin America");
+            case "asia": return _("Asia and Oceania");
+            default: return _("International");
+        }
+    }
+
+    // League subtitle: its sport, from ESPN's sport path.
+    private static string sport_label(string sport_path) {
+        switch (sport_path) {
+            case "soccer": return _("Soccer");
+            case "football": return _("American football");
+            case "basketball": return _("Basketball");
+            case "baseball": return _("Baseball");
+            case "hockey": return _("Hockey");
+            case "rugby": return _("Rugby");
+            case "cricket": return _("Cricket");
+            case "mma": return _("Mixed martial arts");
+            case "tennis": return _("Tennis");
+            case "golf": return _("Golf");
+            case "racing": return _("Motor racing");
+            default: return "";
+        }
+    }
+
+    private void update_leagues_summary(Adw.ActionRow row) {
+        var keys = SportsScoresService.league_keys();
+        int n = 0;
+        foreach (var key in keys) if (ctx.prefs.sports_league_enabled(key)) n++;
+        // if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+        if (n == 0) row.set_subtitle(_("None"));
+        else row.set_subtitle(ngettext("%d of %d league on", "%d of %d leagues on", keys.size).printf(n, keys.size));
+    }
+
+    private Adw.NavigationPage build_leagues_page(Adw.ActionRow summary_row) {
+        var page = new Adw.PreferencesPage();
+        foreach (var group in build_league_groups(ctx.prefs, ctx.win, () => update_leagues_summary(summary_row))) {
+            page.add(group);
+        }
+        return PrefsRows.build_subpage(page, _("Leagues"));
+    }
+
+    // One group per region, each league a switch with its sport underneath -
+    // shared by the Leagues page and onboarding's sports page. `win` is null
+    // during onboarding (no NewsWindow yet to refresh); on_toggled runs after
+    // each switch is saved.
+    public static Gee.ArrayList<Adw.PreferencesGroup> build_league_groups(NewsPreferences prefs, NewsWindow? win, owned LeagueToggledFunc? on_toggled = null) {
+        var groups = new Gee.ArrayList<Adw.PreferencesGroup>();
+        foreach (string region in REGIONS) {
+            var group = new Adw.PreferencesGroup();
+            group.set_title(region_title(region));
+            foreach (var league_key in SportsScoresService.league_keys()) {
+                if (SportsScoresService.region_for(league_key) != region) continue;
+                var row = new Adw.SwitchRow();
+                row.set_title(SportsScoresService.display_name_for(league_key));
+                row.set_subtitle(sport_label(SportsScoresService.sport_for(league_key)));
+                row.add_prefix(league_logo(league_key));
+                row.set_active(prefs.sports_league_enabled(league_key));
+
+                string _league_key = league_key;
+                row.notify["active"].connect(() => {
+                    prefs.set_sports_league_enabled(_league_key, row.get_active());
+                    if (on_toggled != null) on_toggled();
+                    // Reflect the change immediately rather than waiting on the
+                    // "Refresh Content?" dialog other Preferences changes use,
+                    // since Sports may already be the open category.
+                    if (win != null && win.prefs.category == "sports") {
+                        SportsScoresController.load(win);
+                    }
+                });
+                group.add(row);
+            }
+            groups.add(group);
+        }
+        return groups;
+    }
+
+    private Adw.NavigationPage build_order_page() {
+        var page = new Adw.PreferencesPage();
+        var group = new Adw.PreferencesGroup();
+        group.set_description(_("Drag a league by its handle to set where its section appears in the Sports category. Only leagues that are on are listed."));
+        group.add(build_league_list_box(ctx.prefs, ctx.win));
+        page.add(group);
+        return PrefsRows.build_subpage(page, _("Section Order"));
+    }
+
+    // Builds the Section Order page's drag-reorderable list of the leagues that are on.
+    private static Gtk.ListBox build_league_list_box(NewsPreferences prefs, NewsWindow? win) {
         var sports_list_box = new Gtk.ListBox();
         sports_list_box.set_selection_mode(Gtk.SelectionMode.NONE);
         sports_list_box.add_css_class("boxed-list");
@@ -101,13 +202,18 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         // each row's league key off the name we stashed on it below rather
         // than tracking a separate parallel list.
         SportsOrderPersistFunc persist_sports_order = () => {
+            var league_keys = SportsScoresService.league_keys();
             var new_order = new Gee.ArrayList<string>();
             var row = sports_list_box.get_row_at_index(0);
             int i = 0;
             while (row != null) {
-                new_order.add(row.get_name());
+                if (league_keys.contains(row.get_name())) new_order.add(row.get_name());
                 i++;
                 row = sports_list_box.get_row_at_index(i);
+            }
+            // Keep the saved places of leagues this list doesn't show (those that are off)
+            foreach (var key in prefs.sports_league_order) {
+                if (!new_order.contains(key)) new_order.add(key);
             }
             prefs.sports_league_order = new_order;
 
@@ -117,10 +223,11 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         };
 
         foreach (var league_key in prefs.ordered_sports_league_keys()) {
+            if (!prefs.sports_league_enabled(league_key)) continue;
             string display_name = SportsScoresService.display_name_for(league_key);
-            var league_row = new Adw.SwitchRow();
+            var league_row = new Adw.ActionRow();
+            league_row.set_subtitle(sport_label(SportsScoresService.sport_for(league_key)));
             league_row.set_title(display_name);
-            league_row.set_active(prefs.sports_league_enabled(league_key));
             league_row.set_name(league_key);
 
             // Circular logo baked into the image itself (PixbufUtils) - a
@@ -131,19 +238,6 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
                 Value val = Value(typeof(Gtk.ListBoxRow));
                 val.set_object(league_row);
                 return new Gdk.ContentProvider.for_value(val);
-            });
-
-            string _league_key = league_key;
-            league_row.notify["active"].connect(() => {
-                prefs.set_sports_league_enabled(_league_key, league_row.get_active());
-
-                // Reflect the change immediately rather than waiting on the
-                // "Refresh Content?" dialog other Preferences changes use -
-                // toggling a switch here has no other user-visible effect
-                // otherwise, since Sports may already be the open category.
-                if (win != null && win.prefs.category == "sports") {
-                    SportsScoresController.load(win);
-                }
             });
 
             var drop_target = new Gtk.DropTarget(typeof(Gtk.ListBoxRow), Gdk.DragAction.MOVE);
@@ -162,6 +256,13 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
             sports_list_box.append(league_row);
         }
 
+        if (sports_list_box.get_row_at_index(0) == null) {
+            var empty_row = new Adw.ActionRow();
+            empty_row.set_title(_("No leagues are on"));
+            empty_row.set_subtitle(_("Turn some on in Leagues"));
+            sports_list_box.append(empty_row);
+        }
+
         return sports_list_box;
     }
 
@@ -174,26 +275,34 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         return logo;
     }
 
-    // First level of the Favorite Teams drill-down. MMA has no teams
-    // (individual fighters), so it's the only league left out.
+    // First level of the Favorite Teams drill-down. Individual sports (MMA,
+    // tennis, golf, racing) have no teams, so they're left out.
     private Adw.NavigationPage build_favorite_teams_leagues_page() {
         var page = new Adw.PreferencesPage();
-        var group = new Adw.PreferencesGroup();
-        group.set_description(_("Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\""));
+        bool first = true;
+        foreach (string region in REGIONS) {
+            var group = new Adw.PreferencesGroup();
+            group.set_title(region_title(region));
+            if (first) group.set_description(_("Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\""));
+            bool any = false;
+            foreach (var league_key in SportsScoresService.league_keys()) {
+                if (!SportsScoresService.has_teams(league_key)) continue; // individual athletes, not teams
+                if (SportsScoresService.region_for(league_key) != region) continue;
 
-        foreach (var league_key in SportsScoresService.league_keys()) {
-            if (league_key == "mma") continue; // individual fighters, not teams
+                var league_row = new Adw.ActionRow();
+                league_row.set_title(SportsScoresService.display_name_for(league_key));
+                league_row.set_subtitle(sport_label(SportsScoresService.sport_for(league_key)));
+                league_row.add_prefix(league_logo(league_key));
 
-            var league_row = new Adw.ActionRow();
-            league_row.set_title(SportsScoresService.display_name_for(league_key));
-            league_row.add_prefix(league_logo(league_key));
-
-            string _league_key = league_key;
-            PrefsRows.make_nav_row(ctx.dialog, league_row, () => build_favorite_team_picker_page(_league_key));
-            group.add(league_row);
+                string _league_key = league_key;
+                PrefsRows.make_nav_row(ctx.dialog, league_row, () => build_favorite_team_picker_page(_league_key));
+                group.add(league_row);
+                any = true;
+            }
+            if (!any) continue; // International holds only individual sports, which have no teams
+            page.add(group);
+            first = false;
         }
-
-        page.add(group);
         return PrefsRows.build_subpage(page, _("Favorite Teams"));
     }
 

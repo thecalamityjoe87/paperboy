@@ -20,6 +20,12 @@ paperboy (0.14.0a-1) unstable; urgency=low
   * Websites are asked for pages in the user's language
   * Fixed reader view failing on pages that aren't in UTF-8
   * Fixed the Front Page's hero carousel sometimes not appearing after picking a new country
+  * Added sports score cards for tennis (ATP, WTA), golf (PGA Tour, LPGA Tour, DP World Tour), racing (Formula 1, NASCAR Cup Series, IndyCar), and PFL, off by default
+  * Golf and racing cards show the top three places with flags, with tied golfers sharing a place; tennis cards show games per set
+  * Tennis, golf, and racing cards show the tournament or race and the round or session
+  * Tennis shows recent and upcoming main-draw singles matches only; Formula 1 skips practice sessions
+  * Golf tournaments that haven't started show their date instead of "TBD", on the right day in every time zone
+  * Onboarding's sports page now groups leagues by region like Preferences, with section order set in Preferences
 
  -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 05 Oct 2026 00:00:00 +0000
 

@@ -44,13 +44,18 @@ public class ScoreCard : GLib.Object {
     private bool preview;
     private bool show_league;
 
+    // Head-to-head games use the first two rows (away, then home) and hide
+    // the rest; golf/racing fill one row per leader (see GameScore.field),
+    // with the place shown in front.
+    private const int ROW_COUNT = 3;
+
     private Gtk.Label status_label;
-    private Gtk.Picture away_logo;
-    private Gtk.Label away_name_label;
-    private Gtk.Label away_score_label;
-    private Gtk.Picture home_logo;
-    private Gtk.Label home_name_label;
-    private Gtk.Label home_score_label;
+    private Gtk.Label event_label;
+    private Gtk.Widget[] rows = new Gtk.Widget[ROW_COUNT];
+    private Gtk.Label[] position_labels = new Gtk.Label[ROW_COUNT];
+    private Gtk.Picture[] logos = new Gtk.Picture[ROW_COUNT];
+    private Gtk.Label[] name_labels = new Gtk.Label[ROW_COUNT];
+    private Gtk.Label[] score_labels = new Gtk.Label[ROW_COUNT];
 
     public ScoreCard(GameScore game, bool preview = false, bool show_league = false) {
         GLib.Object();
@@ -80,10 +85,18 @@ public class ScoreCard : GLib.Object {
         status_label.add_css_class("score-card-status");
         root.append(status_label);
 
-        var away_row = build_team_row(out away_logo, out away_name_label, out away_score_label);
-        root.append(away_row);
-        var home_row = build_team_row(out home_logo, out home_name_label, out home_score_label);
-        root.append(home_row);
+        // Tennis round/tournament, or the golf/racing event - hidden for team sports.
+        event_label = new Gtk.Label("");
+        event_label.set_xalign(0);
+        event_label.set_ellipsize(Pango.EllipsizeMode.END);
+        event_label.add_css_class("caption");
+        event_label.add_css_class("score-card-status");
+        root.append(event_label);
+
+        for (int i = 0; i < ROW_COUNT; i++) {
+            rows[i] = build_team_row(out position_labels[i], out logos[i], out name_labels[i], out score_labels[i]);
+            root.append(rows[i]);
+        }
 
         apply_game(game);
 
@@ -108,15 +121,49 @@ public class ScoreCard : GLib.Object {
             status_label.remove_css_class("score-card-status-live");
         }
 
+        // if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+        string event_text = game.event_name;
+        if (game.round_name.length > 0 && game.event_name.length > 0) event_text = _("%s · %s").printf(game.round_name, game.event_name);
+        else if (game.round_name.length > 0) event_text = game.round_name;
+        event_label.set_text(event_text);
+        event_label.set_visible(event_text.length > 0);
+
         bool show_scores = game.status != GameStatus.SCHEDULED && !game.no_result;
-        apply_team(away_logo, away_name_label, away_score_label, game.away_team, game.away_team_abbr, game.away_logo_url, show_scores ? game.away_score : "");
-        apply_team(home_logo, home_name_label, home_score_label, game.home_team, game.home_team_abbr, game.home_logo_url, show_scores ? game.home_score : "");
+        if (game.field == null) {
+            apply_team(0, game.away_team, game.away_team_abbr, game.away_logo_url, show_scores ? game.away_score : "");
+            apply_team(1, game.home_team, game.home_team_abbr, game.home_logo_url, show_scores ? game.home_score : "");
+            for (int i = 0; i < ROW_COUNT; i++) {
+                rows[i].set_visible(i < 2);
+                position_labels[i].set_visible(false);
+            }
+            return;
+        }
+
+        // Before the start the field's order means nothing yet, so only the event shows.
+        for (int i = 0; i < ROW_COUNT; i++) {
+            bool shown = show_scores && i < game.field.size;
+            rows[i].set_visible(shown);
+            if (!shown) continue;
+            var entry = game.field.get(i);
+            position_labels[i].set_text(entry.position);
+            position_labels[i].set_visible(true);
+            apply_team(i, entry.short_name, entry.short_name, entry.flag_url, entry.score);
+        }
     }
 
     // Built from the start time in the user's own timezone/clock format, since ESPN's
     // text is always US Eastern. Live games keep ESPN's clock ("Q3 7:42", "67'").
     private static string status_text_for(GameScore game) {
         if (game.status == GameStatus.LIVE || game.start_time == null) return game.status_detail;
+        // Golf tournaments have a date but no tee time, given as midnight US
+        // Eastern - which lands on the day before west of it, so read the
+        // date as-is. Finished, the start date of a multi-day event would
+        // read as when it ended, so just "Complete".
+        if (!game.time_valid && game.field != null) {
+            if (game.status == GameStatus.FINAL) return game.status_detail;
+            var utc = game.start_time.to_utc();
+            return day_label(new GLib.DateTime.local(utc.get_year(), utc.get_month(), utc.get_day_of_month(), 12, 0, 0));
+        }
         var local = game.start_time.to_local();
         if (game.status == GameStatus.FINAL) return _("%s · %s").printf(game.status_detail, day_label(local));
         if (!game.time_valid) return _("TBD");
@@ -157,9 +204,14 @@ public class ScoreCard : GLib.Object {
         root_widget.add_controller(motion);
     }
 
-    private Gtk.Widget build_team_row(out Gtk.Picture logo, out Gtk.Label name_label, out Gtk.Label score_label) {
+    private Gtk.Widget build_team_row(out Gtk.Label position_label, out Gtk.Picture logo, out Gtk.Label name_label, out Gtk.Label score_label) {
         var row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
         row.set_hexpand(true);
+
+        position_label = new Gtk.Label("");
+        position_label.set_xalign(1);
+        position_label.add_css_class("score-card-position");
+        row.append(position_label);
 
         logo = new Gtk.Picture();
         logo.set_size_request(24, 24);
@@ -182,17 +234,20 @@ public class ScoreCard : GLib.Object {
         return row;
     }
 
-    private void apply_team(Gtk.Picture logo, Gtk.Label name_label, Gtk.Label score_label, string team_name, string abbr, string? logo_url, string score) {
+    private void apply_team(int row, string team_name, string abbr, string? logo_url, string score) {
         string display_name = team_name.length > 0 ? team_name : abbr;
-        name_label.set_text(display_name);
-        score_label.set_text(score);
+        name_labels[row].set_text(display_name);
+        score_labels[row].set_text(score);
 
         if (logo_url != null && logo_url.length > 0) {
-            load_team_logo(logo, logo_url);
+            load_team_logo(logos[row], logo_url);
+        } else {
+            // A leaderboard row can change athlete between polls - don't leave the last one's flag.
+            logos[row].set_paintable(null);
         }
     }
 
-    // Team logos are small and few (max ~2 per card, ~15 cards per league
+    // Team logos are small and few (max 3 per card, ~15 cards per league
     // section) so a plain one-off fetch via the shared HTTP client is
     // enough - no need for the app's stateful image cache/defer pipeline
     // used for article thumbnails, which assumes callers pair it with

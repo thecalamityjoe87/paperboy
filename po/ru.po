@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 17:43-0500\n"
+"POT-Creation-Date: 2026-10-05 18:02-0500\n"
 "PO-Revision-Date: 2026-10-05 17:13-0500\n"
 "Last-Translator: \n"
 "Language-Team: Russian\n"
@@ -2443,7 +2443,9 @@ msgstr[0] "Все категории (%d)"
 msgstr[1] "Все категории (%d)"
 msgstr[2] "Все категории (%d)"
 
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:135
 msgid "None"
 msgstr "Нет"
 
@@ -2803,9 +2805,12 @@ msgstr "Добавить местоположение"
 #, c-format
 msgid "%d of %d location added. Remove one to add another."
 msgid_plural "%d of %d locations added. Remove one to add another."
-msgstr[0] "Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
-msgstr[1] "Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
-msgstr[2] "Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
+msgstr[0] ""
+"Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
+msgstr[1] ""
+"Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
+msgstr[2] ""
+"Добавлено местоположений: %d из %d. Удалите одно, чтобы добавить другое."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:404
 #, c-format
@@ -2820,15 +2825,11 @@ msgid "Sports Score Cards"
 msgstr "Карточки спортивных результатов"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
-msgid ""
-"Choose which leagues show score cards, and drag a row (by its handle) to set "
-"the order their sections appear in the Sports category"
-msgstr ""
-"Выберите лиги, для которых показываются карточки результатов, и перетащите "
-"строку (за маркер), чтобы задать порядок их разделов в категории «Спорт»"
+msgid "Choose which leagues show score cards in the Sports category, and the order their sections appear in"
+msgstr "Выберите, для каких лиг показывать карточки результатов в категории «Спорт» и в каком порядке идут их разделы"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:39
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:197
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:313
 msgid "Favorite Teams"
 msgstr "Любимые команды"
 
@@ -2838,21 +2839,36 @@ msgstr ""
 "Подпишитесь на отдельные команды, чтобы видеть их собственные карточки "
 "результатов"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:47
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:44
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:167
+msgid "Leagues"
+msgstr "Лиги"
+
+#. Rebuilt each time it opens, so it lists the leagues that are on now.
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:50
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:176
+msgid "Section Order"
+msgstr "Порядок разделов"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:51
+msgid "Drag leagues into the order their sections appear in"
+msgstr "Перетащите лиги в нужном порядке разделов"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:55
 msgid "Show score cards"
 msgstr "Показывать карточки результатов"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:48
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:56
 msgid "Turn off to hide all live score cards from the Sports category"
 msgstr ""
 "Отключите, чтобы скрыть все карточки результатов в реальном времени из "
 "категории «Спорт»"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:53
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:62
 msgid "Show live indicator"
 msgstr "Показывать индикатор эфира"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:54
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:63
 msgid ""
 "Show a \"Live\" pill next to the Sports sidebar count while a game is in "
 "progress"
@@ -2860,7 +2876,79 @@ msgstr ""
 "Показывать метку «В эфире» рядом со счётчиком «Спорта» на боковой панели во "
 "время матча"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:182
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:107
+msgid "Europe"
+msgstr "Европа"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:108
+msgid "United States and Canada"
+msgstr "США и Канада"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:109
+msgid "Latin America"
+msgstr "Латинская Америка"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:110
+msgid "Asia and Oceania"
+msgstr "Азия и Океания"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:111
+msgid "International"
+msgstr "Международные"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:118
+msgid "Soccer"
+msgstr "Футбол"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:119
+msgid "American football"
+msgstr "Американский футбол"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:120
+msgid "Basketball"
+msgstr "Баскетбол"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:121
+msgid "Baseball"
+msgstr "Бейсбол"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:122
+msgid "Hockey"
+msgstr "Хоккей"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:123
+msgid "Rugby"
+msgstr "Регби"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:124
+msgid "Cricket"
+msgstr "Крикет"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:125
+msgid "Mixed martial arts"
+msgstr "Смешанные единоборства"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:136
+#, c-format
+msgid "%d of %d league on"
+msgid_plural "%d of %d leagues on"
+msgstr[0] "Включена %d лига из %d"
+msgstr[1] "Включены %d лиги из %d"
+msgstr[2] "Включено %d лиг из %d"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:173
+msgid "Drag a league by its handle to set where its section appears in the Sports category. Only leagues that are on are listed."
+msgstr "Перетащите лигу за маркер, чтобы задать место её раздела в категории «Спорт». Показаны только включённые лиги."
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:268
+msgid "No leagues are on"
+msgstr "Нет включённых лиг"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:269
+msgid "Turn some on in Leagues"
+msgstr "Включите их в разделе «Лиги»"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:293
 msgid ""
 "Pick a league, then choose teams to follow - each followed team gets its own "
 "score-card row in \"My Teams\""
@@ -2868,15 +2956,15 @@ msgstr ""
 "Выберите лигу, затем команды для отслеживания — у каждой отслеживаемой "
 "команды будет своя строка карточек в разделе «Мои команды»"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:209
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:325
 msgid "Loading teams…"
 msgstr "Загрузка команд…"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:220
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:336
 msgid "Couldn't load teams"
 msgstr "Не удалось загрузить команды"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:221
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:337
 msgid "Check your connection and try again later."
 msgstr "Проверьте подключение и повторите попытку позже."
 
@@ -3518,3 +3606,20 @@ msgstr "Это не похоже на ленту подкаста"
 #: src/ui/controllers/stocksTickerController.vala:243
 msgid "Markets Today"
 msgstr "Рынки сегодня"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:2
+msgid "Paperboy"
+msgstr "Paperboy"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:3
+msgid "News Reader"
+msgstr "Чтение новостей"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:4
+msgid "Read news from the sources you trust in one place"
+msgstr "Читайте новости из проверенных источников в одном месте"
+
+#. Translators: search terms for finding Paperboy, separated by semicolons; keep the ending semicolon. Don't translate them literally if your language has better words
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:10
+msgid "news;rss;reader;feed;aggregator;"
+msgstr "новости;rss;лента;читалка;газета;агрегатор;news;"

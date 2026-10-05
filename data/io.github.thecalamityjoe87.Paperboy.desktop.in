@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Paperboy
+GenericName=News Reader
+Comment=Read news from the sources you trust in one place
+Exec=paperboy
+Icon=paperboy
+Type=Application
+Categories=Network;News;GTK;
+# Translators: search terms for finding Paperboy, separated by semicolons; keep the ending semicolon. Don't translate them literally if your language has better words
+Keywords=news;rss;reader;feed;aggregator;
+StartupNotify=true
+StartupWMClass=io.github.thecalamityjoe87.Paperboy
+X-GNOME-FullName=Paperboy

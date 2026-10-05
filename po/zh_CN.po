@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 17:43-0500\n"
+"POT-Creation-Date: 2026-10-05 18:02-0500\n"
 "PO-Revision-Date: 2026-10-05 17:17-0500\n"
 "Last-Translator: \n"
 "Language-Team: Chinese (simplified)\n"
@@ -2370,7 +2370,9 @@ msgid "All %d category"
 msgid_plural "All %d categories"
 msgstr[0] "全部 %d 个分类"
 
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:135
 msgid "None"
 msgstr "无"
 
@@ -2712,15 +2714,11 @@ msgid "Sports Score Cards"
 msgstr "体育比分卡片"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
-msgid ""
-"Choose which leagues show score cards, and drag a row (by its handle) to set "
-"the order their sections appear in the Sports category"
-msgstr ""
-"选择哪些联赛显示比分卡片，并拖动行（通过手柄）来设置它们在“体育”分类中的显示"
-"顺序"
+msgid "Choose which leagues show score cards in the Sports category, and the order their sections appear in"
+msgstr "选择哪些联赛在“体育”分类中显示比分卡片，以及它们各部分的显示顺序"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:39
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:197
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:313
 msgid "Favorite Teams"
 msgstr "喜爱的球队"
 
@@ -2728,25 +2726,110 @@ msgstr "喜爱的球队"
 msgid "Follow specific teams to show their own score cards"
 msgstr "关注特定球队以显示其专属比分卡片"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:47
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:44
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:167
+msgid "Leagues"
+msgstr "联赛"
+
+#. Rebuilt each time it opens, so it lists the leagues that are on now.
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:50
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:176
+msgid "Section Order"
+msgstr "显示顺序"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:51
+msgid "Drag leagues into the order their sections appear in"
+msgstr "拖动联赛以设置各部分的显示顺序"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:55
 msgid "Show score cards"
 msgstr "显示比分卡片"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:48
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:56
 msgid "Turn off to hide all live score cards from the Sports category"
 msgstr "关闭后将在“体育”分类中隐藏所有实时比分卡片"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:53
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:62
 msgid "Show live indicator"
 msgstr "显示直播标识"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:54
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:63
 msgid ""
 "Show a \"Live\" pill next to the Sports sidebar count while a game is in "
 "progress"
 msgstr "比赛进行期间，在侧边栏“体育”数量旁显示“直播”标签"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:182
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:107
+msgid "Europe"
+msgstr "欧洲"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:108
+msgid "United States and Canada"
+msgstr "美国和加拿大"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:109
+msgid "Latin America"
+msgstr "拉丁美洲"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:110
+msgid "Asia and Oceania"
+msgstr "亚洲和大洋洲"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:111
+msgid "International"
+msgstr "国际"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:118
+msgid "Soccer"
+msgstr "足球"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:119
+msgid "American football"
+msgstr "美式橄榄球"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:120
+msgid "Basketball"
+msgstr "篮球"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:121
+msgid "Baseball"
+msgstr "棒球"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:122
+msgid "Hockey"
+msgstr "冰球"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:123
+msgid "Rugby"
+msgstr "橄榄球"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:124
+msgid "Cricket"
+msgstr "板球"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:125
+msgid "Mixed martial arts"
+msgstr "综合格斗"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:136
+#, c-format
+msgid "%d of %d league on"
+msgid_plural "%d of %d leagues on"
+msgstr[0] "已开启 %d/%d 个联赛"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:173
+msgid "Drag a league by its handle to set where its section appears in the Sports category. Only leagues that are on are listed."
+msgstr "拖动联赛的手柄来设置它在“体育”分类中的显示位置。仅列出已开启的联赛。"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:268
+msgid "No leagues are on"
+msgstr "没有已开启的联赛"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:269
+msgid "Turn some on in Leagues"
+msgstr "请在“联赛”中开启"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:293
 msgid ""
 "Pick a league, then choose teams to follow - each followed team gets its own "
 "score-card row in \"My Teams\""
@@ -2754,15 +2837,15 @@ msgstr ""
 "先选择一个联赛，再选择要关注的球队——每支关注的球队都会在“我的球队”中拥有专属"
 "的比分卡片行"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:209
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:325
 msgid "Loading teams…"
 msgstr "正在加载球队…"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:220
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:336
 msgid "Couldn't load teams"
 msgstr "无法加载球队"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:221
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:337
 msgid "Check your connection and try again later."
 msgstr "请检查网络连接，稍后重试。"
 
@@ -3391,3 +3474,20 @@ msgstr "这似乎不是有效的播客订阅源"
 #: src/ui/controllers/stocksTickerController.vala:243
 msgid "Markets Today"
 msgstr "今日市场"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:2
+msgid "Paperboy"
+msgstr "Paperboy"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:3
+msgid "News Reader"
+msgstr "新闻阅读器"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:4
+msgid "Read news from the sources you trust in one place"
+msgstr "在一处阅读你信任的来源的新闻"
+
+#. Translators: search terms for finding Paperboy, separated by semicolons; keep the ending semicolon. Don't translate them literally if your language has better words
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:10
+msgid "news;rss;reader;feed;aggregator;"
+msgstr "新闻;资讯;RSS;订阅;阅读器;news;"

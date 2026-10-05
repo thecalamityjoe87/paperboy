@@ -137,7 +137,7 @@ public static int main(string[] args) {
     // translate. Falls back to the original English strings when the
     // locale has no catalog.
     Intl.setlocale(GLib.LocaleCategory.ALL, "");
-    Intl.bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
+    Intl.bindtextdomain(GETTEXT_PACKAGE, DataPathsUtils.get_locale_dir(LOCALEDIR));
     Intl.bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
     Intl.textdomain(GETTEXT_PACKAGE);
 
