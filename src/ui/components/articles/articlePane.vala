@@ -54,7 +54,7 @@ public class ArticlePane : GLib.Object {
     public void open_article_in_browser(string uri) {
         bool success = BrowserUtils.open_url_in_browser(uri);
         if (!success) {
-            parent_window.show_toast("Failed to open link in browser");
+            parent_window.show_toast(_("Failed to open link in browser"));
         }
     }
 
@@ -225,7 +225,7 @@ public class ArticlePane : GLib.Object {
         pad.set_margin_end(16);
         pad.set_margin_top(16);
         pad.set_margin_bottom(16);
-        var snippet_label = new Gtk.Label("Loading snippet…");
+        var snippet_label = new Gtk.Label(_("Loading snippet…"));
         snippet_label.set_xalign(0);
         snippet_label.set_wrap(true);
         snippet_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
@@ -250,7 +250,7 @@ public class ArticlePane : GLib.Object {
         var back_local = new Gtk.Button();
         var back_content = new Adw.ButtonContent();
         back_content.set_icon_name("window-close-symbolic");
-        back_content.set_label("Close");
+        back_content.set_label(_("Close"));
         back_local.set_child(back_content);
         back_local.set_hexpand(true);
         back_local.clicked.connect(() => {
@@ -290,7 +290,7 @@ public class ArticlePane : GLib.Object {
         });
         
         current_article_menu.follow_source_requested.connect((article_url, source_name) => {
-            parent_window.show_persistent_toast("Searching for feed...");
+            parent_window.show_persistent_toast(_("Searching for feed..."));
             parent_window.source_manager.follow_rss_source(article_url, source_name);
         });
         
@@ -299,14 +299,14 @@ public class ArticlePane : GLib.Object {
                 bool article_is_saved = parent_window.article_state_store.is_saved(article_url);
                 if (article_is_saved) {
                     parent_window.article_state_store.unsave_article(article_url);
-                    parent_window.show_toast("Removed article from saved");
+                    parent_window.show_toast(_("Removed article from saved"));
                     if (parent_window.prefs.category == "saved") {
                         parent_window.fetch_news();
                         if (preview_split != null) preview_split.set_show_sidebar(false);
                     }
                 } else {
                     parent_window.article_state_store.save_article(article_url, title, thumbnail_url, article_source_name);
-                    parent_window.show_toast("Added article to saved");
+                    parent_window.show_toast(_("Added article to saved"));
                 }
             }
         });
@@ -338,12 +338,12 @@ public class ArticlePane : GLib.Object {
         var open_menu_btn = new Gtk.MenuButton();
         var menu_content = new Adw.ButtonContent();
         menu_content.set_icon_name("view-more-symbolic");
-        menu_content.set_label("Article options");
+        menu_content.set_label(_("Article options"));
         open_menu_btn.set_child(menu_content);
         open_menu_btn.set_popover(menu_popover);
         open_menu_btn.set_hexpand(true);
         open_menu_btn.add_css_class("suggested-action");
-        open_menu_btn.set_tooltip_text("Article view and source options");
+        open_menu_btn.set_tooltip_text(_("Article view and source options"));
 
         actions.append(back_local);
         actions.append(open_menu_btn);
@@ -395,7 +395,7 @@ public class ArticlePane : GLib.Object {
             // Ensure the preview UI is still present before mutating widgets
             if (snippet_label.get_parent() == null) return;
 
-            string to_show = preview.snippet.length > 0 ? preview.snippet : "No preview available. Open the article to read more.";
+            string to_show = preview.snippet.length > 0 ? preview.snippet : _("No preview available. Open the article to read more.");
             snippet_label.set_text(to_show);
 
             if (preview.published != null && preview.published.length > 0) {

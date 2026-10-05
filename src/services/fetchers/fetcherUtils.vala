@@ -36,6 +36,6 @@ namespace FetcherUtils {
             case "politics": return "Politics";
             case "lifestyle": return "Lifestyle";
         }
-        return "News";
+        return _("News");
     }
 }

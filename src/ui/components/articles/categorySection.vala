@@ -143,7 +143,7 @@ public class CategorySection : GLib.Object {
             // Styled like the content view's other card chips
             // (.category-chip/.source-badge), not the sidebar's
             // theme-aware .live-pill - see .live-pill-header in style.css.
-            var live_pill = new Gtk.Label("Live");
+            var live_pill = new Gtk.Label(_("Live"));
             live_pill.add_css_class("live-pill-header");
             live_pill.set_valign(Gtk.Align.CENTER);
             live_pill.set_visible(show_live_pill);

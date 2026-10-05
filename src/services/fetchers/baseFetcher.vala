@@ -54,8 +54,7 @@ public abstract class BaseFetcher : GLib.Object {
     // outlet's home edition, not the user's: a site: query run through
     // another country's edition drops most of that outlet's stories
     // (site:npr.org on the BR edition returns ~1 result instead of ~100).
-    protected const string US_EDITION = "hl=en-US&gl=US&ceid=US:en";
-
+    // Every outlet using this is American, so that's the US edition.
     protected void fetch_google_domain(string current_category, string current_search_query,
                                        Soup.Session session, string domain, string source_name) {
         string category_name = FetcherUtils.category_display_name(current_category);
@@ -63,8 +62,7 @@ public abstract class BaseFetcher : GLib.Object {
         if (current_search_query.length > 0) {
             query = query + " " + current_search_query;
         }
-        string url = GoogleNewsUtils.SEARCH_URL + "?q="
-            + Uri.escape_string(query, null, false) + "&" + US_EDITION;
+        string url = GoogleNewsUtils.search_url_in(query, GoogleNewsUtils.us_edition());
 
         RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category,
                                        current_search_query, session, sink);

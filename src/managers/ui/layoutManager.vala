@@ -502,7 +502,7 @@ namespace Managers {
                 if (child is Gtk.Label) {
                     var label = child as Gtk.Label;
                     var _txt = label.get_label();
-                    if (_txt == "<b>No more articles</b>" || _txt == "No more articles") {
+                    if (_txt == _("<b>No more articles</b>") || _txt == _("No more articles")) {
                         window.content_box.remove(label);
                         break;
                     }

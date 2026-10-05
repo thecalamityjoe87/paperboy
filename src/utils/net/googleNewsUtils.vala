@@ -97,13 +97,23 @@ public class GoogleNewsUtils {
 
     // "hl=en-US&gl=US&ceid=US:en"
     public static string edition_params() {
-        var e = edition();
-        return "hl=%s&gl=%s&ceid=%s".printf(e.hl, country_of(e), e.ceid);
+        return params_of(edition());
     }
 
     // RSS search URL for `query` (unescaped) in the current edition.
     public static string search_url(string query) {
-        return SEARCH_URL + "?q=" + Uri.escape_string(query, null, false) + "&" + edition_params();
+        return search_url_in(query, edition());
+    }
+
+    // RSS search URL for `query` in a fixed edition, whatever the user picked -
+    // e.g. a US outlet's site: search, which other editions mostly drop.
+    public static string search_url_in(string query, GoogleNewsEdition e) {
+        return SEARCH_URL + "?q=" + Uri.escape_string(query, null, false) + "&" + params_of(e);
+    }
+
+    // The US English edition, Google News' default.
+    public static GoogleNewsEdition us_edition() {
+        return EDITIONS[0];
     }
 
     // National headlines for the edition's country.
@@ -115,6 +125,23 @@ public class GoogleNewsUtils {
     // "TECHNOLOGY", "SCIENCE", "HEALTH", "SPORTS" or "ENTERTAINMENT".
     public static string topic_url(string topic) {
         return TOPIC_URL + topic + "?" + edition_params();
+    }
+
+    // The edition's Google News section for an app category ("us" is the
+    // national one), or null for a category Google has no section for
+    // (politics, lifestyle, markets, ...).
+    public static string? category_feed_url(string category) {
+        switch (category) {
+            case "us": return national_url();
+            case "general": return topic_url("WORLD");
+            case "business": return topic_url("BUSINESS");
+            case "technology": return topic_url("TECHNOLOGY");
+            case "science": return topic_url("SCIENCE");
+            case "health": return topic_url("HEALTH");
+            case "sports": return topic_url("SPORTS");
+            case "entertainment": return topic_url("ENTERTAINMENT");
+            default: return null;
+        }
     }
 
     // Google News' top stories for the edition (news.google.com's own front page).
@@ -184,6 +211,10 @@ public class GoogleNewsUtils {
             if (main_edition == null) main_edition = e;
         }
         return main_edition ?? EDITIONS[0];
+    }
+
+    private static string params_of(GoogleNewsEdition e) {
+        return "hl=%s&gl=%s&ceid=%s".printf(e.hl, country_of(e), e.ceid);
     }
 
     private static string country_of(GoogleNewsEdition e) {

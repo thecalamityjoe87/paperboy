@@ -717,7 +717,7 @@ public class ContentView : GLib.Object {
         local_news_title.set_wrap(true);
         ln_inner.append(local_news_title);
 
-        local_news_hint = new Gtk.Label("Open the main menu (☰) → choose 'Manage locations' to configure your city or postal code.");
+        local_news_hint = new Gtk.Label(_("Open the main menu (☰) → choose 'Manage locations' to configure your city or postal code."));
         local_news_hint.add_css_class("dim-label");
         local_news_hint.set_halign(Gtk.Align.CENTER);
         local_news_hint.set_valign(Gtk.Align.CENTER);
@@ -1031,7 +1031,7 @@ public class ContentView : GLib.Object {
             if (child is Gtk.Label) {
                 var lbl = child as Gtk.Label;
                 var txt = lbl.get_label();
-                if (txt == "<b>No more articles</b>" || txt == "No more articles") {
+                if (txt == _("<b>No more articles</b>") || txt == _("No more articles")) {
                     content_box.remove(lbl);
                     break;
                 }

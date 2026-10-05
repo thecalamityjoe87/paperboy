@@ -731,7 +731,7 @@ public class SidebarView : GLib.Object {
         entry_box.append(name_entry);
         
         dialog.set_extra_child(entry_box);
-        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("cancel", _("Cancel"));
         dialog.add_response("add", "Add Feed");
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
         
@@ -844,7 +844,7 @@ public class SidebarView : GLib.Object {
         entry_box.append(url_entry);
 
         dialog.set_extra_child(entry_box);
-        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("cancel", _("Cancel"));
         dialog.add_response("add", "Add Podcast");
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
 
@@ -878,7 +878,7 @@ public class SidebarView : GLib.Object {
                 // and rebuilds on its own.
                 window.toast_manager.show_toast("Podcast added: " + show.title);
             } else {
-                window.toast_manager.show_toast(error_message ?? "Failed to add podcast");
+                window.toast_manager.show_toast(error_message ?? _("Failed to add podcast"));
             }
         });
     }
@@ -1247,7 +1247,7 @@ public class SidebarView : GLib.Object {
         notes_icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
         Gtk.Label notes_label;
         Gtk.Box notes_icon_holder;
-        var notes_button = build_footer_row(notes_icon, "Notes", out notes_label, out notes_icon_holder);
+        var notes_button = build_footer_row(notes_icon, _("Notes"), out notes_label, out notes_icon_holder);
         notes_button.clicked.connect(() => { NotesBrowserDialog.show(window); });
         footer.append(notes_button);
 
@@ -1266,7 +1266,7 @@ public class SidebarView : GLib.Object {
             Gtk.Label player_label;
             Gtk.Box player_icon_holder;
             var player_button = build_footer_row(CategoryIconsUtils.create_category_icon("nowplaying"),
-                "Now Playing", out player_label, out player_icon_holder, visualizer);
+                _("Now Playing"), out player_label, out player_icon_holder, visualizer);
             footer_podcast_icon_holder = player_icon_holder;
             var revealer = podcast_player_bar.revealer;
             player_button.clicked.connect(() => {

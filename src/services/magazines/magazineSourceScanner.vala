@@ -74,7 +74,7 @@ namespace Paperboy {
 
                         string html = (string) buffer.data;
                         links = extract_pdf_links(html, website_url);
-                        if (links.size == 0) error = "No PDF links found on that page";
+                        if (links.size == 0) error = _("No PDF links found on that page");
                     }
                 } catch (GLib.Error e) {
                     error = e.message;

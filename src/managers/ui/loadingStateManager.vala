@@ -184,7 +184,7 @@ public class LoadingStateManager : GLib.Object {
                 if (child is Gtk.Label) {
                     var label = child as Gtk.Label;
                     var txt = label.get_label();
-                    if (txt == "<b>No more articles</b>" || txt == "No more articles") {
+                    if (txt == _("<b>No more articles</b>") || txt == _("No more articles")) {
                         window.content_box.remove(label);
                         break;
                     }
@@ -653,13 +653,13 @@ public class LoadingStateManager : GLib.Object {
                 if (child is Gtk.Label) {
                     var label = child as Gtk.Label;
                     var label_text = label.get_label();
-                    if ((label_text == "<b>No more articles</b>" || label_text == "No more articles") && label.has_css_class("dim-label")) {
+                    if ((label_text == _("<b>No more articles</b>") || label_text == _("No more articles")) && label.has_css_class("dim-label")) {
                         return;
                     }
                 }
             }
 
-            var end_label = new Gtk.Label("<b>No more articles</b>");
+            var end_label = new Gtk.Label(_("<b>No more articles</b>"));
             end_label.set_use_markup(true);
             end_label.add_css_class("dim-label");
             end_label.set_margin_top(20);

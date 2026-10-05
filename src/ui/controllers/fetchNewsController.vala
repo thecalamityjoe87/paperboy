@@ -295,7 +295,7 @@ public class FetchNewsController {
 
                     var network_monitor = GLib.NetworkMonitor.get_default();
                     if (!network_monitor.get_network_available()) {
-                        w.show_toast("Offline - showing cached articles");
+                        w.show_toast(_("Offline - showing cached articles"));
                     }
                 }
                 ls.initial_reveal_timeout_id = 0;
@@ -567,8 +567,8 @@ public class FetchNewsController {
                     NewsService.fetch(s, cat, current_search_query, win.session, news_sink(ctx));
                 }
             }
-            if (!GoogleNewsUtils.is_us_edition() && "us" in fetch_categories) {
-                NewsService.fetch_national(current_search_query, win.session, news_sink(ctx));
+            foreach (var cat in fetch_categories) {
+                NewsService.fetch_google_news(cat, current_search_query, win.session, news_sink(ctx));
             }
         }
 
@@ -580,7 +580,7 @@ public class FetchNewsController {
                 RssFeedProcessor.fetch_rss_url(
                     rss_src.url,
                     rss_src.url,  // use URL, not name, for source filtering
-                    "My Feed",
+                    _("My Feed"),
                     "myfeed",
                     current_search_query,
                     win.session,
@@ -670,10 +670,10 @@ public class FetchNewsController {
             // Update label to show we're displaying cached content
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
-                sink.set_label("%s — Offline, showing %d cached articles".printf(feed_name_plain, cached_articles.size));
-                win.show_toast("Offline - showing cached articles");
+                sink.set_label(_("%s — Offline, showing %d cached articles").printf(feed_name_plain, cached_articles.size));
+                win.show_toast(_("Offline - showing cached articles"));
             } else {
-                sink.set_label("%s — Loaded %d articles from cache".printf(feed_name_plain, cached_articles.size));
+                sink.set_label(_("%s — Loaded %d articles from cache").printf(feed_name_plain, cached_articles.size));
             }
         }
 
@@ -1079,7 +1079,7 @@ public class FetchNewsController {
         RssFeedProcessor.fetch_rss_url(
             url,
             city,
-            "Local News",
+            _("Local News"),
             category_id,
             current_search_query,
             session,

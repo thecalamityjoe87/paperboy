@@ -46,7 +46,7 @@ public class NewsService {
         }
 
         // Outside the US the "us" category is national news, fetched once by
-        // the caller via fetch_national() rather than once per outlet.
+        // the caller via fetch_google_news() rather than once per outlet.
         if (current_category == "us" && !GoogleNewsUtils.is_us_edition()) return;
 
         // Each fetcher fetches nothing for a category it has no feed for
@@ -87,11 +87,19 @@ public class NewsService {
         }
     }
 
-    // The "us" category for a non-US edition: Google News' national
-    // headlines. Call once per category fetch, alongside the per-source
-    // fetch() calls (which skip it).
-    public static void fetch_national(string current_search_query, Soup.Session session, FetchSink sink) {
-        RssFeedProcessor.fetch_rss_url(GoogleNewsUtils.national_url(), GoogleNewsUtils.AGGREGATOR_NAME,
-            GoogleNewsUtils.national_label(), "us", current_search_query, session, sink);
+    // Outside US English the built-in outlets only have English, mostly
+    // American and British feeds, so a category also gets the edition's
+    // Google News section for it - for a non-US edition's "us" category,
+    // its national headlines, which the per-source fetch() calls skip.
+    public static bool has_google_news(string category) {
+        return !GoogleNewsUtils.is_us_english() && GoogleNewsUtils.category_feed_url(category) != null;
+    }
+
+    // Call once per category fetch, alongside the per-source fetch() calls.
+    // Fetches nothing where has_google_news() is false.
+    public static void fetch_google_news(string category, string current_search_query, Soup.Session session, FetchSink sink) {
+        if (!has_google_news(category)) return;
+        RssFeedProcessor.fetch_rss_url(GoogleNewsUtils.category_feed_url(category), GoogleNewsUtils.AGGREGATOR_NAME,
+            FetcherUtils.category_display_name(category), category, current_search_query, session, sink);
     }
 }

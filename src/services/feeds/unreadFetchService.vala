@@ -32,7 +32,7 @@ public class UnreadFetchService {
     // Task types for the fetch queue
     private enum TaskType {
         CATEGORY,
-        NATIONAL,
+        GOOGLE_NEWS,
         RSS_FEED,
         LOCAL_FEED
     }
@@ -53,9 +53,9 @@ public class UnreadFetchService {
             this.source = src;
         }
 
-        public FetchTask.for_national() {
-            this.type = TaskType.NATIONAL;
-            this.category = "us";
+        public FetchTask.for_google_news(string cat) {
+            this.type = TaskType.GOOGLE_NEWS;
+            this.category = cat;
         }
 
         public FetchTask.for_rss(string url, string name, string cat_id, string? cache_key_override = null) {
@@ -179,10 +179,11 @@ public class UnreadFetchService {
                     });
                     break;
 
-                case TaskType.NATIONAL:
+                case TaskType.GOOGLE_NEWS:
                     // Queued after every CATEGORY task, so their per-source
-                    // clears of "us" have already run.
-                    NewsService.fetch_national(
+                    // clears of this category have already run.
+                    NewsService.fetch_google_news(
+                        task.category,
                         "",  // no search query
                         get_metadata_session(),
                         new FetchSink(null, (it) => {
@@ -222,7 +223,7 @@ public class UnreadFetchService {
                     RssFeedProcessor.fetch_rss_url(
                         GoogleNewsUtils.search_url(task.news_query ?? task.rss_name),
                         task.rss_name,
-                        "Local News",
+                        _("Local News"),
                         "local_news",
                         "",  // no search query
                         get_metadata_session(),
@@ -276,7 +277,9 @@ public class UnreadFetchService {
                 enqueue_fetch(new FetchTask.for_category(cat, source));
             }
         }
-        if (!GoogleNewsUtils.is_us_edition()) enqueue_fetch(new FetchTask.for_national());
+        foreach (string cat in regular_categories) {
+            if (NewsService.has_google_news(cat)) enqueue_fetch(new FetchTask.for_google_news(cat));
+        }
 
         // Fetch every saved Local News city, each tracked under its own id.
         if (win.prefs != null) {

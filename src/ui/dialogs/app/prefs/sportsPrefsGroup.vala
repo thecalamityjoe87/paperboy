@@ -32,26 +32,26 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         this.ctx = ctx;
         var prefs = ctx.prefs;
         var win = ctx.win;
-        set_title("Sports Score Cards");
-        set_description("Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category");
+        set_title(_("Sports Score Cards"));
+        set_description(_("Choose which leagues show score cards, and drag a row (by its handle) to set the order their sections appear in the Sports category"));
 
         var favorite_teams_row = new Adw.ActionRow();
-        favorite_teams_row.set_title("Favorite Teams");
-        favorite_teams_row.set_subtitle("Follow specific teams to show their own score cards");
+        favorite_teams_row.set_title(_("Favorite Teams"));
+        favorite_teams_row.set_subtitle(_("Follow specific teams to show their own score cards"));
         PrefsRows.make_nav_row(ctx.dialog, favorite_teams_row, () => build_favorite_teams_leagues_page());
 
         var sports_list_box = build_league_list_box(prefs, win);
         sports_list_box.set_margin_top(18);
 
         master_row = new Adw.SwitchRow();
-        master_row.set_title("Show score cards");
-        master_row.set_subtitle("Turn off to hide all live score cards from the Sports category");
+        master_row.set_title(_("Show score cards"));
+        master_row.set_subtitle(_("Turn off to hide all live score cards from the Sports category"));
         master_row.set_active(prefs.sports_scores_enabled);
         sports_list_box.set_sensitive(prefs.sports_scores_enabled);
 
         var live_indicator_row = new Adw.SwitchRow();
-        live_indicator_row.set_title("Show live indicator");
-        live_indicator_row.set_subtitle("Show a \"Live\" pill next to the Sports sidebar count while a game is in progress");
+        live_indicator_row.set_title(_("Show live indicator"));
+        live_indicator_row.set_subtitle(_("Show a \"Live\" pill next to the Sports sidebar count while a game is in progress"));
         live_indicator_row.set_active(prefs.sports_live_indicator_enabled);
         live_indicator_row.set_sensitive(prefs.sports_scores_enabled);
 
@@ -179,7 +179,7 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
     private Adw.NavigationPage build_favorite_teams_leagues_page() {
         var page = new Adw.PreferencesPage();
         var group = new Adw.PreferencesGroup();
-        group.set_description("Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\"");
+        group.set_description(_("Pick a league, then choose teams to follow - each followed team gets its own score-card row in \"My Teams\""));
 
         foreach (var league_key in SportsScoresService.league_keys()) {
             if (league_key == "mma") continue; // individual fighters, not teams
@@ -194,7 +194,7 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         }
 
         page.add(group);
-        return PrefsRows.build_subpage(page, "Favorite Teams");
+        return PrefsRows.build_subpage(page, _("Favorite Teams"));
     }
 
     // Second level: one switch per team in `league_key`, loaded on open.
@@ -206,7 +206,7 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
         group.set_title(SportsScoresService.display_name_for(league_key));
 
         var loading_row = new Adw.ActionRow();
-        loading_row.set_title("Loading teams…");
+        loading_row.set_title(_("Loading teams…"));
         group.add(loading_row);
 
         page.add(group);
@@ -217,8 +217,8 @@ public class SportsPrefsGroup : Adw.PreferencesGroup {
 
             if (teams == null || teams.size == 0) {
                 var empty_row = new Adw.ActionRow();
-                empty_row.set_title("Couldn't load teams");
-                empty_row.set_subtitle("Check your connection and try again later.");
+                empty_row.set_title(_("Couldn't load teams"));
+                empty_row.set_subtitle(_("Check your connection and try again later."));
                 group.add(empty_row);
                 return;
             }

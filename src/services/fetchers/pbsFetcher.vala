@@ -75,7 +75,7 @@ public class PbsFetcher : BaseFetcher {
             case "health": return "Health";
             case "politics": return "Politics";
             case "entertainment": return "Entertainment";
-            default: return "World News";
+            default: return _("World News");
         }
     }
 }

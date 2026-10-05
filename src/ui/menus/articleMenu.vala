@@ -66,7 +66,7 @@ public class ArticleMenu : GLib.Object {
         menu_box.append(browser_btn);
 
         /* Follow this source
-        var follow_btn = create_menu_item("list-add-symbolic", "Follow this source");
+        var follow_btn = create_menu_item("list-add-symbolic", _("Follow this source"));
         bool is_builtin = SourceManager.is_article_from_builtin(article_url);
         follow_btn.set_sensitive(!is_builtin);
         follow_btn.clicked.connect(() => {

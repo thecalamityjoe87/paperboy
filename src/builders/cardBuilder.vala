@@ -28,7 +28,7 @@ public class CardBuilder : GLib.Object {
 
     public static string category_display_text(NewsWindow win, string category_id) {
         if (category_id != null && category_id.has_prefix("rssfeed:")) {
-            return "Feeds";
+            return _("Feeds");
         }
         return win.category_display_name_for(category_id);
     }
@@ -226,7 +226,7 @@ public class CardBuilder : GLib.Object {
         if (source_name != null && source_name.length > 0) {
             return source_name;
         }
-        return "News";
+        return _("News");
     }
 
     // Adds a card's source badge. With `followable` (Front Page and search, where you find
@@ -252,7 +252,7 @@ public class CardBuilder : GLib.Object {
         follow_btn.set_valign(Gtk.Align.CENTER);
         follow_btn.clicked.connect(() => {
             if (is_source_followed(url)) return;
-            if (!SourceManager.is_article_from_builtin(url)) win.show_persistent_toast("Searching for feed...");
+            if (!SourceManager.is_article_from_builtin(url)) win.show_persistent_toast(_("Searching for feed..."));
             win.source_manager.follow_rss_source(url, source_name);
         });
 
@@ -301,7 +301,7 @@ public class CardBuilder : GLib.Object {
 
         var quick_reader_btn = new Gtk.Button();
         quick_reader_btn.add_css_class("card-hover-action-btn");
-        quick_reader_btn.set_tooltip_text("Open in reader view");
+        quick_reader_btn.set_tooltip_text(_("Open in reader view"));
         var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
         quick_reader_icon.set_pixel_size(20);
         quick_reader_btn.set_child(quick_reader_icon);
@@ -313,7 +313,7 @@ public class CardBuilder : GLib.Object {
 
         var quick_pane_btn = new Gtk.Button();
         quick_pane_btn.add_css_class("card-hover-action-btn");
-        quick_pane_btn.set_tooltip_text("Preview article");
+        quick_pane_btn.set_tooltip_text(_("Preview article"));
         var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
         quick_pane_icon.set_pixel_size(20);
         quick_pane_btn.set_child(quick_pane_icon);
@@ -655,7 +655,7 @@ public class CardBuilder : GLib.Object {
         icon.set_valign(Gtk.Align.CENTER); icon.set_halign(Gtk.Align.CENTER);
         box.append(icon);
 
-        var lbl = new Gtk.Label("Read");
+        var lbl = new Gtk.Label(_("Read"));
         lbl.get_style_context().remove_class("dim-label");
         lbl.add_css_class("viewed-badge-label");
         lbl.add_css_class("caption");
