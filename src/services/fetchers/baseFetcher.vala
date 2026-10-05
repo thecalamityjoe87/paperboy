@@ -50,6 +50,26 @@ public abstract class BaseFetcher : GLib.Object {
     // Fires once a fetch's network request has concluded, success or not.
     protected void done() { sink.done(); }
 
+    // Google News search scoped to one outlet's site. The edition is the
+    // outlet's home edition, not the user's: a site: query run through
+    // another country's edition drops most of that outlet's stories
+    // (site:npr.org on the BR edition returns ~1 result instead of ~100).
+    protected const string US_EDITION = "hl=en-US&gl=US&ceid=US:en";
+
+    protected void fetch_google_domain(string current_category, string current_search_query,
+                                       Soup.Session session, string domain, string source_name) {
+        string category_name = FetcherUtils.category_display_name(current_category);
+        string query = @"site:$(domain)";
+        if (current_search_query.length > 0) {
+            query = query + " " + current_search_query;
+        }
+        string url = GoogleNewsUtils.SEARCH_URL + "?q="
+            + Uri.escape_string(query, null, false) + "&" + US_EDITION;
+
+        RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category,
+                                       current_search_query, session, sink);
+    }
+
     // Abstract method that each fetcher must implement
     public abstract void fetch(string category, string search_query, Soup.Session session);
 
