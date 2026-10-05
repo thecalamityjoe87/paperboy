@@ -34,6 +34,10 @@ namespace Paperboy {
         // Cache configuration
         public const int MAX_ARTICLES_PER_FEED = 200;
         public const int MAX_FRONTPAGE_ARTICLES = 120;  // Keep more frontpage articles for variety
+        // Front Page cache key - plus ":<edition>" (e.g. ":DE:de") outside US English
+        public const string FRONTPAGE_KEY = "paperboy:frontpage";
+        // SQL condition matching every Front Page key, US and per-country
+        private const string IS_FRONTPAGE = "(feed_url = 'paperboy:frontpage' OR feed_url LIKE 'paperboy:frontpage:%')";
         private const int64 CACHE_RETENTION_DAYS = 30;
         private const int64 FRONTPAGE_RETENTION_HOURS = 48;  // Keep frontpage fresh (2 days)
 
@@ -351,7 +355,7 @@ namespace Paperboy {
             // Delete old frontpage articles (older than 48 hours)
             string delete_old_frontpage = """
                 DELETE FROM rss_articles
-                WHERE feed_url = 'paperboy:frontpage' AND cached_at < ?;
+                WHERE """ + IS_FRONTPAGE + """ AND cached_at < ?;
             """;
 
             Sqlite.Statement stmt;
@@ -367,7 +371,7 @@ namespace Paperboy {
             // Delete old RSS articles (older than 30 days)
             string delete_old_rss = """
                 DELETE FROM rss_articles
-                WHERE feed_url != 'paperboy:frontpage' AND cached_at < ?;
+                WHERE NOT """ + IS_FRONTPAGE + """ AND cached_at < ?;
             """;
 
             rc = db.prepare_v2(delete_old_rss, -1, out stmt);
@@ -379,14 +383,18 @@ namespace Paperboy {
                 }
             }
 
-            // Enforce frontpage article limit (120 articles)
+            // Enforce the frontpage article limit (120 articles) per key, so each
+            // country's Front Page keeps its own
             string delete_excess_frontpage = """
                 DELETE FROM rss_articles
-                WHERE feed_url = 'paperboy:frontpage' AND id NOT IN (
-                    SELECT id FROM rss_articles
-                    WHERE feed_url = 'paperboy:frontpage'
-                    ORDER BY cached_at DESC
-                    LIMIT ?
+                WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id,
+                               ROW_NUMBER() OVER (PARTITION BY feed_url ORDER BY cached_at DESC) AS rn
+                        FROM rss_articles
+                        WHERE """ + IS_FRONTPAGE + """
+                    )
+                    WHERE rn > ?
                 );
             """;
 
@@ -402,12 +410,12 @@ namespace Paperboy {
             // Enforce per-feed article limit for RSS feeds (200 articles each)
             string delete_excess_rss = """
                 DELETE FROM rss_articles
-                WHERE feed_url != 'paperboy:frontpage' AND id IN (
+                WHERE NOT """ + IS_FRONTPAGE + """ AND id IN (
                     SELECT id FROM (
                         SELECT id,
                                ROW_NUMBER() OVER (PARTITION BY feed_url ORDER BY cached_at DESC) AS rn
                         FROM rss_articles
-                        WHERE feed_url != 'paperboy:frontpage'
+                        WHERE NOT """ + IS_FRONTPAGE + """
                     )
                     WHERE rn > ?
                 );

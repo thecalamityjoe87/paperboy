@@ -29,7 +29,7 @@ public struct GoogleNewsEdition {
 // used to hardcode en-US/US.
 public class GoogleNewsUtils {
     public const string SEARCH_URL = "https://news.google.com/rss/search";
-    public const string NATIONAL_URL = "https://news.google.com/rss/headlines/section/topic/NATION";
+    public const string TOPIC_URL = "https://news.google.com/rss/headlines/section/topic/";
     // Source name for Google's own aggregated feeds; their items each carry
     // a <source>, which RssFeedProcessor uses instead.
     public const string AGGREGATOR_NAME = "Google News";
@@ -108,7 +108,34 @@ public class GoogleNewsUtils {
 
     // National headlines for the edition's country.
     public static string national_url() {
-        return NATIONAL_URL + "?" + edition_params();
+        return topic_url("NATION");
+    }
+
+    // One Google News section for the edition: "WORLD", "NATION", "BUSINESS",
+    // "TECHNOLOGY", "SCIENCE", "HEALTH", "SPORTS" or "ENTERTAINMENT".
+    public static string topic_url(string topic) {
+        return TOPIC_URL + topic + "?" + edition_params();
+    }
+
+    // Google News' top stories for the edition (news.google.com's own front page).
+    public static string top_stories_url() {
+        return "https://news.google.com/rss?" + edition_params();
+    }
+
+    // The original edition, which the Paperboy backend serves as it always has.
+    public static bool is_us_english() {
+        return ceid() == "US:en";
+    }
+
+    // Query for the backend's country-aware endpoints (/news/frontpage,
+    // /news/headlines): "?location=br&lang=pt", or "" for US English so its
+    // URLs stay exactly as they were.
+    public static string backend_region_query() {
+        if (is_us_english()) return "";
+        string id = ceid();
+        int colon = id.index_of(":");
+        string lang = id.substring(colon + 1).split("-")[0];
+        return "?location=%s&lang=%s".printf(id.substring(0, colon).down(), lang);
     }
 
     // The "us" category comes from the built-in outlets' US sections in a

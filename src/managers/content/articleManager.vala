@@ -853,7 +853,10 @@ namespace Managers {
                 if (is_trending) {
                     if (trending_hero_count < 2) {
                         trending_hero_count++;
-                        featured_used = true;
+                        // Not featured_used: that's the Front Page's own hero
+                        // carousel. Setting it here meant a Trending item that
+                        // arrived first (no cached Front Page yet, e.g. a newly
+                        // picked country) stopped the carousel being created.
                         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
                         return;
                     }

@@ -50,6 +50,7 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         var win = ctx.win;
         var group = new Adw.PreferencesGroup();
         group.set_title("Region");
+        group.set_description("National news, local news and Google News results come from this country");
 
         // "Automatic" first, then every edition by name; ceids[i] is row i's id.
         string[] ceids = { "" };
@@ -66,8 +67,10 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         }
 
         var row = new Adw.ComboRow();
-        row.set_title("News edition");
-        row.set_subtitle("National news, local news and Google News results follow this region");
+        row.set_title("Country");
+        // Show the choice as the subtitle - full width, so long names like
+        // "Automatic (United Kingdom)" aren't truncated beside the arrow
+        row.set_use_subtitle(true);
         row.set_model(names);
         row.set_expression(new Gtk.PropertyExpression(typeof(Gtk.StringObject), null, "string"));
         row.set_enable_search(true);

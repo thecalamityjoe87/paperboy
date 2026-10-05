@@ -37,8 +37,105 @@ public class PaperboyFetcher : BaseFetcher {
         }
     }
 
-    // Front page is cached under "paperboy:frontpage" by this fetcher itself.
+    // Front page is cached under frontpage_cache_key() by this fetcher itself.
     protected override bool caches_for_search { get { return false; } }
+
+    // Outside US English the backend sends at most 10 Front Page articles
+    // (none on a country's first request), so Google News fills each row:
+    // up to this many per row, enough for its visible cards plus its arrow.
+    private const int PAD_PER_ROW = 8;
+    // Google News sections the Front Page pads from, after NATION, and the
+    // Front Page row each fills (see LayoutManager.FRONTPAGE_SECTION_CATEGORIES).
+    private const string[] PAD_TOPICS = { "WORLD", "BUSINESS", "TECHNOLOGY", "SCIENCE", "HEALTH", "SPORTS", "ENTERTAINMENT" };
+    private const string[] PAD_ROWS = { "world", "business", "technology", "science", "health", "sports", "entertainment" };
+    // Trending candidates sent before ArticleManager drops hero duplicates
+    // and caps it, matching the Front Page backfill below.
+    private const int TOPTEN_CANDIDATES = 20;
+
+    // On-disk Front Page cache key, per edition so switching country doesn't
+    // show the previous one's articles. US English keeps the original key so
+    // existing caches still load.
+    private static string frontpage_cache_key() {
+        if (GoogleNewsUtils.is_us_english()) return Paperboy.RssArticleCache.FRONTPAGE_KEY;
+        return Paperboy.RssArticleCache.FRONTPAGE_KEY + ":" + GoogleNewsUtils.ceid();
+    }
+
+    public delegate void PadDone();
+
+    // Outside US English, fills the Front Page's rows from Google News: the
+    // national section first, so the hero carousel leads with the country's
+    // top stories when the backend sent none, then the other sections at
+    // once. Calls `then` when all are in.
+    private void pad_frontpage_from_google_news(Gee.HashSet<string> seen_urls, Gee.HashSet<string> seen_titles,
+                                                string current_search_query, Soup.Session session, owned PadDone then) {
+        if (GoogleNewsUtils.is_us_english()) {
+            then();
+            return;
+        }
+        pad_from_google_news(GoogleNewsUtils.national_url(), "frontpage", "nation", PAD_PER_ROW,
+                             seen_urls, seen_titles, current_search_query, session, () => {
+            int pending = PAD_TOPICS.length;
+            for (int i = 0; i < PAD_TOPICS.length; i++) {
+                pad_from_google_news(GoogleNewsUtils.topic_url(PAD_TOPICS[i]), "frontpage", PAD_ROWS[i], PAD_PER_ROW,
+                                     seen_urls, seen_titles, current_search_query, session, () => {
+                    if (--pending == 0) then();
+                });
+            }
+        });
+    }
+
+    // Outside US English, adds up to `max` articles from a Google News feed
+    // that aren't already shown (by URL or title), then calls `then` once -
+    // also if the feed fails. `row` tags them with a Front Page row category
+    // ("world"), as the backend's articles are; null leaves them untagged.
+    // Their missing images are fetched once they're on screen.
+    private void pad_from_google_news(string feed_url, string category_id, string? row, int max,
+                                      Gee.HashSet<string> seen_urls, Gee.HashSet<string> seen_titles,
+                                      string current_search_query, Soup.Session session, owned PadDone then) {
+        if (GoogleNewsUtils.is_us_english() || max <= 0) {
+            then();
+            return;
+        }
+        int added = 0;
+        bool finished = false;
+        uint timeout_id = 0;
+        PadDone finish = () => {
+            if (finished) return;
+            finished = true;
+            if (timeout_id != 0) GLib.Source.remove(timeout_id);
+            timeout_id = 0;
+            then();
+        };
+        // RssFeedProcessor signals no completion, but on success it sets the
+        // label, clears, then queues every item in order on the main loop - so
+        // an idle queued from the clear runs after the last item. Failures
+        // only set an "Error ..." label. The timeout covers anything else.
+        var pad_sink = new FetchSink(null,
+            (item) => {
+                if (finished || added >= max) return;
+                string norm = UrlUtils.normalize_article_url(item.url);
+                string norm_title = item.title.down().strip();
+                if ((norm.length > 0 && seen_urls.contains(norm)) || (norm_title.length > 0 && seen_titles.contains(norm_title))) return;
+                if (norm.length > 0) seen_urls.add(norm);
+                if (norm_title.length > 0) seen_titles.add(norm_title);
+                string? source = item.source_name;
+                if (row != null) {
+                    var label = SourceLabel.parse(source);
+                    source = SourceLabel.encode(label.name, label.logo_url, row);
+                }
+                add_item(item.title, item.url, item.thumbnail_url, category_id, source, item.published);
+                added++;
+            },
+            (label) => { if (label.has_prefix("Error")) finish(); },
+            () => { GLib.Idle.add(() => { finish(); return false; }); });
+        timeout_id = GLib.Timeout.add_seconds(20, () => {
+            timeout_id = 0;
+            finish();
+            return false;
+        });
+        RssFeedProcessor.fetch_rss_url(feed_url, GoogleNewsUtils.AGGREGATOR_NAME, "Front Page", category_id,
+                                       current_search_query, session, pad_sink);
+    }
 
     public override string get_source_name() {
         return "Paperboy";
@@ -47,7 +144,8 @@ public class PaperboyFetcher : BaseFetcher {
     private void fetch_paperboy_frontpage(string current_search_query, Soup.Session session) {
         // First, load cached articles to show immediately (up to 120 articles from last 48 hours)
         var frontpage_cache = Paperboy.RssArticleCache.get_instance();
-        var cached_articles = frontpage_cache.get_cached_articles("paperboy:frontpage", Paperboy.RssArticleCache.MAX_FRONTPAGE_ARTICLES);
+        string cache_key = frontpage_cache_key();
+        var cached_articles = frontpage_cache.get_cached_articles(cache_key, Paperboy.RssArticleCache.MAX_FRONTPAGE_ARTICLES);
 
         Idle.add(() => {
             if (current_search_query.length > 0) {
@@ -79,11 +177,23 @@ public class PaperboyFetcher : BaseFetcher {
 
         // Then fetch fresh articles from API to update cache
         var client = Paperboy.HttpClientUtils.get_default();
-        string url = BASE_URL + "/news/frontpage";
+        string url = BASE_URL + "/news/frontpage" + GoogleNewsUtils.backend_region_query();
+
+        // The backend's articles, so Google News padding skips them
+        var seen_urls = new Gee.HashSet<string>();
+        var seen_titles = new Gee.HashSet<string>();
+        // Outside US English, fill the rows from Google News, then finish
+        void finish() {
+            pad_frontpage_from_google_news(seen_urls, seen_titles, current_search_query, session, () => { done(); });
+        }
 
         client.fetch_json_with(url, cancellable, (response, parser, root) => {
             if (!response.is_success() || root == null) {
                 warning("Paperboy API HTTP error: %u", response.status_code);
+                if (!GoogleNewsUtils.is_us_english()) {
+                    finish();
+                    return;
+                }
                 // Don't show error if we have cached articles
                 if (cached_articles.size == 0) {
                     set_label("Paperboy: Error loading frontpage");
@@ -108,7 +218,7 @@ public class PaperboyFetcher : BaseFetcher {
                 }
 
                 if (articles == null) {
-                    done();
+                    finish();
                     return;
                 }
 
@@ -138,7 +248,7 @@ public class PaperboyFetcher : BaseFetcher {
 
                         // Cache frontpage article for offline access and better performance
                         // Store source_name (without logo), logo_url separately, and category_id
-                        frontpage_cache.cache_article(a.url, a.title, a.thumbnail, a.published, "paperboy:frontpage", a.source_name, a.logo_url, a.category_id);
+                        frontpage_cache.cache_article(a.url, a.title, a.thumbnail, a.published, cache_key, a.source_name, a.logo_url, a.category_id);
 
                         // Always call add_item, even for articles already shown from
                         // cache: ArticleManager.add_item() dedupes by URL itself and
@@ -148,13 +258,16 @@ public class PaperboyFetcher : BaseFetcher {
                         // in place. Skipping this call for already_shown articles was
                         // silently defeating that backfill.
                         add_item(a.title, a.url, a.thumbnail, "frontpage", SourceLabel.encode(a.source_name, a.logo_url, a.category_id), a.published);
+                        string norm = UrlUtils.normalize_article_url(a.url);
+                        if (norm.length > 0) seen_urls.add(norm);
+                        if (a.title.length > 0) seen_titles.add(a.title.down().strip());
                     }
-                    done();
+                    finish();
                     return false;
                 });
             } catch (GLib.Error e) {
                 warning("Paperboy frontpage fetch error: %s", e.message);
-                done();
+                finish();
             }
         });
     }
@@ -303,7 +416,7 @@ public class PaperboyFetcher : BaseFetcher {
     private void fetch_paperboy_category(string view_category, string current_search_query) {
         // Cached frontpage articles first, for instant display
         var cached_articles = Paperboy.RssArticleCache.get_instance().get_cached_articles(
-            "paperboy:frontpage", Paperboy.RssArticleCache.MAX_FRONTPAGE_ARTICLES);
+            frontpage_cache_key(), Paperboy.RssArticleCache.MAX_FRONTPAGE_ARTICLES);
         Idle.add(() => {
             foreach (var article in cached_articles) {
                 if (article.url == null || article.title == null) continue;
@@ -320,7 +433,8 @@ public class PaperboyFetcher : BaseFetcher {
             return false;
         });
 
-        Paperboy.HttpClientUtils.get_default().fetch_json_with(BASE_URL + "/news/frontpage", cancellable, (response, parser, root) => {
+        string url = BASE_URL + "/news/frontpage" + GoogleNewsUtils.backend_region_query();
+        Paperboy.HttpClientUtils.get_default().fetch_json_with(url, cancellable, (response, parser, root) => {
             Json.Array? articles = null;
             if (response.is_success() && root != null) {
                 if (root.get_node_type() == Json.NodeType.ARRAY) {
@@ -357,19 +471,25 @@ public class PaperboyFetcher : BaseFetcher {
 
     private void fetch_paperboy_topten(string current_search_query, Soup.Session session) {
         var client = Paperboy.HttpClientUtils.get_default();
-        string url = BASE_URL + "/news/headlines";
+        string region = GoogleNewsUtils.backend_region_query();
+        string url = BASE_URL + "/news/headlines" + region;
 
         client.fetch_json_with(url, cancellable, (response, parser, root) => {
-            if (!response.is_success() || root == null) {
+            bool failed = !response.is_success() || root == null;
+            if (failed) {
                 warning("Paperboy API HTTP error: %u", response.status_code);
-                set_label("Paperboy: Error loading Top Ten");
-                done();
-                return;
+                if (GoogleNewsUtils.is_us_english()) {
+                    set_label("Paperboy: Error loading Top Ten");
+                    done();
+                    return;
+                }
             }
 
             try {
                 Json.Array articles = null;
-                if (root.get_node_type() == Json.NodeType.ARRAY) {
+                if (failed) {
+                    // Handled below, like an empty response
+                } else if (root.get_node_type() == Json.NodeType.ARRAY) {
                     articles = root.get_array();
                 } else {
                     var obj = root.get_object();
@@ -383,8 +503,13 @@ public class PaperboyFetcher : BaseFetcher {
                 }
 
                 if (articles == null) {
-                    done();
-                    return;
+                    if (GoogleNewsUtils.is_us_english()) {
+                        done();
+                        return;
+                    }
+                    // Outside US English, carry on with no headlines: the
+                    // backfill and Google News padding below still fill Trending.
+                    articles = new Json.Array();
                 }
 
 
@@ -547,7 +672,7 @@ public class PaperboyFetcher : BaseFetcher {
                     // drops any that duplicate the hero carousel and caps Trending,
                     // so these only fill slots the headlines couldn't.
                     // Async: this runs on the main thread, and a sync fetch froze the UI while the backend cold-starts.
-                    client.fetch_json_with(BASE_URL + "/news/frontpage", cancellable, (fp_response, p2, r2) => {
+                    client.fetch_json_with(BASE_URL + "/news/frontpage" + region, cancellable, (fp_response, p2, r2) => {
                         if (fp_response.is_success() && r2 != null) {
                             Json.Array front_articles = null;
                             if (r2.get_node_type() == Json.NodeType.ARRAY) {
@@ -609,10 +734,15 @@ public class PaperboyFetcher : BaseFetcher {
                                         }
                                     }
                                     add_item(t, u, thumb, "topten", SourceLabel.encode(ds, logo), pub);
+                                    added_count++;
                                 }
                             }
                         }
-                        done();
+                        // Outside US English, top Trending up from Google News' top
+                        // stories - not the national feed the Front Page pads from,
+                        // so the two don't repeat each other.
+                        pad_from_google_news(GoogleNewsUtils.top_stories_url(), "topten", null, TOPTEN_CANDIDATES - added_count,
+                                             seen_urls, seen_titles, current_search_query, session, () => { done(); });
                     });
                     return false;
                 });
