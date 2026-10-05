@@ -144,9 +144,19 @@ public class GoogleNewsUtils {
         return country() == "US";
     }
 
-    // "US News", "Germany News", "Canada News".
+    // "US News", "Germany News", "Canada News" (the suffix is translated).
     public static string national_label() {
-        return is_us_edition() ? _("US News") : country_name() + " News";
+        if (is_us_edition()) return _("US News");
+        return _("%s News").printf(localized_country_name());
+    }
+
+    // The country named in the user's language, from the system's iso-codes
+    // catalogs (domain "iso_3166-1", msgid = the English name -> the localized
+    // one). Falls back to the English name if iso-codes is not installed.
+    public static string localized_country_name() {
+        string english = country_name();
+        string localized = GLib.dgettext("iso_3166-1", english);
+        return (localized != null && localized.length > 0) ? localized : english;
     }
 
     // The edition's country without its language: "Canada", not "Canada (French)".

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy 0.12.5a\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 08:04-0300\n"
+"POT-Creation-Date: 2026-10-05 08:07-0300\n"
 "PO-Revision-Date: 2026-10-04 08:42-0300\n"
 "Last-Translator: Djair Guilherme\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -1339,7 +1339,8 @@ msgstr "Alterar local"
 msgid ""
 "Enter a city name or a postal code, or use your current location.\n"
 "Examples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
-msgstr "Digite o nome de uma cidade ou CEP, ou use sua localização atual.\n"
+msgstr ""
+"Digite o nome de uma cidade ou CEP, ou use sua localização atual.\n"
 "Exemplos: \"São Paulo, SP\", \"Manchester\" ou \"10115\""
 
 #: src/ui/dialogs/app/locationDialog.vala:88
@@ -2695,20 +2696,21 @@ msgstr "Não foi possível carregar os times"
 msgid "Check your connection and try again later."
 msgstr "Verifique sua conexão e tente novamente mais tarde."
 
-#. "US News", "Germany News", "Canada News".
+#. "US News", "Germany News", "Canada News" (the suffix is translated).
 #: src/utils/net/googleNewsUtils.vala:149
 msgid "US News"
 msgstr "Notícias dos EUA"
+
+#: src/utils/net/googleNewsUtils.vala:150
+#, c-format
+msgid "%s News"
+msgstr "Notícias de %s"
 
 #~ msgid "U.S."
 #~ msgstr "EUA"
 
 #~ msgid "Popular Categories"
 #~ msgstr "Categorias populares"
-
-#, c-format
-#~ msgid "%s News"
-#~ msgstr "Notícias de %s"
 
 #, c-format
 #~ msgid "Go to %s →"

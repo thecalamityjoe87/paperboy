@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 08:04-0300\n"
+"POT-Creation-Date: 2026-10-05 08:07-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2572,7 +2572,12 @@ msgstr ""
 msgid "Check your connection and try again later."
 msgstr ""
 
-#. "US News", "Germany News", "Canada News".
+#. "US News", "Germany News", "Canada News" (the suffix is translated).
 #: src/utils/net/googleNewsUtils.vala:149
 msgid "US News"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:150
+#, c-format
+msgid "%s News"
 msgstr ""
