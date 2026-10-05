@@ -1,3 +1,20 @@
+# v0.14.0a - Paperboy Goes International: Your Country's News, a Per-Country Front Page, and a Portuguese (Brazil) Translation
+
+- Paperboy now works outside the US. A new Country setting (Preferences → Personalization → Region) picks which country your news comes from, out of the 87 country and language editions Google News offers. It's searchable, and set to "Automatic" by default, which picks your country from your system's time zone and language
+- Onboarding has a new "Where Are You Reading From?" page, second in the tour, so you can check the country Paperboy picked and change it before you start
+- Outside the US, the "US News" category becomes your country's national news, such as "Brazil News", with headlines from Google News. Articles show the outlet that actually published them
+- The national news category's icon is your country's flag, with versions for light and dark mode. Header icons are a little larger so the flags fit
+- Outside the US, the Front Page and Trending now show your country's news. The Front Page leads with national headlines, followed by World, Business, Technology, Science, Health, Sports, and Entertainment, and Trending shows Google News' top stories for your country. Each country's Front Page is cached separately, so switching countries doesn't show the previous one's articles
+- Outside the US, each category also shows your country's Google News section for it, in your language: World News, Business, Technology, Science, Health, Sports, and Entertainment. Politics and Lifestyle have no Google News section and are unchanged
+- NPR, WSJ, the New York Times, and Bloomberg return a full set of articles whichever country you pick. Their searches always use Google News' US edition, since other countries' editions return few or none of their stories. Thanks to djairjr for the fix
+- Local News now asks for a postal code instead of a ZIP code, with examples from outside the US, and postal code lookups prefer results in your country
+- Place names that already have mixed casing are kept as written, such as "Rio de Janeiro", and two-letter town names are no longer capitalized as if they were US states
+- Added translation support, and a Portuguese (Brazil) translation covering 537 interface strings, including menus, Preferences, onboarding, the reader, podcasts, magazines, notes, and weather conditions. Thanks to djairjr for the translation
+- Added a Contributors page to the About dialog, listing each contributor and what they contributed
+- Websites are asked for pages in your language
+- Fixed articles from pages that aren't in UTF-8, such as Chinese (GB2312) or Latin-1 pages, failing to open in reader view
+- Fixed the Front Page's hero carousel sometimes not appearing after picking a new country, until you refreshed
+
 # v0.13.1a - Sidebar Footer with Notes and Now Playing
 
 - Added a fixed footer to the bottom of the sidebar with Notes and a new Now Playing button, so they're always in reach without scrolling the list
