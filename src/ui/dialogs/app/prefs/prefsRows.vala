@@ -53,6 +53,42 @@ public class PrefsRows : GLib.Object {
     public delegate void FileChosenFunc(string path) throws GLib.Error;
     public delegate void ClickedFunc();
 
+    // The Country row (Preferences and onboarding): "Automatic (<country>)"
+    // first, then every Google News edition by name, searchable. Saves the
+    // choice to prefs.news_edition and then calls `on_changed`, if given.
+    public static Adw.ComboRow country_row(NewsPreferences prefs, owned ClickedFunc? on_changed = null) {
+        // ceids[i] is row i's edition id; "" means automatic
+        string[] ceids = { "" };
+        var names = new Gtk.StringList(null);
+        names.append("Automatic (%s)".printf(GoogleNewsUtils.automatic_edition().name));
+        var editions = new Gee.ArrayList<GoogleNewsEdition?>();
+        foreach (var e in GoogleNewsUtils.EDITIONS) editions.add(e);
+        editions.sort((a, b) => a.name.collate(b.name));
+        uint selected = 0;
+        foreach (var e in editions) {
+            if (e.ceid == prefs.news_edition) selected = ceids.length;
+            ceids += e.ceid;
+            names.append(e.name);
+        }
+
+        var row = new Adw.ComboRow();
+        row.set_title("Country");
+        // Show the choice as the subtitle - full width, so long names like
+        // "Automatic (United Kingdom)" aren't truncated beside the arrow
+        row.set_use_subtitle(true);
+        row.set_model(names);
+        row.set_expression(new Gtk.PropertyExpression(typeof(Gtk.StringObject), null, "string"));
+        row.set_enable_search(true);
+        row.set_selected(selected);
+        row.notify["selected"].connect(() => {
+            uint i = row.get_selected();
+            if (i >= ceids.length || ceids[i] == prefs.news_edition) return;
+            prefs.news_edition = ceids[i];
+            if (on_changed != null) on_changed();
+        });
+        return row;
+    }
+
     // Wraps preferences content for push_subpage(). Adw.HeaderBar shows its
     // own contextual back chevron inside pushed-subpage content, so no
     // manual back button is added (it would double up).

@@ -50,35 +50,9 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         var win = ctx.win;
         var group = new Adw.PreferencesGroup();
         group.set_title("Region");
-        group.set_description("National news, local news and Google News results come from this country");
+        group.set_description("Your national news and Front Page come from this country");
 
-        // "Automatic" first, then every edition by name; ceids[i] is row i's id.
-        string[] ceids = { "" };
-        var names = new Gtk.StringList(null);
-        names.append("Automatic (%s)".printf(GoogleNewsUtils.automatic_edition().name));
-        var editions = new Gee.ArrayList<GoogleNewsEdition?>();
-        foreach (var e in GoogleNewsUtils.EDITIONS) editions.add(e);
-        editions.sort((a, b) => a.name.collate(b.name));
-        uint selected = 0;
-        foreach (var e in editions) {
-            if (e.ceid == prefs.news_edition) selected = ceids.length;
-            ceids += e.ceid;
-            names.append(e.name);
-        }
-
-        var row = new Adw.ComboRow();
-        row.set_title("Country");
-        // Show the choice as the subtitle - full width, so long names like
-        // "Automatic (United Kingdom)" aren't truncated beside the arrow
-        row.set_use_subtitle(true);
-        row.set_model(names);
-        row.set_expression(new Gtk.PropertyExpression(typeof(Gtk.StringObject), null, "string"));
-        row.set_enable_search(true);
-        row.set_selected(selected);
-        row.notify["selected"].connect(() => {
-            uint i = row.get_selected();
-            if (i >= ceids.length || ceids[i] == prefs.news_edition) return;
-            prefs.news_edition = ceids[i];
+        var row = PrefsRows.country_row(prefs, () => {
             if (win == null) return;
             // The "us" category's name follows the edition
             if (win.sidebar_manager != null) win.sidebar_manager.rebuild_sidebar();

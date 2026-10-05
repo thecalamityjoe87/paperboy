@@ -40,6 +40,7 @@ public class OnboardingDialog : GLib.Object {
         carousel.set_vexpand(true);
         carousel.set_interactive(true);
         carousel.append(build_welcome_page());
+        carousel.append(build_country_page(prefs));
         carousel.append(build_theme_page(prefs));
         carousel.append(build_categories_page(prefs, parent as NewsWindow));
         carousel.append(build_sources_page(prefs));
@@ -167,6 +168,57 @@ public class OnboardingDialog : GLib.Object {
         body.set_halign(Gtk.Align.CENTER);
         body.add_css_class("dim-label");
         box.append(body);
+
+        return box;
+    }
+
+    // Detected from the system, so most people just check it's right.
+    // Closing onboarding refetches, so a change needs nothing else here.
+    private static Gtk.Widget build_country_page(NewsPreferences prefs) {
+        var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
+        box.set_valign(Gtk.Align.CENTER);
+        box.set_margin_start(36);
+        box.set_margin_end(36);
+        box.set_margin_top(36);
+        box.set_margin_bottom(18);
+
+        // Bundled icon (black and white versions), sized and dimmed like the
+        // theme icons on the other pages. The Theme page can switch light and
+        // dark while this page exists, so follow it.
+        var icon = new Gtk.Image();
+        icon.set_pixel_size(64);
+        icon.set_halign(Gtk.Align.CENTER);
+        icon.add_css_class("dim-label");
+        void apply_icon() {
+            string? path = CategoryIconsUtils.resolve_themed_icon_path("country-mono.svg");
+            if (path != null) icon.set_from_gicon(new GLib.FileIcon(GLib.File.new_for_path(path)));
+            else icon.set_from_icon_name("mark-location-symbolic");
+        }
+        apply_icon();
+        var style_manager = Adw.StyleManager.get_default();
+        ulong dark_handler = style_manager.notify["dark"].connect(() => apply_icon());
+        icon.destroy.connect(() => style_manager.disconnect(dark_handler));
+        box.append(icon);
+
+        var title = new Gtk.Label("Where Are You Reading From?");
+        title.add_css_class("title-2");
+        title.set_halign(Gtk.Align.CENTER);
+        title.set_margin_top(12);
+        box.append(title);
+
+        var subtitle = new Gtk.Label("Your national news and Front Page come from this country. We've picked it from your system settings - change it if it's not right. You can change this anytime from Preferences.");
+        subtitle.set_wrap(true);
+        subtitle.set_justify(Gtk.Justification.CENTER);
+        subtitle.set_halign(Gtk.Align.CENTER);
+        subtitle.add_css_class("dim-label");
+        box.append(subtitle);
+
+        var list = new Gtk.ListBox();
+        list.set_selection_mode(Gtk.SelectionMode.NONE);
+        list.add_css_class("boxed-list");
+        list.set_margin_top(16);
+        list.append(PrefsRows.country_row(prefs));
+        box.append(list);
 
         return box;
     }
