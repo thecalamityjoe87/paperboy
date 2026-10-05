@@ -69,14 +69,14 @@ public class BbcFetcher : BaseFetcher {
 
     private string category_display_name(string category_id) {
         switch (category_id) {
-            case "technology": return "Technology";
-            case "business": return "Business";
-            case "science": return "Science";
-            case "sports": return "Sports";
-            case "health": return "Health";
-            case "us": return "US News";
-            case "politics": return "Politics";
-            case "entertainment": return "Entertainment";
+            case "technology": return _("Technology");
+            case "business": return _("Business");
+            case "science": return _("Science");
+            case "sports": return _("Sports");
+            case "health": return _("Health");
+            case "us": return _("US News");
+            case "politics": return _("Politics");
+            case "entertainment": return _("Entertainment");
             default: return _("World News");
         }
     }

@@ -21,7 +21,8 @@ using GLib;
 public struct GoogleNewsEdition {
     public string ceid;    // "BR:pt-419" - country, then Google's language tag
     public string hl;      // "pt-BR"
-    public string name;    // "Brazil", or "Canada (French)" where a country has several
+    public string name;    // "Brazil", or "Canada (French)" where a country has several;
+                           // untranslated - show it with _(name)
 }
 
 // The Google News edition every Google News request uses, picked from the
@@ -37,36 +38,39 @@ public class GoogleNewsUtils {
     // Editions Google actually serves - anything else silently redirects to
     // the US one. Each country's main edition comes first: it's used when
     // the user's language has no edition there.
+    // TRANSLATORS: country names in the news edition picker. Where a country
+    // has several editions, keep the "Country (Language)" form - the app
+    // splits the country off at the parenthesis.
     public const GoogleNewsEdition[] EDITIONS = {
-        { "US:en", "en-US", "United States" }, { "US:es-419", "es-419", "United States (Spanish)" },
-        { "GB:en", "en-GB", "United Kingdom" }, { "IE:en", "en-IE", "Ireland" },
-        { "CA:en", "en-CA", "Canada (English)" }, { "CA:fr", "fr-CA", "Canada (French)" },
-        { "AU:en", "en-AU", "Australia" }, { "NZ:en", "en-NZ", "New Zealand" },
-        { "IN:en", "en-IN", "India (English)" }, { "IN:hi", "hi", "India (Hindi)" }, { "IN:bn", "bn", "India (Bengali)" }, { "IN:mr", "mr", "India (Marathi)" },
-        { "IN:ta", "ta", "India (Tamil)" }, { "IN:te", "te", "India (Telugu)" }, { "IN:ml", "ml", "India (Malayalam)" }, { "IN:gu", "gu-IN", "India (Gujarati)" },
-        { "PK:en", "en-PK", "Pakistan" }, { "BD:bn", "bn", "Bangladesh" },
-        { "SG:en", "en-SG", "Singapore" }, { "MY:en", "en-MY", "Malaysia (English)" }, { "MY:ms", "ms-MY", "Malaysia (Malay)" },
-        { "PH:en", "en-PH", "Philippines" }, { "ID:id", "id", "Indonesia (Indonesian)" }, { "ID:en", "en-ID", "Indonesia (English)" },
-        { "ZA:en", "en-ZA", "South Africa" }, { "NG:en", "en-NG", "Nigeria" }, { "KE:en", "en-KE", "Kenya" }, { "GH:en", "en-GH", "Ghana" },
-        { "UG:en", "en-UG", "Uganda" }, { "TZ:en", "en-TZ", "Tanzania" }, { "ET:en", "en-ET", "Ethiopia" }, { "ZW:en", "en-ZW", "Zimbabwe" },
-        { "NA:en", "en-NA", "Namibia" }, { "BW:en", "en-BW", "Botswana" },
-        { "IL:he", "he", "Israel (Hebrew)" }, { "IL:en", "en-IL", "Israel (English)" },
-        { "EG:ar", "ar", "Egypt" }, { "SA:ar", "ar", "Saudi Arabia" }, { "AE:ar", "ar", "United Arab Emirates" }, { "LB:ar", "ar", "Lebanon" },
-        { "MA:fr", "fr", "Morocco" }, { "SN:fr", "fr", "Senegal" },
-        { "BR:pt-419", "pt-BR", "Brazil" }, { "PT:pt-150", "pt-PT", "Portugal" },
-        { "MX:es-419", "es-419", "Mexico" }, { "AR:es-419", "es-419", "Argentina" }, { "CL:es-419", "es-419", "Chile" },
-        { "CO:es-419", "es-419", "Colombia" }, { "PE:es-419", "es-419", "Peru" }, { "VE:es-419", "es-419", "Venezuela" },
-        { "CU:es-419", "es-419", "Cuba" },
-        { "ES:es", "es", "Spain" }, { "FR:fr", "fr", "France" }, { "IT:it", "it", "Italy" },
-        { "DE:de", "de", "Germany" }, { "AT:de", "de", "Austria" }, { "CH:de", "de", "Switzerland (German)" }, { "CH:fr", "fr", "Switzerland (French)" },
-        { "NL:nl", "nl", "Netherlands" }, { "BE:nl", "nl", "Belgium (Dutch)" }, { "BE:fr", "fr", "Belgium (French)" },
-        { "SE:sv", "sv", "Sweden" }, { "NO:no", "no", "Norway" }, { "FI:fi", "fi-FI", "Finland" },
-        { "PL:pl", "pl", "Poland" }, { "CZ:cs", "cs", "Czechia" }, { "SK:sk", "sk", "Slovakia" }, { "HU:hu", "hu", "Hungary" },
-        { "RO:ro", "ro", "Romania" }, { "BG:bg", "bg", "Bulgaria" }, { "GR:el", "el", "Greece" }, { "SI:sl", "sl", "Slovenia" },
-        { "RS:sr", "sr", "Serbia" }, { "LT:lt", "lt", "Lithuania" }, { "LV:lv", "lv", "Latvia" }, { "EE:et", "et-EE", "Estonia" },
-        { "UA:uk", "uk", "Ukraine (Ukrainian)" }, { "UA:ru", "ru", "Ukraine (Russian)" }, { "RU:ru", "ru", "Russia" }, { "TR:tr", "tr", "Turkey" },
-        { "CN:zh-Hans", "zh-CN", "China" }, { "TW:zh-Hant", "zh-TW", "Taiwan" }, { "HK:zh-Hant", "zh-HK", "Hong Kong" },
-        { "JP:ja", "ja", "Japan" }, { "KR:ko", "ko", "South Korea" }, { "TH:th", "th", "Thailand" }, { "VN:vi", "vi", "Vietnam" }
+        { "US:en", "en-US", N_("United States") }, { "US:es-419", "es-419", N_("United States (Spanish)") },
+        { "GB:en", "en-GB", N_("United Kingdom") }, { "IE:en", "en-IE", N_("Ireland") },
+        { "CA:en", "en-CA", N_("Canada (English)") }, { "CA:fr", "fr-CA", N_("Canada (French)") },
+        { "AU:en", "en-AU", N_("Australia") }, { "NZ:en", "en-NZ", N_("New Zealand") },
+        { "IN:en", "en-IN", N_("India (English)") }, { "IN:hi", "hi", N_("India (Hindi)") }, { "IN:bn", "bn", N_("India (Bengali)") }, { "IN:mr", "mr", N_("India (Marathi)") },
+        { "IN:ta", "ta", N_("India (Tamil)") }, { "IN:te", "te", N_("India (Telugu)") }, { "IN:ml", "ml", N_("India (Malayalam)") }, { "IN:gu", "gu-IN", N_("India (Gujarati)") },
+        { "PK:en", "en-PK", N_("Pakistan") }, { "BD:bn", "bn", N_("Bangladesh") },
+        { "SG:en", "en-SG", N_("Singapore") }, { "MY:en", "en-MY", N_("Malaysia (English)") }, { "MY:ms", "ms-MY", N_("Malaysia (Malay)") },
+        { "PH:en", "en-PH", N_("Philippines") }, { "ID:id", "id", N_("Indonesia (Indonesian)") }, { "ID:en", "en-ID", N_("Indonesia (English)") },
+        { "ZA:en", "en-ZA", N_("South Africa") }, { "NG:en", "en-NG", N_("Nigeria") }, { "KE:en", "en-KE", N_("Kenya") }, { "GH:en", "en-GH", N_("Ghana") },
+        { "UG:en", "en-UG", N_("Uganda") }, { "TZ:en", "en-TZ", N_("Tanzania") }, { "ET:en", "en-ET", N_("Ethiopia") }, { "ZW:en", "en-ZW", N_("Zimbabwe") },
+        { "NA:en", "en-NA", N_("Namibia") }, { "BW:en", "en-BW", N_("Botswana") },
+        { "IL:he", "he", N_("Israel (Hebrew)") }, { "IL:en", "en-IL", N_("Israel (English)") },
+        { "EG:ar", "ar", N_("Egypt") }, { "SA:ar", "ar", N_("Saudi Arabia") }, { "AE:ar", "ar", N_("United Arab Emirates") }, { "LB:ar", "ar", N_("Lebanon") },
+        { "MA:fr", "fr", N_("Morocco") }, { "SN:fr", "fr", N_("Senegal") },
+        { "BR:pt-419", "pt-BR", N_("Brazil") }, { "PT:pt-150", "pt-PT", N_("Portugal") },
+        { "MX:es-419", "es-419", N_("Mexico") }, { "AR:es-419", "es-419", N_("Argentina") }, { "CL:es-419", "es-419", N_("Chile") },
+        { "CO:es-419", "es-419", N_("Colombia") }, { "PE:es-419", "es-419", N_("Peru") }, { "VE:es-419", "es-419", N_("Venezuela") },
+        { "CU:es-419", "es-419", N_("Cuba") },
+        { "ES:es", "es", N_("Spain") }, { "FR:fr", "fr", N_("France") }, { "IT:it", "it", N_("Italy") },
+        { "DE:de", "de", N_("Germany") }, { "AT:de", "de", N_("Austria") }, { "CH:de", "de", N_("Switzerland (German)") }, { "CH:fr", "fr", N_("Switzerland (French)") },
+        { "NL:nl", "nl", N_("Netherlands") }, { "BE:nl", "nl", N_("Belgium (Dutch)") }, { "BE:fr", "fr", N_("Belgium (French)") },
+        { "SE:sv", "sv", N_("Sweden") }, { "NO:no", "no", N_("Norway") }, { "FI:fi", "fi-FI", N_("Finland") },
+        { "PL:pl", "pl", N_("Poland") }, { "CZ:cs", "cs", N_("Czechia") }, { "SK:sk", "sk", N_("Slovakia") }, { "HU:hu", "hu", N_("Hungary") },
+        { "RO:ro", "ro", N_("Romania") }, { "BG:bg", "bg", N_("Bulgaria") }, { "GR:el", "el", N_("Greece") }, { "SI:sl", "sl", N_("Slovenia") },
+        { "RS:sr", "sr", N_("Serbia") }, { "LT:lt", "lt", N_("Lithuania") }, { "LV:lv", "lv", N_("Latvia") }, { "EE:et", "et-EE", N_("Estonia") },
+        { "UA:uk", "uk", N_("Ukraine (Ukrainian)") }, { "UA:ru", "ru", N_("Ukraine (Russian)") }, { "RU:ru", "ru", N_("Russia") }, { "TR:tr", "tr", N_("Turkey") },
+        { "CN:zh-Hans", "zh-CN", N_("China") }, { "TW:zh-Hant", "zh-TW", N_("Taiwan") }, { "HK:zh-Hant", "zh-HK", N_("Hong Kong") },
+        { "JP:ja", "ja", N_("Japan") }, { "KR:ko", "ko", N_("South Korea") }, { "TH:th", "th", N_("Thailand") }, { "VN:vi", "vi", N_("Vietnam") }
     };
 
     private static GLib.Mutex mutex;
@@ -173,14 +177,19 @@ public class GoogleNewsUtils {
 
     // "US News", "Germany News", "Canada News".
     public static string national_label() {
-        return is_us_edition() ? "US News" : country_name() + " News";
+        // TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
+        return is_us_edition() ? _("US News") : _("%s News").printf(country_name());
     }
 
-    // The edition's country without its language: "Canada", not "Canada (French)".
+    // The edition's country without its language, translated: "Canada",
+    // not "Canada (French)".
     public static string country_name() {
-        string name = edition().name;
-        int paren = name.index_of(" (");
-        return paren > 0 ? name.substring(0, paren) : name;
+        string name = _(edition().name);
+        // Chinese and Japanese translations may use a full-width parenthesis
+        int paren = name.index_of("(");
+        int wide = name.index_of("（");
+        if (wide > 0 && (paren < 0 || wide < paren)) paren = wide;
+        return paren > 0 ? name.substring(0, paren).strip() : name;
     }
 
     // The chosen edition, or the automatic one if none was chosen.

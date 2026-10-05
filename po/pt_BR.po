@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy 0.12.5a\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 16:08-0500\n"
+"POT-Creation-Date: 2026-10-05 16:43-0500\n"
 "PO-Revision-Date: 2026-10-04 08:42-0300\n"
 "Last-Translator: Djair Guilherme\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -23,12 +23,17 @@ msgstr "Feeds"
 #: src/builders/cardBuilder.vala:229 src/managers/ui/headerManager.vala:482
 #: src/managers/ui/headerManager.vala:484
 #: src/managers/ui/headerManager.vala:514
+#: src/services/fetchers/fetcherUtils.vala:39
 msgid "News"
 msgstr "Notícias"
 
 #: src/builders/cardBuilder.vala:255
 #: src/ui/components/articles/articlePane.vala:293
 #: src/ui/components/articles/articleSheet.vala:518
+#: src/managers/content/articleManager.vala:1205
+#: src/managers/content/articleManager.vala:1362
+#: src/managers/content/articleManager.vala:1458
+#: src/managers/content/articleManager.vala:1875
 msgid "Searching for feed..."
 msgstr "Procurando feed..."
 
@@ -50,43 +55,67 @@ msgstr "Lido"
 msgid "General"
 msgstr "Geral"
 
+#: src/managers/content/categoryManager.vala:191
+msgid "U.S."
+msgstr "EUA"
+
 #: src/managers/content/categoryManager.vala:192
 #: src/managers/ui/headerManager.vala:463
+#: src/services/fetchers/bbcFetcher.vala:72
+#: src/services/fetchers/fetcherUtils.vala:27
 msgid "Technology"
 msgstr "Tecnologia"
 
 #: src/managers/content/categoryManager.vala:193
 #: src/managers/ui/headerManager.vala:464
+#: src/services/fetchers/bbcFetcher.vala:73
+#: src/services/fetchers/fetcherUtils.vala:28
+#: src/services/fetchers/pbsFetcher.vala:73
 msgid "Business"
 msgstr "Negócios"
 
 #: src/managers/content/categoryManager.vala:194
 #: src/managers/ui/headerManager.vala:466
+#: src/services/fetchers/bbcFetcher.vala:74
+#: src/services/fetchers/fetcherUtils.vala:32
+#: src/services/fetchers/pbsFetcher.vala:74
 msgid "Science"
 msgstr "Ciência"
 
 #: src/managers/content/categoryManager.vala:195
 #: src/managers/ui/headerManager.vala:465
+#: src/services/fetchers/bbcFetcher.vala:75
+#: src/services/fetchers/fetcherUtils.vala:33
 msgid "Sports"
 msgstr "Esportes"
 
 #: src/managers/content/categoryManager.vala:196
 #: src/managers/ui/headerManager.vala:467
+#: src/services/fetchers/bbcFetcher.vala:76
+#: src/services/fetchers/fetcherUtils.vala:34
+#: src/services/fetchers/pbsFetcher.vala:75
 msgid "Health"
 msgstr "Saúde"
 
 #: src/managers/content/categoryManager.vala:197
 #: src/managers/ui/headerManager.vala:468
+#: src/services/fetchers/bbcFetcher.vala:79
+#: src/services/fetchers/fetcherUtils.vala:35
+#: src/services/fetchers/pbsFetcher.vala:77
 msgid "Entertainment"
 msgstr "Entretenimento"
 
 #: src/managers/content/categoryManager.vala:198
 #: src/managers/ui/headerManager.vala:469
+#: src/services/fetchers/bbcFetcher.vala:78
+#: src/services/fetchers/fetcherUtils.vala:36
+#: src/services/fetchers/pbsFetcher.vala:76
 msgid "Politics"
 msgstr "Política"
 
 #: src/managers/content/categoryManager.vala:199
 #: src/managers/ui/headerManager.vala:470
+#: src/services/fetchers/fetcherUtils.vala:37
 msgid "Lifestyle"
 msgstr "Estilo de vida"
 
@@ -94,16 +123,19 @@ msgstr "Estilo de vida"
 #: src/managers/ui/headerManager.vala:471
 #: src/ui/controllers/myFeedExtrasController.vala:302
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:346
+#: src/services/fetchers/fetcherUtils.vala:29
 msgid "Markets"
 msgstr "Mercados"
 
 #: src/managers/content/categoryManager.vala:201
 #: src/managers/ui/headerManager.vala:472
+#: src/services/fetchers/fetcherUtils.vala:30
 msgid "Industries"
 msgstr "Indústrias"
 
 #: src/managers/content/categoryManager.vala:202
 #: src/managers/ui/headerManager.vala:473
+#: src/services/fetchers/fetcherUtils.vala:31
 msgid "Economics"
 msgstr "Economia"
 
@@ -113,6 +145,7 @@ msgstr "Economia"
 #: src/managers/ui/sidebarManager.vala:307
 #: src/managers/ui/sidebarManager.vala:698
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:377
+#: src/services/fetchers/paperboyFetcher.vala:138
 msgid "Front Page"
 msgstr "Primeira página"
 
@@ -121,9 +154,12 @@ msgstr "Primeira página"
 msgid "Trending"
 msgstr "Em alta"
 
+#. use URL, not name, for source filtering
 #: src/managers/content/categoryManager.vala:205
 #: src/managers/ui/headerManager.vala:474
 #: src/managers/ui/sidebarManager.vala:308
+#: src/services/fetchers/fetcherUtils.vala:24
+#: src/ui/controllers/fetchNewsController.vala:583
 msgid "My Feed"
 msgstr "Meu feed"
 
@@ -131,6 +167,8 @@ msgstr "Meu feed"
 #: src/managers/ui/headerManager.vala:477
 #: src/managers/ui/sidebarManager.vala:319
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
+#: src/services/feeds/unreadFetchService.vala:226
+#: src/ui/controllers/fetchNewsController.vala:1082
 msgid "Local News"
 msgstr "Notícias locais"
 
@@ -304,6 +342,7 @@ msgid "Scanning for PDFs…"
 msgstr "Procurando PDFs…"
 
 #: src/managers/media/magazineLibraryManager.vala:874
+#: src/services/magazines/magazineSourceScanner.vala:77
 msgid "No PDF links found on that page"
 msgstr "Nenhum link de PDF encontrado nessa página"
 
@@ -469,6 +508,9 @@ msgstr "Feed RSS"
 #. Add category label (bigger size) - left aligned
 #: src/managers/ui/headerManager.vala:459
 #: src/managers/ui/headerManager.vala:461 src/ui/contentView.vala:144
+#: src/services/fetchers/bbcFetcher.vala:80
+#: src/services/fetchers/fetcherUtils.vala:25
+#: src/services/fetchers/pbsFetcher.vala:78
 msgid "World News"
 msgstr "Notícias mundiais"
 
@@ -487,12 +529,13 @@ msgstr "Revistas"
 #: src/managers/ui/loadingStateManager.vala:187
 #: src/managers/ui/loadingStateManager.vala:656
 #: src/managers/ui/loadingStateManager.vala:662 src/ui/appWindow.vala:1401
-#: src/ui/contentView.vala:1034
+#: src/ui/contentView.vala:1034 src/managers/ui/layoutManager.vala:505
 msgid "<b>No more articles</b>"
 msgstr "<b>Não há mais artigos</b>"
 
 #: src/managers/ui/loadingStateManager.vala:187
 #: src/managers/ui/loadingStateManager.vala:656 src/ui/contentView.vala:1034
+#: src/managers/ui/layoutManager.vala:505
 msgid "No more articles"
 msgstr "Não há mais artigos"
 
@@ -570,6 +613,13 @@ msgstr ""
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
 msgid "Podcasts"
 msgstr "Podcasts"
+
+#. Page header label, e.g. "Dallas News".
+#. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
+#: src/models/news/localArea.vala:53 src/utils/net/googleNewsUtils.vala:181
+#, c-format
+msgid "%s News"
+msgstr "Notícias de %s"
 
 # Weather conditions shown next to the temperature. Translated with an explicit
 # "Weather" context: a bare "Clear" is already a translated msgid and means
@@ -755,11 +805,19 @@ msgstr "Fechar"
 
 #: src/ui/components/articles/articlePane.vala:302
 #: src/ui/components/articles/articleSheet.vala:525
+#: src/managers/content/articleManager.vala:1213
+#: src/managers/content/articleManager.vala:1370
+#: src/managers/content/articleManager.vala:1466
+#: src/managers/content/articleManager.vala:1904
 msgid "Removed article from saved"
 msgstr "Artigo removido dos salvos"
 
 #: src/ui/components/articles/articlePane.vala:309
 #: src/ui/components/articles/articleSheet.vala:530
+#: src/managers/content/articleManager.vala:1231
+#: src/managers/content/articleManager.vala:1388
+#: src/managers/content/articleManager.vala:1469
+#: src/managers/content/articleManager.vala:1907
 msgid "Added article to saved"
 msgstr "Artigo adicionado aos salvos"
 
@@ -1680,7 +1738,7 @@ msgid " magazines"
 msgstr " revistas"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:284
-#: src/ui/dialogs/app/prefs/prefsRows.vala:179
+#: src/ui/dialogs/app/prefs/prefsRows.vala:180
 msgid "Drag to reorder"
 msgstr "Arraste para reordenar"
 
@@ -2434,15 +2492,21 @@ msgstr ""
 "Mostrar uma etiqueta \"Aberto\" ao lado do contador de Negócios na barra "
 "lateral enquanto o mercado estiver aberto"
 
-#: src/ui/dialogs/app/prefs/prefsRows.vala:75
+#. TRANSLATORS: %s is the detected country, e.g. "Automatic (Germany)"
+#: src/ui/dialogs/app/prefs/prefsRows.vala:64
+#, c-format
+msgid "Automatic (%s)"
+msgstr ""
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:76
 msgid "Country"
 msgstr "País"
 
-#: src/ui/dialogs/app/prefs/prefsRows.vala:206
+#: src/ui/dialogs/app/prefs/prefsRows.vala:207
 msgid "Export"
 msgstr "Exportar"
 
-#: src/ui/dialogs/app/prefs/prefsRows.vala:210
+#: src/ui/dialogs/app/prefs/prefsRows.vala:211
 msgid "Import"
 msgstr "Importar"
 
@@ -2673,15 +2737,410 @@ msgstr "Não foi possível carregar os times"
 msgid "Check your connection and try again later."
 msgstr "Verifique sua conexão e tente novamente mais tarde."
 
-#~ msgid "US News"
-#~ msgstr "Notícias dos EUA"
+#. Source name for Google's own aggregated feeds; their items each carry
+#. a <source>, which RssFeedProcessor uses instead.
+#. Editions Google actually serves - anything else silently redirects to
+#. the US one. Each country's main edition comes first: it's used when
+#. the user's language has no edition there.
+#. TRANSLATORS: country names in the news edition picker. Where a country
+#. has several editions, keep the "Country (Language)" form - the app
+#. splits the country off at the parenthesis.
+#: src/utils/net/googleNewsUtils.vala:45
+msgid "United States"
+msgstr ""
 
+#: src/utils/net/googleNewsUtils.vala:45
+msgid "United States (Spanish)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:46
+msgid "United Kingdom"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:46
+msgid "Ireland"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:47
+msgid "Canada (English)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:47
+msgid "Canada (French)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:48
+msgid "Australia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:48
+msgid "New Zealand"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (English)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Hindi)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Bengali)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Marathi)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Tamil)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Telugu)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Malayalam)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Gujarati)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:51
+msgid "Pakistan"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:51
+msgid "Bangladesh"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:52
+#, fuzzy
+msgid "Singapore"
+msgstr "Página única"
+
+#: src/utils/net/googleNewsUtils.vala:52
+msgid "Malaysia (English)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:52
+msgid "Malaysia (Malay)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Philippines"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Indonesia (Indonesian)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Indonesia (English)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "South Africa"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Nigeria"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Kenya"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Ghana"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Uganda"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Tanzania"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Ethiopia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Zimbabwe"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:56
+msgid "Namibia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:56
+msgid "Botswana"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:57
+msgid "Israel (Hebrew)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:57
+msgid "Israel (English)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Egypt"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Saudi Arabia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "United Arab Emirates"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Lebanon"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:59
+msgid "Morocco"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:59
+msgid "Senegal"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:60
+msgid "Brazil"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:60
+msgid "Portugal"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Mexico"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Argentina"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Chile"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:62
+#, fuzzy
+msgid "Colombia"
+msgstr "Cor"
+
+#: src/utils/net/googleNewsUtils.vala:62
+msgid "Peru"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:62
+msgid "Venezuela"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:63
+msgid "Cuba"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:64
+msgid "Spain"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:64
+#, fuzzy
+msgid "France"
+msgstr "Cancelar"
+
+#: src/utils/net/googleNewsUtils.vala:64
+#, fuzzy
+msgid "Italy"
+msgstr "Itálico"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Germany"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Austria"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Switzerland (German)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Switzerland (French)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Netherlands"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Belgium (Dutch)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Belgium (French)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:67
+msgid "Sweden"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:67
+#, fuzzy
+msgid "Norway"
+msgstr "Avançar"
+
+#: src/utils/net/googleNewsUtils.vala:67
+msgid "Finland"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Poland"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Czechia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Slovakia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Hungary"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Romania"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Bulgaria"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:69
+#, fuzzy
+msgid "Greece"
+msgstr "Verde"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Slovenia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Serbia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Lithuania"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Latvia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Estonia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Ukraine (Ukrainian)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Ukraine (Russian)"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Russia"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Turkey"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "China"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "Taiwan"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "Hong Kong"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Japan"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "South Korea"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Thailand"
+msgstr ""
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Vietnam"
+msgstr ""
+
+#. "US News", "Germany News", "Canada News".
+#. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
+#: src/utils/net/googleNewsUtils.vala:181
+#: src/services/fetchers/bbcFetcher.vala:77
+#: src/services/fetchers/pbsFetcher.vala:72
+msgid "US News"
+msgstr "Notícias dos EUA"
+
+#: src/services/fetchers/fetcherUtils.vala:23
+#, fuzzy
+msgid "The Frontpage"
+msgstr "Primeira página"
+
+#: src/services/fetchers/paperboyFetcher.vala:156
+msgid "The Frontpage — Paperboy"
+msgstr ""
+
+#. Don't show error if we have cached articles
+#: src/services/fetchers/paperboyFetcher.vala:201
+#, fuzzy
+msgid "Paperboy: Error loading frontpage"
+msgstr "Erro ao carregar o feed"
+
+#: src/services/fetchers/paperboyFetcher.vala:524
+#, fuzzy
+msgid "Top Ten — Paperboy"
+msgstr "Bem-vindo ao Paperboy"
+
+#: src/ui/controllers/fetchNewsController.vala:298
+#: src/ui/controllers/fetchNewsController.vala:674
+msgid "Offline - showing cached articles"
+msgstr ""
+
+#: src/ui/controllers/fetchNewsController.vala:673
 #, c-format
-#~ msgid "%s News"
-#~ msgstr "Notícias de %s"
+msgid "%s — Offline, showing %d cached articles"
+msgstr ""
 
-#~ msgid "U.S."
-#~ msgstr "EUA"
+#: src/ui/controllers/fetchNewsController.vala:676
+#, fuzzy, c-format
+msgid "%s — Loaded %d articles from cache"
+msgstr "Artigo removido dos salvos"
 
 #~ msgid "Popular Categories"
 #~ msgstr "Categorias populares"

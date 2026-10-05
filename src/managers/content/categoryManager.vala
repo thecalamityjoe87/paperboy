@@ -188,7 +188,7 @@ using Gee;
     public static string get_category_display_name(string category) {
         switch (category) {
             case "general": return _("General");
-            case "us": return GoogleNewsUtils.is_us_edition() ? "U.S." : GoogleNewsUtils.country_name();
+            case "us": return GoogleNewsUtils.is_us_edition() ? _("U.S.") : GoogleNewsUtils.country_name();
             case "technology": return _("Technology");
             case "business": return _("Business");
             case "science": return _("Science");

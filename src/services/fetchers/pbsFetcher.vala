@@ -69,12 +69,12 @@ public class PbsFetcher : BaseFetcher {
 
     private string category_display_name(string category_id) {
         switch (category_id) {
-            case "us": return "US News";
-            case "business": return "Business";
-            case "science": return "Science";
-            case "health": return "Health";
-            case "politics": return "Politics";
-            case "entertainment": return "Entertainment";
+            case "us": return _("US News");
+            case "business": return _("Business");
+            case "science": return _("Science");
+            case "health": return _("Health");
+            case "politics": return _("Politics");
+            case "entertainment": return _("Entertainment");
             default: return _("World News");
         }
     }

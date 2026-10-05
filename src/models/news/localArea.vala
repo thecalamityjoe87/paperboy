@@ -49,7 +49,8 @@ public class LocalArea : GLib.Object {
 
     // Page header label, e.g. "Dallas News".
     public string display_name {
-        owned get { return short_name(city) + " News"; }
+        // TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
+        owned get { return _("%s News").printf(short_name(city)); }
     }
 
     // "Dallas, TX" -> "Dallas"

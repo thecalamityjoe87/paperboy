@@ -60,15 +60,16 @@ public class PrefsRows : GLib.Object {
         // ceids[i] is row i's edition id; "" means automatic
         string[] ceids = { "" };
         var names = new Gtk.StringList(null);
-        names.append("Automatic (%s)".printf(GoogleNewsUtils.automatic_edition().name));
+        // TRANSLATORS: %s is the detected country, e.g. "Automatic (Germany)"
+        names.append(_("Automatic (%s)").printf(_(GoogleNewsUtils.automatic_edition().name)));
         var editions = new Gee.ArrayList<GoogleNewsEdition?>();
         foreach (var e in GoogleNewsUtils.EDITIONS) editions.add(e);
-        editions.sort((a, b) => a.name.collate(b.name));
+        editions.sort((a, b) => _(a.name).collate(_(b.name)));
         uint selected = 0;
         foreach (var e in editions) {
             if (e.ceid == prefs.news_edition) selected = ceids.length;
             ceids += e.ceid;
-            names.append(e.name);
+            names.append(_(e.name));
         }
 
         var row = new Adw.ComboRow();

@@ -58,3 +58,12 @@ src/ui/dialogs/app/prefs/sourcesPrefsPage.vala
 src/ui/dialogs/app/prefs/sportsPrefsGroup.vala
 src/utils/net/googleNewsUtils.vala
 src/utils/text/dateUtils.vala
+src/managers/content/articleManager.vala
+src/managers/ui/layoutManager.vala
+src/services/feeds/unreadFetchService.vala
+src/services/fetchers/bbcFetcher.vala
+src/services/fetchers/fetcherUtils.vala
+src/services/fetchers/paperboyFetcher.vala
+src/services/fetchers/pbsFetcher.vala
+src/services/magazines/magazineSourceScanner.vala
+src/ui/controllers/fetchNewsController.vala
