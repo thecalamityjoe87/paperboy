@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy 0.12.5a\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 08:07-0300\n"
+"POT-Creation-Date: 2026-10-05 08:10-0300\n"
 "PO-Revision-Date: 2026-10-04 08:42-0300\n"
 "Last-Translator: Djair Guilherme\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -2696,15 +2696,12 @@ msgstr "Não foi possível carregar os times"
 msgid "Check your connection and try again later."
 msgstr "Verifique sua conexão e tente novamente mais tarde."
 
-#. "US News", "Germany News", "Canada News" (the suffix is translated).
-#: src/utils/net/googleNewsUtils.vala:149
-msgid "US News"
-msgstr "Notícias dos EUA"
+#~ msgid "US News"
+#~ msgstr "Notícias dos EUA"
 
-#: src/utils/net/googleNewsUtils.vala:150
 #, c-format
-msgid "%s News"
-msgstr "Notícias de %s"
+#~ msgid "%s News"
+#~ msgstr "Notícias de %s"
 
 #~ msgid "U.S."
 #~ msgstr "EUA"

@@ -144,10 +144,12 @@ public class GoogleNewsUtils {
         return country() == "US";
     }
 
-    // "US News", "Germany News", "Canada News" (the suffix is translated).
+    // The national-news label: just the country, in the user's language
+    // ("Brasil" for a Brazilian user, "Deutschland" for a German one). No
+    // "News" suffix - the connecting article (do/da/de) is not derivable
+    // from locale data, so the label is the bare country name.
     public static string national_label() {
-        if (is_us_edition()) return _("US News");
-        return _("%s News").printf(localized_country_name());
+        return localized_country_name();
     }
 
     // The country named in the user's language, from the system's iso-codes
