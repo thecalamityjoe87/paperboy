@@ -70,20 +70,4 @@ public class NytFetcher : BaseFetcher {
         return "New York Times";
     }
 
-    private void fetch_google_domain(
-        string current_category,
-        string current_search_query,
-        Soup.Session session,
-        string domain,
-        string source_name
-    ) {
-        string category_name = FetcherUtils.category_display_name(current_category);
-        string query = @"site:$(domain)";
-        if (current_search_query.length > 0) {
-            query = query + " " + current_search_query;
-        }
-        string url = GoogleNewsUtils.search_url(query);
-
-        RssFeedProcessor.fetch_rss_url(url, source_name, category_name, current_category, current_search_query, session, sink);
-    }
 }
