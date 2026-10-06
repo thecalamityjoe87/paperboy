@@ -1,5 +1,10 @@
 paperboy (0.14.1a-1) unstable; urgency=low
 
+  * "Recommended for you" appears after the first read or thumbs up and always fills with the best-matching articles
+  * Fixed a freeze when a feed's articles contain malformed numeric character entities
+  * Faster article card rendering: viewed and saved checks no longer read the disk or scan every saved article
+  * Feed and image processing compile their regular expressions once instead of on every call
+  * Log failures to save viewed state or back up a damaged config file instead of ignoring them
   * The onboarding country page icon now matches the dimmed color of the large icons on the other pages
 
  -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 05 Oct 2026 00:00:00 +0000

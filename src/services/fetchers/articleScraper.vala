@@ -45,7 +45,7 @@ public class ArticleScraper {
             string body = http_response.get_body_string();
 
             // Try to parse JSON-LD structured data first
-            var ld_regex = new Regex("<script[^>]*type=\\\"application/ld\\+json\\\"[^>]*>([\\s\\S]*?)</script>", RegexCompileFlags.DEFAULT);
+            var ld_regex = /<script[^>]*type=\"application\/ld\+json\"[^>]*>([\s\S]*?)<\/script>/;
             MatchInfo ld_info;
             if (ld_regex.match(body, 0, out ld_info)) {
                 do {
@@ -56,7 +56,7 @@ public class ArticleScraper {
 
             // Fallback: look for article blocks and extract anchors/images/snippets
             if (articles.size == 0) {
-                var article_block_regex = new Regex("<article[\\s\\S]*?</article>", RegexCompileFlags.DEFAULT);
+                var article_block_regex = /<article[\s\S]*?<\/article>/;
                 MatchInfo block_info;
                 if (article_block_regex.match(body, 0, out block_info)) {
                     int batch_limit = 18;
@@ -65,9 +65,9 @@ public class ArticleScraper {
                         if (batch_count >= batch_limit) break;
                         batch_count++;
                         string block = block_info.fetch(0);
-                        var headline_regex = new Regex("<h2[^>]*>\\s*<a[^>]*href=\\\"(/[^\\\"]+)\\\"[^>]*>(.*?)</a>\\s*</h2>", RegexCompileFlags.DEFAULT);
-                        var headline_h_regex = new Regex("<h[1-4][^>]*>\\s*<a[^>]*href=\\\"(/[^\\\"]+)\\\"[^>]*>(.*?)</a>\\s*</h[1-4]>", RegexCompileFlags.DEFAULT);
-                        var anchor_class_regex = new Regex("<a[^>]*href=\\\"(/[^\\\"]+)\\\"[^>]*class=\\\"[^\\\"]*(?:title|headline|story|article)[^\\\"]*\\\"[^>]*>(.*?)</a>", RegexCompileFlags.DEFAULT);
+                        var headline_regex = /<h2[^>]*>\s*<a[^>]*href=\"(\/[^\"]+)\"[^>]*>(.*?)<\/a>\s*<\/h2>/;
+                        var headline_h_regex = /<h[1-4][^>]*>\s*<a[^>]*href=\"(\/[^\"]+)\"[^>]*>(.*?)<\/a>\s*<\/h[1-4]>/;
+                        var anchor_class_regex = /<a[^>]*href=\"(\/[^\"]+)\"[^>]*class=\"[^\"]*(?:title|headline|story|article)[^\"]*\"[^>]*>(.*?)<\/a>/;
                         MatchInfo headline_info;
                         string rel_url = null;
                         string title = null;
@@ -81,7 +81,7 @@ public class ArticleScraper {
                             rel_url = headline_info.fetch(1);
                             title = headline_info.fetch(2).strip();
                         } else {
-                            var anchor_fallback = new Regex("<a[^>]*href=\\\"(/[^\\\"]+)\\\"[^>]*>([^<]{30,}?)</a>", RegexCompileFlags.DEFAULT);
+                            var anchor_fallback = /<a[^>]*href=\"(\/[^\"]+)\"[^>]*>([^<]{30,}?)<\/a>/;
                             MatchInfo af_info;
                             if (anchor_fallback.match(block, 0, out af_info)) {
                                 rel_url = af_info.fetch(1);
@@ -94,7 +94,7 @@ public class ArticleScraper {
                                 var article = new Paperboy.NewsArticle();
                                 article.title = title;
                                 article.url = url;
-                                var img_regex = new Regex("<img[^>]*src=\\\"(https://static\\.[^\\\"]+)\\\"[^>]*alt=\\\"([^\\\"]*)\\\"[^>]*>", RegexCompileFlags.DEFAULT);
+                                var img_regex = /<img[^>]*src=\"(https:\/\/static\.[^\"]+)\"[^>]*alt=\"([^\"]*)\"[^>]*>/;
                                 MatchInfo img_info;
                                 if (img_regex.match(block, 0, out img_info)) {
                                     do {
@@ -106,7 +106,7 @@ public class ArticleScraper {
                                         }
                                     } while (img_info.next());
                                 }
-                                var p_regex = new Regex("<p[^>]*>(.*?)</p>", RegexCompileFlags.DEFAULT);
+                                var p_regex = /<p[^>]*>(.*?)<\/p>/;
                                 MatchInfo p_info;
                                 if (p_regex.match(block, 0, out p_info)) {
                                     string snippet = p_info.fetch(1).strip();
@@ -115,7 +115,7 @@ public class ArticleScraper {
                                     }
                                 }
                                 // Try to extract a time/datetime from the article block
-                                var time_dt_regex = new Regex("<time[^>]*datetime=\\\"([^\\\"]+)\\\"[^>]*>(.*?)</time>", RegexCompileFlags.DEFAULT);
+                                var time_dt_regex = /<time[^>]*datetime=\"([^\"]+)\"[^>]*>(.*?)<\/time>/;
                                 MatchInfo time_info;
                                 if (time_dt_regex.match(block, 0, out time_info)) {
                                     // prefer datetime attribute if present
@@ -128,7 +128,7 @@ public class ArticleScraper {
                                     }
                                 } else {
                                     // fallback: <time> without datetime attr
-                                    var time_simple = new Regex("<time[^>]*>(.*?)</time>", RegexCompileFlags.DEFAULT);
+                                    var time_simple = /<time[^>]*>(.*?)<\/time>/;
                                     MatchInfo ts;
                                     if (time_simple.match(block, 0, out ts)) {
                                         string inner = ts.fetch(1).strip();
@@ -217,7 +217,7 @@ public class ArticleScraper {
     }
 
     private static string strip_html(string input) {
-        var regex = new Regex("<[^>]+>", RegexCompileFlags.DEFAULT);
+        var regex = /<[^>]+>/;
         return regex.replace(input, -1, 0, "");
     }
 }

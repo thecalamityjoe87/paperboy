@@ -1,5 +1,10 @@
-# v0.14.1a - Onboarding Fixes
+# v0.14.1a - Recommendations From Your First Article, and a Feed Freeze Fix
 
+- "Recommended for you" now appears on the Front Page as soon as you open or give a thumbs up to your first article, instead of after ten. It always fills with the articles that best match what you read and like, starting broad and getting more personal the more you read and rate
+- Fixed Paperboy freezing while loading a feed whose articles contain certain malformed character codes
+- Article cards appear faster, especially on busy pages or when you have many saved articles
+- Feeds and article images are processed faster
+- Paperboy now logs an error when it can't save which articles you've read, or can't back up a damaged settings file, instead of failing silently
 - The icon on onboarding's "Where Are You Reading From?" page is now the same soft grey as the large icons on the other pages, instead of solid black or white
 
 # v0.14.0a - Paperboy Goes International: Your Country's News, a Per-Country Front Page, and Translations in Twenty Languages

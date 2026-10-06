@@ -29,7 +29,7 @@ namespace Tools {
 		// a given host substring and assigns them to articles lacking images.
 		public static void extract_article_images_from_html(string html, Gee.ArrayList<Paperboy.NewsArticle> articles, string host_substring) {
 			try {
-				var img_regex = new Regex("<img[^>]*src=\\\"(https?://[^\\\"]+)\\\"[^>]*>", RegexCompileFlags.DEFAULT);
+				var img_regex = /<img[^>]*src=\"(https?:\/\/[^\"]+)\"[^>]*>/;
 				MatchInfo m;
 				if (!img_regex.match(html, 0, out m)) return;
 				var found_urls = new Gee.ArrayList<string>();
@@ -63,7 +63,7 @@ namespace Tools {
 		// FIRST: Look for <a href> tags pointing directly to image files
 		// Pattern: <a href="https://example.com/image.jpg">
 		try {
-			var href_regex = new Regex("href=[\"']([^\"']+\\.(jpg|jpeg|png|webp|gif))[\"']", RegexCompileFlags.CASELESS);
+			var href_regex = /href=["']([^"']+\.(jpg|jpeg|png|webp|gif))["']/i;
 			MatchInfo href_match;
 			if (href_regex.match(html_snippet, 0, out href_match)) {
 				string href_url = href_match.fetch(1);
@@ -85,7 +85,7 @@ namespace Tools {
 		}
 
 		// SECOND: Look for src/srcset attributes (existing logic)
-		var attr_regex = new Regex("(src|data-src|srcset|data-srcset)=[\"']([^\"']+)[\"']", RegexCompileFlags.DEFAULT);
+		var attr_regex = /(src|data-src|srcset|data-srcset)=["']([^"']+)["']/;
 		MatchInfo m;
 		if (attr_regex.match(html_snippet, 0, out m)) {
 			do {
@@ -204,18 +204,18 @@ namespace Tools {
 
 					if (http_response.is_success() && http_response.body != null) {
 						string body = http_response.get_body_string();
-						var og_regex = new Regex("<meta[^>]*property=\\\"og:image\\\"[^>]*content=\\\"([^\\\"]+)\\\"", RegexCompileFlags.DEFAULT);
+						var og_regex = /<meta[^>]*property=\"og:image\"[^>]*content=\"([^\"]+)\"/;
 						MatchInfo match_info;
 						if (og_regex.match(body, 0, out match_info)) {
 							string image_url = match_info.fetch(1);
 							string title = "";
-							var title_regex = new Regex("<meta[^>]*property=\\\"og:title\\\"[^>]*content=\\\"([^\\\"]+)\\\"", RegexCompileFlags.DEFAULT);
+							var title_regex = /<meta[^>]*property=\"og:title\"[^>]*content=\"([^\"]+)\"/;
 							MatchInfo t_info;
 							if (title_regex.match(body, 0, out t_info)) {
 								title = t_info.fetch(1);
 							}
 							if (title.length == 0) {
-								var h1_regex = new Regex("<h1[^>]*>([^<]+)</h1>", RegexCompileFlags.DEFAULT);
+								var h1_regex = /<h1[^>]*>([^<]+)<\/h1>/;
 								MatchInfo h1_info;
 								if (h1_regex.match(body, 0, out h1_info)) {
 									title = ImageProcessor.strip_html(h1_info.fetch(1)).strip();
@@ -269,24 +269,24 @@ namespace Tools {
 					string? best = null;
 
 					// 1) Try to find image in JSON-LD blocks (application/ld+json)
-					var jsonld_regex = new Regex("<script[^>]*type=\\\"application/ld\\+json\\\"[^>]*>([\\s\\S]*?)</script>", RegexCompileFlags.DEFAULT);
+					var jsonld_regex = /<script[^>]*type=\"application\/ld\+json\"[^>]*>([\s\S]*?)<\/script>/;
 					MatchInfo mjson;
 					if (jsonld_regex.match(body, 0, out mjson)) {
 						do {
 							string j = mjson.fetch(1);
 							// Heuristics: look for "image": "url" or "image": { "url": "..." } or array
-							var img_simple = new Regex("\\\"image\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"", RegexCompileFlags.DEFAULT);
+							var img_simple = /\"image\"\s*:\s*\"([^\"]+)\"/;
 							MatchInfo ms;
 							if (img_simple.match(j, 0, out ms)) {
 								best = ms.fetch(1);
 								break;
 							}
-							var img_obj = new Regex("\\\"image\\\"\\s*:\\s*\\{[\\s\\S]*?\\\"url\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"", RegexCompileFlags.DEFAULT);
+							var img_obj = /\"image\"\s*:\s*\{[\s\S]*?\"url\"\s*:\s*\"([^\"]+)\"/;
 							if (img_obj.match(j, 0, out ms)) {
 								best = ms.fetch(1);
 								break;
 							}
-							var img_arr = new Regex("\\\"image\\\"\\s*:\\s*\\[\\s\\S]*?\\\"([^\\\"]+)\\\"", RegexCompileFlags.DEFAULT);
+							var img_arr = /\"image\"\s*:\s*\[\s\S]*?\"([^\"]+)\"/;
 							if (img_arr.match(j, 0, out ms)) {
 								best = ms.fetch(1);
 								break;
@@ -296,7 +296,7 @@ namespace Tools {
 
 					// 2) If no JSON-LD result, parse srcset/data-srcset and data-src attributes across the page
 					if (best == null) {
-						var srcset_regex = new Regex("(srcset|data-srcset|data-src|src)=[\"']([^\"']+)[\"']", RegexCompileFlags.DEFAULT);
+						var srcset_regex = /(srcset|data-srcset|data-src|src)=["']([^"']+)["']/;
 						MatchInfo ms2;
 						if (srcset_regex.match(body, 0, out ms2)) {
 							string candidate = null;
@@ -320,7 +320,7 @@ namespace Tools {
 
 					// 3) Fallback: look for large images hosted on BBC image CDN (ichef.bbci.co.uk)
 					if (best == null) {
-						var bbc_img = new Regex("https?://ichef\\.bbci\\.co\\.[a-z]+/[^\"'\\s]+", RegexCompileFlags.DEFAULT);
+						var bbc_img = /https?:\/\/ichef\.bbci\.co\.[a-z]+\/[^"'\s]+/;
 						MatchInfo mb;
 						if (bbc_img.match(body, 0, out mb)) {
 							best = mb.fetch(0);
@@ -428,47 +428,47 @@ namespace Tools {
 				if (u.has_prefix("//")) u = "https:" + u;
 				if (u.has_prefix("http:") && !u.has_prefix("https:")) u = "https:" + u.substring(5);
 				// If the URL embeds a numeric news size segment, replace it with 1024
-				var re_news_size = new Regex("/news/\\d+/", RegexCompileFlags.DEFAULT);
+				var re_news_size = /\/news\/\d+\//;
 				MatchInfo m;
 				if (re_news_size.match(u, 0, out m)) {
 					u = re_news_size.replace(u, -1, 0, "/news/1024/");
 				}
 
 				// If an explicit WxH segment exists (e.g. /320x180/), prefer a larger ratio
-				var re_xy = new Regex("/\\d+x\\d+/(?!cpsprodpb)", RegexCompileFlags.DEFAULT);
+				var re_xy = /\/\d+x\d+\/(?!cpsprodpb)/;
 				if (re_xy.match(u, 0, out m)) {
 					u = re_xy.replace(u, -1, 0, "/1024x576/");
 				}
 
 				// BBC-specific: common IChef patterns include /ace/standard/<size>/ or /ace/thumbnail/<size>/
-				var re_ace_standard = new Regex("/ace/standard/\\d+/", RegexCompileFlags.DEFAULT);
+				var re_ace_standard = /\/ace\/standard\/\d+\//;
 				if (re_ace_standard.match(u, 0, out m)) {
 					u = re_ace_standard.replace(u, -1, 0, "/ace/standard/1024/");
 				}
 
-				var re_ace_thumb = new Regex("/ace/(thumbnail|thumb|standard)/\\d+/", RegexCompileFlags.DEFAULT);
+				var re_ace_thumb = /\/ace\/(thumbnail|thumb|standard)\/\d+\//;
 				if (re_ace_thumb.match(u, 0, out m)) {
 					u = re_ace_thumb.replace(u, -1, 0, "/ace/standard/1024/");
 				}
 
 				// Some BBC URLs include /resize/<w>x<h>/ or /preview/<size>/ — rewrite to a larger resize when present
-				var re_resize = new Regex("/(resize|preview)/\\d+x\\d+/(?!cpsprodpb)", RegexCompileFlags.DEFAULT);
+				var re_resize = /\/(resize|preview)\/\d+x\d+\/(?!cpsprodpb)/;
 				if (re_resize.match(u, 0, out m)) {
 					u = re_resize.replace(u, -1, 0, "/resize/1024x576/");
 				}
 
 				// Insert a 1024 segment before cpsprodpb if present but no size segment exists
-				var re_cps = new Regex("/news/(?:[^/]+/)*cpsprodpb/", RegexCompileFlags.DEFAULT);
+				var re_cps = /\/news\/(?:[^\/]+\/)*cpsprodpb\//;
 				if (re_cps.match(u, 0, out m)) {
 					// If we don't already contain /1024/ near the start, try adding it after /news/
-					var re_news = new Regex("/news/(?!1024/)", RegexCompileFlags.DEFAULT);
+					var re_news = /\/news\/(?!1024\/)/;
 					if (re_news.match(u, 0, out m)) {
 						u = re_news.replace(u, -1, 0, "/news/1024/");
 					}
 				}
 
 				// Some paths contain explicit small tokens; replace common "thumb"/"small"/"thumbnail" segments
-				var re_small = new Regex("/(thumb|thumbnail|small|crop)/", RegexCompileFlags.DEFAULT);
+				var re_small = /\/(thumb|thumbnail|small|crop)\//;
 				if (re_small.match(u, 0, out m)) {
 					u = re_small.replace(u, -1, 0, "/1024x576/");
 				}
@@ -484,7 +484,7 @@ namespace Tools {
 		}
 
 		private static string strip_html(string input) {
-			var regex = new Regex("<[^>]+>", RegexCompileFlags.DEFAULT);
+			var regex = /<[^>]+>/;
 			return regex.replace(input, -1, 0, "");
 		}
 	}

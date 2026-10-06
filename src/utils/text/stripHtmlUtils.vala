@@ -21,6 +21,16 @@
  */
 
 public class stripHtmlUtils {
+    // Appends the character for a numeric entity, or the entity text
+    // unchanged if it isn't a valid code point.
+    private static void append_code_point(StringBuilder result, int64 code_point, string entity) {
+        if (code_point > 0 && code_point <= 0x10FFFF) {
+            result.append_unichar((unichar)code_point);
+        } else {
+            result.append(entity);
+        }
+    }
+
 
     // Strips <script> and <style> blocks (including their contents) from
     // `s`. Used before any text search over raw HTML - a bundled script can
@@ -29,9 +39,8 @@ public class stripHtmlUtils {
     // markup.
     private static string strip_script_and_style(string s) {
         try {
-            var ss_regex = new Regex("<(script|style)[^>]*>.*?</\\1>",
-                                     RegexCompileFlags.DOTALL | RegexCompileFlags.CASELESS);
-            return ss_regex.replace(s, -1, 0, "");
+            // Regex literals are compiled once (thread-safely); this runs for every feed item
+            return /<(script|style)[^>]*>.*?<\/\1>/is.replace(s, -1, 0, "");
         } catch (Error e) {
             return s;
         }
@@ -83,56 +92,34 @@ public class stripHtmlUtils {
         while (out_str.index_of("&AMP;#") >= 0)
             out_str = out_str.replace("&AMP;#", "&#");
 
-        // Decode numeric entities (hex + decimal)
+        // Decode numeric entities (hex + decimal) in one pass each. Entities
+        // outside the valid code point range are left as-is.
         try {
-            // Hex entities
-            var hex_regex = new Regex("&#[xX]([0-9a-fA-F]+);");
-            MatchInfo? m = null;
-            hex_regex.match(out_str, 0, out m);
-
-            while (m != null && m.matches()) {
-                string entity = m.fetch(0);
+            out_str = /&#[xX]([0-9a-fA-F]+);/.replace_eval(out_str, -1, 0, 0, (m, result) => {
                 string hex_str = m.fetch(1);
-
-                int64 code_point = 0;
-                for (int i = 0; i < hex_str.length; i++) {
-                    char c = hex_str[i];
-                    code_point *= 16;
-                    if (c >= '0' && c <= '9') code_point += (c - '0');
-                    else if (c >= 'a' && c <= 'f') code_point += (c - 'a' + 10);
-                    else if (c >= 'A' && c <= 'F') code_point += (c - 'A' + 10);
+                int64 code_point = -1;
+                // More than 6 hex digits can't be a code point and would overflow
+                if (hex_str.length <= 6) {
+                    code_point = 0;
+                    for (int i = 0; i < hex_str.length; i++) {
+                        char c = hex_str[i];
+                        code_point *= 16;
+                        if (c >= '0' && c <= '9') code_point += (c - '0');
+                        else if (c >= 'a' && c <= 'f') code_point += (c - 'a' + 10);
+                        else if (c >= 'A' && c <= 'F') code_point += (c - 'A' + 10);
+                    }
                 }
+                append_code_point(result, code_point, m.fetch(0));
+                return false;
+            });
 
-                if (code_point > 0 && code_point <= 0x10FFFF) {
-                    out_str = out_str.replace(entity, ((unichar)code_point).to_string());
-                }
-
-                hex_regex.match(out_str, 0, out m);
-            }
-
-            // Decimal entities
-            var dec_regex = new Regex("&#([0-9]+);");
-            MatchInfo? dm = null;
-            dec_regex.match(out_str, 0, out dm);
-
-            while (dm != null && dm.matches()) {
-                string entity = dm.fetch(0);
-                string dec_str = dm.fetch(1);
-
-                int64 code_point;
-                try {
-                    code_point = int64.parse(dec_str);
-                } catch (Error e) {
-                    dec_regex.match(out_str, 0, out dm);
-                    continue;
-                }
-
-                if (code_point > 0 && code_point <= 0x10FFFF) {
-                    out_str = out_str.replace(entity, ((unichar)code_point).to_string());
-                }
-
-                dec_regex.match(out_str, 0, out dm);
-            }
+            out_str = /&#([0-9]+);/.replace_eval(out_str, -1, 0, 0, (m, result) => {
+                string dec_str = m.fetch(1);
+                // More than 7 digits can't be a code point and could overflow
+                int64 code_point = dec_str.length <= 7 ? int64.parse(dec_str) : -1;
+                append_code_point(result, code_point, m.fetch(0));
+                return false;
+            });
 
         } catch (RegexError e) {
             // Fallback manual replacements

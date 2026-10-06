@@ -52,7 +52,7 @@ public class MetaCache : GLib.Object {
 
             if (total > max_total_bytes) {
                 // Clear only images, preserve metadata (viewed states)
-                try { clear_images(); } catch (GLib.Error e) { }
+                clear_images();
             }
         } catch (GLib.Error e) {
             // ignore
@@ -144,7 +144,7 @@ public class MetaCache : GLib.Object {
                 return kf;
             } catch (GLib.Error e) {
                 // Corrupt - remove
-                try { FileUtils.remove(meta_path); } catch (GLib.Error ee) { }
+                FileUtils.remove(meta_path);
                 return null;
             }
         } catch (GLib.Error e) {
@@ -177,14 +177,14 @@ public class MetaCache : GLib.Object {
                 // into it). Treat files > 1MB as corrupted and remove them to avoid heap/alloc crashes.
                 const long MAX_META_SIZE = 1024 * 1024; // 1 MB
                 if (size > MAX_META_SIZE) {
-                    try { warning("MetaCache.read_meta: meta file too large (%d bytes), removing %s", (int)size, meta); } catch (GLib.Error ee) { }
-                    try { FileUtils.remove(meta); } catch (GLib.Error e2) { }
+                    warning("MetaCache.read_meta: meta file too large (%d bytes), removing %s", (int)size, meta);
+                    FileUtils.remove(meta);
                     return null;
                 }
             } catch (GLib.Error e) {
                 // SECURITY FIX: If we can't verify file size, don't risk parsing it
                 // This prevents potential attacks using files that bypass size checks
-                try { warning("MetaCache.read_meta: cannot verify file size for %s: %s -- refusing to parse", meta, e.message); } catch (GLib.Error ee) { }
+                warning("MetaCache.read_meta: cannot verify file size for %s: %s -- refusing to parse", meta, e.message);
                 return null;
             }
 
@@ -195,13 +195,13 @@ public class MetaCache : GLib.Object {
             } catch (GLib.Error e) {
                 // If parsing fails, treat the file as corrupted: remove it so we don't
                 // repeatedly try to parse a bad file and risk allocator corruption.
-                try { warning("MetaCache.read_meta: failed to parse meta %s: %s -- removing corrupted file", meta, e.message); } catch (GLib.Error ee) { }
-                try { FileUtils.remove(meta); } catch (GLib.Error e2) { }
+                warning("MetaCache.read_meta: failed to parse meta %s: %s -- removing corrupted file", meta, e.message);
+                FileUtils.remove(meta);
                 return null;
             }
         } catch (GLib.Error e) {
             // Any other filesystem error: log and return null (best-effort)
-            try { warning("MetaCache.read_meta: unexpected error accessing %s: %s", meta, e.message); } catch (GLib.Error ee) { }
+            warning("MetaCache.read_meta: unexpected error accessing %s: %s", meta, e.message);
             return null;
         }
     }
@@ -286,7 +286,7 @@ public class MetaCache : GLib.Object {
         write_meta(url, kf);
         // If cache folder grew too large, clear it (best-effort) to avoid
         // unbounded disk usage between application runs.
-        try { maybe_clear_if_oversized(); } catch (GLib.Error e) { }
+        maybe_clear_if_oversized();
     }
 
     public void touch(string url) {
@@ -389,7 +389,7 @@ public class MetaCache : GLib.Object {
                     if (info.get_file_type() != FileType.REGULAR) continue;
                     string name = info.get_name();
                     string full = Path.build_filename(images_dir_path, name);
-                    try { FileUtils.remove(full); } catch (GLib.Error e) { }
+                    FileUtils.remove(full);
                 }
             } catch (GLib.Error e) {
                 // ignore
@@ -406,7 +406,7 @@ public class MetaCache : GLib.Object {
                 while ((minfo = meta_enum.next_file(null)) != null) {
                     string mname = minfo.get_name();
                     string full = Path.build_filename(cache_dir_path, mname);
-                    try { FileUtils.remove(full); } catch (GLib.Error e) { }
+                    FileUtils.remove(full);
                 }
             } catch (GLib.Error e) {
                 // ignore
@@ -415,8 +415,8 @@ public class MetaCache : GLib.Object {
             }
 
             // Attempt to remove the now-empty directories
-            try { FileUtils.remove(images_dir_path); } catch (GLib.Error e) { }
-            try { FileUtils.remove(cache_dir_path); } catch (GLib.Error e) { }
+            FileUtils.remove(images_dir_path);
+            FileUtils.remove(cache_dir_path);
         } catch (GLib.Error e) {
             // Best-effort only; don't propagate
         }
@@ -436,7 +436,7 @@ public class MetaCache : GLib.Object {
                     if (info.get_file_type() != FileType.REGULAR) continue;
                     string name = info.get_name();
                     string full = Path.build_filename(images_dir_path, name);
-                    try { FileUtils.remove(full); } catch (GLib.Error e) { }
+                    FileUtils.remove(full);
                 }
             } catch (GLib.Error e) {
                 // ignore
@@ -444,11 +444,11 @@ public class MetaCache : GLib.Object {
                 if (img_enum != null) try { img_enum.close(null); } catch (GLib.Error e) { }
             }
             // Attempt to remove the now-empty images directory
-            try { FileUtils.remove(images_dir_path); } catch (GLib.Error e) { }
+            FileUtils.remove(images_dir_path);
             
             // Also clean up old metadata files (older than 90 days) to prevent
             // unbounded growth, but preserve recent viewed states
-            try { clean_old_metadata(90); } catch (GLib.Error e) { }
+            clean_old_metadata(90);
         } catch (GLib.Error e) {
             // Best-effort only; don't propagate
         }
@@ -477,7 +477,7 @@ public class MetaCache : GLib.Object {
                         int64 file_time = modified_time.to_unix();
                         if (file_time < cutoff_time) {
                             string full = Path.build_filename(cache_dir_path, name);
-                            try { FileUtils.remove(full); } catch (GLib.Error e) { }
+                            FileUtils.remove(full);
                         }
                     }
                 }

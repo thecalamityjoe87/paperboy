@@ -792,7 +792,7 @@ public class NewsPreferences : GLib.Object {
         // Flush before the restart quits the app, or dconf can drop the resets.
         GLib.Settings.sync();
 
-        try { GLib.FileUtils.remove(config_path); } catch (GLib.Error e) { }
+        GLib.FileUtils.remove(config_path);
 
         delete_directory_recursive(GLib.Path.build_filename(GLib.Environment.get_user_cache_dir(), "paperboy"));
         delete_directory_recursive(GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "paperboy"));
@@ -810,12 +810,14 @@ public class NewsPreferences : GLib.Object {
                 if (info.get_file_type() == GLib.FileType.DIRECTORY) {
                     delete_directory_recursive(child_path);
                 } else {
-                    try { GLib.FileUtils.remove(child_path); } catch (GLib.Error e) { }
+                    GLib.FileUtils.remove(child_path);
                 }
             }
-        } catch (GLib.Error e) { }
+        } catch (GLib.Error e) {
+            warning("NewsPreferences.factory_reset: failed to list %s: %s", path, e.message);
+        }
 
-        try { GLib.DirUtils.remove(path); } catch (GLib.Error e) { }
+        GLib.DirUtils.remove(path);
     }
 
     public void save_config() {
@@ -903,11 +905,12 @@ public class NewsPreferences : GLib.Object {
                 } catch (GLib.Error e) {
                     warning("NewsPreferences.load_config: failed to parse config file: %s - starting with defaults", e.message);
                     // Backup corrupted file
-                    try {
-                        string backup_path = config_path + ".parse-error";
-                        FileUtils.rename(config_path, backup_path);
+                    string backup_path = config_path + ".parse-error";
+                    if (FileUtils.rename(config_path, backup_path) == 0) {
                         warning("NewsPreferences.load_config: backed up unparseable config to %s", backup_path);
-                    } catch (GLib.Error e2) { }
+                    } else {
+                        warning("NewsPreferences.load_config: failed to back up unparseable config to %s", backup_path);
+                    }
                     // Continue with empty config
                     config = new GLib.KeyFile();
                 }
