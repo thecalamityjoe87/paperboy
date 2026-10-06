@@ -477,6 +477,22 @@ public class ArticleSheet : GLib.Object {
         });
     }
 
+    // A one-off sheet over the window (popups, middle-clicked links,
+    // videos), torn down once closed. Its closed handler is the only thing
+    // holding it while open, so the handler disconnects itself after
+    // destroy() - staying connected kept every closed sheet alive.
+    public static ArticleSheet show_standalone(NewsWindow parent_window) {
+        var sheet = new ArticleSheet(parent_window);
+        parent_window.root_overlay.add_overlay(sheet.get_widget());
+        ulong closed_handler = 0;
+        closed_handler = sheet.closed.connect(() => {
+            parent_window.root_overlay.remove_overlay(sheet.get_widget());
+            sheet.destroy();
+            sheet.disconnect(closed_handler);
+        });
+        return sheet;
+    }
+
     private void update_nav_buttons() {
         if (back_btn != null) back_btn.set_sensitive(webview != null ? webview.can_go_back() : false);
         if (forward_btn != null) forward_btn.set_sensitive(webview != null ? webview.can_go_forward() : false);
@@ -577,11 +593,7 @@ public class ArticleSheet : GLib.Object {
         // Popup/new window handling
         webview.create.connect((view, nav) => {
             if (is_destroyed) return null;
-            var new_sheet = new ArticleSheet(parent_window);
-            parent_window.root_overlay.add_overlay(new_sheet.get_widget());
-            new_sheet.closed.connect(() => {
-                parent_window.root_overlay.remove_overlay(new_sheet.get_widget()); new_sheet.destroy();
-            });
+            var new_sheet = show_standalone(parent_window);
             return new_sheet.webview;
         });
 
@@ -615,11 +627,7 @@ public class ArticleSheet : GLib.Object {
             uri = nav_action.get_request()?.get_uri();
 
             if (uri != null) {
-                var new_sheet = new ArticleSheet(parent_window);
-                parent_window.root_overlay.add_overlay(new_sheet.get_widget()); new_sheet.open(uri);
-                new_sheet.closed.connect(() => {
-                    parent_window.root_overlay.remove_overlay(new_sheet.get_widget()); new_sheet.destroy();
-                });
+                show_standalone(parent_window).open(uri);
                 nav_decision.ignore();
                 return true;
             }

@@ -263,10 +263,11 @@ namespace Managers {
         // the animation's "done" signal.
         private Gee.ArrayList<GLib.Object> active_entrance_animations = new Gee.ArrayList<GLib.Object>();
 
-        // Keyed by each card's save ribbon, so repeated toggling of the
-        // same card reuses (and cancels) its own in-flight state rather
-        // than any other card's.
-        private Gee.HashMap<Gtk.Widget, SaveAnimState> save_anim_states = new Gee.HashMap<Gtk.Widget, SaveAnimState>();
+        // Each card's save-animation state lives on its own save ribbon
+        // (see get_save_anim_state), so repeated toggling of the same card
+        // reuses (and cancels) its own in-flight state rather than any
+        // other card's.
+        private const string SAVE_ANIM_STATE_KEY = "save-anim-state";
 
         // Same reasoning as active_entrance_animations, for the save
         // ribbon/ghost/arrival-pulse animations below.
@@ -280,11 +281,13 @@ namespace Managers {
             this.window = win;
         }
 
-        private SaveAnimState get_save_anim_state(Gtk.Widget key) {
-            var s = save_anim_states.get(key);
+        // Stored on the ribbon rather than in a map keyed by it, which held
+        // every saved card's ribbon for the life of the window.
+        private SaveAnimState get_save_anim_state(Gtk.Widget save_ribbon) {
+            var s = save_ribbon.get_data<SaveAnimState>(SAVE_ANIM_STATE_KEY);
             if (s == null) {
                 s = new SaveAnimState();
-                save_anim_states.set(key, s);
+                save_ribbon.set_data<SaveAnimState>(SAVE_ANIM_STATE_KEY, s);
             }
             return s;
         }

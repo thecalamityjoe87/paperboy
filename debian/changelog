@@ -8,6 +8,7 @@ paperboy (0.14.1a-1) unstable; urgency=low
   * The onboarding country page icon now matches the dimmed color of the large icons on the other pages
   * Preferences opens faster: its source, feed, podcast, magazine and category subpages are built on first open, the article cache size is measured off the main thread, and followed-feed logos load on a background thread pool
   * Fixed reference-cycle leaks that kept every podcast, podcast hero, magazine and score card alive, and every article, podcast and sidebar context-menu popover, after they were removed
+  * Free closed pop-up article sheets and per-card save-animation state, and cap the Google News URL and reading-time prefetch caches at 2000 entries
 
  -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 05 Oct 2026 00:00:00 +0000
 
