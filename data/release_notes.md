@@ -41,6 +41,7 @@
 - Preferences → Personalization → Sports Score Cards has two new pages. Leagues lists every league under a region heading (International, Europe, United States and Canada, Latin America, and Asia and Oceania), with its sport underneath, so you can switch each one on or off. Section Order lets you drag the leagues that are on into the order their sections appear in the Sports category
 - NFL, NBA, MLB, NHL, and MLS score cards are now on by default only in the US and Canada, and college leagues only in the US. Elsewhere they're off until you switch them on in Preferences → Personalization → Sports Score Cards → Leagues. If you already switched a league on or off yourself, your choice is kept
 - Onboarding's Live Sports Scores page now groups leagues by region, with each league's sport underneath, the same as Preferences' Leagues page. Drag-to-reorder moved out of onboarding; set the order of league sections anytime in Preferences → Section Order
+- Fixed Trending sometimes showing 9 stories instead of 10 when it first loads, with the last one appearing about 20 seconds later
 
 # v0.13.1a - Sidebar Footer with Notes and Now Playing
 
