@@ -221,6 +221,7 @@ cairo = dependency('cairo')
     # Utils
     'src/utils/core/appDebugger.vala',
     'src/utils/core/dataPathsUtils.vala',
+    'src/utils/core/memoryUtils.vala',
     'src/utils/core/regionUtils.vala',
     'src/utils/core/workerPool.vala',
     'src/utils/lookup/majorCitiesUtils.vala',

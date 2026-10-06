@@ -1123,7 +1123,7 @@ public class ContentView : GLib.Object {
         // below, so just drop the search snapshot rather than replaying it.
         if (query_lower.length == 0) {
             window.search_manager.forget_result_urls();
-            malloc_trim(0);
+            MemoryUtils.trim_heap();
             hero_container.set_visible(true);
 
             if (window.header_manager != null) {
@@ -1177,7 +1177,7 @@ public class ContentView : GLib.Object {
 
         // Delegate layout manipulation to LayoutManager
         window.layout_manager.apply_search_filter(matching_cards);
-        malloc_trim(0);
+        MemoryUtils.trim_heap();
 
         // UI presentation: update label
         update_search_label(matching_cards.size, query);

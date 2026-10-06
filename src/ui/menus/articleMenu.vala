@@ -31,7 +31,9 @@ public class ArticleMenu : GLib.Object {
     private bool is_saved;
     private bool is_viewed;
     private NewsWindow? parent_window;
-    private Gtk.Button? save_btn;
+    // Unowned: menu_box owns the button, and the button's own clicked
+    // closure holds this menu - a strong field here would be a cycle.
+    private unowned Gtk.Button? save_btn;
     // Skippable for callers already showing the article in app (e.g. the
     // reader sheet's own options menu), where the option is a no-op.
     public bool show_view_in_app = true;
@@ -44,6 +46,10 @@ public class ArticleMenu : GLib.Object {
     }
 
     public Gtk.Box create_menu_box(Gtk.Popover? popover) {
+        // The buttons' closures use this unowned alias, never `popover`:
+        // Vala refs captured parameters, and the buttons live inside the
+        // popover, so a strong capture would keep every popover alive.
+        unowned Gtk.Popover? pop = popover;
         var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         menu_box.add_css_class("menu");
 
@@ -52,7 +58,7 @@ public class ArticleMenu : GLib.Object {
             var view_btn = create_menu_item("view-reveal-symbolic", _("View article in app"));
             view_btn.clicked.connect(() => {
                 open_in_app_requested(article_url);
-                if (popover != null) popover.popdown();
+                if (pop != null) pop.popdown();
             });
             menu_box.append(view_btn);
         }
@@ -61,7 +67,7 @@ public class ArticleMenu : GLib.Object {
         var browser_btn = create_menu_item("web-browser-symbolic", _("Open article in browser"));
         browser_btn.clicked.connect(() => {
             open_in_browser_requested(article_url);
-            if (popover != null) popover.popdown();
+            if (pop != null) pop.popdown();
         });
         menu_box.append(browser_btn);
 
@@ -71,7 +77,7 @@ public class ArticleMenu : GLib.Object {
         follow_btn.set_sensitive(!is_builtin);
         follow_btn.clicked.connect(() => {
             follow_source_requested(article_url, article_source_name);
-            if (popover != null) popover.popdown();
+            if (pop != null) pop.popdown();
         });
         menu_box.append(follow_btn);*/
 
@@ -87,21 +93,22 @@ public class ArticleMenu : GLib.Object {
         } else {
             follow_btn.clicked.connect(() => {
             follow_source_requested(article_url, article_source_name);
-            if (popover != null) popover.popdown();
+            if (pop != null) pop.popdown();
         });
         }
         menu_box.append(follow_btn);
 
         // Save/Remove from saved
-        save_btn = create_menu_item(
+        var save_item = create_menu_item(
             is_saved ? "user-trash-symbolic" : "user-bookmarks-symbolic",
             is_saved ? _("Remove from saved") : _("Add to saved")
         );
-        save_btn.clicked.connect(() => {
+        save_item.clicked.connect(() => {
             save_for_later_requested(article_url);
-            if (popover != null) popover.popdown();
+            if (pop != null) pop.popdown();
         });
-        menu_box.append(save_btn);
+        menu_box.append(save_item);
+        save_btn = save_item;
 
         // Mark as unread (only active when article is currently viewed)
         var unread_btn = create_menu_item("edit-undo-symbolic", _("Mark as unread"));
@@ -109,7 +116,7 @@ public class ArticleMenu : GLib.Object {
         unread_btn.set_sensitive(is_viewed);
         unread_btn.clicked.connect(() => {
             mark_unread_requested(article_url);
-            if (popover != null) popover.popdown();
+            if (pop != null) pop.popdown();
         });
         menu_box.append(unread_btn);
 
@@ -117,7 +124,7 @@ public class ArticleMenu : GLib.Object {
         var share_btn = create_menu_item("share-symbolic", _("Share this article"));
         share_btn.clicked.connect(() => {
             share_requested(article_url);
-            if (popover != null) popover.popdown();
+            if (pop != null) pop.popdown();
         });
         menu_box.append(share_btn);
 

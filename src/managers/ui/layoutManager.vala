@@ -19,13 +19,6 @@
 using Gtk;
 using Gee;
 
-// glibc-specific: forces freed heap pages back to the OS immediately instead
-// of waiting on glibc's own heuristics. Needed because rebuilding My Feed's
-// rows frees up to ~120 full-size card textures at once, which otherwise
-// leaves RSS elevated even though everything was properly freed.
-[CCode (cname = "malloc_trim")]
-private static extern int malloc_trim(size_t pad);
-
 namespace Managers {
 
     public class LayoutManager : GLib.Object {
@@ -540,7 +533,7 @@ namespace Managers {
             section_target_depth = new Gee.HashMap<string, int>();
             active_section_order = new Gee.ArrayList<string>();
             foreach (string cat in FRONTPAGE_SECTION_CATEGORIES) active_section_order.add(cat);
-            malloc_trim(0);
+            MemoryUtils.trim_heap();
 
             prepare_recommended_section();
 
@@ -636,7 +629,7 @@ namespace Managers {
             category_sections = new Gee.HashMap<string, CategorySection>();
             section_target_depth = new Gee.HashMap<string, int>();
             active_section_order = new Gee.ArrayList<string>();
-            malloc_trim(0);
+            MemoryUtils.trim_heap();
 
             // Source-like rows: built-in enabled sources first, then any
             // custom RSS feeds opted into My Feed - unified into one
@@ -748,7 +741,7 @@ namespace Managers {
             active_section_order = null;
             recommendation_profile = null;
             recommended_section = null;
-            malloc_trim(0);
+            MemoryUtils.trim_heap();
         }
 
         /**
@@ -1033,7 +1026,7 @@ namespace Managers {
         public void apply_search_filter(Gee.ArrayList<Gtk.Widget> matching_cards) {
             clear_columns();
             // Each keystroke frees up to MAX_RESULTS cards at once - return that heap to the OS.
-            malloc_trim(0);
+            MemoryUtils.trim_heap();
             if (columns_row == null) return;
             foreach (var card_root in matching_cards) columns_row.append(card_root);
         }

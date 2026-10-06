@@ -46,13 +46,16 @@ public class PodcastMenu : GLib.Object {
     }
 
     public Gtk.Box create_menu_box(Gtk.Popover? popover) {
+        // Unowned alias, never `popover`, in the closures below - see
+        // ArticleMenu.create_menu_box for the cycle a strong capture makes.
+        unowned Gtk.Popover? pop = popover;
         var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         menu_box.add_css_class("menu");
 
         var play_btn = create_menu_item("media-playback-start-symbolic", _("Play"));
         play_btn.clicked.connect(() => {
             play_requested();
-            if (popover != null) popover.popdown();
+            if (pop != null) pop.popdown();
         });
         menu_box.append(play_btn);
 
@@ -60,7 +63,7 @@ public class PodcastMenu : GLib.Object {
             var info_btn = create_menu_item("dialog-information-symbolic", _("More info"));
             info_btn.clicked.connect(() => {
                 info_requested();
-                if (popover != null) popover.popdown();
+                if (pop != null) pop.popdown();
             });
             menu_box.append(info_btn);
         }
@@ -73,14 +76,14 @@ public class PodcastMenu : GLib.Object {
             remove_btn.add_css_class("destructive-action");
             remove_btn.clicked.connect(() => {
                 unsubscribe_requested();
-                if (popover != null) popover.popdown();
+                if (pop != null) pop.popdown();
             });
             menu_box.append(remove_btn);
         } else {
             var sub_btn = create_menu_item("list-add-symbolic", _("Subscribe"));
             sub_btn.clicked.connect(() => {
                 subscribe_requested();
-                if (popover != null) popover.popdown();
+                if (pop != null) pop.popdown();
             });
             menu_box.append(sub_btn);
         }

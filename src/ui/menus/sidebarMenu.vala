@@ -51,13 +51,15 @@ public class SidebarMenu : GLib.Object {
         popover.add_css_class("paperboy-menu-popover");
         popover.set_parent(widget);
         popover.set_has_arrow(true);
+        // Unowned alias for the closures below - see create_menu_box().
+        unowned Gtk.Popover pop = popover;
 
         var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         menu_box.add_css_class("menu");
 
         var change_btn = create_menu_item("document-edit-symbolic", _("Change location"));
         change_btn.clicked.connect(() => {
-            popover.popdown();
+            pop.popdown();
             LocationDialog.choose(window, area, (chosen) => {
                 LocationDialog.save_areas(window, chosen, area.key);
             });
@@ -67,7 +69,7 @@ public class SidebarMenu : GLib.Object {
         var remove_btn = create_menu_item("user-trash-symbolic", _("Remove location"));
         remove_btn.add_css_class("destructive-action");
         remove_btn.clicked.connect(() => {
-            popover.popdown();
+            pop.popdown();
             var prefs = NewsPreferences.get_instance();
             prefs.remove_local_area(area.key);
             prefs.save_config();
@@ -80,6 +82,10 @@ public class SidebarMenu : GLib.Object {
     }
 
     private Gtk.Box create_menu_box(Gtk.Popover popover) {
+        // The closures use this unowned alias, never `popover`: Vala refs
+        // captured parameters, and these buttons live inside the popover,
+        // so a strong capture would keep every popover alive.
+        unowned Gtk.Popover pop = popover;
         var menu_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         menu_box.add_css_class("menu");
         
@@ -87,7 +93,7 @@ public class SidebarMenu : GLib.Object {
         var mark_read_btn = create_menu_item(CheckIconUtils.icon_name(), _("Mark all as read"));
         mark_read_btn.clicked.connect(() => {
             on_mark_all_read();
-            popover.popdown();
+            pop.popdown();
         });
         menu_box.append(mark_read_btn);
         
@@ -95,13 +101,13 @@ public class SidebarMenu : GLib.Object {
         var mark_unread_btn = create_menu_item("edit-undo-symbolic", _("Mark all as unread"));
         mark_unread_btn.clicked.connect(() => {
             on_mark_all_unread();
-            popover.popdown();
+            pop.popdown();
         });
         menu_box.append(mark_unread_btn);
         
         var rename_btn = create_menu_item("document-edit-symbolic", _("Rename"));
         rename_btn.clicked.connect(() => {
-            popover.popdown();
+            pop.popdown();
             if (current_source_url.length > 0) {
                 FeedRenameDialog.present(window, window, current_source_url);
             }
@@ -113,7 +119,7 @@ public class SidebarMenu : GLib.Object {
         remove_btn.add_css_class("destructive-action");
         remove_btn.clicked.connect(() => {
             on_remove_source();
-            popover.popdown();
+            pop.popdown();
         });
         menu_box.append(remove_btn);
         

@@ -76,7 +76,7 @@ using Gee;
         // Every keystroke here builds and discards up to MAX_RESULTS full
         // card widget trees - return freed heap to the OS after each batch
         // rather than only at category-switch boundaries.
-        malloc_trim(0);
+        MemoryUtils.trim_heap();
 
         return matching_cards;
     }

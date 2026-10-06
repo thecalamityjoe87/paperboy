@@ -160,24 +160,17 @@ public class PodcastHeroCard : GLib.Object {
         root.append(overlay);
     }
 
-    // See PodcastCard.update_subscribe_button_state() - identical logic,
-    // duplicated rather than shared since these are two separate widget
-    // classes with no common base to hang it on.
     private void update_subscribe_button_state() {
-        bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(feed_id);
-        subscribe_button.set_icon_name(subscribed ? CheckIconUtils.icon_name() : "list-add-symbolic");
-        subscribe_button.set_tooltip_text(subscribed ? _("Subscribed") : _("Subscribe"));
-        if (subscribed) {
-            subscribe_button.add_css_class("subscribed");
-        } else {
-            subscribe_button.remove_css_class("subscribed");
-        }
+        PodcastCard.update_subscribe_button(subscribe_button, feed_id);
     }
 
-    // Static to avoid a root -> controller -> closure -> self -> root
-    // cycle (see ArticleCard.wire_interactions). `card` is passed so
-    // closures can call back into its own update_subscribe_button_state().
+    // Static, and no lambda touches `card` or `root_widget` - see
+    // PodcastCard.wire_interactions for why both matter.
     public static void wire_interactions(Gtk.Box root_widget, PodcastHeroCard card, int64 feed_id, Managers.PodcastPlaybackManager? playback, owned ActivatedCallback? on_activated, owned ActivatedCallback? on_play_requested = null) {
+        unowned Gtk.Box r = root_widget;
+        unowned Gtk.Button subscribe_btn = card.subscribe_button;
+        var show = card.show;
+
         card.play_button.clicked.connect(() => {
             if (playback != null) {
                 var current = playback.get_current_episode();
@@ -206,21 +199,20 @@ public class PodcastHeroCard : GLib.Object {
             });
         }
 
-        var show = card.show;
-        card.subscribe_button.clicked.connect(() => {
+        subscribe_btn.clicked.connect((btn) => {
             var store = Paperboy.PodcastSubscriptionStore.get_instance();
             if (store.is_subscribed(feed_id)) {
                 store.unsubscribe(feed_id);
             } else {
                 store.subscribe(show);
             }
-            card.update_subscribe_button_state();
+            PodcastCard.update_subscribe_button(btn, feed_id);
         });
 
         var right_click = new Gtk.GestureClick();
         right_click.set_button(3);
         right_click.pressed.connect((n_press, x, y) => {
-            show_context_menu(root_widget, card, show, feed_id, x, y, on_play_requested);
+            show_context_menu(r, subscribe_btn, show, feed_id, x, y, on_play_requested);
         });
         root_widget.add_controller(right_click);
 
@@ -232,14 +224,14 @@ public class PodcastHeroCard : GLib.Object {
         root_widget.add_controller(gesture);
 
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        motion.enter.connect(() => { r.add_css_class("card-hover"); });
+        motion.leave.connect(() => { r.remove_css_class("card-hover"); });
         root_widget.add_controller(motion);
     }
 
     // Static for the same reason wire_interactions() is - see PodcastCard's
     // own show_context_menu, the template this follows.
-    private static void show_context_menu(Gtk.Box root_widget, PodcastHeroCard card, Paperboy.PodcastShow show, int64 feed_id, double x, double y, owned ActivatedCallback? on_play_requested) {
+    private static void show_context_menu(Gtk.Box root_widget, Gtk.Button subscribe_btn, Paperboy.PodcastShow show, int64 feed_id, double x, double y, owned ActivatedCallback? on_play_requested) {
         var store = Paperboy.PodcastSubscriptionStore.get_instance();
         var menu = new PodcastMenu(store.is_subscribed(feed_id));
 
@@ -248,11 +240,11 @@ public class PodcastHeroCard : GLib.Object {
         });
         menu.subscribe_requested.connect(() => {
             store.subscribe(show);
-            card.update_subscribe_button_state();
+            PodcastCard.update_subscribe_button(subscribe_btn, feed_id);
         });
         menu.unsubscribe_requested.connect(() => {
             store.unsubscribe(feed_id);
-            card.update_subscribe_button_state();
+            PodcastCard.update_subscribe_button(subscribe_btn, feed_id);
         });
 
         var popover = menu.create_popover(root_widget, x, y);
