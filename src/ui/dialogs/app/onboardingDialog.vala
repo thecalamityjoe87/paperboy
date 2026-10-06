@@ -182,22 +182,20 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(36);
         box.set_margin_bottom(18);
 
-        // Bundled icon (black and white versions), sized and dimmed like the
-        // theme icons on the other pages. The Theme page can switch light and
-        // dark while this page exists, so follow it.
-        var icon = new Gtk.Image();
+        // Bundled as a symbolic icon so GTK tints it with the theme's text
+        // colour, same as the stock icons on the other pages - the plain
+        // black/white -mono files came out darker than those once dimmed.
+        const string COUNTRY_ICON = "io.github.thecalamityjoe87.Paperboy-country-symbolic";
+        var theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+        if (!theme.has_icon(COUNTRY_ICON)) {
+            // Uninstalled dev build: pick it up straight from data/icons.
+            string? hicolor = DataPathsUtils.find_data_file("icons/hicolor");
+            if (hicolor != null) theme.add_search_path(GLib.Path.get_dirname(hicolor));
+        }
+        var icon = new Gtk.Image.from_icon_name(theme.has_icon(COUNTRY_ICON) ? COUNTRY_ICON : "mark-location-symbolic");
         icon.set_pixel_size(64);
         icon.set_halign(Gtk.Align.CENTER);
         icon.add_css_class("dim-label");
-        void apply_icon() {
-            string? path = CategoryIconsUtils.resolve_themed_icon_path("country-mono.svg");
-            if (path != null) icon.set_from_gicon(new GLib.FileIcon(GLib.File.new_for_path(path)));
-            else icon.set_from_icon_name("mark-location-symbolic");
-        }
-        apply_icon();
-        var style_manager = Adw.StyleManager.get_default();
-        ulong dark_handler = style_manager.notify["dark"].connect(() => apply_icon());
-        icon.destroy.connect(() => style_manager.disconnect(dark_handler));
         box.append(icon);
 
         var title = new Gtk.Label(_("Where Are You Reading From?"));

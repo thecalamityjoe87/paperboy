@@ -1,3 +1,9 @@
+paperboy (0.14.1a-1) unstable; urgency=low
+
+  * The onboarding country page icon now matches the dimmed color of the large icons on the other pages
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 05 Oct 2026 00:00:00 +0000
+
 paperboy (0.14.0a-1) unstable; urgency=low
 
   * Added a Country setting (Preferences > Personalization > Region) with the 87 Google News country and language editions, set to Automatic by default from the system's time zone and language

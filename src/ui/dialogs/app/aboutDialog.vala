@@ -164,7 +164,7 @@ public class AboutDialog : GLib.Object {
             }
         }
 
-        var version = new Gtk.Label("0.14.0a");
+        var version = new Gtk.Label("0.14.1a");
         version.add_css_class("monospace");
         version.add_css_class("dim-label");
         version.set_halign(Gtk.Align.CENTER);
