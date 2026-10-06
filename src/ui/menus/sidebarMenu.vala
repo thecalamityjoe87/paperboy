@@ -37,6 +37,7 @@ public class SidebarMenu : GLib.Object {
         
         // Create popover with custom menu
         var popover = new Gtk.Popover();
+        popover.add_css_class("paperboy-menu-popover");
         popover.set_parent(widget);
         popover.set_has_arrow(true);
         
@@ -47,6 +48,7 @@ public class SidebarMenu : GLib.Object {
     
     public void show_for_local_area(Gtk.Widget widget, LocalArea area) {
         var popover = new Gtk.Popover();
+        popover.add_css_class("paperboy-menu-popover");
         popover.set_parent(widget);
         popover.set_has_arrow(true);
 

@@ -1794,6 +1794,29 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     -gtk-icon-size: 14px;
 }
 
+/* Deeper shadow than the stock popover's faint one, so Paperboy's own
+   popovers - the reader view's add-note button and dictionary, plus the
+   sidebar/article/podcast context menus - read as sitting above whatever
+   they overlap. GTK's standard menus (e.g. a text view's right-click menu)
+   are left stock on purpose, to match the rest of the desktop. GtkPopover
+   sizes its surface from the contents' shadow extents, so this doesn't get
+   clipped. The last layer is a hairline edge for dark backgrounds, where a
+   black shadow alone barely shows. */
+.reader-add-note-popover contents,
+.reader-definition-popover contents,
+.paperboy-menu-popover contents {
+    box-shadow: 0 4px 12px 0 alpha(black, 0.26),
+                0 12px 32px 4px alpha(black, 0.18),
+                0 0 0 1px alpha(black, 0.10);
+}
+
+/* Part-of-speech label ("noun", "verb") heading each group of senses in
+   the reader view's dictionary popover. */
+.reader-definition-pos {
+    font-style: italic;
+    font-size: 0.9em;
+}
+
 /* Small numbered marker button dropped right after a highlighted quote in
    the reader view - the deliberate click target to open that note,
    instead of the highlighted text itself (which read as ambiguous). */

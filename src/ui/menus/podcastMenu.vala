@@ -97,6 +97,7 @@ public class PodcastMenu : GLib.Object {
     // menu needs to look consistent with.
     public Gtk.Popover create_popover(Gtk.Widget parent, double x = -1, double y = -1, bool has_arrow = false) {
         var popover = new Gtk.Popover();
+        popover.add_css_class("paperboy-menu-popover");
         popover.set_parent(parent);
         popover.set_has_arrow(has_arrow);
         if (!has_arrow && x >= 0 && y >= 0) {

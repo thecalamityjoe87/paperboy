@@ -183,6 +183,7 @@ public class ArticleMenu : GLib.Object {
 
     public Gtk.Popover create_popover(Gtk.Widget parent, double x, double y) {
         var popover = new Gtk.Popover();
+        popover.add_css_class("paperboy-menu-popover");
         popover.set_parent(parent);
         popover.set_has_arrow(false);
         popover.set_pointing_to({ (int)x, (int)y, 1, 1 });

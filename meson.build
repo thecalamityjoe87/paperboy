@@ -134,6 +134,7 @@ cairo = dependency('cairo')
     'src/services/articles/articleShareService.vala',
     'src/services/articles/articleSnippetService.vala',
     'src/services/articles/articleStateStore.vala',
+    'src/services/articles/dictionaryService.vala',
     'src/services/articles/interestProfile.vala',
     'src/services/articles/renderedPageFetcher.vala',
     'src/services/articles/thumbnailBackfillService.vala',
