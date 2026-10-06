@@ -6,6 +6,7 @@ paperboy (0.14.1a-1) unstable; urgency=low
   * Feed and image processing compile their regular expressions once instead of on every call
   * Log failures to save viewed state or back up a damaged config file instead of ignoring them
   * The onboarding country page icon now matches the dimmed color of the large icons on the other pages
+  * Preferences opens faster: its source, feed, podcast, magazine and category subpages are built on first open, the article cache size is measured off the main thread, and followed-feed logos load on a background thread pool
 
  -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 05 Oct 2026 00:00:00 +0000
 

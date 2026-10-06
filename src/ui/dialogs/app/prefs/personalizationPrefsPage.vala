@@ -64,12 +64,20 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
 
     // ========== CATEGORIES ==========
 
+    // Built on first open rather than with the dialog.
     private Adw.NavigationPage? categories_page = null;
+    private Adw.ActionRow categories_nav_row;
+
+    private Adw.NavigationPage get_categories_page() {
+        if (categories_page == null) categories_page = build_categories_page(categories_nav_row);
+        return categories_page;
+    }
 
     // Opens the category chooser subpage, e.g. from the sidebar's
     // "Manage Categories". Call after the dialog is presented.
     public void open_categories_page() {
-        if (categories_page != null && categories_page.get_parent() == null) ctx.dialog.push_subpage(categories_page);
+        var page = get_categories_page();
+        if (page.get_parent() == null) ctx.dialog.push_subpage(page);
     }
 
     // A row summarizing the chosen categories that opens the chooser.
@@ -78,11 +86,11 @@ public class PersonalizationPrefsPage : Adw.PreferencesPage {
         group.set_title(_("Categories"));
         group.set_description(_("The categories shown in the sidebar and used for My Feed"));
 
-        var nav_row = new Adw.ActionRow();
-        nav_row.set_title(_("Shown categories"));
-        categories_page = build_categories_page(nav_row);
-        PrefsRows.make_nav_row(ctx.dialog, nav_row, () => categories_page);
-        group.add(nav_row);
+        categories_nav_row = new Adw.ActionRow();
+        categories_nav_row.set_title(_("Shown categories"));
+        update_categories_summary(categories_nav_row);
+        PrefsRows.make_nav_row(ctx.dialog, categories_nav_row, () => get_categories_page());
+        group.add(categories_nav_row);
         return group;
     }
 

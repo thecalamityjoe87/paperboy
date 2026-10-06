@@ -85,7 +85,24 @@ public class PixbufUtils {
     // resolution; Gtk.Picture's natural size follows the paintable's real
     // pixel size, which would let a supersampled texture balloon past
     // display_size in a container with spare room.
+    // Placeholder textures by display size: every row of a long list
+    // (e.g. Preferences' outlet and feed lists) would otherwise re-draw
+    // the same circle.
+    private static Gee.HashMap<int, Gdk.Texture>? placeholder_textures = null;
+
     public static Gtk.Image make_circular_logo_placeholder(int display_size) {
+        var image = new Gtk.Image();
+        var texture = circular_placeholder_texture(display_size);
+        if (texture != null) image.set_from_paintable(texture);
+        image.set_pixel_size(display_size);
+        return image;
+    }
+
+    private static Gdk.Texture? circular_placeholder_texture(int display_size) {
+        if (placeholder_textures == null) placeholder_textures = new Gee.HashMap<int, Gdk.Texture>();
+        var cached = placeholder_textures.get(display_size);
+        if (cached != null) return cached;
+
         int render_size = display_size * LOGO_RENDER_SCALE;
         var surface = new ImageSurface(Format.ARGB32, render_size, render_size);
         var cr = new Context(surface);
@@ -102,11 +119,10 @@ public class PixbufUtils {
         cr.stroke();
 
         var pb = Gdk.pixbuf_get_from_surface(surface, 0, 0, render_size, render_size);
-
-        var image = new Gtk.Image();
-        if (pb != null) image.set_from_paintable(Gdk.Texture.for_pixbuf(pb));
-        image.set_pixel_size(display_size);
-        return image;
+        if (pb == null) return null;
+        var texture = Gdk.Texture.for_pixbuf(pb);
+        placeholder_textures.set(display_size, texture);
+        return texture;
     }
 
     public static void load_circular_logo_async(Gtk.Image image, string url, int display_size) {
@@ -130,14 +146,19 @@ public class PixbufUtils {
 
     // Same as load_circular_logo_async but synchronous, for local files.
     public static void load_circular_logo_from_file(Gtk.Image image, string file_path, int display_size) {
-        int render_size = display_size * LOGO_RENDER_SCALE;
+        var circular = circular_logo_from_file(file_path, display_size);
+        if (circular != null) image.set_from_paintable(Gdk.Texture.for_pixbuf(circular));
+    }
+
+    // The decode-and-mask step of load_circular_logo_from_file, without
+    // touching any widget, so it's safe to run off the main thread.
+    public static Gdk.Pixbuf? circular_logo_from_file(string file_path, int display_size) {
         try {
             var pixbuf = new Gdk.Pixbuf.from_file(file_path);
-            var circular = scale_and_circularize(pixbuf, render_size, LOGO_RENDER_SCALE);
-            if (circular == null) return;
-            image.set_from_paintable(Gdk.Texture.for_pixbuf(circular));
+            return scale_and_circularize(pixbuf, display_size * LOGO_RENDER_SCALE, LOGO_RENDER_SCALE);
         } catch (GLib.Error e) {
             warning("Failed to load logo %s: %s", file_path, e.message);
+            return null;
         }
     }
 }

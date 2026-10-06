@@ -25,7 +25,10 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
     private PrefsContext ctx;
     private Paperboy.RssSourceStore rss_store;
 
-    private Adw.PreferencesGroup rss_sources_group;
+    // The subpages are built on first open, not with the dialog: their
+    // rows each load a favicon, which made Preferences slow to open.
+    private Adw.PreferencesGroup? rss_sources_group = null;
+    private Adw.NavigationPage? feeds_nav_page = null;
     private Adw.ActionRow feeds_nav_row;
     private int feed_row_count = 0;
     private Gee.HashSet<string> rendered_source_urls = new Gee.HashSet<string>();
@@ -52,6 +55,12 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
     // Adds rows for followed feeds not shown yet - e.g. after an OPML
     // import - so they appear without reopening Preferences.
     public void add_new_feed_rows() {
+        if (rss_sources_group == null) {
+            // Not opened yet: it picks them up when built
+            feed_row_count = rss_store.get_all_sources().size;
+            update_feeds_summary();
+            return;
+        }
         foreach (var rss_source in rss_store.get_all_sources()) {
             if (rendered_source_urls.contains(rss_source.url)) continue;
             add_rss_source_row(rss_source);
@@ -61,14 +70,7 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
     // ========== BUILT-IN SOURCES ==========
 
     private Adw.PreferencesGroup build_builtin_group() {
-        var builtin_sources_group = new Adw.PreferencesGroup();
-        foreach (unowned BuiltinSource s in BuiltinSources.ALL) {
-            builtin_sources_group.add(create_builtin_source_row(s.name, _(s.description), s.id, s.favicon_url));
-        }
-
-        var builtin_page = new Adw.PreferencesPage();
-        builtin_page.add(builtin_sources_group);
-        var builtin_nav_page = PrefsRows.build_subpage(builtin_page, _("Built-in sources"));
+        Adw.NavigationPage? builtin_nav_page = null;
 
         var builtin_group = new Adw.PreferencesGroup();
         builtin_group.set_title(_("Built-in sources"));
@@ -76,9 +78,23 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
         var builtin_nav_row = new Adw.ActionRow();
         builtin_nav_row.set_title(_("News outlets"));
         builtin_nav_row.set_subtitle(_("Choose which outlets to follow"));
-        PrefsRows.make_nav_row(ctx.dialog, builtin_nav_row, () => builtin_nav_page);
+        PrefsRows.make_nav_row(ctx.dialog, builtin_nav_row, () => {
+            if (builtin_nav_page == null) builtin_nav_page = build_builtin_page();
+            return builtin_nav_page;
+        });
         builtin_group.add(builtin_nav_row);
         return builtin_group;
+    }
+
+    private Adw.NavigationPage build_builtin_page() {
+        var builtin_sources_group = new Adw.PreferencesGroup();
+        foreach (unowned BuiltinSource s in BuiltinSources.ALL) {
+            builtin_sources_group.add(create_builtin_source_row(s.name, _(s.description), s.id, s.favicon_url));
+        }
+
+        var builtin_page = new Adw.PreferencesPage();
+        builtin_page.add(builtin_sources_group);
+        return PrefsRows.build_subpage(builtin_page, _("Built-in sources"));
     }
 
     private Adw.ActionRow create_builtin_source_row(string title, string subtitle, string source_id, string? favicon_url) {
@@ -105,10 +121,25 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
     // ========== FOLLOWED FEEDS ==========
 
     private Adw.PreferencesGroup build_feeds_group() {
-        rss_sources_group = new Adw.PreferencesGroup();
         feeds_nav_row = new Adw.ActionRow();
         feeds_nav_row.set_title(_("Followed feeds"));
+        feed_row_count = rss_store.get_all_sources().size;
+        update_feeds_summary();
 
+        var custom_group = new Adw.PreferencesGroup();
+        custom_group.set_title(_("Custom feeds"));
+        custom_group.set_description(_("RSS feeds you've followed"));
+        PrefsRows.make_nav_row(ctx.dialog, feeds_nav_row, () => {
+            if (feeds_nav_page == null) feeds_nav_page = build_feeds_page();
+            return feeds_nav_page;
+        });
+        custom_group.add(feeds_nav_row);
+        return custom_group;
+    }
+
+    private Adw.NavigationPage build_feeds_page() {
+        rss_sources_group = new Adw.PreferencesGroup();
+        feed_row_count = 0;
         foreach (var rss_source in rss_store.get_all_sources()) {
             add_rss_source_row(rss_source);
         }
@@ -116,23 +147,16 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
 
         var feeds_page = new Adw.PreferencesPage();
         feeds_page.add(rss_sources_group);
-        var feeds_nav_page = PrefsRows.build_subpage(feeds_page, _("Custom feeds"));
-
-        var custom_group = new Adw.PreferencesGroup();
-        custom_group.set_title(_("Custom feeds"));
-        custom_group.set_description(_("RSS feeds you've followed"));
-        PrefsRows.make_nav_row(ctx.dialog, feeds_nav_row, () => feeds_nav_page);
-        custom_group.add(feeds_nav_row);
-        return custom_group;
+        return PrefsRows.build_subpage(feeds_page, _("Custom feeds"));
     }
 
     private void update_feeds_summary() {
         if (feed_row_count == 0) {
             feeds_nav_row.set_subtitle(_("No feeds followed yet"));
-            rss_sources_group.set_description(_("No feeds followed yet. Add one from the sidebar's Feeds section."));
+            if (rss_sources_group != null) rss_sources_group.set_description(_("No feeds followed yet. Add one from the sidebar's Feeds section."));
         } else {
             feeds_nav_row.set_subtitle(ngettext("%d followed feed", "%d followed feeds", feed_row_count).printf(feed_row_count));
-            rss_sources_group.set_description(null);
+            if (rss_sources_group != null) rss_sources_group.set_description(null);
         }
     }
 
@@ -290,16 +314,26 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
             });
         });
 
-        populate_podcast_rows();
-        var podcasts_page = new Adw.PreferencesPage();
-        podcasts_page.add(podcasts_list_group);
-        podcasts_page.add(remove_all_podcasts_group);
-        var podcasts_nav_page = PrefsRows.build_subpage(podcasts_page, _("Podcasts"));
+        // Rows wait for the subpage's first open; until then the summary
+        // counts the store
+        int n_podcasts = podcast_store.get_all_subscriptions().size;
+        if (n_podcasts == 0) podcasts_nav_row.set_subtitle(_("No podcasts yet"));
+        else podcasts_nav_row.set_subtitle(ngettext("%d podcast", "%d podcasts", n_podcasts).printf(n_podcasts));
+        Adw.NavigationPage? podcasts_nav_page = null;
 
         var podcasts_group = new Adw.PreferencesGroup();
         podcasts_group.set_title(_("Podcasts"));
         podcasts_group.set_description(_("Shows you've subscribed to"));
-        PrefsRows.make_nav_row(ctx.dialog, podcasts_nav_row, () => podcasts_nav_page);
+        PrefsRows.make_nav_row(ctx.dialog, podcasts_nav_row, () => {
+            if (podcasts_nav_page == null) {
+                populate_podcast_rows();
+                var podcasts_page = new Adw.PreferencesPage();
+                podcasts_page.add(podcasts_list_group);
+                podcasts_page.add(remove_all_podcasts_group);
+                podcasts_nav_page = PrefsRows.build_subpage(podcasts_page, _("Podcasts"));
+            }
+            return podcasts_nav_page;
+        });
         podcasts_group.add(podcasts_nav_row);
         return podcasts_group;
     }
@@ -321,50 +355,63 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
             magazine_sources_list_group.set_description(n == 0 ? _("No sources yet. Websites you add from the Magazines page show up here.") : null);
         }
 
-        foreach (var source in magazine_store.get_all_sources()) {
-            int64 source_id = source.id;
-            string source_name = (source.name != null && source.name.length > 0) ? source.name : source.website_url;
-            var row = new Adw.ActionRow();
-            row.set_title(GLib.Markup.escape_text(source_name));
-            row.set_subtitle(GLib.Markup.escape_text(PrefsRows.elide(source.website_url, 28)));
-            row.set_tooltip_text(source.website_url);
-            string host = UrlUtils.extract_host_from_url(source.website_url);
-            row.add_prefix(PrefsRows.favicon_image(host.length > 0 ? SourceMetadata.google_favicon_url(host) : null));
+        void populate_magazine_source_rows() {
+            foreach (var source in magazine_store.get_all_sources()) {
+                int64 source_id = source.id;
+                string source_name = (source.name != null && source.name.length > 0) ? source.name : source.website_url;
+                var row = new Adw.ActionRow();
+                row.set_title(GLib.Markup.escape_text(source_name));
+                row.set_subtitle(GLib.Markup.escape_text(PrefsRows.elide(source.website_url, 28)));
+                row.set_tooltip_text(source.website_url);
+                string host = UrlUtils.extract_host_from_url(source.website_url);
+                row.add_prefix(PrefsRows.favicon_image(host.length > 0 ? SourceMetadata.google_favicon_url(host) : null));
 
-            var delete_btn = PrefsRows.flat_icon_button("user-trash-symbolic", _("Remove source"), true);
-            delete_btn.clicked.connect(() => {
-                int n_entries = magazine_store.get_entries_for_source(source_id).size;
-                string body;
-                if (n_entries == 0) {
-                    body = _("\"%s\" will be removed.").printf(source_name);
-                } else {
-                    // TRANSLATORS: %1$s is a magazine source's name, %2$d how many magazines were added from it
-                    body = ngettext("\"%1$s\" and the %2$d magazine added from it will be removed, including its downloaded file.",
-                                    "\"%1$s\" and the %2$d magazines added from it will be removed, including their downloaded files.",
-                                    n_entries).printf(source_name, n_entries);
-                }
-                DialogUtils.confirm_destructive(ctx.dialog, _("Remove source?"), body, _("Remove"), () => {
-                    magazine_store.remove_source(source_id);
-                    magazine_sources_list_group.remove(row);
-                    magazine_source_count--;
-                    update_magazine_sources_summary();
+                var delete_btn = PrefsRows.flat_icon_button("user-trash-symbolic", _("Remove source"), true);
+                delete_btn.clicked.connect(() => {
+                    int n_entries = magazine_store.get_entries_for_source(source_id).size;
+                    string body;
+                    if (n_entries == 0) {
+                        body = _("\"%s\" will be removed.").printf(source_name);
+                    } else {
+                        // TRANSLATORS: %1$s is a magazine source's name, %2$d how many magazines were added from it
+                        body = ngettext("\"%1$s\" and the %2$d magazine added from it will be removed, including its downloaded file.",
+                                        "\"%1$s\" and the %2$d magazines added from it will be removed, including their downloaded files.",
+                                        n_entries).printf(source_name, n_entries);
+                    }
+                    DialogUtils.confirm_destructive(ctx.dialog, _("Remove source?"), body, _("Remove"), () => {
+                        magazine_store.remove_source(source_id);
+                        magazine_sources_list_group.remove(row);
+                        magazine_source_count--;
+                        update_magazine_sources_summary();
+                    });
                 });
-            });
-            row.add_suffix(delete_btn);
+                row.add_suffix(delete_btn);
 
-            magazine_sources_list_group.add(row);
-            magazine_source_count++;
+                magazine_sources_list_group.add(row);
+                magazine_source_count++;
+            }
+            update_magazine_sources_summary();
         }
-        update_magazine_sources_summary();
 
-        var magazine_sources_page = new Adw.PreferencesPage();
-        magazine_sources_page.add(magazine_sources_list_group);
-        var magazine_sources_nav_page = PrefsRows.build_subpage(magazine_sources_page, _("Magazine sources"));
+        // Rows wait for the subpage's first open; until then the summary
+        // counts the store
+        magazine_source_count = magazine_store.get_all_sources().size;
+        update_magazine_sources_summary();
+        Adw.NavigationPage? magazine_sources_nav_page = null;
 
         var magazines_group = new Adw.PreferencesGroup();
         magazines_group.set_title(_("Magazines"));
         magazines_group.set_description(_("Websites scanned for magazine PDFs"));
-        PrefsRows.make_nav_row(ctx.dialog, magazine_sources_nav_row, () => magazine_sources_nav_page);
+        PrefsRows.make_nav_row(ctx.dialog, magazine_sources_nav_row, () => {
+            if (magazine_sources_nav_page == null) {
+                magazine_source_count = 0;
+                populate_magazine_source_rows();
+                var magazine_sources_page = new Adw.PreferencesPage();
+                magazine_sources_page.add(magazine_sources_list_group);
+                magazine_sources_nav_page = PrefsRows.build_subpage(magazine_sources_page, _("Magazine sources"));
+            }
+            return magazine_sources_nav_page;
+        });
         magazines_group.add(magazine_sources_nav_row);
         return magazines_group;
     }

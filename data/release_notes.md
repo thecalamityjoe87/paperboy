@@ -4,6 +4,7 @@
 - Fixed Paperboy freezing while loading a feed whose articles contain certain malformed character codes
 - Article cards appear faster, especially on busy pages or when you have many saved articles
 - Feeds and article images are processed faster
+- Preferences opens faster and no longer lags while opening, especially when you follow many feeds or have a large article cache. Your feed lists in Preferences also open without a pause, with each feed's logo appearing as it loads
 - Paperboy now logs an error when it can't save which articles you've read, or can't back up a damaged settings file, instead of failing silently
 - The icon on onboarding's "Where Are You Reading From?" page is now the same soft grey as the large icons on the other pages, instead of solid black or white
 - In reader view, right-clicking selected text now offers "Search Google for …", which opens a Google search for it in your browser
