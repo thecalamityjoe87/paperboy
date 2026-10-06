@@ -40,6 +40,7 @@ public class OnboardingDialog : GLib.Object {
         carousel.set_vexpand(true);
         carousel.set_interactive(true);
         carousel.append(build_welcome_page());
+        carousel.append(build_country_page(prefs));
         carousel.append(build_theme_page(prefs));
         carousel.append(build_categories_page(prefs, parent as NewsWindow));
         carousel.append(build_sources_page(prefs));
@@ -60,7 +61,7 @@ public class OnboardingDialog : GLib.Object {
         nav_box.set_margin_bottom(20);
         nav_box.set_margin_top(4);
 
-        var skip_btn = new Gtk.Button.with_label("Skip");
+        var skip_btn = new Gtk.Button.with_label(_("Skip"));
         skip_btn.add_css_class("flat");
         nav_box.append(skip_btn);
 
@@ -68,11 +69,11 @@ public class OnboardingDialog : GLib.Object {
         spacer.set_hexpand(true);
         nav_box.append(spacer);
 
-        var back_btn = new Gtk.Button.with_label("Back");
+        var back_btn = new Gtk.Button.with_label(_("Back"));
         back_btn.set_visible(false);
         nav_box.append(back_btn);
 
-        var next_btn = new Gtk.Button.with_label("Next");
+        var next_btn = new Gtk.Button.with_label(_("Next"));
         next_btn.add_css_class("suggested-action");
         nav_box.append(next_btn);
 
@@ -105,7 +106,7 @@ public class OnboardingDialog : GLib.Object {
             bool is_last = (index + 1 == carousel.get_n_pages());
             back_btn.set_visible(index > 0);
             skip_btn.set_visible(!is_last);
-            next_btn.set_label(is_last ? "Get Started" : "Next");
+            next_btn.set_label(is_last ? _("Get Started") : _("Next"));
         }
 
         carousel.page_changed.connect((index) => update_nav_for_page(index));
@@ -154,19 +155,70 @@ public class OnboardingDialog : GLib.Object {
             box.append(icon);
         }
 
-        var title = new Gtk.Label("Welcome to Paperboy");
+        var title = new Gtk.Label(_("Welcome to Paperboy"));
         title.add_css_class("title-1");
         title.set_halign(Gtk.Align.CENTER);
         title.set_margin_top(12);
         box.append(title);
 
         var body = new Gtk.Label(
-            "Paperboy brings together news from the sources you trust, into one clean, distraction-free reader.\n\nLet's set a few things up before you get started.");
+            _("Paperboy brings together news from the sources you trust, into one clean, distraction-free reader.\n\nLet's set a few things up before you get started."));
         body.set_wrap(true);
         body.set_justify(Gtk.Justification.CENTER);
         body.set_halign(Gtk.Align.CENTER);
         body.add_css_class("dim-label");
         box.append(body);
+
+        return box;
+    }
+
+    // Detected from the system, so most people just check it's right.
+    // Closing onboarding refetches, so a change needs nothing else here.
+    private static Gtk.Widget build_country_page(NewsPreferences prefs) {
+        var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
+        box.set_valign(Gtk.Align.CENTER);
+        box.set_margin_start(36);
+        box.set_margin_end(36);
+        box.set_margin_top(36);
+        box.set_margin_bottom(18);
+
+        // Bundled icon (black and white versions), sized and dimmed like the
+        // theme icons on the other pages. The Theme page can switch light and
+        // dark while this page exists, so follow it.
+        var icon = new Gtk.Image();
+        icon.set_pixel_size(64);
+        icon.set_halign(Gtk.Align.CENTER);
+        icon.add_css_class("dim-label");
+        void apply_icon() {
+            string? path = CategoryIconsUtils.resolve_themed_icon_path("country-mono.svg");
+            if (path != null) icon.set_from_gicon(new GLib.FileIcon(GLib.File.new_for_path(path)));
+            else icon.set_from_icon_name("mark-location-symbolic");
+        }
+        apply_icon();
+        var style_manager = Adw.StyleManager.get_default();
+        ulong dark_handler = style_manager.notify["dark"].connect(() => apply_icon());
+        icon.destroy.connect(() => style_manager.disconnect(dark_handler));
+        box.append(icon);
+
+        var title = new Gtk.Label(_("Where Are You Reading From?"));
+        title.add_css_class("title-2");
+        title.set_halign(Gtk.Align.CENTER);
+        title.set_margin_top(12);
+        box.append(title);
+
+        var subtitle = new Gtk.Label(_("Your national news and Front Page come from this country. We've picked it from your system settings - change it if it's not right. You can change this anytime from Preferences."));
+        subtitle.set_wrap(true);
+        subtitle.set_justify(Gtk.Justification.CENTER);
+        subtitle.set_halign(Gtk.Align.CENTER);
+        subtitle.add_css_class("dim-label");
+        box.append(subtitle);
+
+        var list = new Gtk.ListBox();
+        list.set_selection_mode(Gtk.SelectionMode.NONE);
+        list.add_css_class("boxed-list");
+        list.set_margin_top(16);
+        list.append(PrefsRows.country_row(prefs));
+        box.append(list);
 
         return box;
     }
@@ -185,13 +237,13 @@ public class OnboardingDialog : GLib.Object {
         icon.add_css_class("dim-label");
         box.append(icon);
 
-        var title = new Gtk.Label("Pick a Theme");
+        var title = new Gtk.Label(_("Pick a Theme"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         title.set_margin_top(12);
         box.append(title);
 
-        var subtitle = new Gtk.Label("You can change this anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("You can change this anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -279,9 +331,9 @@ public class OnboardingDialog : GLib.Object {
             return overlay;
         }
 
-        swatch_row.append(make_theme_tile("system", "Follow System"));
-        swatch_row.append(make_theme_tile("light", "Light"));
-        swatch_row.append(make_theme_tile("dark", "Dark"));
+        swatch_row.append(make_theme_tile("system", _("Follow System")));
+        swatch_row.append(make_theme_tile("light", _("Light")));
+        swatch_row.append(make_theme_tile("dark", _("Dark")));
 
         box.append(swatch_row);
 
@@ -412,12 +464,12 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(36);
         box.set_margin_bottom(18);
 
-        var title = new Gtk.Label("What Do You Want to Read?");
+        var title = new Gtk.Label(_("What Do You Want to Read?"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
 
-        var subtitle = new Gtk.Label("Pick the topics you care about. They show up in the sidebar and make up My Feed - you can change them anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("Pick the topics you care about. They show up in the sidebar and make up My Feed - you can change them anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -478,12 +530,12 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(36);
         box.set_margin_bottom(18);
 
-        var title = new Gtk.Label("Choose Your Sources");
+        var title = new Gtk.Label(_("Choose Your Sources"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
 
-        var subtitle = new Gtk.Label("Paperboy pulls articles from across the web, including these outlets. Tap any you'd rather not see to hide their articles everywhere - you can change these anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("Paperboy pulls articles from across the web, including these outlets. Tap any you'd rather not see to hide their articles everywhere - you can change these anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -531,9 +583,9 @@ public class OnboardingDialog : GLib.Object {
     }
 
     // No NewsWindow exists yet during onboarding, so this reuses
-    // SportsPrefsGroup.build_league_list_box(prefs, null) - the same
-    // drag-reorderable list Preferences shows later - rather than
-    // duplicating its enable/reorder logic here.
+    // SportsPrefsGroup.build_league_groups(prefs, null) - the same
+    // region-grouped switches as Preferences' Leagues page - rather than
+    // duplicating them here. Section order is left to Preferences.
     private static Gtk.Widget build_sports_page(NewsPreferences prefs) {
         var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         box.set_margin_start(36);
@@ -541,12 +593,12 @@ public class OnboardingDialog : GLib.Object {
         box.set_margin_top(36);
         box.set_margin_bottom(18);
 
-        var title = new Gtk.Label("Live Sports Scores");
+        var title = new Gtk.Label(_("Live Sports Scores"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         box.append(title);
 
-        var subtitle = new Gtk.Label("See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow and drag to set their order - you can change this anytime from Preferences.");
+        var subtitle = new Gtk.Label(_("See live scores from your favorite leagues right in the Sports category. Choose which leagues to follow - you can change this, and the order their sections appear in, anytime from Preferences."));
         subtitle.set_wrap(true);
         subtitle.set_justify(Gtk.Justification.CENTER);
         subtitle.set_halign(Gtk.Align.CENTER);
@@ -554,7 +606,7 @@ public class OnboardingDialog : GLib.Object {
         box.append(subtitle);
 
         var master_row = new Adw.SwitchRow();
-        master_row.set_title("Show Score Cards");
+        master_row.set_title(_("Show Score Cards"));
         master_row.set_active(prefs.sports_scores_enabled);
 
         var master_list_box = new Gtk.ListBox();
@@ -568,14 +620,17 @@ public class OnboardingDialog : GLib.Object {
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         scroller.set_margin_top(12);
 
-        var sports_list_box = SportsPrefsGroup.build_league_list_box(prefs, null);
-        sports_list_box.set_sensitive(prefs.sports_scores_enabled);
-        scroller.set_child(sports_list_box);
+        var leagues_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 24);
+        foreach (var group in SportsPrefsGroup.build_league_groups(prefs, null)) {
+            leagues_box.append(group);
+        }
+        leagues_box.set_sensitive(prefs.sports_scores_enabled);
+        scroller.set_child(leagues_box);
 
         master_row.notify["active"].connect(() => {
             bool enabled = master_row.get_active();
             prefs.sports_scores_enabled = enabled;
-            sports_list_box.set_sensitive(enabled);
+            leagues_box.set_sensitive(enabled);
         });
 
         box.append(master_list_box);
@@ -598,21 +653,21 @@ public class OnboardingDialog : GLib.Object {
         icon.add_css_class("dim-label");
         box.append(icon);
 
-        var title = new Gtk.Label("Local News, Too");
+        var title = new Gtk.Label(_("Local News, Too"));
         title.add_css_class("title-2");
         title.set_halign(Gtk.Align.CENTER);
         title.set_margin_top(12);
         box.append(title);
 
         var body = new Gtk.Label(
-            "Set your location to get a Local News feed for your area. You can do this now or anytime later from the main menu.");
+            _("Set your location to get a Local News feed for your area. You can do this now or anytime later from the main menu."));
         body.set_wrap(true);
         body.set_justify(Gtk.Justification.CENTER);
         body.set_halign(Gtk.Align.CENTER);
         body.add_css_class("dim-label");
         box.append(body);
 
-        var location_btn = new Gtk.Button.with_label("Set My Location");
+        var location_btn = new Gtk.Button.with_label(_("Set My Location"));
         location_btn.set_halign(Gtk.Align.CENTER);
         location_btn.set_margin_top(12);
         location_btn.clicked.connect(() => {

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Flag from lipis/flag-icons (MIT), in shades of one color for Paperboy -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.5 3.375) scale(0.0359375 0.0359375)"><g fill-rule="evenodd" stroke-width="1pt">
+    <path fill="#000000" d="M0 0h640v480H0z" />
+    <path fill="#272727" d="M0 0h213.3v480H0z" />
+    <path fill="#ffffff" d="M426.7 0H640v480H426.7z" />
+  </g>
+</g></mask></defs><rect x="0.5" y="3.375" width="23" height="17.25" fill="#ffffff" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1" /></svg>

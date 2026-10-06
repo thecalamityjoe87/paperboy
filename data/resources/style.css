@@ -189,6 +189,13 @@
     min-width: 24px;
 }
 
+/* Golf/racing leaderboard place ("1", "T4") in front of each row */
+.score-card-position {
+    font-weight: 700;
+    opacity: 0.7;
+    min-width: 22px;
+}
+
 /* Sports highlight video cards (see HighlightCard) */
 .highlight-card-play {
     min-width: 48px;

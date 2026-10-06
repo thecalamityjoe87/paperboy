@@ -135,7 +135,7 @@ public class FetchNewsController {
     // Sink for a view's regular fetches. Bound to ctx, so a late result from
     // a view the user already left is dropped by the sink rather than landing here.
     private static FetchSink news_sink(FetchContext ctx, owned SinkVoidHandler? on_done = null) {
-        return new FetchSink(ctx.session, (it) => route_item(ctx, it), (text) => forward_label(ctx, text), null, (owned) on_done);
+        return new FetchSink(ctx.session, (it) => route_item(ctx, it), (text, is_error) => forward_label(ctx, text, is_error), null, (owned) on_done);
     }
 
     // Front Page's Trending section: a second fetch layered onto the same view that
@@ -147,18 +147,16 @@ public class FetchNewsController {
             if (w.article_manager != null) {
                 w.article_manager.add_item(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name, it.published, it.snippet, true);
             }
-        }, (text) => { if (ctx.still_owns_view()) ctx.window.update_content_header(); }, null, () => { mark_frontpage_endpoint_done(ctx); });
+        }, (text, is_error) => { if (ctx.still_owns_view()) ctx.window.update_content_header(); }, null, () => { mark_frontpage_endpoint_done(ctx); });
     }
 
-    private static void forward_label(FetchContext ctx, string? text) {
+    private static void forward_label(FetchContext ctx, string? text, bool is_error) {
         if (ctx.is_local_only_view() || !ctx.still_owns_view()) return;
         var win = ctx.window;
 
         // With several sources, one failure isn't the whole view's; INITIAL_MAX_WAIT_MS covers all of them failing.
         if (text != null && !ctx.is_multi_source) {
-            string lower = text.down();
-            if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
-                if (win.loading_state != null) win.loading_state.network_failure_detected = true;
+            if (is_error) {
                 win.hide_loading_spinner();
                 win.show_error_message(text);
                 if (win.loading_state != null) ViewSession.remove_source(ref win.loading_state.initial_reveal_timeout_id);
@@ -295,7 +293,7 @@ public class FetchNewsController {
 
                     var network_monitor = GLib.NetworkMonitor.get_default();
                     if (!network_monitor.get_network_available()) {
-                        w.show_toast("Offline - showing cached articles");
+                        w.show_toast(_("Offline - showing cached articles"));
                     }
                 }
                 ls.initial_reveal_timeout_id = 0;
@@ -307,16 +305,6 @@ public class FetchNewsController {
             ctx.session.idle(() => {
                 var w = ctx.window;
                 if (w == null) return false;
-                if (text != null) {
-                    string lower = text.down();
-                    if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
-                        var ls = w.loading_state;
-                        if (ls != null) {
-                            ls.network_failure_detected = true;
-                        }
-                    }
-                }
-
                 w.update_content_header();
                 return false;
             });
@@ -477,9 +465,11 @@ public class FetchNewsController {
         if (win.prefs.category == "sports") {
             var paperboy_sports_fetcher = new PaperboyFetcher(news_sink(ctx));
             paperboy_sports_fetcher.fetch("sports", current_search_query, win.session);
-        } else if (!is_saved_view && !win.category_manager.is_special_view() && win.prefs.category != "topten") {
+        } else if (!is_saved_view && !win.category_manager.is_special_view() && win.prefs.category != "topten"
+                   && !(win.prefs.category == "us" && !GoogleNewsUtils.is_us_edition())) {
             // Other categories get the Paperboy frontpage's articles for that
-            // category, alongside whatever the enabled built-in sources add below
+            // category, alongside whatever the enabled built-in sources add below.
+            // Its "us" articles are US national news, so a non-US edition skips them.
             var paperboy_category_fetcher = new PaperboyFetcher(news_sink(ctx));
             paperboy_category_fetcher.fetch(win.prefs.category, current_search_query, win.session);
         }
@@ -565,6 +555,9 @@ public class FetchNewsController {
                     NewsService.fetch(s, cat, current_search_query, win.session, news_sink(ctx));
                 }
             }
+            foreach (var cat in fetch_categories) {
+                NewsService.fetch_google_news(cat, current_search_query, win.session, news_sink(ctx));
+            }
         }
 
         if (is_myfeed_mode && custom_rss_sources != null) {
@@ -575,7 +568,7 @@ public class FetchNewsController {
                 RssFeedProcessor.fetch_rss_url(
                     rss_src.url,
                     rss_src.url,  // use URL, not name, for source filtering
-                    "My Feed",
+                    _("My Feed"),
                     "myfeed",
                     current_search_query,
                     win.session,
@@ -666,7 +659,7 @@ public class FetchNewsController {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
                 sink.set_label("%s — Offline, showing %d cached articles".printf(feed_name_plain, cached_articles.size));
-                win.show_toast("Offline - showing cached articles");
+                win.show_toast(_("Offline - showing cached articles"));
             } else {
                 sink.set_label("%s — Loaded %d articles from cache".printf(feed_name_plain, cached_articles.size));
             }
@@ -1049,8 +1042,7 @@ public class FetchNewsController {
     }
 
     private static void fetch_local_news_query(FetchContext ctx, string city, string category_id, string current_search_query, Soup.Session session) {
-        string query = GLib.Uri.escape_string(city.strip(), null, false);
-        string url = "https://news.google.com/rss/search?q=" + query + "&hl=en-US&gl=US&ceid=US:en";
+        string url = GoogleNewsUtils.search_url(city.strip());
 
         // Cache is merged with the live feed rather than shown first, since
         // anything appended after it would land out of date order.
@@ -1070,12 +1062,12 @@ public class FetchNewsController {
 
         var sink = new FetchSink(ctx.session, (it) => {
             if (ctx.still_owns_view()) batch.add_live(it);
-        }, (text) => forward_label(ctx, text));
+        }, (text, is_error) => forward_label(ctx, text, is_error));
 
         RssFeedProcessor.fetch_rss_url(
             url,
             city,
-            "Local News",
+            _("Local News"),
             category_id,
             current_search_query,
             session,

@@ -19,7 +19,7 @@ using Gtk;
 using Adw;
 
 /*
- * Location search dialog. Resolves a city name, ZIP code, or the current
+ * Location search dialog. Resolves a city name, postal code, or the current
  * location into a LocalArea and hands it to the caller on save.
  */
 
@@ -78,14 +78,14 @@ public class LocationDialog : GLib.Object {
         LocalAreasChosen save_cb = (owned) on_save;
         var prefs = NewsPreferences.get_instance();
         bool adding = (current == null);
-        string save_label = adding ? "Add" : "Save";
+        string save_label = adding ? _("Add") : _("Save");
 
-        var dialog = new Adw.AlertDialog(adding ? "Add city" : "Change location",
-            "Enter a city name or a ZIP code, or use your current location.\nExamples: \"San Francisco, CA\" or \"94103\" or \"94103-1234\"");
+        var dialog = new Adw.AlertDialog(adding ? _("Add city") : _("Change location"),
+            _("Enter a city name or a postal code, or use your current location.\nExamples: \"San Francisco, CA\", \"Manchester\" or \"10115\""));
         dialog.set_body_use_markup(false);
 
         var entry = new Gtk.Entry();
-        entry.set_placeholder_text("City name or ZIP code (e.g. San Francisco, 94103)");
+        entry.set_placeholder_text(_("City name or postal code"));
         entry.set_hexpand(true);
         entry.set_margin_top(6);
         entry.set_margin_bottom(6);
@@ -101,7 +101,7 @@ public class LocationDialog : GLib.Object {
 
         if (!adding) {
             hint.set_use_markup(true);
-            hint.set_markup("Current location: <b>" + GLib.Markup.escape_text(current.city) + "</b>");
+            hint.set_markup(_("Current location: <b>%s</b>").printf(GLib.Markup.escape_text(current.city)));
         }
 
         // Town/metro checkboxes, filled in after a lookup
@@ -122,7 +122,7 @@ public class LocationDialog : GLib.Object {
         });
 
         dialog.add_response("save", save_label);
-        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("cancel", _("Cancel"));
         dialog.set_default_response("save");
         dialog.set_close_response("cancel");
         dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED);
@@ -137,7 +137,7 @@ public class LocationDialog : GLib.Object {
         spinner_box.set_halign(Gtk.Align.CENTER);
         spinner_box.set_valign(Gtk.Align.CENTER);
         var spinner = new Gtk.Spinner();
-        var spinner_label = new Gtk.Label("Searching...");
+        var spinner_label = new Gtk.Label(_("Searching..."));
         spinner.set_halign(Gtk.Align.CENTER);
         spinner_label.set_halign(Gtk.Align.CENTER);
         spinner_box.append(spinner);
@@ -152,9 +152,9 @@ public class LocationDialog : GLib.Object {
 
         var button_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
         button_row.set_halign(Gtk.Align.CENTER);
-        var search_btn = new Gtk.Button.with_label("Search");
+        var search_btn = new Gtk.Button.with_label(_("Search"));
         search_btn.set_valign(Gtk.Align.CENTER);
-        var use_location_btn = new Gtk.Button.with_label("Use my location");
+        var use_location_btn = new Gtk.Button.with_label(_("Use my location"));
         use_location_btn.set_valign(Gtk.Align.CENTER);
         button_row.append(search_btn);
         button_row.append(use_location_btn);
@@ -211,7 +211,7 @@ public class LocationDialog : GLib.Object {
             if (toggled.get_active() && selected_areas().size > remaining) {
                 toggled.set_active(false);
                 hint.set_use_markup(false);
-                hint.set_text("You can save up to %d locations.".printf(NewsPreferences.MAX_LOCAL_AREAS));
+                hint.set_text(ngettext("You can save up to %d location.", "You can save up to %d locations.", NewsPreferences.MAX_LOCAL_AREAS).printf(NewsPreferences.MAX_LOCAL_AREAS));
             }
             dialog.set_response_enabled("save", selected_areas().size > 0);
         }
@@ -245,7 +245,7 @@ public class LocationDialog : GLib.Object {
 
             if (resolved.length == 0) {
                 hint.set_use_markup(false);
-                hint.set_text("Couldn't resolve a location for that. Try a different city name or ZIP code.");
+                hint.set_text(_("Couldn't resolve a location for that. Try a different city name or postal code."));
                 dialog.set_response_enabled("save", false);
                 return;
             }
@@ -264,14 +264,15 @@ public class LocationDialog : GLib.Object {
                     : new LocalArea(last_detected_query, resolved);
                 candidates.add(area);
                 checks.add(null);
-                hint.set_markup("Detected: <b>" + GLib.Markup.escape_text(area.city) + "</b> — click " + save_label + " to use this location");
+                // TRANSLATORS: the first %s is a city, the second the dialog's save button label
+                hint.set_markup(_("Detected: <b>%s</b> — click %s to use this location").printf(GLib.Markup.escape_text(area.city), GLib.Markup.escape_text(save_label)));
                 dialog.set_response_enabled("save", true);
                 return;
             }
 
-            hint.set_markup("Detected: <b>" + GLib.Markup.escape_text(resolved) + "</b> — choose which news to add:");
-            var town_check = add_choice(new LocalArea(last_detected_query, resolved), "Smaller towns may have limited coverage.");
-            var metro_check = add_choice(new LocalArea(news_query_city, news_query_city), "Nearby metro area");
+            hint.set_markup(_("Detected: <b>%s</b> — choose which news to add:").printf(GLib.Markup.escape_text(resolved)));
+            var town_check = add_choice(new LocalArea(last_detected_query, resolved), _("Smaller towns may have limited coverage."));
+            var metro_check = add_choice(new LocalArea(news_query_city, news_query_city), _("Nearby metro area"));
 
             // Leave the metro unchecked if both won't fit.
             int remaining = NewsPreferences.MAX_LOCAL_AREAS - prefs.get_local_areas().size;
@@ -279,7 +280,7 @@ public class LocationDialog : GLib.Object {
                 metro_check.set_active(false);
             }
             if (remaining == 1 && town_check.get_sensitive() && metro_check.get_sensitive()) {
-                var slots_label = new Gtk.Label("1 location slot left — pick one, or remove a location to add both.");
+                var slots_label = new Gtk.Label(_("1 location slot left — pick one, or remove a location to add both."));
                 slots_label.add_css_class("dim-label");
                 slots_label.add_css_class("caption");
                 slots_label.set_wrap(true);
@@ -311,7 +312,7 @@ public class LocationDialog : GLib.Object {
             string txt = entry.get_text().strip();
             if (txt.length == 0) {
                 hint.set_use_markup(false);
-                hint.set_text("Enter a city name or ZIP code and press Search.");
+                hint.set_text(_("Enter a city name or postal code and press Search."));
                 return;
             }
             begin_lookup(txt);

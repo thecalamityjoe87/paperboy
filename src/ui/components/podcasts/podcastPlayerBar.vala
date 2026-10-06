@@ -113,7 +113,7 @@ public class PodcastPlayerBar : GLib.Object {
         var minimize_button = new Gtk.Button.from_icon_name("pan-down-symbolic");
         minimize_button.add_css_class("flat");
         minimize_button.add_css_class("circular");
-        minimize_button.set_tooltip_text("Minimize");
+        minimize_button.set_tooltip_text(_("Minimize"));
         minimize_button.clicked.connect(() => { revealer.set_reveal_child(false); });
 
         // Own box (not title_row's 8px spacing) so minimize and close read
@@ -124,7 +124,7 @@ public class PodcastPlayerBar : GLib.Object {
         var close_button = new Gtk.Button.from_icon_name("window-close-symbolic");
         close_button.add_css_class("flat");
         close_button.add_css_class("circular");
-        close_button.set_tooltip_text("Stop and close");
+        close_button.set_tooltip_text(_("Stop and close"));
         window_buttons.append(close_button);
         title_row.append(window_buttons);
 
@@ -158,7 +158,7 @@ public class PodcastPlayerBar : GLib.Object {
         // play_next_episode.
         var skip_back_button = new Gtk.Button.from_icon_name("media-skip-backward-symbolic");
         skip_back_button.add_css_class("flat");
-        skip_back_button.set_tooltip_text("Previous episode");
+        skip_back_button.set_tooltip_text(_("Previous episode"));
         controls_row.append(skip_back_button);
 
         play_pause_icon = new Gtk.Image.from_icon_name("media-playback-start-symbolic");
@@ -170,12 +170,12 @@ public class PodcastPlayerBar : GLib.Object {
 
         var skip_forward_button = new Gtk.Button.from_icon_name("media-skip-forward-symbolic");
         skip_forward_button.add_css_class("flat");
-        skip_forward_button.set_tooltip_text("Next episode");
+        skip_forward_button.set_tooltip_text(_("Next episode"));
         controls_row.append(skip_forward_button);
 
         speed_button = new Gtk.Button.with_label(format_speed(prefs.podcast_playback_speed));
         speed_button.add_css_class("flat");
-        speed_button.set_tooltip_text("Playback speed");
+        speed_button.set_tooltip_text(_("Playback speed"));
         controls_row.append(speed_button);
 
         content_box.append(controls_row);

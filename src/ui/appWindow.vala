@@ -303,7 +303,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     var refresh_btn = new Gtk.Button();
     refresh_btn.add_css_class("flat");
     refresh_btn.set_child(refresh_stack);
-    refresh_btn.set_tooltip_text("Refresh news");
+    refresh_btn.set_tooltip_text(_("Refresh news"));
     refresh_btn.clicked.connect (() => {
         fetch_news();
     });
@@ -317,15 +317,15 @@ public class NewsWindow : Adw.ApplicationWindow {
 
     // Main menu, on the sidebar's trailing (right) side
     var menu = new Menu();
-    menu.append("Preferences", "app.change-source");
-    menu.append("Manage Locations", "app.manage-locations");
-    menu.append("Show Welcome Tour", "app.show-onboarding");
-    menu.append("About Paperboy", "app.about");
+    menu.append(_("Preferences"), "app.change-source");
+    menu.append(_("Manage Locations"), "app.manage-locations");
+    menu.append(_("Show Welcome Tour"), "app.show-onboarding");
+    menu.append(_("About Paperboy"), "app.about");
 
     var menu_button = new Gtk.MenuButton();
     menu_button.set_icon_name(bundled_icon_name("open-menu-symbolic"));
     menu_button.set_menu_model(menu);
-    menu_button.set_tooltip_text("Main Menu");
+    menu_button.set_tooltip_text(_("Main Menu"));
     sidebar_header.pack_end(menu_button);
 
     // Content headerbar with search and window controls
@@ -339,14 +339,14 @@ public class NewsWindow : Adw.ApplicationWindow {
     var sidebar_toggle = new Gtk.Button();
     sidebar_toggle.add_css_class("flat");
     sidebar_toggle.set_icon_name(bundled_icon_name("sidebar-show-symbolic"));
-    sidebar_toggle.set_tooltip_text("Toggle Sidebar");
+    sidebar_toggle.set_tooltip_text(_("Toggle Sidebar"));
     content_header.pack_start(sidebar_toggle);
 
     // Search bar in the center
     var search_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
 
     var search_entry = new Gtk.SearchEntry();
-    search_entry.set_placeholder_text("Search news for keywords…");
+    search_entry.set_placeholder_text(_("Search news for keywords…"));
     search_entry.set_max_width_chars(40);
     search_container.append(search_entry);
 
@@ -502,7 +502,7 @@ public class NewsWindow : Adw.ApplicationWindow {
             // below as normal, whose LayoutManager.prepare_for_new_fetch()
             // already clears these same containers unconditionally, so no
             // podcast-specific teardown is needed here.
-            search_entry.set_placeholder_text("Search podcasts…");
+            search_entry.set_placeholder_text(_("Search podcasts…"));
             search_entry.set_text("");
             if (search_manager != null) search_manager.reset_query_state();
             GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
@@ -519,7 +519,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (content_view != null && content_view.clear_history_button != null) {
             content_view.clear_history_button.set_visible(category == "history");
         }
-        search_entry.set_placeholder_text(category == "magazines" ? "Search magazines…" : "Search news for keywords…");
+        search_entry.set_placeholder_text(category == "magazines" ? _("Search magazines…") : _("Search news for keywords…"));
         search_entry.set_text("");
         if (search_manager != null) search_manager.reset_query_state();
         GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
@@ -1011,12 +1011,12 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // Calling fetch_news() here instead would leave the loading
                 // spinner stuck forever, since nothing in that pipeline
                 // recognizes "podcasts" or ever calls fetch_finished().
-                search_entry.set_placeholder_text("Search podcasts…");
+                search_entry.set_placeholder_text(_("Search podcasts…"));
                 if (podcast_manager != null) podcast_manager.show();
             } else if (prefs_local != null && prefs_local.category == "magazines") {
                 // Same reasoning as the podcasts branch above - Magazines
                 // isn't a FetchNewsController category either.
-                search_entry.set_placeholder_text("Search magazines…");
+                search_entry.set_placeholder_text(_("Search magazines…"));
                 if (magazine_manager != null) magazine_manager.show();
             } else if (prefs_local != null && prefs_local.category == "saved") {
                 // Check if saved articles are already loaded (get_saved_count() always works)
@@ -1308,7 +1308,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         if (loading_state != null) loading_state.show_error_message(msg);
 
         // Also show a user-visible toast for immediate feedback
-        string toast_msg = msg != null && msg.length > 0 ? msg : "Failed to load articles. Please try again.";
+        string toast_msg = msg != null && msg.length > 0 ? msg : _("Failed to load articles. Please try again.");
         show_toast(toast_msg);
     }
 
@@ -1398,7 +1398,7 @@ public class NewsWindow : Adw.ApplicationWindow {
         for (var c = content_box.get_first_child(); c != null; c = c.get_next_sibling()) {
             if (c.has_css_class("load-more-button")) load_more = true;
             var label = c as Gtk.Label;
-            if (label != null && label.get_label() == "<b>No more articles</b>") end_of_feed = true;
+            if (label != null && label.get_label() == _("<b>No more articles</b>")) end_of_feed = true;
         }
         AppDebugger.log_if_enabled("/tmp/paperboy_mem_trace.log",
             "chrome %s on=%s message=%s myfeed_prompt=%s local_prompt=%s spinner=%s load_more=%s end_of_feed=%s".printf(

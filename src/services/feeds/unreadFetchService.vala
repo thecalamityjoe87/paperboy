@@ -32,6 +32,7 @@ public class UnreadFetchService {
     // Task types for the fetch queue
     private enum TaskType {
         CATEGORY,
+        GOOGLE_NEWS,
         RSS_FEED,
         LOCAL_FEED
     }
@@ -50,6 +51,11 @@ public class UnreadFetchService {
             this.type = TaskType.CATEGORY;
             this.category = cat;
             this.source = src;
+        }
+
+        public FetchTask.for_google_news(string cat) {
+            this.type = TaskType.GOOGLE_NEWS;
+            this.category = cat;
         }
 
         public FetchTask.for_rss(string url, string name, string cat_id, string? cache_key_override = null) {
@@ -173,6 +179,24 @@ public class UnreadFetchService {
                     });
                     break;
 
+                case TaskType.GOOGLE_NEWS:
+                    // Queued after every CATEGORY task, so their per-source
+                    // clears of this category have already run.
+                    NewsService.fetch_google_news(
+                        task.category,
+                        "",  // no search query
+                        get_metadata_session(),
+                        new FetchSink(null, (it) => {
+                            global_metadata_add(it.title, it.url, it.thumbnail_url, it.category_id, it.source_name);
+                        })
+                    );
+                    GLib.Timeout.add(100, () => {
+                        _active_fetches--;
+                        process_fetch_queue();
+                        return false;
+                    });
+                    break;
+
                 case TaskType.RSS_FEED:
                     RssFeedProcessor.fetch_rss_url(
                         task.rss_url,
@@ -195,12 +219,11 @@ public class UnreadFetchService {
                     break;
 
                 case TaskType.LOCAL_FEED:
-                    string local_query = GLib.Uri.escape_string(task.news_query ?? task.rss_name, null, false);
                     string local_tracking_id = task.category_id;
                     RssFeedProcessor.fetch_rss_url(
-                        "https://news.google.com/rss/search?q=" + local_query + "&hl=en-US&gl=US&ceid=US:en",
+                        GoogleNewsUtils.search_url(task.news_query ?? task.rss_name),
                         task.rss_name,
-                        "Local News",
+                        _("Local News"),
                         "local_news",
                         "",  // no search query
                         get_metadata_session(),
@@ -253,6 +276,9 @@ public class UnreadFetchService {
             foreach (string cat in regular_categories) {
                 enqueue_fetch(new FetchTask.for_category(cat, source));
             }
+        }
+        foreach (string cat in regular_categories) {
+            if (NewsService.has_google_news(cat)) enqueue_fetch(new FetchTask.for_google_news(cat));
         }
 
         // Fetch every saved Local News city, each tracked under its own id.

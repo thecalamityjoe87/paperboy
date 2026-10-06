@@ -148,7 +148,9 @@ public class ViewSession : GLib.Object {
 }
 
 public delegate void SinkItemHandler(ArticleItem item);
-public delegate void SinkLabelHandler(string text);
+// is_error marks a failure (set_error), so the view can show it without
+// matching words in text that may be translated.
+public delegate void SinkLabelHandler(string text, bool is_error);
 public delegate void SinkVoidHandler();
 
 /**
@@ -196,9 +198,18 @@ public class FetchSink : GLib.Object {
     }
 
     public void set_label(string text) {
+        emit_label(text, false);
+    }
+
+    // A user-facing failure message, e.g. "Error loading feed".
+    public void set_error(string text) {
+        emit_label(text, true);
+    }
+
+    private void emit_label(string text, bool is_error) {
         if (on_label == null || is_closed()) return;
         GLib.Idle.add(() => {
-            if (!is_closed()) on_label(text);
+            if (!is_closed()) on_label(text, is_error);
             return false;
         });
     }

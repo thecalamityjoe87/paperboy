@@ -154,7 +154,7 @@ namespace Managers {
         public void open_article_in_app_if_online(string article_url, bool? force_reader_view = null, string? source_name_encoded = null, string? title = null, string? thumbnail_url = null, string? published = null, string? category_id = null) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
-                request_show_toast("You're offline. Enable internet connection to view articles");
+                request_show_toast(_("You're offline. Enable internet connection to view articles"));
                 return;
             }
 
@@ -169,7 +169,7 @@ namespace Managers {
         public void open_article_in_browser_if_online(string article_url, string? source_name = null, string? title = null, string? thumbnail_url = null, string? published = null, string? category_id = null) {
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
-                request_show_toast("You're offline. Enable internet connection to view articles");
+                request_show_toast(_("You're offline. Enable internet connection to view articles"));
                 return;
             }
 
@@ -853,7 +853,10 @@ namespace Managers {
                 if (is_trending) {
                     if (trending_hero_count < 2) {
                         trending_hero_count++;
-                        featured_used = true;
+                        // Not featured_used: that's the Front Page's own hero
+                        // carousel. Setting it here meant a Trending item that
+                        // arrived first (no cached Front Page yet, e.g. a newly
+                        // picked country) stopped the carousel being created.
                         if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
                         return;
                     }
@@ -1199,7 +1202,7 @@ namespace Managers {
             (article_url) => { open_article_in_app_if_online(article_url, null, source_name, decoded_title, thumbnail_url, published, category_id); },
             (article_url) => { open_article_in_browser_if_online(article_url, source_name, decoded_title, thumbnail_url, published, category_id); },
             (article_url, src_name) => {
-                request_show_toast("Searching for feed...", true);
+                request_show_toast(_("Searching for feed..."), true);
                 window.source_manager.follow_rss_source(article_url, src_name);
             },
             (article_url) => {
@@ -1207,7 +1210,7 @@ namespace Managers {
                     bool is_saved = window.article_state_store.is_saved(article_url);
                     if (is_saved) {
                         window.article_state_store.unsave_article(article_url);
-                        request_show_toast("Removed article from saved");
+                        request_show_toast(_("Removed article from saved"));
                         if (window.animation_manager != null) {
                             window.animation_manager.animate_save_toggle(root_ref, ribbon_ref, decoded_title, false);
                         }
@@ -1225,7 +1228,7 @@ namespace Managers {
                         }
                     } else {
                         window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
-                        request_show_toast("Added article to saved");
+                        request_show_toast(_("Added article to saved"));
                         if (window.animation_manager != null) {
                             window.animation_manager.animate_save_toggle(root_ref, ribbon_ref, decoded_title, true);
                         }
@@ -1356,7 +1359,7 @@ namespace Managers {
             (article_url) => { open_article_in_app_if_online(article_url, null, source_name, decoded_title, thumbnail_url, published, category_id); },
             (article_url) => { open_article_in_browser_if_online(article_url, source_name, decoded_title, thumbnail_url, published, category_id); },
             (article_url, src_name) => {
-                request_show_toast("Searching for feed...", true);
+                request_show_toast(_("Searching for feed..."), true);
                 window.source_manager.follow_rss_source(article_url, src_name);
             },
             (article_url) => {
@@ -1364,7 +1367,7 @@ namespace Managers {
                     bool is_saved = window.article_state_store.is_saved(article_url);
                     if (is_saved) {
                         window.article_state_store.unsave_article(article_url);
-                        request_show_toast("Removed article from saved");
+                        request_show_toast(_("Removed article from saved"));
                         if (window.animation_manager != null) {
                             window.animation_manager.animate_save_toggle(hero_root_ref, hero_ribbon_ref, decoded_title, false);
                         }
@@ -1382,7 +1385,7 @@ namespace Managers {
                         }
                     } else {
                         window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
-                        request_show_toast("Added article to saved");
+                        request_show_toast(_("Added article to saved"));
                         if (window.animation_manager != null) {
                             window.animation_manager.animate_save_toggle(hero_root_ref, hero_ribbon_ref, decoded_title, true);
                         }
@@ -1452,7 +1455,7 @@ namespace Managers {
             (article_url) => { open_article_in_app_if_online(article_url, null, source_name, decoded_title, thumbnail_url, published, original_category); },
             (article_url) => { open_article_in_browser_if_online(article_url, source_name, decoded_title, thumbnail_url, published, original_category); },
             (article_url, src_name) => {
-                request_show_toast("Searching for feed...", true);
+                request_show_toast(_("Searching for feed..."), true);
                 window.source_manager.follow_rss_source(article_url, src_name);
             },
             (article_url) => {
@@ -1460,10 +1463,10 @@ namespace Managers {
                     bool is_saved = window.article_state_store.is_saved(article_url);
                     if (is_saved) {
                         window.article_state_store.unsave_article(article_url);
-                        request_show_toast("Removed article from saved");
+                        request_show_toast(_("Removed article from saved"));
                     } else {
                         window.article_state_store.save_article(article_url, decoded_title, thumbnail_url, source_name, published);
-                        request_show_toast("Added article to saved");
+                        request_show_toast(_("Added article to saved"));
                     }
                 }
             },
@@ -1869,7 +1872,7 @@ namespace Managers {
             (article_url) => { open_article_in_app_if_online(article_url, null, source_name, title, thumbnail_url, null, category_id); },
             (article_url) => { open_article_in_browser_if_online(article_url, source_name, title, thumbnail_url, null, category_id); },
             (article_url, src_name) => {
-                request_show_toast("Searching for feed...", true);
+                request_show_toast(_("Searching for feed..."), true);
                 if (window.source_manager != null) {
                     window.source_manager.follow_rss_source(article_url, src_name);
                 }
@@ -1898,10 +1901,10 @@ namespace Managers {
                                 window.fetch_news();
                             }
                         }
-                        request_show_toast("Removed article from saved");
+                        request_show_toast(_("Removed article from saved"));
                     } else {
                         window.article_state_store.save_article(article_url, title, thumbnail_url, source_name);
-                        request_show_toast("Added article to saved");
+                        request_show_toast(_("Added article to saved"));
                         if (window.animation_manager != null && live_root != null && live_ribbon != null) {
                             window.animation_manager.animate_save_toggle(live_root, live_ribbon, title, true);
                         }

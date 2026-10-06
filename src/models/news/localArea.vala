@@ -49,7 +49,8 @@ public class LocalArea : GLib.Object {
 
     // Page header label, e.g. "Dallas News".
     public string display_name {
-        owned get { return short_name(city) + " News"; }
+        // TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
+        owned get { return _("%s News").printf(short_name(city)); }
     }
 
     // "Dallas, TX" -> "Dallas"
@@ -66,9 +67,16 @@ public class LocalArea : GLib.Object {
         foreach (string raw in parts) {
             string part = raw.strip();
             if (part.length == 0) continue;
-            // Two-letter state abbreviations
-            if (part.char_count() == 2 && part.get_char(0).isalpha() && part.get_char(1).isalpha()) {
+            // Two-letter state abbreviations - never the first part, which is
+            // the town itself (Bø in Norway, Ay in France)
+            if (cased.length > 0 && part.char_count() == 2 && part.get_char(0).isalpha() && part.get_char(1).isalpha()) {
                 cased += part.up();
+                continue;
+            }
+            // Already mixed case (e.g. from Nominatim): keep it, so
+            // "Rio de Janeiro" and "Vestfold og Telemark" stay as they are
+            if (part != part.down() && part != part.up()) {
+                cased += part;
                 continue;
             }
             string[] words = {};

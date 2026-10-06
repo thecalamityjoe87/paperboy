@@ -2,7 +2,7 @@ Source: paperboy
 Section: web
 Priority: optional
 Maintainer: Isaac Joseph <calamityjoe87@gmail.com>
-Build-Depends: debhelper-compat (= 13), meson, ninja-build, pkg-config, valac, libgtk-4-dev, libadwaita-1-dev, libgdk-pixbuf-2.0-dev, libjson-glib-dev, libgee-0.8-dev, libglib2.0-dev, libsqlite3-dev, libxml2-dev, libwebkitgtk-6.0-dev
+Build-Depends: debhelper-compat (= 13), meson, ninja-build, pkg-config, valac, libgtk-4-dev, libadwaita-1-dev, libgdk-pixbuf-2.0-dev, libjson-glib-dev, libgee-0.8-dev, libglib2.0-dev, libsqlite3-dev, libxml2-dev, libwebkitgtk-6.0-dev, libsoup-3.0-dev, libgeoclue-2-dev, libgstreamer1.0-dev, libgstreamer-plugins-base1.0-dev, libgstreamer-plugins-bad1.0-dev, libpoppler-glib-dev, libcairo2-dev, gettext
 Standards-Version: 4.6.0
 
 Package: paperboy

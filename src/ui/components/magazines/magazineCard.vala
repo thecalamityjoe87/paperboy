@@ -287,9 +287,9 @@ public class MagazineCard : GLib.Object {
         right_click.set_button(3);
         right_click.pressed.connect((n_press, x, y) => {
             var menu = new GLib.Menu();
-            menu.append("Select", "magazine.select");
-            menu.append("Set Category…", "magazine.set-category");
-            menu.append("Remove from Library", "magazine.remove");
+            menu.append(_("Select"), "magazine.select");
+            menu.append(_("Set Category…"), "magazine.set-category");
+            menu.append(_("Remove from Library"), "magazine.remove");
             var popover = new Gtk.PopoverMenu.from_model(menu);
             popover.set_parent(root_widget);
             Gdk.Rectangle rect = { (int) x, (int) y, 1, 1 };

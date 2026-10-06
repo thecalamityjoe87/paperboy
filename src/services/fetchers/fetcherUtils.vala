@@ -20,22 +20,22 @@ using GLib;
 namespace FetcherUtils {
     public string category_display_name(string cat) {
         switch (cat) {
-            case "frontpage": return "The Frontpage";
-            case "myfeed": return "My Feed";
-            case "general": return "World News";
-            case "us": return "US News";
-            case "technology": return "Technology";
-            case "business": return "Business";
-            case "markets": return "Markets";
-            case "industries": return "Industries";
-            case "economics": return "Economics";
-            case "science": return "Science";
-            case "sports": return "Sports";
-            case "health": return "Health";
-            case "entertainment": return "Entertainment";
-            case "politics": return "Politics";
-            case "lifestyle": return "Lifestyle";
+            case "frontpage": return _("The Frontpage");
+            case "myfeed": return _("My Feed");
+            case "general": return _("World News");
+            case "us": return GoogleNewsUtils.national_label();
+            case "technology": return _("Technology");
+            case "business": return _("Business");
+            case "markets": return _("Markets");
+            case "industries": return _("Industries");
+            case "economics": return _("Economics");
+            case "science": return _("Science");
+            case "sports": return _("Sports");
+            case "health": return _("Health");
+            case "entertainment": return _("Entertainment");
+            case "politics": return _("Politics");
+            case "lifestyle": return _("Lifestyle");
         }
-        return "News";
+        return _("News");
     }
 }

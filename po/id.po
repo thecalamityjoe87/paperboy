@@ -1,0 +1,3682 @@
+# Indonesian translations for the Paperboy UI.
+# This file is distributed under the same license as the Paperboy package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: paperboy\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-05 19:57-0500\n"
+"PO-Revision-Date: 2026-10-05 18:38-0500\n"
+"Last-Translator: \n"
+"Language-Team: Indonesian\n"
+"Language: id\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/builders/cardBuilder.vala:31 src/managers/ui/sidebarManager.vala:352
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:234
+msgid "Feeds"
+msgstr "Umpan"
+
+#. The untranslated Local News key (see SourceManager) is shown translated
+#: src/builders/cardBuilder.vala:201
+#: src/managers/content/categoryManager.vala:206
+#: src/managers/ui/headerManager.vala:479
+#: src/managers/ui/sidebarManager.vala:319
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:376
+#: src/services/feeds/unreadFetchService.vala:226
+#: src/ui/controllers/fetchNewsController.vala:1070
+#: src/services/articles/articleSnippetService.vala:239
+msgid "Local News"
+msgstr "Berita Lokal"
+
+#. Turn a host like "example-news.co.uk" into a friendly display string
+#. such as "Example News". This is intentionally simple and is only
+#. used as a fallback when no explicit source name is available.
+#: src/builders/cardBuilder.vala:230 src/managers/ui/headerManager.vala:484
+#: src/managers/ui/headerManager.vala:486
+#: src/managers/ui/headerManager.vala:516
+#: src/services/fetchers/fetcherUtils.vala:39 src/utils/net/urlUtils.vala:115
+#: src/utils/net/urlUtils.vala:117 src/utils/net/urlUtils.vala:147
+msgid "News"
+msgstr "Berita"
+
+#: src/builders/cardBuilder.vala:256
+#: src/ui/components/articles/articlePane.vala:293
+#: src/ui/components/articles/articleSheet.vala:518
+#: src/managers/content/articleManager.vala:1205
+#: src/managers/content/articleManager.vala:1362
+#: src/managers/content/articleManager.vala:1458
+#: src/managers/content/articleManager.vala:1875
+msgid "Searching for feed..."
+msgstr "Mencari umpan..."
+
+#: src/builders/cardBuilder.vala:305
+#: src/ui/components/articles/heroCard.vala:183
+msgid "Open in reader view"
+msgstr "Buka di tampilan baca"
+
+#: src/builders/cardBuilder.vala:317
+#: src/ui/components/articles/heroCard.vala:196
+msgid "Preview article"
+msgstr "Pratinjau artikel"
+
+#: src/builders/cardBuilder.vala:342
+msgid "More like this"
+msgstr "Lebih banyak seperti ini"
+
+#: src/builders/cardBuilder.vala:347
+msgid "Less like this"
+msgstr "Lebih sedikit seperti ini"
+
+#: src/builders/cardBuilder.vala:396
+msgid "You'll see more articles like this"
+msgstr "Anda akan melihat lebih banyak artikel seperti ini"
+
+#: src/builders/cardBuilder.vala:397
+msgid "You'll see fewer articles like this"
+msgstr "Anda akan melihat lebih sedikit artikel seperti ini"
+
+#: src/builders/cardBuilder.vala:398
+msgid "Rating removed"
+msgstr "Penilaian dihapus"
+
+#: src/builders/cardBuilder.vala:424
+msgctxt "follow button tooltip"
+msgid "Following this source"
+msgstr "Mengikuti sumber ini"
+
+#: src/builders/cardBuilder.vala:424 src/ui/menus/articleMenu.vala:81
+msgid "Follow this source"
+msgstr "Ikuti sumber ini"
+
+#. TRANSLATORS: %s is a news source, e.g. "Follow BBC News"
+#: src/builders/cardBuilder.vala:427
+#, c-format
+msgctxt "follow button tooltip"
+msgid "Following %s"
+msgstr "Mengikuti %s"
+
+#: src/builders/cardBuilder.vala:427
+#, c-format
+msgid "Follow %s"
+msgstr "Ikuti %s"
+
+#: src/builders/cardBuilder.vala:664
+msgid "Read"
+msgstr "Dibaca"
+
+#: src/managers/content/categoryManager.vala:190
+msgid "General"
+msgstr "Umum"
+
+#: src/managers/content/categoryManager.vala:191
+msgid "U.S."
+msgstr "AS"
+
+#: src/managers/content/categoryManager.vala:192
+#: src/managers/ui/headerManager.vala:465
+#: src/services/fetchers/bbcFetcher.vala:72
+#: src/services/fetchers/fetcherUtils.vala:27
+msgid "Technology"
+msgstr "Teknologi"
+
+#: src/managers/content/categoryManager.vala:193
+#: src/managers/ui/headerManager.vala:466
+#: src/services/fetchers/bbcFetcher.vala:73
+#: src/services/fetchers/fetcherUtils.vala:28
+#: src/services/fetchers/pbsFetcher.vala:73
+msgid "Business"
+msgstr "Bisnis"
+
+#: src/managers/content/categoryManager.vala:194
+#: src/managers/ui/headerManager.vala:468
+#: src/services/fetchers/bbcFetcher.vala:74
+#: src/services/fetchers/fetcherUtils.vala:32
+#: src/services/fetchers/pbsFetcher.vala:74
+msgid "Science"
+msgstr "Sains"
+
+#: src/managers/content/categoryManager.vala:195
+#: src/managers/ui/headerManager.vala:467
+#: src/services/fetchers/bbcFetcher.vala:75
+#: src/services/fetchers/fetcherUtils.vala:33
+msgid "Sports"
+msgstr "Olahraga"
+
+#: src/managers/content/categoryManager.vala:196
+#: src/managers/ui/headerManager.vala:469
+#: src/services/fetchers/bbcFetcher.vala:76
+#: src/services/fetchers/fetcherUtils.vala:34
+#: src/services/fetchers/pbsFetcher.vala:75
+msgid "Health"
+msgstr "Kesehatan"
+
+#: src/managers/content/categoryManager.vala:197
+#: src/managers/ui/headerManager.vala:470
+#: src/services/fetchers/bbcFetcher.vala:79
+#: src/services/fetchers/fetcherUtils.vala:35
+#: src/services/fetchers/pbsFetcher.vala:77
+msgid "Entertainment"
+msgstr "Hiburan"
+
+#: src/managers/content/categoryManager.vala:198
+#: src/managers/ui/headerManager.vala:471
+#: src/services/fetchers/bbcFetcher.vala:78
+#: src/services/fetchers/fetcherUtils.vala:36
+#: src/services/fetchers/pbsFetcher.vala:76
+msgid "Politics"
+msgstr "Politik"
+
+#: src/managers/content/categoryManager.vala:199
+#: src/managers/ui/headerManager.vala:472
+#: src/services/fetchers/fetcherUtils.vala:37
+msgid "Lifestyle"
+msgstr "Gaya Hidup"
+
+#: src/managers/content/categoryManager.vala:200
+#: src/managers/ui/headerManager.vala:473
+#: src/ui/controllers/myFeedExtrasController.vala:302
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:346
+#: src/services/fetchers/fetcherUtils.vala:29
+msgid "Markets"
+msgstr "Pasar"
+
+#: src/managers/content/categoryManager.vala:201
+#: src/managers/ui/headerManager.vala:474
+#: src/services/fetchers/fetcherUtils.vala:30
+msgid "Industries"
+msgstr "Industri"
+
+#: src/managers/content/categoryManager.vala:202
+#: src/managers/ui/headerManager.vala:475
+#: src/services/fetchers/fetcherUtils.vala:31
+msgid "Economics"
+msgstr "Ekonomi"
+
+#. If this removed source was selected, fall back to Front Page
+#: src/managers/content/categoryManager.vala:203
+#: src/managers/ui/headerManager.vala:457
+#: src/managers/ui/sidebarManager.vala:307
+#: src/managers/ui/sidebarManager.vala:698
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:377
+#: src/services/fetchers/paperboyFetcher.vala:138
+msgid "Front Page"
+msgstr "Halaman Depan"
+
+#: src/managers/content/categoryManager.vala:204
+#: src/managers/ui/headerManager.vala:458
+msgid "Trending"
+msgstr "Sedang Tren"
+
+#. use URL, not name, for source filtering
+#: src/managers/content/categoryManager.vala:205
+#: src/managers/ui/headerManager.vala:476
+#: src/managers/ui/sidebarManager.vala:308
+#: src/services/fetchers/fetcherUtils.vala:24
+#: src/ui/controllers/fetchNewsController.vala:571
+msgid "My Feed"
+msgstr "Umpan Saya"
+
+#: src/managers/content/categoryManager.vala:207
+#: src/managers/ui/headerManager.vala:459
+#: src/managers/ui/sidebarManager.vala:310
+msgid "Saved"
+msgstr "Tersimpan"
+
+#: src/managers/content/categoryManager.vala:208
+#: src/managers/ui/headerManager.vala:460
+#: src/managers/ui/sidebarManager.vala:311
+msgid "History"
+msgstr "Riwayat"
+
+#: src/managers/media/magazineLibraryManager.vala:154
+#, c-format
+msgid "No magazines found matching \"%s\""
+msgstr "Tidak ditemukan majalah yang cocok dengan \"%s\""
+
+#: src/managers/media/magazineLibraryManager.vala:155
+#, c-format
+msgid "Search results: found %d magazine matching \"%s\""
+msgid_plural "Search results: found %d magazines matching \"%s\""
+msgstr[0] "Hasil pencarian: ditemukan %d majalah yang cocok dengan “%s”"
+
+#: src/managers/media/magazineLibraryManager.vala:177
+msgid "Your library is empty"
+msgstr "Pustaka Anda kosong"
+
+#: src/managers/media/magazineLibraryManager.vala:228
+#: src/managers/media/magazineLibraryManager.vala:588
+msgid "Removed from library"
+msgstr "Dihapus dari pustaka"
+
+#: src/managers/media/magazineLibraryManager.vala:460
+msgid "Your library is empty. Add a magazine to get started."
+msgstr "Pustaka Anda kosong. Tambahkan majalah untuk memulai."
+
+#. TRANSLATORS: number of selected magazines
+#: src/managers/media/magazineLibraryManager.vala:649
+#, c-format
+msgid "%d selected"
+msgid_plural "%d selected"
+msgstr[0] "%d dipilih"
+
+#: src/managers/media/magazineLibraryManager.vala:650
+#, c-format
+msgid "Delete (%d)"
+msgstr "Hapus (%d)"
+
+#: src/managers/media/magazineLibraryManager.vala:650
+#: src/managers/media/magazineLibraryManager.vala:670
+#: src/ui/contentView.vala:852
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:364
+msgid "Delete"
+msgstr "Hapus"
+
+#: src/managers/media/magazineLibraryManager.vala:668
+#, c-format
+msgid "Delete %d magazine?"
+msgid_plural "Delete %d magazines?"
+msgstr[0] "Hapus %d majalah?"
+
+#: src/managers/media/magazineLibraryManager.vala:670
+msgid "Their downloaded files are removed too. This can't be undone."
+msgstr ""
+"Berkas unduhannya juga akan dihapus. Tindakan ini tidak dapat dibatalkan."
+
+#: src/managers/media/magazineLibraryManager.vala:678
+#, c-format
+msgid "Removed %d magazine"
+msgid_plural "Removed %d magazines"
+msgstr[0] "%d majalah dihapus"
+
+#: src/managers/media/magazineLibraryManager.vala:715
+msgid "Set Category"
+msgstr "Atur Kategori"
+
+#: src/managers/media/magazineLibraryManager.vala:716
+#, c-format
+msgid "Group \"%s\" under a category - leave blank for Uncategorized."
+msgstr ""
+"Kelompokkan \"%s\" ke dalam kategori - biarkan kosong untuk Tanpa Kategori."
+
+#: src/managers/media/magazineLibraryManager.vala:719
+msgid "e.g. Technology, History, Comics"
+msgstr "mis. Teknologi, Sejarah, Komik"
+
+#: src/managers/media/magazineLibraryManager.vala:725
+#: src/managers/media/magazineLibraryManager.vala:781
+#: src/managers/media/magazineLibraryManager.vala:917
+#: src/ui/contentView.vala:849 src/ui/dialogs/app/locationDialog.vala:125
+#: src/ui/dialogs/content/feedRenameDialog.vala:42
+#: src/ui/dialogs/content/shareDialog.vala:222
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:331
+#: src/ui/dialogs/media/podcastPickerDialog.vala:99 src/ui/sidebarView.vala:734
+#: src/ui/sidebarView.vala:847 src/utils/ui/dialogUtils.vala:26
+msgid "Cancel"
+msgstr "Batal"
+
+#: src/managers/media/magazineLibraryManager.vala:726
+msgid "Set"
+msgstr "Atur"
+
+#: src/managers/media/magazineLibraryManager.vala:747
+#: src/ui/contentView.vala:244
+msgid "Add Magazines"
+msgstr "Tambah Majalah"
+
+#: src/managers/media/magazineLibraryManager.vala:748
+msgid ""
+"Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
+"choose a PDF you've already downloaded."
+msgstr ""
+"Masukkan tautan langsung ke PDF, halaman web yang menautkan ke satu atau "
+"beberapa PDF, atau pilih PDF yang sudah Anda unduh."
+
+#: src/managers/media/magazineLibraryManager.vala:759
+msgid "Title (optional, direct PDF links/local files only)"
+msgstr "Judul (opsional, hanya untuk tautan PDF langsung/berkas lokal)"
+
+#: src/managers/media/magazineLibraryManager.vala:763
+msgid "Category (optional, e.g. Technology, History)"
+msgstr "Kategori (opsional, mis. Teknologi, Sejarah)"
+
+#. Local file import - shares the title/category fields above,
+#. just skips the URL field and closes this dialog immediately
+#. rather than waiting for "Add" (there's no URL to type once a
+#. file is picked).
+#: src/managers/media/magazineLibraryManager.vala:770
+msgid "Choose a PDF on This Computer…"
+msgstr "Pilih PDF di Komputer Ini…"
+
+#: src/managers/media/magazineLibraryManager.vala:782
+#: src/ui/dialogs/app/locationDialog.vala:81
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:461
+msgid "Add"
+msgstr "Tambah"
+
+#: src/managers/media/magazineLibraryManager.vala:804
+msgid "Choose a PDF"
+msgstr "Pilih PDF"
+
+#: src/managers/media/magazineLibraryManager.vala:807
+msgid "PDF files"
+msgstr "Berkas PDF"
+
+#: src/managers/media/magazineLibraryManager.vala:834
+#: src/services/magazines/magazinePdfImportService.vala:43
+msgid "Only https:// links are supported"
+msgstr "Hanya tautan https:// yang didukung"
+
+#: src/managers/media/magazineLibraryManager.vala:865
+msgid "Scanning for PDFs…"
+msgstr "Mencari PDF…"
+
+#: src/managers/media/magazineLibraryManager.vala:875
+#: src/services/magazines/magazineSourceScanner.vala:77
+msgid "No PDF links found on that page"
+msgstr "Tidak ditemukan tautan PDF di halaman itu"
+
+#: src/managers/media/magazineLibraryManager.vala:886
+msgid "No new PDFs found - everything's already in your library"
+msgstr "Tidak ada PDF baru - semuanya sudah ada di pustaka Anda"
+
+#: src/managers/media/magazineLibraryManager.vala:897
+msgid "Select magazines to add"
+msgstr "Pilih majalah yang akan ditambahkan"
+
+#: src/managers/media/magazineLibraryManager.vala:898
+#, c-format
+msgid "Found %d PDF link on %s."
+msgid_plural "Found %d PDF links on %s."
+msgstr[0] "Ditemukan %d tautan PDF di %s."
+
+#: src/managers/media/magazineLibraryManager.vala:918
+#: src/ui/dialogs/media/podcastPickerDialog.vala:100
+msgid "Add Selected"
+msgstr "Tambahkan yang Dipilih"
+
+#: src/managers/media/magazineLibraryManager.vala:937
+msgid "Downloading magazine…"
+msgstr "Mengunduh majalah…"
+
+#: src/managers/media/magazineLibraryManager.vala:948
+#: src/managers/media/magazineLibraryManager.vala:968
+#, c-format
+msgid "Added: %s"
+msgstr "Ditambahkan: %s"
+
+#: src/managers/media/magazineLibraryManager.vala:950
+#: src/managers/media/magazineLibraryManager.vala:970
+msgid "Failed to add magazine"
+msgstr "Gagal menambahkan majalah"
+
+#: src/managers/media/magazineLibraryManager.vala:957
+msgid "Adding magazines…"
+msgstr "Menambahkan majalah…"
+
+#: src/managers/media/podcastManager.vala:131
+msgid "Loading podcasts..."
+msgstr "Memuat podcast..."
+
+#: src/managers/media/podcastManager.vala:201
+#, c-format
+msgid "Searching for \"%s\"..."
+msgstr "Mencari \"%s\"..."
+
+#: src/managers/media/podcastManager.vala:263
+#, c-format
+msgid "No podcasts found matching \"%s\""
+msgstr "Tidak ditemukan podcast yang cocok dengan \"%s\""
+
+#: src/managers/media/podcastManager.vala:264
+#, c-format
+msgid "Search results: found %d podcast matching \"%s\""
+msgid_plural "Search results: found %d podcasts matching \"%s\""
+msgstr[0] "Hasil pencarian: ditemukan %d podcast yang cocok dengan “%s”"
+
+#: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
+msgid "Loading..."
+msgstr "Memuat..."
+
+#: src/managers/media/podcastManager.vala:474
+#: src/managers/media/podcastManager.vala:505
+msgid "Show More Categories"
+msgstr "Tampilkan Kategori Lainnya"
+
+#. TRANSLATORS: today's high and low temperatures, e.g. "H 75° · L 58°"; keep the <b></b> markup
+#: src/managers/ui/headerManager.vala:131
+#, c-format
+msgid "H <b>%s</b> · L <b>%s</b>"
+msgstr "T <b>%s</b> · R <b>%s</b>"
+
+#: src/managers/ui/headerManager.vala:134
+#, c-format
+msgid "Weather in %s"
+msgstr "Cuaca di %s"
+
+#: src/managers/ui/headerManager.vala:135
+msgid ""
+"\n"
+"Open Weather for the full forecast"
+msgstr ""
+"\n"
+"Buka Cuaca untuk prakiraan lengkap"
+
+#: src/managers/ui/headerManager.vala:153
+msgid "Clear history?"
+msgstr "Hapus riwayat?"
+
+#: src/managers/ui/headerManager.vala:154
+msgid ""
+"This will permanently delete your reading history. This can't be undone."
+msgstr ""
+"Ini akan menghapus riwayat baca Anda secara permanen. Tindakan ini tidak "
+"dapat dibatalkan."
+
+#. History page action - lives in the title row since the date row is hidden there.
+#: src/managers/ui/headerManager.vala:154 src/ui/contentView.vala:164
+msgid "Clear History"
+msgstr "Hapus Riwayat"
+
+#: src/managers/ui/headerManager.vala:157
+msgid "History cleared"
+msgstr "Riwayat dihapus"
+
+#: src/managers/ui/headerManager.vala:189
+msgid "Browse podcasts"
+msgstr "Jelajahi podcast"
+
+#. "Subscribed" is wider than "Subscribe" - without a locked width,
+#. toggling subscription state changes the button's own width,
+#. which (since it's a non-expanding sibling of title_box in
+#. header_row) eats into title_box's available width and reflows
+#. the description text next to the cover art, even though the
+#. button isn't anywhere near that text visually. Lock the width
+#. to whichever label is widest so toggling never reflows the row.
+#: src/managers/ui/headerManager.vala:199
+#: src/ui/components/podcasts/podcastCard.vala:230
+#: src/ui/components/podcasts/podcastHeroCard.vala:169
+#: src/ui/components/podcasts/podcastPane.vala:462
+#: src/ui/dialogs/media/podcastDetailDialog.vala:164
+#: src/ui/dialogs/media/podcastDetailDialog.vala:180
+msgid "Subscribed"
+msgstr "Berlangganan"
+
+#: src/managers/ui/headerManager.vala:199 src/ui/contentView.vala:216
+msgid "Add podcast"
+msgstr "Tambah podcast"
+
+#. TRANSLATORS: %s is the reason, e.g. "Couldn't add podcast: no episodes found"
+#: src/managers/ui/headerManager.vala:254
+#, c-format
+msgid "Couldn't add podcast: %s"
+msgstr "Tidak dapat menambahkan podcast: %s"
+
+#: src/managers/ui/headerManager.vala:254
+msgid "unknown error"
+msgstr "galat tidak dikenal"
+
+#. No extra rebuild_sidebar() needed here (unlike
+#. add_rss_feed()'s two-step enable dance) - subscribing is
+#. the terminal state change, and SidebarManager already
+#. listens to PodcastSubscriptionStore.subscription_added
+#. and rebuilds on its own.
+#: src/managers/ui/headerManager.vala:260 src/ui/sidebarView.vala:879
+#, c-format
+msgid "Podcast added: %s"
+msgstr "Podcast ditambahkan: %s"
+
+#: src/managers/ui/headerManager.vala:434
+#, c-format
+msgid "%d saved article"
+msgid_plural "%d saved articles"
+msgstr[0] "%d artikel tersimpan"
+
+#: src/managers/ui/headerManager.vala:445
+#: src/managers/ui/headerManager.vala:453
+msgid "RSS Feed"
+msgstr "Umpan RSS"
+
+#. Create horizontal box for category label and source info
+#. Add category label (bigger size) - left aligned
+#: src/managers/ui/headerManager.vala:461
+#: src/managers/ui/headerManager.vala:463 src/ui/contentView.vala:144
+#: src/services/fetchers/bbcFetcher.vala:80
+#: src/services/fetchers/fetcherUtils.vala:25
+#: src/services/fetchers/pbsFetcher.vala:78
+msgid "World News"
+msgstr "Berita Dunia"
+
+#. id stays "podcasts" (the routing key) - only title/icon change.
+#: src/managers/ui/headerManager.vala:480
+#: src/managers/ui/sidebarManager.vala:377
+msgid "Find Podcasts"
+msgstr "Cari Podcast"
+
+#: src/managers/ui/headerManager.vala:481
+#: src/managers/ui/sidebarManager.vala:309
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:348
+msgid "Magazine Rack"
+msgstr "Rak Majalah"
+
+#: src/managers/ui/loadingStateManager.vala:185
+#: src/managers/ui/loadingStateManager.vala:654
+#: src/managers/ui/loadingStateManager.vala:660 src/ui/appWindow.vala:1401
+#: src/ui/contentView.vala:1034 src/managers/ui/layoutManager.vala:505
+msgid "<b>No more articles</b>"
+msgstr "<b>Tidak ada artikel lagi</b>"
+
+#: src/managers/ui/loadingStateManager.vala:185
+#: src/managers/ui/loadingStateManager.vala:654 src/ui/contentView.vala:1034
+#: src/managers/ui/layoutManager.vala:505
+msgid "No more articles"
+msgstr "Tidak ada artikel lagi"
+
+#: src/managers/ui/loadingStateManager.vala:196
+msgid "Loading local news..."
+msgstr "Memuat berita lokal..."
+
+#: src/managers/ui/loadingStateManager.vala:198
+msgid "Loading content..."
+msgstr "Memuat konten..."
+
+#: src/managers/ui/loadingStateManager.vala:253
+msgid ""
+"No articles could be loaded. Try refreshing or check your source settings."
+msgstr ""
+"Tidak ada artikel yang dapat dimuat. Coba segarkan atau periksa pengaturan "
+"sumber Anda."
+
+#. Centered empty state for a view that legitimately has nothing to
+#. show (History/Saved/Magazines library when empty). `icon_file` is a
+#. bundled "<name>-mono.svg" (the view's own header icon, or
+#. search-mono.svg for an empty search), shown large and dimmed. Reuses the error overlay minus
+#. its Refresh button. Also ends the initial phase and cancels the reveal
+#. timeouts - left armed, INITIAL_MAX_WAIT_MS later fires
+#. show_error_message() over this since no items were ever populated.
+#: src/managers/ui/loadingStateManager.vala:267
+msgid "Nothing here yet"
+msgstr "Belum ada apa-apa di sini"
+
+#: src/managers/ui/loadingStateManager.vala:399
+msgid "Personalized feed is disabled."
+msgstr "Umpan pribadi dinonaktifkan."
+
+#: src/managers/ui/loadingStateManager.vala:401
+msgid ""
+"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
+"'Enable personalized feed' toggle to see content from your feeds."
+msgstr ""
+"Buka menu utama (☰) → pilih Preferensi → tab 'Personalisasi' → aktifkan "
+"'Aktifkan umpan pribadi' untuk melihat konten dari umpan Anda."
+
+#: src/managers/ui/loadingStateManager.vala:407
+msgid "No custom RSS feeds followed."
+msgstr "Tidak ada umpan RSS khusus yang diikuti."
+
+#: src/managers/ui/loadingStateManager.vala:409
+msgid ""
+"You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by "
+"clicking the button below or open the main menu (☰) → Preferences → "
+"'Personalization' tab."
+msgstr ""
+"Anda mengaktifkan mode 'Hanya sumber khusus'. Ikuti dan aktifkan umpan RSS "
+"dengan tombol di bawah atau buka menu utama (☰) → Preferensi → tab "
+"'Personalisasi'."
+
+#: src/managers/ui/loadingStateManager.vala:415
+msgid "Personalized Feed is enabled but no categories are selected."
+msgstr "Umpan pribadi aktif tetapi belum ada kategori yang dipilih."
+
+#: src/managers/ui/loadingStateManager.vala:417
+msgid ""
+"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
+"'Enable personalized feed' toggle and click its settings icon to select "
+"categories, or follow custom RSS feeds."
+msgstr ""
+"Buka menu utama (☰) → pilih Preferensi → tab 'Personalisasi' → aktifkan "
+"'Aktifkan umpan pribadi' lalu klik ikon pengaturannya untuk memilih "
+"kategori, atau ikuti umpan RSS khusus."
+
+#: src/managers/ui/sidebarManager.vala:339
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
+msgid "Categories"
+msgstr "Kategori"
+
+#: src/managers/ui/sidebarManager.vala:372
+#: src/ui/controllers/myFeedExtrasController.vala:317
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:347
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:297
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:300
+msgid "Podcasts"
+msgstr "Podcast"
+
+#. Page header label, e.g. "Dallas News".
+#. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
+#: src/models/news/localArea.vala:53 src/utils/net/googleNewsUtils.vala:183
+#, c-format
+msgid "%s News"
+msgstr "Berita %s"
+
+#: src/models/weather/weatherReport.vala:43
+msgctxt "Weather"
+msgid "Clear"
+msgstr "Cerah"
+
+#: src/models/weather/weatherReport.vala:44
+msgctxt "Weather"
+msgid "Mostly clear"
+msgstr "Sebagian besar cerah"
+
+#: src/models/weather/weatherReport.vala:45
+msgctxt "Weather"
+msgid "Partly cloudy"
+msgstr "Berawan sebagian"
+
+#: src/models/weather/weatherReport.vala:46
+msgctxt "Weather"
+msgid "Overcast"
+msgstr "Mendung"
+
+#: src/models/weather/weatherReport.vala:47
+msgctxt "Weather"
+msgid "Fog"
+msgstr "Kabut"
+
+#: src/models/weather/weatherReport.vala:48
+msgctxt "Weather"
+msgid "Drizzle"
+msgstr "Gerimis"
+
+#: src/models/weather/weatherReport.vala:49
+msgctxt "Weather"
+msgid "Freezing drizzle"
+msgstr "Gerimis beku"
+
+#: src/models/weather/weatherReport.vala:50
+msgctxt "Weather"
+msgid "Rain"
+msgstr "Hujan"
+
+#: src/models/weather/weatherReport.vala:51
+msgctxt "Weather"
+msgid "Freezing rain"
+msgstr "Hujan beku"
+
+#: src/models/weather/weatherReport.vala:52
+msgctxt "Weather"
+msgid "Snow"
+msgstr "Salju"
+
+#: src/models/weather/weatherReport.vala:53
+msgctxt "Weather"
+msgid "Rain showers"
+msgstr "Hujan lokal"
+
+#: src/models/weather/weatherReport.vala:54
+msgctxt "Weather"
+msgid "Snow showers"
+msgstr "Salju lokal"
+
+#: src/models/weather/weatherReport.vala:55
+msgctxt "Weather"
+msgid "Thunderstorm"
+msgstr "Badai petir"
+
+#: src/models/weather/weatherReport.vala:56
+msgctxt "Weather"
+msgid "Thunderstorm with hail"
+msgstr "Badai petir disertai hujan es"
+
+#: src/processors/rssFeedProcessor.vala:558
+msgid "No title"
+msgstr "Tanpa judul"
+
+#: src/processors/rssFeedProcessor.vala:671
+msgid "Error loading feed — invalid (empty) URL"
+msgstr "Galat memuat umpan — URL tidak valid (kosong)"
+
+#: src/processors/rssFeedProcessor.vala:676
+msgid "Error loading feed — invalid URL"
+msgstr "Galat memuat umpan — URL tidak valid"
+
+#: src/processors/rssFeedProcessor.vala:693
+msgid "Failed to read local RSS file"
+msgstr "Gagal membaca berkas RSS lokal"
+
+#: src/processors/rssFeedProcessor.vala:756
+msgid "Error loading feed — network/DNS error"
+msgstr "Galat memuat umpan — galat jaringan/DNS"
+
+#: src/processors/rssFeedProcessor.vala:768
+msgid "Error loading feed — empty response"
+msgstr "Galat memuat umpan — respons kosong"
+
+#: src/processors/rssFeedProcessor.vala:778
+msgid "Error loading feed"
+msgstr "Galat memuat umpan"
+
+#: src/ui/appWindow.vala:306
+msgid "Refresh news"
+msgstr "Segarkan berita"
+
+#. Main menu, on the sidebar's trailing (right) side
+#: src/ui/appWindow.vala:320 src/ui/dialogs/app/prefsDialog.vala:39
+msgid "Preferences"
+msgstr "Preferensi"
+
+#: src/ui/appWindow.vala:321 src/ui/sidebarView.vala:257
+msgid "Manage Locations"
+msgstr "Kelola Lokasi"
+
+#: src/ui/appWindow.vala:322
+msgid "Show Welcome Tour"
+msgstr "Tampilkan Tur Sambutan"
+
+#: src/ui/appWindow.vala:323 src/ui/dialogs/app/aboutDialog.vala:100
+#: src/ui/dialogs/app/aboutDialog.vala:257
+msgid "About Paperboy"
+msgstr "Tentang Paperboy"
+
+#: src/ui/appWindow.vala:328
+msgid "Main Menu"
+msgstr "Menu Utama"
+
+#: src/ui/appWindow.vala:342
+msgid "Toggle Sidebar"
+msgstr "Tampilkan/Sembunyikan Bilah Sisi"
+
+#: src/ui/appWindow.vala:349 src/ui/appWindow.vala:522
+msgid "Search news for keywords…"
+msgstr "Cari berita berdasarkan kata kunci…"
+
+#. Podcasts renders into ContentView's own hero_container/
+#. category_sections_container - the exact containers Top
+#. Ten/Front Page already use - instead of a separate page, so
+#. it inherits the same header, margins, scroll-fade chrome,
+#. and hero-card layout. See PodcastManager.show(). Leaving
+#. podcasts back to any news category runs through fetch_news()
+#. below as normal, whose LayoutManager.prepare_for_new_fetch()
+#. already clears these same containers unconditionally, so no
+#. podcast-specific teardown is needed here.
+#. If viewing "saved" category, check if saved articles are already loaded
+#. (they load synchronously in ArticleStateStore constructor, so signal may have
+#. already fired before we connected the handler at line 333)
+#. Podcasts isn't a FetchNewsController category - it renders
+#. directly into ContentView's containers via PodcastManager
+#. (see the sidebar's category_selected handler above).
+#. Calling fetch_news() here instead would leave the loading
+#. spinner stuck forever, since nothing in that pipeline
+#. recognizes "podcasts" or ever calls fetch_finished().
+#: src/ui/appWindow.vala:505 src/ui/appWindow.vala:1014
+msgid "Search podcasts…"
+msgstr "Cari podcast…"
+
+#. Same reasoning as the podcasts branch above - Magazines
+#. isn't a FetchNewsController category either.
+#: src/ui/appWindow.vala:522 src/ui/appWindow.vala:1019
+msgid "Search magazines…"
+msgstr "Cari majalah…"
+
+#. Also show a user-visible toast for immediate feedback
+#: src/ui/appWindow.vala:1311
+msgid "Failed to load articles. Please try again."
+msgstr "Gagal memuat artikel. Silakan coba lagi."
+
+#: src/ui/components/articles/articlePane.vala:57
+msgid "Failed to open link in browser"
+msgstr "Gagal membuka tautan di peramban"
+
+#: src/ui/components/articles/articlePane.vala:228
+msgid "Loading snippet…"
+msgstr "Memuat cuplikan…"
+
+#: src/ui/components/articles/articlePane.vala:253
+#: src/ui/components/articles/articleSheet.vala:150
+#: src/ui/components/magazines/magazineReaderSheet.vala:418
+#: src/ui/dialogs/content/imageViewerDialog.vala:306
+#: src/ui/dialogs/media/podcastDetailDialog.vala:201
+#: src/ui/dialogs/media/videoPlayerDialog.vala:126
+msgid "Close"
+msgstr "Tutup"
+
+#: src/ui/components/articles/articlePane.vala:302
+#: src/ui/components/articles/articleSheet.vala:525
+#: src/managers/content/articleManager.vala:1213
+#: src/managers/content/articleManager.vala:1370
+#: src/managers/content/articleManager.vala:1466
+#: src/managers/content/articleManager.vala:1904
+msgid "Removed article from saved"
+msgstr "Artikel dihapus dari tersimpan"
+
+#: src/ui/components/articles/articlePane.vala:309
+#: src/ui/components/articles/articleSheet.vala:530
+#: src/managers/content/articleManager.vala:1231
+#: src/managers/content/articleManager.vala:1388
+#: src/managers/content/articleManager.vala:1469
+#: src/managers/content/articleManager.vala:1907
+msgid "Added article to saved"
+msgstr "Artikel ditambahkan ke tersimpan"
+
+#: src/ui/components/articles/articlePane.vala:341
+#: src/ui/components/articles/articleSheet.vala:157
+msgid "Article options"
+msgstr "Opsi artikel"
+
+#: src/ui/components/articles/articlePane.vala:346
+msgid "Article view and source options"
+msgstr "Opsi tampilan artikel dan sumber"
+
+#. Fetch snippet asynchronously. ArticlePreviewService will consult any
+#. provided article buffer (cached feed entries) for quick results.
+#. Ensure the preview UI is still present before mutating widgets
+#: src/ui/components/articles/articlePane.vala:398
+msgid "No preview available. Open the article to read more."
+msgstr "Pratinjau tidak tersedia. Buka artikel untuk membaca selengkapnya."
+
+#: src/ui/components/articles/articleSheet.vala:107
+#: src/ui/dialogs/app/onboardingDialog.vala:72
+msgid "Back"
+msgstr "Kembali"
+
+#: src/ui/components/articles/articleSheet.vala:113
+msgid "Forward"
+msgstr "Maju"
+
+#: src/ui/components/articles/articleSheet.vala:119
+msgid "Reload article"
+msgstr "Muat ulang artikel"
+
+#: src/ui/components/articles/articleSheet.vala:131
+msgid "Reader view"
+msgstr "Tampilan baca"
+
+#: src/ui/components/articles/articleSheet.vala:152
+msgid "Close article"
+msgstr "Tutup artikel"
+
+#: src/ui/components/articles/articleSheet.vala:164
+#: src/ui/components/articles/articleSheet.vala:351
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:43 src/ui/sidebarView.vala:1250
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
+msgid "Notes"
+msgstr "Catatan"
+
+#: src/ui/components/articles/articleSheet.vala:247
+msgid "View comments"
+msgstr "Lihat komentar"
+
+#: src/ui/components/articles/articleSheet.vala:287
+msgid "Comments"
+msgstr "Komentar"
+
+#: src/ui/components/articles/articleSheet.vala:292
+msgid "Close comments"
+msgstr "Tutup komentar"
+
+#: src/ui/components/articles/articleSheet.vala:356
+#: src/ui/dialogs/notes/noteEditorDialog.vala:48
+msgid "New note"
+msgstr "Catatan baru"
+
+#: src/ui/components/articles/articleSheet.vala:364
+msgid "Close notes"
+msgstr "Tutup catatan"
+
+#: src/ui/components/articles/articleSheet.vala:385
+msgid "No notes yet."
+msgstr "Belum ada catatan."
+
+#: src/ui/components/articles/articleSheet.vala:720
+msgid "9+"
+msgstr "9+"
+
+#: src/ui/components/articles/articleSheet.vala:823
+msgid "No comments yet."
+msgstr "Belum ada komentar."
+
+#: src/ui/components/articles/articleSheet.vala:823
+msgid "Couldn't load comments."
+msgstr "Tidak dapat memuat komentar."
+
+#. Styled like the content view's other card chips
+#. (.category-chip/.source-badge), not the sidebar's
+#. theme-aware .live-pill - see .live-pill-header in style.css.
+#. "Live" pill shown to the left of the Sports category's count badge
+#. while SportsLiveIndicatorManager reports a game in progress.
+#: src/ui/components/articles/categorySection.vala:146
+#: src/ui/components/sports/leagueBadge.vala:101 src/ui/sidebarView.vala:553
+msgid "Live"
+msgstr "Langsung"
+
+#. Plain "Go to <title>" button under the row (not overlaid on the
+#. cards), fixed in place - jumps to nav_target_id's full page via the
+#. sidebar. Names the destination directly rather than "See all", which
+#. reads as "load more into this row" - the row's own nav arrows already
+#. do that. Static for the same reason as add_nav_buttons: it hangs a
+#. closure off a signal owned by `wrapper`.
+#. TRANSLATORS: %s is a category, e.g. "Go to Sports →"; in right-to-left
+#. languages put the arrow first and point it left ("← ...")
+#: src/ui/components/articles/categorySection.vala:461
+#, c-format
+msgid "Go to %s →"
+msgstr "Buka %s →"
+
+#. Margins live in CSS (.top-stories-title), not set_margin_top/
+#. bottom here: the top margin was silently not taking effect via
+#. the widget API (bottom did), so app-level CSS - which always
+#. wins over the GTK theme's own defaults - is the reliable place
+#. to control this regardless of what was overriding it.
+#. Use Pango markup to match the subtitle sizing used elsewhere.
+#: src/ui/components/articles/heroCarousel.vala:82
+msgid "<span size='26000'><b>FEATURED</b></span>"
+msgstr "<span size='26000'><b>PILIHAN</b></span>"
+
+#: src/ui/components/articles/recommendedSection.vala:75
+msgid "RECOMMENDED FOR YOU"
+msgstr "DIREKOMENDASIKAN UNTUK ANDA"
+
+#: src/ui/components/articles/recommendedSection.vala:79
+msgid "Picked from the topics and sites you read"
+msgstr "Dipilih dari topik dan situs yang Anda baca"
+
+#. No standard GTK/Adwaita icon actually renders as a literal arrow
+#. (shaft + head) - go-previous/pan-start/media-playback-start all
+#. land back on a chevron or triangle. Using the plain Unicode arrow
+#. glyphs as bold button text instead: they're in the core Arrows
+#. block, present in every GNOME distro's default font stack
+#. (Cantarell, Noto, DejaVu), so this needs no icon theme lookup or
+#. bundled asset.
+#. TRANSLATORS: keep the arrows as they are in right-to-left languages too;
+#. the buttons stay on the left and right edges and scroll that way
+#: src/ui/components/common/scrollNavButtons.vala:61
+msgid "←"
+msgstr "←"
+
+#: src/ui/components/common/scrollNavButtons.vala:70
+msgid "→"
+msgstr "→"
+
+#: src/ui/components/magazines/magazineCard.vala:290
+msgid "Select"
+msgstr "Pilih"
+
+#: src/ui/components/magazines/magazineCard.vala:291
+msgid "Set Category…"
+msgstr "Atur Kategori…"
+
+#: src/ui/components/magazines/magazineCard.vala:292
+msgid "Remove from Library"
+msgstr "Hapus dari Pustaka"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:264
+msgid "Opening magazine…"
+msgstr "Membuka majalah…"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:290
+msgid "Failed to open magazine"
+msgstr "Gagal membuka majalah"
+
+#. stale page indices from whatever was open before, if anything
+#: src/ui/components/magazines/magazineReaderSheet.vala:297
+msgid "Magazine"
+msgstr "Majalah"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:376
+#: src/ui/components/magazines/magazineReaderSheet.vala:380
+msgid "Single Page"
+msgstr "Satu Halaman"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:377
+msgid "Toggle two-page spread"
+msgstr "Alihkan tampilan dua halaman"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:380
+msgid "Two-Page"
+msgstr "Dua Halaman"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:393
+msgid "Browse pages"
+msgstr "Telusuri halaman"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:399
+msgid "Zoom out"
+msgstr "Perkecil"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:405
+msgid "Fit to view"
+msgstr "Paskan ke tampilan"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:411
+msgid "Zoom in"
+msgstr "Perbesar"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:635
+msgid "Previous page"
+msgstr "Halaman sebelumnya"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:643
+msgid "Next page"
+msgstr "Halaman berikutnya"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:1147
+#, c-format
+msgid "Pages %d–%d of %d"
+msgstr "Halaman %d–%d dari %d"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:1149
+#, c-format
+msgid "Page %d of %d"
+msgstr "Halaman %d dari %d"
+
+#. typical portrait aspect - letterboxed if a page is a different shape
+#: src/ui/components/magazines/magazineTocPane.vala:134
+#, c-format
+msgid "%d"
+msgstr "%d"
+
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/components/podcasts/podcastCard.vala:96
+#: src/ui/components/podcasts/podcastPane.vala:165
+#: src/ui/components/podcasts/podcastPane.vala:524
+#: src/ui/components/sports/highlightCard.vala:124
+#: src/ui/components/sports/scoreCard.vala:116
+#: src/ui/components/sports/scoreCard.vala:126
+#: src/ui/components/sports/scoreCard.vala:168
+#: src/ui/components/sports/scoreCard.vala:170
+#: src/ui/dialogs/media/podcastDetailDialog.vala:374
+#: src/ui/dialogs/media/podcastPickerDialog.vala:60
+#, c-format
+msgid "%s · %s"
+msgstr "%s · %s"
+
+#: src/ui/components/podcasts/podcastCard.vala:104
+#: src/ui/components/podcasts/podcastPane.vala:598
+#: src/ui/dialogs/media/podcastDetailDialog.vala:445
+#, c-format
+msgid "%lldh %lldm"
+msgstr "%lld j %lld m"
+
+#: src/ui/components/podcasts/podcastCard.vala:105
+#: src/ui/components/podcasts/podcastPane.vala:599
+#: src/ui/dialogs/media/podcastDetailDialog.vala:446
+#, c-format
+msgid "%lldm"
+msgstr "%lld m"
+
+#: src/ui/components/podcasts/podcastCard.vala:162
+#: src/ui/components/podcasts/podcastHeroCard.vala:150
+#: src/ui/menus/podcastMenu.vala:52
+msgid "Play"
+msgstr "Putar"
+
+#: src/ui/components/podcasts/podcastCard.vala:180
+msgid "Click for details"
+msgstr "Klik untuk detail"
+
+#: src/ui/components/podcasts/podcastCard.vala:230
+#: src/ui/components/podcasts/podcastHeroCard.vala:169
+#: src/ui/components/podcasts/podcastPane.vala:462
+#: src/ui/dialogs/media/podcastDetailDialog.vala:164
+#: src/ui/menus/podcastMenu.vala:80
+msgid "Subscribe"
+msgstr "Berlangganan"
+
+#. TRANSLATORS: %s is the time remaining in an episode, e.g. "12:34 left"
+#: src/ui/components/podcasts/podcastPane.vala:164
+#: src/ui/components/podcasts/podcastPane.vala:521
+#, c-format
+msgid "%s left"
+msgstr "Sisa %s"
+
+#: src/ui/components/podcasts/podcastPane.vala:451
+#: src/ui/dialogs/media/podcastDetailDialog.vala:228
+msgid "No episodes found for this show."
+msgstr "Tidak ditemukan episode untuk acara ini."
+
+#: src/ui/components/podcasts/podcastPane.vala:507
+#: src/ui/dialogs/media/podcastDetailDialog.vala:364
+msgid "New"
+msgstr "Baru"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:116
+msgid "Minimize"
+msgstr "Minimalkan"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:127
+msgid "Stop and close"
+msgstr "Hentikan dan tutup"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:161
+msgid "Previous episode"
+msgstr "Episode sebelumnya"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:173
+msgid "Next episode"
+msgstr "Episode berikutnya"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:178
+msgid "Playback speed"
+msgstr "Kecepatan putar"
+
+#. Labelled so tapping it reads as "leaves the reader" rather than "broken".
+#: src/ui/components/reader/readerVideoEmbed.vala:72
+msgid "Watch on site"
+msgstr "Tonton di situs"
+
+#: src/ui/components/reader/readerView.vala:116
+msgid "Loading reader view…"
+msgstr "Memuat tampilan baca…"
+
+#: src/ui/components/reader/readerView.vala:124
+msgid ""
+"Couldn't extract a reader view for this article.\n"
+"Turn off reader view above to read it on the live webpage instead."
+msgstr ""
+"Tidak dapat membuat tampilan baca untuk artikel ini.\n"
+"Matikan tampilan baca di atas untuk membacanya di halaman web aslinya."
+
+#: src/ui/components/reader/readerView.vala:482
+msgid "Open note"
+msgstr "Buka catatan"
+
+#: src/ui/components/reader/readerView.vala:511
+msgid "Reader view settings"
+msgstr "Pengaturan tampilan baca"
+
+#. ---- Text size ----
+#: src/ui/components/reader/readerView.vala:524
+msgid "Text size"
+msgstr "Ukuran teks"
+
+#: src/ui/components/reader/readerView.vala:531
+msgid "Decrease text size"
+msgstr "Perkecil teks"
+
+#: src/ui/components/reader/readerView.vala:536
+msgid "Increase text size"
+msgstr "Perbesar teks"
+
+#. ---- Font family ----
+#: src/ui/components/reader/readerView.vala:555
+msgid "Font"
+msgstr "Fon"
+
+#: src/ui/components/reader/readerView.vala:562
+msgid "Sans"
+msgstr "Sans"
+
+#: src/ui/components/reader/readerView.vala:563
+msgid "Serif"
+msgstr "Serif"
+
+#: src/ui/components/reader/readerView.vala:564
+msgid "Mono"
+msgstr "Mono"
+
+#. ---- Color scheme ----
+#: src/ui/components/reader/readerView.vala:584
+msgid "Color"
+msgstr "Warna"
+
+#: src/ui/components/reader/readerView.vala:628
+#: src/ui/dialogs/app/onboardingDialog.vala:335
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
+msgid "Light"
+msgstr "Terang"
+
+#: src/ui/components/reader/readerView.vala:629
+msgid "Sepia"
+msgstr "Sepia"
+
+#: src/ui/components/reader/readerView.vala:630
+msgid "Gray"
+msgstr "Abu-abu"
+
+#: src/ui/components/reader/readerView.vala:631
+#: src/ui/dialogs/app/onboardingDialog.vala:336
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
+msgid "Dark"
+msgstr "Gelap"
+
+#: src/ui/components/reader/readerView.vala:632
+msgid "Night"
+msgstr "Malam"
+
+#: src/ui/components/reader/readerView.vala:633
+msgid "Auto (match app theme)"
+msgstr "Otomatis (ikuti tema aplikasi)"
+
+#: src/ui/components/reader/readerView.vala:649
+#, c-format
+msgid "%d%%"
+msgstr "%d%%"
+
+#: src/ui/components/reader/readerView.vala:847
+msgid "Untitled article"
+msgstr "Artikel tanpa judul"
+
+#: src/ui/components/reader/readerView.vala:992
+#: src/ui/components/reader/readerView.vala:1001
+msgid "Add note"
+msgstr "Tambah catatan"
+
+#: src/ui/components/reader/readerView.vala:1075
+msgid "View full size"
+msgstr "Lihat ukuran penuh"
+
+#. TRANSLATORS: %s is the article's author
+#: src/ui/components/reader/readerView.vala:1094
+#, c-format
+msgid "By %s"
+msgstr "Oleh %s"
+
+#: src/ui/components/sports/leagueBadgeCarousel.vala:203
+msgid "Add more leagues"
+msgstr "Tambah liga lainnya"
+
+#: src/ui/components/sports/leagueBadgeCarousel.vala:210
+msgid "Settings"
+msgstr "Pengaturan"
+
+#: src/ui/components/sports/scoreCard.vala:115
+msgid "LIVE"
+msgstr "LANGSUNG"
+
+#: src/ui/components/sports/scoreCard.vala:169
+msgid "TBD"
+msgstr "Belum ditentukan"
+
+#: src/ui/components/sports/scoreCard.vala:180
+msgid "Today"
+msgstr "Hari ini"
+
+#: src/ui/components/sports/scoreCard.vala:181
+msgid "Yesterday"
+msgstr "Kemarin"
+
+#: src/ui/components/sports/scoreCard.vala:182
+msgid "Tomorrow"
+msgstr "Besok"
+
+#: src/ui/contentView.vala:241
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:48
+msgid "Organize Rack"
+msgstr "Atur Rak"
+
+#: src/ui/contentView.vala:342
+msgid "<span size='26000'><b>START LISTENING</b></span>"
+msgstr "<span size='26000'><b>MULAI MENDENGARKAN</b></span>"
+
+#: src/ui/contentView.vala:386
+msgid "TRENDING"
+msgstr "SEDANG TREN"
+
+#: src/ui/contentView.vala:458
+msgid "MY TEAMS"
+msgstr "TIM SAYA"
+
+#: src/ui/contentView.vala:689
+msgid "Personalize My Feed"
+msgstr "Sesuaikan Umpan Saya"
+
+#: src/ui/contentView.vala:711
+msgid "To See Local News, Set Your Location in Preferences"
+msgstr "Untuk Melihat Berita Lokal, Atur Lokasi Anda di Preferensi"
+
+#: src/ui/contentView.vala:720
+msgid ""
+"Open the main menu (☰) → choose 'Manage locations' to configure your city or "
+"postal code."
+msgstr ""
+"Buka menu utama (☰) → pilih 'Kelola lokasi' untuk mengatur kota atau kode "
+"pos Anda."
+
+#: src/ui/contentView.vala:728
+msgid "Set Location"
+msgstr "Atur Lokasi"
+
+#: src/ui/contentView.vala:754
+msgid "Something went wrong. Try refreshing..."
+msgstr "Terjadi kesalahan. Coba segarkan..."
+
+#: src/ui/contentView.vala:762 src/ui/dialogs/app/prefsDialog.vala:82
+msgid "Refresh"
+msgstr "Segarkan"
+
+#: src/ui/contentView.vala:846
+msgid "Select all"
+msgstr "Pilih semua"
+
+#: src/ui/contentView.vala:942 src/ui/contentView.vala:1017
+msgid "Load more articles"
+msgstr "Muat artikel lainnya"
+
+#. Search spans every category, not just the one on screen (e.g.
+#. "Sports") - keeping that category's name/icon while showing
+#. unrelated global results was confusing, so swap both for a clear
+#. search-mode title. Restored in RESTORE MODE above. Only touch the
+#. icon on the transition into search mode (not every debounced
+#. keystroke) - update_category_icon() rebuilds/rasterizes it, and
+#. it's already correct for every keystroke after the first.
+#: src/ui/contentView.vala:1155 src/ui/contentView.vala:1156
+msgid "Search results"
+msgstr "Hasil pencarian"
+
+#: src/ui/contentView.vala:1193
+#, c-format
+msgid "No articles found matching \"%s\""
+msgstr "Tidak ditemukan artikel yang cocok dengan \"%s\""
+
+#. Special switch when only one matching article is found
+#: src/ui/contentView.vala:1196
+#, c-format
+msgid "Search results: found %d article matching \"%s\""
+msgid_plural "Search results: found %d articles matching \"%s\""
+msgstr[0] "Hasil pencarian: ditemukan %d artikel yang cocok dengan “%s”"
+
+#: src/ui/dialogs/app/aboutDialog.vala:73
+msgid "Country detection and the Portuguese (Brazil) translation"
+msgstr "Deteksi negara dan terjemahan bahasa Portugis (Brasil)"
+
+#. Contributors get their own page, so the list can grow without
+#. making this one longer
+#: src/ui/dialogs/app/aboutDialog.vala:93
+#: src/ui/dialogs/app/aboutDialog.vala:197
+msgid "Contributors"
+msgstr "Kontributor"
+
+#: src/ui/dialogs/app/aboutDialog.vala:124
+#: src/ui/dialogs/app/aboutDialog.vala:127
+msgid "Release notes not available"
+msgstr "Catatan rilis tidak tersedia"
+
+#: src/ui/dialogs/app/aboutDialog.vala:141
+#: src/ui/dialogs/app/aboutDialog.vala:187
+msgid "Release notes"
+msgstr "Catatan rilis"
+
+#: src/ui/dialogs/app/aboutDialog.vala:174
+msgid "An all-in-one news app written in Vala, built with GTK4 and Libadwaita."
+msgstr ""
+"Aplikasi berita serbaguna yang ditulis dengan Vala, dibuat dengan GTK4 dan "
+"Libadwaita."
+
+#: src/ui/dialogs/app/aboutDialog.vala:205
+msgid "Links"
+msgstr "Tautan"
+
+#: src/ui/dialogs/app/aboutDialog.vala:234
+msgid "GitHub Repository"
+msgstr "Repositori GitHub"
+
+#: src/ui/dialogs/app/aboutDialog.vala:235
+msgid "Releases"
+msgstr "Rilis"
+
+#: src/ui/dialogs/app/aboutDialog.vala:236
+msgid "Report an issue"
+msgstr "Laporkan masalah"
+
+#: src/ui/dialogs/app/aboutDialog.vala:240
+msgid "© 2025 thecalamityjoe87 (Isaac Joseph)"
+msgstr "© 2025 thecalamityjoe87 (Isaac Joseph)"
+
+#: src/ui/dialogs/app/locationDialog.vala:81
+#: src/ui/dialogs/notes/noteEditorDialog.vala:51
+msgid "Save"
+msgstr "Simpan"
+
+#: src/ui/dialogs/app/locationDialog.vala:83
+msgid "Add city"
+msgstr "Tambah kota"
+
+#: src/ui/dialogs/app/locationDialog.vala:83 src/ui/menus/sidebarMenu.vala:56
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:417
+msgid "Change location"
+msgstr "Ubah lokasi"
+
+#: src/ui/dialogs/app/locationDialog.vala:84
+msgid ""
+"Enter a city name or a postal code, or use your current location.\n"
+"Examples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
+msgstr ""
+"Masukkan nama kota atau kode pos, atau gunakan lokasi Anda saat ini.\n"
+"Contoh: \"Jakarta\", \"Manchester\" atau \"10115\""
+
+#: src/ui/dialogs/app/locationDialog.vala:88
+msgid "City name or postal code"
+msgstr "Nama kota atau kode pos"
+
+#: src/ui/dialogs/app/locationDialog.vala:104
+#, c-format
+msgid "Current location: <b>%s</b>"
+msgstr "Lokasi saat ini: <b>%s</b>"
+
+#: src/ui/dialogs/app/locationDialog.vala:140
+msgid "Searching..."
+msgstr "Mencari..."
+
+#: src/ui/dialogs/app/locationDialog.vala:155
+msgid "Search"
+msgstr "Cari"
+
+#: src/ui/dialogs/app/locationDialog.vala:157
+msgid "Use my location"
+msgstr "Gunakan lokasi saya"
+
+#: src/ui/dialogs/app/locationDialog.vala:214
+#, c-format
+msgid "You can save up to %d location."
+msgid_plural "You can save up to %d locations."
+msgstr[0] "Anda dapat menyimpan hingga %d lokasi."
+
+#: src/ui/dialogs/app/locationDialog.vala:248
+msgid ""
+"Couldn't resolve a location for that. Try a different city name or postal "
+"code."
+msgstr ""
+"Tidak dapat menemukan lokasi untuk itu. Coba nama kota atau kode pos lain."
+
+#. TRANSLATORS: the first %s is a city, the second the dialog's save button label
+#: src/ui/dialogs/app/locationDialog.vala:268
+#, c-format
+msgid "Detected: <b>%s</b> — click %s to use this location"
+msgstr "Terdeteksi: <b>%s</b> — klik “%s” untuk menggunakan lokasi ini"
+
+#: src/ui/dialogs/app/locationDialog.vala:273
+#, c-format
+msgid "Detected: <b>%s</b> — choose which news to add:"
+msgstr "Terdeteksi: <b>%s</b> — pilih berita yang akan ditambahkan:"
+
+#: src/ui/dialogs/app/locationDialog.vala:274
+msgid "Smaller towns may have limited coverage."
+msgstr "Kota kecil mungkin memiliki cakupan terbatas."
+
+#: src/ui/dialogs/app/locationDialog.vala:275
+msgid "Nearby metro area"
+msgstr "Wilayah metropolitan terdekat"
+
+#: src/ui/dialogs/app/locationDialog.vala:283
+msgid "1 location slot left — pick one, or remove a location to add both."
+msgstr ""
+"Tersisa 1 slot lokasi — pilih salah satu, atau hapus satu lokasi untuk "
+"menambahkan keduanya."
+
+#: src/ui/dialogs/app/locationDialog.vala:315
+msgid "Enter a city name or postal code and press Search."
+msgstr "Masukkan nama kota atau kode pos lalu tekan Cari."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:64
+msgid "Skip"
+msgstr "Lewati"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:76
+#: src/ui/dialogs/app/onboardingDialog.vala:109
+msgid "Next"
+msgstr "Berikutnya"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:109
+msgid "Get Started"
+msgstr "Mulai"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:158
+msgid "Welcome to Paperboy"
+msgstr "Selamat Datang di Paperboy"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:165
+msgid ""
+"Paperboy brings together news from the sources you trust, into one clean, "
+"distraction-free reader.\n"
+"\n"
+"Let's set a few things up before you get started."
+msgstr ""
+"Paperboy mengumpulkan berita dari sumber yang Anda percayai ke dalam satu "
+"pembaca yang bersih dan bebas gangguan.\n"
+"\n"
+"Mari atur beberapa hal sebelum Anda mulai."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:203
+msgid "Where Are You Reading From?"
+msgstr "Dari Mana Anda Membaca?"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:209
+msgid ""
+"Your national news and Front Page come from this country. We've picked it "
+"from your system settings - change it if it's not right. You can change this "
+"anytime from Preferences."
+msgstr ""
+"Berita nasional dan Halaman Depan Anda berasal dari negara ini. Kami "
+"memilihnya dari pengaturan sistem Anda - ubah jika tidak tepat. Anda dapat "
+"mengubahnya kapan saja di Preferensi."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:240
+msgid "Pick a Theme"
+msgstr "Pilih Tema"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:246
+msgid "You can change this anytime from Preferences."
+msgstr "Anda dapat mengubahnya kapan saja di Preferensi."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:334
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
+msgid "Follow System"
+msgstr "Ikuti Sistem"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:467
+msgid "What Do You Want to Read?"
+msgstr "Apa yang Ingin Anda Baca?"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:472
+msgid ""
+"Pick the topics you care about. They show up in the sidebar and make up My "
+"Feed - you can change them anytime from Preferences."
+msgstr ""
+"Pilih topik yang Anda minati. Topik tersebut muncul di bilah sisi dan "
+"membentuk Umpan Saya - Anda dapat mengubahnya kapan saja di Preferensi."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:533
+msgid "Choose Your Sources"
+msgstr "Pilih Sumber Anda"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:538
+msgid ""
+"Paperboy pulls articles from across the web, including these outlets. Tap "
+"any you'd rather not see to hide their articles everywhere - you can change "
+"these anytime from Preferences."
+msgstr ""
+"Paperboy mengambil artikel dari seluruh web, termasuk dari media-media ini. "
+"Ketuk media yang tidak ingin Anda lihat untuk menyembunyikan artikelnya di "
+"mana saja - Anda dapat mengubahnya kapan saja di Preferensi."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:596
+msgid "Live Sports Scores"
+msgstr "Skor Olahraga Langsung"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:601
+msgid ""
+"See live scores from your favorite leagues right in the Sports category. "
+"Choose which leagues to follow - you can change this, and the order their "
+"sections appear in, anytime from Preferences."
+msgstr ""
+"Lihat skor langsung dari liga favorit Anda langsung di kategori Olahraga. "
+"Pilih liga yang akan diikuti – Anda dapat mengubahnya, beserta urutan "
+"bagiannya, kapan saja di Preferensi."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:609
+msgid "Show Score Cards"
+msgstr "Tampilkan Kartu Skor"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:656
+msgid "Local News, Too"
+msgstr "Berita Lokal Juga"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:663
+msgid ""
+"Set your location to get a Local News feed for your area. You can do this "
+"now or anytime later from the main menu."
+msgstr ""
+"Atur lokasi Anda untuk mendapatkan umpan Berita Lokal untuk daerah Anda. "
+"Anda dapat melakukannya sekarang atau nanti dari menu utama."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:670
+msgid "Set My Location"
+msgstr "Atur Lokasi Saya"
+
+#: src/ui/dialogs/app/prefsDialog.vala:78
+msgid "Refresh Content?"
+msgstr "Segarkan Konten?"
+
+#: src/ui/dialogs/app/prefsDialog.vala:79
+msgid ""
+"Changes have been made to your news sources. Would you like to refresh the "
+"content now?"
+msgstr ""
+"Sumber berita Anda telah diubah. Apakah Anda ingin menyegarkan konten "
+"sekarang?"
+
+#: src/ui/dialogs/app/prefsDialog.vala:81
+msgid "Not Now"
+msgstr "Nanti"
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:34
+msgid "Rename feed"
+msgstr "Ganti nama umpan"
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:34
+msgid "Leave empty to use the default name."
+msgstr "Biarkan kosong untuk menggunakan nama bawaan."
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:43
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:332
+#: src/ui/menus/sidebarMenu.vala:100
+msgid "Rename"
+msgstr "Ganti Nama"
+
+#: src/ui/dialogs/content/imageViewerDialog.vala:312
+msgid "Zoom Out"
+msgstr "Perkecil"
+
+#: src/ui/dialogs/content/imageViewerDialog.vala:317
+msgid "Zoom In"
+msgstr "Perbesar"
+
+#: src/ui/dialogs/content/shareDialog.vala:34
+msgid "Share Article"
+msgstr "Bagikan Artikel"
+
+#. Email section
+#: src/ui/dialogs/content/shareDialog.vala:40
+msgid "Share via email"
+msgstr "Bagikan melalui email"
+
+#: src/ui/dialogs/content/shareDialog.vala:49
+msgid "Send link"
+msgstr "Kirim tautan"
+
+#: src/ui/dialogs/content/shareDialog.vala:55
+msgid "Opening email client"
+msgstr "Membuka klien email"
+
+#: src/ui/dialogs/content/shareDialog.vala:59
+msgid "Failed to open email client"
+msgstr "Gagal membuka klien email"
+
+#. Social media section
+#: src/ui/dialogs/content/shareDialog.vala:66
+msgid "Share on social media"
+msgstr "Bagikan di media sosial"
+
+#: src/ui/dialogs/content/shareDialog.vala:75
+msgid "Reddit"
+msgstr "Reddit"
+
+#: src/ui/dialogs/content/shareDialog.vala:81
+msgid "Opening browser to Reddit"
+msgstr "Membuka Reddit di peramban"
+
+#: src/ui/dialogs/content/shareDialog.vala:85
+msgid "Failed to share on Reddit"
+msgstr "Gagal membagikan ke Reddit"
+
+#: src/ui/dialogs/content/shareDialog.vala:94
+msgid "X (Twitter)"
+msgstr "X (Twitter)"
+
+#: src/ui/dialogs/content/shareDialog.vala:100
+msgid "Opening browser to X"
+msgstr "Membuka X di peramban"
+
+#: src/ui/dialogs/content/shareDialog.vala:104
+msgid "Failed to share on X"
+msgstr "Gagal membagikan ke X"
+
+#: src/ui/dialogs/content/shareDialog.vala:113
+msgid "Facebook"
+msgstr "Facebook"
+
+#: src/ui/dialogs/content/shareDialog.vala:119
+msgid "Opening browser to Facebook"
+msgstr "Membuka Facebook di peramban"
+
+#: src/ui/dialogs/content/shareDialog.vala:123
+msgid "Failed to share on Facebook"
+msgstr "Gagal membagikan ke Facebook"
+
+#. Messaging apps section
+#: src/ui/dialogs/content/shareDialog.vala:130
+msgid "Share via messaging app"
+msgstr "Bagikan melalui aplikasi pesan"
+
+#: src/ui/dialogs/content/shareDialog.vala:139
+msgid "Telegram"
+msgstr "Telegram"
+
+#: src/ui/dialogs/content/shareDialog.vala:145
+msgid "Opening browser to Telegram"
+msgstr "Membuka Telegram di peramban"
+
+#: src/ui/dialogs/content/shareDialog.vala:149
+msgid "Failed to share on Telegram"
+msgstr "Gagal membagikan ke Telegram"
+
+#: src/ui/dialogs/content/shareDialog.vala:158
+msgid "WhatsApp"
+msgstr "WhatsApp"
+
+#: src/ui/dialogs/content/shareDialog.vala:164
+msgid "Opening browser to WhatsApp"
+msgstr "Membuka WhatsApp di peramban"
+
+#: src/ui/dialogs/content/shareDialog.vala:168
+msgid "Failed to share on WhatsApp"
+msgstr "Gagal membagikan ke WhatsApp"
+
+#: src/ui/dialogs/content/shareDialog.vala:178
+msgid "Signal"
+msgstr "Signal"
+
+#: src/ui/dialogs/content/shareDialog.vala:187
+msgid "Signal isn't installed"
+msgstr "Signal tidak terpasang"
+
+#. Copy link section
+#: src/ui/dialogs/content/shareDialog.vala:194
+msgid "Share via copied link"
+msgstr "Bagikan melalui tautan yang disalin"
+
+#: src/ui/dialogs/content/shareDialog.vala:203
+msgid "Copy link to clipboard"
+msgstr "Salin tautan ke papan klip"
+
+#: src/ui/dialogs/content/shareDialog.vala:209
+msgid "Link copied to clipboard"
+msgstr "Tautan disalin ke papan klip"
+
+#. Undoes all organizing - category order, grid/row choice, and
+#. every magazine's category. Click handler wired below, after
+#. refresh() exists.
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:94
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:190
+msgid "Reset View"
+msgstr "Atur Ulang Tampilan"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:105
+msgid "Show uncategorized magazines as a grid"
+msgstr "Tampilkan majalah tanpa kategori sebagai kisi"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:188
+msgid "Reset view?"
+msgstr "Atur ulang tampilan?"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:189
+msgid ""
+"Moves every magazine back to Uncategorized, clears your custom category "
+"order, and switches back to the grid view. This can't be undone, though no "
+"magazines themselves are removed from your library."
+msgstr ""
+"Memindahkan semua majalah kembali ke Tanpa Kategori, menghapus urutan "
+"kategori khusus Anda, dan kembali ke tampilan kisi. Tindakan ini tidak dapat "
+"dibatalkan, tetapi tidak ada majalah yang dihapus dari pustaka Anda."
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
+#, c-format
+msgid "%d magazine"
+msgid_plural "%d magazines"
+msgstr[0] "%d majalah"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:284
+#: src/ui/dialogs/app/prefs/prefsRows.vala:180
+msgid "Drag to reorder"
+msgstr "Seret untuk mengurutkan ulang"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:306
+msgid "Rename category"
+msgstr "Ganti nama kategori"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:312
+msgid "Delete category"
+msgstr "Hapus kategori"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:322
+msgid "Rename Category"
+msgstr "Ganti Nama Kategori"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:323
+#, c-format
+msgid "Choose a new name for \"%s\"."
+msgstr "Pilih nama baru untuk \"%s\"."
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:362
+#, c-format
+msgid "Delete \"%s\"?"
+msgstr "Hapus \"%s\"?"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:363
+msgid ""
+"Moves its magazines back to Uncategorized. This can't be undone, though no "
+"magazines themselves are removed from your library."
+msgstr ""
+"Memindahkan majalahnya kembali ke Tanpa Kategori. Tindakan ini tidak dapat "
+"dibatalkan, tetapi tidak ada majalah yang dihapus dari pustaka Anda."
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:457
+msgid "New category name"
+msgstr "Nama kategori baru"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:489
+msgid ""
+"Type a name above and tap Add to create a category row first, then drag "
+"magazines into it. Drag a row's handle to reorder categories."
+msgstr ""
+"Ketik nama di atas lalu ketuk Tambah untuk membuat baris kategori terlebih "
+"dahulu, lalu seret majalah ke dalamnya. Seret pegangan baris untuk "
+"mengurutkan ulang kategori."
+
+#. Rough heuristic for "probably got truncated by the 4-line cap
+#. above" - good enough to decide whether "See more" is worth
+#. showing without measuring the actual Pango layout.
+#: src/ui/dialogs/media/podcastDetailDialog.vala:146
+msgid "See more"
+msgstr "Lihat lainnya"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:32
+msgid "Choose Podcasts"
+msgstr "Pilih Podcast"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:33
+msgid "This site publishes more than one podcast - select which ones to add."
+msgstr ""
+"Situs ini menerbitkan lebih dari satu podcast - pilih yang akan ditambahkan."
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:59
+#, c-format
+msgid "%d episode"
+msgid_plural "%d episodes"
+msgstr[0] "%d episode"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:63
+#, c-format
+msgid "%s · Already subscribed"
+msgstr "%s · Sudah berlangganan"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:63
+msgid "Already subscribed"
+msgstr "Sudah berlangganan"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:130
+msgid "Podcast added"
+msgstr "Podcast ditambahkan"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:130
+#, c-format
+msgid "%d podcast added"
+msgid_plural "%d podcasts added"
+msgstr[0] "%d podcast ditambahkan"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:48
+msgid "Edit note"
+msgstr "Sunting catatan"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:57
+msgid "Delete note"
+msgstr "Hapus catatan"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:68
+msgid "Title (optional)"
+msgstr "Judul (opsional)"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:159
+msgid "Bold"
+msgstr "Tebal"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:160
+msgid "Italic"
+msgstr "Miring"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:161
+msgid "Underline"
+msgstr "Garis bawah"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:162
+msgid "Strikethrough"
+msgstr "Coret"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:166
+msgid "Highlight"
+msgstr "Sorot"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:181
+msgid "Yellow"
+msgstr "Kuning"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:182
+msgid "Green"
+msgstr "Hijau"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:183
+msgid "Blue"
+msgstr "Biru"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:184
+msgid "Pink"
+msgstr "Merah muda"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:185
+msgid "Orange"
+msgstr "Oranye"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:201
+msgid "Remove highlight"
+msgstr "Hapus sorotan"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:211
+msgid "Bulleted list"
+msgstr "Daftar berpoin"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:212
+msgid "Numbered list"
+msgstr "Daftar bernomor"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:213
+msgid "Clear formatting"
+msgstr "Hapus format"
+
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:59
+msgid ""
+"No notes yet.\n"
+"Open an article and tap the notes icon to add one."
+msgstr ""
+"Belum ada catatan.\n"
+"Buka artikel dan ketuk ikon catatan untuk menambahkannya."
+
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:167
+msgid "Open article"
+msgstr "Buka artikel"
+
+#. View in app
+#: src/ui/menus/articleMenu.vala:52
+msgid "View article in app"
+msgstr "Lihat artikel di aplikasi"
+
+#. Open in browser
+#: src/ui/menus/articleMenu.vala:61
+msgid "Open article in browser"
+msgstr "Buka artikel di peramban"
+
+#: src/ui/menus/articleMenu.vala:81
+msgid "Built-in source"
+msgstr "Sumber bawaan"
+
+#: src/ui/menus/articleMenu.vala:81
+msgid "Enable built-in source"
+msgstr "Aktifkan sumber bawaan"
+
+#: src/ui/menus/articleMenu.vala:86
+msgid "This is a built-in source. You can enable or disable it in preferences."
+msgstr ""
+"Ini adalah sumber bawaan. Anda dapat mengaktifkan atau menonaktifkannya di "
+"Preferensi."
+
+#: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:151
+msgid "Remove from saved"
+msgstr "Hapus dari tersimpan"
+
+#: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:175
+msgid "Add to saved"
+msgstr "Tambahkan ke tersimpan"
+
+#. Mark as unread (only active when article is currently viewed)
+#: src/ui/menus/articleMenu.vala:107
+msgid "Mark as unread"
+msgstr "Tandai belum dibaca"
+
+#. Share
+#: src/ui/menus/articleMenu.vala:117
+msgid "Share this article"
+msgstr "Bagikan artikel ini"
+
+#: src/ui/menus/podcastMenu.vala:60
+msgid "More info"
+msgstr "Info selengkapnya"
+
+#: src/ui/menus/podcastMenu.vala:69
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:266
+msgid "Remove podcast"
+msgstr "Hapus podcast"
+
+#: src/ui/menus/sidebarMenu.vala:65
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:418
+msgid "Remove location"
+msgstr "Hapus lokasi"
+
+#. Mark all as read
+#: src/ui/menus/sidebarMenu.vala:85
+msgid "Mark all as read"
+msgstr "Tandai semua sudah dibaca"
+
+#. Mark all as unread
+#: src/ui/menus/sidebarMenu.vala:93
+msgid "Mark all as unread"
+msgstr "Tandai semua belum dibaca"
+
+#. Remove this source
+#: src/ui/menus/sidebarMenu.vala:110
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:160
+msgid "Remove this source"
+msgstr "Hapus sumber ini"
+
+#: src/ui/menus/sidebarMenu.vala:155
+msgid "Marked all articles as read"
+msgstr "Semua artikel ditandai sudah dibaca"
+
+#: src/ui/menus/sidebarMenu.vala:169
+msgid "Marked all articles as unread"
+msgstr "Semua artikel ditandai belum dibaca"
+
+#: src/ui/menus/sidebarMenu.vala:178
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:162
+msgid "Remove this source?"
+msgstr "Hapus sumber ini?"
+
+#: src/ui/menus/sidebarMenu.vala:179
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:163
+#, c-format
+msgid "Are you sure you want to remove \"%s\" and all of its articles?"
+msgstr "Yakin ingin menghapus \"%s\" beserta semua artikelnya?"
+
+#: src/ui/menus/sidebarMenu.vala:179
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:164
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:346
+msgid "Remove"
+msgstr "Hapus"
+
+#: src/ui/menus/sidebarMenu.vala:184
+msgid "Feed removed"
+msgstr "Umpan dihapus"
+
+#: src/ui/sidebarView.vala:261
+msgid "Manage Categories"
+msgstr "Kelola Kategori"
+
+#. "Open" pill shown to the left of the Business category's count badge
+#. while MarketStatusManager reports the US market as in its regular
+#. trading session. Same shape as Sports' ".live-pill" above, but its
+#. own green ".market-open-pill" class instead of that pill's red.
+#: src/ui/sidebarView.vala:566
+msgid "Open"
+msgstr "Buka"
+
+#: src/ui/sidebarView.vala:699 src/ui/sidebarView.vala:718
+msgid "Add RSS Feed"
+msgstr "Tambah Umpan RSS"
+
+#: src/ui/sidebarView.vala:719
+msgid "Enter the RSS feed URL:"
+msgstr "Masukkan URL umpan RSS:"
+
+#: src/ui/sidebarView.vala:730
+msgid "Feed name (optional)"
+msgstr "Nama umpan (opsional)"
+
+#: src/ui/sidebarView.vala:735
+msgid "Add Feed"
+msgstr "Tambah Umpan"
+
+#. Use the centralized ToastManager instead of creating Adw.Toast directly
+#: src/ui/sidebarView.vala:755
+msgid "Discovering feed..."
+msgstr "Mencari umpan..."
+
+#: src/ui/sidebarView.vala:761
+#, c-format
+msgid "RSS feed added: %s"
+msgstr "Umpan RSS ditambahkan: %s"
+
+#: src/ui/sidebarView.vala:768
+msgid "Failed to add RSS feed"
+msgstr "Gagal menambahkan umpan RSS"
+
+#: src/ui/sidebarView.vala:816 src/ui/sidebarView.vala:835
+msgid "Add a Podcast"
+msgstr "Tambah Podcast"
+
+#: src/ui/sidebarView.vala:836
+msgid "Enter the podcast's RSS feed URL:"
+msgstr "Masukkan URL umpan RSS podcast:"
+
+#: src/ui/sidebarView.vala:848
+msgid "Add Podcast"
+msgstr "Tambah Podcast"
+
+#: src/ui/sidebarView.vala:865
+msgid "Resolving podcast feed..."
+msgstr "Memeriksa umpan podcast..."
+
+#: src/ui/sidebarView.vala:881
+msgid "Failed to add podcast"
+msgstr "Gagal menambahkan podcast"
+
+#: src/ui/sidebarView.vala:1269
+msgid "Now Playing"
+msgstr "Sedang Diputar"
+
+#: src/ui/controllers/myFeedExtrasController.vala:278
+msgid "Your Scores"
+msgstr "Skor Anda"
+
+#: src/ui/controllers/myFeedExtrasController.vala:336
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:365
+msgid "Magazines"
+msgstr "Majalah"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:37
+msgid "App"
+msgstr "Aplikasi"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:53
+msgid "Appearance"
+msgstr "Tampilan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:56
+msgid "Theme"
+msgstr "Tema"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:57
+msgid "Follow the system theme, or force light or dark mode"
+msgstr "Ikuti tema sistem, atau paksa mode terang atau gelap"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:87
+msgid "Update Interval"
+msgstr "Interval Pembaruan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:88
+msgid ""
+"Short update intervals can trigger rate limits or cause requests to be "
+"blocked."
+msgstr ""
+"Interval pembaruan yang singkat dapat memicu batas permintaan atau "
+"menyebabkan permintaan diblokir."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:89
+msgid ""
+"Updating feeds too often may look like automated traffic. Sites could "
+"temporarily block requests or refuse articles if too many are made in a "
+"short time. Choose a longer interval to avoid this."
+msgstr ""
+"Memperbarui umpan terlalu sering dapat terlihat seperti lalu lintas "
+"otomatis. Situs dapat memblokir permintaan untuk sementara atau menolak "
+"artikel jika terlalu banyak permintaan dalam waktu singkat. Pilih interval "
+"yang lebih panjang untuk menghindarinya."
+
+#. "Manual" and "Sync Every" are radio-style check buttons.
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:93
+msgid "Manual"
+msgstr "Manual"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:94
+msgid "No automatic synchronization"
+msgstr "Tanpa sinkronisasi otomatis"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:101
+msgid "Sync Every"
+msgstr "Sinkronkan Setiap"
+
+#. from_strings() needs a NULL-terminated array: a fresh Vala string[]
+#. is one, the const array isn't. Literal _() here so xgettext sees them.
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:110
+msgid "15 Minutes"
+msgstr "15 Menit"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:111
+msgid "30 Minutes"
+msgstr "30 Menit"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:112
+msgid "1 Hour"
+msgstr "1 Jam"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:113
+msgid "2 Hours"
+msgstr "2 Jam"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:114
+msgid "4 Hours"
+msgstr "4 Jam"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:171
+msgid "Data"
+msgstr "Data"
+
+#. Article content cache (MetaCache)
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:175
+msgid "Article content cache"
+msgstr "Tembolok konten artikel"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:178
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:210
+msgid "Clear"
+msgstr "Bersihkan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:182
+msgid "Clear article content cache?"
+msgstr "Bersihkan tembolok konten artikel?"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:183
+msgid ""
+"This will delete cached article content and images. Previously read articles "
+"will need to be re-downloaded."
+msgstr ""
+"Ini akan menghapus konten dan gambar artikel yang ditembolok. Artikel yang "
+"pernah dibaca perlu diunduh ulang."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
+msgid "Clear Cache"
+msgstr "Bersihkan Tembolok"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:187
+msgid "0 bytes"
+msgstr "0 bita"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:188
+msgid "Cache cleared successfully"
+msgstr "Tembolok berhasil dibersihkan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:198
+msgid "RSS feed cache"
+msgstr "Tembolok umpan RSS"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:214
+msgid "Clear RSS Feed Cache?"
+msgstr "Bersihkan Tembolok Umpan RSS?"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:215
+msgid ""
+"This will delete all cached RSS feed listings. Feeds will load from the "
+"network next time."
+msgstr ""
+"Ini akan menghapus semua daftar umpan RSS yang ditembolok. Umpan akan dimuat "
+"dari jaringan lain kali."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
+msgid "0 bytes (0 articles)"
+msgstr "0 bita (0 artikel)"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:219
+msgid "RSS feed cache cleared"
+msgstr "Tembolok umpan RSS dibersihkan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:232
+msgid "Backup &amp; Restore"
+msgstr "Cadangkan &amp; Pulihkan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:235
+msgid ""
+"Export or import your custom RSS feeds and podcast subscriptions as an OPML "
+"file."
+msgstr ""
+"Ekspor atau impor umpan RSS khusus dan langganan podcast Anda sebagai berkas "
+"OPML."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
+msgid "Export Feeds & Podcasts"
+msgstr "Ekspor Umpan & Podcast"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:238
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:245
+msgid "OPML files"
+msgstr "Berkas OPML"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:240
+msgid "Exported feeds and podcasts"
+msgstr "Umpan dan podcast diekspor"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:244
+msgid "Import Feeds & Podcasts"
+msgstr "Impor Umpan & Podcast"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:246
+msgid "Importing feeds and podcasts…"
+msgstr "Mengimpor umpan dan podcast…"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:252
+#, c-format
+msgid "%d feed"
+msgid_plural "%d feeds"
+msgstr[0] "%d umpan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:253
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
+#, c-format
+msgid "%d podcast"
+msgid_plural "%d podcasts"
+msgstr[0] "%d podcast"
+
+#. TRANSLATORS: e.g. "Imported 3 feeds and 1 podcast"
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:255
+#, c-format
+msgid "Imported %s and %s"
+msgstr "%s dan %s diimpor"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
+msgid "Export or import your article notes as a JSON file."
+msgstr "Ekspor atau impor catatan artikel Anda sebagai berkas JSON."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
+msgid "Export Notes"
+msgstr "Ekspor Catatan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:265
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:272
+msgid "JSON files"
+msgstr "Berkas JSON"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:267
+msgid "Exported notes"
+msgstr "Catatan diekspor"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
+msgid "Import Notes"
+msgstr "Impor Catatan"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:274
+#, c-format
+msgid "Imported %d note"
+msgid_plural "Imported %d notes"
+msgstr[0] "%d catatan diimpor"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
+msgid "Danger Zone"
+msgstr "Zona Bahaya"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
+msgid "Reset app to factory settings"
+msgstr "Atur ulang aplikasi ke pengaturan pabrik"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:288
+msgid ""
+"Erases all sources, saved articles, notes, settings, and cached data, then "
+"restarts Paperboy as if freshly installed."
+msgstr ""
+"Menghapus semua sumber, artikel tersimpan, catatan, pengaturan, dan data "
+"tembolok, lalu memulai ulang Paperboy seperti baru dipasang."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:290
+msgid "Reset"
+msgstr "Atur Ulang"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:294
+msgid "Reset to factory settings?"
+msgstr "Atur ulang ke pengaturan pabrik?"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:295
+msgid ""
+"This permanently deletes all sources, saved articles, notes, and settings, "
+"and cannot be undone. Paperboy will restart as if freshly installed."
+msgstr ""
+"Ini menghapus semua sumber, artikel tersimpan, catatan, dan pengaturan "
+"secara permanen, dan tidak dapat dibatalkan. Paperboy akan dimulai ulang "
+"seperti baru dipasang."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:296
+msgid "Reset App"
+msgstr "Atur Ulang Aplikasi"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
+msgid "Experimental"
+msgstr "Eksperimental"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:315
+msgid "Show article comments"
+msgstr "Tampilkan komentar artikel"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:316
+msgid ""
+"Show a comments button on the reader page for articles with a discoverable "
+"comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
+"limited - many sites don't expose comments through any of these."
+msgstr ""
+"Tampilkan tombol komentar di halaman baca untuk artikel yang memiliki sumber "
+"komentar yang dapat ditemukan (umpan asli, Disqus, atau diskusi Hacker "
+"News). Cakupannya terbatas - banyak situs tidak menyediakan komentar melalui "
+"cara-cara ini."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:31
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:177
+msgid "Personalization"
+msgstr "Personalisasi"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:52
+msgid "Region"
+msgstr "Wilayah"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:53
+msgid "Your national news and Front Page come from this country"
+msgstr "Berita nasional dan Halaman Depan Anda berasal dari negara ini"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:79
+msgid "The categories shown in the sidebar and used for My Feed"
+msgstr "Kategori yang ditampilkan di bilah sisi dan digunakan untuk Umpan Saya"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:82
+msgid "Shown categories"
+msgstr "Kategori yang ditampilkan"
+
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
+#, c-format
+msgid "All %d category"
+msgid_plural "All %d categories"
+msgstr[0] "Semua %d kategori"
+
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:139
+msgid "None"
+msgstr "Tidak ada"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
+#, c-format
+msgid "%d of %d category"
+msgid_plural "%d of %d categories"
+msgstr[0] "%d dari %d kategori"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
+msgid ""
+"Choose the categories shown in the sidebar and used for My Feed. Drag a row "
+"by its handle to reorder."
+msgstr ""
+"Pilih kategori yang ditampilkan di bilah sisi dan digunakan untuk Umpan "
+"Saya. Seret baris pada pegangannya untuk mengurutkan ulang."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:180
+msgid "Enable personalized feed"
+msgstr "Aktifkan umpan pribadi"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:181
+msgid "Enable a personalized feed based on your reading habits"
+msgstr "Aktifkan umpan pribadi berdasarkan kebiasaan membaca Anda"
+
+#. Choosing which followed feeds show up in My Feed gets its own
+#. slide-in subpage. Rebuilt on each open so it reflects feeds
+#. followed since.
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:207
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:336
+msgid "Custom feeds in My Feed"
+msgstr "Umpan khusus di Umpan Saya"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:208
+msgid "Choose which followed RSS feeds appear in My Feed"
+msgstr "Pilih umpan RSS yang diikuti yang muncul di Umpan Saya"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:213
+msgid "Custom feeds only in My Feed"
+msgstr "Hanya umpan khusus di Umpan Saya"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:214
+msgid "Only show followed RSS feeds in My Feed, hide built-in sources"
+msgstr ""
+"Hanya tampilkan umpan RSS yang diikuti di Umpan Saya, sembunyikan sumber "
+"bawaan"
+
+#. ActionRow rather than SwitchRow, to fit a settings button
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:238
+msgid "Show unread count badges"
+msgstr "Tampilkan lencana jumlah belum dibaca"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:239
+msgid "Display unread article counts in the sidebar"
+msgstr "Tampilkan jumlah artikel yang belum dibaca di bilah sisi"
+
+#. Popover with per-area badge visibility options
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:242
+msgid "Badge visibility settings"
+msgstr "Pengaturan visibilitas lencana"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:253
+msgid "Show on special categories"
+msgstr "Tampilkan di kategori khusus"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:261
+msgid "Show on Feeds"
+msgstr "Tampilkan di Umpan"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:269
+msgid "Show on categories"
+msgstr "Tampilkan di kategori"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:298
+msgid "Choose which of your followed RSS feeds appear in My Feed"
+msgstr "Pilih umpan RSS yang Anda ikuti yang muncul di Umpan Saya"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:307
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:131
+msgid "No feeds followed yet"
+msgstr "Belum ada umpan yang diikuti"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:308
+msgid ""
+"Follow a custom RSS feed in Preferences -> Feeds first, then come back here "
+"to include it in My Feed."
+msgstr ""
+"Ikuti umpan RSS khusus di Preferensi -> Umpan terlebih dahulu, lalu kembali "
+"ke sini untuk memasukkannya ke Umpan Saya."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:343
+msgid "My Feed Extras"
+msgstr "Tambahan Umpan Saya"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:344
+msgid ""
+"Show a preview row for other features at the top of My Feed, with a button "
+"to jump to the full page"
+msgstr ""
+"Tampilkan baris pratinjau fitur lain di bagian atas Umpan Saya, dengan "
+"tombol untuk membuka halaman lengkapnya"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:345
+msgid "Sports scores"
+msgstr "Skor olahraga"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:380
+msgid "Show recommendations"
+msgstr "Tampilkan rekomendasi"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:381
+msgid ""
+"Suggest articles based on your reading history. This stays on your device."
+msgstr ""
+"Sarankan artikel berdasarkan riwayat baca Anda. Ini tetap berada di "
+"perangkat Anda."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:397
+msgid "Reading"
+msgstr "Membaca"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:400
+msgid "Open articles in reader view"
+msgstr "Buka artikel di tampilan baca"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:401
+msgid ""
+"Show an extracted, distraction-free view of the article text instead of the "
+"full webpage by default. You can still switch views per article."
+msgstr ""
+"Secara bawaan, tampilkan teks artikel yang diekstrak tanpa gangguan, bukan "
+"halaman web lengkap. Anda tetap dapat beralih tampilan per artikel."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:409
+msgid "Clicking an article opens reader view directly"
+msgstr "Mengeklik artikel langsung membuka tampilan baca"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:410
+msgid ""
+"Skip the preview pane and jump straight into reader view when you click an "
+"article card"
+msgstr ""
+"Lewati panel pratinjau dan langsung masuk ke tampilan baca saat Anda "
+"mengeklik kartu artikel"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:418
+msgid "Show quick-open buttons on hover"
+msgstr "Tampilkan tombol buka cepat saat diarahkan"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:419
+msgid ""
+"Show reader view / preview buttons over an article card's image when you "
+"hover it"
+msgstr ""
+"Tampilkan tombol tampilan baca / pratinjau di atas gambar kartu artikel saat "
+"Anda mengarahkan penunjuk ke atasnya"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:436
+msgid "Market Cards"
+msgstr "Kartu Pasar"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:437
+msgid "Choose whether the Business category shows live market index cards"
+msgstr "Pilih apakah kategori Bisnis menampilkan kartu indeks pasar langsung"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:440
+msgid "Show market cards"
+msgstr "Tampilkan kartu pasar"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:441
+msgid "Turn off to hide the live market index cards from the Business category"
+msgstr ""
+"Matikan untuk menyembunyikan kartu indeks pasar langsung dari kategori Bisnis"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:455
+msgid "Show market status pill"
+msgstr "Tampilkan label status pasar"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:456
+msgid ""
+"Show an \"Open\" pill next to the Business sidebar count while the market is "
+"open"
+msgstr ""
+"Tampilkan label \"Buka\" di samping jumlah Bisnis di bilah sisi selama pasar "
+"buka"
+
+#. TRANSLATORS: %s is the detected country, e.g. "Automatic (Germany)"
+#: src/ui/dialogs/app/prefs/prefsRows.vala:64
+#, c-format
+msgid "Automatic (%s)"
+msgstr "Otomatis (%s)"
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:76
+msgid "Country"
+msgstr "Negara"
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:207
+msgid "Export"
+msgstr "Ekspor"
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:211
+msgid "Import"
+msgstr "Impor"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:42
+msgid "Sources"
+msgstr "Sumber"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:71
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:74
+msgid "Built-in sources"
+msgstr "Sumber bawaan"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:75
+msgid "News outlets that come with Paperboy"
+msgstr "Media berita yang disertakan dengan Paperboy"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:77
+msgid "News outlets"
+msgstr "Media berita"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:78
+msgid "Choose which outlets to follow"
+msgstr "Pilih media yang akan diikuti"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:110
+msgid "Followed feeds"
+msgstr "Umpan yang diikuti"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:119
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:122
+msgid "Custom feeds"
+msgstr "Umpan khusus"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:123
+msgid "RSS feeds you've followed"
+msgstr "Umpan RSS yang Anda ikuti"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:132
+msgid "No feeds followed yet. Add one from the sidebar's Feeds section."
+msgstr ""
+"Belum ada umpan yang diikuti. Tambahkan dari bagian Umpan di bilah sisi."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
+#, c-format
+msgid "%d followed feed"
+msgid_plural "%d followed feeds"
+msgstr[0] "%d umpan diikuti"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:153
+msgid "Rename this source"
+msgstr "Ganti nama sumber ini"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:237
+msgid "Subscribed podcasts"
+msgstr "Podcast yang dilanggan"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:240
+msgid "Remove all podcasts"
+msgstr "Hapus semua podcast"
+
+#. if/else, not a nested ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:249
+msgid "No podcasts yet"
+msgstr "Belum ada podcast"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:251
+msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
+msgstr "Belum ada podcast. Temukan dari bagian Podcast di bilah sisi."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:268
+msgid "Remove podcast?"
+msgstr "Hapus podcast?"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#, c-format
+msgid "\"%s\" will be removed from your podcasts."
+msgstr "\"%s\" akan dihapus dari podcast Anda."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
+msgid "Your 1 podcast will be removed."
+msgstr "Satu podcast Anda akan dihapus."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
+#, c-format
+msgid "All %d of your podcasts will be removed."
+msgid_plural "All %d of your podcasts will be removed."
+msgstr[0] "Semua %d podcast Anda akan dihapus."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+msgid "Remove all podcasts?"
+msgstr "Hapus semua podcast?"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+msgid "Remove all"
+msgstr "Hapus semua"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
+msgid "Shows you've subscribed to"
+msgstr "Acara yang Anda langgani"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:315
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:362
+msgid "Magazine sources"
+msgstr "Sumber majalah"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:319
+msgid "No sources yet"
+msgstr "Belum ada sumber"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
+#, c-format
+msgid "%d source"
+msgid_plural "%d sources"
+msgstr[0] "%d sumber"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
+msgid "No sources yet. Websites you add from the Magazines page show up here."
+msgstr ""
+"Belum ada sumber. Situs web yang Anda tambahkan dari halaman Majalah muncul "
+"di sini."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:334
+msgid "Remove source"
+msgstr "Hapus sumber"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:339
+#, c-format
+msgid "\"%s\" will be removed."
+msgstr "\"%s\" akan dihapus."
+
+#. TRANSLATORS: %1$s is a magazine source's name, %2$d how many magazines were added from it
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:342
+#, c-format
+msgid ""
+"\"%1$s\" and the %2$d magazine added from it will be removed, including its "
+"downloaded file."
+msgid_plural ""
+"\"%1$s\" and the %2$d magazines added from it will be removed, including "
+"their downloaded files."
+msgstr[0] ""
+"\"%1$s\" dan %2$d majalah yang ditambahkan darinya akan dihapus, termasuk "
+"berkas unduhannya."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:346
+msgid "Remove source?"
+msgstr "Hapus sumber?"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
+msgid "Websites scanned for magazine PDFs"
+msgstr "Situs web yang dipindai untuk PDF majalah"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:378
+msgid "Add a location"
+msgstr "Tambah lokasi"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:403
+#, c-format
+msgid "%d of %d location added. Remove one to add another."
+msgid_plural "%d of %d locations added. Remove one to add another."
+msgstr[0] ""
+"%d dari %d lokasi ditambahkan. Hapus satu untuk menambahkan yang lain."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:405
+#, c-format
+msgid "Up to %d location · %d added"
+msgid_plural "Up to %d locations · %d added"
+msgstr[0] "Hingga %d lokasi · %d ditambahkan"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
+msgid "Sports Score Cards"
+msgstr "Kartu Skor Olahraga"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:37
+msgid ""
+"Choose which leagues show score cards in the Sports category, and the order "
+"their sections appear in"
+msgstr ""
+"Pilih liga yang menampilkan kartu skor di kategori Olahraga, dan urutan "
+"kemunculan bagiannya"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:40
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:306
+msgid "Favorite Teams"
+msgstr "Tim Favorit"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:41
+msgid "Follow specific teams to show their own score cards"
+msgstr "Ikuti tim tertentu untuk menampilkan kartu skor mereka sendiri"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:45
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:148
+msgid "Leagues"
+msgstr "Liga"
+
+#. Rebuilt each time it opens, so it lists the leagues that are on now.
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:51
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:192
+msgid "Section Order"
+msgstr "Urutan Bagian"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:52
+msgid "Drag leagues into the order their sections appear in"
+msgstr "Seret liga sesuai urutan kemunculan bagiannya"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:56
+msgid "Show score cards"
+msgstr "Tampilkan kartu skor"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:57
+msgid "Turn off to hide all live score cards from the Sports category"
+msgstr ""
+"Matikan untuk menyembunyikan semua kartu skor langsung dari kategori Olahraga"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:63
+msgid "Show live indicator"
+msgstr "Tampilkan indikator langsung"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:64
+msgid ""
+"Show a \"Live\" pill next to the Sports sidebar count while a game is in "
+"progress"
+msgstr ""
+"Tampilkan label \"Langsung\" di samping jumlah Olahraga di bilah sisi selama "
+"pertandingan berlangsung"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:108
+msgid "Europe"
+msgstr "Eropa"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:109
+msgid "United States and Canada"
+msgstr "Amerika Serikat dan Kanada"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:110
+msgid "Latin America"
+msgstr "Amerika Latin"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:111
+msgid "Asia and Oceania"
+msgstr "Asia dan Oseania"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:112
+msgid "International"
+msgstr "Internasional"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:119
+msgid "Soccer"
+msgstr "Sepak bola"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:120
+msgid "American football"
+msgstr "Futbol Amerika"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:121
+msgid "Basketball"
+msgstr "Bola basket"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:122
+msgid "Baseball"
+msgstr "Bisbol"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:123
+msgid "Hockey"
+msgstr "Hoki"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:124
+msgid "Rugby"
+msgstr "Rugbi"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:125
+msgid "Cricket"
+msgstr "Kriket"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:126
+msgid "Mixed martial arts"
+msgstr "Seni bela diri campuran"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:127
+msgid "Tennis"
+msgstr "Tenis"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:128
+msgid "Golf"
+msgstr "Golf"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:129
+msgid "Motor racing"
+msgstr "Balap motor"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:140
+#, c-format
+msgid "%d of %d league on"
+msgid_plural "%d of %d leagues on"
+msgstr[0] "%d dari %d liga aktif"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:189
+msgid ""
+"Drag a league by its handle to set where its section appears in the Sports "
+"category. Only leagues that are on are listed."
+msgstr ""
+"Seret liga pada pegangannya untuk mengatur letak bagiannya di kategori "
+"Olahraga. Hanya liga yang aktif yang dicantumkan."
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:261
+msgid "No leagues are on"
+msgstr "Tidak ada liga yang aktif"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:262
+msgid "Turn some on in Leagues"
+msgstr "Aktifkan beberapa di Liga"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:286
+msgid ""
+"Pick a league, then choose teams to follow - each followed team gets its own "
+"score-card row in \"My Teams\""
+msgstr ""
+"Pilih liga, lalu pilih tim yang akan diikuti - setiap tim yang diikuti "
+"mendapat baris kartu skornya sendiri di \"Tim Saya\""
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:318
+msgid "Loading teams…"
+msgstr "Memuat tim…"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:329
+msgid "Couldn't load teams"
+msgstr "Tidak dapat memuat tim"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:330
+msgid "Check your connection and try again later."
+msgstr "Periksa koneksi Anda dan coba lagi nanti."
+
+#. Source name for Google's own aggregated feeds; their items each carry
+#. a <source>, which RssFeedProcessor uses instead.
+#. Editions Google actually serves - anything else silently redirects to
+#. the US one. Each country's main edition comes first: it's used when
+#. the user's language has no edition there.
+#. TRANSLATORS: country names in the news edition picker. Where a country
+#. has several editions, keep the "Country (Language)" form - the app
+#. splits the country off at the parenthesis.
+#: src/utils/net/googleNewsUtils.vala:45
+msgid "United States"
+msgstr "Amerika Serikat"
+
+#: src/utils/net/googleNewsUtils.vala:45
+msgid "United States (Spanish)"
+msgstr "Amerika Serikat (Spanyol)"
+
+#: src/utils/net/googleNewsUtils.vala:46
+msgid "United Kingdom"
+msgstr "Britania Raya"
+
+#: src/utils/net/googleNewsUtils.vala:46
+msgid "Ireland"
+msgstr "Irlandia"
+
+#: src/utils/net/googleNewsUtils.vala:47
+msgid "Canada (English)"
+msgstr "Kanada (Inggris)"
+
+#: src/utils/net/googleNewsUtils.vala:47
+msgid "Canada (French)"
+msgstr "Kanada (Prancis)"
+
+#: src/utils/net/googleNewsUtils.vala:48
+msgid "Australia"
+msgstr "Australia"
+
+#: src/utils/net/googleNewsUtils.vala:48
+msgid "New Zealand"
+msgstr "Selandia Baru"
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (English)"
+msgstr "India (Inggris)"
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Hindi)"
+msgstr "India (Hindi)"
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Bengali)"
+msgstr "India (Bengali)"
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Marathi)"
+msgstr "India (Marathi)"
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Tamil)"
+msgstr "India (Tamil)"
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Telugu)"
+msgstr "India (Telugu)"
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Malayalam)"
+msgstr "India (Malayalam)"
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Gujarati)"
+msgstr "India (Gujarati)"
+
+#: src/utils/net/googleNewsUtils.vala:51
+msgid "Pakistan"
+msgstr "Pakistan"
+
+#: src/utils/net/googleNewsUtils.vala:51
+msgid "Bangladesh"
+msgstr "Bangladesh"
+
+#: src/utils/net/googleNewsUtils.vala:52
+msgid "Singapore"
+msgstr "Singapura"
+
+#: src/utils/net/googleNewsUtils.vala:52
+msgid "Malaysia (English)"
+msgstr "Malaysia (Inggris)"
+
+#: src/utils/net/googleNewsUtils.vala:52
+msgid "Malaysia (Malay)"
+msgstr "Malaysia (Melayu)"
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Philippines"
+msgstr "Filipina"
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Indonesia (Indonesian)"
+msgstr "Indonesia (Indonesia)"
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Indonesia (English)"
+msgstr "Indonesia (Inggris)"
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "South Africa"
+msgstr "Afrika Selatan"
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Nigeria"
+msgstr "Nigeria"
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Kenya"
+msgstr "Kenya"
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Ghana"
+msgstr "Ghana"
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Uganda"
+msgstr "Uganda"
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Tanzania"
+msgstr "Tanzania"
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Ethiopia"
+msgstr "Etiopia"
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Zimbabwe"
+msgstr "Zimbabwe"
+
+#: src/utils/net/googleNewsUtils.vala:56
+msgid "Namibia"
+msgstr "Namibia"
+
+#: src/utils/net/googleNewsUtils.vala:56
+msgid "Botswana"
+msgstr "Botswana"
+
+#: src/utils/net/googleNewsUtils.vala:57
+msgid "Israel (Hebrew)"
+msgstr "Israel (Ibrani)"
+
+#: src/utils/net/googleNewsUtils.vala:57
+msgid "Israel (English)"
+msgstr "Israel (Inggris)"
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Egypt"
+msgstr "Mesir"
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Saudi Arabia"
+msgstr "Arab Saudi"
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "United Arab Emirates"
+msgstr "Uni Emirat Arab"
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Lebanon"
+msgstr "Lebanon"
+
+#: src/utils/net/googleNewsUtils.vala:59
+msgid "Morocco"
+msgstr "Maroko"
+
+#: src/utils/net/googleNewsUtils.vala:59
+msgid "Senegal"
+msgstr "Senegal"
+
+#: src/utils/net/googleNewsUtils.vala:60
+msgid "Brazil"
+msgstr "Brasil"
+
+#: src/utils/net/googleNewsUtils.vala:60
+msgid "Portugal"
+msgstr "Portugal"
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Mexico"
+msgstr "Meksiko"
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Argentina"
+msgstr "Argentina"
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Chile"
+msgstr "Chili"
+
+#: src/utils/net/googleNewsUtils.vala:62
+msgid "Colombia"
+msgstr "Kolombia"
+
+#: src/utils/net/googleNewsUtils.vala:62
+msgid "Peru"
+msgstr "Peru"
+
+#: src/utils/net/googleNewsUtils.vala:62
+msgid "Venezuela"
+msgstr "Venezuela"
+
+#: src/utils/net/googleNewsUtils.vala:63
+msgid "Cuba"
+msgstr "Kuba"
+
+#: src/utils/net/googleNewsUtils.vala:64
+msgid "Spain"
+msgstr "Spanyol"
+
+#: src/utils/net/googleNewsUtils.vala:64
+msgid "France"
+msgstr "Prancis"
+
+#: src/utils/net/googleNewsUtils.vala:64
+msgid "Italy"
+msgstr "Italia"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Germany"
+msgstr "Jerman"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Austria"
+msgstr "Austria"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Switzerland (German)"
+msgstr "Swiss (Jerman)"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Switzerland (French)"
+msgstr "Swiss (Prancis)"
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Netherlands"
+msgstr "Belanda"
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Belgium (Dutch)"
+msgstr "Belgia (Belanda)"
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Belgium (French)"
+msgstr "Belgia (Prancis)"
+
+#: src/utils/net/googleNewsUtils.vala:67
+msgid "Sweden"
+msgstr "Swedia"
+
+#: src/utils/net/googleNewsUtils.vala:67
+msgid "Norway"
+msgstr "Norwegia"
+
+#: src/utils/net/googleNewsUtils.vala:67
+msgid "Finland"
+msgstr "Finlandia"
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Poland"
+msgstr "Polandia"
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Czechia"
+msgstr "Ceko"
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Slovakia"
+msgstr "Slowakia"
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Hungary"
+msgstr "Hungaria"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Romania"
+msgstr "Rumania"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Bulgaria"
+msgstr "Bulgaria"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Greece"
+msgstr "Yunani"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Slovenia"
+msgstr "Slovenia"
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Serbia"
+msgstr "Serbia"
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Lithuania"
+msgstr "Lituania"
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Latvia"
+msgstr "Latvia"
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Estonia"
+msgstr "Estonia"
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Ukraine (Ukrainian)"
+msgstr "Ukraina (Ukraina)"
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Ukraine (Russian)"
+msgstr "Ukraina (Rusia)"
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Russia"
+msgstr "Rusia"
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Turkey"
+msgstr "Turki"
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "China"
+msgstr "Tiongkok"
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "Taiwan"
+msgstr "Taiwan"
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "Hong Kong"
+msgstr "Hong Kong"
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Japan"
+msgstr "Jepang"
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "South Korea"
+msgstr "Korea Selatan"
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Thailand"
+msgstr "Thailand"
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Vietnam"
+msgstr "Vietnam"
+
+#. "US News", "Germany News", "Canada News".
+#. TRANSLATORS: the national news category in the United States edition
+#: src/utils/net/googleNewsUtils.vala:181
+#: src/services/fetchers/bbcFetcher.vala:77
+#: src/services/fetchers/pbsFetcher.vala:72
+msgid "US News"
+msgstr "Berita AS"
+
+#. TRANSLATORS: date before the time in an article's byline, a
+#. strftime format ("man strftime"): %b is the abbreviated month,
+#. %-d the unpadded day, %Y the year. Reorder to suit, e.g. "%-d %b %Y".
+#: src/utils/text/dateUtils.vala:46
+#, no-c-format
+msgid "%b %-d, %Y"
+msgstr "%-d %b %Y"
+
+#. clock skew / future timestamp
+#: src/utils/text/dateUtils.vala:102
+msgid "Just now"
+msgstr "Baru saja"
+
+#. TRANSLATORS: compact relative times on article cards, where space
+#. is tight - abbreviate if your language allows it
+#: src/utils/text/dateUtils.vala:106
+#, c-format
+msgid "%dm ago"
+msgid_plural "%dm ago"
+msgstr[0] "%d mnt lalu"
+
+#: src/utils/text/dateUtils.vala:108
+#, c-format
+msgid "%dh ago"
+msgid_plural "%dh ago"
+msgstr[0] "%d jam lalu"
+
+#: src/utils/text/dateUtils.vala:110
+#, c-format
+msgid "%dd ago"
+msgid_plural "%dd ago"
+msgstr[0] "%d hari lalu"
+
+#. Older than a week: fall back to a short absolute date ("Aug 27").
+#. TRANSLATORS: short date on article cards older than a week, a
+#. strftime format ("man strftime"): %b is the abbreviated month and
+#. %-d the unpadded day. Reorder to suit, e.g. "%-d %b".
+#: src/utils/text/dateUtils.vala:117
+#, no-c-format
+msgid "%b %-d"
+msgstr "%-d %b"
+
+#. Page header date, e.g. "Monday, October 5".
+#. TRANSLATORS: date in page headers, a strftime format ("man strftime"):
+#. %A is the weekday, %B the month and %-d the unpadded day. Reorder to
+#. suit, e.g. "%A %-d %B".
+#: src/utils/text/dateUtils.vala:126
+#, no-c-format
+msgid "%A, %B %-d"
+msgstr "%A, %-d %B"
+
+#. Weekday and numeric date for game times, e.g. "Mon 10/5".
+#. TRANSLATORS: weekday and date on sports score cards, a strftime
+#. format ("man strftime"): %a is the abbreviated weekday, %-m the
+#. unpadded month number and %-d the unpadded day. Reorder to suit,
+#. e.g. "%a %-d.%-m.".
+#: src/utils/text/dateUtils.vala:136
+#, no-c-format
+msgid "%a %-m/%-d"
+msgstr "%a, %-d/%-m"
+
+#: src/managers/content/articleManager.vala:157
+#: src/managers/content/articleManager.vala:172
+msgid "You're offline. Enable internet connection to view articles"
+msgstr "Anda sedang luring. Aktifkan koneksi internet untuk melihat artikel"
+
+#: src/managers/ui/layoutManager.vala:555
+msgid "More Stories"
+msgstr "Berita Lainnya"
+
+#: src/services/fetchers/fetcherUtils.vala:23
+msgid "The Frontpage"
+msgstr "Halaman Depan"
+
+#. Don't show error if we have cached articles
+#: src/services/fetchers/paperboyFetcher.vala:201
+msgid "Paperboy: Error loading frontpage"
+msgstr "Paperboy: Galat memuat halaman depan"
+
+#: src/services/fetchers/paperboyFetcher.vala:484
+msgid "Paperboy: Error loading Top Ten"
+msgstr "Paperboy: Galat memuat Sepuluh Teratas"
+
+#: src/services/magazines/magazineSourceScanner.vala:62
+msgid "Couldn't reach that page"
+msgstr "Tidak dapat menjangkau halaman itu"
+
+#: src/ui/controllers/fetchNewsController.vala:296
+#: src/ui/controllers/fetchNewsController.vala:662
+msgid "Offline - showing cached articles"
+msgstr "Luring - menampilkan artikel dari tembolok"
+
+#. time_text replaces the "Viewed ..." caption when the row is reused outside History (e.g. Recommended for you).
+#. TRANSLATORS: %s is a relative time, e.g. "Viewed 3h ago"
+#: src/ui/components/articles/historyCard.vala:157
+#, c-format
+msgid "Viewed %s"
+msgstr "Dilihat %s"
+
+#. Prices are in US dollars (the index ETFs and crypto all trade in USD),
+#. with the locale's decimal separator and digit grouping.
+#. TRANSLATORS: a price in US dollars; %s is the number, already formatted
+#. for your locale. Put the dollar sign where your language does, e.g. "%s $"
+#. or "US$ %s"
+#: src/ui/components/markets/marketIndexCard.vala:263
+#, c-format
+msgid "$%s"
+msgstr "US$%s"
+
+#. TRANSLATORS: a price change and percent change, e.g. "+1.25 (+0.42%)"
+#: src/ui/components/markets/marketIndexCard.vala:269
+#, c-format
+msgid "%s (%s%%)"
+msgstr "%s (%s%%)"
+
+#: src/ui/components/markets/marketIndexCard.vala:272
+#, c-format
+msgid "Updated %s"
+msgstr "Diperbarui %s"
+
+#. TRANSLATORS: chart hover: a price, time of day, and time zone, e.g. "$512.30 · 2:45 PM ET"
+#: src/ui/components/markets/marketIndexCard.vala:420
+#, c-format
+msgid "%s · %s %s"
+msgstr "%s · %s %s"
+
+#. "5 min read", or "" if unknown.
+#. TRANSLATORS: estimated reading time on article cards, e.g. "5 min read"
+#: src/services/cache/articleReadingTimeCache.vala:85
+#, c-format
+msgid "%d min read"
+msgid_plural "%d min read"
+msgstr[0] "%d mnt baca"
+
+#: src/builders/placeholderBuilder.vala:296
+msgid "News Source"
+msgstr "Sumber Berita"
+
+#: src/managers/content/feedUpdateManager.vala:251
+#, c-format
+msgid "RSS feeds: %d updated"
+msgid_plural "RSS feeds: %d updated"
+msgstr[0] "Umpan RSS: %d diperbarui"
+
+#: src/managers/content/sourceManager.vala:408
+#, c-format
+msgid "Enabled %s"
+msgstr "%s diaktifkan"
+
+#: src/managers/content/sourceManager.vala:422
+msgid "Couldn't find this article's source"
+msgstr "Tidak dapat menemukan sumber artikel ini"
+
+#: src/managers/content/sourceManager.vala:552
+#, c-format
+msgid "Following %s"
+msgstr "Mengikuti %s"
+
+#: src/managers/content/sourceManager.vala:557
+#: src/managers/content/sourceManager.vala:693
+msgid "Source already followed"
+msgstr "Sumber sudah diikuti"
+
+#: src/managers/content/sourceManager.vala:585
+msgid "Failed to discover RSS feed"
+msgstr "Gagal menemukan umpan RSS"
+
+#: src/managers/content/sourceManager.vala:593
+msgid "Generating feed for this source..."
+msgstr "Membuat umpan untuk sumber ini..."
+
+#: src/managers/content/sourceManager.vala:606
+msgid "Generated feed has no articles"
+msgstr "Umpan yang dibuat tidak berisi artikel"
+
+#: src/managers/content/sourceManager.vala:688
+#, c-format
+msgid "Following %s (%d article)"
+msgid_plural "Following %s (%d articles)"
+msgstr[0] "Mengikuti %s (%d artikel)"
+
+#: src/managers/content/sourceManager.vala:700
+msgid "No RSS feeds found"
+msgstr "Tidak ditemukan umpan RSS"
+
+#: src/managers/content/sourceManager.vala:709
+msgid "Error discovering RSS feed"
+msgstr "Galat saat mencari umpan RSS"
+
+#: src/services/articles/articleShareService.vala:37
+msgid "Check out this article"
+msgstr "Lihat artikel ini"
+
+#: src/services/articles/articleShareService.vala:39
+msgid "I thought you might find this interesting:"
+msgstr "Saya kira Anda akan tertarik dengan ini:"
+
+#: src/services/feeds/builtinSources.vala:41
+msgid "Independent global news and analysis"
+msgstr "Berita dan analisis global yang independen"
+
+#: src/services/feeds/builtinSources.vala:44
+msgid "Comprehensive international and UK reporting"
+msgstr "Liputan internasional dan Inggris yang lengkap"
+
+#: src/services/feeds/builtinSources.vala:47
+msgid "In-depth journalism across major categories"
+msgstr "Jurnalisme mendalam di berbagai kategori utama"
+
+#: src/services/feeds/builtinSources.vala:50
+msgid "Market, business, and finance coverage"
+msgstr "Liputan pasar, bisnis, dan keuangan"
+
+#: src/services/feeds/builtinSources.vala:53
+msgid "Business, economic, and political reporting"
+msgstr "Liputan bisnis, ekonomi, dan politik"
+
+#: src/services/feeds/builtinSources.vala:56
+msgid "US network coverage across politics, business, and more"
+msgstr "Jaringan TV AS yang meliput politik, bisnis, dan lainnya"
+
+#: src/services/feeds/builtinSources.vala:59
+msgid "Public radio news and feature storytelling"
+msgstr "Berita dan liputan khusus radio publik"
+
+#: src/services/feeds/builtinSources.vala:62
+msgid "U.S. politics, headlines, and commentary"
+msgstr "Politik, berita utama, dan komentar AS"
+
+#: src/services/feeds/builtinSources.vala:65
+msgid "Neutral, in-depth public affairs reporting"
+msgstr "Liputan urusan publik yang netral dan mendalam"
+
+#: src/services/magazines/magazinePdfImportService.vala:48
+#: src/services/magazines/magazinePdfImportService.vala:82
+msgid "Already in your library"
+msgstr "Sudah ada di pustaka Anda"
+
+#: src/services/magazines/magazinePdfImportService.vala:57
+#: src/services/magazines/magazinePdfImportService.vala:91
+msgid "Failed to save that magazine"
+msgstr "Gagal menyimpan majalah itu"
+
+#. TRANSLATORS: %u is an HTTP status code, e.g. 404
+#: src/services/magazines/magazinePdfImportService.vala:111
+#, c-format
+msgid "Server returned status %u"
+msgstr "Server mengembalikan status %u"
+
+#: src/services/magazines/magazinePdfImportService.vala:116
+msgid "That link doesn't point to a PDF"
+msgstr "Tautan itu tidak mengarah ke PDF"
+
+#. TRANSLATORS: %s is the file type the server sent, e.g. "text/html"
+#: src/services/magazines/magazinePdfImportService.vala:118
+#, c-format
+msgid "That link doesn't point to a PDF (got %s)"
+msgstr "Tautan itu tidak mengarah ke PDF (diterima: %s)"
+
+#. TRANSLATORS: %s is the file's size, e.g. "212.4 MB"
+#: src/services/magazines/magazinePdfImportService.vala:126
+#: src/services/magazines/magazinePdfImportService.vala:156
+#, c-format
+msgid "File is too large (%s, limit is 150 MB)"
+msgstr "Berkas terlalu besar (%s, batasnya 150 MB)"
+
+#: src/services/magazines/magazinePdfImportService.vala:142
+msgid "File exceeded the 150 MB size limit"
+msgstr "Berkas melebihi batas ukuran 150 MB"
+
+#: src/services/magazines/magazinePdfImportService.vala:167
+msgid "That doesn't look like a valid PDF file"
+msgstr "Itu tidak tampak seperti berkas PDF yang valid"
+
+#: src/services/magazines/magazinePdfImportService.vala:226
+msgid "Untitled magazine"
+msgstr "Majalah tanpa judul"
+
+#: src/services/podcasts/podcastFeedResolver.vala:53
+msgid "Couldn't reach that feed"
+msgstr "Tidak dapat menjangkau umpan itu"
+
+#: src/services/podcasts/podcastFeedResolver.vala:56
+msgid "That doesn't look like a valid podcast feed"
+msgstr "Itu tidak tampak seperti umpan podcast yang valid"
+
+#. card_container=false: no wrapping bordered panel behind the
+#. row - these cards are already fully self-contained (colored
+#. tile, own border/radius), so an outer panel background just
+#. read as a redundant card-behind-cards. circular_logo=false:
+#. the markets icon is a symbolic glyph, not a team/source photo
+#. logo, so it shouldn't get CategorySection's default
+#. circular-logo treatment.
+#: src/ui/controllers/stocksTickerController.vala:243
+msgid "Markets Today"
+msgstr "Pasar Hari Ini"
+
+#. If either piece of data failed, return Unknown
+#: src/services/cache/metaCache.vala:315 src/services/cache/metaCache.vala:374
+#: src/services/cache/rssArticleCache.vala:541
+msgid "Unknown"
+msgstr "Tidak diketahui"
+
+#. TRANSLATORS: RSS feed cache size and article count, e.g. "2.5 MB (134 articles)"
+#: src/services/cache/rssArticleCache.vala:545
+#, c-format
+msgid "%s (%d article)"
+msgid_plural "%s (%d articles)"
+msgstr[0] "%s (%d artikel)"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:2
+msgid "Paperboy"
+msgstr "Paperboy"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:3
+msgid "News Reader"
+msgstr "Pembaca Berita"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:4
+msgid "Read news from the sources you trust in one place"
+msgstr "Baca berita dari sumber yang Anda percayai di satu tempat"
+
+#. Translators: search terms for finding Paperboy, separated by semicolons; keep the ending semicolon. Don't translate them literally if your language has better words
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:10
+msgid "news;rss;reader;feed;aggregator;"
+msgstr "berita;news;rss;pembaca;umpan;koran;agregator;"

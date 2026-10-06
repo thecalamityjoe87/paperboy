@@ -502,7 +502,7 @@ namespace Managers {
                 if (child is Gtk.Label) {
                     var label = child as Gtk.Label;
                     var _txt = label.get_label();
-                    if (_txt == "<b>No more articles</b>" || _txt == "No more articles") {
+                    if (_txt == _("<b>No more articles</b>") || _txt == _("No more articles")) {
                         window.content_box.remove(label);
                         break;
                     }
@@ -552,7 +552,7 @@ namespace Managers {
                 // use - producing garbage/invalid-UTF8 label text at runtime.
                 string display_name;
                 if (cat == MISC_SECTION_KEY) {
-                    display_name = "More Stories";
+                    display_name = _("More Stories");
                 } else if (window != null) {
                     display_name = window.category_display_name_for(cat);
                 } else {

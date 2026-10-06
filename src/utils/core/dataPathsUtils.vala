@@ -63,6 +63,37 @@ public class DataPathsUtils : GLib.Object {
         return system_data_dirs_cached != null ? system_data_dirs_cached : new string[] { };
     }
 
+    // Where the gettext catalogs are: next to the executable when the app is
+    // relocated (an AppImage's usr/bin/../share/locale) or run from the build
+    // dir (meson builds them into build/po/<lang>/LC_MESSAGES), else the
+    // compiled-in install path.
+    public static string get_locale_dir(string installed_dir) {
+        var exe_dir = get_exe_dir();
+        if (exe_dir != null) {
+            string[] candidates = {
+                GLib.Path.build_filename(exe_dir, "..", "share", "locale"),
+                GLib.Path.build_filename(exe_dir, "po")
+            };
+            foreach (var dir in candidates) {
+                if (GLib.FileUtils.test(dir, GLib.FileTest.IS_DIR) && has_catalog(dir)) return dir;
+            }
+        }
+        return installed_dir;
+    }
+
+    // True if any <lang>/LC_MESSAGES/paperboy.mo exists under dir.
+    private static bool has_catalog(string dir) {
+        try {
+            var d = GLib.Dir.open(dir);
+            string? name;
+            while ((name = d.read_name()) != null) {
+                if (GLib.FileUtils.test(GLib.Path.build_filename(dir, name, "LC_MESSAGES", "paperboy.mo"), GLib.FileTest.EXISTS)) return true;
+            }
+        } catch (GLib.FileError e) {
+        }
+        return false;
+    }
+
     // Locate a data file either in the development tree (data/...), the
     // per-user data dir under 'paperboy/', or in the system data dirs.
     // Returns null when not found.

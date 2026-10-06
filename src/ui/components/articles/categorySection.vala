@@ -143,7 +143,7 @@ public class CategorySection : GLib.Object {
             // Styled like the content view's other card chips
             // (.category-chip/.source-badge), not the sidebar's
             // theme-aware .live-pill - see .live-pill-header in style.css.
-            var live_pill = new Gtk.Label("Live");
+            var live_pill = new Gtk.Label(_("Live"));
             live_pill.add_css_class("live-pill-header");
             live_pill.set_valign(Gtk.Align.CENTER);
             live_pill.set_visible(show_live_pill);
@@ -456,7 +456,9 @@ public class CategorySection : GLib.Object {
     // do that. Static for the same reason as add_nav_buttons: it hangs a
     // closure off a signal owned by `wrapper`.
     private static void add_more_button(Gtk.Box wrapper, NewsWindow? win, string nav_target_id, string title) {
-        var more_button = new Gtk.Button.with_label("Go to " + title + " →");
+        // TRANSLATORS: %s is a category, e.g. "Go to Sports →"; in right-to-left
+        // languages put the arrow first and point it left ("← ...")
+        var more_button = new Gtk.Button.with_label(_("Go to %s →").printf(title));
         more_button.add_css_class("flat");
         more_button.add_css_class("section-more-button");
         more_button.set_halign(Gtk.Align.END);

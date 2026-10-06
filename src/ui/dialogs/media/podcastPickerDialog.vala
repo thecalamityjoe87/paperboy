@@ -29,8 +29,8 @@ using Gtk;
 public class PodcastPickerDialog : GLib.Object {
     public static void show(NewsWindow? window, Gee.ArrayList<Paperboy.PodcastShow> shows, string? preselect_feed_url, Gtk.Window parent_window) {
         var dialog = new Adw.AlertDialog(
-            "Choose Podcasts",
-            "This site publishes more than one podcast - select which ones to add."
+            _("Choose Podcasts"),
+            _("This site publishes more than one podcast - select which ones to add.")
         );
 
         var scroller = new Gtk.ScrolledWindow();
@@ -56,11 +56,11 @@ public class PodcastPickerDialog : GLib.Object {
 
             string subtitle = show_item.author ?? "";
             if (show_item.episode_count > 0) {
-                string ep_text = "%d episode%s".printf(show_item.episode_count, show_item.episode_count == 1 ? "" : "s");
-                subtitle = subtitle.length > 0 ? "%s · %s".printf(subtitle, ep_text) : ep_text;
+                string ep_text = ngettext("%d episode", "%d episodes", show_item.episode_count).printf(show_item.episode_count);
+                subtitle = subtitle.length > 0 ? _("%s · %s").printf(subtitle, ep_text) : ep_text;
             }
             if (already_subscribed) {
-                subtitle = subtitle.length > 0 ? "%s · Already subscribed".printf(subtitle) : "Already subscribed";
+                subtitle = subtitle.length > 0 ? _("%s · Already subscribed").printf(subtitle) : _("Already subscribed");
             }
 
             var row = new Adw.ActionRow();
@@ -96,8 +96,8 @@ public class PodcastPickerDialog : GLib.Object {
         scroller.set_child(list);
         dialog.set_extra_child(scroller);
 
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("subscribe", "Add Selected");
+        dialog.add_response("cancel", _("Cancel"));
+        dialog.add_response("subscribe", _("Add Selected"));
         dialog.set_response_appearance("subscribe", Adw.ResponseAppearance.SUGGESTED);
         dialog.set_default_response("subscribe");
         dialog.set_close_response("cancel");
@@ -127,7 +127,7 @@ public class PodcastPickerDialog : GLib.Object {
                 }
             }
             if (window != null && window.toast_manager != null && added > 0) {
-                window.toast_manager.show_toast(added == 1 ? "Podcast added" : "%d podcasts added".printf(added));
+                window.toast_manager.show_toast(added == 1 ? _("Podcast added") : ngettext("%d podcast added", "%d podcasts added", added).printf(added));
             }
         });
 

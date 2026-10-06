@@ -53,6 +53,43 @@ public class PrefsRows : GLib.Object {
     public delegate void FileChosenFunc(string path) throws GLib.Error;
     public delegate void ClickedFunc();
 
+    // The Country row (Preferences and onboarding): "Automatic (<country>)"
+    // first, then every Google News edition by name, searchable. Saves the
+    // choice to prefs.news_edition and then calls `on_changed`, if given.
+    public static Adw.ComboRow country_row(NewsPreferences prefs, owned ClickedFunc? on_changed = null) {
+        // ceids[i] is row i's edition id; "" means automatic
+        string[] ceids = { "" };
+        var names = new Gtk.StringList(null);
+        // TRANSLATORS: %s is the detected country, e.g. "Automatic (Germany)"
+        names.append(_("Automatic (%s)").printf(_(GoogleNewsUtils.automatic_edition().name)));
+        var editions = new Gee.ArrayList<GoogleNewsEdition?>();
+        foreach (var e in GoogleNewsUtils.EDITIONS) editions.add(e);
+        editions.sort((a, b) => _(a.name).collate(_(b.name)));
+        uint selected = 0;
+        foreach (var e in editions) {
+            if (e.ceid == prefs.news_edition) selected = ceids.length;
+            ceids += e.ceid;
+            names.append(_(e.name));
+        }
+
+        var row = new Adw.ComboRow();
+        row.set_title(_("Country"));
+        // Show the choice as the subtitle - full width, so long names like
+        // "Automatic (United Kingdom)" aren't truncated beside the arrow
+        row.set_use_subtitle(true);
+        row.set_model(names);
+        row.set_expression(new Gtk.PropertyExpression(typeof(Gtk.StringObject), null, "string"));
+        row.set_enable_search(true);
+        row.set_selected(selected);
+        row.notify["selected"].connect(() => {
+            uint i = row.get_selected();
+            if (i >= ceids.length || ceids[i] == prefs.news_edition) return;
+            prefs.news_edition = ceids[i];
+            if (on_changed != null) on_changed();
+        });
+        return row;
+    }
+
     // Wraps preferences content for push_subpage(). Adw.HeaderBar shows its
     // own contextual back chevron inside pushed-subpage content, so no
     // manual back button is added (it would double up).
@@ -140,7 +177,7 @@ public class PrefsRows : GLib.Object {
     public static void add_drag_handle(Adw.ActionRow row, string drag_label, owned DragContentFunc content) {
         var drag_handle = new Gtk.Image.from_icon_name("list-drag-handle-symbolic");
         drag_handle.add_css_class("dim-label");
-        drag_handle.set_tooltip_text("Drag to reorder");
+        drag_handle.set_tooltip_text(_("Drag to reorder"));
         row.add_prefix(drag_handle);
 
         var drag_source = new Gtk.DragSource();
@@ -167,11 +204,11 @@ public class PrefsRows : GLib.Object {
         row.set_title(title);
         row.set_subtitle(subtitle);
 
-        var export_btn = new Gtk.Button.with_label("Export");
+        var export_btn = new Gtk.Button.with_label(_("Export"));
         export_btn.set_valign(Gtk.Align.CENTER);
         export_btn.clicked.connect(() => on_export());
 
-        var import_btn = new Gtk.Button.with_label("Import");
+        var import_btn = new Gtk.Button.with_label(_("Import"));
         import_btn.set_valign(Gtk.Align.CENTER);
         import_btn.clicked.connect(() => on_import());
 

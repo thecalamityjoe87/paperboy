@@ -49,7 +49,7 @@ public class ArticleMenu : GLib.Object {
 
         // View in app
         if (show_view_in_app) {
-            var view_btn = create_menu_item("view-reveal-symbolic", "View article in app");
+            var view_btn = create_menu_item("view-reveal-symbolic", _("View article in app"));
             view_btn.clicked.connect(() => {
                 open_in_app_requested(article_url);
                 if (popover != null) popover.popdown();
@@ -58,7 +58,7 @@ public class ArticleMenu : GLib.Object {
         }
 
         // Open in browser
-        var browser_btn = create_menu_item("web-browser-symbolic", "Open article in browser");
+        var browser_btn = create_menu_item("web-browser-symbolic", _("Open article in browser"));
         browser_btn.clicked.connect(() => {
             open_in_browser_requested(article_url);
             if (popover != null) popover.popdown();
@@ -66,7 +66,7 @@ public class ArticleMenu : GLib.Object {
         menu_box.append(browser_btn);
 
         /* Follow this source
-        var follow_btn = create_menu_item("list-add-symbolic", "Follow this source");
+        var follow_btn = create_menu_item("list-add-symbolic", _("Follow this source"));
         bool is_builtin = SourceManager.is_article_from_builtin(article_url);
         follow_btn.set_sensitive(!is_builtin);
         follow_btn.clicked.connect(() => {
@@ -78,12 +78,12 @@ public class ArticleMenu : GLib.Object {
         // Follow this source, or enable a built-in one that's switched off
         bool is_builtin = SourceManager.is_article_from_builtin(article_url);
         bool builtin_enabled = is_builtin && CardBuilder.is_source_followed(article_url);
-        string label = !is_builtin ? "Follow this source" : (builtin_enabled ? "Built-in source" : "Enable built-in source");
+        string label = !is_builtin ? _("Follow this source") : (builtin_enabled ? _("Built-in source") : _("Enable built-in source"));
         string icon = builtin_enabled ? "emblem-default-symbolic" : "list-add-symbolic";
         var follow_btn = create_menu_item(icon, label);
         if (builtin_enabled) {
             follow_btn.set_sensitive(false);
-            follow_btn.set_tooltip_text("This is a built-in source. You can enable or disable it in preferences.");
+            follow_btn.set_tooltip_text(_("This is a built-in source. You can enable or disable it in preferences."));
         } else {
             follow_btn.clicked.connect(() => {
             follow_source_requested(article_url, article_source_name);
@@ -95,7 +95,7 @@ public class ArticleMenu : GLib.Object {
         // Save/Remove from saved
         save_btn = create_menu_item(
             is_saved ? "user-trash-symbolic" : "user-bookmarks-symbolic",
-            is_saved ? "Remove from saved" : "Add to saved"
+            is_saved ? _("Remove from saved") : _("Add to saved")
         );
         save_btn.clicked.connect(() => {
             save_for_later_requested(article_url);
@@ -104,7 +104,7 @@ public class ArticleMenu : GLib.Object {
         menu_box.append(save_btn);
 
         // Mark as unread (only active when article is currently viewed)
-        var unread_btn = create_menu_item("edit-undo-symbolic", "Mark as unread");
+        var unread_btn = create_menu_item("edit-undo-symbolic", _("Mark as unread"));
         // Option should be enabled only when the article is currently viewed
         unread_btn.set_sensitive(is_viewed);
         unread_btn.clicked.connect(() => {
@@ -114,7 +114,7 @@ public class ArticleMenu : GLib.Object {
         menu_box.append(unread_btn);
 
         // Share
-        var share_btn = create_menu_item("share-symbolic", "Share this article");
+        var share_btn = create_menu_item("share-symbolic", _("Share this article"));
         share_btn.clicked.connect(() => {
             share_requested(article_url);
             if (popover != null) popover.popdown();
@@ -148,7 +148,7 @@ public class ArticleMenu : GLib.Object {
                             img.set_from_icon_name("user-trash-symbolic");
                         } else if (c is Gtk.Label) {
                             var lbl = (Gtk.Label) c;
-                            lbl.set_text("Remove from saved");
+                            lbl.set_text(_("Remove from saved"));
                         }
                         c = c.get_next_sibling();
                     }
@@ -172,7 +172,7 @@ public class ArticleMenu : GLib.Object {
                             img.set_from_icon_name("user-bookmarks-symbolic");
                         } else if (c is Gtk.Label) {
                             var lbl = (Gtk.Label) c;
-                            lbl.set_text("Add to saved");
+                            lbl.set_text(_("Add to saved"));
                         }
                         c = c.get_next_sibling();
                     }

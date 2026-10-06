@@ -98,7 +98,7 @@ public class LeagueBadge : GLib.Object {
 
         badge_overlay.set_child(shape);
 
-        live_pill = new Gtk.Label("Live");
+        live_pill = new Gtk.Label(_("Live"));
         live_pill.add_css_class("league-badge-live-pill");
         live_pill.set_halign(Gtk.Align.END);
         live_pill.set_valign(Gtk.Align.START);

@@ -254,11 +254,11 @@ public class SidebarView : GLib.Object {
 
             Gtk.Button? manage_button = null;
             if (section.section_id == "local_news_entry") {
-                manage_button = create_manage_button("Manage Locations", () => {
+                manage_button = create_manage_button(_("Manage Locations"), () => {
                     PrefsDialog.show_preferences_dialog(window, false, false, true);
                 });
             } else if (section.section_id == "popular_categories") {
-                manage_button = create_manage_button("Manage Categories", () => {
+                manage_button = create_manage_button(_("Manage Categories"), () => {
                     PrefsDialog.show_preferences_dialog(window, false, false, false, true);
                 });
             }
@@ -550,7 +550,7 @@ public class SidebarView : GLib.Object {
     // "Live" pill shown to the left of the Sports category's count badge
     // while SportsLiveIndicatorManager reports a game in progress.
     private Gtk.Widget build_live_pill_widget() {
-        var pill = new Gtk.Label("Live");
+        var pill = new Gtk.Label(_("Live"));
         pill.add_css_class("live-pill");
         pill.set_valign(Gtk.Align.CENTER);
         bool is_live = window.sports_live_indicator != null && window.sports_live_indicator.get_is_live();
@@ -563,7 +563,7 @@ public class SidebarView : GLib.Object {
     // trading session. Same shape as Sports' ".live-pill" above, but its
     // own green ".market-open-pill" class instead of that pill's red.
     private Gtk.Widget build_market_open_pill_widget() {
-        var pill = new Gtk.Label("Open");
+        var pill = new Gtk.Label(_("Open"));
         pill.add_css_class("market-open-pill");
         pill.set_valign(Gtk.Align.CENTER);
         bool is_open = window.market_status != null && window.market_status.get_is_open();
@@ -696,7 +696,7 @@ public class SidebarView : GLib.Object {
         icon_holder.append(icon);
         button_box.append(icon_holder);
         
-        var label = new Gtk.Label("Add RSS Feed");
+        var label = new Gtk.Label(_("Add RSS Feed"));
         label.set_xalign(0);
         label.set_hexpand(true);
         button_box.append(label);
@@ -715,8 +715,8 @@ public class SidebarView : GLib.Object {
     }
     
     private void show_add_rss_dialog() {
-        var dialog = new Adw.MessageDialog((Gtk.Window)window, "Add RSS Feed", null);
-        dialog.set_body("Enter the RSS feed URL:");
+        var dialog = new Adw.MessageDialog((Gtk.Window)window, _("Add RSS Feed"), null);
+        dialog.set_body(_("Enter the RSS feed URL:"));
         
         var entry_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
         entry_box.set_margin_top(12);
@@ -727,12 +727,12 @@ public class SidebarView : GLib.Object {
         entry_box.append(url_entry);
         
         var name_entry = new Gtk.Entry();
-        name_entry.set_placeholder_text("Feed name (optional)");
+        name_entry.set_placeholder_text(_("Feed name (optional)"));
         entry_box.append(name_entry);
         
         dialog.set_extra_child(entry_box);
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("add", "Add Feed");
+        dialog.add_response("cancel", _("Cancel"));
+        dialog.add_response("add", _("Add Feed"));
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
         
         dialog.response.connect((response) => {
@@ -752,20 +752,20 @@ public class SidebarView : GLib.Object {
     
     private void add_rss_feed(string name, string url) {
         // Use the centralized ToastManager instead of creating Adw.Toast directly
-        if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Discovering feed...");
+        if (window.toast_manager != null) window.toast_manager.show_persistent_toast(_("Discovering feed..."));
 
         manager.add_rss_feed(name, url, (success, discovered_name) => {
             if (window.toast_manager != null) window.toast_manager.clear_persistent_toast();
 
             if (success) {
-                if (window.toast_manager != null) window.toast_manager.show_toast("RSS feed added: " + discovered_name);
+                if (window.toast_manager != null) window.toast_manager.show_toast(_("RSS feed added: %s").printf(discovered_name));
                 // The source's own source_added signal already queued a
                 // sidebar rebuild before this callback's enable step ran,
                 // so it can still be filtered out as "not enabled" at that
                 // point. Rebuild once more now that it's enabled.
                 manager.rebuild_sidebar();
             } else {
-                if (window.toast_manager != null) window.toast_manager.show_toast("Failed to add RSS feed");
+                if (window.toast_manager != null) window.toast_manager.show_toast(_("Failed to add RSS feed"));
             }
         });
     }
@@ -813,7 +813,7 @@ public class SidebarView : GLib.Object {
         icon_holder.append(icon);
         button_box.append(icon_holder);
 
-        var label = new Gtk.Label("Add a Podcast");
+        var label = new Gtk.Label(_("Add a Podcast"));
         label.set_xalign(0);
         label.set_hexpand(true);
         button_box.append(label);
@@ -832,8 +832,8 @@ public class SidebarView : GLib.Object {
     }
 
     private void show_add_podcast_dialog() {
-        var dialog = new Adw.MessageDialog((Gtk.Window)window, "Add a Podcast", null);
-        dialog.set_body("Enter the podcast's RSS feed URL:");
+        var dialog = new Adw.MessageDialog((Gtk.Window)window, _("Add a Podcast"), null);
+        dialog.set_body(_("Enter the podcast's RSS feed URL:"));
 
         var entry_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
         entry_box.set_margin_top(12);
@@ -844,8 +844,8 @@ public class SidebarView : GLib.Object {
         entry_box.append(url_entry);
 
         dialog.set_extra_child(entry_box);
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("add", "Add Podcast");
+        dialog.add_response("cancel", _("Cancel"));
+        dialog.add_response("add", _("Add Podcast"));
         dialog.set_response_appearance("add", Adw.ResponseAppearance.SUGGESTED);
 
         dialog.response.connect((response) => {
@@ -862,7 +862,7 @@ public class SidebarView : GLib.Object {
     }
 
     private void add_podcast_by_url(string url) {
-        if (window.toast_manager != null) window.toast_manager.show_persistent_toast("Resolving podcast feed...");
+        if (window.toast_manager != null) window.toast_manager.show_persistent_toast(_("Resolving podcast feed..."));
 
         var resolver = Paperboy.PodcastFeedResolver.get_instance();
         resolver.resolve_show(url, window.session, (success, show, error_message) => {
@@ -876,9 +876,9 @@ public class SidebarView : GLib.Object {
                 // the terminal state change, and SidebarManager already
                 // listens to PodcastSubscriptionStore.subscription_added
                 // and rebuilds on its own.
-                window.toast_manager.show_toast("Podcast added: " + show.title);
+                window.toast_manager.show_toast(_("Podcast added: %s").printf(show.title));
             } else {
-                window.toast_manager.show_toast(error_message ?? "Failed to add podcast");
+                window.toast_manager.show_toast(error_message ?? _("Failed to add podcast"));
             }
         });
     }
@@ -1247,7 +1247,7 @@ public class SidebarView : GLib.Object {
         notes_icon.set_pixel_size(CategoryIconsUtils.SIDEBAR_ICON_SIZE);
         Gtk.Label notes_label;
         Gtk.Box notes_icon_holder;
-        var notes_button = build_footer_row(notes_icon, "Notes", out notes_label, out notes_icon_holder);
+        var notes_button = build_footer_row(notes_icon, _("Notes"), out notes_label, out notes_icon_holder);
         notes_button.clicked.connect(() => { NotesBrowserDialog.show(window); });
         footer.append(notes_button);
 
@@ -1266,7 +1266,7 @@ public class SidebarView : GLib.Object {
             Gtk.Label player_label;
             Gtk.Box player_icon_holder;
             var player_button = build_footer_row(CategoryIconsUtils.create_category_icon("nowplaying"),
-                "Now Playing", out player_label, out player_icon_holder, visualizer);
+                _("Now Playing"), out player_label, out player_icon_holder, visualizer);
             footer_podcast_icon_holder = player_icon_holder;
             var revealer = podcast_player_bar.revealer;
             player_button.clicked.connect(() => {

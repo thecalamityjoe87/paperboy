@@ -23,7 +23,7 @@ public class DialogUtils : GLib.Object {
     // the user picks the confirm button. Escape and the default both cancel.
     public static void confirm_destructive(Gtk.Widget parent, string heading, string body, string confirm_label, owned DialogConfirmFunc on_confirm) {
         var confirm = new Adw.AlertDialog(heading, body);
-        confirm.add_response("cancel", "Cancel");
+        confirm.add_response("cancel", _("Cancel"));
         confirm.add_response("confirm", confirm_label);
         confirm.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE);
         confirm.set_default_response("cancel");

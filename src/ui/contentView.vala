@@ -141,7 +141,7 @@ public class ContentView : GLib.Object {
         var title_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
 
         // Add category label (bigger size) - left aligned
-        category_label = new Gtk.Label("World News");
+        category_label = new Gtk.Label(_("World News"));
         category_label.set_xalign(0);
         category_label.set_hexpand(true);
         category_label.add_css_class("heading");
@@ -161,7 +161,7 @@ public class ContentView : GLib.Object {
         title_row.append(cat_title_box);
 
         // History page action - lives in the title row since the date row is hidden there.
-        clear_history_button = new Gtk.Button.with_label("Clear History");
+        clear_history_button = new Gtk.Button.with_label(_("Clear History"));
         clear_history_button.add_css_class("destructive-action");
         clear_history_button.add_css_class("pill");
         clear_history_button.set_halign(Gtk.Align.END);
@@ -189,7 +189,7 @@ public class ContentView : GLib.Object {
         date_overlay = new Gtk.Overlay();
 
         var date = new DateTime.now_local();
-        var date_str = date.format("%A, %B %d");
+        var date_str = DateUtils.full_date(date);
         date_label = new Gtk.Label(date_str);
         date_label.set_xalign(0);
         date_label.add_css_class("dim-label");
@@ -213,7 +213,7 @@ public class ContentView : GLib.Object {
             img.set_pixel_size(16);
             podcast_button_content.append(img);
         }
-        rss_podcast_button_label = new Gtk.Label("Add podcast");
+        rss_podcast_button_label = new Gtk.Label(_("Add podcast"));
         podcast_button_content.append(rss_podcast_button_label);
         rss_podcast_button.set_child(podcast_button_content);
         rss_podcast_button.add_css_class("pill");
@@ -238,10 +238,10 @@ public class ContentView : GLib.Object {
         magazine_library_header_actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
         magazine_library_header_actions.set_halign(Gtk.Align.END);
         magazine_library_header_actions.set_valign(Gtk.Align.END);
-        magazine_library_organize_button = new Gtk.Button.with_label("Organize Rack");
+        magazine_library_organize_button = new Gtk.Button.with_label(_("Organize Rack"));
         magazine_library_organize_button.add_css_class("pill");
         magazine_library_header_actions.append(magazine_library_organize_button);
-        magazine_library_add_button = new Gtk.Button.with_label("Add Magazines");
+        magazine_library_add_button = new Gtk.Button.with_label(_("Add Magazines"));
         magazine_library_add_button.add_css_class("suggested-action");
         magazine_library_add_button.add_css_class("pill");
         magazine_library_header_actions.append(magazine_library_add_button);
@@ -339,7 +339,7 @@ public class ContentView : GLib.Object {
         podcasts_hero_title.set_xalign(0);
         podcasts_hero_title.add_css_class("caption");
         podcasts_hero_title.add_css_class("top-stories-title");
-        podcasts_hero_title.set_markup("<span size='26000'><b>START LISTENING</b></span>");
+        podcasts_hero_title.set_markup(_("<span size='26000'><b>START LISTENING</b></span>"));
         podcasts_hero_title.set_visible(false);
         main_content_container.append(podcasts_hero_title);
 
@@ -383,7 +383,7 @@ public class ContentView : GLib.Object {
         trending_label = new Gtk.Label("");
         trending_label.set_xalign(0);
         trending_label.add_css_class("caption");
-        trending_label.set_markup("<span size='18000'><b>%s</b></span>".printf("TRENDING"));
+        trending_label.set_markup("<span size='18000'><b>%s</b></span>".printf(_("TRENDING")));
         trending_section_wrapper.append(trending_label);
 
         trending_hero_container = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
@@ -455,7 +455,7 @@ public class ContentView : GLib.Object {
         favorite_teams_label.set_xalign(0);
         favorite_teams_label.add_css_class("caption");
         favorite_teams_label.add_css_class("dim-label");
-        favorite_teams_label.set_markup("<span size='12000' weight='bold' letter_spacing='1400'>%s</span>".printf("MY TEAMS"));
+        favorite_teams_label.set_markup("<span size='12000' weight='bold' letter_spacing='1400'>%s</span>".printf(_("MY TEAMS")));
         favorite_teams_label.set_visible(false);
         favorite_teams_label.set_margin_bottom(10);
         main_content_container.append(favorite_teams_label);
@@ -686,7 +686,7 @@ public class ContentView : GLib.Object {
         personalized_message_sub_label.set_visible(false);
         inner_center.append(personalized_message_sub_label);
 
-        personalized_message_action = new Gtk.Button.with_label("Personalize My Feed");
+        personalized_message_action = new Gtk.Button.with_label(_("Personalize My Feed"));
         personalized_message_action.set_halign(Gtk.Align.CENTER);
         personalized_message_action.set_valign(Gtk.Align.CENTER);
         personalized_message_action.set_margin_top(8);
@@ -708,7 +708,7 @@ public class ContentView : GLib.Object {
         ln_inner.set_halign(Gtk.Align.CENTER);
         ln_inner.set_valign(Gtk.Align.CENTER);
 
-        local_news_title = new Gtk.Label("To See Local News, Set Your Location in Preferences");
+        local_news_title = new Gtk.Label(_("To See Local News, Set Your Location in Preferences"));
         local_news_title.add_css_class("title-4");
         local_news_title.add_css_class("dim-label");
         local_news_title.set_halign(Gtk.Align.CENTER);
@@ -717,7 +717,7 @@ public class ContentView : GLib.Object {
         local_news_title.set_wrap(true);
         ln_inner.append(local_news_title);
 
-        local_news_hint = new Gtk.Label("Open the main menu (☰) → choose 'Manage locations' to configure your city or ZIP code.");
+        local_news_hint = new Gtk.Label(_("Open the main menu (☰) → choose 'Manage locations' to configure your city or postal code."));
         local_news_hint.add_css_class("dim-label");
         local_news_hint.set_halign(Gtk.Align.CENTER);
         local_news_hint.set_valign(Gtk.Align.CENTER);
@@ -725,7 +725,7 @@ public class ContentView : GLib.Object {
         local_news_hint.set_margin_top(6);
         ln_inner.append(local_news_hint);
 
-        local_news_button = new Gtk.Button.with_label("Set Location");
+        local_news_button = new Gtk.Button.with_label(_("Set Location"));
         local_news_button.set_halign(Gtk.Align.CENTER);
         local_news_button.set_valign(Gtk.Align.CENTER);
         local_news_button.set_margin_top(12);
@@ -751,7 +751,7 @@ public class ContentView : GLib.Object {
         error_icon.set_halign(Gtk.Align.CENTER);
         error_inner.append(error_icon);
 
-        error_message_label = new Gtk.Label("Something went wrong. Try refreshing...");
+        error_message_label = new Gtk.Label(_("Something went wrong. Try refreshing..."));
         error_message_label.add_css_class("title-4");
         error_message_label.set_halign(Gtk.Align.CENTER);
         error_message_label.set_valign(Gtk.Align.CENTER);
@@ -759,7 +759,7 @@ public class ContentView : GLib.Object {
         error_message_label.set_wrap(true);
         error_inner.append(error_message_label);
 
-        error_retry_button = new Gtk.Button.with_label("Refresh");
+        error_retry_button = new Gtk.Button.with_label(_("Refresh"));
         error_retry_button.set_halign(Gtk.Align.CENTER);
         error_retry_button.set_valign(Gtk.Align.CENTER);
         error_retry_button.add_css_class("suggested-action");
@@ -843,13 +843,13 @@ public class ContentView : GLib.Object {
         magazine_selection_label.set_margin_start(8);
         magazine_selection_label.set_margin_end(8);
         selection_bar.append(magazine_selection_label);
-        magazine_selection_all_button = new Gtk.Button.with_label("Select all");
+        magazine_selection_all_button = new Gtk.Button.with_label(_("Select all"));
         magazine_selection_all_button.add_css_class("pill");
         selection_bar.append(magazine_selection_all_button);
-        magazine_selection_cancel_button = new Gtk.Button.with_label("Cancel");
+        magazine_selection_cancel_button = new Gtk.Button.with_label(_("Cancel"));
         magazine_selection_cancel_button.add_css_class("pill");
         selection_bar.append(magazine_selection_cancel_button);
-        magazine_selection_delete_button = new Gtk.Button.with_label("Delete");
+        magazine_selection_delete_button = new Gtk.Button.with_label(_("Delete"));
         magazine_selection_delete_button.add_css_class("pill");
         magazine_selection_delete_button.add_css_class("destructive-action");
         selection_bar.append(magazine_selection_delete_button);
@@ -939,12 +939,12 @@ public class ContentView : GLib.Object {
         load_more_button_spinner = new Gtk.Spinner();
         load_more_button_spinner.set_visible(false);
         button_content.append(load_more_button_spinner);
-        load_more_button_label = new Gtk.Label("Load more articles");
+        load_more_button_label = new Gtk.Label(_("Load more articles"));
         button_content.append(load_more_button_label);
         load_more_button_widget.set_child(button_content);
 
         load_more_button_widget.clicked.connect(() => {
-            load_more_button_label.set_text("Loading...");
+            load_more_button_label.set_text(_("Loading..."));
             load_more_button_spinner.set_visible(true);
             load_more_button_spinner.start();
             load_more_button_widget.set_sensitive(false);
@@ -1014,7 +1014,7 @@ public class ContentView : GLib.Object {
     // load_more_articles()'s backfill_gate.ready handler.
     public void reset_load_more_button() {
         if (load_more_button_widget == null) return;
-        if (load_more_button_label != null) load_more_button_label.set_text("Load more articles");
+        if (load_more_button_label != null) load_more_button_label.set_text(_("Load more articles"));
         if (load_more_button_spinner != null) {
             load_more_button_spinner.stop();
             load_more_button_spinner.set_visible(false);
@@ -1031,7 +1031,7 @@ public class ContentView : GLib.Object {
             if (child is Gtk.Label) {
                 var lbl = child as Gtk.Label;
                 var txt = lbl.get_label();
-                if (txt == "<b>No more articles</b>" || txt == "No more articles") {
+                if (txt == _("<b>No more articles</b>") || txt == _("No more articles")) {
                     content_box.remove(lbl);
                     break;
                 }
@@ -1152,8 +1152,8 @@ public class ContentView : GLib.Object {
         // icon on the transition into search mode (not every debounced
         // keystroke) - update_category_icon() rebuilds/rasterizes it, and
         // it's already correct for every keystroke after the first.
-        if (category_label.get_text() != "Search results") {
-            category_label.set_text("Search results");
+        if (category_label.get_text() != _("Search results")) {
+            category_label.set_text(_("Search results"));
             if (window.header_manager != null) {
                 window.header_manager.update_category_icon();
                 window.header_manager.update_date_label();
@@ -1190,11 +1190,10 @@ public class ContentView : GLib.Object {
         string label_text;
 
         if (match_count == 0) {
-            label_text = "No articles found matching \"%s\"".printf(query);
+            label_text = _("No articles found matching \"%s\"").printf(query);
         } else {
             // Special switch when only one matching article is found
-            string article_word = (match_count == 1) ? "article" : "articles";
-            label_text = "Search results: found %d %s matching \"%s\"".printf(match_count, article_word, query);
+            label_text = ngettext("Search results: found %d article matching \"%s\"", "Search results: found %d articles matching \"%s\"", match_count).printf(match_count, query);
         }
 
         category_subtitle.set_label(label_text);

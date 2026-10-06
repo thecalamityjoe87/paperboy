@@ -1,3 +1,45 @@
+paperboy (0.14.0a-1) unstable; urgency=low
+
+  * Added a Country setting (Preferences > Personalization > Region) with the 87 Google News country and language editions, set to Automatic by default from the system's time zone and language
+  * Added a "Where Are You Reading From?" onboarding page to check or change the detected country
+  * Outside the US, "US News" becomes the country's national news, with a flag icon for light and dark mode
+  * Outside the US, the Front Page, Trending, and each category's Google News section show the country's news in its language
+  * NPR, WSJ, the New York Times, and Bloomberg searches always use Google News' US edition so they return a full set of articles
+  * Local News now asks for a postal code and prefers results in the user's country
+  * Place names with mixed casing are kept as written, and two-letter town names are no longer capitalized as US states
+  * Added translation support, with translations for Portuguese (Brazil), Spanish, French, German, Italian, Russian, Japanese, and Simplified Chinese
+  * Added Portuguese (Portugal), Dutch, Polish, Turkish, Korean, Ukrainian, Traditional Chinese (Taiwan, Hong Kong), Indonesian, Vietnamese, Arabic, and Hebrew translations
+  * Scroll arrows keep their sides and scrolling titles in right-to-left scripts scroll correctly
+  * Translated the desktop file's name, description, and keywords
+  * The AppImage now bundles the translations
+  * Country names, national and Local News headers, and category names in page headers are now translated
+  * Fixed some interface text never being offered for translation
+  * Article times and dates now use the interface language's wording and date order
+  * Translated the remaining English notifications, buttons, and dialogs, the reading time, the built-in outlets' descriptions, and email share text
+  * Counts and search results now use the right plural in every language, including languages with several plural forms
+  * Cache sizes use the locale's units and decimal separator
+  * Market prices use the locale's number format; chart hover times follow the clock setting
+  * Translated the remaining English text, including weather highs and lows, follow tooltips, podcast and magazine messages, and fallback names
+  * Article bylines now follow the system's 12-hour or 24-hour clock setting
+  * Fixed failed feeds showing a spinner until timeout instead of an error in languages other than English
+  * Fixed dates on older article cards sometimes being a day off, and the header date padding the day with a zero
+  * Added a Contributors page to the About dialog
+  * Websites are asked for pages in the user's language
+  * Fixed reader view failing on pages that aren't in UTF-8
+  * Fixed the Front Page's hero carousel sometimes not appearing after picking a new country
+  * Added sports score cards for tennis (ATP, WTA), golf (PGA Tour, LPGA Tour, DP World Tour), racing (Formula 1, NASCAR Cup Series, IndyCar), and PFL, off by default
+  * Golf and racing cards show the top three places with flags, with tied golfers sharing a place; tennis cards show games per set
+  * Tennis, golf, and racing cards show the tournament or race and the round or session
+  * Tennis shows recent and upcoming main-draw singles matches only; Formula 1 skips practice sessions
+  * Golf tournaments that haven't started show their date instead of "TBD", on the right day in every time zone
+  * Added 16 regional football and rugby leagues, on by default and listed first in the countries that follow them
+  * Added Leagues and Section Order pages to Preferences' Sports Score Cards, with leagues grouped by region
+  * US pro leagues are on by default only in the US and Canada, college leagues only in the US
+  * Onboarding's sports page now groups leagues by region like Preferences, with section order set in Preferences
+  * Fixed Trending sometimes showing 9 stories instead of 10 on load, with the last one appearing about 20 seconds later
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 05 Oct 2026 00:00:00 +0000
+
 paperboy (0.13.1a-1) unstable; urgency=low
 
   * Added a fixed sidebar footer with Notes and a Now Playing button; Notes moved there from the sidebar list

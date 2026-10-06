@@ -28,7 +28,7 @@ public class CardBuilder : GLib.Object {
 
     public static string category_display_text(NewsWindow win, string category_id) {
         if (category_id != null && category_id.has_prefix("rssfeed:")) {
-            return "Feeds";
+            return _("Feeds");
         }
         return win.category_display_name_for(category_id);
     }
@@ -197,7 +197,8 @@ public class CardBuilder : GLib.Object {
         if (logo_wrapper != null) {
             box.append(logo_wrapper);
         }
-        var lbl = create_source_badge_label(display_text);
+        // The untranslated Local News key (see SourceManager) is shown translated
+        var lbl = create_source_badge_label(display_text == SourceManager.LOCAL_NEWS_SOURCE ? _("Local News") : display_text);
         box.append(lbl);
         return box;
     }
@@ -226,7 +227,7 @@ public class CardBuilder : GLib.Object {
         if (source_name != null && source_name.length > 0) {
             return source_name;
         }
-        return "News";
+        return _("News");
     }
 
     // Adds a card's source badge. With `followable` (Front Page and search, where you find
@@ -252,7 +253,7 @@ public class CardBuilder : GLib.Object {
         follow_btn.set_valign(Gtk.Align.CENTER);
         follow_btn.clicked.connect(() => {
             if (is_source_followed(url)) return;
-            if (!SourceManager.is_article_from_builtin(url)) win.show_persistent_toast("Searching for feed...");
+            if (!SourceManager.is_article_from_builtin(url)) win.show_persistent_toast(_("Searching for feed..."));
             win.source_manager.follow_rss_source(url, source_name);
         });
 
@@ -281,7 +282,7 @@ public class CardBuilder : GLib.Object {
 
         badge_box.set_data("follow-source-btn", follow_btn);
         badge_box.set_data("follow-source-revealer", revealer);
-        badge_box.set_data<string>("follow-source-name", source_label ?? "this source");
+        badge_box.set_data<string>("follow-source-name", source_label);
         badge_box.set_data<string>("follow-source-url", url);
         if (name_label != null) badge_box.set_data("follow-source-label", name_label);
         card_root.set_data("source-badge", badge_box);
@@ -301,7 +302,7 @@ public class CardBuilder : GLib.Object {
 
         var quick_reader_btn = new Gtk.Button();
         quick_reader_btn.add_css_class("card-hover-action-btn");
-        quick_reader_btn.set_tooltip_text("Open in reader view");
+        quick_reader_btn.set_tooltip_text(_("Open in reader view"));
         var quick_reader_icon = new Gtk.Image.from_icon_name("view-paged-symbolic");
         quick_reader_icon.set_pixel_size(20);
         quick_reader_btn.set_child(quick_reader_icon);
@@ -313,7 +314,7 @@ public class CardBuilder : GLib.Object {
 
         var quick_pane_btn = new Gtk.Button();
         quick_pane_btn.add_css_class("card-hover-action-btn");
-        quick_pane_btn.set_tooltip_text("Preview article");
+        quick_pane_btn.set_tooltip_text(_("Preview article"));
         var quick_pane_icon = new Gtk.Image.from_icon_name("view-reveal-symbolic");
         quick_pane_icon.set_pixel_size(20);
         quick_pane_btn.set_child(quick_pane_icon);
@@ -338,12 +339,12 @@ public class CardBuilder : GLib.Object {
         box.set_margin_bottom(16);
         box.set_opacity(0);
 
-        var up = build_feedback_button("thumbs-up", "More like this");
+        var up = build_feedback_button("thumbs-up", _("More like this"));
         box.append(up);
         var divider = new Gtk.Separator(Gtk.Orientation.VERTICAL);
         divider.add_css_class("source-badge-divider");
         box.append(divider);
-        var down = build_feedback_button("thumbs-down", "Less like this");
+        var down = build_feedback_button("thumbs-down", _("Less like this"));
         box.append(down);
 
         string norm = win.normalize_article_url(url);
@@ -392,9 +393,9 @@ public class CardBuilder : GLib.Object {
     }
 
     private static string feedback_toast_text(int vote) {
-        if (vote > 0) return "You'll see more articles like this";
-        if (vote < 0) return "You'll see fewer articles like this";
-        return "Rating removed";
+        if (vote > 0) return _("You'll see more articles like this");
+        if (vote < 0) return _("You'll see fewer articles like this");
+        return _("Rating removed");
     }
 
     private static void show_feedback_vote(Gtk.Button up, Gtk.Button down, int vote) {
@@ -417,9 +418,14 @@ public class CardBuilder : GLib.Object {
         }
 
         bool followed = is_source_followed(url);
-        string name = badge.get_data<string>("follow-source-name");
+        string? name = badge.get_data<string>("follow-source-name");
         btn.set_icon_name(followed ? CheckIconUtils.icon_name() : "list-add-symbolic");
-        btn.set_tooltip_text(followed ? "Following " + name : "Follow " + name);
+        if (name == null) {
+            btn.set_tooltip_text(followed ? C_("follow button tooltip", "Following this source") : _("Follow this source"));
+        } else {
+            // TRANSLATORS: %s is a news source, e.g. "Follow BBC News"
+            btn.set_tooltip_text(followed ? C_("follow button tooltip", "Following %s").printf(name) : _("Follow %s").printf(name));
+        }
         if (followed) {
             btn.add_css_class("following");
         } else {
@@ -655,7 +661,7 @@ public class CardBuilder : GLib.Object {
         icon.set_valign(Gtk.Align.CENTER); icon.set_halign(Gtk.Align.CENTER);
         box.append(icon);
 
-        var lbl = new Gtk.Label("Read");
+        var lbl = new Gtk.Label(_("Read"));
         lbl.get_style_context().remove_class("dim-label");
         lbl.add_css_class("viewed-badge-label");
         lbl.add_css_class("caption");

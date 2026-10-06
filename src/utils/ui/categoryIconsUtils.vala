@@ -86,6 +86,12 @@ public class CategoryIconsUtils : GLib.Object {
         }
     }
 
+    // The national category's icon: the edition country's flag
+    // ("flags/flag-de-mono.svg", from lipis/flag-icons - see flags/LICENSE).
+    private static string national_icon_file() {
+        return "flags/flag-%s-mono.svg".printf(GoogleNewsUtils.country().down());
+    }
+
     // Bundled "<name>-mono.svg" basename for a category's sidebar icon, or
     // null if it has none (then create_category_icon() uses a theme icon).
     public static string? icon_file_for(string cat) {
@@ -104,7 +110,7 @@ public class CategoryIconsUtils : GLib.Object {
             // Sidebar footer's "Now Playing" row (podcast controls toggle).
             case "nowplaying": return "nowplaying-mono.svg";
             case "general": return "world-mono.svg";
-            case "us": return "us-mono.svg";
+            case "us": return national_icon_file();
             case "local_news": return "local-mono.svg";
             case "technology": return "technology-mono.svg";
             case "business": return "business-mono.svg";
@@ -260,7 +266,7 @@ public class CategoryIconsUtils : GLib.Object {
             // create_category_icon above).
             case "podcasts": filename = "antenna-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
-            case "us": filename = "us-mono.svg"; break;
+            case "us": filename = national_icon_file(); break;
             case "local_news": filename = "local-mono.svg"; break;
             case "technology": filename = "technology-mono.svg"; break;
             case "business": filename = "business-mono.svg"; break;

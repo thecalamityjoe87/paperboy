@@ -1,0 +1,3664 @@
+# Hebrew translations for the Paperboy UI.
+# This file is distributed under the same license as the Paperboy package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: paperboy\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-05 19:57-0500\n"
+"PO-Revision-Date: 2026-10-05 19:57-0500\n"
+"Last-Translator: \n"
+"Language-Team: Hebrew\n"
+"Language: he\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/builders/cardBuilder.vala:31 src/managers/ui/sidebarManager.vala:352
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:234
+msgid "Feeds"
+msgstr "פידים"
+
+#. The untranslated Local News key (see SourceManager) is shown translated
+#: src/builders/cardBuilder.vala:201
+#: src/managers/content/categoryManager.vala:206
+#: src/managers/ui/headerManager.vala:479
+#: src/managers/ui/sidebarManager.vala:319
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:376
+#: src/services/feeds/unreadFetchService.vala:226
+#: src/ui/controllers/fetchNewsController.vala:1070
+#: src/services/articles/articleSnippetService.vala:239
+msgid "Local News"
+msgstr "חדשות מקומיות"
+
+#. Turn a host like "example-news.co.uk" into a friendly display string
+#. such as "Example News". This is intentionally simple and is only
+#. used as a fallback when no explicit source name is available.
+#: src/builders/cardBuilder.vala:230 src/managers/ui/headerManager.vala:484
+#: src/managers/ui/headerManager.vala:486
+#: src/managers/ui/headerManager.vala:516
+#: src/services/fetchers/fetcherUtils.vala:39 src/utils/net/urlUtils.vala:115
+#: src/utils/net/urlUtils.vala:117 src/utils/net/urlUtils.vala:147
+msgid "News"
+msgstr "חדשות"
+
+#: src/builders/cardBuilder.vala:256
+#: src/ui/components/articles/articlePane.vala:293
+#: src/ui/components/articles/articleSheet.vala:518
+#: src/managers/content/articleManager.vala:1205
+#: src/managers/content/articleManager.vala:1362
+#: src/managers/content/articleManager.vala:1458
+#: src/managers/content/articleManager.vala:1875
+msgid "Searching for feed..."
+msgstr "מתבצע חיפוש פיד..."
+
+#: src/builders/cardBuilder.vala:305
+#: src/ui/components/articles/heroCard.vala:183
+msgid "Open in reader view"
+msgstr "פתיחה בתצוגת קריאה"
+
+#: src/builders/cardBuilder.vala:317
+#: src/ui/components/articles/heroCard.vala:196
+msgid "Preview article"
+msgstr "תצוגה מקדימה של הכתבה"
+
+#: src/builders/cardBuilder.vala:342
+msgid "More like this"
+msgstr "עוד כאלה"
+
+#: src/builders/cardBuilder.vala:347
+msgid "Less like this"
+msgstr "פחות כאלה"
+
+#: src/builders/cardBuilder.vala:396
+msgid "You'll see more articles like this"
+msgstr "יוצגו לך יותר כתבות כאלה"
+
+#: src/builders/cardBuilder.vala:397
+msgid "You'll see fewer articles like this"
+msgstr "יוצגו לך פחות כתבות כאלה"
+
+#: src/builders/cardBuilder.vala:398
+msgid "Rating removed"
+msgstr "הדירוג הוסר"
+
+#: src/builders/cardBuilder.vala:424
+msgctxt "follow button tooltip"
+msgid "Following this source"
+msgstr "המקור הזה במעקב"
+
+#: src/builders/cardBuilder.vala:424 src/ui/menus/articleMenu.vala:81
+msgid "Follow this source"
+msgstr "מעקב אחר המקור הזה"
+
+#. TRANSLATORS: %s is a news source, e.g. "Follow BBC News"
+#: src/builders/cardBuilder.vala:427
+#, c-format
+msgctxt "follow button tooltip"
+msgid "Following %s"
+msgstr "%s במעקב"
+
+#: src/builders/cardBuilder.vala:427
+#, c-format
+msgid "Follow %s"
+msgstr "מעקב אחר %s"
+
+#: src/builders/cardBuilder.vala:664
+msgid "Read"
+msgstr "נקרא"
+
+#: src/managers/content/categoryManager.vala:190
+msgid "General"
+msgstr "כללי"
+
+#: src/managers/content/categoryManager.vala:191
+msgid "U.S."
+msgstr "ארה״ב"
+
+#: src/managers/content/categoryManager.vala:192
+#: src/managers/ui/headerManager.vala:465
+#: src/services/fetchers/bbcFetcher.vala:72
+#: src/services/fetchers/fetcherUtils.vala:27
+msgid "Technology"
+msgstr "טכנולוגיה"
+
+#: src/managers/content/categoryManager.vala:193
+#: src/managers/ui/headerManager.vala:466
+#: src/services/fetchers/bbcFetcher.vala:73
+#: src/services/fetchers/fetcherUtils.vala:28
+#: src/services/fetchers/pbsFetcher.vala:73
+msgid "Business"
+msgstr "עסקים"
+
+#: src/managers/content/categoryManager.vala:194
+#: src/managers/ui/headerManager.vala:468
+#: src/services/fetchers/bbcFetcher.vala:74
+#: src/services/fetchers/fetcherUtils.vala:32
+#: src/services/fetchers/pbsFetcher.vala:74
+msgid "Science"
+msgstr "מדע"
+
+#: src/managers/content/categoryManager.vala:195
+#: src/managers/ui/headerManager.vala:467
+#: src/services/fetchers/bbcFetcher.vala:75
+#: src/services/fetchers/fetcherUtils.vala:33
+msgid "Sports"
+msgstr "ספורט"
+
+#: src/managers/content/categoryManager.vala:196
+#: src/managers/ui/headerManager.vala:469
+#: src/services/fetchers/bbcFetcher.vala:76
+#: src/services/fetchers/fetcherUtils.vala:34
+#: src/services/fetchers/pbsFetcher.vala:75
+msgid "Health"
+msgstr "בריאות"
+
+#: src/managers/content/categoryManager.vala:197
+#: src/managers/ui/headerManager.vala:470
+#: src/services/fetchers/bbcFetcher.vala:79
+#: src/services/fetchers/fetcherUtils.vala:35
+#: src/services/fetchers/pbsFetcher.vala:77
+msgid "Entertainment"
+msgstr "בידור"
+
+#: src/managers/content/categoryManager.vala:198
+#: src/managers/ui/headerManager.vala:471
+#: src/services/fetchers/bbcFetcher.vala:78
+#: src/services/fetchers/fetcherUtils.vala:36
+#: src/services/fetchers/pbsFetcher.vala:76
+msgid "Politics"
+msgstr "פוליטיקה"
+
+#: src/managers/content/categoryManager.vala:199
+#: src/managers/ui/headerManager.vala:472
+#: src/services/fetchers/fetcherUtils.vala:37
+msgid "Lifestyle"
+msgstr "לייף סטייל"
+
+#: src/managers/content/categoryManager.vala:200
+#: src/managers/ui/headerManager.vala:473
+#: src/ui/controllers/myFeedExtrasController.vala:302
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:346
+#: src/services/fetchers/fetcherUtils.vala:29
+msgid "Markets"
+msgstr "שווקים"
+
+#: src/managers/content/categoryManager.vala:201
+#: src/managers/ui/headerManager.vala:474
+#: src/services/fetchers/fetcherUtils.vala:30
+msgid "Industries"
+msgstr "תעשיות"
+
+#: src/managers/content/categoryManager.vala:202
+#: src/managers/ui/headerManager.vala:475
+#: src/services/fetchers/fetcherUtils.vala:31
+msgid "Economics"
+msgstr "כלכלה"
+
+#. If this removed source was selected, fall back to Front Page
+#: src/managers/content/categoryManager.vala:203
+#: src/managers/ui/headerManager.vala:457
+#: src/managers/ui/sidebarManager.vala:307
+#: src/managers/ui/sidebarManager.vala:698
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:377
+#: src/services/fetchers/paperboyFetcher.vala:138
+msgid "Front Page"
+msgstr "עמוד ראשי"
+
+#: src/managers/content/categoryManager.vala:204
+#: src/managers/ui/headerManager.vala:458
+msgid "Trending"
+msgstr "פופולרי"
+
+#. use URL, not name, for source filtering
+#: src/managers/content/categoryManager.vala:205
+#: src/managers/ui/headerManager.vala:476
+#: src/managers/ui/sidebarManager.vala:308
+#: src/services/fetchers/fetcherUtils.vala:24
+#: src/ui/controllers/fetchNewsController.vala:571
+msgid "My Feed"
+msgstr "הפיד שלי"
+
+#: src/managers/content/categoryManager.vala:207
+#: src/managers/ui/headerManager.vala:459
+#: src/managers/ui/sidebarManager.vala:310
+msgid "Saved"
+msgstr "שמורים"
+
+#: src/managers/content/categoryManager.vala:208
+#: src/managers/ui/headerManager.vala:460
+#: src/managers/ui/sidebarManager.vala:311
+msgid "History"
+msgstr "היסטוריה"
+
+#: src/managers/media/magazineLibraryManager.vala:154
+#, c-format
+msgid "No magazines found matching \"%s\""
+msgstr "לא נמצאו מגזינים שתואמים ל־„%s”"
+
+#: src/managers/media/magazineLibraryManager.vala:155
+#, c-format
+msgid "Search results: found %d magazine matching \"%s\""
+msgid_plural "Search results: found %d magazines matching \"%s\""
+msgstr[0] "תוצאות חיפוש: נמצא %d מגזין שתואם ל־„%s”"
+msgstr[1] "תוצאות חיפוש: נמצאו %d מגזינים שתואמים ל־„%s”"
+
+#: src/managers/media/magazineLibraryManager.vala:177
+msgid "Your library is empty"
+msgstr "הספרייה שלך ריקה"
+
+#: src/managers/media/magazineLibraryManager.vala:228
+#: src/managers/media/magazineLibraryManager.vala:588
+msgid "Removed from library"
+msgstr "הוסר מהספרייה"
+
+#: src/managers/media/magazineLibraryManager.vala:460
+msgid "Your library is empty. Add a magazine to get started."
+msgstr "הספרייה שלך ריקה. כדאי להוסיף מגזין כדי להתחיל."
+
+#. TRANSLATORS: number of selected magazines
+#: src/managers/media/magazineLibraryManager.vala:649
+#, c-format
+msgid "%d selected"
+msgid_plural "%d selected"
+msgstr[0] "%d נבחר"
+msgstr[1] "%d נבחרו"
+
+#: src/managers/media/magazineLibraryManager.vala:650
+#, c-format
+msgid "Delete (%d)"
+msgstr "מחיקה (%d)"
+
+#: src/managers/media/magazineLibraryManager.vala:650
+#: src/managers/media/magazineLibraryManager.vala:670
+#: src/ui/contentView.vala:852
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:364
+msgid "Delete"
+msgstr "מחיקה"
+
+#: src/managers/media/magazineLibraryManager.vala:668
+#, c-format
+msgid "Delete %d magazine?"
+msgid_plural "Delete %d magazines?"
+msgstr[0] "למחוק %d מגזין?"
+msgstr[1] "למחוק %d מגזינים?"
+
+#: src/managers/media/magazineLibraryManager.vala:670
+msgid "Their downloaded files are removed too. This can't be undone."
+msgstr "גם הקבצים שהורדו יוסרו. אי אפשר לבטל את הפעולה."
+
+#: src/managers/media/magazineLibraryManager.vala:678
+#, c-format
+msgid "Removed %d magazine"
+msgid_plural "Removed %d magazines"
+msgstr[0] "הוסר %d מגזין"
+msgstr[1] "הוסרו %d מגזינים"
+
+#: src/managers/media/magazineLibraryManager.vala:715
+msgid "Set Category"
+msgstr "הגדרת קטגוריה"
+
+#: src/managers/media/magazineLibraryManager.vala:716
+#, c-format
+msgid "Group \"%s\" under a category - leave blank for Uncategorized."
+msgstr "קיבוץ „%s” תחת קטגוריה - להשאיר ריק עבור ללא קטגוריה."
+
+#: src/managers/media/magazineLibraryManager.vala:719
+msgid "e.g. Technology, History, Comics"
+msgstr "למשל טכנולוגיה, היסטוריה, קומיקס"
+
+#: src/managers/media/magazineLibraryManager.vala:725
+#: src/managers/media/magazineLibraryManager.vala:781
+#: src/managers/media/magazineLibraryManager.vala:917
+#: src/ui/contentView.vala:849 src/ui/dialogs/app/locationDialog.vala:125
+#: src/ui/dialogs/content/feedRenameDialog.vala:42
+#: src/ui/dialogs/content/shareDialog.vala:222
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:331
+#: src/ui/dialogs/media/podcastPickerDialog.vala:99 src/ui/sidebarView.vala:734
+#: src/ui/sidebarView.vala:847 src/utils/ui/dialogUtils.vala:26
+msgid "Cancel"
+msgstr "ביטול"
+
+#: src/managers/media/magazineLibraryManager.vala:726
+msgid "Set"
+msgstr "הגדרה"
+
+#: src/managers/media/magazineLibraryManager.vala:747
+#: src/ui/contentView.vala:244
+msgid "Add Magazines"
+msgstr "הוספת מגזינים"
+
+#: src/managers/media/magazineLibraryManager.vala:748
+msgid ""
+"Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
+"choose a PDF you've already downloaded."
+msgstr ""
+"יש להזין קישור ישיר לקובץ PDF, דף אינטרנט עם קישורים לקובץ PDF אחד או יותר, "
+"או לבחור קובץ PDF שכבר הורדת."
+
+#: src/managers/media/magazineLibraryManager.vala:759
+msgid "Title (optional, direct PDF links/local files only)"
+msgstr "כותרת (רשות, רק לקישורי PDF ישירים/קבצים מקומיים)"
+
+#: src/managers/media/magazineLibraryManager.vala:763
+msgid "Category (optional, e.g. Technology, History)"
+msgstr "קטגוריה (רשות, למשל טכנולוגיה, היסטוריה)"
+
+#. Local file import - shares the title/category fields above,
+#. just skips the URL field and closes this dialog immediately
+#. rather than waiting for "Add" (there's no URL to type once a
+#. file is picked).
+#: src/managers/media/magazineLibraryManager.vala:770
+msgid "Choose a PDF on This Computer…"
+msgstr "בחירת PDF מהמחשב הזה…"
+
+#: src/managers/media/magazineLibraryManager.vala:782
+#: src/ui/dialogs/app/locationDialog.vala:81
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:461
+msgid "Add"
+msgstr "הוספה"
+
+#: src/managers/media/magazineLibraryManager.vala:804
+msgid "Choose a PDF"
+msgstr "בחירת PDF"
+
+#: src/managers/media/magazineLibraryManager.vala:807
+msgid "PDF files"
+msgstr "קובצי PDF"
+
+#: src/managers/media/magazineLibraryManager.vala:834
+#: src/services/magazines/magazinePdfImportService.vala:43
+msgid "Only https:// links are supported"
+msgstr "רק קישורי https:// נתמכים"
+
+#: src/managers/media/magazineLibraryManager.vala:865
+msgid "Scanning for PDFs…"
+msgstr "מתבצע חיפוש קובצי PDF…"
+
+#: src/managers/media/magazineLibraryManager.vala:875
+#: src/services/magazines/magazineSourceScanner.vala:77
+msgid "No PDF links found on that page"
+msgstr "לא נמצאו קישורי PDF בדף הזה"
+
+#: src/managers/media/magazineLibraryManager.vala:886
+msgid "No new PDFs found - everything's already in your library"
+msgstr "לא נמצאו קובצי PDF חדשים - הכול כבר בספרייה שלך"
+
+#: src/managers/media/magazineLibraryManager.vala:897
+msgid "Select magazines to add"
+msgstr "בחירת מגזינים להוספה"
+
+#: src/managers/media/magazineLibraryManager.vala:898
+#, c-format
+msgid "Found %d PDF link on %s."
+msgid_plural "Found %d PDF links on %s."
+msgstr[0] "נמצא %d קישור PDF ב־%s."
+msgstr[1] "נמצאו %d קישורי PDF ב־%s."
+
+#: src/managers/media/magazineLibraryManager.vala:918
+#: src/ui/dialogs/media/podcastPickerDialog.vala:100
+msgid "Add Selected"
+msgstr "הוספת הנבחרים"
+
+#: src/managers/media/magazineLibraryManager.vala:937
+msgid "Downloading magazine…"
+msgstr "המגזין בהורדה…"
+
+#: src/managers/media/magazineLibraryManager.vala:948
+#: src/managers/media/magazineLibraryManager.vala:968
+#, c-format
+msgid "Added: %s"
+msgstr "נוסף: %s"
+
+#: src/managers/media/magazineLibraryManager.vala:950
+#: src/managers/media/magazineLibraryManager.vala:970
+msgid "Failed to add magazine"
+msgstr "הוספת המגזין נכשלה"
+
+#: src/managers/media/magazineLibraryManager.vala:957
+msgid "Adding magazines…"
+msgstr "מגזינים בהוספה…"
+
+#: src/managers/media/podcastManager.vala:131
+msgid "Loading podcasts..."
+msgstr "הפודקאסטים בטעינה..."
+
+#: src/managers/media/podcastManager.vala:201
+#, c-format
+msgid "Searching for \"%s\"..."
+msgstr "מתבצע חיפוש „%s”..."
+
+#: src/managers/media/podcastManager.vala:263
+#, c-format
+msgid "No podcasts found matching \"%s\""
+msgstr "לא נמצאו פודקאסטים שתואמים ל־„%s”"
+
+#: src/managers/media/podcastManager.vala:264
+#, c-format
+msgid "Search results: found %d podcast matching \"%s\""
+msgid_plural "Search results: found %d podcasts matching \"%s\""
+msgstr[0] "תוצאות חיפוש: נמצא %d פודקאסט שתואם ל־„%s”"
+msgstr[1] "תוצאות חיפוש: נמצאו %d פודקאסטים שתואמים ל־„%s”"
+
+#: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
+msgid "Loading..."
+msgstr "בטעינה..."
+
+#: src/managers/media/podcastManager.vala:474
+#: src/managers/media/podcastManager.vala:505
+msgid "Show More Categories"
+msgstr "הצגת קטגוריות נוספות"
+
+#. TRANSLATORS: today's high and low temperatures, e.g. "H 75° · L 58°"; keep the <b></b> markup
+#: src/managers/ui/headerManager.vala:131
+#, c-format
+msgid "H <b>%s</b> · L <b>%s</b>"
+msgstr "מקס׳ <b>%s</b> · מינ׳ <b>%s</b>"
+
+#: src/managers/ui/headerManager.vala:134
+#, c-format
+msgid "Weather in %s"
+msgstr "מזג האוויר ב־%s"
+
+#: src/managers/ui/headerManager.vala:135
+msgid ""
+"\n"
+"Open Weather for the full forecast"
+msgstr ""
+"\n"
+"לפתוח את מזג אוויר לתחזית המלאה"
+
+#: src/managers/ui/headerManager.vala:153
+msgid "Clear history?"
+msgstr "לנקות את ההיסטוריה?"
+
+#: src/managers/ui/headerManager.vala:154
+msgid ""
+"This will permanently delete your reading history. This can't be undone."
+msgstr "פעולה זו תמחק לצמיתות את היסטוריית הקריאה שלך. אי אפשר לבטל אותה."
+
+#. History page action - lives in the title row since the date row is hidden there.
+#: src/managers/ui/headerManager.vala:154 src/ui/contentView.vala:164
+msgid "Clear History"
+msgstr "ניקוי ההיסטוריה"
+
+#: src/managers/ui/headerManager.vala:157
+msgid "History cleared"
+msgstr "ההיסטוריה נוקתה"
+
+#: src/managers/ui/headerManager.vala:189
+msgid "Browse podcasts"
+msgstr "עיון בפודקאסטים"
+
+#. "Subscribed" is wider than "Subscribe" - without a locked width,
+#. toggling subscription state changes the button's own width,
+#. which (since it's a non-expanding sibling of title_box in
+#. header_row) eats into title_box's available width and reflows
+#. the description text next to the cover art, even though the
+#. button isn't anywhere near that text visually. Lock the width
+#. to whichever label is widest so toggling never reflows the row.
+#: src/managers/ui/headerManager.vala:199
+#: src/ui/components/podcasts/podcastCard.vala:230
+#: src/ui/components/podcasts/podcastHeroCard.vala:169
+#: src/ui/components/podcasts/podcastPane.vala:462
+#: src/ui/dialogs/media/podcastDetailDialog.vala:164
+#: src/ui/dialogs/media/podcastDetailDialog.vala:180
+msgid "Subscribed"
+msgstr "רשום"
+
+#: src/managers/ui/headerManager.vala:199 src/ui/contentView.vala:216
+msgid "Add podcast"
+msgstr "הוספת פודקאסט"
+
+#. TRANSLATORS: %s is the reason, e.g. "Couldn't add podcast: no episodes found"
+#: src/managers/ui/headerManager.vala:254
+#, c-format
+msgid "Couldn't add podcast: %s"
+msgstr "לא ניתן להוסיף את הפודקאסט: %s"
+
+#: src/managers/ui/headerManager.vala:254
+msgid "unknown error"
+msgstr "שגיאה לא ידועה"
+
+#. No extra rebuild_sidebar() needed here (unlike
+#. add_rss_feed()'s two-step enable dance) - subscribing is
+#. the terminal state change, and SidebarManager already
+#. listens to PodcastSubscriptionStore.subscription_added
+#. and rebuilds on its own.
+#: src/managers/ui/headerManager.vala:260 src/ui/sidebarView.vala:879
+#, c-format
+msgid "Podcast added: %s"
+msgstr "הפודקאסט נוסף: %s"
+
+#: src/managers/ui/headerManager.vala:434
+#, c-format
+msgid "%d saved article"
+msgid_plural "%d saved articles"
+msgstr[0] "%d כתבה שמורה"
+msgstr[1] "%d כתבות שמורות"
+
+#: src/managers/ui/headerManager.vala:445
+#: src/managers/ui/headerManager.vala:453
+msgid "RSS Feed"
+msgstr "פיד RSS"
+
+#. Create horizontal box for category label and source info
+#. Add category label (bigger size) - left aligned
+#: src/managers/ui/headerManager.vala:461
+#: src/managers/ui/headerManager.vala:463 src/ui/contentView.vala:144
+#: src/services/fetchers/bbcFetcher.vala:80
+#: src/services/fetchers/fetcherUtils.vala:25
+#: src/services/fetchers/pbsFetcher.vala:78
+msgid "World News"
+msgstr "חדשות העולם"
+
+#. id stays "podcasts" (the routing key) - only title/icon change.
+#: src/managers/ui/headerManager.vala:480
+#: src/managers/ui/sidebarManager.vala:377
+msgid "Find Podcasts"
+msgstr "חיפוש פודקאסטים"
+
+#: src/managers/ui/headerManager.vala:481
+#: src/managers/ui/sidebarManager.vala:309
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:348
+msgid "Magazine Rack"
+msgstr "מדף המגזינים"
+
+#: src/managers/ui/loadingStateManager.vala:185
+#: src/managers/ui/loadingStateManager.vala:654
+#: src/managers/ui/loadingStateManager.vala:660 src/ui/appWindow.vala:1401
+#: src/ui/contentView.vala:1034 src/managers/ui/layoutManager.vala:505
+msgid "<b>No more articles</b>"
+msgstr "<b>אין עוד כתבות</b>"
+
+#: src/managers/ui/loadingStateManager.vala:185
+#: src/managers/ui/loadingStateManager.vala:654 src/ui/contentView.vala:1034
+#: src/managers/ui/layoutManager.vala:505
+msgid "No more articles"
+msgstr "אין עוד כתבות"
+
+#: src/managers/ui/loadingStateManager.vala:196
+msgid "Loading local news..."
+msgstr "החדשות המקומיות בטעינה..."
+
+#: src/managers/ui/loadingStateManager.vala:198
+msgid "Loading content..."
+msgstr "התוכן בטעינה..."
+
+#: src/managers/ui/loadingStateManager.vala:253
+msgid ""
+"No articles could be loaded. Try refreshing or check your source settings."
+msgstr "לא ניתן לטעון כתבות. כדאי לרענן או לבדוק את הגדרות המקורות."
+
+#. Centered empty state for a view that legitimately has nothing to
+#. show (History/Saved/Magazines library when empty). `icon_file` is a
+#. bundled "<name>-mono.svg" (the view's own header icon, or
+#. search-mono.svg for an empty search), shown large and dimmed. Reuses the error overlay minus
+#. its Refresh button. Also ends the initial phase and cancels the reveal
+#. timeouts - left armed, INITIAL_MAX_WAIT_MS later fires
+#. show_error_message() over this since no items were ever populated.
+#: src/managers/ui/loadingStateManager.vala:267
+msgid "Nothing here yet"
+msgstr "אין כאן עדיין כלום"
+
+#: src/managers/ui/loadingStateManager.vala:399
+msgid "Personalized feed is disabled."
+msgstr "הפיד המותאם אישית כבוי."
+
+#: src/managers/ui/loadingStateManager.vala:401
+msgid ""
+"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
+"'Enable personalized feed' toggle to see content from your feeds."
+msgstr ""
+"יש לפתוח את התפריט הראשי (☰) ← העדפות ← לשונית „התאמה אישית” ← להפעיל את "
+"„הפעלת פיד מותאם אישית” כדי לראות תוכן מהפידים שלך."
+
+#: src/managers/ui/loadingStateManager.vala:407
+msgid "No custom RSS feeds followed."
+msgstr "אין פידי RSS מותאמים במעקב."
+
+#: src/managers/ui/loadingStateManager.vala:409
+msgid ""
+"You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by "
+"clicking the button below or open the main menu (☰) → Preferences → "
+"'Personalization' tab."
+msgstr ""
+"הפעלת את מצב „מקורות מותאמים בלבד”. ניתן לעקוב אחר פידי RSS ולהפעיל אותם "
+"בכפתור שלהלן, או לפתוח את התפריט הראשי (☰) ← העדפות ← לשונית „התאמה אישית”."
+
+#: src/managers/ui/loadingStateManager.vala:415
+msgid "Personalized Feed is enabled but no categories are selected."
+msgstr "הפיד המותאם אישית פעיל אבל לא נבחרו קטגוריות."
+
+#: src/managers/ui/loadingStateManager.vala:417
+msgid ""
+"Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
+"'Enable personalized feed' toggle and click its settings icon to select "
+"categories, or follow custom RSS feeds."
+msgstr ""
+"יש לפתוח את התפריט הראשי (☰) ← העדפות ← לשונית „התאמה אישית” ← להפעיל את "
+"„הפעלת פיד מותאם אישית” וללחוץ על סמל ההגדרות שלו כדי לבחור קטגוריות, או "
+"לעקוב אחר פידי RSS מותאמים."
+
+#: src/managers/ui/sidebarManager.vala:339
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
+msgid "Categories"
+msgstr "קטגוריות"
+
+#: src/managers/ui/sidebarManager.vala:372
+#: src/ui/controllers/myFeedExtrasController.vala:317
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:347
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:297
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:300
+msgid "Podcasts"
+msgstr "פודקאסטים"
+
+#. Page header label, e.g. "Dallas News".
+#. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
+#: src/models/news/localArea.vala:53 src/utils/net/googleNewsUtils.vala:183
+#, c-format
+msgid "%s News"
+msgstr "חדשות %s"
+
+#: src/models/weather/weatherReport.vala:43
+msgctxt "Weather"
+msgid "Clear"
+msgstr "בהיר"
+
+#: src/models/weather/weatherReport.vala:44
+msgctxt "Weather"
+msgid "Mostly clear"
+msgstr "בהיר ברובו"
+
+#: src/models/weather/weatherReport.vala:45
+msgctxt "Weather"
+msgid "Partly cloudy"
+msgstr "מעונן חלקית"
+
+#: src/models/weather/weatherReport.vala:46
+msgctxt "Weather"
+msgid "Overcast"
+msgstr "מעונן"
+
+#: src/models/weather/weatherReport.vala:47
+msgctxt "Weather"
+msgid "Fog"
+msgstr "ערפל"
+
+#: src/models/weather/weatherReport.vala:48
+msgctxt "Weather"
+msgid "Drizzle"
+msgstr "טפטוף"
+
+#: src/models/weather/weatherReport.vala:49
+msgctxt "Weather"
+msgid "Freezing drizzle"
+msgstr "טפטוף קופא"
+
+#: src/models/weather/weatherReport.vala:50
+msgctxt "Weather"
+msgid "Rain"
+msgstr "גשם"
+
+#: src/models/weather/weatherReport.vala:51
+msgctxt "Weather"
+msgid "Freezing rain"
+msgstr "גשם קופא"
+
+#: src/models/weather/weatherReport.vala:52
+msgctxt "Weather"
+msgid "Snow"
+msgstr "שלג"
+
+#: src/models/weather/weatherReport.vala:53
+msgctxt "Weather"
+msgid "Rain showers"
+msgstr "ממטרים"
+
+#: src/models/weather/weatherReport.vala:54
+msgctxt "Weather"
+msgid "Snow showers"
+msgstr "ממטרי שלג"
+
+#: src/models/weather/weatherReport.vala:55
+msgctxt "Weather"
+msgid "Thunderstorm"
+msgstr "סופת רעמים"
+
+#: src/models/weather/weatherReport.vala:56
+msgctxt "Weather"
+msgid "Thunderstorm with hail"
+msgstr "סופת רעמים עם ברד"
+
+#: src/processors/rssFeedProcessor.vala:558
+msgid "No title"
+msgstr "ללא כותרת"
+
+#: src/processors/rssFeedProcessor.vala:671
+msgid "Error loading feed — invalid (empty) URL"
+msgstr "שגיאה בטעינת הפיד — כתובת לא תקינה (ריקה)"
+
+#: src/processors/rssFeedProcessor.vala:676
+msgid "Error loading feed — invalid URL"
+msgstr "שגיאה בטעינת הפיד — כתובת לא תקינה"
+
+#: src/processors/rssFeedProcessor.vala:693
+msgid "Failed to read local RSS file"
+msgstr "קריאת קובץ ה־RSS המקומי נכשלה"
+
+#: src/processors/rssFeedProcessor.vala:756
+msgid "Error loading feed — network/DNS error"
+msgstr "שגיאה בטעינת הפיד — שגיאת רשת/DNS"
+
+#: src/processors/rssFeedProcessor.vala:768
+msgid "Error loading feed — empty response"
+msgstr "שגיאה בטעינת הפיד — תגובה ריקה"
+
+#: src/processors/rssFeedProcessor.vala:778
+msgid "Error loading feed"
+msgstr "שגיאה בטעינת הפיד"
+
+#: src/ui/appWindow.vala:306
+msgid "Refresh news"
+msgstr "רענון החדשות"
+
+#. Main menu, on the sidebar's trailing (right) side
+#: src/ui/appWindow.vala:320 src/ui/dialogs/app/prefsDialog.vala:39
+msgid "Preferences"
+msgstr "העדפות"
+
+#: src/ui/appWindow.vala:321 src/ui/sidebarView.vala:257
+msgid "Manage Locations"
+msgstr "ניהול מיקומים"
+
+#: src/ui/appWindow.vala:322
+msgid "Show Welcome Tour"
+msgstr "הצגת סיור הפתיחה"
+
+#: src/ui/appWindow.vala:323 src/ui/dialogs/app/aboutDialog.vala:100
+#: src/ui/dialogs/app/aboutDialog.vala:257
+msgid "About Paperboy"
+msgstr "על אודות Paperboy"
+
+#: src/ui/appWindow.vala:328
+msgid "Main Menu"
+msgstr "תפריט ראשי"
+
+#: src/ui/appWindow.vala:342
+msgid "Toggle Sidebar"
+msgstr "הצגה או הסתרה של הסרגל הצדי"
+
+#: src/ui/appWindow.vala:349 src/ui/appWindow.vala:522
+msgid "Search news for keywords…"
+msgstr "חיפוש חדשות לפי מילות מפתח…"
+
+#. Podcasts renders into ContentView's own hero_container/
+#. category_sections_container - the exact containers Top
+#. Ten/Front Page already use - instead of a separate page, so
+#. it inherits the same header, margins, scroll-fade chrome,
+#. and hero-card layout. See PodcastManager.show(). Leaving
+#. podcasts back to any news category runs through fetch_news()
+#. below as normal, whose LayoutManager.prepare_for_new_fetch()
+#. already clears these same containers unconditionally, so no
+#. podcast-specific teardown is needed here.
+#. If viewing "saved" category, check if saved articles are already loaded
+#. (they load synchronously in ArticleStateStore constructor, so signal may have
+#. already fired before we connected the handler at line 333)
+#. Podcasts isn't a FetchNewsController category - it renders
+#. directly into ContentView's containers via PodcastManager
+#. (see the sidebar's category_selected handler above).
+#. Calling fetch_news() here instead would leave the loading
+#. spinner stuck forever, since nothing in that pipeline
+#. recognizes "podcasts" or ever calls fetch_finished().
+#: src/ui/appWindow.vala:505 src/ui/appWindow.vala:1014
+msgid "Search podcasts…"
+msgstr "חיפוש פודקאסטים…"
+
+#. Same reasoning as the podcasts branch above - Magazines
+#. isn't a FetchNewsController category either.
+#: src/ui/appWindow.vala:522 src/ui/appWindow.vala:1019
+msgid "Search magazines…"
+msgstr "חיפוש מגזינים…"
+
+#. Also show a user-visible toast for immediate feedback
+#: src/ui/appWindow.vala:1311
+msgid "Failed to load articles. Please try again."
+msgstr "טעינת הכתבות נכשלה. נא לנסות שוב."
+
+#: src/ui/components/articles/articlePane.vala:57
+msgid "Failed to open link in browser"
+msgstr "פתיחת הקישור בדפדפן נכשלה"
+
+#: src/ui/components/articles/articlePane.vala:228
+msgid "Loading snippet…"
+msgstr "התקציר בטעינה…"
+
+#: src/ui/components/articles/articlePane.vala:253
+#: src/ui/components/articles/articleSheet.vala:150
+#: src/ui/components/magazines/magazineReaderSheet.vala:418
+#: src/ui/dialogs/content/imageViewerDialog.vala:306
+#: src/ui/dialogs/media/podcastDetailDialog.vala:201
+#: src/ui/dialogs/media/videoPlayerDialog.vala:126
+msgid "Close"
+msgstr "סגירה"
+
+#: src/ui/components/articles/articlePane.vala:302
+#: src/ui/components/articles/articleSheet.vala:525
+#: src/managers/content/articleManager.vala:1213
+#: src/managers/content/articleManager.vala:1370
+#: src/managers/content/articleManager.vala:1466
+#: src/managers/content/articleManager.vala:1904
+msgid "Removed article from saved"
+msgstr "הכתבה הוסרה מהשמורים"
+
+#: src/ui/components/articles/articlePane.vala:309
+#: src/ui/components/articles/articleSheet.vala:530
+#: src/managers/content/articleManager.vala:1231
+#: src/managers/content/articleManager.vala:1388
+#: src/managers/content/articleManager.vala:1469
+#: src/managers/content/articleManager.vala:1907
+msgid "Added article to saved"
+msgstr "הכתבה נוספה לשמורים"
+
+#: src/ui/components/articles/articlePane.vala:341
+#: src/ui/components/articles/articleSheet.vala:157
+msgid "Article options"
+msgstr "אפשרויות כתבה"
+
+#: src/ui/components/articles/articlePane.vala:346
+msgid "Article view and source options"
+msgstr "אפשרויות תצוגת הכתבה והמקור"
+
+#. Fetch snippet asynchronously. ArticlePreviewService will consult any
+#. provided article buffer (cached feed entries) for quick results.
+#. Ensure the preview UI is still present before mutating widgets
+#: src/ui/components/articles/articlePane.vala:398
+msgid "No preview available. Open the article to read more."
+msgstr "אין תצוגה מקדימה. יש לפתוח את הכתבה כדי לקרוא עוד."
+
+#: src/ui/components/articles/articleSheet.vala:107
+#: src/ui/dialogs/app/onboardingDialog.vala:72
+msgid "Back"
+msgstr "אחורה"
+
+#: src/ui/components/articles/articleSheet.vala:113
+msgid "Forward"
+msgstr "קדימה"
+
+#: src/ui/components/articles/articleSheet.vala:119
+msgid "Reload article"
+msgstr "טעינה מחדש של הכתבה"
+
+#: src/ui/components/articles/articleSheet.vala:131
+msgid "Reader view"
+msgstr "תצוגת קריאה"
+
+#: src/ui/components/articles/articleSheet.vala:152
+msgid "Close article"
+msgstr "סגירת הכתבה"
+
+#: src/ui/components/articles/articleSheet.vala:164
+#: src/ui/components/articles/articleSheet.vala:351
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:43 src/ui/sidebarView.vala:1250
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
+msgid "Notes"
+msgstr "הערות"
+
+#: src/ui/components/articles/articleSheet.vala:247
+msgid "View comments"
+msgstr "הצגת תגובות"
+
+#: src/ui/components/articles/articleSheet.vala:287
+msgid "Comments"
+msgstr "תגובות"
+
+#: src/ui/components/articles/articleSheet.vala:292
+msgid "Close comments"
+msgstr "סגירת התגובות"
+
+#: src/ui/components/articles/articleSheet.vala:356
+#: src/ui/dialogs/notes/noteEditorDialog.vala:48
+msgid "New note"
+msgstr "הערה חדשה"
+
+#: src/ui/components/articles/articleSheet.vala:364
+msgid "Close notes"
+msgstr "סגירת ההערות"
+
+#: src/ui/components/articles/articleSheet.vala:385
+msgid "No notes yet."
+msgstr "אין הערות עדיין."
+
+#: src/ui/components/articles/articleSheet.vala:720
+msgid "9+"
+msgstr "9+"
+
+#: src/ui/components/articles/articleSheet.vala:823
+msgid "No comments yet."
+msgstr "אין תגובות עדיין."
+
+#: src/ui/components/articles/articleSheet.vala:823
+msgid "Couldn't load comments."
+msgstr "לא ניתן לטעון את התגובות."
+
+#. Styled like the content view's other card chips
+#. (.category-chip/.source-badge), not the sidebar's
+#. theme-aware .live-pill - see .live-pill-header in style.css.
+#. "Live" pill shown to the left of the Sports category's count badge
+#. while SportsLiveIndicatorManager reports a game in progress.
+#: src/ui/components/articles/categorySection.vala:146
+#: src/ui/components/sports/leagueBadge.vala:101 src/ui/sidebarView.vala:553
+msgid "Live"
+msgstr "בשידור חי"
+
+#. Plain "Go to <title>" button under the row (not overlaid on the
+#. cards), fixed in place - jumps to nav_target_id's full page via the
+#. sidebar. Names the destination directly rather than "See all", which
+#. reads as "load more into this row" - the row's own nav arrows already
+#. do that. Static for the same reason as add_nav_buttons: it hangs a
+#. closure off a signal owned by `wrapper`.
+#. TRANSLATORS: %s is a category, e.g. "Go to Sports →"; in right-to-left
+#. languages put the arrow first and point it left ("← ...")
+#: src/ui/components/articles/categorySection.vala:461
+#, c-format
+msgid "Go to %s →"
+msgstr "← מעבר אל %s"
+
+#. Margins live in CSS (.top-stories-title), not set_margin_top/
+#. bottom here: the top margin was silently not taking effect via
+#. the widget API (bottom did), so app-level CSS - which always
+#. wins over the GTK theme's own defaults - is the reliable place
+#. to control this regardless of what was overriding it.
+#. Use Pango markup to match the subtitle sizing used elsewhere.
+#: src/ui/components/articles/heroCarousel.vala:82
+msgid "<span size='26000'><b>FEATURED</b></span>"
+msgstr "<span size='26000'><b>מומלצים</b></span>"
+
+#: src/ui/components/articles/recommendedSection.vala:75
+msgid "RECOMMENDED FOR YOU"
+msgstr "מומלץ בשבילך"
+
+#: src/ui/components/articles/recommendedSection.vala:79
+msgid "Picked from the topics and sites you read"
+msgstr "נבחר לפי הנושאים והאתרים שקראת"
+
+#. No standard GTK/Adwaita icon actually renders as a literal arrow
+#. (shaft + head) - go-previous/pan-start/media-playback-start all
+#. land back on a chevron or triangle. Using the plain Unicode arrow
+#. glyphs as bold button text instead: they're in the core Arrows
+#. block, present in every GNOME distro's default font stack
+#. (Cantarell, Noto, DejaVu), so this needs no icon theme lookup or
+#. bundled asset.
+#. TRANSLATORS: keep the arrows as they are in right-to-left languages too;
+#. the buttons stay on the left and right edges and scroll that way
+#: src/ui/components/common/scrollNavButtons.vala:61
+msgid "←"
+msgstr "←"
+
+#: src/ui/components/common/scrollNavButtons.vala:70
+msgid "→"
+msgstr "→"
+
+#: src/ui/components/magazines/magazineCard.vala:290
+msgid "Select"
+msgstr "בחירה"
+
+#: src/ui/components/magazines/magazineCard.vala:291
+msgid "Set Category…"
+msgstr "הגדרת קטגוריה…"
+
+#: src/ui/components/magazines/magazineCard.vala:292
+msgid "Remove from Library"
+msgstr "הסרה מהספרייה"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:264
+msgid "Opening magazine…"
+msgstr "המגזין נפתח…"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:290
+msgid "Failed to open magazine"
+msgstr "פתיחת המגזין נכשלה"
+
+#. stale page indices from whatever was open before, if anything
+#: src/ui/components/magazines/magazineReaderSheet.vala:297
+msgid "Magazine"
+msgstr "מגזין"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:376
+#: src/ui/components/magazines/magazineReaderSheet.vala:380
+msgid "Single Page"
+msgstr "עמוד יחיד"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:377
+msgid "Toggle two-page spread"
+msgstr "החלפת תצוגת שני עמודים"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:380
+msgid "Two-Page"
+msgstr "שני עמודים"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:393
+msgid "Browse pages"
+msgstr "עיון בעמודים"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:399
+msgid "Zoom out"
+msgstr "התרחקות"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:405
+msgid "Fit to view"
+msgstr "התאמה לתצוגה"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:411
+msgid "Zoom in"
+msgstr "התקרבות"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:635
+msgid "Previous page"
+msgstr "העמוד הקודם"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:643
+msgid "Next page"
+msgstr "העמוד הבא"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:1147
+#, c-format
+msgid "Pages %d–%d of %d"
+msgstr "עמודים %d–%d מתוך %d"
+
+#: src/ui/components/magazines/magazineReaderSheet.vala:1149
+#, c-format
+msgid "Page %d of %d"
+msgstr "עמוד %d מתוך %d"
+
+#. typical portrait aspect - letterboxed if a page is a different shape
+#: src/ui/components/magazines/magazineTocPane.vala:134
+#, c-format
+msgid "%d"
+msgstr "%d"
+
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/components/podcasts/podcastCard.vala:96
+#: src/ui/components/podcasts/podcastPane.vala:165
+#: src/ui/components/podcasts/podcastPane.vala:524
+#: src/ui/components/sports/highlightCard.vala:124
+#: src/ui/components/sports/scoreCard.vala:116
+#: src/ui/components/sports/scoreCard.vala:126
+#: src/ui/components/sports/scoreCard.vala:168
+#: src/ui/components/sports/scoreCard.vala:170
+#: src/ui/dialogs/media/podcastDetailDialog.vala:374
+#: src/ui/dialogs/media/podcastPickerDialog.vala:60
+#, c-format
+msgid "%s · %s"
+msgstr "%s · %s"
+
+#: src/ui/components/podcasts/podcastCard.vala:104
+#: src/ui/components/podcasts/podcastPane.vala:598
+#: src/ui/dialogs/media/podcastDetailDialog.vala:445
+#, c-format
+msgid "%lldh %lldm"
+msgstr "%lld שע׳ %lld דק׳"
+
+#: src/ui/components/podcasts/podcastCard.vala:105
+#: src/ui/components/podcasts/podcastPane.vala:599
+#: src/ui/dialogs/media/podcastDetailDialog.vala:446
+#, c-format
+msgid "%lldm"
+msgstr "%lld דק׳"
+
+#: src/ui/components/podcasts/podcastCard.vala:162
+#: src/ui/components/podcasts/podcastHeroCard.vala:150
+#: src/ui/menus/podcastMenu.vala:52
+msgid "Play"
+msgstr "ניגון"
+
+#: src/ui/components/podcasts/podcastCard.vala:180
+msgid "Click for details"
+msgstr "לחיצה לפרטים"
+
+#: src/ui/components/podcasts/podcastCard.vala:230
+#: src/ui/components/podcasts/podcastHeroCard.vala:169
+#: src/ui/components/podcasts/podcastPane.vala:462
+#: src/ui/dialogs/media/podcastDetailDialog.vala:164
+#: src/ui/menus/podcastMenu.vala:80
+msgid "Subscribe"
+msgstr "הרשמה"
+
+#. TRANSLATORS: %s is the time remaining in an episode, e.g. "12:34 left"
+#: src/ui/components/podcasts/podcastPane.vala:164
+#: src/ui/components/podcasts/podcastPane.vala:521
+#, c-format
+msgid "%s left"
+msgstr "נותרו %s"
+
+#: src/ui/components/podcasts/podcastPane.vala:451
+#: src/ui/dialogs/media/podcastDetailDialog.vala:228
+msgid "No episodes found for this show."
+msgstr "לא נמצאו פרקים לתוכנית הזו."
+
+#: src/ui/components/podcasts/podcastPane.vala:507
+#: src/ui/dialogs/media/podcastDetailDialog.vala:364
+msgid "New"
+msgstr "חדש"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:116
+msgid "Minimize"
+msgstr "מזעור"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:127
+msgid "Stop and close"
+msgstr "עצירה וסגירה"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:161
+msgid "Previous episode"
+msgstr "הפרק הקודם"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:173
+msgid "Next episode"
+msgstr "הפרק הבא"
+
+#: src/ui/components/podcasts/podcastPlayerBar.vala:178
+msgid "Playback speed"
+msgstr "מהירות ניגון"
+
+#. Labelled so tapping it reads as "leaves the reader" rather than "broken".
+#: src/ui/components/reader/readerVideoEmbed.vala:72
+msgid "Watch on site"
+msgstr "צפייה באתר"
+
+#: src/ui/components/reader/readerView.vala:116
+msgid "Loading reader view…"
+msgstr "תצוגת הקריאה בטעינה…"
+
+#: src/ui/components/reader/readerView.vala:124
+msgid ""
+"Couldn't extract a reader view for this article.\n"
+"Turn off reader view above to read it on the live webpage instead."
+msgstr ""
+"לא ניתן ליצור תצוגת קריאה לכתבה הזו.\n"
+"יש לכבות את תצוגת הקריאה למעלה כדי לקרוא אותה בדף האינטרנט המקורי."
+
+#: src/ui/components/reader/readerView.vala:482
+msgid "Open note"
+msgstr "פתיחת הערה"
+
+#: src/ui/components/reader/readerView.vala:511
+msgid "Reader view settings"
+msgstr "הגדרות תצוגת קריאה"
+
+#. ---- Text size ----
+#: src/ui/components/reader/readerView.vala:524
+msgid "Text size"
+msgstr "גודל טקסט"
+
+#: src/ui/components/reader/readerView.vala:531
+msgid "Decrease text size"
+msgstr "הקטנת הטקסט"
+
+#: src/ui/components/reader/readerView.vala:536
+msgid "Increase text size"
+msgstr "הגדלת הטקסט"
+
+#. ---- Font family ----
+#: src/ui/components/reader/readerView.vala:555
+msgid "Font"
+msgstr "גופן"
+
+#: src/ui/components/reader/readerView.vala:562
+msgid "Sans"
+msgstr "ללא תגים"
+
+#: src/ui/components/reader/readerView.vala:563
+msgid "Serif"
+msgstr "עם תגים"
+
+#: src/ui/components/reader/readerView.vala:564
+msgid "Mono"
+msgstr "ברוחב קבוע"
+
+#. ---- Color scheme ----
+#: src/ui/components/reader/readerView.vala:584
+msgid "Color"
+msgstr "צבע"
+
+#: src/ui/components/reader/readerView.vala:628
+#: src/ui/dialogs/app/onboardingDialog.vala:335
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
+msgid "Light"
+msgstr "בהיר"
+
+#: src/ui/components/reader/readerView.vala:629
+msgid "Sepia"
+msgstr "ספיה"
+
+#: src/ui/components/reader/readerView.vala:630
+msgid "Gray"
+msgstr "אפור"
+
+#: src/ui/components/reader/readerView.vala:631
+#: src/ui/dialogs/app/onboardingDialog.vala:336
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
+msgid "Dark"
+msgstr "כהה"
+
+#: src/ui/components/reader/readerView.vala:632
+msgid "Night"
+msgstr "לילה"
+
+#: src/ui/components/reader/readerView.vala:633
+msgid "Auto (match app theme)"
+msgstr "אוטומטי (לפי ערכת הנושא של היישום)"
+
+#: src/ui/components/reader/readerView.vala:649
+#, c-format
+msgid "%d%%"
+msgstr "%d%%"
+
+#: src/ui/components/reader/readerView.vala:847
+msgid "Untitled article"
+msgstr "כתבה ללא כותרת"
+
+#: src/ui/components/reader/readerView.vala:992
+#: src/ui/components/reader/readerView.vala:1001
+msgid "Add note"
+msgstr "הוספת הערה"
+
+#: src/ui/components/reader/readerView.vala:1075
+msgid "View full size"
+msgstr "הצגה בגודל מלא"
+
+#. TRANSLATORS: %s is the article's author
+#: src/ui/components/reader/readerView.vala:1094
+#, c-format
+msgid "By %s"
+msgstr "מאת %s"
+
+#: src/ui/components/sports/leagueBadgeCarousel.vala:203
+msgid "Add more leagues"
+msgstr "הוספת ליגות נוספות"
+
+#: src/ui/components/sports/leagueBadgeCarousel.vala:210
+msgid "Settings"
+msgstr "הגדרות"
+
+#: src/ui/components/sports/scoreCard.vala:115
+msgid "LIVE"
+msgstr "בשידור חי"
+
+#: src/ui/components/sports/scoreCard.vala:169
+msgid "TBD"
+msgstr "ייקבע"
+
+#: src/ui/components/sports/scoreCard.vala:180
+msgid "Today"
+msgstr "היום"
+
+#: src/ui/components/sports/scoreCard.vala:181
+msgid "Yesterday"
+msgstr "אתמול"
+
+#: src/ui/components/sports/scoreCard.vala:182
+msgid "Tomorrow"
+msgstr "מחר"
+
+#: src/ui/contentView.vala:241
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:48
+msgid "Organize Rack"
+msgstr "סידור המדף"
+
+#: src/ui/contentView.vala:342
+msgid "<span size='26000'><b>START LISTENING</b></span>"
+msgstr "<span size='26000'><b>להתחיל להאזין</b></span>"
+
+#: src/ui/contentView.vala:386
+msgid "TRENDING"
+msgstr "פופולרי"
+
+#: src/ui/contentView.vala:458
+msgid "MY TEAMS"
+msgstr "הקבוצות שלי"
+
+#: src/ui/contentView.vala:689
+msgid "Personalize My Feed"
+msgstr "התאמה אישית של הפיד שלי"
+
+#: src/ui/contentView.vala:711
+msgid "To See Local News, Set Your Location in Preferences"
+msgstr "כדי לראות חדשות מקומיות, יש להגדיר מיקום בהעדפות"
+
+#: src/ui/contentView.vala:720
+msgid ""
+"Open the main menu (☰) → choose 'Manage locations' to configure your city or "
+"postal code."
+msgstr ""
+"יש לפתוח את התפריט הראשי (☰) ← לבחור „ניהול מיקומים” כדי להגדיר עיר או מיקוד."
+
+#: src/ui/contentView.vala:728
+msgid "Set Location"
+msgstr "הגדרת מיקום"
+
+#: src/ui/contentView.vala:754
+msgid "Something went wrong. Try refreshing..."
+msgstr "משהו השתבש. כדאי לנסות לרענן..."
+
+#: src/ui/contentView.vala:762 src/ui/dialogs/app/prefsDialog.vala:82
+msgid "Refresh"
+msgstr "רענון"
+
+#: src/ui/contentView.vala:846
+msgid "Select all"
+msgstr "בחירת הכול"
+
+#: src/ui/contentView.vala:942 src/ui/contentView.vala:1017
+msgid "Load more articles"
+msgstr "טעינת כתבות נוספות"
+
+#. Search spans every category, not just the one on screen (e.g.
+#. "Sports") - keeping that category's name/icon while showing
+#. unrelated global results was confusing, so swap both for a clear
+#. search-mode title. Restored in RESTORE MODE above. Only touch the
+#. icon on the transition into search mode (not every debounced
+#. keystroke) - update_category_icon() rebuilds/rasterizes it, and
+#. it's already correct for every keystroke after the first.
+#: src/ui/contentView.vala:1155 src/ui/contentView.vala:1156
+msgid "Search results"
+msgstr "תוצאות חיפוש"
+
+#: src/ui/contentView.vala:1193
+#, c-format
+msgid "No articles found matching \"%s\""
+msgstr "לא נמצאו כתבות שתואמות ל־„%s”"
+
+#. Special switch when only one matching article is found
+#: src/ui/contentView.vala:1196
+#, c-format
+msgid "Search results: found %d article matching \"%s\""
+msgid_plural "Search results: found %d articles matching \"%s\""
+msgstr[0] "תוצאות חיפוש: נמצאה %d כתבה שתואמת ל־„%s”"
+msgstr[1] "תוצאות חיפוש: נמצאו %d כתבות שתואמות ל־„%s”"
+
+#: src/ui/dialogs/app/aboutDialog.vala:73
+msgid "Country detection and the Portuguese (Brazil) translation"
+msgstr "זיהוי מדינה והתרגום לפורטוגזית (ברזיל)"
+
+#. Contributors get their own page, so the list can grow without
+#. making this one longer
+#: src/ui/dialogs/app/aboutDialog.vala:93
+#: src/ui/dialogs/app/aboutDialog.vala:197
+msgid "Contributors"
+msgstr "תורמים"
+
+#: src/ui/dialogs/app/aboutDialog.vala:124
+#: src/ui/dialogs/app/aboutDialog.vala:127
+msgid "Release notes not available"
+msgstr "הערות הגרסה אינן זמינות"
+
+#: src/ui/dialogs/app/aboutDialog.vala:141
+#: src/ui/dialogs/app/aboutDialog.vala:187
+msgid "Release notes"
+msgstr "הערות גרסה"
+
+#: src/ui/dialogs/app/aboutDialog.vala:174
+msgid "An all-in-one news app written in Vala, built with GTK4 and Libadwaita."
+msgstr "יישום חדשות הכול־באחד, כתוב ב־Vala ובנוי עם GTK4 ו־Libadwaita."
+
+#: src/ui/dialogs/app/aboutDialog.vala:205
+msgid "Links"
+msgstr "קישורים"
+
+#: src/ui/dialogs/app/aboutDialog.vala:234
+msgid "GitHub Repository"
+msgstr "מאגר GitHub"
+
+#: src/ui/dialogs/app/aboutDialog.vala:235
+msgid "Releases"
+msgstr "גרסאות"
+
+#: src/ui/dialogs/app/aboutDialog.vala:236
+msgid "Report an issue"
+msgstr "דיווח על בעיה"
+
+#: src/ui/dialogs/app/aboutDialog.vala:240
+msgid "© 2025 thecalamityjoe87 (Isaac Joseph)"
+msgstr "© 2025 thecalamityjoe87 (Isaac Joseph)"
+
+#: src/ui/dialogs/app/locationDialog.vala:81
+#: src/ui/dialogs/notes/noteEditorDialog.vala:51
+msgid "Save"
+msgstr "שמירה"
+
+#: src/ui/dialogs/app/locationDialog.vala:83
+msgid "Add city"
+msgstr "הוספת עיר"
+
+#: src/ui/dialogs/app/locationDialog.vala:83 src/ui/menus/sidebarMenu.vala:56
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:417
+msgid "Change location"
+msgstr "שינוי מיקום"
+
+#: src/ui/dialogs/app/locationDialog.vala:84
+msgid ""
+"Enter a city name or a postal code, or use your current location.\n"
+"Examples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
+msgstr ""
+"יש להזין שם עיר או מיקוד, או להשתמש במיקום הנוכחי.\n"
+"לדוגמה: „תל אביב”, „Manchester” או „10115”"
+
+#: src/ui/dialogs/app/locationDialog.vala:88
+msgid "City name or postal code"
+msgstr "שם עיר או מיקוד"
+
+#: src/ui/dialogs/app/locationDialog.vala:104
+#, c-format
+msgid "Current location: <b>%s</b>"
+msgstr "המיקום הנוכחי: <b>%s</b>"
+
+#: src/ui/dialogs/app/locationDialog.vala:140
+msgid "Searching..."
+msgstr "מתבצע חיפוש..."
+
+#: src/ui/dialogs/app/locationDialog.vala:155
+msgid "Search"
+msgstr "חיפוש"
+
+#: src/ui/dialogs/app/locationDialog.vala:157
+msgid "Use my location"
+msgstr "שימוש במיקום שלי"
+
+#: src/ui/dialogs/app/locationDialog.vala:214
+#, c-format
+msgid "You can save up to %d location."
+msgid_plural "You can save up to %d locations."
+msgstr[0] "אפשר לשמור עד %d מיקום."
+msgstr[1] "אפשר לשמור עד %d מיקומים."
+
+#: src/ui/dialogs/app/locationDialog.vala:248
+msgid ""
+"Couldn't resolve a location for that. Try a different city name or postal "
+"code."
+msgstr "לא ניתן לאתר מיקום עבור זה. כדאי לנסות שם עיר או מיקוד אחר."
+
+#. TRANSLATORS: the first %s is a city, the second the dialog's save button label
+#: src/ui/dialogs/app/locationDialog.vala:268
+#, c-format
+msgid "Detected: <b>%s</b> — click %s to use this location"
+msgstr "זוהה: <b>%s</b> — יש ללחוץ על „%s” כדי להשתמש במיקום הזה"
+
+#: src/ui/dialogs/app/locationDialog.vala:273
+#, c-format
+msgid "Detected: <b>%s</b> — choose which news to add:"
+msgstr "זוהה: <b>%s</b> — בחירת החדשות להוספה:"
+
+#: src/ui/dialogs/app/locationDialog.vala:274
+msgid "Smaller towns may have limited coverage."
+msgstr "ביישובים קטנים הכיסוי עשוי להיות מוגבל."
+
+#: src/ui/dialogs/app/locationDialog.vala:275
+msgid "Nearby metro area"
+msgstr "אזור מטרופוליני סמוך"
+
+#: src/ui/dialogs/app/locationDialog.vala:283
+msgid "1 location slot left — pick one, or remove a location to add both."
+msgstr ""
+"נותר מקום למיקום אחד — יש לבחור אחד, או להסיר מיקום כדי להוסיף את שניהם."
+
+#: src/ui/dialogs/app/locationDialog.vala:315
+msgid "Enter a city name or postal code and press Search."
+msgstr "יש להזין שם עיר או מיקוד וללחוץ על „חיפוש”."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:64
+msgid "Skip"
+msgstr "דילוג"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:76
+#: src/ui/dialogs/app/onboardingDialog.vala:109
+msgid "Next"
+msgstr "הבא"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:109
+msgid "Get Started"
+msgstr "מתחילים"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:158
+msgid "Welcome to Paperboy"
+msgstr "ברוך בואך ל־Paperboy"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:165
+msgid ""
+"Paperboy brings together news from the sources you trust, into one clean, "
+"distraction-free reader.\n"
+"\n"
+"Let's set a few things up before you get started."
+msgstr ""
+"Paperboy מאגד חדשות מהמקורות שבהם יש לך אמון בקורא אחד נקי וללא הסחות דעת.\n"
+"\n"
+"נגדיר כמה דברים לפני שמתחילים."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:203
+msgid "Where Are You Reading From?"
+msgstr "מאיפה הקריאה?"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:209
+msgid ""
+"Your national news and Front Page come from this country. We've picked it "
+"from your system settings - change it if it's not right. You can change this "
+"anytime from Preferences."
+msgstr ""
+"החדשות הארציות והעמוד הראשי מגיעים מהמדינה הזו. בחרנו אותה לפי הגדרות המערכת "
+"- אפשר לשנות אם היא שגויה. אפשר לשנות זאת בכל עת בהעדפות."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:240
+msgid "Pick a Theme"
+msgstr "בחירת ערכת נושא"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:246
+msgid "You can change this anytime from Preferences."
+msgstr "אפשר לשנות זאת בכל עת בהעדפות."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:334
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
+msgid "Follow System"
+msgstr "לפי המערכת"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:467
+msgid "What Do You Want to Read?"
+msgstr "מה מעניין אותך לקרוא?"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:472
+msgid ""
+"Pick the topics you care about. They show up in the sidebar and make up My "
+"Feed - you can change them anytime from Preferences."
+msgstr ""
+"יש לבחור את הנושאים שמעניינים אותך. הם יופיעו בסרגל הצדי ויהוו את „הפיד שלי” "
+"- אפשר לשנות אותם בכל עת בהעדפות."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:533
+msgid "Choose Your Sources"
+msgstr "בחירת מקורות"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:538
+msgid ""
+"Paperboy pulls articles from across the web, including these outlets. Tap "
+"any you'd rather not see to hide their articles everywhere - you can change "
+"these anytime from Preferences."
+msgstr ""
+"Paperboy אוסף כתבות מכל רחבי הרשת, כולל מכלי התקשורת האלה. אפשר לגעת באלה "
+"שלא מעניין אותך לראות כדי להסתיר את הכתבות שלהם בכל מקום - אפשר לשנות זאת "
+"בכל עת בהעדפות."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:596
+msgid "Live Sports Scores"
+msgstr "תוצאות ספורט בשידור חי"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:601
+msgid ""
+"See live scores from your favorite leagues right in the Sports category. "
+"Choose which leagues to follow - you can change this, and the order their "
+"sections appear in, anytime from Preferences."
+msgstr ""
+"תוצאות חיות מהליגות האהובות עליך, ישירות בקטגוריית הספורט. יש לבחור ליגות "
+"למעקב – אפשר לשנות זאת, ואת סדר המקטעים שלהן, בכל עת בהעדפות."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:609
+msgid "Show Score Cards"
+msgstr "הצגת כרטיסי תוצאות"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:656
+msgid "Local News, Too"
+msgstr "גם חדשות מקומיות"
+
+#: src/ui/dialogs/app/onboardingDialog.vala:663
+msgid ""
+"Set your location to get a Local News feed for your area. You can do this "
+"now or anytime later from the main menu."
+msgstr ""
+"הגדרת מיקום תאפשר לקבל פיד חדשות מקומיות לאזור שלך. אפשר לעשות זאת עכשיו או "
+"מאוחר יותר מהתפריט הראשי."
+
+#: src/ui/dialogs/app/onboardingDialog.vala:670
+msgid "Set My Location"
+msgstr "הגדרת המיקום שלי"
+
+#: src/ui/dialogs/app/prefsDialog.vala:78
+msgid "Refresh Content?"
+msgstr "לרענן את התוכן?"
+
+#: src/ui/dialogs/app/prefsDialog.vala:79
+msgid ""
+"Changes have been made to your news sources. Would you like to refresh the "
+"content now?"
+msgstr "מקורות החדשות שלך השתנו. לרענן את התוכן עכשיו?"
+
+#: src/ui/dialogs/app/prefsDialog.vala:81
+msgid "Not Now"
+msgstr "לא עכשיו"
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:34
+msgid "Rename feed"
+msgstr "שינוי שם הפיד"
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:34
+msgid "Leave empty to use the default name."
+msgstr "להשאיר ריק כדי להשתמש בשם ברירת המחדל."
+
+#: src/ui/dialogs/content/feedRenameDialog.vala:43
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:332
+#: src/ui/menus/sidebarMenu.vala:100
+msgid "Rename"
+msgstr "שינוי שם"
+
+#: src/ui/dialogs/content/imageViewerDialog.vala:312
+msgid "Zoom Out"
+msgstr "התרחקות"
+
+#: src/ui/dialogs/content/imageViewerDialog.vala:317
+msgid "Zoom In"
+msgstr "התקרבות"
+
+#: src/ui/dialogs/content/shareDialog.vala:34
+msgid "Share Article"
+msgstr "שיתוף כתבה"
+
+#. Email section
+#: src/ui/dialogs/content/shareDialog.vala:40
+msgid "Share via email"
+msgstr "שיתוף בדוא״ל"
+
+#: src/ui/dialogs/content/shareDialog.vala:49
+msgid "Send link"
+msgstr "שליחת קישור"
+
+#: src/ui/dialogs/content/shareDialog.vala:55
+msgid "Opening email client"
+msgstr "תוכנת הדוא״ל נפתחת"
+
+#: src/ui/dialogs/content/shareDialog.vala:59
+msgid "Failed to open email client"
+msgstr "פתיחת תוכנת הדוא״ל נכשלה"
+
+#. Social media section
+#: src/ui/dialogs/content/shareDialog.vala:66
+msgid "Share on social media"
+msgstr "שיתוף ברשתות החברתיות"
+
+#: src/ui/dialogs/content/shareDialog.vala:75
+msgid "Reddit"
+msgstr "Reddit"
+
+#: src/ui/dialogs/content/shareDialog.vala:81
+msgid "Opening browser to Reddit"
+msgstr "Reddit נפתח בדפדפן"
+
+#: src/ui/dialogs/content/shareDialog.vala:85
+msgid "Failed to share on Reddit"
+msgstr "השיתוף ב־Reddit נכשל"
+
+#: src/ui/dialogs/content/shareDialog.vala:94
+msgid "X (Twitter)"
+msgstr "X (Twitter)"
+
+#: src/ui/dialogs/content/shareDialog.vala:100
+msgid "Opening browser to X"
+msgstr "X נפתח בדפדפן"
+
+#: src/ui/dialogs/content/shareDialog.vala:104
+msgid "Failed to share on X"
+msgstr "השיתוף ב־X נכשל"
+
+#: src/ui/dialogs/content/shareDialog.vala:113
+msgid "Facebook"
+msgstr "Facebook"
+
+#: src/ui/dialogs/content/shareDialog.vala:119
+msgid "Opening browser to Facebook"
+msgstr "Facebook נפתח בדפדפן"
+
+#: src/ui/dialogs/content/shareDialog.vala:123
+msgid "Failed to share on Facebook"
+msgstr "השיתוף ב־Facebook נכשל"
+
+#. Messaging apps section
+#: src/ui/dialogs/content/shareDialog.vala:130
+msgid "Share via messaging app"
+msgstr "שיתוף ביישומון הודעות"
+
+#: src/ui/dialogs/content/shareDialog.vala:139
+msgid "Telegram"
+msgstr "Telegram"
+
+#: src/ui/dialogs/content/shareDialog.vala:145
+msgid "Opening browser to Telegram"
+msgstr "Telegram נפתח בדפדפן"
+
+#: src/ui/dialogs/content/shareDialog.vala:149
+msgid "Failed to share on Telegram"
+msgstr "השיתוף ב־Telegram נכשל"
+
+#: src/ui/dialogs/content/shareDialog.vala:158
+msgid "WhatsApp"
+msgstr "WhatsApp"
+
+#: src/ui/dialogs/content/shareDialog.vala:164
+msgid "Opening browser to WhatsApp"
+msgstr "WhatsApp נפתח בדפדפן"
+
+#: src/ui/dialogs/content/shareDialog.vala:168
+msgid "Failed to share on WhatsApp"
+msgstr "השיתוף ב־WhatsApp נכשל"
+
+#: src/ui/dialogs/content/shareDialog.vala:178
+msgid "Signal"
+msgstr "Signal"
+
+#: src/ui/dialogs/content/shareDialog.vala:187
+msgid "Signal isn't installed"
+msgstr "Signal אינו מותקן"
+
+#. Copy link section
+#: src/ui/dialogs/content/shareDialog.vala:194
+msgid "Share via copied link"
+msgstr "שיתוף באמצעות קישור מועתק"
+
+#: src/ui/dialogs/content/shareDialog.vala:203
+msgid "Copy link to clipboard"
+msgstr "העתקת הקישור ללוח הגזירים"
+
+#: src/ui/dialogs/content/shareDialog.vala:209
+msgid "Link copied to clipboard"
+msgstr "הקישור הועתק ללוח הגזירים"
+
+#. Undoes all organizing - category order, grid/row choice, and
+#. every magazine's category. Click handler wired below, after
+#. refresh() exists.
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:94
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:190
+msgid "Reset View"
+msgstr "איפוס התצוגה"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:105
+msgid "Show uncategorized magazines as a grid"
+msgstr "הצגת מגזינים ללא קטגוריה ברשת"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:188
+msgid "Reset view?"
+msgstr "לאפס את התצוגה?"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:189
+msgid ""
+"Moves every magazine back to Uncategorized, clears your custom category "
+"order, and switches back to the grid view. This can't be undone, though no "
+"magazines themselves are removed from your library."
+msgstr ""
+"מעביר את כל המגזינים בחזרה ל„ללא קטגוריה”, מנקה את סדר הקטגוריות המותאם "
+"וחוזר לתצוגת רשת. אי אפשר לבטל את הפעולה, אבל אף מגזין לא יוסר מהספרייה."
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
+#, c-format
+msgid "%d magazine"
+msgid_plural "%d magazines"
+msgstr[0] "%d מגזין"
+msgstr[1] "%d מגזינים"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:284
+#: src/ui/dialogs/app/prefs/prefsRows.vala:180
+msgid "Drag to reorder"
+msgstr "גרירה לשינוי הסדר"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:306
+msgid "Rename category"
+msgstr "שינוי שם הקטגוריה"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:312
+msgid "Delete category"
+msgstr "מחיקת הקטגוריה"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:322
+msgid "Rename Category"
+msgstr "שינוי שם הקטגוריה"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:323
+#, c-format
+msgid "Choose a new name for \"%s\"."
+msgstr "בחירת שם חדש ל־„%s”."
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:362
+#, c-format
+msgid "Delete \"%s\"?"
+msgstr "למחוק את „%s”?"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:363
+msgid ""
+"Moves its magazines back to Uncategorized. This can't be undone, though no "
+"magazines themselves are removed from your library."
+msgstr ""
+"מעביר את המגזינים שלה בחזרה ל„ללא קטגוריה”. אי אפשר לבטל את הפעולה, אבל אף "
+"מגזין לא יוסר מהספרייה."
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:457
+msgid "New category name"
+msgstr "שם הקטגוריה החדשה"
+
+#: src/ui/dialogs/media/magazineOrganizeDialog.vala:489
+msgid ""
+"Type a name above and tap Add to create a category row first, then drag "
+"magazines into it. Drag a row's handle to reorder categories."
+msgstr ""
+"יש להקליד שם למעלה וללחוץ על „הוספה” כדי ליצור קודם שורת קטגוריה, ואז לגרור "
+"אליה מגזינים. גרירת הידית של שורה משנה את סדר הקטגוריות."
+
+#. Rough heuristic for "probably got truncated by the 4-line cap
+#. above" - good enough to decide whether "See more" is worth
+#. showing without measuring the actual Pango layout.
+#: src/ui/dialogs/media/podcastDetailDialog.vala:146
+msgid "See more"
+msgstr "עוד"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:32
+msgid "Choose Podcasts"
+msgstr "בחירת פודקאסטים"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:33
+msgid "This site publishes more than one podcast - select which ones to add."
+msgstr "האתר הזה מפרסם יותר מפודקאסט אחד - יש לבחור אילו להוסיף."
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:59
+#, c-format
+msgid "%d episode"
+msgid_plural "%d episodes"
+msgstr[0] "%d פרק"
+msgstr[1] "%d פרקים"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:63
+#, c-format
+msgid "%s · Already subscribed"
+msgstr "%s · כבר רשום"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:63
+msgid "Already subscribed"
+msgstr "כבר רשום"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:130
+msgid "Podcast added"
+msgstr "הפודקאסט נוסף"
+
+#: src/ui/dialogs/media/podcastPickerDialog.vala:130
+#, c-format
+msgid "%d podcast added"
+msgid_plural "%d podcasts added"
+msgstr[0] "נוסף %d פודקאסט"
+msgstr[1] "נוספו %d פודקאסטים"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:48
+msgid "Edit note"
+msgstr "עריכת הערה"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:57
+msgid "Delete note"
+msgstr "מחיקת הערה"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:68
+msgid "Title (optional)"
+msgstr "כותרת (רשות)"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:159
+msgid "Bold"
+msgstr "מודגש"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:160
+msgid "Italic"
+msgstr "נטוי"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:161
+msgid "Underline"
+msgstr "קו תחתון"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:162
+msgid "Strikethrough"
+msgstr "קו חוצה"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:166
+msgid "Highlight"
+msgstr "הדגשה בצבע"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:181
+msgid "Yellow"
+msgstr "צהוב"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:182
+msgid "Green"
+msgstr "ירוק"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:183
+msgid "Blue"
+msgstr "כחול"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:184
+msgid "Pink"
+msgstr "ורוד"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:185
+msgid "Orange"
+msgstr "כתום"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:201
+msgid "Remove highlight"
+msgstr "הסרת ההדגשה"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:211
+msgid "Bulleted list"
+msgstr "רשימת תבליטים"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:212
+msgid "Numbered list"
+msgstr "רשימה ממוספרת"
+
+#: src/ui/dialogs/notes/noteEditorDialog.vala:213
+msgid "Clear formatting"
+msgstr "ניקוי העיצוב"
+
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:59
+msgid ""
+"No notes yet.\n"
+"Open an article and tap the notes icon to add one."
+msgstr ""
+"אין הערות עדיין.\n"
+"יש לפתוח כתבה ולגעת בסמל ההערות כדי להוסיף אחת."
+
+#: src/ui/dialogs/notes/notesBrowserDialog.vala:167
+msgid "Open article"
+msgstr "פתיחת כתבה"
+
+#. View in app
+#: src/ui/menus/articleMenu.vala:52
+msgid "View article in app"
+msgstr "הצגת הכתבה ביישום"
+
+#. Open in browser
+#: src/ui/menus/articleMenu.vala:61
+msgid "Open article in browser"
+msgstr "פתיחת הכתבה בדפדפן"
+
+#: src/ui/menus/articleMenu.vala:81
+msgid "Built-in source"
+msgstr "מקור מובנה"
+
+#: src/ui/menus/articleMenu.vala:81
+msgid "Enable built-in source"
+msgstr "הפעלת מקור מובנה"
+
+#: src/ui/menus/articleMenu.vala:86
+msgid "This is a built-in source. You can enable or disable it in preferences."
+msgstr "זהו מקור מובנה. אפשר להפעיל או לכבות אותו בהעדפות."
+
+#: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:151
+msgid "Remove from saved"
+msgstr "הסרה מהשמורים"
+
+#: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:175
+msgid "Add to saved"
+msgstr "הוספה לשמורים"
+
+#. Mark as unread (only active when article is currently viewed)
+#: src/ui/menus/articleMenu.vala:107
+msgid "Mark as unread"
+msgstr "סימון כלא נקרא"
+
+#. Share
+#: src/ui/menus/articleMenu.vala:117
+msgid "Share this article"
+msgstr "שיתוף הכתבה"
+
+#: src/ui/menus/podcastMenu.vala:60
+msgid "More info"
+msgstr "מידע נוסף"
+
+#: src/ui/menus/podcastMenu.vala:69
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:266
+msgid "Remove podcast"
+msgstr "הסרת פודקאסט"
+
+#: src/ui/menus/sidebarMenu.vala:65
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:418
+msgid "Remove location"
+msgstr "הסרת מיקום"
+
+#. Mark all as read
+#: src/ui/menus/sidebarMenu.vala:85
+msgid "Mark all as read"
+msgstr "סימון הכול כנקרא"
+
+#. Mark all as unread
+#: src/ui/menus/sidebarMenu.vala:93
+msgid "Mark all as unread"
+msgstr "סימון הכול כלא נקרא"
+
+#. Remove this source
+#: src/ui/menus/sidebarMenu.vala:110
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:160
+msgid "Remove this source"
+msgstr "הסרת המקור הזה"
+
+#: src/ui/menus/sidebarMenu.vala:155
+msgid "Marked all articles as read"
+msgstr "כל הכתבות סומנו כנקראו"
+
+#: src/ui/menus/sidebarMenu.vala:169
+msgid "Marked all articles as unread"
+msgstr "כל הכתבות סומנו כלא נקראו"
+
+#: src/ui/menus/sidebarMenu.vala:178
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:162
+msgid "Remove this source?"
+msgstr "להסיר את המקור הזה?"
+
+#: src/ui/menus/sidebarMenu.vala:179
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:163
+#, c-format
+msgid "Are you sure you want to remove \"%s\" and all of its articles?"
+msgstr "להסיר את „%s” ואת כל הכתבות שלו?"
+
+#: src/ui/menus/sidebarMenu.vala:179
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:164
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:346
+msgid "Remove"
+msgstr "הסרה"
+
+#: src/ui/menus/sidebarMenu.vala:184
+msgid "Feed removed"
+msgstr "הפיד הוסר"
+
+#: src/ui/sidebarView.vala:261
+msgid "Manage Categories"
+msgstr "ניהול קטגוריות"
+
+#. "Open" pill shown to the left of the Business category's count badge
+#. while MarketStatusManager reports the US market as in its regular
+#. trading session. Same shape as Sports' ".live-pill" above, but its
+#. own green ".market-open-pill" class instead of that pill's red.
+#: src/ui/sidebarView.vala:566
+msgid "Open"
+msgstr "פתוח"
+
+#: src/ui/sidebarView.vala:699 src/ui/sidebarView.vala:718
+msgid "Add RSS Feed"
+msgstr "הוספת פיד RSS"
+
+#: src/ui/sidebarView.vala:719
+msgid "Enter the RSS feed URL:"
+msgstr "יש להזין את כתובת פיד ה־RSS:"
+
+#: src/ui/sidebarView.vala:730
+msgid "Feed name (optional)"
+msgstr "שם הפיד (רשות)"
+
+#: src/ui/sidebarView.vala:735
+msgid "Add Feed"
+msgstr "הוספת פיד"
+
+#. Use the centralized ToastManager instead of creating Adw.Toast directly
+#: src/ui/sidebarView.vala:755
+msgid "Discovering feed..."
+msgstr "מתבצע איתור של הפיד..."
+
+#: src/ui/sidebarView.vala:761
+#, c-format
+msgid "RSS feed added: %s"
+msgstr "פיד RSS נוסף: %s"
+
+#: src/ui/sidebarView.vala:768
+msgid "Failed to add RSS feed"
+msgstr "הוספת פיד ה־RSS נכשלה"
+
+#: src/ui/sidebarView.vala:816 src/ui/sidebarView.vala:835
+msgid "Add a Podcast"
+msgstr "הוספת פודקאסט"
+
+#: src/ui/sidebarView.vala:836
+msgid "Enter the podcast's RSS feed URL:"
+msgstr "יש להזין את כתובת פיד ה־RSS של הפודקאסט:"
+
+#: src/ui/sidebarView.vala:848
+msgid "Add Podcast"
+msgstr "הוספת פודקאסט"
+
+#: src/ui/sidebarView.vala:865
+msgid "Resolving podcast feed..."
+msgstr "מתבצעת בדיקה של פיד הפודקאסט..."
+
+#: src/ui/sidebarView.vala:881
+msgid "Failed to add podcast"
+msgstr "הוספת הפודקאסט נכשלה"
+
+#: src/ui/sidebarView.vala:1269
+msgid "Now Playing"
+msgstr "מתנגן כעת"
+
+#: src/ui/controllers/myFeedExtrasController.vala:278
+msgid "Your Scores"
+msgstr "התוצאות שלך"
+
+#: src/ui/controllers/myFeedExtrasController.vala:336
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:365
+msgid "Magazines"
+msgstr "מגזינים"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:37
+msgid "App"
+msgstr "יישום"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:53
+msgid "Appearance"
+msgstr "מראה"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:56
+msgid "Theme"
+msgstr "ערכת נושא"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:57
+msgid "Follow the system theme, or force light or dark mode"
+msgstr "לפי ערכת הנושא של המערכת, או לכפות מצב בהיר או כהה"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:87
+msgid "Update Interval"
+msgstr "תדירות עדכון"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:88
+msgid ""
+"Short update intervals can trigger rate limits or cause requests to be "
+"blocked."
+msgstr "עדכונים תכופים מדי עלולים לחרוג ממגבלות הבקשות או לגרום לחסימת בקשות."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:89
+msgid ""
+"Updating feeds too often may look like automated traffic. Sites could "
+"temporarily block requests or refuse articles if too many are made in a "
+"short time. Choose a longer interval to avoid this."
+msgstr ""
+"עדכון פידים לעיתים קרובות מדי עלול להיראות כמו תעבורה אוטומטית. אתרים עלולים "
+"לחסום בקשות זמנית או לסרב לספק כתבות אם נשלחו יותר מדי בזמן קצר. כדאי לבחור "
+"מרווח ארוך יותר כדי להימנע מכך."
+
+#. "Manual" and "Sync Every" are radio-style check buttons.
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:93
+msgid "Manual"
+msgstr "ידני"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:94
+msgid "No automatic synchronization"
+msgstr "ללא סנכרון אוטומטי"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:101
+msgid "Sync Every"
+msgstr "סנכרון כל"
+
+#. from_strings() needs a NULL-terminated array: a fresh Vala string[]
+#. is one, the const array isn't. Literal _() here so xgettext sees them.
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:110
+msgid "15 Minutes"
+msgstr "15 דקות"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:111
+msgid "30 Minutes"
+msgstr "30 דקות"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:112
+msgid "1 Hour"
+msgstr "שעה"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:113
+msgid "2 Hours"
+msgstr "שעתיים"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:114
+msgid "4 Hours"
+msgstr "4 שעות"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:171
+msgid "Data"
+msgstr "נתונים"
+
+#. Article content cache (MetaCache)
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:175
+msgid "Article content cache"
+msgstr "מטמון תוכן הכתבות"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:178
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:210
+msgid "Clear"
+msgstr "ניקוי"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:182
+msgid "Clear article content cache?"
+msgstr "לנקות את מטמון תוכן הכתבות?"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:183
+msgid ""
+"This will delete cached article content and images. Previously read articles "
+"will need to be re-downloaded."
+msgstr ""
+"פעולה זו תמחק את תוכן הכתבות והתמונות שבמטמון. יהיה צורך להוריד מחדש כתבות "
+"שנקראו בעבר."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
+msgid "Clear Cache"
+msgstr "ניקוי המטמון"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:187
+msgid "0 bytes"
+msgstr "0 בתים"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:188
+msgid "Cache cleared successfully"
+msgstr "המטמון נוקה בהצלחה"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:198
+msgid "RSS feed cache"
+msgstr "מטמון פידי RSS"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:214
+msgid "Clear RSS Feed Cache?"
+msgstr "לנקות את מטמון פידי ה־RSS?"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:215
+msgid ""
+"This will delete all cached RSS feed listings. Feeds will load from the "
+"network next time."
+msgstr ""
+"פעולה זו תמחק את כל רשימות פידי ה־RSS שבמטמון. בפעם הבאה הפידים ייטענו מהרשת."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
+msgid "0 bytes (0 articles)"
+msgstr "0 בתים (0 כתבות)"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:219
+msgid "RSS feed cache cleared"
+msgstr "מטמון פידי ה־RSS נוקה"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:232
+msgid "Backup &amp; Restore"
+msgstr "גיבוי ושחזור"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:235
+msgid ""
+"Export or import your custom RSS feeds and podcast subscriptions as an OPML "
+"file."
+msgstr "ייצוא או ייבוא של פידי ה־RSS המותאמים והמינויים לפודקאסטים כקובץ OPML."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
+msgid "Export Feeds & Podcasts"
+msgstr "ייצוא פידים ופודקאסטים"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:238
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:245
+msgid "OPML files"
+msgstr "קובצי OPML"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:240
+msgid "Exported feeds and podcasts"
+msgstr "הפידים והפודקאסטים יוצאו"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:244
+msgid "Import Feeds & Podcasts"
+msgstr "ייבוא פידים ופודקאסטים"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:246
+msgid "Importing feeds and podcasts…"
+msgstr "פידים ופודקאסטים בייבוא…"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:252
+#, c-format
+msgid "%d feed"
+msgid_plural "%d feeds"
+msgstr[0] "%d פיד"
+msgstr[1] "%d פידים"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:253
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
+#, c-format
+msgid "%d podcast"
+msgid_plural "%d podcasts"
+msgstr[0] "%d פודקאסט"
+msgstr[1] "%d פודקאסטים"
+
+#. TRANSLATORS: e.g. "Imported 3 feeds and 1 podcast"
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:255
+#, c-format
+msgid "Imported %s and %s"
+msgstr "יובאו %s ו־%s"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
+msgid "Export or import your article notes as a JSON file."
+msgstr "ייצוא או ייבוא של הערות הכתבות שלך כקובץ JSON."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
+msgid "Export Notes"
+msgstr "ייצוא הערות"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:265
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:272
+msgid "JSON files"
+msgstr "קובצי JSON"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:267
+msgid "Exported notes"
+msgstr "ההערות יוצאו"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
+msgid "Import Notes"
+msgstr "ייבוא הערות"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:274
+#, c-format
+msgid "Imported %d note"
+msgid_plural "Imported %d notes"
+msgstr[0] "יובאה %d הערה"
+msgstr[1] "יובאו %d הערות"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
+msgid "Danger Zone"
+msgstr "אזור מסוכן"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
+msgid "Reset app to factory settings"
+msgstr "איפוס היישום להגדרות היצרן"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:288
+msgid ""
+"Erases all sources, saved articles, notes, settings, and cached data, then "
+"restarts Paperboy as if freshly installed."
+msgstr ""
+"מוחק את כל המקורות, הכתבות השמורות, ההערות, ההגדרות והנתונים שבמטמון, ואז "
+"מפעיל מחדש את Paperboy כאילו הותקן זה עתה."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:290
+msgid "Reset"
+msgstr "איפוס"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:294
+msgid "Reset to factory settings?"
+msgstr "לאפס להגדרות היצרן?"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:295
+msgid ""
+"This permanently deletes all sources, saved articles, notes, and settings, "
+"and cannot be undone. Paperboy will restart as if freshly installed."
+msgstr ""
+"פעולה זו מוחקת לצמיתות את כל המקורות, הכתבות השמורות, ההערות וההגדרות, ואי "
+"אפשר לבטל אותה. Paperboy יופעל מחדש כאילו הותקן זה עתה."
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:296
+msgid "Reset App"
+msgstr "איפוס היישום"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
+msgid "Experimental"
+msgstr "ניסיוני"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:315
+msgid "Show article comments"
+msgstr "הצגת תגובות לכתבות"
+
+#: src/ui/dialogs/app/prefs/appPrefsPage.vala:316
+msgid ""
+"Show a comments button on the reader page for articles with a discoverable "
+"comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
+"limited - many sites don't expose comments through any of these."
+msgstr ""
+"הצגת כפתור תגובות בעמוד הקריאה לכתבות עם מקור תגובות שניתן לאתר (פיד מקורי, "
+"Disqus או דיון ב־Hacker News). הכיסוי מוגבל - אתרים רבים אינם חושפים תגובות "
+"באף אחת מהדרכים האלה."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:31
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:177
+msgid "Personalization"
+msgstr "התאמה אישית"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:52
+msgid "Region"
+msgstr "אזור"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:53
+msgid "Your national news and Front Page come from this country"
+msgstr "החדשות הארציות והעמוד הראשי מגיעים מהמדינה הזו"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:79
+msgid "The categories shown in the sidebar and used for My Feed"
+msgstr "הקטגוריות שמוצגות בסרגל הצדי ומשמשות את „הפיד שלי”"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:82
+msgid "Shown categories"
+msgstr "קטגוריות מוצגות"
+
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
+#, c-format
+msgid "All %d category"
+msgid_plural "All %d categories"
+msgstr[0] "כל הקטגוריות (%d)"
+msgstr[1] "כל %d הקטגוריות"
+
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:139
+msgid "None"
+msgstr "אף אחת"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
+#, c-format
+msgid "%d of %d category"
+msgid_plural "%d of %d categories"
+msgstr[0] "%d מתוך %d קטגוריות"
+msgstr[1] "%d מתוך %d קטגוריות"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
+msgid ""
+"Choose the categories shown in the sidebar and used for My Feed. Drag a row "
+"by its handle to reorder."
+msgstr ""
+"יש לבחור את הקטגוריות שמוצגות בסרגל הצדי ומשמשות את „הפיד שלי”. גרירת שורה "
+"בידית שלה משנה את הסדר."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:180
+msgid "Enable personalized feed"
+msgstr "הפעלת פיד מותאם אישית"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:181
+msgid "Enable a personalized feed based on your reading habits"
+msgstr "הפעלת פיד מותאם אישית לפי הרגלי הקריאה שלך"
+
+#. Choosing which followed feeds show up in My Feed gets its own
+#. slide-in subpage. Rebuilt on each open so it reflects feeds
+#. followed since.
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:207
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:336
+msgid "Custom feeds in My Feed"
+msgstr "פידים מותאמים ב„הפיד שלי”"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:208
+msgid "Choose which followed RSS feeds appear in My Feed"
+msgstr "בחירת פידי ה־RSS במעקב שיופיעו ב„הפיד שלי”"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:213
+msgid "Custom feeds only in My Feed"
+msgstr "רק פידים מותאמים ב„הפיד שלי”"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:214
+msgid "Only show followed RSS feeds in My Feed, hide built-in sources"
+msgstr "הצגת פידי RSS במעקב בלבד ב„הפיד שלי” והסתרת המקורות המובנים"
+
+#. ActionRow rather than SwitchRow, to fit a settings button
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:238
+msgid "Show unread count badges"
+msgstr "הצגת מונה פריטים שלא נקראו"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:239
+msgid "Display unread article counts in the sidebar"
+msgstr "הצגת מספר הכתבות שלא נקראו בסרגל הצדי"
+
+#. Popover with per-area badge visibility options
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:242
+msgid "Badge visibility settings"
+msgstr "הגדרות הצגת המונים"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:253
+msgid "Show on special categories"
+msgstr "הצגה בקטגוריות מיוחדות"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:261
+msgid "Show on Feeds"
+msgstr "הצגה בפידים"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:269
+msgid "Show on categories"
+msgstr "הצגה בקטגוריות"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:298
+msgid "Choose which of your followed RSS feeds appear in My Feed"
+msgstr "בחירת פידי ה־RSS שבמעקב שיופיעו ב„הפיד שלי”"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:307
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:131
+msgid "No feeds followed yet"
+msgstr "אין עדיין פידים במעקב"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:308
+msgid ""
+"Follow a custom RSS feed in Preferences -> Feeds first, then come back here "
+"to include it in My Feed."
+msgstr ""
+"קודם יש לעקוב אחר פיד RSS מותאם בהעדפות ← פידים, ואז לחזור לכאן כדי לכלול "
+"אותו ב„הפיד שלי”."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:343
+msgid "My Feed Extras"
+msgstr "תוספות ל„הפיד שלי”"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:344
+msgid ""
+"Show a preview row for other features at the top of My Feed, with a button "
+"to jump to the full page"
+msgstr ""
+"הצגת שורת תצוגה מקדימה של תכונות אחרות בראש „הפיד שלי”, עם כפתור למעבר לעמוד "
+"המלא"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:345
+msgid "Sports scores"
+msgstr "תוצאות ספורט"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:380
+msgid "Show recommendations"
+msgstr "הצגת המלצות"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:381
+msgid ""
+"Suggest articles based on your reading history. This stays on your device."
+msgstr "הצעת כתבות לפי היסטוריית הקריאה שלך. המידע נשאר במכשיר שלך."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:397
+msgid "Reading"
+msgstr "קריאה"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:400
+msgid "Open articles in reader view"
+msgstr "פתיחת כתבות בתצוגת קריאה"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:401
+msgid ""
+"Show an extracted, distraction-free view of the article text instead of the "
+"full webpage by default. You can still switch views per article."
+msgstr ""
+"הצגה כברירת מחדל של טקסט הכתבה שחולץ, ללא הסחות דעת, במקום דף האינטרנט המלא. "
+"עדיין אפשר להחליף תצוגה בכל כתבה."
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:409
+msgid "Clicking an article opens reader view directly"
+msgstr "לחיצה על כתבה פותחת ישירות את תצוגת הקריאה"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:410
+msgid ""
+"Skip the preview pane and jump straight into reader view when you click an "
+"article card"
+msgstr ""
+"דילוג על חלונית התצוגה המקדימה ומעבר ישיר לתצוגת הקריאה בלחיצה על כרטיס כתבה"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:418
+msgid "Show quick-open buttons on hover"
+msgstr "הצגת כפתורי פתיחה מהירה במעבר עכבר"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:419
+msgid ""
+"Show reader view / preview buttons over an article card's image when you "
+"hover it"
+msgstr ""
+"הצגת כפתורי תצוגת קריאה / תצוגה מקדימה מעל תמונת כרטיס הכתבה במעבר עכבר"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:436
+msgid "Market Cards"
+msgstr "כרטיסי שווקים"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:437
+msgid "Choose whether the Business category shows live market index cards"
+msgstr "בחירה אם קטגוריית העסקים תציג כרטיסי מדדי שוק בזמן אמת"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:440
+msgid "Show market cards"
+msgstr "הצגת כרטיסי שווקים"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:441
+msgid "Turn off to hide the live market index cards from the Business category"
+msgstr "כיבוי מסתיר את כרטיסי מדדי השוק בזמן אמת מקטגוריית העסקים"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:455
+msgid "Show market status pill"
+msgstr "הצגת תווית מצב השוק"
+
+#: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:456
+msgid ""
+"Show an \"Open\" pill next to the Business sidebar count while the market is "
+"open"
+msgstr "הצגת תווית „פתוח” ליד מונה העסקים בסרגל הצדי בזמן שהשוק פתוח"
+
+#. TRANSLATORS: %s is the detected country, e.g. "Automatic (Germany)"
+#: src/ui/dialogs/app/prefs/prefsRows.vala:64
+#, c-format
+msgid "Automatic (%s)"
+msgstr "אוטומטי (%s)"
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:76
+msgid "Country"
+msgstr "מדינה"
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:207
+msgid "Export"
+msgstr "ייצוא"
+
+#: src/ui/dialogs/app/prefs/prefsRows.vala:211
+msgid "Import"
+msgstr "ייבוא"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:42
+msgid "Sources"
+msgstr "מקורות"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:71
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:74
+msgid "Built-in sources"
+msgstr "מקורות מובנים"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:75
+msgid "News outlets that come with Paperboy"
+msgstr "כלי תקשורת שמגיעים עם Paperboy"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:77
+msgid "News outlets"
+msgstr "כלי תקשורת"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:78
+msgid "Choose which outlets to follow"
+msgstr "בחירת כלי התקשורת למעקב"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:110
+msgid "Followed feeds"
+msgstr "פידים במעקב"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:119
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:122
+msgid "Custom feeds"
+msgstr "פידים מותאמים"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:123
+msgid "RSS feeds you've followed"
+msgstr "פידי RSS שבמעקב"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:132
+msgid "No feeds followed yet. Add one from the sidebar's Feeds section."
+msgstr "אין עדיין פידים במעקב. אפשר להוסיף פיד ממקטע הפידים בסרגל הצדי."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
+#, c-format
+msgid "%d followed feed"
+msgid_plural "%d followed feeds"
+msgstr[0] "%d פיד במעקב"
+msgstr[1] "%d פידים במעקב"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:153
+msgid "Rename this source"
+msgstr "שינוי שם המקור"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:237
+msgid "Subscribed podcasts"
+msgstr "פודקאסטים במינוי"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:240
+msgid "Remove all podcasts"
+msgstr "הסרת כל הפודקאסטים"
+
+#. if/else, not a nested ternary: Vala frees the printf() temp in that form before it's used.
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:249
+msgid "No podcasts yet"
+msgstr "אין עדיין פודקאסטים"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:251
+msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
+msgstr "אין עדיין פודקאסטים. אפשר למצוא כאלה במקטע הפודקאסטים בסרגל הצדי."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:268
+msgid "Remove podcast?"
+msgstr "להסיר את הפודקאסט?"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
+#, c-format
+msgid "\"%s\" will be removed from your podcasts."
+msgstr "„%s” יוסר מהפודקאסטים שלך."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
+msgid "Your 1 podcast will be removed."
+msgstr "הפודקאסט היחיד שלך יוסר."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
+#, c-format
+msgid "All %d of your podcasts will be removed."
+msgid_plural "All %d of your podcasts will be removed."
+msgstr[0] "כל הפודקאסטים שלך (%d) יוסרו."
+msgstr[1] "כל %d הפודקאסטים שלך יוסרו."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+msgid "Remove all podcasts?"
+msgstr "להסיר את כל הפודקאסטים?"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
+msgid "Remove all"
+msgstr "הסרת הכול"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
+msgid "Shows you've subscribed to"
+msgstr "תוכניות שנרשמת אליהן"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:315
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:362
+msgid "Magazine sources"
+msgstr "מקורות מגזינים"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:319
+msgid "No sources yet"
+msgstr "אין עדיין מקורות"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
+#, c-format
+msgid "%d source"
+msgid_plural "%d sources"
+msgstr[0] "%d מקור"
+msgstr[1] "%d מקורות"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
+msgid "No sources yet. Websites you add from the Magazines page show up here."
+msgstr "אין עדיין מקורות. אתרים שיתווספו מעמוד המגזינים יופיעו כאן."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:334
+msgid "Remove source"
+msgstr "הסרת מקור"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:339
+#, c-format
+msgid "\"%s\" will be removed."
+msgstr "„%s” יוסר."
+
+#. TRANSLATORS: %1$s is a magazine source's name, %2$d how many magazines were added from it
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:342
+#, c-format
+msgid ""
+"\"%1$s\" and the %2$d magazine added from it will be removed, including its "
+"downloaded file."
+msgid_plural ""
+"\"%1$s\" and the %2$d magazines added from it will be removed, including "
+"their downloaded files."
+msgstr[0] "„%1$s” והמגזין (%2$d) שנוסף ממנו יוסרו, כולל הקובץ שהורד."
+msgstr[1] "„%1$s” ו־%2$d המגזינים שנוספו ממנו יוסרו, כולל הקבצים שהורדו."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:346
+msgid "Remove source?"
+msgstr "להסיר את המקור?"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
+msgid "Websites scanned for magazine PDFs"
+msgstr "אתרים שנסרקים לאיתור קובצי PDF של מגזינים"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:378
+msgid "Add a location"
+msgstr "הוספת מיקום"
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:403
+#, c-format
+msgid "%d of %d location added. Remove one to add another."
+msgid_plural "%d of %d locations added. Remove one to add another."
+msgstr[0] "נוספו %d מתוך %d מיקומים. יש להסיר אחד כדי להוסיף אחר."
+msgstr[1] "נוספו %d מתוך %d מיקומים. יש להסיר אחד כדי להוסיף אחר."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:405
+#, c-format
+msgid "Up to %d location · %d added"
+msgid_plural "Up to %d locations · %d added"
+msgstr[0] "עד %d מיקומים · נוספו %d"
+msgstr[1] "עד %d מיקומים · נוספו %d"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
+msgid "Sports Score Cards"
+msgstr "כרטיסי תוצאות ספורט"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:37
+msgid ""
+"Choose which leagues show score cards in the Sports category, and the order "
+"their sections appear in"
+msgstr ""
+"בחירת הליגות שמציגות כרטיסי תוצאות בקטגוריית הספורט, ואת סדר המקטעים שלהן"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:40
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:306
+msgid "Favorite Teams"
+msgstr "קבוצות אהובות"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:41
+msgid "Follow specific teams to show their own score cards"
+msgstr "מעקב אחר קבוצות מסוימות כדי להציג את כרטיסי התוצאות שלהן"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:45
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:148
+msgid "Leagues"
+msgstr "ליגות"
+
+#. Rebuilt each time it opens, so it lists the leagues that are on now.
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:51
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:192
+msgid "Section Order"
+msgstr "סדר המקטעים"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:52
+msgid "Drag leagues into the order their sections appear in"
+msgstr "גרירת הליגות לסדר שבו יופיעו המקטעים שלהן"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:56
+msgid "Show score cards"
+msgstr "הצגת כרטיסי תוצאות"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:57
+msgid "Turn off to hide all live score cards from the Sports category"
+msgstr "כיבוי מסתיר את כל כרטיסי התוצאות החיות מקטגוריית הספורט"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:63
+msgid "Show live indicator"
+msgstr "הצגת מחוון שידור חי"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:64
+msgid ""
+"Show a \"Live\" pill next to the Sports sidebar count while a game is in "
+"progress"
+msgstr "הצגת תווית „בשידור חי” ליד מונה הספורט בסרגל הצדי בזמן משחק"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:108
+msgid "Europe"
+msgstr "אירופה"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:109
+msgid "United States and Canada"
+msgstr "ארצות הברית וקנדה"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:110
+msgid "Latin America"
+msgstr "אמריקה הלטינית"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:111
+msgid "Asia and Oceania"
+msgstr "אסיה ואוקיאניה"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:112
+msgid "International"
+msgstr "בינלאומי"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:119
+msgid "Soccer"
+msgstr "כדורגל"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:120
+msgid "American football"
+msgstr "פוטבול אמריקאי"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:121
+msgid "Basketball"
+msgstr "כדורסל"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:122
+msgid "Baseball"
+msgstr "בייסבול"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:123
+msgid "Hockey"
+msgstr "הוקי"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:124
+msgid "Rugby"
+msgstr "רוגבי"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:125
+msgid "Cricket"
+msgstr "קריקט"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:126
+msgid "Mixed martial arts"
+msgstr "אומנויות לחימה מעורבות"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:127
+msgid "Tennis"
+msgstr "טניס"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:128
+msgid "Golf"
+msgstr "גולף"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:129
+msgid "Motor racing"
+msgstr "מרוצי מכוניות"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:140
+#, c-format
+msgid "%d of %d league on"
+msgid_plural "%d of %d leagues on"
+msgstr[0] "%d מתוך %d ליגות פעילות"
+msgstr[1] "%d מתוך %d ליגות פעילות"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:189
+msgid ""
+"Drag a league by its handle to set where its section appears in the Sports "
+"category. Only leagues that are on are listed."
+msgstr ""
+"גרירת ליגה בידית שלה קובעת היכן יופיע המקטע שלה בקטגוריית הספורט. רק ליגות "
+"פעילות מוצגות."
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:261
+msgid "No leagues are on"
+msgstr "אין ליגות פעילות"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:262
+msgid "Turn some on in Leagues"
+msgstr "אפשר להפעיל כמה ב„ליגות”"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:286
+msgid ""
+"Pick a league, then choose teams to follow - each followed team gets its own "
+"score-card row in \"My Teams\""
+msgstr ""
+"יש לבחור ליגה ואז קבוצות למעקב - לכל קבוצה במעקב תהיה שורת תוצאות משלה "
+"ב„הקבוצות שלי”"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:318
+msgid "Loading teams…"
+msgstr "הקבוצות בטעינה…"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:329
+msgid "Couldn't load teams"
+msgstr "לא ניתן לטעון את הקבוצות"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:330
+msgid "Check your connection and try again later."
+msgstr "כדאי לבדוק את החיבור ולנסות שוב מאוחר יותר."
+
+#. Source name for Google's own aggregated feeds; their items each carry
+#. a <source>, which RssFeedProcessor uses instead.
+#. Editions Google actually serves - anything else silently redirects to
+#. the US one. Each country's main edition comes first: it's used when
+#. the user's language has no edition there.
+#. TRANSLATORS: country names in the news edition picker. Where a country
+#. has several editions, keep the "Country (Language)" form - the app
+#. splits the country off at the parenthesis.
+#: src/utils/net/googleNewsUtils.vala:45
+msgid "United States"
+msgstr "ארצות הברית"
+
+#: src/utils/net/googleNewsUtils.vala:45
+msgid "United States (Spanish)"
+msgstr "ארצות הברית (ספרדית)"
+
+#: src/utils/net/googleNewsUtils.vala:46
+msgid "United Kingdom"
+msgstr "בריטניה"
+
+#: src/utils/net/googleNewsUtils.vala:46
+msgid "Ireland"
+msgstr "אירלנד"
+
+#: src/utils/net/googleNewsUtils.vala:47
+msgid "Canada (English)"
+msgstr "קנדה (אנגלית)"
+
+#: src/utils/net/googleNewsUtils.vala:47
+msgid "Canada (French)"
+msgstr "קנדה (צרפתית)"
+
+#: src/utils/net/googleNewsUtils.vala:48
+msgid "Australia"
+msgstr "אוסטרליה"
+
+#: src/utils/net/googleNewsUtils.vala:48
+msgid "New Zealand"
+msgstr "ניו זילנד"
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (English)"
+msgstr "הודו (אנגלית)"
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Hindi)"
+msgstr "הודו (הינדי)"
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Bengali)"
+msgstr "הודו (בנגלית)"
+
+#: src/utils/net/googleNewsUtils.vala:49
+msgid "India (Marathi)"
+msgstr "הודו (מראטהית)"
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Tamil)"
+msgstr "הודו (טמילית)"
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Telugu)"
+msgstr "הודו (טלוגו)"
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Malayalam)"
+msgstr "הודו (מלאיאלאם)"
+
+#: src/utils/net/googleNewsUtils.vala:50
+msgid "India (Gujarati)"
+msgstr "הודו (גוג׳ראטית)"
+
+#: src/utils/net/googleNewsUtils.vala:51
+msgid "Pakistan"
+msgstr "פקיסטן"
+
+#: src/utils/net/googleNewsUtils.vala:51
+msgid "Bangladesh"
+msgstr "בנגלדש"
+
+#: src/utils/net/googleNewsUtils.vala:52
+msgid "Singapore"
+msgstr "סינגפור"
+
+#: src/utils/net/googleNewsUtils.vala:52
+msgid "Malaysia (English)"
+msgstr "מלזיה (אנגלית)"
+
+#: src/utils/net/googleNewsUtils.vala:52
+msgid "Malaysia (Malay)"
+msgstr "מלזיה (מלאית)"
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Philippines"
+msgstr "הפיליפינים"
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Indonesia (Indonesian)"
+msgstr "אינדונזיה (אינדונזית)"
+
+#: src/utils/net/googleNewsUtils.vala:53
+msgid "Indonesia (English)"
+msgstr "אינדונזיה (אנגלית)"
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "South Africa"
+msgstr "דרום אפריקה"
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Nigeria"
+msgstr "ניגריה"
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Kenya"
+msgstr "קניה"
+
+#: src/utils/net/googleNewsUtils.vala:54
+msgid "Ghana"
+msgstr "גאנה"
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Uganda"
+msgstr "אוגנדה"
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Tanzania"
+msgstr "טנזניה"
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Ethiopia"
+msgstr "אתיופיה"
+
+#: src/utils/net/googleNewsUtils.vala:55
+msgid "Zimbabwe"
+msgstr "זימבבואה"
+
+#: src/utils/net/googleNewsUtils.vala:56
+msgid "Namibia"
+msgstr "נמיביה"
+
+#: src/utils/net/googleNewsUtils.vala:56
+msgid "Botswana"
+msgstr "בוטסואנה"
+
+#: src/utils/net/googleNewsUtils.vala:57
+msgid "Israel (Hebrew)"
+msgstr "ישראל (עברית)"
+
+#: src/utils/net/googleNewsUtils.vala:57
+msgid "Israel (English)"
+msgstr "ישראל (אנגלית)"
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Egypt"
+msgstr "מצרים"
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Saudi Arabia"
+msgstr "ערב הסעודית"
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "United Arab Emirates"
+msgstr "איחוד האמירויות הערביות"
+
+#: src/utils/net/googleNewsUtils.vala:58
+msgid "Lebanon"
+msgstr "לבנון"
+
+#: src/utils/net/googleNewsUtils.vala:59
+msgid "Morocco"
+msgstr "מרוקו"
+
+#: src/utils/net/googleNewsUtils.vala:59
+msgid "Senegal"
+msgstr "סנגל"
+
+#: src/utils/net/googleNewsUtils.vala:60
+msgid "Brazil"
+msgstr "ברזיל"
+
+#: src/utils/net/googleNewsUtils.vala:60
+msgid "Portugal"
+msgstr "פורטוגל"
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Mexico"
+msgstr "מקסיקו"
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Argentina"
+msgstr "ארגנטינה"
+
+#: src/utils/net/googleNewsUtils.vala:61
+msgid "Chile"
+msgstr "צ׳ילה"
+
+#: src/utils/net/googleNewsUtils.vala:62
+msgid "Colombia"
+msgstr "קולומביה"
+
+#: src/utils/net/googleNewsUtils.vala:62
+msgid "Peru"
+msgstr "פרו"
+
+#: src/utils/net/googleNewsUtils.vala:62
+msgid "Venezuela"
+msgstr "ונצואלה"
+
+#: src/utils/net/googleNewsUtils.vala:63
+msgid "Cuba"
+msgstr "קובה"
+
+#: src/utils/net/googleNewsUtils.vala:64
+msgid "Spain"
+msgstr "ספרד"
+
+#: src/utils/net/googleNewsUtils.vala:64
+msgid "France"
+msgstr "צרפת"
+
+#: src/utils/net/googleNewsUtils.vala:64
+msgid "Italy"
+msgstr "איטליה"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Germany"
+msgstr "גרמניה"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Austria"
+msgstr "אוסטריה"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Switzerland (German)"
+msgstr "שווייץ (גרמנית)"
+
+#: src/utils/net/googleNewsUtils.vala:65
+msgid "Switzerland (French)"
+msgstr "שווייץ (צרפתית)"
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Netherlands"
+msgstr "הולנד"
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Belgium (Dutch)"
+msgstr "בלגיה (הולנדית)"
+
+#: src/utils/net/googleNewsUtils.vala:66
+msgid "Belgium (French)"
+msgstr "בלגיה (צרפתית)"
+
+#: src/utils/net/googleNewsUtils.vala:67
+msgid "Sweden"
+msgstr "שוודיה"
+
+#: src/utils/net/googleNewsUtils.vala:67
+msgid "Norway"
+msgstr "נורווגיה"
+
+#: src/utils/net/googleNewsUtils.vala:67
+msgid "Finland"
+msgstr "פינלנד"
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Poland"
+msgstr "פולין"
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Czechia"
+msgstr "צ׳כיה"
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Slovakia"
+msgstr "סלובקיה"
+
+#: src/utils/net/googleNewsUtils.vala:68
+msgid "Hungary"
+msgstr "הונגריה"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Romania"
+msgstr "רומניה"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Bulgaria"
+msgstr "בולגריה"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Greece"
+msgstr "יוון"
+
+#: src/utils/net/googleNewsUtils.vala:69
+msgid "Slovenia"
+msgstr "סלובניה"
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Serbia"
+msgstr "סרביה"
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Lithuania"
+msgstr "ליטא"
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Latvia"
+msgstr "לטביה"
+
+#: src/utils/net/googleNewsUtils.vala:70
+msgid "Estonia"
+msgstr "אסטוניה"
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Ukraine (Ukrainian)"
+msgstr "אוקראינה (אוקראינית)"
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Ukraine (Russian)"
+msgstr "אוקראינה (רוסית)"
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Russia"
+msgstr "רוסיה"
+
+#: src/utils/net/googleNewsUtils.vala:71
+msgid "Turkey"
+msgstr "טורקיה"
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "China"
+msgstr "סין"
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "Taiwan"
+msgstr "טייוואן"
+
+#: src/utils/net/googleNewsUtils.vala:72
+msgid "Hong Kong"
+msgstr "הונג קונג"
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Japan"
+msgstr "יפן"
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "South Korea"
+msgstr "דרום קוריאה"
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Thailand"
+msgstr "תאילנד"
+
+#: src/utils/net/googleNewsUtils.vala:73
+msgid "Vietnam"
+msgstr "וייטנאם"
+
+#. "US News", "Germany News", "Canada News".
+#. TRANSLATORS: the national news category in the United States edition
+#: src/utils/net/googleNewsUtils.vala:181
+#: src/services/fetchers/bbcFetcher.vala:77
+#: src/services/fetchers/pbsFetcher.vala:72
+msgid "US News"
+msgstr "חדשות ארה״ב"
+
+#. TRANSLATORS: date before the time in an article's byline, a
+#. strftime format ("man strftime"): %b is the abbreviated month,
+#. %-d the unpadded day, %Y the year. Reorder to suit, e.g. "%-d %b %Y".
+#: src/utils/text/dateUtils.vala:46
+#, no-c-format
+msgid "%b %-d, %Y"
+msgstr "%-d ב%b %Y"
+
+#. clock skew / future timestamp
+#: src/utils/text/dateUtils.vala:102
+msgid "Just now"
+msgstr "זה עתה"
+
+#. TRANSLATORS: compact relative times on article cards, where space
+#. is tight - abbreviate if your language allows it
+#: src/utils/text/dateUtils.vala:106
+#, c-format
+msgid "%dm ago"
+msgid_plural "%dm ago"
+msgstr[0] "לפני %d דק׳"
+msgstr[1] "לפני %d דק׳"
+
+#: src/utils/text/dateUtils.vala:108
+#, c-format
+msgid "%dh ago"
+msgid_plural "%dh ago"
+msgstr[0] "לפני %d שע׳"
+msgstr[1] "לפני %d שע׳"
+
+#: src/utils/text/dateUtils.vala:110
+#, c-format
+msgid "%dd ago"
+msgid_plural "%dd ago"
+msgstr[0] "לפני %d יום"
+msgstr[1] "לפני %d ימים"
+
+#. Older than a week: fall back to a short absolute date ("Aug 27").
+#. TRANSLATORS: short date on article cards older than a week, a
+#. strftime format ("man strftime"): %b is the abbreviated month and
+#. %-d the unpadded day. Reorder to suit, e.g. "%-d %b".
+#: src/utils/text/dateUtils.vala:117
+#, no-c-format
+msgid "%b %-d"
+msgstr "%-d ב%b"
+
+#. Page header date, e.g. "Monday, October 5".
+#. TRANSLATORS: date in page headers, a strftime format ("man strftime"):
+#. %A is the weekday, %B the month and %-d the unpadded day. Reorder to
+#. suit, e.g. "%A %-d %B".
+#: src/utils/text/dateUtils.vala:126
+#, no-c-format
+msgid "%A, %B %-d"
+msgstr "%A, %-d ב%B"
+
+#. Weekday and numeric date for game times, e.g. "Mon 10/5".
+#. TRANSLATORS: weekday and date on sports score cards, a strftime
+#. format ("man strftime"): %a is the abbreviated weekday, %-m the
+#. unpadded month number and %-d the unpadded day. Reorder to suit,
+#. e.g. "%a %-d.%-m.".
+#: src/utils/text/dateUtils.vala:136
+#, no-c-format
+msgid "%a %-m/%-d"
+msgstr "%a %-d/%-m"
+
+#: src/managers/content/articleManager.vala:157
+#: src/managers/content/articleManager.vala:172
+msgid "You're offline. Enable internet connection to view articles"
+msgstr "אין חיבור לרשת. יש להתחבר לאינטרנט כדי לראות כתבות"
+
+#: src/managers/ui/layoutManager.vala:555
+msgid "More Stories"
+msgstr "עוד כתבות"
+
+#: src/services/fetchers/fetcherUtils.vala:23
+msgid "The Frontpage"
+msgstr "העמוד הראשי"
+
+#. Don't show error if we have cached articles
+#: src/services/fetchers/paperboyFetcher.vala:201
+msgid "Paperboy: Error loading frontpage"
+msgstr "Paperboy: שגיאה בטעינת העמוד הראשי"
+
+#: src/services/fetchers/paperboyFetcher.vala:484
+msgid "Paperboy: Error loading Top Ten"
+msgstr "Paperboy: שגיאה בטעינת עשר המובילות"
+
+#: src/services/magazines/magazineSourceScanner.vala:62
+msgid "Couldn't reach that page"
+msgstr "לא ניתן להגיע לדף הזה"
+
+#: src/ui/controllers/fetchNewsController.vala:296
+#: src/ui/controllers/fetchNewsController.vala:662
+msgid "Offline - showing cached articles"
+msgstr "אין חיבור - מוצגות כתבות מהמטמון"
+
+#. time_text replaces the "Viewed ..." caption when the row is reused outside History (e.g. Recommended for you).
+#. TRANSLATORS: %s is a relative time, e.g. "Viewed 3h ago"
+#: src/ui/components/articles/historyCard.vala:157
+#, c-format
+msgid "Viewed %s"
+msgstr "נצפה %s"
+
+#. Prices are in US dollars (the index ETFs and crypto all trade in USD),
+#. with the locale's decimal separator and digit grouping.
+#. TRANSLATORS: a price in US dollars; %s is the number, already formatted
+#. for your locale. Put the dollar sign where your language does, e.g. "%s $"
+#. or "US$ %s"
+#: src/ui/components/markets/marketIndexCard.vala:263
+#, c-format
+msgid "$%s"
+msgstr "$%s"
+
+#. TRANSLATORS: a price change and percent change, e.g. "+1.25 (+0.42%)"
+#: src/ui/components/markets/marketIndexCard.vala:269
+#, c-format
+msgid "%s (%s%%)"
+msgstr "%s (%s%%)"
+
+#: src/ui/components/markets/marketIndexCard.vala:272
+#, c-format
+msgid "Updated %s"
+msgstr "עודכן %s"
+
+#. TRANSLATORS: chart hover: a price, time of day, and time zone, e.g. "$512.30 · 2:45 PM ET"
+#: src/ui/components/markets/marketIndexCard.vala:420
+#, c-format
+msgid "%s · %s %s"
+msgstr "%s · %s %s"
+
+#. "5 min read", or "" if unknown.
+#. TRANSLATORS: estimated reading time on article cards, e.g. "5 min read"
+#: src/services/cache/articleReadingTimeCache.vala:85
+#, c-format
+msgid "%d min read"
+msgid_plural "%d min read"
+msgstr[0] "קריאה של %d דק׳"
+msgstr[1] "קריאה של %d דק׳"
+
+#: src/builders/placeholderBuilder.vala:296
+msgid "News Source"
+msgstr "מקור חדשות"
+
+#: src/managers/content/feedUpdateManager.vala:251
+#, c-format
+msgid "RSS feeds: %d updated"
+msgid_plural "RSS feeds: %d updated"
+msgstr[0] "פידי RSS: עודכן %d"
+msgstr[1] "פידי RSS: עודכנו %d"
+
+#: src/managers/content/sourceManager.vala:408
+#, c-format
+msgid "Enabled %s"
+msgstr "%s הופעל"
+
+#: src/managers/content/sourceManager.vala:422
+msgid "Couldn't find this article's source"
+msgstr "לא ניתן למצוא את מקור הכתבה"
+
+#: src/managers/content/sourceManager.vala:552
+#, c-format
+msgid "Following %s"
+msgstr "%s במעקב כעת"
+
+#: src/managers/content/sourceManager.vala:557
+#: src/managers/content/sourceManager.vala:693
+msgid "Source already followed"
+msgstr "המקור כבר במעקב"
+
+#: src/managers/content/sourceManager.vala:585
+msgid "Failed to discover RSS feed"
+msgstr "איתור פיד ה־RSS נכשל"
+
+#: src/managers/content/sourceManager.vala:593
+msgid "Generating feed for this source..."
+msgstr "נוצר פיד למקור הזה..."
+
+#: src/managers/content/sourceManager.vala:606
+msgid "Generated feed has no articles"
+msgstr "אין כתבות בפיד שנוצר"
+
+#: src/managers/content/sourceManager.vala:688
+#, c-format
+msgid "Following %s (%d article)"
+msgid_plural "Following %s (%d articles)"
+msgstr[0] "%s במעקב כעת (%d כתבה)"
+msgstr[1] "%s במעקב כעת (%d כתבות)"
+
+#: src/managers/content/sourceManager.vala:700
+msgid "No RSS feeds found"
+msgstr "לא נמצאו פידי RSS"
+
+#: src/managers/content/sourceManager.vala:709
+msgid "Error discovering RSS feed"
+msgstr "שגיאה באיתור פיד ה־RSS"
+
+#: src/services/articles/articleShareService.vala:37
+msgid "Check out this article"
+msgstr "כדאי לקרוא את הכתבה הזו"
+
+#: src/services/articles/articleShareService.vala:39
+msgid "I thought you might find this interesting:"
+msgstr "חשבתי שזה עשוי לעניין אותך:"
+
+#: src/services/feeds/builtinSources.vala:41
+msgid "Independent global news and analysis"
+msgstr "חדשות וניתוחים עולמיים עצמאיים"
+
+#: src/services/feeds/builtinSources.vala:44
+msgid "Comprehensive international and UK reporting"
+msgstr "סיקור מקיף של העולם ושל בריטניה"
+
+#: src/services/feeds/builtinSources.vala:47
+msgid "In-depth journalism across major categories"
+msgstr "עיתונות מעמיקה בקטגוריות המרכזיות"
+
+#: src/services/feeds/builtinSources.vala:50
+msgid "Market, business, and finance coverage"
+msgstr "סיקור שווקים, עסקים ופיננסים"
+
+#: src/services/feeds/builtinSources.vala:53
+msgid "Business, economic, and political reporting"
+msgstr "סיקור עסקים, כלכלה ופוליטיקה"
+
+#: src/services/feeds/builtinSources.vala:56
+msgid "US network coverage across politics, business, and more"
+msgstr "רשת אמריקאית: פוליטיקה, עסקים ועוד"
+
+#: src/services/feeds/builtinSources.vala:59
+msgid "Public radio news and feature storytelling"
+msgstr "חדשות ותחקירים של רדיו ציבורי"
+
+#: src/services/feeds/builtinSources.vala:62
+msgid "U.S. politics, headlines, and commentary"
+msgstr "פוליטיקה אמריקאית, כותרות ופרשנות"
+
+#: src/services/feeds/builtinSources.vala:65
+msgid "Neutral, in-depth public affairs reporting"
+msgstr "סיקור ניטרלי ומעמיק של ענייני ציבור"
+
+#: src/services/magazines/magazinePdfImportService.vala:48
+#: src/services/magazines/magazinePdfImportService.vala:82
+msgid "Already in your library"
+msgstr "כבר בספרייה שלך"
+
+#: src/services/magazines/magazinePdfImportService.vala:57
+#: src/services/magazines/magazinePdfImportService.vala:91
+msgid "Failed to save that magazine"
+msgstr "שמירת המגזין נכשלה"
+
+#. TRANSLATORS: %u is an HTTP status code, e.g. 404
+#: src/services/magazines/magazinePdfImportService.vala:111
+#, c-format
+msgid "Server returned status %u"
+msgstr "השרת החזיר את המצב %u"
+
+#: src/services/magazines/magazinePdfImportService.vala:116
+msgid "That link doesn't point to a PDF"
+msgstr "הקישור הזה לא מוביל ל־PDF"
+
+#. TRANSLATORS: %s is the file type the server sent, e.g. "text/html"
+#: src/services/magazines/magazinePdfImportService.vala:118
+#, c-format
+msgid "That link doesn't point to a PDF (got %s)"
+msgstr "הקישור הזה לא מוביל ל־PDF (התקבל: %s)"
+
+#. TRANSLATORS: %s is the file's size, e.g. "212.4 MB"
+#: src/services/magazines/magazinePdfImportService.vala:126
+#: src/services/magazines/magazinePdfImportService.vala:156
+#, c-format
+msgid "File is too large (%s, limit is 150 MB)"
+msgstr "הקובץ גדול מדי (%s, המגבלה היא 150 MB)"
+
+#: src/services/magazines/magazinePdfImportService.vala:142
+msgid "File exceeded the 150 MB size limit"
+msgstr "הקובץ חרג ממגבלת הגודל של 150 MB"
+
+#: src/services/magazines/magazinePdfImportService.vala:167
+msgid "That doesn't look like a valid PDF file"
+msgstr "זה לא נראה כמו קובץ PDF תקין"
+
+#: src/services/magazines/magazinePdfImportService.vala:226
+msgid "Untitled magazine"
+msgstr "מגזין ללא כותרת"
+
+#: src/services/podcasts/podcastFeedResolver.vala:53
+msgid "Couldn't reach that feed"
+msgstr "לא ניתן להגיע לפיד הזה"
+
+#: src/services/podcasts/podcastFeedResolver.vala:56
+msgid "That doesn't look like a valid podcast feed"
+msgstr "זה לא נראה כמו פיד פודקאסט תקין"
+
+#. card_container=false: no wrapping bordered panel behind the
+#. row - these cards are already fully self-contained (colored
+#. tile, own border/radius), so an outer panel background just
+#. read as a redundant card-behind-cards. circular_logo=false:
+#. the markets icon is a symbolic glyph, not a team/source photo
+#. logo, so it shouldn't get CategorySection's default
+#. circular-logo treatment.
+#: src/ui/controllers/stocksTickerController.vala:243
+msgid "Markets Today"
+msgstr "השווקים היום"
+
+#. If either piece of data failed, return Unknown
+#: src/services/cache/metaCache.vala:315 src/services/cache/metaCache.vala:374
+#: src/services/cache/rssArticleCache.vala:541
+msgid "Unknown"
+msgstr "לא ידוע"
+
+#. TRANSLATORS: RSS feed cache size and article count, e.g. "2.5 MB (134 articles)"
+#: src/services/cache/rssArticleCache.vala:545
+#, c-format
+msgid "%s (%d article)"
+msgid_plural "%s (%d articles)"
+msgstr[0] "%s (%d כתבה)"
+msgstr[1] "%s (%d כתבות)"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:2
+msgid "Paperboy"
+msgstr "Paperboy"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:3
+msgid "News Reader"
+msgstr "קורא חדשות"
+
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:4
+msgid "Read news from the sources you trust in one place"
+msgstr "קריאת חדשות מהמקורות שבהם יש לך אמון, במקום אחד"
+
+#. Translators: search terms for finding Paperboy, separated by semicolons; keep the ending semicolon. Don't translate them literally if your language has better words
+#: data/io.github.thecalamityjoe87.Paperboy.desktop.in:10
+msgid "news;rss;reader;feed;aggregator;"
+msgstr "חדשות;news;rss;קורא;פיד;עיתון;מאגד;"

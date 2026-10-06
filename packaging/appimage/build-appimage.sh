@@ -126,10 +126,25 @@ else
   echo "Warning: data/release_notes.md not found in source tree"
 fi
 
-# Copy desktop file (use reverse-domain application id filename)
-cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/usr/share/applications/io.github.thecalamityjoe87.Paperboy.desktop"
+# Copy the translated catalogs; DataPathsUtils.get_locale_dir() finds them next to the binary
+for mo in "$BUILD_DIR"/po/*/LC_MESSAGES/paperboy.mo; do
+  [ -f "$mo" ] || continue
+  lang_dir="$(basename "$(dirname "$(dirname "$mo")")")"
+  mkdir -p "$APPDIR/usr/share/locale/$lang_dir/LC_MESSAGES"
+  cp "$mo" "$APPDIR/usr/share/locale/$lang_dir/LC_MESSAGES/paperboy.mo"
+done
+
+# Copy desktop file (use reverse-domain application id filename). It's built
+# from data/*.desktop.in with its translations merged in.
+DESKTOP_SRC="$BUILD_DIR/io.github.thecalamityjoe87.Paperboy.desktop"
+if [ ! -f "$DESKTOP_SRC" ]; then
+  echo "Error: built desktop file not found at $DESKTOP_SRC"
+  echo "Run: ninja -C build/"
+  exit 1
+fi
+cp "$DESKTOP_SRC" "$APPDIR/usr/share/applications/io.github.thecalamityjoe87.Paperboy.desktop"
 # Also copy the desktop file to the AppDir root (required by appimagetool)
-cp "$ROOT_DIR/data/io.github.thecalamityjoe87.Paperboy.desktop" "$APPDIR/io.github.thecalamityjoe87.Paperboy.desktop"
+cp "$DESKTOP_SRC" "$APPDIR/io.github.thecalamityjoe87.Paperboy.desktop"
 
 # If we discovered a Meson project version, embed it in desktop and appdata
 # so software centers / AppImage tools can show the real version instead of a hash.

@@ -59,7 +59,7 @@ namespace Paperboy {
                     msg.get_request_headers().append("User-Agent", "paperboy/0.11");
                     GLib.InputStream? input_stream = session.send(msg, null);
                     if (msg.get_status() != Soup.Status.OK || input_stream == null) {
-                        error = "Couldn't reach that page";
+                        error = _("Couldn't reach that page");
                     } else {
                         var buffer = new GLib.ByteArray();
                         uint8[] chunk = new uint8[65536];
@@ -74,7 +74,7 @@ namespace Paperboy {
 
                         string html = (string) buffer.data;
                         links = extract_pdf_links(html, website_url);
-                        if (links.size == 0) error = "No PDF links found on that page";
+                        if (links.size == 0) error = _("No PDF links found on that page");
                     }
                 } catch (GLib.Error e) {
                     error = e.message;

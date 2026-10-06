@@ -40,7 +40,7 @@ public class NotesBrowserDialog : GLib.Object {
         var dialog = new Adw.Dialog();
         dialog.set_content_width(560);
         dialog.set_content_height(640);
-        dialog.set_title("Notes");
+        dialog.set_title(_("Notes"));
 
         var header = new Adw.HeaderBar();
 
@@ -56,7 +56,7 @@ public class NotesBrowserDialog : GLib.Object {
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
         scroller.set_child(list_box);
 
-        var status_label = new Gtk.Label("No notes yet.\nOpen an article and tap the notes icon to add one.");
+        var status_label = new Gtk.Label(_("No notes yet.\nOpen an article and tap the notes icon to add one."));
         status_label.add_css_class("dim-label");
         status_label.set_justify(Gtk.Justification.CENTER);
         status_label.set_halign(Gtk.Align.CENTER);
@@ -164,7 +164,7 @@ public class NotesBrowserDialog : GLib.Object {
         var meta_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
         meta_row.append(title_source_box);
 
-        var open_article_btn = new Gtk.Button.with_label("Open article");
+        var open_article_btn = new Gtk.Button.with_label(_("Open article"));
         open_article_btn.add_css_class("flat");
         open_article_btn.add_css_class("note-open-article-btn");
         open_article_btn.set_valign(Gtk.Align.START);

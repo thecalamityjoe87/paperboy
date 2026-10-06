@@ -27,6 +27,11 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
  public class SourceManager : GLib.Object {
 
+    // Source name for Local News articles when no city is set. It's a
+    // tracking key (ArticleStateStore, feedback, follows), so it stays in
+    // English; CardBuilder translates it for display.
+    public const string LOCAL_NEWS_SOURCE = "Local News";
+
     // Currently enabled sources (references prefs)
     private weak NewsPreferences prefs;
     private weak NewsWindow window;
@@ -128,7 +133,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (result == null || result.length == 0) {
             if (category_id == "local_news") {
                 var local_area = NewsPreferences.get_instance().get_active_local_area();
-                result = local_area != null ? local_area.city : "Local News";
+                result = local_area != null ? local_area.city : LOCAL_NEWS_SOURCE;
             } else {
                 result = BuiltinSources.short_name(BuiltinSources.from_url(url));
             }
@@ -400,7 +405,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             prefs.set_preferred_source_enabled(builtin.id, true);
             prefs.save_config();
         }
-        request_show_toast("Enabled " + builtin.short_name);
+        request_show_toast(_("Enabled %s").printf(builtin.short_name));
         if (window != null && window.sidebar_manager != null) window.sidebar_manager.update_badge_for_category("myfeed");
     }
 
@@ -414,7 +419,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     if (resolved != null && !GoogleNewsUrlResolver.is_google_news_url(resolved)) {
                         follow_rss_source(resolved, source_metadata);
                     } else {
-                        request_show_toast("Couldn't find this article's source");
+                        request_show_toast(_("Couldn't find this article's source"));
                     }
                     return false;
                 });
@@ -544,12 +549,12 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                                     if (window != null && window.sidebar_manager != null) {
                                                         window.sidebar_manager.rebuild_sidebar();
                                                     }
-                                                    request_show_toast("Following " + final_title);
+                                                    request_show_toast(_("Following %s").printf(final_title));
                                                     return false;
                                                 });
                                             } else {
                                                 GLib.Idle.add(() => {
-                                                    request_show_toast("Source already followed");
+                                                    request_show_toast(_("Source already followed"));
                                                     return false;
                                                 });
                                             }
@@ -577,7 +582,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                     if (host == null || host.length == 0) {
                         GLib.warning("Cannot attempt feed generation fallback: host is null or empty");
                         GLib.Idle.add(() => {
-                            request_show_toast("Failed to discover RSS feed");
+                            request_show_toast(_("Failed to discover RSS feed"));
                             return false;
                         });
                     } else {
@@ -585,7 +590,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
                         GLib.Idle.add(() => {
                             if (window != null) window.clear_persistent_toast();
-                            request_show_toast("Generating feed for this source...", true);
+                            request_show_toast(_("Generating feed for this source..."), true);
                             return false;
                         });
 
@@ -598,7 +603,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                             if (item_count == 0) {
                                 GLib.warning("Generated RSS has no items");
                                 GLib.Idle.add(() => {
-                                    request_show_toast("Generated feed has no articles");
+                                    request_show_toast(_("Generated feed has no articles"));
                                     return false;
                                 });
                                 return null;
@@ -680,19 +685,19 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
                                     if (window != null && window.sidebar_manager != null) {
                                         window.sidebar_manager.rebuild_sidebar();
                                     }
-                                    request_show_toast("Following %s (%d articles)".printf(feed_name, item_count));
+                                    request_show_toast(ngettext("Following %s (%d article)", "Following %s (%d articles)", item_count).printf(feed_name, item_count));
                                     return false;
                                 });
                             } else {
                                 GLib.Idle.add(() => {
-                                    request_show_toast("Source already followed");
+                                    request_show_toast(_("Source already followed"));
                                     return false;
                                 });
                             }
                         } else {
                             GLib.warning("WebKit feed generation failed for %s: %s", host, gen_result.error_message ?? "unknown error");
                             GLib.Idle.add(() => {
-                                request_show_toast("No RSS feeds found");
+                                request_show_toast(_("No RSS feeds found"));
                                 return false;
                             });
                         }
@@ -701,7 +706,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
             } catch (GLib.Error e) {
                 GLib.warning("Error discovering RSS feed: %s", e.message);
                 GLib.Idle.add(() => {
-                    request_show_toast("Error discovering RSS feed");
+                    request_show_toast(_("Error discovering RSS feed"));
                     return false;
                 });
             }

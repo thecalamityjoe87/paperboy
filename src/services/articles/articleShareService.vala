@@ -34,9 +34,9 @@ namespace ArticleShareService {
         string encoded_url = Uri.escape_string(url, null, false);
         switch (target) {
             case ShareTarget.EMAIL:
-                string article_title = title ?? "Check out this article";
+                string article_title = title ?? _("Check out this article");
                 string subject = Uri.escape_string(article_title, null, false);
-                string body = Uri.escape_string("I thought you might find this interesting:\n\n" + url, null, false);
+                string body = Uri.escape_string(_("I thought you might find this interesting:") + "\n\n" + url, null, false);
                 return "mailto:?subject=%s&body=%s".printf(subject, body);
             case ShareTarget.REDDIT:
                 return "https://www.reddit.com/submit?url=%s".printf(encoded_url);

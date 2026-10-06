@@ -31,7 +31,7 @@ public class FeedRenameDialog : GLib.Object {
         var source = store.get_source_by_url(source_url);
         if (source == null) return;
 
-        var dialog = new Adw.AlertDialog("Rename feed", "Leave empty to use the default name.");
+        var dialog = new Adw.AlertDialog(_("Rename feed"), _("Leave empty to use the default name."));
 
         var entry = new Gtk.Entry();
         entry.set_text(source.get_display_name());
@@ -39,8 +39,8 @@ public class FeedRenameDialog : GLib.Object {
         entry.set_activates_default(true);
         dialog.set_extra_child(entry);
 
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("rename", "Rename");
+        dialog.add_response("cancel", _("Cancel"));
+        dialog.add_response("rename", _("Rename"));
         dialog.set_response_appearance("rename", Adw.ResponseAppearance.SUGGESTED);
         dialog.set_default_response("rename");
         dialog.set_close_response("cancel");

@@ -112,9 +112,9 @@ public class UrlUtils {
     // such as "Example News". This is intentionally simple and is only
     // used as a fallback when no explicit source name is available.
     public static string prettify_host(string host) {
-        if (host == null) return "News";
+        if (host == null) return _("News");
         string h = host.strip();
-        if (h.length == 0) return "News";
+        if (h.length == 0) return _("News");
         // Take left-most label as the short name (e.g., "example-news")
         int dot = h.index_of(".");
         if (dot >= 0 && h.length > dot) h = h.substring(0, dot);
@@ -144,7 +144,7 @@ public class UrlUtils {
         // concatenated in hosts.
         if (lower_out == "nytimes" || lower_out == "ny time") return "NY Times";
         if (lower_out == "wsj" || lower_out == "wallstreetjournal" || lower_out == "wallstreet") return "Wall Street Journal";
-        if (out.length == 0) return "News";
+        if (out.length == 0) return _("News");
         return out;
     }
 

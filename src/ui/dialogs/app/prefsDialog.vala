@@ -36,7 +36,7 @@ public class PrefsDialog : GLib.Object {
         var win = (NewsWindow) parent;
 
         var dialog = new Adw.PreferencesDialog();
-        dialog.set_title("Preferences");
+        dialog.set_title(_("Preferences"));
 
         // Wide enough to keep the top view-switcher showing all three tabs
         // as pills - narrower than this and Adw.PreferencesDialog collapses
@@ -75,11 +75,11 @@ public class PrefsDialog : GLib.Object {
     // Sources changed: ask whether to refresh now.
     private static void offer_refresh(NewsWindow win) {
         var confirm_dialog = new Adw.AlertDialog(
-            "Refresh Content?",
-            "Changes have been made to your news sources. Would you like to refresh the content now?"
+            _("Refresh Content?"),
+            _("Changes have been made to your news sources. Would you like to refresh the content now?")
         );
-        confirm_dialog.add_response("cancel", "Not Now");
-        confirm_dialog.add_response("refresh", "Refresh");
+        confirm_dialog.add_response("cancel", _("Not Now"));
+        confirm_dialog.add_response("refresh", _("Refresh"));
         confirm_dialog.set_default_response("refresh");
         confirm_dialog.set_close_response("cancel");
         confirm_dialog.set_response_appearance("refresh", Adw.ResponseAppearance.SUGGESTED);

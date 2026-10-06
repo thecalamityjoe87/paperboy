@@ -72,11 +72,11 @@ public class RecommendedSection : GLib.Object {
         wrapper.append(panel);
 
         var header = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
-        var title = new Gtk.Label("RECOMMENDED FOR YOU");
+        var title = new Gtk.Label(_("RECOMMENDED FOR YOU"));
         title.add_css_class("recommended-title");
         title.set_xalign(0);
         header.append(title);
-        var subtitle = new Gtk.Label("Picked from the topics and sites you read");
+        var subtitle = new Gtk.Label(_("Picked from the topics and sites you read"));
         subtitle.add_css_class("recommended-subtitle");
         subtitle.set_xalign(0);
         header.append(subtitle);

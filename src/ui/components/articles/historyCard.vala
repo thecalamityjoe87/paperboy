@@ -153,7 +153,8 @@ public class HistoryCard : GLib.Object {
         var bottom_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
 
         // time_text replaces the "Viewed ..." caption when the row is reused outside History (e.g. Recommended for you).
-        string viewed_text = time_text ?? ("Viewed " + DateUtils.time_ago(viewed_timestamp.to_string()));
+        // TRANSLATORS: %s is a relative time, e.g. "Viewed 3h ago"
+        string viewed_text = time_text ?? _("Viewed %s").printf(DateUtils.time_ago(viewed_timestamp.to_string()));
         time_label = new Gtk.Label(null);
         CardBuilder.set_card_time(root, time_label, viewed_text, url);
         time_label.add_css_class("article-card-time");

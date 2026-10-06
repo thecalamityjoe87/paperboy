@@ -56,21 +56,21 @@ public class ScrollNavButtons : GLib.Object {
         // block, present in every GNOME distro's default font stack
         // (Cantarell, Noto, DejaVu), so this needs no icon theme lookup or
         // bundled asset.
-        left_button = new Gtk.Button.with_label("←");
+        // TRANSLATORS: keep the arrows as they are in right-to-left languages too;
+        // the buttons stay on the left and right edges and scroll that way
+        left_button = new Gtk.Button.with_label(_("←"));
         left_button.add_css_class("scroll-nav-arrow-label");
         left_button.add_css_class(css_class);
         left_button.add_css_class(css_class + "-left");
-        left_button.set_halign(Gtk.Align.START);
         left_button.set_valign(Gtk.Align.CENTER);
         left_button.set_margin_start(edge_margin);
         left_button.set_margin_end(edge_margin);
         overlay.add_overlay(left_button);
 
-        right_button = new Gtk.Button.with_label("→");
+        right_button = new Gtk.Button.with_label(_("→"));
         right_button.add_css_class("scroll-nav-arrow-label");
         right_button.add_css_class(css_class);
         right_button.add_css_class(css_class + "-right");
-        right_button.set_halign(Gtk.Align.END);
         right_button.set_valign(Gtk.Align.CENTER);
         right_button.set_margin_start(edge_margin);
         right_button.set_margin_end(edge_margin);
@@ -87,6 +87,12 @@ public class ScrollNavButtons : GLib.Object {
         unowned Gtk.Overlay ov = overlay;
         unowned Gtk.Button left_button = left;
         unowned Gtk.Button right_button = right;
+        // Physical sides, not START/END: the hover check below uses the
+        // pointer's x, and the arrows point left and right, so in a
+        // right-to-left locale the left button must stay on the left.
+        place_buttons(ov, left_button, right_button);
+        overlay.direction_changed.connect(() => place_buttons(ov, left_button, right_button));
+
         left_button.clicked.connect(() => self_ref.prev_requested());
         right_button.clicked.connect(() => self_ref.next_requested());
 
@@ -122,6 +128,12 @@ public class ScrollNavButtons : GLib.Object {
             right_button.remove_css_class(css_class + "-active");
         });
         overlay.add_controller(nav_motion);
+    }
+
+    private static void place_buttons(Gtk.Widget overlay, Gtk.Button left, Gtk.Button right) {
+        bool rtl = overlay.get_direction() == Gtk.TextDirection.RTL;
+        left.set_halign(rtl ? Gtk.Align.END : Gtk.Align.START);
+        right.set_halign(rtl ? Gtk.Align.START : Gtk.Align.END);
     }
 
     /**

@@ -128,7 +128,7 @@ namespace Managers {
         private void show_podcast_spinner() {
             if (content_view == null || content_view.loading_container == null
                 || content_view.loading_spinner == null || content_view.loading_label == null) return;
-            content_view.loading_label.set_text("Loading podcasts...");
+            content_view.loading_label.set_text(_("Loading podcasts..."));
             content_view.loading_container.set_visible(true);
             content_view.loading_spinner.start();
             // Same spinner widget as LoadingStateManager's, so the same undo when Podcasts ends.
@@ -198,7 +198,7 @@ namespace Managers {
             }
 
             if (content_view.category_subtitle != null) {
-                content_view.category_subtitle.set_label("Searching for \"%s\"...".printf(query));
+                content_view.category_subtitle.set_label(_("Searching for \"%s\"...").printf(query));
                 content_view.category_subtitle.set_visible(true);
             }
 
@@ -260,8 +260,8 @@ namespace Managers {
 
             if (content_view.category_subtitle != null) {
                 string label_text = shows.size == 0
-                    ? "No podcasts found matching \"%s\"".printf(query)
-                    : "Search results: found %d %s matching \"%s\"".printf(shows.size, shows.size == 1 ? "podcast" : "podcasts", query);
+                    ? _("No podcasts found matching \"%s\"").printf(query)
+                    : ngettext("Search results: found %d podcast matching \"%s\"", "Search results: found %d podcasts matching \"%s\"", shows.size).printf(shows.size, query);
                 content_view.category_subtitle.set_label(label_text);
                 content_view.category_subtitle.set_visible(true);
             }
@@ -464,14 +464,14 @@ namespace Managers {
         private void set_show_more_button_loading(bool loading) {
             if (show_more_button == null || show_more_button_label == null || show_more_button_spinner == null) return;
             if (loading) {
-                show_more_button_label.set_text("Loading...");
+                show_more_button_label.set_text(_("Loading..."));
                 show_more_button_spinner.set_visible(true);
                 show_more_button_spinner.start();
                 show_more_button.set_sensitive(false);
                 show_more_button.remove_css_class("suggested-action");
                 show_more_button.add_css_class("loading");
             } else {
-                show_more_button_label.set_text("Show More Categories");
+                show_more_button_label.set_text(_("Show More Categories"));
                 show_more_button_spinner.stop();
                 show_more_button_spinner.set_visible(false);
                 show_more_button.set_sensitive(true);
@@ -502,7 +502,7 @@ namespace Managers {
             show_more_button_spinner = new Gtk.Spinner();
             show_more_button_spinner.set_visible(false);
             button_content.append(show_more_button_spinner);
-            show_more_button_label = new Gtk.Label("Show More Categories");
+            show_more_button_label = new Gtk.Label(_("Show More Categories"));
             button_content.append(show_more_button_label);
             show_more_button.set_child(button_content);
 

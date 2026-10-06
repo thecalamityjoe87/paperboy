@@ -1,7 +1,23 @@
 project('paperboy', 'vala',
-  version : '0.13.1a',
+  version : '0.14.0a',
   meson_version : '>=0.59.0'
 )
+
+# gettext domain + the locale install dir, exposed to Vala as constants via
+# a generated file (valac has no usable string -D). bindtextdomain() in
+# main() points at LOCALEDIR; GETTEXT_PACKAGE is the domain _() looks up in.
+GETTEXT_PACKAGE = 'paperboy'
+LOCALEDIR = join_paths(get_option('prefix'), get_option('localedir'))
+config_vala = configure_file(
+  input: 'src/config.vala.in',
+  output: 'config.vala',
+  configuration: {
+    'GETTEXT_PACKAGE': GETTEXT_PACKAGE,
+    'LOCALEDIR': LOCALEDIR,
+  })
+# dgettext's generated C includes gi18n-lib.h, which #errors unless the
+# GETTEXT_PACKAGE macro is defined for the C compiler too.
+add_project_arguments('-DGETTEXT_PACKAGE="@0@"'.format(GETTEXT_PACKAGE), language: 'c')
 
 gtk = dependency('gtk4')
 libsoup = dependency('libsoup-3.0')
@@ -22,6 +38,7 @@ cairo = dependency('cairo')
 
   executable('paperboy', [
     'src/main.vala',
+    config_vala,
 
     # UI
     'src/ui/appWindow.vala',
@@ -203,9 +220,11 @@ cairo = dependency('cairo')
     # Utils
     'src/utils/core/appDebugger.vala',
     'src/utils/core/dataPathsUtils.vala',
+    'src/utils/core/regionUtils.vala',
     'src/utils/core/workerPool.vala',
     'src/utils/lookup/majorCitiesUtils.vala',
     'src/utils/net/browserUtils.vala',
+    'src/utils/net/googleNewsUtils.vala',
     'src/utils/net/httpClientUtils.vala',
     'src/utils/net/urlUtils.vala',
     'src/utils/net/webViewUtils.vala',
@@ -233,7 +252,19 @@ cairo = dependency('cairo')
   link_args : ['-lm']
 )
 
-install_data('data/io.github.thecalamityjoe87.Paperboy.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
+# Translations (gettext): the po/ subdir carries LINGUAS, POTFILES.in and the
+# .po catalogs; po/meson.build calls i18n.gettext().
+subdir('po')
+
+# The desktop file's Name, GenericName, Comment and Keywords are translated
+# from the same catalogs.
+i18n.merge_file(
+  input: 'data/io.github.thecalamityjoe87.Paperboy.desktop.in',
+  output: 'io.github.thecalamityjoe87.Paperboy.desktop',
+  type: 'desktop',
+  po_dir: 'po',
+  install: true,
+  install_dir: join_paths(get_option('datadir'), 'applications'))
 
 # Install and compile GSettings schema
 install_data('data/resources/io.github.thecalamityjoe87.Paperboy.gschema.xml',

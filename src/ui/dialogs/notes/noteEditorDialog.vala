@@ -45,16 +45,16 @@ public class NoteEditorDialog : GLib.Object {
         var dialog = new Adw.Dialog();
         dialog.set_content_width(640);
         dialog.set_content_height(560);
-        dialog.set_title(existing != null ? "Edit note" : "New note");
+        dialog.set_title(existing != null ? _("Edit note") : _("New note"));
 
         var header = new Adw.HeaderBar();
-        var save_btn = new Gtk.Button.with_label("Save");
+        var save_btn = new Gtk.Button.with_label(_("Save"));
         save_btn.add_css_class("suggested-action");
         header.pack_end(save_btn);
 
         if (existing != null) {
             var delete_btn = new Gtk.Button.from_icon_name("user-trash-symbolic");
-            delete_btn.set_tooltip_text("Delete note");
+            delete_btn.set_tooltip_text(_("Delete note"));
             delete_btn.add_css_class("destructive-action");
             delete_btn.add_css_class("flat");
             delete_btn.clicked.connect(() => {
@@ -65,7 +65,7 @@ public class NoteEditorDialog : GLib.Object {
         }
 
         var title_entry = new Gtk.Entry();
-        title_entry.set_placeholder_text("Title (optional)");
+        title_entry.set_placeholder_text(_("Title (optional)"));
         title_entry.add_css_class("title-4");
         title_entry.set_margin_start(16);
         title_entry.set_margin_end(16);
@@ -156,14 +156,14 @@ public class NoteEditorDialog : GLib.Object {
             return swatch;
         }
 
-        format_row.append(make_command_button("format-text-bold-symbolic", "Bold", "bold"));
-        format_row.append(make_command_button("format-text-italic-symbolic", "Italic", "italic"));
-        format_row.append(make_command_button("format-text-underline-symbolic", "Underline", "underline"));
-        format_row.append(make_command_button("format-text-strikethrough-symbolic", "Strikethrough", "strikeThrough"));
+        format_row.append(make_command_button("format-text-bold-symbolic", _("Bold"), "bold"));
+        format_row.append(make_command_button("format-text-italic-symbolic", _("Italic"), "italic"));
+        format_row.append(make_command_button("format-text-underline-symbolic", _("Underline"), "underline"));
+        format_row.append(make_command_button("format-text-strikethrough-symbolic", _("Strikethrough"), "strikeThrough"));
 
         var highlight_btn = new Gtk.MenuButton();
         highlight_btn.set_icon_name("color-select-symbolic");
-        highlight_btn.set_tooltip_text("Highlight");
+        highlight_btn.set_tooltip_text(_("Highlight"));
         highlight_btn.add_css_class("flat");
         highlight_btn.set_can_focus(false);
 
@@ -178,11 +178,11 @@ public class NoteEditorDialog : GLib.Object {
         highlight_btn.set_popover(highlight_popover);
 
         string[,] highlight_colors = {
-            { "Yellow", "rgba(255, 235, 59, 0.6)" },
-            { "Green", "rgba(139, 195, 74, 0.55)" },
-            { "Blue", "rgba(3, 169, 244, 0.4)" },
-            { "Pink", "rgba(233, 30, 99, 0.35)" },
-            { "Orange", "rgba(255, 152, 0, 0.5)" }
+            { _("Yellow"), "rgba(255, 235, 59, 0.6)" },
+            { _("Green"), "rgba(139, 195, 74, 0.55)" },
+            { _("Blue"), "rgba(3, 169, 244, 0.4)" },
+            { _("Pink"), "rgba(233, 30, 99, 0.35)" },
+            { _("Orange"), "rgba(255, 152, 0, 0.5)" }
         };
         for (int i = 0; i < highlight_colors.length[0]; i++) {
             string name = highlight_colors[i, 0];
@@ -198,7 +198,7 @@ public class NoteEditorDialog : GLib.Object {
         var remove_highlight_btn = new Gtk.Button.from_icon_name("edit-clear-symbolic");
         remove_highlight_btn.add_css_class("flat");
         remove_highlight_btn.add_css_class("circular");
-        remove_highlight_btn.set_tooltip_text("Remove highlight");
+        remove_highlight_btn.set_tooltip_text(_("Remove highlight"));
         remove_highlight_btn.set_can_focus(false);
         remove_highlight_btn.set_valign(Gtk.Align.CENTER);
         remove_highlight_btn.clicked.connect(() => {
@@ -208,9 +208,9 @@ public class NoteEditorDialog : GLib.Object {
         swatches_row.append(remove_highlight_btn);
 
         format_row.append(highlight_btn);
-        format_row.append(make_command_button("view-list-bullet-symbolic", "Bulleted list", "insertUnorderedList"));
-        format_row.append(make_command_button("view-list-ordered-symbolic", "Numbered list", "insertOrderedList"));
-        format_row.append(make_format_button("edit-clear-symbolic", "Clear formatting", "document.execCommand('removeFormat'); document.execCommand('hiliteColor', false, 'transparent')"));
+        format_row.append(make_command_button("view-list-bullet-symbolic", _("Bulleted list"), "insertUnorderedList"));
+        format_row.append(make_command_button("view-list-ordered-symbolic", _("Numbered list"), "insertOrderedList"));
+        format_row.append(make_format_button("edit-clear-symbolic", _("Clear formatting"), "document.execCommand('removeFormat'); document.execCommand('hiliteColor', false, 'transparent')"));
 
         string initial_content = existing != null ? existing.content_html : "";
         webview.load_html(

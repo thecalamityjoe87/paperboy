@@ -57,7 +57,6 @@ public class LoadingStateManager : GLib.Object {
     public bool initial_items_populated = false;
     public uint initial_reveal_timeout_id = 0;
     public uint absolute_reveal_timeout_id = 0;
-    public bool network_failure_detected = false;
     public bool awaiting_adaptive_layout = false;
     // Front Page fires two independent backend fetches (frontpage list +
     // Trending) - held true until both report done, so the initial reveal
@@ -144,7 +143,6 @@ public class LoadingStateManager : GLib.Object {
         hero_image_loaded = false;
         pending_images = 0;
         initial_items_populated = false;
-        network_failure_detected = false;
         initial_phase_start_time = GLib.get_monotonic_time();
 
         pending_backfills = 0;
@@ -184,7 +182,7 @@ public class LoadingStateManager : GLib.Object {
                 if (child is Gtk.Label) {
                     var label = child as Gtk.Label;
                     var txt = label.get_label();
-                    if (txt == "<b>No more articles</b>" || txt == "No more articles") {
+                    if (txt == _("<b>No more articles</b>") || txt == _("No more articles")) {
                         window.content_box.remove(label);
                         break;
                     }
@@ -195,9 +193,9 @@ public class LoadingStateManager : GLib.Object {
 
             var prefs_local = NewsPreferences.get_instance();
             if (prefs_local != null && prefs_local.category == "local_news") {
-                loading_label.set_text("Loading local news...");
+                loading_label.set_text(_("Loading local news..."));
             } else {
-                loading_label.set_text("Loading content...");
+                loading_label.set_text(_("Loading content..."));
             }
 
             loading_container.set_visible(true);
@@ -252,7 +250,7 @@ public class LoadingStateManager : GLib.Object {
             if (local_news_message_box != null) local_news_message_box.set_visible(false);
             if (window.main_content_container != null) window.main_content_container.set_visible(false);
 
-            if (msg == null) msg = "No articles could be loaded. Try refreshing or check your source settings.";
+            if (msg == null) msg = _("No articles could be loaded. Try refreshing or check your source settings.");
             if (error_message_label != null && msg != null) error_message_label.set_text(msg);
             error_message_box.set_visible(true);
             ViewSession.current().on_close("message-overlay", () => close_message_overlay());
@@ -266,7 +264,7 @@ public class LoadingStateManager : GLib.Object {
     // its Refresh button. Also ends the initial phase and cancels the reveal
     // timeouts - left armed, INITIAL_MAX_WAIT_MS later fires
     // show_error_message() over this since no items were ever populated.
-    public void show_empty_message(string icon_file, string msg = "Nothing here yet") {
+    public void show_empty_message(string icon_file, string msg = _("Nothing here yet")) {
         if (error_message_box == null) return;
 
         initial_phase = false;
@@ -398,25 +396,25 @@ public class LoadingStateManager : GLib.Object {
         bool show_message = false;
         if (is_myfeed) {
             if (!enabled) {
-                if (personalized_message_label != null) personalized_message_label.set_text("Personalized feed is disabled.");
+                if (personalized_message_label != null) personalized_message_label.set_text(_("Personalized feed is disabled."));
                 if (personalized_message_sub_label != null) {
-                    personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle to see content from your feeds.");
+                    personalized_message_sub_label.set_text(_("Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle to see content from your feeds."));
                     personalized_message_sub_label.set_visible(true);
                 }
                 if (personalized_message_action != null) personalized_message_action.set_visible(true);
                 show_message = true;
             } else if (prefs.myfeed_custom_only && !has_custom_rss) {
-                if (personalized_message_label != null) personalized_message_label.set_text("No custom RSS feeds followed.");
+                if (personalized_message_label != null) personalized_message_label.set_text(_("No custom RSS feeds followed."));
                 if (personalized_message_sub_label != null) {
-                    personalized_message_sub_label.set_text("You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by clicking the button below or open the main menu (☰) → Preferences → 'Personalization' tab.");
+                    personalized_message_sub_label.set_text(_("You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by clicking the button below or open the main menu (☰) → Preferences → 'Personalization' tab."));
                     personalized_message_sub_label.set_visible(true);
                 }
                 if (personalized_message_action != null) personalized_message_action.set_visible(true);
                 show_message = true;
             } else if (enabled && !has_personalized && !has_custom_rss) {
-                if (personalized_message_label != null) personalized_message_label.set_text("Personalized Feed is enabled but no categories are selected.");
+                if (personalized_message_label != null) personalized_message_label.set_text(_("Personalized Feed is enabled but no categories are selected."));
                 if (personalized_message_sub_label != null) {
-                    personalized_message_sub_label.set_text("Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle and click its settings icon to select categories, or follow custom RSS feeds.");
+                    personalized_message_sub_label.set_text(_("Open the main menu (☰) → choose Preferences → 'Personalization' tab → 'Enable personalized feed' toggle and click its settings icon to select categories, or follow custom RSS feeds."));
                     personalized_message_sub_label.set_visible(true);
                 }
                 if (personalized_message_action != null) personalized_message_action.set_visible(true);
@@ -653,13 +651,13 @@ public class LoadingStateManager : GLib.Object {
                 if (child is Gtk.Label) {
                     var label = child as Gtk.Label;
                     var label_text = label.get_label();
-                    if ((label_text == "<b>No more articles</b>" || label_text == "No more articles") && label.has_css_class("dim-label")) {
+                    if ((label_text == _("<b>No more articles</b>") || label_text == _("No more articles")) && label.has_css_class("dim-label")) {
                         return;
                     }
                 }
             }
 
-            var end_label = new Gtk.Label("<b>No more articles</b>");
+            var end_label = new Gtk.Label(_("<b>No more articles</b>"));
             end_label.set_use_markup(true);
             end_label.add_css_class("dim-label");
             end_label.set_margin_top(20);

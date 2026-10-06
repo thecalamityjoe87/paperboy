@@ -122,9 +122,17 @@ public class HttpClientUtils : Object {
             user_agent = USER_AGENT_BROWSER;
             if (headers == null) headers = new Gee.HashMap<string, string>();
             headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
-            headers["Accept-Language"] = "en-US,en;q=0.5";
+            headers["Accept-Language"] = accept_language();
             headers["Accept-Encoding"] = "gzip, deflate, br";
             return this;
+        }
+
+        // "de-DE,de;q=0.9,en;q=0.5" - the user's language first, English after.
+        private static string accept_language() {
+            string lang = RegionUtils.language();
+            string tag = lang + "-" + RegionUtils.country();
+            if (lang == "en") return tag + ",en;q=0.5";
+            return tag + "," + lang + ";q=0.9,en;q=0.5";
         }
 
         public RequestOptions with_image_headers() {
@@ -167,9 +175,56 @@ public class HttpClientUtils : Object {
             return status_code == Soup.Status.OK;
         }
 
+        // The body as valid UTF-8, converted from the charset the server or
+        // page declares (e.g. a gb2312 Chinese site). Vala's string functions
+        // abort on invalid UTF-8, so this never returns any.
         public string? get_body_string() {
             if (body == null) return null;
-            return (string) body.get_data();
+            unowned uint8[] data = body.get_data();
+            // GBytes isn't NUL-terminated, so copy exactly its length.
+            string text = ((string) data).substring(0, data.length);
+            if (text.validate()) return text;
+
+            string? charset = declared_charset(text);
+            if (charset != null) {
+                try {
+                    return GLib.convert(text, text.length, "UTF-8", charset);
+                } catch (GLib.ConvertError e) {
+                    // Mislabeled page - fall through and salvage what's valid.
+                }
+            }
+            return text.make_valid();
+        }
+
+        // Charset from the Content-Type header, else from the page's own
+        // <meta charset> near the top. Null if neither names one. Labels are
+        // widened the way browsers do: gb2312 pages routinely use GBK chars.
+        private string? declared_charset(string text) {
+            string? charset = charset_after(get_header("content-type") ?? "");
+            if (charset == null) charset = charset_after(text.length > 4096 ? text.substring(0, 4096) : text);
+            if (charset == null) return null;
+            switch (charset) {
+                case "gb2312": case "gbk": case "x-gbk": return "GB18030";
+                case "iso-8859-1": case "latin1": case "us-ascii": return "WINDOWS-1252";
+                default: return charset;
+            }
+        }
+
+        // The value after the first "charset=", lower-case, e.g. "gb2312".
+        private static string? charset_after(string s) {
+            int at = s.ascii_down().index_of("charset=");
+            if (at < 0) return null;
+            var sb = new StringBuilder();
+            for (int i = at + 8; i < s.length; i++) {
+                char c = s[i];
+                if (c == '"' || c == '\'') {
+                    if (sb.len == 0) continue;
+                    break;
+                }
+                if (!(c.isalnum() || c == '-' || c == '_')) break;
+                sb.append_c(c.tolower());
+            }
+            return sb.len > 0 ? sb.str : null;
         }
 
         public uint8[]? get_body_data() {

@@ -275,7 +275,7 @@ public class MyFeedExtrasController : GLib.Object {
             if (game.league != games.get(0).league) mixed = true;
             if (game.status == GameStatus.LIVE) any_live = true;
         }
-        string title = mixed ? "Your Scores" : games.get(0).league_display_name;
+        string title = mixed ? _("Your Scores") : games.get(0).league_display_name;
 
         var section = new CategorySection(win, title, "myfeed:sports", true, true, null, any_live, null, "sports");
         section.wrapper.add_css_class("frontpage-section-divider");
@@ -299,7 +299,7 @@ public class MyFeedExtrasController : GLib.Object {
         if (win.content_view == null || win.content_view.myfeed_extras_container == null) return;
         if (active_ctx == null || !active_ctx.still_owns_view()) return;
 
-        var section = new CategorySection(win, "Markets", "myfeed:market", true, false, null, false, null, "business", false);
+        var section = new CategorySection(win, _("Markets"), "myfeed:market", true, false, null, false, null, "business", false);
         section.wrapper.add_css_class("frontpage-section-divider");
         int n = int.min(MAX_ITEMS_PER_ROW, quotes.size);
         for (int i = 0; i < n; i++) {
@@ -314,7 +314,7 @@ public class MyFeedExtrasController : GLib.Object {
         var subscriptions = Paperboy.PodcastSubscriptionStore.get_instance().get_all_subscriptions();
         if (subscriptions.size == 0) return;
 
-        var section = new CategorySection(win, "Podcasts", "myfeed:podcasts", false, false, null, false, null, "podcasts");
+        var section = new CategorySection(win, _("Podcasts"), "myfeed:podcasts", false, false, null, false, null, "podcasts");
         section.wrapper.add_css_class("frontpage-section-divider");
         int n = int.min(MAX_ITEMS_PER_ROW, subscriptions.size);
         for (int i = 0; i < n; i++) {
@@ -333,7 +333,7 @@ public class MyFeedExtrasController : GLib.Object {
         var entries = Paperboy.MagazineLibraryStore.get_instance().get_all_entries();
         if (entries.size == 0) return;
 
-        var section = new CategorySection(win, "Magazines", "myfeed:magazines", false, false, null, false, null, "magazines");
+        var section = new CategorySection(win, _("Magazines"), "myfeed:magazines", false, false, null, false, null, "magazines");
         section.wrapper.add_css_class("frontpage-section-divider");
         int n = int.min(MAX_ITEMS_PER_ROW, entries.size);
         for (int i = 0; i < n; i++) {

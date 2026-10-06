@@ -77,6 +77,16 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("onboarding-completed", value); }
     }
 
+    // Google News edition id ("DE:de"), or "" to follow the system.
+    // Setting it pushes the choice to GoogleNewsUtils.
+    public string news_edition {
+        owned get { return settings.get_string("news-edition"); }
+        set {
+            settings.set_string("news-edition", value);
+            GoogleNewsUtils.set_chosen(value);
+        }
+    }
+
     // Preferred app color scheme: "system", "light", or "dark". Setting
     // this immediately applies it via Adw.StyleManager so callers don't
     // need to separately push the change to the UI.
@@ -604,10 +614,29 @@ public class NewsPreferences : GLib.Object {
         }
     }
 
-    // Convenience helpers for managing which sports leagues show score cards
+    // Regional leagues the user switched on outside their home editions
+    // (see SportsScoresService.enabled_by_default). Same convention as
+    // disabled_sports_leagues.
+    public Gee.ArrayList<string> enabled_sports_leagues {
+        owned get {
+            var list = new Gee.ArrayList<string>();
+            foreach (var s in settings.get_strv("enabled-sports-leagues")) list.add(s);
+            return list;
+        }
+        set {
+            string[] arr = new string[value != null ? value.size : 0];
+            for (int i = 0; i < arr.length; i++) arr[i] = value.get(i);
+            settings.set_strv("enabled-sports-leagues", arr);
+        }
+    }
+
+    // Convenience helpers for managing which sports leagues show score cards.
+    // An explicit choice wins; otherwise the league's default for the user's
+    // news edition applies.
     public bool sports_league_enabled(string league_key) {
-        foreach (var k in disabled_sports_leagues) if (k == league_key) return false;
-        return true;
+        if (disabled_sports_leagues.contains(league_key)) return false;
+        if (enabled_sports_leagues.contains(league_key)) return true;
+        return SportsScoresService.enabled_by_default(league_key);
     }
 
     // All league keys (enabled or not) in the user's preferred display
@@ -620,6 +649,10 @@ public class NewsPreferences : GLib.Object {
 
         foreach (var key in sports_league_order) {
             if (all_keys.contains(key) && !ordered.contains(key)) ordered.add(key);
+        }
+        // Unplaced leagues: the user's regional ones (La Liga in Spain) first
+        foreach (var key in all_keys) {
+            if (!ordered.contains(key) && SportsScoresService.is_home_league(key)) ordered.add(key);
         }
         foreach (var key in all_keys) {
             if (!ordered.contains(key)) ordered.add(key);
@@ -644,6 +677,13 @@ public class NewsPreferences : GLib.Object {
         }
 
         disabled_sports_leagues = updated_list;
+
+        // Record an explicit "on" too, so a regional league stays on after
+        // the user changes country
+        var opted_in = enabled_sports_leagues;
+        if (enabled && !opted_in.contains(league_key)) opted_in.add(league_key);
+        if (!enabled) opted_in.remove(league_key);
+        enabled_sports_leagues = opted_in;
     }
 
     // Favorite sports teams, stored as "league_key|team_id" strings - same
@@ -709,6 +749,7 @@ public class NewsPreferences : GLib.Object {
     private NewsPreferences() {
         // Initialize GSettings for UI preferences
         settings = new GLib.Settings("io.github.thecalamityjoe87.Paperboy");
+        GoogleNewsUtils.set_chosen(news_edition);
         
         // Initialize KeyFile for user-generated data (preferred_sources)
         config = new GLib.KeyFile();

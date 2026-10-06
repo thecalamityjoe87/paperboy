@@ -69,7 +69,7 @@ public class ReaderVideoEmbed : Gtk.Box {
 
         // Labelled so tapping it reads as "leaves the reader" rather than "broken".
         if (kind == ArticleBlockKind.VIDEO_LINK && (video_url == null || VideoEmbedResolver.for_url(video_url) == null)) {
-            var watch_label = new Gtk.Label("Watch on site");
+            var watch_label = new Gtk.Label(_("Watch on site"));
             watch_label.add_css_class("reader-video-watch-label");
             watch_label.set_halign(Gtk.Align.START);
             watch_label.set_valign(Gtk.Align.END);

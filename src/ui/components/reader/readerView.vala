@@ -113,7 +113,7 @@ public class ReaderView : GLib.Object {
         spinner = new Gtk.Spinner();
         spinner.set_size_request(32, 32);
         spinner_box.append(spinner);
-        var loading_label = new Gtk.Label("Loading reader view…");
+        var loading_label = new Gtk.Label(_("Loading reader view…"));
         loading_label.add_css_class("dim-label");
         spinner_box.append(loading_label);
         stack.add_named(spinner_box, "loading");
@@ -121,7 +121,7 @@ public class ReaderView : GLib.Object {
         var error_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
         error_box.set_valign(Gtk.Align.CENTER);
         error_box.set_halign(Gtk.Align.CENTER);
-        var error_label = new Gtk.Label("Couldn't extract a reader view for this article.\nTurn off reader view above to read it on the live webpage instead.");
+        var error_label = new Gtk.Label(_("Couldn't extract a reader view for this article.\nTurn off reader view above to read it on the live webpage instead."));
         error_label.add_css_class("dim-label");
         error_label.set_wrap(true);
         error_label.set_justify(Gtk.Justification.CENTER);
@@ -479,7 +479,7 @@ public class ReaderView : GLib.Object {
         // marker (including this one) right after this call returns.
         var marker_btn = new Gtk.Button.with_label("");
         marker_btn.add_css_class("reader-note-marker");
-        marker_btn.set_tooltip_text("Open note");
+        marker_btn.set_tooltip_text(_("Open note"));
         marker_btn.set_valign(Gtk.Align.BASELINE);
         marker_btn.clicked.connect(() => {
             if (parent_window == null) return;
@@ -508,7 +508,7 @@ public class ReaderView : GLib.Object {
     private void build_settings_button() {
         settings_btn = new Gtk.MenuButton();
         settings_btn.set_icon_name("font-x-generic-symbolic");
-        settings_btn.set_tooltip_text("Reader view settings");
+        settings_btn.set_tooltip_text(_("Reader view settings"));
         settings_btn.set_can_focus(false);
         settings_btn.set_visible(false);
         settings_btn.add_css_class("flat");
@@ -521,19 +521,19 @@ public class ReaderView : GLib.Object {
         popover_box.set_size_request(230, -1);
 
         // ---- Text size ----
-        var size_heading = new Gtk.Label("Text size");
+        var size_heading = new Gtk.Label(_("Text size"));
         size_heading.add_css_class("heading");
         size_heading.set_xalign(0);
         popover_box.append(size_heading);
 
         var size_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
         var decrease_btn = new Gtk.Button.from_icon_name("value-decrease-symbolic");
-        decrease_btn.set_tooltip_text("Decrease text size");
+        decrease_btn.set_tooltip_text(_("Decrease text size"));
         var size_pct_label = new Gtk.Label(font_scale_label());
         size_pct_label.set_hexpand(true);
         size_pct_label.set_halign(Gtk.Align.CENTER);
         var increase_btn = new Gtk.Button.from_icon_name("value-increase-symbolic");
-        increase_btn.set_tooltip_text("Increase text size");
+        increase_btn.set_tooltip_text(_("Increase text size"));
 
         decrease_btn.clicked.connect(() => {
             font_scale = double.max(0.8, Math.round((font_scale - 0.1) * 10) / 10.0);
@@ -552,16 +552,16 @@ public class ReaderView : GLib.Object {
         popover_box.append(size_row);
 
         // ---- Font family ----
-        var family_heading = new Gtk.Label("Font");
+        var family_heading = new Gtk.Label(_("Font"));
         family_heading.add_css_class("heading");
         family_heading.set_xalign(0);
         popover_box.append(family_heading);
 
         var family_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         family_row.add_css_class("linked");
-        var sans_btn = new Gtk.ToggleButton() { label = "Sans" };
-        var serif_btn = new Gtk.ToggleButton() { label = "Serif" };
-        var mono_btn = new Gtk.ToggleButton() { label = "Mono" };
+        var sans_btn = new Gtk.ToggleButton() { label = _("Sans") };
+        var serif_btn = new Gtk.ToggleButton() { label = _("Serif") };
+        var mono_btn = new Gtk.ToggleButton() { label = _("Mono") };
         serif_btn.set_group(sans_btn);
         mono_btn.set_group(sans_btn);
         sans_btn.set_active(font_family == "sans");
@@ -581,7 +581,7 @@ public class ReaderView : GLib.Object {
         popover_box.append(family_row);
 
         // ---- Color scheme ----
-        var color_heading = new Gtk.Label("Color");
+        var color_heading = new Gtk.Label(_("Color"));
         color_heading.add_css_class("heading");
         color_heading.set_xalign(0);
         popover_box.append(color_heading);
@@ -625,12 +625,12 @@ public class ReaderView : GLib.Object {
 
     private string scheme_label(string scheme) {
         switch (scheme) {
-            case "light": return "Light";
-            case "sepia": return "Sepia";
-            case "gray": return "Gray";
-            case "dark": return "Dark";
-            case "night": return "Night";
-            default: return "Auto (match app theme)";
+            case "light": return _("Light");
+            case "sepia": return _("Sepia");
+            case "gray": return _("Gray");
+            case "dark": return _("Dark");
+            case "night": return _("Night");
+            default: return _("Auto (match app theme)");
         }
     }
 
@@ -646,7 +646,7 @@ public class ReaderView : GLib.Object {
     }
 
     private string font_scale_label() {
-        return "%d%%".printf((int) Math.round(font_scale * 100));
+        return _("%d%%").printf((int) Math.round(font_scale * 100));
     }
 
     private void save_and_apply() {
@@ -844,7 +844,7 @@ public class ReaderView : GLib.Object {
             }
         }
 
-        var title_label = new Gtk.Label(article.title.length > 0 ? article.title : "Untitled article");
+        var title_label = new Gtk.Label(article.title.length > 0 ? article.title : _("Untitled article"));
         title_label.add_css_class("reader-title");
         title_label.set_wrap(true);
         title_label.set_xalign(0);
@@ -989,7 +989,7 @@ public class ReaderView : GLib.Object {
 
         if (add_note_popover == null) {
             var btn = new Gtk.Button.from_icon_name("document-edit-symbolic");
-            btn.set_tooltip_text("Add note");
+            btn.set_tooltip_text(_("Add note"));
             btn.add_css_class("reader-add-note-btn");
             btn.set_size_request(24, 24);
             // Default halign/valign is FILL, so without this the button
@@ -998,7 +998,7 @@ public class ReaderView : GLib.Object {
             // its own natural size - that's what was distorting it.
             btn.set_halign(Gtk.Align.CENTER);
             btn.set_valign(Gtk.Align.CENTER);
-            btn.set_tooltip_text("Add note");
+            btn.set_tooltip_text(_("Add note"));
             // Without this, the button (and popover) grabs keyboard focus
             // away from the TextView, which then renders its selection in
             // the dimmed "unfocused" style instead of the normal highlight
@@ -1072,7 +1072,7 @@ public class ReaderView : GLib.Object {
 
         var expand_button = new Gtk.Button.from_icon_name("view-fullscreen-symbolic");
         expand_button.add_css_class("podcast-card-badge-btn");
-        expand_button.set_tooltip_text("View full size");
+        expand_button.set_tooltip_text(_("View full size"));
         expand_button.set_halign(Gtk.Align.END);
         expand_button.set_valign(Gtk.Align.END);
         expand_button.set_margin_end(8);
@@ -1089,7 +1089,10 @@ public class ReaderView : GLib.Object {
 
     private string build_byline(ExtractedArticle article) {
         var parts = new Gee.ArrayList<string>();
-        if (article.author != null && article.author.length > 0) parts.add("By " + article.author);
+        if (article.author != null && article.author.length > 0) {
+            // TRANSLATORS: %s is the article's author
+            parts.add(_("By %s").printf(article.author));
+        }
         if (article.published != null && article.published.length > 0) {
             string rel = DateUtils.time_ago(article.published);
             parts.add(rel.length > 0 ? rel : article.published);

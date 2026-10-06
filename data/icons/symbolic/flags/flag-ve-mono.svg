@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Flag from lipis/flag-icons (MIT), in shades of one color for Paperboy -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24" height="24" viewBox="0 0 24 24" version="1.1"><defs><clipPath id="paperboy-flag-clip"><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" /></clipPath><mask id="paperboy-flag-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><g fill="#fff" transform="translate(0.5 3.375) scale(0.0359375 0.0359375)"><defs>
+    <g id="ve-d" transform="translate(0 -36)">
+      <g id="ve-c">
+        <g id="ve-b">
+          <path id="ve-a" fill="#000000" d="M0-5-1.5-.2l2.8.9z" />
+          <use xlink:href="#ve-a" width="180" height="120" transform="scale(-1 1)" />
+        </g>
+        <use xlink:href="#ve-b" width="180" height="120" transform="rotate(72)" />
+      </g>
+      <use xlink:href="#ve-b" width="180" height="120" transform="rotate(-72)" />
+      <use xlink:href="#ve-c" width="180" height="120" transform="rotate(144)" />
+    </g>
+  </defs>
+  <path fill="#acacac" d="M0 0h640v480H0z" />
+  <path fill="#ffffff" d="M0 0h640v320H0z" />
+  <path fill="#595959" d="M0 0h640v160H0z" />
+  <g id="ve-f" transform="matrix(4 0 0 4 320 336)">
+    <g id="ve-e">
+      <use xlink:href="#ve-d" width="180" height="120" transform="rotate(10)" />
+      <use xlink:href="#ve-d" width="180" height="120" transform="rotate(30)" />
+    </g>
+    <use xlink:href="#ve-e" width="180" height="120" transform="rotate(40)" />
+  </g>
+  <use xlink:href="#ve-f" width="180" height="120" transform="rotate(-80 320 336)" />
+</g></mask></defs><rect x="0.5" y="3.375" width="23" height="17.25" fill="#000000" mask="url(#paperboy-flag-mask)" clip-path="url(#paperboy-flag-clip)" /><rect x="0.5" y="3.375" width="23" height="17.25" rx="1.5" fill="none" stroke="#000000" stroke-width="1" /></svg>

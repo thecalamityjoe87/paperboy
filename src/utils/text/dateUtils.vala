@@ -38,7 +38,13 @@ public class DateUtils {
 
         var dt = parse_published_datetime(s);
         if (dt != null) {
-            return dt.to_local().format("%b %-d, %Y • %H:%M");
+            var local = dt.to_local();
+            // TRANSLATORS: date before the time in an article's byline, a
+            // strftime format ("man strftime"): %b is the abbreviated month,
+            // %-d the unpadded day, %Y the year. Reorder to suit, e.g. "%-d %b %Y".
+            // xgettext:no-c-format
+            string date = format_or(local, _("%b %-d, %Y"), "%b %-d, %Y");
+            return date + " • " + format_or(local, clock_time_format(), "%H:%M");
         }
 
         // Unrecognized format - fall back to the old best-effort string
@@ -93,17 +99,47 @@ public class DateUtils {
         int64 seconds = new GLib.DateTime.now_utc().difference(dt) / GLib.TimeSpan.SECOND;
         if (seconds < 0) seconds = 0; // clock skew / future timestamp
 
-        if (seconds < 60) return "Just now";
-        int64 minutes = seconds / 60;
-        if (minutes < 60) return "%sm ago".printf(minutes.to_string());
-        int64 hours = minutes / 60;
-        if (hours < 24) return "%sh ago".printf(hours.to_string());
-        int64 days = hours / 24;
-        if (days < 7) return "%sd ago".printf(days.to_string());
+        if (seconds < 60) return _("Just now");
+        int minutes = (int) (seconds / 60);
+        // TRANSLATORS: compact relative times on article cards, where space
+        // is tight - abbreviate if your language allows it
+        if (minutes < 60) return ngettext("%dm ago", "%dm ago", minutes).printf(minutes);
+        int hours = minutes / 60;
+        if (hours < 24) return ngettext("%dh ago", "%dh ago", hours).printf(hours);
+        int days = hours / 24;
+        if (days < 7) return ngettext("%dd ago", "%dd ago", days).printf(days);
 
         // Older than a week: fall back to a short absolute date ("Aug 27").
-        string[] months = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-        return "%s %d".printf(months[dt.get_month() - 1], dt.get_day_of_month());
+        // TRANSLATORS: short date on article cards older than a week, a
+        // strftime format ("man strftime"): %b is the abbreviated month and
+        // %-d the unpadded day. Reorder to suit, e.g. "%-d %b".
+        // xgettext:no-c-format
+        return format_or(dt.to_local(), _("%b %-d"), "%b %-d");
+    }
+
+    // Page header date, e.g. "Monday, October 5".
+    public static string full_date(GLib.DateTime dt) {
+        // TRANSLATORS: date in page headers, a strftime format ("man strftime"):
+        // %A is the weekday, %B the month and %-d the unpadded day. Reorder to
+        // suit, e.g. "%A %-d %B".
+        // xgettext:no-c-format
+        return format_or(dt, _("%A, %B %-d"), "%A, %B %-d");
+    }
+
+    // Weekday and numeric date for game times, e.g. "Mon 10/5".
+    public static string short_weekday_date(GLib.DateTime dt) {
+        // TRANSLATORS: weekday and date on sports score cards, a strftime
+        // format ("man strftime"): %a is the abbreviated weekday, %-m the
+        // unpadded month number and %-d the unpadded day. Reorder to suit,
+        // e.g. "%a %-d.%-m.".
+        // xgettext:no-c-format
+        return format_or(dt, _("%a %-m/%-d"), "%a %-m/%-d");
+    }
+
+    // A translated strftime format can be broken; fall back to the English one
+    // rather than showing nothing.
+    private static string format_or(GLib.DateTime dt, string format, string fallback) {
+        return dt.format(format) ?? dt.format(fallback) ?? "";
     }
 
     private static bool clock_format_loaded;

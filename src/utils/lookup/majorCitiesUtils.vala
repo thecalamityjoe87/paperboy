@@ -22,7 +22,7 @@
  * metro's actual namesake city), plus a handful of state capitals/regional
  * hubs added to fill in sparsely-populated states, with approximate
  * coordinates. Used to find the nearest big metropolitan area to a
- * resolved ZIP/city location — Local News gets a better search term than
+ * resolved postal code/city location — Local News gets a better search term than
  * a small town's name, which Google News' RSS search often has little or
  * no dedicated coverage for.
  *
