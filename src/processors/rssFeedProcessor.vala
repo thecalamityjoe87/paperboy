@@ -555,7 +555,7 @@ public class RssFeedProcessor {
 
                 sink.clear_items();
                 foreach (var row in items) {
-                    string title = row[0] ?? "No title";
+                    string title = row[0] ?? _("No title");
                     string url = row[1] ?? "";
                     string? pub_date = row.size > 3 ? row[3] : null;
                     // Local and national news come from one Google News feed, so use each item's own publisher
@@ -683,7 +683,7 @@ public class RssFeedProcessor {
                         if (!f.query_exists(null)) {
                             // regeneration is handled by FeedUpdateManager, not here
                             warning("Local RSS file not found, will need regeneration: %s", path);
-                            try { sink.set_label(_("Generating feed... (this may take 30-40 seconds)")); } catch (GLib.Error e) { }
+                            try { sink.set_label("Generating feed... (this may take 30-40 seconds)"); } catch (GLib.Error e) { }
                             return null;
                         }
                         string body = "";

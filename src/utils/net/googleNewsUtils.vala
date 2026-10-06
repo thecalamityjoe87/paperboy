@@ -177,8 +177,10 @@ public class GoogleNewsUtils {
 
     // "US News", "Germany News", "Canada News".
     public static string national_label() {
+        // TRANSLATORS: the national news category in the United States edition
+        if (is_us_edition()) return _("US News");
         // TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
-        return is_us_edition() ? _("US News") : _("%s News").printf(country_name());
+        return _("%s News").printf(country_name());
     }
 
     // The edition's country without its language, translated: "Canada",

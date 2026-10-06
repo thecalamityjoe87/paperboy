@@ -78,4 +78,8 @@ src/services/feeds/builtinSources.vala
 src/services/magazines/magazinePdfImportService.vala
 src/services/podcasts/podcastFeedResolver.vala
 src/ui/controllers/stocksTickerController.vala
+src/services/articles/articleSnippetService.vala
+src/services/cache/metaCache.vala
+src/services/cache/rssArticleCache.vala
+src/utils/net/urlUtils.vala
 data/io.github.thecalamityjoe87.Paperboy.desktop.in

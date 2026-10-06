@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 18:02-0500\n"
+"POT-Creation-Date: 2026-10-05 19:57-0500\n"
 "PO-Revision-Date: 2026-10-05 17:08-0500\n"
 "Last-Translator: \n"
 "Language-Team: French\n"
@@ -20,14 +20,30 @@ msgstr ""
 msgid "Feeds"
 msgstr "Flux"
 
-#: src/builders/cardBuilder.vala:229 src/managers/ui/headerManager.vala:482
-#: src/managers/ui/headerManager.vala:484
-#: src/managers/ui/headerManager.vala:514
-#: src/services/fetchers/fetcherUtils.vala:39
+#. The untranslated Local News key (see SourceManager) is shown translated
+#: src/builders/cardBuilder.vala:201
+#: src/managers/content/categoryManager.vala:206
+#: src/managers/ui/headerManager.vala:479
+#: src/managers/ui/sidebarManager.vala:319
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:376
+#: src/services/feeds/unreadFetchService.vala:226
+#: src/ui/controllers/fetchNewsController.vala:1070
+#: src/services/articles/articleSnippetService.vala:239
+msgid "Local News"
+msgstr "Actualités locales"
+
+#. Turn a host like "example-news.co.uk" into a friendly display string
+#. such as "Example News". This is intentionally simple and is only
+#. used as a fallback when no explicit source name is available.
+#: src/builders/cardBuilder.vala:230 src/managers/ui/headerManager.vala:484
+#: src/managers/ui/headerManager.vala:486
+#: src/managers/ui/headerManager.vala:516
+#: src/services/fetchers/fetcherUtils.vala:39 src/utils/net/urlUtils.vala:115
+#: src/utils/net/urlUtils.vala:117 src/utils/net/urlUtils.vala:147
 msgid "News"
 msgstr "Actualités"
 
-#: src/builders/cardBuilder.vala:255
+#: src/builders/cardBuilder.vala:256
 #: src/ui/components/articles/articlePane.vala:293
 #: src/ui/components/articles/articleSheet.vala:518
 #: src/managers/content/articleManager.vala:1205
@@ -37,37 +53,58 @@ msgstr "Actualités"
 msgid "Searching for feed..."
 msgstr "Recherche du flux..."
 
-#: src/builders/cardBuilder.vala:304
+#: src/builders/cardBuilder.vala:305
 #: src/ui/components/articles/heroCard.vala:183
 msgid "Open in reader view"
 msgstr "Ouvrir en mode lecture"
 
-#: src/builders/cardBuilder.vala:316
+#: src/builders/cardBuilder.vala:317
 #: src/ui/components/articles/heroCard.vala:196
 msgid "Preview article"
 msgstr "Aperçu de l’article"
 
-#: src/builders/cardBuilder.vala:341
+#: src/builders/cardBuilder.vala:342
 msgid "More like this"
 msgstr "Plus d’articles de ce genre"
 
-#: src/builders/cardBuilder.vala:346
+#: src/builders/cardBuilder.vala:347
 msgid "Less like this"
 msgstr "Moins d’articles de ce genre"
 
-#: src/builders/cardBuilder.vala:395
+#: src/builders/cardBuilder.vala:396
 msgid "You'll see more articles like this"
 msgstr "Vous verrez plus d’articles comme celui-ci"
 
-#: src/builders/cardBuilder.vala:396
+#: src/builders/cardBuilder.vala:397
 msgid "You'll see fewer articles like this"
 msgstr "Vous verrez moins d’articles comme celui-ci"
 
-#: src/builders/cardBuilder.vala:397
+#: src/builders/cardBuilder.vala:398
 msgid "Rating removed"
 msgstr "Note retirée"
 
-#: src/builders/cardBuilder.vala:658
+#: src/builders/cardBuilder.vala:424
+msgctxt "follow button tooltip"
+msgid "Following this source"
+msgstr "Vous suivez cette source"
+
+#: src/builders/cardBuilder.vala:424 src/ui/menus/articleMenu.vala:81
+msgid "Follow this source"
+msgstr "Suivre cette source"
+
+#. TRANSLATORS: %s is a news source, e.g. "Follow BBC News"
+#: src/builders/cardBuilder.vala:427
+#, c-format
+msgctxt "follow button tooltip"
+msgid "Following %s"
+msgstr "Vous suivez %s"
+
+#: src/builders/cardBuilder.vala:427
+#, c-format
+msgid "Follow %s"
+msgstr "Suivre %s"
+
+#: src/builders/cardBuilder.vala:664
 msgid "Read"
 msgstr "Lu"
 
@@ -80,14 +117,14 @@ msgid "U.S."
 msgstr "États-Unis"
 
 #: src/managers/content/categoryManager.vala:192
-#: src/managers/ui/headerManager.vala:463
+#: src/managers/ui/headerManager.vala:465
 #: src/services/fetchers/bbcFetcher.vala:72
 #: src/services/fetchers/fetcherUtils.vala:27
 msgid "Technology"
 msgstr "Technologie"
 
 #: src/managers/content/categoryManager.vala:193
-#: src/managers/ui/headerManager.vala:464
+#: src/managers/ui/headerManager.vala:466
 #: src/services/fetchers/bbcFetcher.vala:73
 #: src/services/fetchers/fetcherUtils.vala:28
 #: src/services/fetchers/pbsFetcher.vala:73
@@ -95,7 +132,7 @@ msgid "Business"
 msgstr "Économie et entreprises"
 
 #: src/managers/content/categoryManager.vala:194
-#: src/managers/ui/headerManager.vala:466
+#: src/managers/ui/headerManager.vala:468
 #: src/services/fetchers/bbcFetcher.vala:74
 #: src/services/fetchers/fetcherUtils.vala:32
 #: src/services/fetchers/pbsFetcher.vala:74
@@ -103,14 +140,14 @@ msgid "Science"
 msgstr "Sciences"
 
 #: src/managers/content/categoryManager.vala:195
-#: src/managers/ui/headerManager.vala:465
+#: src/managers/ui/headerManager.vala:467
 #: src/services/fetchers/bbcFetcher.vala:75
 #: src/services/fetchers/fetcherUtils.vala:33
 msgid "Sports"
 msgstr "Sports"
 
 #: src/managers/content/categoryManager.vala:196
-#: src/managers/ui/headerManager.vala:467
+#: src/managers/ui/headerManager.vala:469
 #: src/services/fetchers/bbcFetcher.vala:76
 #: src/services/fetchers/fetcherUtils.vala:34
 #: src/services/fetchers/pbsFetcher.vala:75
@@ -118,7 +155,7 @@ msgid "Health"
 msgstr "Santé"
 
 #: src/managers/content/categoryManager.vala:197
-#: src/managers/ui/headerManager.vala:468
+#: src/managers/ui/headerManager.vala:470
 #: src/services/fetchers/bbcFetcher.vala:79
 #: src/services/fetchers/fetcherUtils.vala:35
 #: src/services/fetchers/pbsFetcher.vala:77
@@ -126,7 +163,7 @@ msgid "Entertainment"
 msgstr "Divertissement"
 
 #: src/managers/content/categoryManager.vala:198
-#: src/managers/ui/headerManager.vala:469
+#: src/managers/ui/headerManager.vala:471
 #: src/services/fetchers/bbcFetcher.vala:78
 #: src/services/fetchers/fetcherUtils.vala:36
 #: src/services/fetchers/pbsFetcher.vala:76
@@ -134,13 +171,13 @@ msgid "Politics"
 msgstr "Politique"
 
 #: src/managers/content/categoryManager.vala:199
-#: src/managers/ui/headerManager.vala:470
+#: src/managers/ui/headerManager.vala:472
 #: src/services/fetchers/fetcherUtils.vala:37
 msgid "Lifestyle"
 msgstr "Art de vivre"
 
 #: src/managers/content/categoryManager.vala:200
-#: src/managers/ui/headerManager.vala:471
+#: src/managers/ui/headerManager.vala:473
 #: src/ui/controllers/myFeedExtrasController.vala:302
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:346
 #: src/services/fetchers/fetcherUtils.vala:29
@@ -148,20 +185,20 @@ msgid "Markets"
 msgstr "Marchés"
 
 #: src/managers/content/categoryManager.vala:201
-#: src/managers/ui/headerManager.vala:472
+#: src/managers/ui/headerManager.vala:474
 #: src/services/fetchers/fetcherUtils.vala:30
 msgid "Industries"
 msgstr "Industries"
 
 #: src/managers/content/categoryManager.vala:202
-#: src/managers/ui/headerManager.vala:473
+#: src/managers/ui/headerManager.vala:475
 #: src/services/fetchers/fetcherUtils.vala:31
 msgid "Economics"
 msgstr "Économie"
 
 #. If this removed source was selected, fall back to Front Page
 #: src/managers/content/categoryManager.vala:203
-#: src/managers/ui/headerManager.vala:455
+#: src/managers/ui/headerManager.vala:457
 #: src/managers/ui/sidebarManager.vala:307
 #: src/managers/ui/sidebarManager.vala:698
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:377
@@ -170,36 +207,27 @@ msgid "Front Page"
 msgstr "À la une"
 
 #: src/managers/content/categoryManager.vala:204
-#: src/managers/ui/headerManager.vala:456
+#: src/managers/ui/headerManager.vala:458
 msgid "Trending"
 msgstr "Tendances"
 
 #. use URL, not name, for source filtering
 #: src/managers/content/categoryManager.vala:205
-#: src/managers/ui/headerManager.vala:474
+#: src/managers/ui/headerManager.vala:476
 #: src/managers/ui/sidebarManager.vala:308
 #: src/services/fetchers/fetcherUtils.vala:24
-#: src/ui/controllers/fetchNewsController.vala:582
+#: src/ui/controllers/fetchNewsController.vala:571
 msgid "My Feed"
 msgstr "Mon fil"
 
-#: src/managers/content/categoryManager.vala:206
-#: src/managers/ui/headerManager.vala:477
-#: src/managers/ui/sidebarManager.vala:319
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:375
-#: src/services/feeds/unreadFetchService.vala:226
-#: src/ui/controllers/fetchNewsController.vala:1081
-msgid "Local News"
-msgstr "Actualités locales"
-
 #: src/managers/content/categoryManager.vala:207
-#: src/managers/ui/headerManager.vala:457
+#: src/managers/ui/headerManager.vala:459
 #: src/managers/ui/sidebarManager.vala:310
 msgid "Saved"
 msgstr "Enregistrés"
 
 #: src/managers/content/categoryManager.vala:208
-#: src/managers/ui/headerManager.vala:458
+#: src/managers/ui/headerManager.vala:460
 #: src/managers/ui/sidebarManager.vala:311
 msgid "History"
 msgstr "Historique"
@@ -381,8 +409,9 @@ msgstr "Téléchargement du magazine…"
 
 #: src/managers/media/magazineLibraryManager.vala:948
 #: src/managers/media/magazineLibraryManager.vala:968
-msgid "Added: "
-msgstr "Ajouté : "
+#, c-format
+msgid "Added: %s"
+msgstr "Ajouté : %s"
 
 #: src/managers/media/magazineLibraryManager.vala:950
 #: src/managers/media/magazineLibraryManager.vala:970
@@ -423,12 +452,18 @@ msgstr "Chargement..."
 msgid "Show More Categories"
 msgstr "Afficher plus de catégories"
 
-#: src/managers/ui/headerManager.vala:133
+#. TRANSLATORS: today's high and low temperatures, e.g. "H 75° · L 58°"; keep the <b></b> markup
+#: src/managers/ui/headerManager.vala:131
+#, c-format
+msgid "H <b>%s</b> · L <b>%s</b>"
+msgstr "Max. <b>%s</b> · Min. <b>%s</b>"
+
+#: src/managers/ui/headerManager.vala:134
 #, c-format
 msgid "Weather in %s"
 msgstr "Météo à %s"
 
-#: src/managers/ui/headerManager.vala:134
+#: src/managers/ui/headerManager.vala:135
 msgid ""
 "\n"
 "Open Weather for the full forecast"
@@ -436,11 +471,11 @@ msgstr ""
 "\n"
 "Ouvrez Météo pour les prévisions complètes"
 
-#: src/managers/ui/headerManager.vala:152
+#: src/managers/ui/headerManager.vala:153
 msgid "Clear history?"
 msgstr "Effacer l’historique ?"
 
-#: src/managers/ui/headerManager.vala:153
+#: src/managers/ui/headerManager.vala:154
 msgid ""
 "This will permanently delete your reading history. This can't be undone."
 msgstr ""
@@ -448,15 +483,15 @@ msgstr ""
 "irréversible."
 
 #. History page action - lives in the title row since the date row is hidden there.
-#: src/managers/ui/headerManager.vala:153 src/ui/contentView.vala:164
+#: src/managers/ui/headerManager.vala:154 src/ui/contentView.vala:164
 msgid "Clear History"
 msgstr "Effacer l’historique"
 
-#: src/managers/ui/headerManager.vala:156
+#: src/managers/ui/headerManager.vala:157
 msgid "History cleared"
 msgstr "Historique effacé"
 
-#: src/managers/ui/headerManager.vala:188
+#: src/managers/ui/headerManager.vala:189
 msgid "Browse podcasts"
 msgstr "Parcourir les podcasts"
 
@@ -467,24 +502,26 @@ msgstr "Parcourir les podcasts"
 #. the description text next to the cover art, even though the
 #. button isn't anywhere near that text visually. Lock the width
 #. to whichever label is widest so toggling never reflows the row.
-#: src/managers/ui/headerManager.vala:198
+#: src/managers/ui/headerManager.vala:199
 #: src/ui/components/podcasts/podcastCard.vala:230
 #: src/ui/components/podcasts/podcastHeroCard.vala:169
-#: src/ui/components/podcasts/podcastPane.vala:461
+#: src/ui/components/podcasts/podcastPane.vala:462
 #: src/ui/dialogs/media/podcastDetailDialog.vala:164
 #: src/ui/dialogs/media/podcastDetailDialog.vala:180
 msgid "Subscribed"
 msgstr "Abonné"
 
-#: src/managers/ui/headerManager.vala:198 src/ui/contentView.vala:216
+#: src/managers/ui/headerManager.vala:199 src/ui/contentView.vala:216
 msgid "Add podcast"
 msgstr "Ajouter un podcast"
 
-#: src/managers/ui/headerManager.vala:252
-msgid "Couldn't add podcast: "
-msgstr "Impossible d’ajouter le podcast : "
+#. TRANSLATORS: %s is the reason, e.g. "Couldn't add podcast: no episodes found"
+#: src/managers/ui/headerManager.vala:254
+#, c-format
+msgid "Couldn't add podcast: %s"
+msgstr "Impossible d’ajouter le podcast : %s"
 
-#: src/managers/ui/headerManager.vala:252
+#: src/managers/ui/headerManager.vala:254
 msgid "unknown error"
 msgstr "erreur inconnue"
 
@@ -493,26 +530,27 @@ msgstr "erreur inconnue"
 #. the terminal state change, and SidebarManager already
 #. listens to PodcastSubscriptionStore.subscription_added
 #. and rebuilds on its own.
-#: src/managers/ui/headerManager.vala:258 src/ui/sidebarView.vala:879
-msgid "Podcast added: "
-msgstr "Podcast ajouté : "
+#: src/managers/ui/headerManager.vala:260 src/ui/sidebarView.vala:879
+#, c-format
+msgid "Podcast added: %s"
+msgstr "Podcast ajouté : %s"
 
-#: src/managers/ui/headerManager.vala:432
+#: src/managers/ui/headerManager.vala:434
 #, c-format
 msgid "%d saved article"
 msgid_plural "%d saved articles"
 msgstr[0] "%d article enregistré"
 msgstr[1] "%d articles enregistrés"
 
-#: src/managers/ui/headerManager.vala:443
-#: src/managers/ui/headerManager.vala:451
+#: src/managers/ui/headerManager.vala:445
+#: src/managers/ui/headerManager.vala:453
 msgid "RSS Feed"
 msgstr "Flux RSS"
 
 #. Create horizontal box for category label and source info
 #. Add category label (bigger size) - left aligned
-#: src/managers/ui/headerManager.vala:459
-#: src/managers/ui/headerManager.vala:461 src/ui/contentView.vala:144
+#: src/managers/ui/headerManager.vala:461
+#: src/managers/ui/headerManager.vala:463 src/ui/contentView.vala:144
 #: src/services/fetchers/bbcFetcher.vala:80
 #: src/services/fetchers/fetcherUtils.vala:25
 #: src/services/fetchers/pbsFetcher.vala:78
@@ -520,39 +558,39 @@ msgid "World News"
 msgstr "Actualités internationales"
 
 #. id stays "podcasts" (the routing key) - only title/icon change.
-#: src/managers/ui/headerManager.vala:478
+#: src/managers/ui/headerManager.vala:480
 #: src/managers/ui/sidebarManager.vala:377
 msgid "Find Podcasts"
 msgstr "Trouver des podcasts"
 
-#: src/managers/ui/headerManager.vala:479
+#: src/managers/ui/headerManager.vala:481
 #: src/managers/ui/sidebarManager.vala:309
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:348
 msgid "Magazine Rack"
 msgstr "Kiosque"
 
-#: src/managers/ui/loadingStateManager.vala:187
-#: src/managers/ui/loadingStateManager.vala:656
-#: src/managers/ui/loadingStateManager.vala:662 src/ui/appWindow.vala:1401
+#: src/managers/ui/loadingStateManager.vala:185
+#: src/managers/ui/loadingStateManager.vala:654
+#: src/managers/ui/loadingStateManager.vala:660 src/ui/appWindow.vala:1401
 #: src/ui/contentView.vala:1034 src/managers/ui/layoutManager.vala:505
 msgid "<b>No more articles</b>"
 msgstr "<b>Plus d’articles</b>"
 
-#: src/managers/ui/loadingStateManager.vala:187
-#: src/managers/ui/loadingStateManager.vala:656 src/ui/contentView.vala:1034
+#: src/managers/ui/loadingStateManager.vala:185
+#: src/managers/ui/loadingStateManager.vala:654 src/ui/contentView.vala:1034
 #: src/managers/ui/layoutManager.vala:505
 msgid "No more articles"
 msgstr "Plus d’articles"
 
-#: src/managers/ui/loadingStateManager.vala:198
+#: src/managers/ui/loadingStateManager.vala:196
 msgid "Loading local news..."
 msgstr "Chargement des actualités locales..."
 
-#: src/managers/ui/loadingStateManager.vala:200
+#: src/managers/ui/loadingStateManager.vala:198
 msgid "Loading content..."
 msgstr "Chargement du contenu..."
 
-#: src/managers/ui/loadingStateManager.vala:255
+#: src/managers/ui/loadingStateManager.vala:253
 msgid ""
 "No articles could be loaded. Try refreshing or check your source settings."
 msgstr ""
@@ -566,15 +604,15 @@ msgstr ""
 #. its Refresh button. Also ends the initial phase and cancels the reveal
 #. timeouts - left armed, INITIAL_MAX_WAIT_MS later fires
 #. show_error_message() over this since no items were ever populated.
-#: src/managers/ui/loadingStateManager.vala:269
+#: src/managers/ui/loadingStateManager.vala:267
 msgid "Nothing here yet"
 msgstr "Rien pour le moment"
 
-#: src/managers/ui/loadingStateManager.vala:401
+#: src/managers/ui/loadingStateManager.vala:399
 msgid "Personalized feed is disabled."
 msgstr "Le fil personnalisé est désactivé."
 
-#: src/managers/ui/loadingStateManager.vala:403
+#: src/managers/ui/loadingStateManager.vala:401
 msgid ""
 "Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
 "'Enable personalized feed' toggle to see content from your feeds."
@@ -582,11 +620,11 @@ msgstr ""
 "Ouvrez le menu principal (☰) → Préférences → onglet « Personnalisation » → "
 "activez « Activer le fil personnalisé » pour voir le contenu de vos flux."
 
-#: src/managers/ui/loadingStateManager.vala:409
+#: src/managers/ui/loadingStateManager.vala:407
 msgid "No custom RSS feeds followed."
 msgstr "Aucun flux RSS personnalisé suivi."
 
-#: src/managers/ui/loadingStateManager.vala:411
+#: src/managers/ui/loadingStateManager.vala:409
 msgid ""
 "You've enabled 'Custom sources only' mode. Follow and enable RSS feeds by "
 "clicking the button below or open the main menu (☰) → Preferences → "
@@ -596,12 +634,12 @@ msgstr ""
 "activez des flux RSS avec le bouton ci-dessous ou ouvrez le menu principal "
 "(☰) → Préférences → onglet « Personnalisation »."
 
-#: src/managers/ui/loadingStateManager.vala:417
+#: src/managers/ui/loadingStateManager.vala:415
 msgid "Personalized Feed is enabled but no categories are selected."
 msgstr ""
 "Le fil personnalisé est activé, mais aucune catégorie n’est sélectionnée."
 
-#: src/managers/ui/loadingStateManager.vala:419
+#: src/managers/ui/loadingStateManager.vala:417
 msgid ""
 "Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
 "'Enable personalized feed' toggle and click its settings icon to select "
@@ -626,7 +664,7 @@ msgstr "Podcasts"
 
 #. Page header label, e.g. "Dallas News".
 #. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
-#: src/models/news/localArea.vala:53 src/utils/net/googleNewsUtils.vala:181
+#: src/models/news/localArea.vala:53 src/utils/net/googleNewsUtils.vala:183
 #, c-format
 msgid "%s News"
 msgstr "Actualités – %s"
@@ -701,6 +739,10 @@ msgctxt "Weather"
 msgid "Thunderstorm with hail"
 msgstr "Orage avec grêle"
 
+#: src/processors/rssFeedProcessor.vala:558
+msgid "No title"
+msgstr "Sans titre"
+
 #: src/processors/rssFeedProcessor.vala:671
 msgid "Error loading feed — invalid (empty) URL"
 msgstr "Erreur de chargement du flux — URL non valide (vide)"
@@ -708,11 +750,6 @@ msgstr "Erreur de chargement du flux — URL non valide (vide)"
 #: src/processors/rssFeedProcessor.vala:676
 msgid "Error loading feed — invalid URL"
 msgstr "Erreur de chargement du flux — URL non valide"
-
-#. regeneration is handled by FeedUpdateManager, not here
-#: src/processors/rssFeedProcessor.vala:686
-msgid "Generating feed... (this may take 30-40 seconds)"
-msgstr "Génération du flux... (cela peut prendre 30 à 40 secondes)"
 
 #: src/processors/rssFeedProcessor.vala:693
 msgid "Failed to read local RSS file"
@@ -929,7 +966,9 @@ msgstr "En direct"
 #. reads as "load more into this row" - the row's own nav arrows already
 #. do that. Static for the same reason as add_nav_buttons: it hangs a
 #. closure off a signal owned by `wrapper`.
-#: src/ui/components/articles/categorySection.vala:459
+#. TRANSLATORS: %s is a category, e.g. "Go to Sports →"; in right-to-left
+#. languages put the arrow first and point it left ("← ...")
+#: src/ui/components/articles/categorySection.vala:461
 #, c-format
 msgid "Go to %s →"
 msgstr "Aller à %s →"
@@ -959,11 +998,13 @@ msgstr "Choisi d’après les sujets et les sites que vous lisez"
 #. block, present in every GNOME distro's default font stack
 #. (Cantarell, Noto, DejaVu), so this needs no icon theme lookup or
 #. bundled asset.
-#: src/ui/components/common/scrollNavButtons.vala:59
+#. TRANSLATORS: keep the arrows as they are in right-to-left languages too;
+#. the buttons stay on the left and right edges and scroll that way
+#: src/ui/components/common/scrollNavButtons.vala:61
 msgid "←"
 msgstr "←"
 
-#: src/ui/components/common/scrollNavButtons.vala:69
+#: src/ui/components/common/scrollNavButtons.vala:70
 msgid "→"
 msgstr "→"
 
@@ -1045,13 +1086,15 @@ msgstr "Page %d sur %d"
 msgid "%d"
 msgstr "%d"
 
+#. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/components/podcasts/podcastCard.vala:96
-#: src/ui/components/podcasts/podcastPane.vala:164
-#: src/ui/components/podcasts/podcastPane.vala:523
+#: src/ui/components/podcasts/podcastPane.vala:165
+#: src/ui/components/podcasts/podcastPane.vala:524
 #: src/ui/components/sports/highlightCard.vala:124
-#: src/ui/components/sports/scoreCard.vala:103
-#: src/ui/components/sports/scoreCard.vala:121
-#: src/ui/components/sports/scoreCard.vala:123
+#: src/ui/components/sports/scoreCard.vala:116
+#: src/ui/components/sports/scoreCard.vala:126
+#: src/ui/components/sports/scoreCard.vala:168
+#: src/ui/components/sports/scoreCard.vala:170
 #: src/ui/dialogs/media/podcastDetailDialog.vala:374
 #: src/ui/dialogs/media/podcastPickerDialog.vala:60
 #, c-format
@@ -1059,14 +1102,14 @@ msgid "%s · %s"
 msgstr "%s · %s"
 
 #: src/ui/components/podcasts/podcastCard.vala:104
-#: src/ui/components/podcasts/podcastPane.vala:597
+#: src/ui/components/podcasts/podcastPane.vala:598
 #: src/ui/dialogs/media/podcastDetailDialog.vala:445
 #, c-format
 msgid "%lldh %lldm"
 msgstr "%lld h %lld min"
 
 #: src/ui/components/podcasts/podcastCard.vala:105
-#: src/ui/components/podcasts/podcastPane.vala:598
+#: src/ui/components/podcasts/podcastPane.vala:599
 #: src/ui/dialogs/media/podcastDetailDialog.vala:446
 #, c-format
 msgid "%lldm"
@@ -1084,23 +1127,25 @@ msgstr "Cliquez pour plus de détails"
 
 #: src/ui/components/podcasts/podcastCard.vala:230
 #: src/ui/components/podcasts/podcastHeroCard.vala:169
-#: src/ui/components/podcasts/podcastPane.vala:461
+#: src/ui/components/podcasts/podcastPane.vala:462
 #: src/ui/dialogs/media/podcastDetailDialog.vala:164
 #: src/ui/menus/podcastMenu.vala:80
 msgid "Subscribe"
 msgstr "S’abonner"
 
-#: src/ui/components/podcasts/podcastPane.vala:163
-#: src/ui/components/podcasts/podcastPane.vala:520
-msgid " left"
-msgstr " restantes"
+#. TRANSLATORS: %s is the time remaining in an episode, e.g. "12:34 left"
+#: src/ui/components/podcasts/podcastPane.vala:164
+#: src/ui/components/podcasts/podcastPane.vala:521
+#, c-format
+msgid "%s left"
+msgstr "%s restantes"
 
-#: src/ui/components/podcasts/podcastPane.vala:450
+#: src/ui/components/podcasts/podcastPane.vala:451
 #: src/ui/dialogs/media/podcastDetailDialog.vala:228
 msgid "No episodes found for this show."
 msgstr "Aucun épisode trouvé pour cette émission."
 
-#: src/ui/components/podcasts/podcastPane.vala:506
+#: src/ui/components/podcasts/podcastPane.vala:507
 #: src/ui/dialogs/media/podcastDetailDialog.vala:364
 msgid "New"
 msgstr "Nouveau"
@@ -1231,9 +1276,11 @@ msgstr "Ajouter une note"
 msgid "View full size"
 msgstr "Afficher en taille réelle"
 
-#: src/ui/components/reader/readerView.vala:1092
-msgid "By "
-msgstr "Par "
+#. TRANSLATORS: %s is the article's author
+#: src/ui/components/reader/readerView.vala:1094
+#, c-format
+msgid "By %s"
+msgstr "Par %s"
 
 #: src/ui/components/sports/leagueBadgeCarousel.vala:203
 msgid "Add more leagues"
@@ -1243,23 +1290,23 @@ msgstr "Ajouter d’autres ligues"
 msgid "Settings"
 msgstr "Paramètres"
 
-#: src/ui/components/sports/scoreCard.vala:102
+#: src/ui/components/sports/scoreCard.vala:115
 msgid "LIVE"
 msgstr "EN DIRECT"
 
-#: src/ui/components/sports/scoreCard.vala:122
+#: src/ui/components/sports/scoreCard.vala:169
 msgid "TBD"
 msgstr "À déterminer"
 
-#: src/ui/components/sports/scoreCard.vala:133
+#: src/ui/components/sports/scoreCard.vala:180
 msgid "Today"
 msgstr "Aujourd’hui"
 
-#: src/ui/components/sports/scoreCard.vala:134
+#: src/ui/components/sports/scoreCard.vala:181
 msgid "Yesterday"
 msgstr "Hier"
 
-#: src/ui/components/sports/scoreCard.vala:135
+#: src/ui/components/sports/scoreCard.vala:182
 msgid "Tomorrow"
 msgstr "Demain"
 
@@ -1398,7 +1445,7 @@ msgid "Add city"
 msgstr "Ajouter une ville"
 
 #: src/ui/dialogs/app/locationDialog.vala:83 src/ui/menus/sidebarMenu.vala:56
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:416
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:417
 msgid "Change location"
 msgstr "Changer de lieu"
 
@@ -1567,23 +1614,23 @@ msgstr "Scores sportifs en direct"
 #: src/ui/dialogs/app/onboardingDialog.vala:601
 msgid ""
 "See live scores from your favorite leagues right in the Sports category. "
-"Choose which leagues to follow and drag to set their order - you can change "
-"this anytime from Preferences."
+"Choose which leagues to follow - you can change this, and the order their "
+"sections appear in, anytime from Preferences."
 msgstr ""
-"Suivez les scores en direct de vos ligues favorites directement dans la "
-"catégorie Sports. Choisissez les ligues à suivre et faites-les glisser pour "
-"définir leur ordre — vous pouvez le changer à tout moment dans les "
+"Suivez les scores en direct de vos ligues préférées directement dans la "
+"catégorie Sports. Choisissez les ligues à suivre – vous pourrez modifier ce "
+"choix, ainsi que l’ordre de leurs sections, à tout moment dans les "
 "Préférences."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:609
 msgid "Show Score Cards"
 msgstr "Afficher les cartes de score"
 
-#: src/ui/dialogs/app/onboardingDialog.vala:653
+#: src/ui/dialogs/app/onboardingDialog.vala:656
 msgid "Local News, Too"
 msgstr "Et les actualités locales"
 
-#: src/ui/dialogs/app/onboardingDialog.vala:660
+#: src/ui/dialogs/app/onboardingDialog.vala:663
 msgid ""
 "Set your location to get a Local News feed for your area. You can do this "
 "now or anytime later from the main menu."
@@ -1592,7 +1639,7 @@ msgstr ""
 "région. Vous pouvez le faire maintenant ou plus tard depuis le menu "
 "principal."
 
-#: src/ui/dialogs/app/onboardingDialog.vala:667
+#: src/ui/dialogs/app/onboardingDialog.vala:670
 msgid "Set My Location"
 msgstr "Définir mon lieu"
 
@@ -1961,10 +2008,6 @@ msgid "Open article in browser"
 msgstr "Ouvrir l’article dans le navigateur"
 
 #: src/ui/menus/articleMenu.vala:81
-msgid "Follow this source"
-msgstr "Suivre cette source"
-
-#: src/ui/menus/articleMenu.vala:81
 msgid "Built-in source"
 msgstr "Source intégrée"
 
@@ -2006,7 +2049,7 @@ msgid "Remove podcast"
 msgstr "Supprimer le podcast"
 
 #: src/ui/menus/sidebarMenu.vala:65
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:417
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:418
 msgid "Remove location"
 msgstr "Supprimer le lieu"
 
@@ -2048,7 +2091,7 @@ msgstr "Voulez-vous vraiment supprimer « %s » et tous ses articles ?"
 #: src/ui/menus/sidebarMenu.vala:179
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:164
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:345
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:346
 msgid "Remove"
 msgstr "Supprimer"
 
@@ -2127,7 +2170,7 @@ msgid "Your Scores"
 msgstr "Vos scores"
 
 #: src/ui/controllers/myFeedExtrasController.vala:336
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:364
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:365
 msgid "Magazines"
 msgstr "Magazines"
 
@@ -2440,7 +2483,7 @@ msgstr[1] "Les %d catégories"
 
 #. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:135
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:139
 msgid "None"
 msgstr "Aucune"
 
@@ -2753,7 +2796,7 @@ msgid "Shows you've subscribed to"
 msgstr "Les émissions auxquelles vous êtes abonné"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:315
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:361
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:362
 msgid "Magazine sources"
 msgstr "Sources de magazines"
 
@@ -2783,19 +2826,35 @@ msgstr "Supprimer la source"
 msgid "\"%s\" will be removed."
 msgstr "« %s » sera supprimé."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:345
+#. TRANSLATORS: %1$s is a magazine source's name, %2$d how many magazines were added from it
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:342
+#, c-format
+msgid ""
+"\"%1$s\" and the %2$d magazine added from it will be removed, including its "
+"downloaded file."
+msgid_plural ""
+"\"%1$s\" and the %2$d magazines added from it will be removed, including "
+"their downloaded files."
+msgstr[0] ""
+"« %1$s » et %2$d magazine ajouté depuis cette source seront supprimés, y "
+"compris son fichier téléchargé."
+msgstr[1] ""
+"« %1$s » et les %2$d magazines ajoutés depuis cette source seront supprimés, "
+"y compris leurs fichiers téléchargés."
+
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:346
 msgid "Remove source?"
 msgstr "Supprimer la source ?"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:365
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
 msgid "Websites scanned for magazine PDFs"
 msgstr "Sites web analysés pour trouver des PDF de magazines"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:377
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:378
 msgid "Add a location"
 msgstr "Ajouter un lieu"
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:402
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:403
 #, c-format
 msgid "%d of %d location added. Remove one to add another."
 msgid_plural "%d of %d locations added. Remove one to add another."
@@ -2804,61 +2863,65 @@ msgstr[0] ""
 msgstr[1] ""
 "Lieux ajoutés : %d sur %d. Supprimez-en un pour en ajouter un autre."
 
-#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:404
+#: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:405
 #, c-format
 msgid "Up to %d location · %d added"
 msgid_plural "Up to %d locations · %d added"
 msgstr[0] "Jusqu’à %d lieu · ajoutés : %d"
 msgstr[1] "Jusqu’à %d lieux · ajoutés : %d"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:35
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
 msgid "Sports Score Cards"
 msgstr "Cartes de score sportives"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
-msgid "Choose which leagues show score cards in the Sports category, and the order their sections appear in"
-msgstr "Choisissez les ligues qui affichent des cartes de score dans la catégorie Sports, et l’ordre de leurs sections"
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:37
+msgid ""
+"Choose which leagues show score cards in the Sports category, and the order "
+"their sections appear in"
+msgstr ""
+"Choisissez les ligues qui affichent des cartes de score dans la catégorie "
+"Sports, et l’ordre de leurs sections"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:39
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:313
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:40
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:306
 msgid "Favorite Teams"
 msgstr "Équipes favorites"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:40
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:41
 msgid "Follow specific teams to show their own score cards"
 msgstr ""
 "Suivez des équipes précises pour afficher leurs propres cartes de score"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:44
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:167
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:45
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:148
 msgid "Leagues"
 msgstr "Ligues"
 
 #. Rebuilt each time it opens, so it lists the leagues that are on now.
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:50
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:176
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:51
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:192
 msgid "Section Order"
 msgstr "Ordre des sections"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:51
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:52
 msgid "Drag leagues into the order their sections appear in"
 msgstr "Faites glisser les ligues dans l’ordre de leurs sections"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:55
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:56
 msgid "Show score cards"
 msgstr "Afficher les cartes de score"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:56
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:57
 msgid "Turn off to hide all live score cards from the Sports category"
 msgstr ""
 "Désactivez pour masquer toutes les cartes de score en direct de la catégorie "
 "Sports"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:62
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:63
 msgid "Show live indicator"
 msgstr "Afficher l’indicateur en direct"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:63
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:64
 msgid ""
 "Show a \"Live\" pill next to the Sports sidebar count while a game is in "
 "progress"
@@ -2866,78 +2929,94 @@ msgstr ""
 "Afficher une pastille « En direct » à côté du compteur Sports du panneau "
 "latéral pendant un match"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:107
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:108
 msgid "Europe"
 msgstr "Europe"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:108
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:109
 msgid "United States and Canada"
 msgstr "États-Unis et Canada"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:109
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:110
 msgid "Latin America"
 msgstr "Amérique latine"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:110
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:111
 msgid "Asia and Oceania"
 msgstr "Asie et Océanie"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:111
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:112
 msgid "International"
 msgstr "International"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:118
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:119
 msgid "Soccer"
 msgstr "Football"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:119
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:120
 msgid "American football"
 msgstr "Football américain"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:120
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:121
 msgid "Basketball"
 msgstr "Basket-ball"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:121
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:122
 msgid "Baseball"
 msgstr "Baseball"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:122
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:123
 msgid "Hockey"
 msgstr "Hockey"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:123
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:124
 msgid "Rugby"
 msgstr "Rugby"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:124
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:125
 msgid "Cricket"
 msgstr "Cricket"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:125
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:126
 msgid "Mixed martial arts"
 msgstr "Arts martiaux mixtes"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:136
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:127
+msgid "Tennis"
+msgstr "Tennis"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:128
+msgid "Golf"
+msgstr "Golf"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:129
+msgid "Motor racing"
+msgstr "Sport automobile"
+
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:140
 #, c-format
 msgid "%d of %d league on"
 msgid_plural "%d of %d leagues on"
 msgstr[0] "%d ligue activée sur %d"
 msgstr[1] "%d ligues activées sur %d"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:173
-msgid "Drag a league by its handle to set where its section appears in the Sports category. Only leagues that are on are listed."
-msgstr "Faites glisser une ligue par sa poignée pour choisir où sa section apparaît dans la catégorie Sports. Seules les ligues activées sont listées."
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:189
+msgid ""
+"Drag a league by its handle to set where its section appears in the Sports "
+"category. Only leagues that are on are listed."
+msgstr ""
+"Faites glisser une ligue par sa poignée pour choisir où sa section apparaît "
+"dans la catégorie Sports. Seules les ligues activées sont listées."
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:268
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:261
 msgid "No leagues are on"
 msgstr "Aucune ligue activée"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:269
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:262
 msgid "Turn some on in Leagues"
 msgstr "Activez-en dans Ligues"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:293
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:286
 msgid ""
 "Pick a league, then choose teams to follow - each followed team gets its own "
 "score-card row in \"My Teams\""
@@ -2945,15 +3024,15 @@ msgstr ""
 "Choisissez une ligue, puis les équipes à suivre — chaque équipe suivie a sa "
 "propre ligne de cartes de score dans « Mes équipes »"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:325
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:318
 msgid "Loading teams…"
 msgstr "Chargement des équipes…"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:336
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:329
 msgid "Couldn't load teams"
 msgstr "Impossible de charger les équipes"
 
-#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:337
+#: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:330
 msgid "Check your connection and try again later."
 msgstr "Vérifiez votre connexion et réessayez plus tard."
 
@@ -3314,7 +3393,7 @@ msgid "Vietnam"
 msgstr "Viêt Nam"
 
 #. "US News", "Germany News", "Canada News".
-#. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
+#. TRANSLATORS: the national news category in the United States edition
 #: src/utils/net/googleNewsUtils.vala:181
 #: src/services/fetchers/bbcFetcher.vala:77
 #: src/services/fetchers/pbsFetcher.vala:72
@@ -3398,10 +3477,6 @@ msgstr "Autres articles"
 msgid "The Frontpage"
 msgstr "À la une"
 
-#: src/services/fetchers/paperboyFetcher.vala:156
-msgid "The Frontpage — Paperboy"
-msgstr "À la une — Paperboy"
-
 #. Don't show error if we have cached articles
 #: src/services/fetchers/paperboyFetcher.vala:201
 msgid "Paperboy: Error loading frontpage"
@@ -3411,24 +3486,14 @@ msgstr "Paperboy : erreur de chargement de la page À la une"
 msgid "Paperboy: Error loading Top Ten"
 msgstr "Paperboy : erreur de chargement du Top 10"
 
-#: src/services/fetchers/paperboyFetcher.vala:524
-msgid "Top Ten — Paperboy"
-msgstr "Top 10 — Paperboy"
+#: src/services/magazines/magazineSourceScanner.vala:62
+msgid "Couldn't reach that page"
+msgstr "Impossible d’accéder à cette page"
 
-#: src/ui/controllers/fetchNewsController.vala:297
-#: src/ui/controllers/fetchNewsController.vala:673
+#: src/ui/controllers/fetchNewsController.vala:296
+#: src/ui/controllers/fetchNewsController.vala:662
 msgid "Offline - showing cached articles"
 msgstr "Hors ligne — affichage des articles en cache"
-
-#: src/ui/controllers/fetchNewsController.vala:672
-#, c-format
-msgid "%s — Offline, showing %d cached articles"
-msgstr "%s — Hors ligne, %d articles en cache affichés"
-
-#: src/ui/controllers/fetchNewsController.vala:675
-#, c-format
-msgid "%s — Loaded %d articles from cache"
-msgstr "%s — %d articles chargés depuis le cache"
 
 #. time_text replaces the "Viewed ..." caption when the row is reused outside History (e.g. Recommended for you).
 #. TRANSLATORS: %s is a relative time, e.g. "Viewed 3h ago"
@@ -3437,10 +3502,32 @@ msgstr "%s — %d articles chargés depuis le cache"
 msgid "Viewed %s"
 msgstr "Consulté %s"
 
-#: src/ui/components/markets/marketIndexCard.vala:265
+#. Prices are in US dollars (the index ETFs and crypto all trade in USD),
+#. with the locale's decimal separator and digit grouping.
+#. TRANSLATORS: a price in US dollars; %s is the number, already formatted
+#. for your locale. Put the dollar sign where your language does, e.g. "%s $"
+#. or "US$ %s"
+#: src/ui/components/markets/marketIndexCard.vala:263
+#, c-format
+msgid "$%s"
+msgstr "%s $ US"
+
+#. TRANSLATORS: a price change and percent change, e.g. "+1.25 (+0.42%)"
+#: src/ui/components/markets/marketIndexCard.vala:269
+#, c-format
+msgid "%s (%s%%)"
+msgstr "%s (%s %%)"
+
+#: src/ui/components/markets/marketIndexCard.vala:272
 #, c-format
 msgid "Updated %s"
 msgstr "Mis à jour %s"
+
+#. TRANSLATORS: chart hover: a price, time of day, and time zone, e.g. "$512.30 · 2:45 PM ET"
+#: src/ui/components/markets/marketIndexCard.vala:420
+#, c-format
+msgid "%s · %s %s"
+msgstr "%s · %s %s"
 
 #. "5 min read", or "" if unknown.
 #. TRANSLATORS: estimated reading time on article cards, e.g. "5 min read"
@@ -3462,49 +3549,49 @@ msgid_plural "RSS feeds: %d updated"
 msgstr[0] "Flux RSS : %d mis à jour"
 msgstr[1] "Flux RSS : %d mis à jour"
 
-#: src/managers/content/sourceManager.vala:403
+#: src/managers/content/sourceManager.vala:408
 #, c-format
 msgid "Enabled %s"
 msgstr "%s activé"
 
-#: src/managers/content/sourceManager.vala:417
+#: src/managers/content/sourceManager.vala:422
 msgid "Couldn't find this article's source"
 msgstr "Impossible de trouver la source de cet article"
 
-#: src/managers/content/sourceManager.vala:547
+#: src/managers/content/sourceManager.vala:552
 #, c-format
 msgid "Following %s"
 msgstr "Vous suivez %s"
 
-#: src/managers/content/sourceManager.vala:552
-#: src/managers/content/sourceManager.vala:688
+#: src/managers/content/sourceManager.vala:557
+#: src/managers/content/sourceManager.vala:693
 msgid "Source already followed"
 msgstr "Vous suivez déjà cette source"
 
-#: src/managers/content/sourceManager.vala:580
+#: src/managers/content/sourceManager.vala:585
 msgid "Failed to discover RSS feed"
 msgstr "Impossible de détecter le flux RSS"
 
-#: src/managers/content/sourceManager.vala:588
+#: src/managers/content/sourceManager.vala:593
 msgid "Generating feed for this source..."
 msgstr "Génération d’un flux pour cette source..."
 
-#: src/managers/content/sourceManager.vala:601
+#: src/managers/content/sourceManager.vala:606
 msgid "Generated feed has no articles"
 msgstr "Le flux généré ne contient aucun article"
 
-#: src/managers/content/sourceManager.vala:683
+#: src/managers/content/sourceManager.vala:688
 #, c-format
 msgid "Following %s (%d article)"
 msgid_plural "Following %s (%d articles)"
 msgstr[0] "Vous suivez %s (%d article)"
 msgstr[1] "Vous suivez %s (%d articles)"
 
-#: src/managers/content/sourceManager.vala:695
+#: src/managers/content/sourceManager.vala:700
 msgid "No RSS feeds found"
 msgstr "Aucun flux RSS trouvé"
 
-#: src/managers/content/sourceManager.vala:704
+#: src/managers/content/sourceManager.vala:709
 msgid "Error discovering RSS feed"
 msgstr "Erreur lors de la détection du flux RSS"
 
@@ -3562,11 +3649,38 @@ msgstr "Déjà dans votre bibliothèque"
 msgid "Failed to save that magazine"
 msgstr "Impossible d’enregistrer ce magazine"
 
-#: src/services/magazines/magazinePdfImportService.vala:163
+#. TRANSLATORS: %u is an HTTP status code, e.g. 404
+#: src/services/magazines/magazinePdfImportService.vala:111
+#, c-format
+msgid "Server returned status %u"
+msgstr "Le serveur a renvoyé le statut %u"
+
+#: src/services/magazines/magazinePdfImportService.vala:116
+msgid "That link doesn't point to a PDF"
+msgstr "Ce lien ne mène pas à un PDF"
+
+#. TRANSLATORS: %s is the file type the server sent, e.g. "text/html"
+#: src/services/magazines/magazinePdfImportService.vala:118
+#, c-format
+msgid "That link doesn't point to a PDF (got %s)"
+msgstr "Ce lien ne mène pas à un PDF (reçu : %s)"
+
+#. TRANSLATORS: %s is the file's size, e.g. "212.4 MB"
+#: src/services/magazines/magazinePdfImportService.vala:126
+#: src/services/magazines/magazinePdfImportService.vala:156
+#, c-format
+msgid "File is too large (%s, limit is 150 MB)"
+msgstr "Le fichier est trop volumineux (%s, limite de 150 Mo)"
+
+#: src/services/magazines/magazinePdfImportService.vala:142
+msgid "File exceeded the 150 MB size limit"
+msgstr "Le fichier a dépassé la limite de 150 Mo"
+
+#: src/services/magazines/magazinePdfImportService.vala:167
 msgid "That doesn't look like a valid PDF file"
 msgstr "Ce fichier ne semble pas être un PDF valide"
 
-#: src/services/magazines/magazinePdfImportService.vala:222
+#: src/services/magazines/magazinePdfImportService.vala:226
 msgid "Untitled magazine"
 msgstr "Magazine sans titre"
 
@@ -3588,6 +3702,20 @@ msgstr "Ce flux ne semble pas être un flux de podcast valide"
 #: src/ui/controllers/stocksTickerController.vala:243
 msgid "Markets Today"
 msgstr "Les marchés aujourd’hui"
+
+#. If either piece of data failed, return Unknown
+#: src/services/cache/metaCache.vala:315 src/services/cache/metaCache.vala:374
+#: src/services/cache/rssArticleCache.vala:541
+msgid "Unknown"
+msgstr "Inconnu"
+
+#. TRANSLATORS: RSS feed cache size and article count, e.g. "2.5 MB (134 articles)"
+#: src/services/cache/rssArticleCache.vala:545
+#, c-format
+msgid "%s (%d article)"
+msgid_plural "%s (%d articles)"
+msgstr[0] "%s (%d article)"
+msgstr[1] "%s (%d articles)"
 
 #: data/io.github.thecalamityjoe87.Paperboy.desktop.in:2
 msgid "Paperboy"

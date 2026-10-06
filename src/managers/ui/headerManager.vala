@@ -127,7 +127,8 @@ public class HeaderManager : GLib.Object {
         view.weather_icon.set_from_icon_name(report.icon_name());
         view.weather_temp_label.set_markup("%d<span rise='9000' size='50%%'>°</span>".printf((int) Math.round(report.temperature)));
         view.weather_condition_label.set_text(report.description());
-        view.weather_range_label.set_markup("H <b>%s</b> · L <b>%s</b>".printf(WeatherReport.format_degrees(report.high), WeatherReport.format_degrees(report.low)));
+        // TRANSLATORS: today's high and low temperatures, e.g. "H 75° · L 58°"; keep the <b></b> markup
+        view.weather_range_label.set_markup(_("H <b>%s</b> · L <b>%s</b>").printf(WeatherReport.format_degrees(report.high), WeatherReport.format_degrees(report.low)));
 
         bool has_weather_app = new GLib.DesktopAppInfo("org.gnome.Weather.desktop") != null;
         string tooltip = _("Weather in %s").printf(area.name);
@@ -249,13 +250,14 @@ public class HeaderManager : GLib.Object {
                 Paperboy.PodcastFeedResolver.get_instance().resolve_show(podcast_feed_url, window.session, (success, show, error_message) => {
                     if (!success || show == null) {
                         if (window.toast_manager != null) {
-                            window.toast_manager.show_toast(_("Couldn't add podcast: ") + (error_message ?? _("unknown error")));
+                            // TRANSLATORS: %s is the reason, e.g. "Couldn't add podcast: no episodes found"
+                            window.toast_manager.show_toast(_("Couldn't add podcast: %s").printf(error_message ?? _("unknown error")));
                         }
                         return;
                     }
                     sub_store.subscribe(show);
                     if (window.toast_manager != null) {
-                        window.toast_manager.show_toast(_("Podcast added: ") + show.title);
+                        window.toast_manager.show_toast(_("Podcast added: %s").printf(show.title));
                     }
                 });
             });

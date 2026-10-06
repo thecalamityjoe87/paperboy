@@ -1089,7 +1089,10 @@ public class ReaderView : GLib.Object {
 
     private string build_byline(ExtractedArticle article) {
         var parts = new Gee.ArrayList<string>();
-        if (article.author != null && article.author.length > 0) parts.add(_("By ") + article.author);
+        if (article.author != null && article.author.length > 0) {
+            // TRANSLATORS: %s is the article's author
+            parts.add(_("By %s").printf(article.author));
+        }
         if (article.published != null && article.published.length > 0) {
             string rel = DateUtils.time_ago(article.published);
             parts.add(rel.length > 0 ? rel : article.published);

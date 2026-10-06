@@ -80,26 +80,28 @@ public class SportsScoresService : GLib.Object {
 
     private static League[] get_leagues() {
         return {
-            { "football", "nfl", "NFL", "nfl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png", "#6b4e3e", null, "us" },
-            { "basketball", "nba", "NBA", "nba", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png", "#894eef", null, "us" },
-            { "baseball", "mlb", "MLB", "mlb", null, "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png", "#3460dc", null, "us" },
-            { "hockey", "nhl", "NHL", "nhl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png", "#353e4b", null, "us" },
+            // US and Canadian leagues are on by default in those editions only,
+            // college leagues in the US only (see home_editions).
+            { "football", "nfl", "NFL", "nfl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png", "#6b4e3e", "US,CA", "us" },
+            { "basketball", "nba", "NBA", "nba", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png", "#894eef", "US,CA", "us" },
+            { "baseball", "mlb", "MLB", "mlb", null, "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png", "#3460dc", "US,CA", "us" },
+            { "hockey", "nhl", "NHL", "nhl", null, "https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png", "#353e4b", "US,CA", "us" },
             // ESPN has no single catch-all league per sport for these four -
             // each picks one representative competition. Off-season for
             // that competition just means the section doesn't appear that
             // day, same as NHL/MLB already do outside their seasons.
             { "soccer", "eng.1", "Premier League", "epl", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png", "#7f50b1", null, "europe" },
-            { "soccer", "usa.1", "MLS", "mls", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/19.png", "#1d8668", null, "us" },
+            { "soccer", "usa.1", "MLS", "mls", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/19.png", "#1d8668", "US,CA", "us" },
             { "soccer", "uefa.champions", "Champions League", "ucl", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png", "#263f73", null, "europe" },
             { "rugby", "270557", "Rugby (URC)", "rugby", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-rugby.png", "#2d7448", null, "europe" },
             { "cricket", "8048", "Cricket (IPL)", "cricket", null, "https://a.espncdn.com/i/leaguelogos/cricket/500/8048.png", "#bc6422", null, "asia" },
             { "mma", "ufc", "UFC", "mma", null, "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png", "#6b0e0e", null, "intl" },
             // groups=80 restricts college football to FBS; without it the
             // scoreboard is flooded with FCS/D2 games most weeks.
-            { "football", "college-football", "College Football", "cfb", "groups=80", "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-football-college.png", "#962c4c", null, "us" },
-            { "basketball", "mens-college-basketball", "Men's College Basketball", "mbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png", "#a4482a", null, "us" },
-            { "basketball", "womens-college-basketball", "Women's College Basketball", "wbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png", "#ab33b7", null, "us" },
-            { "baseball", "college-baseball", "College Baseball", "cbsb", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-baseball.png", "#1c78aa", null, "us" },
+            { "football", "college-football", "College Football", "cfb", "groups=80", "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-football-college.png", "#962c4c", "US", "us" },
+            { "basketball", "mens-college-basketball", "Men's College Basketball", "mbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png", "#a4482a", "US", "us" },
+            { "basketball", "womens-college-basketball", "Women's College Basketball", "wbb", null, "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png", "#ab33b7", "US", "us" },
+            { "baseball", "college-baseball", "College Baseball", "cbsb", null, "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-baseball.png", "#1c78aa", "US", "us" },
             // Regional leagues, on by default only where they're followed
             // (see home_editions) so other users don't get extra sections.
             { "soccer", "esp.1", "La Liga", "laliga", null, "https://a.espncdn.com/i/leaguelogos/soccer/500/15.png", "#c8102e", "ES", "europe" },

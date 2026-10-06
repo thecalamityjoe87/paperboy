@@ -1,4 +1,4 @@
-# Spanish translations for the Paperboy UI.
+# Vietnamese translations for the Paperboy UI.
 # This file is distributed under the same license as the Paperboy package.
 #
 msgid ""
@@ -6,19 +6,19 @@ msgstr ""
 "Project-Id-Version: paperboy\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-05 19:57-0500\n"
-"PO-Revision-Date: 2026-10-05 17:06-0500\n"
+"PO-Revision-Date: 2026-10-05 18:38-0500\n"
 "Last-Translator: \n"
-"Language-Team: Spanish\n"
-"Language: es\n"
+"Language-Team: Vietnamese\n"
+"Language: vi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #: src/builders/cardBuilder.vala:31 src/managers/ui/sidebarManager.vala:352
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:234
 msgid "Feeds"
-msgstr "Fuentes RSS"
+msgstr "Nguồn cấp"
 
 #. The untranslated Local News key (see SourceManager) is shown translated
 #: src/builders/cardBuilder.vala:201
@@ -30,7 +30,7 @@ msgstr "Fuentes RSS"
 #: src/ui/controllers/fetchNewsController.vala:1070
 #: src/services/articles/articleSnippetService.vala:239
 msgid "Local News"
-msgstr "Noticias locales"
+msgstr "Tin địa phương"
 
 #. Turn a host like "example-news.co.uk" into a friendly display string
 #. such as "Example News". This is intentionally simple and is only
@@ -41,7 +41,7 @@ msgstr "Noticias locales"
 #: src/services/fetchers/fetcherUtils.vala:39 src/utils/net/urlUtils.vala:115
 #: src/utils/net/urlUtils.vala:117 src/utils/net/urlUtils.vala:147
 msgid "News"
-msgstr "Noticias"
+msgstr "Tin tức"
 
 #: src/builders/cardBuilder.vala:256
 #: src/ui/components/articles/articlePane.vala:293
@@ -51,77 +51,77 @@ msgstr "Noticias"
 #: src/managers/content/articleManager.vala:1458
 #: src/managers/content/articleManager.vala:1875
 msgid "Searching for feed..."
-msgstr "Buscando fuente..."
+msgstr "Đang tìm nguồn cấp..."
 
 #: src/builders/cardBuilder.vala:305
 #: src/ui/components/articles/heroCard.vala:183
 msgid "Open in reader view"
-msgstr "Abrir en vista de lectura"
+msgstr "Mở ở chế độ đọc"
 
 #: src/builders/cardBuilder.vala:317
 #: src/ui/components/articles/heroCard.vala:196
 msgid "Preview article"
-msgstr "Vista previa del artículo"
+msgstr "Xem trước bài viết"
 
 #: src/builders/cardBuilder.vala:342
 msgid "More like this"
-msgstr "Más como este"
+msgstr "Thêm bài như thế này"
 
 #: src/builders/cardBuilder.vala:347
 msgid "Less like this"
-msgstr "Menos como este"
+msgstr "Bớt bài như thế này"
 
 #: src/builders/cardBuilder.vala:396
 msgid "You'll see more articles like this"
-msgstr "Verás más artículos como este"
+msgstr "Bạn sẽ thấy nhiều bài viết như thế này hơn"
 
 #: src/builders/cardBuilder.vala:397
 msgid "You'll see fewer articles like this"
-msgstr "Verás menos artículos como este"
+msgstr "Bạn sẽ thấy ít bài viết như thế này hơn"
 
 #: src/builders/cardBuilder.vala:398
 msgid "Rating removed"
-msgstr "Valoración eliminada"
+msgstr "Đã xóa đánh giá"
 
 #: src/builders/cardBuilder.vala:424
 msgctxt "follow button tooltip"
 msgid "Following this source"
-msgstr "Sigues esta fuente"
+msgstr "Đang theo dõi nguồn này"
 
 #: src/builders/cardBuilder.vala:424 src/ui/menus/articleMenu.vala:81
 msgid "Follow this source"
-msgstr "Seguir esta fuente"
+msgstr "Theo dõi nguồn này"
 
 #. TRANSLATORS: %s is a news source, e.g. "Follow BBC News"
 #: src/builders/cardBuilder.vala:427
 #, c-format
 msgctxt "follow button tooltip"
 msgid "Following %s"
-msgstr "Sigues a %s"
+msgstr "Đang theo dõi %s"
 
 #: src/builders/cardBuilder.vala:427
 #, c-format
 msgid "Follow %s"
-msgstr "Seguir a %s"
+msgstr "Theo dõi %s"
 
 #: src/builders/cardBuilder.vala:664
 msgid "Read"
-msgstr "Leído"
+msgstr "Đã đọc"
 
 #: src/managers/content/categoryManager.vala:190
 msgid "General"
-msgstr "General"
+msgstr "Tổng hợp"
 
 #: src/managers/content/categoryManager.vala:191
 msgid "U.S."
-msgstr "EE. UU."
+msgstr "Mỹ"
 
 #: src/managers/content/categoryManager.vala:192
 #: src/managers/ui/headerManager.vala:465
 #: src/services/fetchers/bbcFetcher.vala:72
 #: src/services/fetchers/fetcherUtils.vala:27
 msgid "Technology"
-msgstr "Tecnología"
+msgstr "Công nghệ"
 
 #: src/managers/content/categoryManager.vala:193
 #: src/managers/ui/headerManager.vala:466
@@ -129,7 +129,7 @@ msgstr "Tecnología"
 #: src/services/fetchers/fetcherUtils.vala:28
 #: src/services/fetchers/pbsFetcher.vala:73
 msgid "Business"
-msgstr "Negocios"
+msgstr "Kinh doanh"
 
 #: src/managers/content/categoryManager.vala:194
 #: src/managers/ui/headerManager.vala:468
@@ -137,14 +137,14 @@ msgstr "Negocios"
 #: src/services/fetchers/fetcherUtils.vala:32
 #: src/services/fetchers/pbsFetcher.vala:74
 msgid "Science"
-msgstr "Ciencia"
+msgstr "Khoa học"
 
 #: src/managers/content/categoryManager.vala:195
 #: src/managers/ui/headerManager.vala:467
 #: src/services/fetchers/bbcFetcher.vala:75
 #: src/services/fetchers/fetcherUtils.vala:33
 msgid "Sports"
-msgstr "Deportes"
+msgstr "Thể thao"
 
 #: src/managers/content/categoryManager.vala:196
 #: src/managers/ui/headerManager.vala:469
@@ -152,7 +152,7 @@ msgstr "Deportes"
 #: src/services/fetchers/fetcherUtils.vala:34
 #: src/services/fetchers/pbsFetcher.vala:75
 msgid "Health"
-msgstr "Salud"
+msgstr "Sức khỏe"
 
 #: src/managers/content/categoryManager.vala:197
 #: src/managers/ui/headerManager.vala:470
@@ -160,7 +160,7 @@ msgstr "Salud"
 #: src/services/fetchers/fetcherUtils.vala:35
 #: src/services/fetchers/pbsFetcher.vala:77
 msgid "Entertainment"
-msgstr "Entretenimiento"
+msgstr "Giải trí"
 
 #: src/managers/content/categoryManager.vala:198
 #: src/managers/ui/headerManager.vala:471
@@ -168,13 +168,13 @@ msgstr "Entretenimiento"
 #: src/services/fetchers/fetcherUtils.vala:36
 #: src/services/fetchers/pbsFetcher.vala:76
 msgid "Politics"
-msgstr "Política"
+msgstr "Chính trị"
 
 #: src/managers/content/categoryManager.vala:199
 #: src/managers/ui/headerManager.vala:472
 #: src/services/fetchers/fetcherUtils.vala:37
 msgid "Lifestyle"
-msgstr "Estilo de vida"
+msgstr "Đời sống"
 
 #: src/managers/content/categoryManager.vala:200
 #: src/managers/ui/headerManager.vala:473
@@ -182,19 +182,19 @@ msgstr "Estilo de vida"
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:346
 #: src/services/fetchers/fetcherUtils.vala:29
 msgid "Markets"
-msgstr "Mercados"
+msgstr "Thị trường"
 
 #: src/managers/content/categoryManager.vala:201
 #: src/managers/ui/headerManager.vala:474
 #: src/services/fetchers/fetcherUtils.vala:30
 msgid "Industries"
-msgstr "Industrias"
+msgstr "Các ngành"
 
 #: src/managers/content/categoryManager.vala:202
 #: src/managers/ui/headerManager.vala:475
 #: src/services/fetchers/fetcherUtils.vala:31
 msgid "Economics"
-msgstr "Economía"
+msgstr "Kinh tế"
 
 #. If this removed source was selected, fall back to Front Page
 #: src/managers/content/categoryManager.vala:203
@@ -204,12 +204,12 @@ msgstr "Economía"
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:377
 #: src/services/fetchers/paperboyFetcher.vala:138
 msgid "Front Page"
-msgstr "Portada"
+msgstr "Trang nhất"
 
 #: src/managers/content/categoryManager.vala:204
 #: src/managers/ui/headerManager.vala:458
 msgid "Trending"
-msgstr "Tendencias"
+msgstr "Thịnh hành"
 
 #. use URL, not name, for source filtering
 #: src/managers/content/categoryManager.vala:205
@@ -218,99 +218,91 @@ msgstr "Tendencias"
 #: src/services/fetchers/fetcherUtils.vala:24
 #: src/ui/controllers/fetchNewsController.vala:571
 msgid "My Feed"
-msgstr "Mi feed"
+msgstr "Nguồn cấp của tôi"
 
 #: src/managers/content/categoryManager.vala:207
 #: src/managers/ui/headerManager.vala:459
 #: src/managers/ui/sidebarManager.vala:310
 msgid "Saved"
-msgstr "Guardados"
+msgstr "Đã lưu"
 
 #: src/managers/content/categoryManager.vala:208
 #: src/managers/ui/headerManager.vala:460
 #: src/managers/ui/sidebarManager.vala:311
 msgid "History"
-msgstr "Historial"
+msgstr "Lịch sử"
 
 #: src/managers/media/magazineLibraryManager.vala:154
 #, c-format
 msgid "No magazines found matching \"%s\""
-msgstr "No se encontraron revistas que coincidan con «%s»"
+msgstr "Không tìm thấy tạp chí nào khớp với \"%s\""
 
 #: src/managers/media/magazineLibraryManager.vala:155
 #, c-format
 msgid "Search results: found %d magazine matching \"%s\""
 msgid_plural "Search results: found %d magazines matching \"%s\""
-msgstr[0] ""
-"Resultados de búsqueda: se encontró %d revista que coincide con «%s»"
-msgstr[1] ""
-"Resultados de búsqueda: se encontraron %d revistas que coinciden con «%s»"
+msgstr[0] "Kết quả tìm kiếm: tìm thấy %d tạp chí khớp với “%s”"
 
 #: src/managers/media/magazineLibraryManager.vala:177
 msgid "Your library is empty"
-msgstr "Tu biblioteca está vacía"
+msgstr "Thư viện của bạn trống"
 
 #: src/managers/media/magazineLibraryManager.vala:228
 #: src/managers/media/magazineLibraryManager.vala:588
 msgid "Removed from library"
-msgstr "Eliminada de la biblioteca"
+msgstr "Đã xóa khỏi thư viện"
 
 #: src/managers/media/magazineLibraryManager.vala:460
 msgid "Your library is empty. Add a magazine to get started."
-msgstr "Tu biblioteca está vacía. Añade una revista para empezar."
+msgstr "Thư viện của bạn trống. Hãy thêm một tạp chí để bắt đầu."
 
 #. TRANSLATORS: number of selected magazines
 #: src/managers/media/magazineLibraryManager.vala:649
 #, c-format
 msgid "%d selected"
 msgid_plural "%d selected"
-msgstr[0] "%d seleccionada"
-msgstr[1] "%d seleccionadas"
+msgstr[0] "Đã chọn %d"
 
 #: src/managers/media/magazineLibraryManager.vala:650
 #, c-format
 msgid "Delete (%d)"
-msgstr "Eliminar (%d)"
+msgstr "Xóa (%d)"
 
 #: src/managers/media/magazineLibraryManager.vala:650
 #: src/managers/media/magazineLibraryManager.vala:670
 #: src/ui/contentView.vala:852
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:364
 msgid "Delete"
-msgstr "Eliminar"
+msgstr "Xóa"
 
 #: src/managers/media/magazineLibraryManager.vala:668
 #, c-format
 msgid "Delete %d magazine?"
 msgid_plural "Delete %d magazines?"
-msgstr[0] "¿Eliminar %d revista?"
-msgstr[1] "¿Eliminar %d revistas?"
+msgstr[0] "Xóa %d tạp chí?"
 
 #: src/managers/media/magazineLibraryManager.vala:670
 msgid "Their downloaded files are removed too. This can't be undone."
-msgstr ""
-"También se eliminarán sus archivos descargados. Esta acción no se puede "
-"deshacer."
+msgstr "Các tệp đã tải về cũng sẽ bị xóa. Không thể hoàn tác thao tác này."
 
 #: src/managers/media/magazineLibraryManager.vala:678
 #, c-format
 msgid "Removed %d magazine"
 msgid_plural "Removed %d magazines"
-msgstr[0] "Se eliminó %d revista"
-msgstr[1] "Se eliminaron %d revistas"
+msgstr[0] "Đã xóa %d tạp chí"
 
 #: src/managers/media/magazineLibraryManager.vala:715
 msgid "Set Category"
-msgstr "Asignar categoría"
+msgstr "Đặt danh mục"
 
 #: src/managers/media/magazineLibraryManager.vala:716
 #, c-format
 msgid "Group \"%s\" under a category - leave blank for Uncategorized."
-msgstr "Agrupar «%s» en una categoría; déjalo en blanco para Sin categoría."
+msgstr "Nhóm \"%s\" vào một danh mục - để trống nếu muốn Chưa phân loại."
 
 #: src/managers/media/magazineLibraryManager.vala:719
 msgid "e.g. Technology, History, Comics"
-msgstr "p. ej., Tecnología, Historia, Cómics"
+msgstr "vd: Công nghệ, Lịch sử, Truyện tranh"
 
 #: src/managers/media/magazineLibraryManager.vala:725
 #: src/managers/media/magazineLibraryManager.vala:781
@@ -322,32 +314,32 @@ msgstr "p. ej., Tecnología, Historia, Cómics"
 #: src/ui/dialogs/media/podcastPickerDialog.vala:99 src/ui/sidebarView.vala:734
 #: src/ui/sidebarView.vala:847 src/utils/ui/dialogUtils.vala:26
 msgid "Cancel"
-msgstr "Cancelar"
+msgstr "Hủy"
 
 #: src/managers/media/magazineLibraryManager.vala:726
 msgid "Set"
-msgstr "Asignar"
+msgstr "Đặt"
 
 #: src/managers/media/magazineLibraryManager.vala:747
 #: src/ui/contentView.vala:244
 msgid "Add Magazines"
-msgstr "Añadir revistas"
+msgstr "Thêm tạp chí"
 
 #: src/managers/media/magazineLibraryManager.vala:748
 msgid ""
 "Enter a direct link to a PDF, a webpage that links to one or more PDFs, or "
 "choose a PDF you've already downloaded."
 msgstr ""
-"Introduce un enlace directo a un PDF, una página web que enlace a uno o más "
-"PDF, o elige un PDF que ya hayas descargado."
+"Nhập liên kết trực tiếp tới một tệp PDF, một trang web có liên kết tới một "
+"hoặc nhiều PDF, hoặc chọn một PDF bạn đã tải về."
 
 #: src/managers/media/magazineLibraryManager.vala:759
 msgid "Title (optional, direct PDF links/local files only)"
-msgstr "Título (opcional, solo enlaces directos a PDF o archivos locales)"
+msgstr "Tiêu đề (không bắt buộc, chỉ cho liên kết PDF trực tiếp/tệp cục bộ)"
 
 #: src/managers/media/magazineLibraryManager.vala:763
 msgid "Category (optional, e.g. Technology, History)"
-msgstr "Categoría (opcional, p. ej., Tecnología, Historia)"
+msgstr "Danh mục (không bắt buộc, vd: Công nghệ, Lịch sử)"
 
 #. Local file import - shares the title/category fields above,
 #. just skips the URL field and closes this dialog immediately
@@ -355,117 +347,113 @@ msgstr "Categoría (opcional, p. ej., Tecnología, Historia)"
 #. file is picked).
 #: src/managers/media/magazineLibraryManager.vala:770
 msgid "Choose a PDF on This Computer…"
-msgstr "Elegir un PDF de este equipo…"
+msgstr "Chọn PDF trên máy tính này…"
 
 #: src/managers/media/magazineLibraryManager.vala:782
 #: src/ui/dialogs/app/locationDialog.vala:81
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:461
 msgid "Add"
-msgstr "Añadir"
+msgstr "Thêm"
 
 #: src/managers/media/magazineLibraryManager.vala:804
 msgid "Choose a PDF"
-msgstr "Elegir un PDF"
+msgstr "Chọn PDF"
 
 #: src/managers/media/magazineLibraryManager.vala:807
 msgid "PDF files"
-msgstr "Archivos PDF"
+msgstr "Tệp PDF"
 
 #: src/managers/media/magazineLibraryManager.vala:834
 #: src/services/magazines/magazinePdfImportService.vala:43
 msgid "Only https:// links are supported"
-msgstr "Solo se admiten enlaces https://"
+msgstr "Chỉ hỗ trợ liên kết https://"
 
 #: src/managers/media/magazineLibraryManager.vala:865
 msgid "Scanning for PDFs…"
-msgstr "Buscando PDF…"
+msgstr "Đang tìm PDF…"
 
 #: src/managers/media/magazineLibraryManager.vala:875
 #: src/services/magazines/magazineSourceScanner.vala:77
 msgid "No PDF links found on that page"
-msgstr "No se encontraron enlaces a PDF en esa página"
+msgstr "Không tìm thấy liên kết PDF nào trên trang đó"
 
 #: src/managers/media/magazineLibraryManager.vala:886
 msgid "No new PDFs found - everything's already in your library"
-msgstr "No se encontraron PDF nuevos: todo está ya en tu biblioteca"
+msgstr "Không có PDF mới - mọi thứ đã có trong thư viện của bạn"
 
 #: src/managers/media/magazineLibraryManager.vala:897
 msgid "Select magazines to add"
-msgstr "Selecciona las revistas que quieres añadir"
+msgstr "Chọn tạp chí để thêm"
 
 #: src/managers/media/magazineLibraryManager.vala:898
 #, c-format
 msgid "Found %d PDF link on %s."
 msgid_plural "Found %d PDF links on %s."
-msgstr[0] "Se encontró %d enlace a PDF en %s."
-msgstr[1] "Se encontraron %d enlaces a PDF en %s."
+msgstr[0] "Tìm thấy %d liên kết PDF trên %s."
 
 #: src/managers/media/magazineLibraryManager.vala:918
 #: src/ui/dialogs/media/podcastPickerDialog.vala:100
 msgid "Add Selected"
-msgstr "Añadir seleccionadas"
+msgstr "Thêm mục đã chọn"
 
 #: src/managers/media/magazineLibraryManager.vala:937
 msgid "Downloading magazine…"
-msgstr "Descargando revista…"
+msgstr "Đang tải tạp chí…"
 
 #: src/managers/media/magazineLibraryManager.vala:948
 #: src/managers/media/magazineLibraryManager.vala:968
 #, c-format
 msgid "Added: %s"
-msgstr "Añadida: %s"
+msgstr "Đã thêm: %s"
 
 #: src/managers/media/magazineLibraryManager.vala:950
 #: src/managers/media/magazineLibraryManager.vala:970
 msgid "Failed to add magazine"
-msgstr "No se pudo añadir la revista"
+msgstr "Không thể thêm tạp chí"
 
 #: src/managers/media/magazineLibraryManager.vala:957
 msgid "Adding magazines…"
-msgstr "Añadiendo revistas…"
+msgstr "Đang thêm tạp chí…"
 
 #: src/managers/media/podcastManager.vala:131
 msgid "Loading podcasts..."
-msgstr "Cargando pódcasts..."
+msgstr "Đang tải podcast..."
 
 #: src/managers/media/podcastManager.vala:201
 #, c-format
 msgid "Searching for \"%s\"..."
-msgstr "Buscando «%s»..."
+msgstr "Đang tìm \"%s\"..."
 
 #: src/managers/media/podcastManager.vala:263
 #, c-format
 msgid "No podcasts found matching \"%s\""
-msgstr "No se encontraron pódcasts que coincidan con «%s»"
+msgstr "Không tìm thấy podcast nào khớp với \"%s\""
 
 #: src/managers/media/podcastManager.vala:264
 #, c-format
 msgid "Search results: found %d podcast matching \"%s\""
 msgid_plural "Search results: found %d podcasts matching \"%s\""
-msgstr[0] ""
-"Resultados de búsqueda: se encontró %d pódcast que coincide con «%s»"
-msgstr[1] ""
-"Resultados de búsqueda: se encontraron %d pódcasts que coinciden con «%s»"
+msgstr[0] "Kết quả tìm kiếm: tìm thấy %d podcast khớp với “%s”"
 
 #: src/managers/media/podcastManager.vala:467 src/ui/contentView.vala:947
 msgid "Loading..."
-msgstr "Cargando..."
+msgstr "Đang tải..."
 
 #: src/managers/media/podcastManager.vala:474
 #: src/managers/media/podcastManager.vala:505
 msgid "Show More Categories"
-msgstr "Mostrar más categorías"
+msgstr "Hiện thêm danh mục"
 
 #. TRANSLATORS: today's high and low temperatures, e.g. "H 75° · L 58°"; keep the <b></b> markup
 #: src/managers/ui/headerManager.vala:131
 #, c-format
 msgid "H <b>%s</b> · L <b>%s</b>"
-msgstr "Máx. <b>%s</b> · Mín. <b>%s</b>"
+msgstr "Cao <b>%s</b> · Thấp <b>%s</b>"
 
 #: src/managers/ui/headerManager.vala:134
 #, c-format
 msgid "Weather in %s"
-msgstr "El tiempo en %s"
+msgstr "Thời tiết ở %s"
 
 #: src/managers/ui/headerManager.vala:135
 msgid ""
@@ -473,31 +461,29 @@ msgid ""
 "Open Weather for the full forecast"
 msgstr ""
 "\n"
-"Abre El tiempo para ver el pronóstico completo"
+"Mở Thời tiết để xem dự báo đầy đủ"
 
 #: src/managers/ui/headerManager.vala:153
 msgid "Clear history?"
-msgstr "¿Borrar el historial?"
+msgstr "Xóa lịch sử?"
 
 #: src/managers/ui/headerManager.vala:154
 msgid ""
 "This will permanently delete your reading history. This can't be undone."
-msgstr ""
-"Esto eliminará permanentemente tu historial de lectura. Esta acción no se "
-"puede deshacer."
+msgstr "Thao tác này sẽ xóa vĩnh viễn lịch sử đọc của bạn. Không thể hoàn tác."
 
 #. History page action - lives in the title row since the date row is hidden there.
 #: src/managers/ui/headerManager.vala:154 src/ui/contentView.vala:164
 msgid "Clear History"
-msgstr "Borrar historial"
+msgstr "Xóa lịch sử"
 
 #: src/managers/ui/headerManager.vala:157
 msgid "History cleared"
-msgstr "Historial borrado"
+msgstr "Đã xóa lịch sử"
 
 #: src/managers/ui/headerManager.vala:189
 msgid "Browse podcasts"
-msgstr "Explorar pódcasts"
+msgstr "Duyệt podcast"
 
 #. "Subscribed" is wider than "Subscribe" - without a locked width,
 #. toggling subscription state changes the button's own width,
@@ -513,21 +499,21 @@ msgstr "Explorar pódcasts"
 #: src/ui/dialogs/media/podcastDetailDialog.vala:164
 #: src/ui/dialogs/media/podcastDetailDialog.vala:180
 msgid "Subscribed"
-msgstr "Suscrito"
+msgstr "Đã đăng ký"
 
 #: src/managers/ui/headerManager.vala:199 src/ui/contentView.vala:216
 msgid "Add podcast"
-msgstr "Añadir pódcast"
+msgstr "Thêm podcast"
 
 #. TRANSLATORS: %s is the reason, e.g. "Couldn't add podcast: no episodes found"
 #: src/managers/ui/headerManager.vala:254
 #, c-format
 msgid "Couldn't add podcast: %s"
-msgstr "No se pudo añadir el pódcast: %s"
+msgstr "Không thể thêm podcast: %s"
 
 #: src/managers/ui/headerManager.vala:254
 msgid "unknown error"
-msgstr "error desconocido"
+msgstr "lỗi không xác định"
 
 #. No extra rebuild_sidebar() needed here (unlike
 #. add_rss_feed()'s two-step enable dance) - subscribing is
@@ -537,19 +523,18 @@ msgstr "error desconocido"
 #: src/managers/ui/headerManager.vala:260 src/ui/sidebarView.vala:879
 #, c-format
 msgid "Podcast added: %s"
-msgstr "Pódcast añadido: %s"
+msgstr "Đã thêm podcast: %s"
 
 #: src/managers/ui/headerManager.vala:434
 #, c-format
 msgid "%d saved article"
 msgid_plural "%d saved articles"
-msgstr[0] "%d artículo guardado"
-msgstr[1] "%d artículos guardados"
+msgstr[0] "%d bài viết đã lưu"
 
 #: src/managers/ui/headerManager.vala:445
 #: src/managers/ui/headerManager.vala:453
 msgid "RSS Feed"
-msgstr "Fuente RSS"
+msgstr "Nguồn cấp RSS"
 
 #. Create horizontal box for category label and source info
 #. Add category label (bigger size) - left aligned
@@ -559,47 +544,47 @@ msgstr "Fuente RSS"
 #: src/services/fetchers/fetcherUtils.vala:25
 #: src/services/fetchers/pbsFetcher.vala:78
 msgid "World News"
-msgstr "Noticias del mundo"
+msgstr "Tin thế giới"
 
 #. id stays "podcasts" (the routing key) - only title/icon change.
 #: src/managers/ui/headerManager.vala:480
 #: src/managers/ui/sidebarManager.vala:377
 msgid "Find Podcasts"
-msgstr "Buscar pódcasts"
+msgstr "Tìm podcast"
 
 #: src/managers/ui/headerManager.vala:481
 #: src/managers/ui/sidebarManager.vala:309
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:348
 msgid "Magazine Rack"
-msgstr "Revistero"
+msgstr "Kệ tạp chí"
 
 #: src/managers/ui/loadingStateManager.vala:185
 #: src/managers/ui/loadingStateManager.vala:654
 #: src/managers/ui/loadingStateManager.vala:660 src/ui/appWindow.vala:1401
 #: src/ui/contentView.vala:1034 src/managers/ui/layoutManager.vala:505
 msgid "<b>No more articles</b>"
-msgstr "<b>No hay más artículos</b>"
+msgstr "<b>Không còn bài viết nào</b>"
 
 #: src/managers/ui/loadingStateManager.vala:185
 #: src/managers/ui/loadingStateManager.vala:654 src/ui/contentView.vala:1034
 #: src/managers/ui/layoutManager.vala:505
 msgid "No more articles"
-msgstr "No hay más artículos"
+msgstr "Không còn bài viết nào"
 
 #: src/managers/ui/loadingStateManager.vala:196
 msgid "Loading local news..."
-msgstr "Cargando noticias locales..."
+msgstr "Đang tải tin địa phương..."
 
 #: src/managers/ui/loadingStateManager.vala:198
 msgid "Loading content..."
-msgstr "Cargando contenido..."
+msgstr "Đang tải nội dung..."
 
 #: src/managers/ui/loadingStateManager.vala:253
 msgid ""
 "No articles could be loaded. Try refreshing or check your source settings."
 msgstr ""
-"No se pudo cargar ningún artículo. Intenta actualizar o revisa la "
-"configuración de tus fuentes."
+"Không thể tải bài viết nào. Hãy thử làm mới hoặc kiểm tra cài đặt nguồn của "
+"bạn."
 
 #. Centered empty state for a view that legitimately has nothing to
 #. show (History/Saved/Magazines library when empty). `icon_file` is a
@@ -610,23 +595,23 @@ msgstr ""
 #. show_error_message() over this since no items were ever populated.
 #: src/managers/ui/loadingStateManager.vala:267
 msgid "Nothing here yet"
-msgstr "Aún no hay nada aquí"
+msgstr "Chưa có gì ở đây"
 
 #: src/managers/ui/loadingStateManager.vala:399
 msgid "Personalized feed is disabled."
-msgstr "El feed personalizado está desactivado."
+msgstr "Nguồn cấp cá nhân hóa đang tắt."
 
 #: src/managers/ui/loadingStateManager.vala:401
 msgid ""
 "Open the main menu (☰) → choose Preferences → 'Personalization' tab → "
 "'Enable personalized feed' toggle to see content from your feeds."
 msgstr ""
-"Abre el menú principal (☰) → elige Preferencias → pestaña «Personalización» "
-"→ activa «Activar feed personalizado» para ver contenido de tus fuentes."
+"Mở menu chính (☰) → chọn Tùy chỉnh → thẻ 'Cá nhân hóa' → bật 'Bật nguồn cấp "
+"cá nhân hóa' để xem nội dung từ các nguồn cấp của bạn."
 
 #: src/managers/ui/loadingStateManager.vala:407
 msgid "No custom RSS feeds followed."
-msgstr "No sigues ninguna fuente RSS personalizada."
+msgstr "Chưa theo dõi nguồn cấp RSS tùy chọn nào."
 
 #: src/managers/ui/loadingStateManager.vala:409
 msgid ""
@@ -634,14 +619,12 @@ msgid ""
 "clicking the button below or open the main menu (☰) → Preferences → "
 "'Personalization' tab."
 msgstr ""
-"Has activado el modo «Solo fuentes personalizadas». Sigue y activa fuentes "
-"RSS con el botón de abajo o abre el menú principal (☰) → Preferencias → "
-"pestaña «Personalización»."
+"Bạn đã bật chế độ 'Chỉ nguồn tùy chọn'. Hãy theo dõi và bật nguồn cấp RSS "
+"bằng nút bên dưới hoặc mở menu chính (☰) → Tùy chỉnh → thẻ 'Cá nhân hóa'."
 
 #: src/managers/ui/loadingStateManager.vala:415
 msgid "Personalized Feed is enabled but no categories are selected."
-msgstr ""
-"El feed personalizado está activado, pero no hay categorías seleccionadas."
+msgstr "Nguồn cấp cá nhân hóa đang bật nhưng chưa chọn danh mục nào."
 
 #: src/managers/ui/loadingStateManager.vala:417
 msgid ""
@@ -649,14 +632,14 @@ msgid ""
 "'Enable personalized feed' toggle and click its settings icon to select "
 "categories, or follow custom RSS feeds."
 msgstr ""
-"Abre el menú principal (☰) → elige Preferencias → pestaña «Personalización» "
-"→ activa «Activar feed personalizado» y pulsa su icono de ajustes para "
-"elegir categorías, o sigue fuentes RSS personalizadas."
+"Mở menu chính (☰) → chọn Tùy chỉnh → thẻ 'Cá nhân hóa' → bật 'Bật nguồn cấp "
+"cá nhân hóa' rồi nhấn biểu tượng cài đặt để chọn danh mục, hoặc theo dõi "
+"nguồn cấp RSS tùy chọn."
 
 #: src/managers/ui/sidebarManager.vala:339
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:78
 msgid "Categories"
-msgstr "Categorías"
+msgstr "Danh mục"
 
 #: src/managers/ui/sidebarManager.vala:372
 #: src/ui/controllers/myFeedExtrasController.vala:317
@@ -664,146 +647,146 @@ msgstr "Categorías"
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:297
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:300
 msgid "Podcasts"
-msgstr "Pódcasts"
+msgstr "Podcast"
 
 #. Page header label, e.g. "Dallas News".
 #. TRANSLATORS: %s is a country or a city, e.g. "Germany News", "Dallas News"
 #: src/models/news/localArea.vala:53 src/utils/net/googleNewsUtils.vala:183
 #, c-format
 msgid "%s News"
-msgstr "Noticias de %s"
+msgstr "Tin %s"
 
 #: src/models/weather/weatherReport.vala:43
 msgctxt "Weather"
 msgid "Clear"
-msgstr "Despejado"
+msgstr "Trời quang"
 
 #: src/models/weather/weatherReport.vala:44
 msgctxt "Weather"
 msgid "Mostly clear"
-msgstr "Mayormente despejado"
+msgstr "Phần lớn quang đãng"
 
 #: src/models/weather/weatherReport.vala:45
 msgctxt "Weather"
 msgid "Partly cloudy"
-msgstr "Parcialmente nublado"
+msgstr "Có mây rải rác"
 
 #: src/models/weather/weatherReport.vala:46
 msgctxt "Weather"
 msgid "Overcast"
-msgstr "Cubierto"
+msgstr "Nhiều mây"
 
 #: src/models/weather/weatherReport.vala:47
 msgctxt "Weather"
 msgid "Fog"
-msgstr "Niebla"
+msgstr "Sương mù"
 
 #: src/models/weather/weatherReport.vala:48
 msgctxt "Weather"
 msgid "Drizzle"
-msgstr "Llovizna"
+msgstr "Mưa phùn"
 
 #: src/models/weather/weatherReport.vala:49
 msgctxt "Weather"
 msgid "Freezing drizzle"
-msgstr "Llovizna helada"
+msgstr "Mưa phùn đóng băng"
 
 #: src/models/weather/weatherReport.vala:50
 msgctxt "Weather"
 msgid "Rain"
-msgstr "Lluvia"
+msgstr "Mưa"
 
 #: src/models/weather/weatherReport.vala:51
 msgctxt "Weather"
 msgid "Freezing rain"
-msgstr "Lluvia helada"
+msgstr "Mưa đóng băng"
 
 #: src/models/weather/weatherReport.vala:52
 msgctxt "Weather"
 msgid "Snow"
-msgstr "Nieve"
+msgstr "Tuyết"
 
 #: src/models/weather/weatherReport.vala:53
 msgctxt "Weather"
 msgid "Rain showers"
-msgstr "Chubascos"
+msgstr "Mưa rào"
 
 #: src/models/weather/weatherReport.vala:54
 msgctxt "Weather"
 msgid "Snow showers"
-msgstr "Chubascos de nieve"
+msgstr "Mưa tuyết"
 
 #: src/models/weather/weatherReport.vala:55
 msgctxt "Weather"
 msgid "Thunderstorm"
-msgstr "Tormenta"
+msgstr "Dông"
 
 #: src/models/weather/weatherReport.vala:56
 msgctxt "Weather"
 msgid "Thunderstorm with hail"
-msgstr "Tormenta con granizo"
+msgstr "Dông kèm mưa đá"
 
 #: src/processors/rssFeedProcessor.vala:558
 msgid "No title"
-msgstr "Sin título"
+msgstr "Không có tiêu đề"
 
 #: src/processors/rssFeedProcessor.vala:671
 msgid "Error loading feed — invalid (empty) URL"
-msgstr "Error al cargar la fuente: URL no válida (vacía)"
+msgstr "Lỗi tải nguồn cấp — URL không hợp lệ (trống)"
 
 #: src/processors/rssFeedProcessor.vala:676
 msgid "Error loading feed — invalid URL"
-msgstr "Error al cargar la fuente: URL no válida"
+msgstr "Lỗi tải nguồn cấp — URL không hợp lệ"
 
 #: src/processors/rssFeedProcessor.vala:693
 msgid "Failed to read local RSS file"
-msgstr "No se pudo leer el archivo RSS local"
+msgstr "Không thể đọc tệp RSS cục bộ"
 
 #: src/processors/rssFeedProcessor.vala:756
 msgid "Error loading feed — network/DNS error"
-msgstr "Error al cargar la fuente: error de red o DNS"
+msgstr "Lỗi tải nguồn cấp — lỗi mạng/DNS"
 
 #: src/processors/rssFeedProcessor.vala:768
 msgid "Error loading feed — empty response"
-msgstr "Error al cargar la fuente: respuesta vacía"
+msgstr "Lỗi tải nguồn cấp — phản hồi trống"
 
 #: src/processors/rssFeedProcessor.vala:778
 msgid "Error loading feed"
-msgstr "Error al cargar la fuente"
+msgstr "Lỗi tải nguồn cấp"
 
 #: src/ui/appWindow.vala:306
 msgid "Refresh news"
-msgstr "Actualizar noticias"
+msgstr "Làm mới tin tức"
 
 #. Main menu, on the sidebar's trailing (right) side
 #: src/ui/appWindow.vala:320 src/ui/dialogs/app/prefsDialog.vala:39
 msgid "Preferences"
-msgstr "Preferencias"
+msgstr "Tùy chỉnh"
 
 #: src/ui/appWindow.vala:321 src/ui/sidebarView.vala:257
 msgid "Manage Locations"
-msgstr "Gestionar ubicaciones"
+msgstr "Quản lý vị trí"
 
 #: src/ui/appWindow.vala:322
 msgid "Show Welcome Tour"
-msgstr "Mostrar el recorrido de bienvenida"
+msgstr "Hiện hướng dẫn chào mừng"
 
 #: src/ui/appWindow.vala:323 src/ui/dialogs/app/aboutDialog.vala:100
 #: src/ui/dialogs/app/aboutDialog.vala:257
 msgid "About Paperboy"
-msgstr "Acerca de Paperboy"
+msgstr "Giới thiệu Paperboy"
 
 #: src/ui/appWindow.vala:328
 msgid "Main Menu"
-msgstr "Menú principal"
+msgstr "Menu chính"
 
 #: src/ui/appWindow.vala:342
 msgid "Toggle Sidebar"
-msgstr "Mostrar u ocultar la barra lateral"
+msgstr "Bật/tắt thanh bên"
 
 #: src/ui/appWindow.vala:349 src/ui/appWindow.vala:522
 msgid "Search news for keywords…"
-msgstr "Buscar noticias por palabras clave…"
+msgstr "Tìm tin theo từ khóa…"
 
 #. Podcasts renders into ContentView's own hero_container/
 #. category_sections_container - the exact containers Top
@@ -825,26 +808,26 @@ msgstr "Buscar noticias por palabras clave…"
 #. recognizes "podcasts" or ever calls fetch_finished().
 #: src/ui/appWindow.vala:505 src/ui/appWindow.vala:1014
 msgid "Search podcasts…"
-msgstr "Buscar pódcasts…"
+msgstr "Tìm podcast…"
 
 #. Same reasoning as the podcasts branch above - Magazines
 #. isn't a FetchNewsController category either.
 #: src/ui/appWindow.vala:522 src/ui/appWindow.vala:1019
 msgid "Search magazines…"
-msgstr "Buscar revistas…"
+msgstr "Tìm tạp chí…"
 
 #. Also show a user-visible toast for immediate feedback
 #: src/ui/appWindow.vala:1311
 msgid "Failed to load articles. Please try again."
-msgstr "No se pudieron cargar los artículos. Inténtalo de nuevo."
+msgstr "Không thể tải bài viết. Vui lòng thử lại."
 
 #: src/ui/components/articles/articlePane.vala:57
 msgid "Failed to open link in browser"
-msgstr "No se pudo abrir el enlace en el navegador"
+msgstr "Không thể mở liên kết trong trình duyệt"
 
 #: src/ui/components/articles/articlePane.vala:228
 msgid "Loading snippet…"
-msgstr "Cargando resumen…"
+msgstr "Đang tải đoạn trích…"
 
 #: src/ui/components/articles/articlePane.vala:253
 #: src/ui/components/articles/articleSheet.vala:150
@@ -853,7 +836,7 @@ msgstr "Cargando resumen…"
 #: src/ui/dialogs/media/podcastDetailDialog.vala:201
 #: src/ui/dialogs/media/videoPlayerDialog.vala:126
 msgid "Close"
-msgstr "Cerrar"
+msgstr "Đóng"
 
 #: src/ui/components/articles/articlePane.vala:302
 #: src/ui/components/articles/articleSheet.vala:525
@@ -862,7 +845,7 @@ msgstr "Cerrar"
 #: src/managers/content/articleManager.vala:1466
 #: src/managers/content/articleManager.vala:1904
 msgid "Removed article from saved"
-msgstr "Artículo eliminado de guardados"
+msgstr "Đã xóa bài viết khỏi mục đã lưu"
 
 #: src/ui/components/articles/articlePane.vala:309
 #: src/ui/components/articles/articleSheet.vala:530
@@ -871,76 +854,76 @@ msgstr "Artículo eliminado de guardados"
 #: src/managers/content/articleManager.vala:1469
 #: src/managers/content/articleManager.vala:1907
 msgid "Added article to saved"
-msgstr "Artículo añadido a guardados"
+msgstr "Đã lưu bài viết"
 
 #: src/ui/components/articles/articlePane.vala:341
 #: src/ui/components/articles/articleSheet.vala:157
 msgid "Article options"
-msgstr "Opciones del artículo"
+msgstr "Tùy chọn bài viết"
 
 #: src/ui/components/articles/articlePane.vala:346
 msgid "Article view and source options"
-msgstr "Opciones de vista y fuente del artículo"
+msgstr "Tùy chọn hiển thị bài viết và nguồn"
 
 #. Fetch snippet asynchronously. ArticlePreviewService will consult any
 #. provided article buffer (cached feed entries) for quick results.
 #. Ensure the preview UI is still present before mutating widgets
 #: src/ui/components/articles/articlePane.vala:398
 msgid "No preview available. Open the article to read more."
-msgstr "No hay vista previa disponible. Abre el artículo para leer más."
+msgstr "Không có bản xem trước. Hãy mở bài viết để đọc thêm."
 
 #: src/ui/components/articles/articleSheet.vala:107
 #: src/ui/dialogs/app/onboardingDialog.vala:72
 msgid "Back"
-msgstr "Atrás"
+msgstr "Quay lại"
 
 #: src/ui/components/articles/articleSheet.vala:113
 msgid "Forward"
-msgstr "Adelante"
+msgstr "Tiếp"
 
 #: src/ui/components/articles/articleSheet.vala:119
 msgid "Reload article"
-msgstr "Recargar artículo"
+msgstr "Tải lại bài viết"
 
 #: src/ui/components/articles/articleSheet.vala:131
 msgid "Reader view"
-msgstr "Vista de lectura"
+msgstr "Chế độ đọc"
 
 #: src/ui/components/articles/articleSheet.vala:152
 msgid "Close article"
-msgstr "Cerrar artículo"
+msgstr "Đóng bài viết"
 
 #: src/ui/components/articles/articleSheet.vala:164
 #: src/ui/components/articles/articleSheet.vala:351
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:43 src/ui/sidebarView.vala:1250
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:261
 msgid "Notes"
-msgstr "Notas"
+msgstr "Ghi chú"
 
 #: src/ui/components/articles/articleSheet.vala:247
 msgid "View comments"
-msgstr "Ver comentarios"
+msgstr "Xem bình luận"
 
 #: src/ui/components/articles/articleSheet.vala:287
 msgid "Comments"
-msgstr "Comentarios"
+msgstr "Bình luận"
 
 #: src/ui/components/articles/articleSheet.vala:292
 msgid "Close comments"
-msgstr "Cerrar comentarios"
+msgstr "Đóng bình luận"
 
 #: src/ui/components/articles/articleSheet.vala:356
 #: src/ui/dialogs/notes/noteEditorDialog.vala:48
 msgid "New note"
-msgstr "Nueva nota"
+msgstr "Ghi chú mới"
 
 #: src/ui/components/articles/articleSheet.vala:364
 msgid "Close notes"
-msgstr "Cerrar notas"
+msgstr "Đóng ghi chú"
 
 #: src/ui/components/articles/articleSheet.vala:385
 msgid "No notes yet."
-msgstr "Aún no hay notas."
+msgstr "Chưa có ghi chú."
 
 #: src/ui/components/articles/articleSheet.vala:720
 msgid "9+"
@@ -948,11 +931,11 @@ msgstr "9+"
 
 #: src/ui/components/articles/articleSheet.vala:823
 msgid "No comments yet."
-msgstr "Aún no hay comentarios."
+msgstr "Chưa có bình luận."
 
 #: src/ui/components/articles/articleSheet.vala:823
 msgid "Couldn't load comments."
-msgstr "No se pudieron cargar los comentarios."
+msgstr "Không thể tải bình luận."
 
 #. Styled like the content view's other card chips
 #. (.category-chip/.source-badge), not the sidebar's
@@ -962,7 +945,7 @@ msgstr "No se pudieron cargar los comentarios."
 #: src/ui/components/articles/categorySection.vala:146
 #: src/ui/components/sports/leagueBadge.vala:101 src/ui/sidebarView.vala:553
 msgid "Live"
-msgstr "En vivo"
+msgstr "Trực tiếp"
 
 #. Plain "Go to <title>" button under the row (not overlaid on the
 #. cards), fixed in place - jumps to nav_target_id's full page via the
@@ -975,7 +958,7 @@ msgstr "En vivo"
 #: src/ui/components/articles/categorySection.vala:461
 #, c-format
 msgid "Go to %s →"
-msgstr "Ir a %s →"
+msgstr "Đến %s →"
 
 #. Margins live in CSS (.top-stories-title), not set_margin_top/
 #. bottom here: the top margin was silently not taking effect via
@@ -985,15 +968,15 @@ msgstr "Ir a %s →"
 #. Use Pango markup to match the subtitle sizing used elsewhere.
 #: src/ui/components/articles/heroCarousel.vala:82
 msgid "<span size='26000'><b>FEATURED</b></span>"
-msgstr "<span size='26000'><b>DESTACADO</b></span>"
+msgstr "<span size='26000'><b>NỔI BẬT</b></span>"
 
 #: src/ui/components/articles/recommendedSection.vala:75
 msgid "RECOMMENDED FOR YOU"
-msgstr "RECOMENDADO PARA TI"
+msgstr "ĐỀ XUẤT CHO BẠN"
 
 #: src/ui/components/articles/recommendedSection.vala:79
 msgid "Picked from the topics and sites you read"
-msgstr "Elegido a partir de los temas y sitios que lees"
+msgstr "Chọn từ các chủ đề và trang bạn đọc"
 
 #. No standard GTK/Adwaita icon actually renders as a literal arrow
 #. (shaft + head) - go-previous/pan-start/media-playback-start all
@@ -1014,75 +997,75 @@ msgstr "→"
 
 #: src/ui/components/magazines/magazineCard.vala:290
 msgid "Select"
-msgstr "Seleccionar"
+msgstr "Chọn"
 
 #: src/ui/components/magazines/magazineCard.vala:291
 msgid "Set Category…"
-msgstr "Asignar categoría…"
+msgstr "Đặt danh mục…"
 
 #: src/ui/components/magazines/magazineCard.vala:292
 msgid "Remove from Library"
-msgstr "Eliminar de la biblioteca"
+msgstr "Xóa khỏi thư viện"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:264
 msgid "Opening magazine…"
-msgstr "Abriendo revista…"
+msgstr "Đang mở tạp chí…"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:290
 msgid "Failed to open magazine"
-msgstr "No se pudo abrir la revista"
+msgstr "Không thể mở tạp chí"
 
 #. stale page indices from whatever was open before, if anything
 #: src/ui/components/magazines/magazineReaderSheet.vala:297
 msgid "Magazine"
-msgstr "Revista"
+msgstr "Tạp chí"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:376
 #: src/ui/components/magazines/magazineReaderSheet.vala:380
 msgid "Single Page"
-msgstr "Una página"
+msgstr "Một trang"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:377
 msgid "Toggle two-page spread"
-msgstr "Alternar vista de doble página"
+msgstr "Bật/tắt chế độ hai trang"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:380
 msgid "Two-Page"
-msgstr "Doble página"
+msgstr "Hai trang"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:393
 msgid "Browse pages"
-msgstr "Explorar páginas"
+msgstr "Duyệt các trang"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:399
 msgid "Zoom out"
-msgstr "Alejar"
+msgstr "Thu nhỏ"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:405
 msgid "Fit to view"
-msgstr "Ajustar a la vista"
+msgstr "Vừa khung nhìn"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:411
 msgid "Zoom in"
-msgstr "Acercar"
+msgstr "Phóng to"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:635
 msgid "Previous page"
-msgstr "Página anterior"
+msgstr "Trang trước"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:643
 msgid "Next page"
-msgstr "Página siguiente"
+msgstr "Trang sau"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:1147
 #, c-format
 msgid "Pages %d–%d of %d"
-msgstr "Páginas %d–%d de %d"
+msgstr "Trang %d–%d / %d"
 
 #: src/ui/components/magazines/magazineReaderSheet.vala:1149
 #, c-format
 msgid "Page %d of %d"
-msgstr "Página %d de %d"
+msgstr "Trang %d / %d"
 
 #. typical portrait aspect - letterboxed if a page is a different shape
 #: src/ui/components/magazines/magazineTocPane.vala:134
@@ -1110,24 +1093,24 @@ msgstr "%s · %s"
 #: src/ui/dialogs/media/podcastDetailDialog.vala:445
 #, c-format
 msgid "%lldh %lldm"
-msgstr "%lld h %lld min"
+msgstr "%lld giờ %lld phút"
 
 #: src/ui/components/podcasts/podcastCard.vala:105
 #: src/ui/components/podcasts/podcastPane.vala:599
 #: src/ui/dialogs/media/podcastDetailDialog.vala:446
 #, c-format
 msgid "%lldm"
-msgstr "%lld min"
+msgstr "%lld phút"
 
 #: src/ui/components/podcasts/podcastCard.vala:162
 #: src/ui/components/podcasts/podcastHeroCard.vala:150
 #: src/ui/menus/podcastMenu.vala:52
 msgid "Play"
-msgstr "Reproducir"
+msgstr "Phát"
 
 #: src/ui/components/podcasts/podcastCard.vala:180
 msgid "Click for details"
-msgstr "Haz clic para ver los detalles"
+msgstr "Nhấn để xem chi tiết"
 
 #: src/ui/components/podcasts/podcastCard.vala:230
 #: src/ui/components/podcasts/podcastHeroCard.vala:169
@@ -1135,237 +1118,237 @@ msgstr "Haz clic para ver los detalles"
 #: src/ui/dialogs/media/podcastDetailDialog.vala:164
 #: src/ui/menus/podcastMenu.vala:80
 msgid "Subscribe"
-msgstr "Suscribirse"
+msgstr "Đăng ký"
 
 #. TRANSLATORS: %s is the time remaining in an episode, e.g. "12:34 left"
 #: src/ui/components/podcasts/podcastPane.vala:164
 #: src/ui/components/podcasts/podcastPane.vala:521
 #, c-format
 msgid "%s left"
-msgstr "Quedan %s"
+msgstr "Còn %s"
 
 #: src/ui/components/podcasts/podcastPane.vala:451
 #: src/ui/dialogs/media/podcastDetailDialog.vala:228
 msgid "No episodes found for this show."
-msgstr "No se encontraron episodios de este programa."
+msgstr "Không tìm thấy tập nào của chương trình này."
 
 #: src/ui/components/podcasts/podcastPane.vala:507
 #: src/ui/dialogs/media/podcastDetailDialog.vala:364
 msgid "New"
-msgstr "Nuevo"
+msgstr "Mới"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:116
 msgid "Minimize"
-msgstr "Minimizar"
+msgstr "Thu nhỏ"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:127
 msgid "Stop and close"
-msgstr "Detener y cerrar"
+msgstr "Dừng và đóng"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:161
 msgid "Previous episode"
-msgstr "Episodio anterior"
+msgstr "Tập trước"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:173
 msgid "Next episode"
-msgstr "Episodio siguiente"
+msgstr "Tập sau"
 
 #: src/ui/components/podcasts/podcastPlayerBar.vala:178
 msgid "Playback speed"
-msgstr "Velocidad de reproducción"
+msgstr "Tốc độ phát"
 
 #. Labelled so tapping it reads as "leaves the reader" rather than "broken".
 #: src/ui/components/reader/readerVideoEmbed.vala:72
 msgid "Watch on site"
-msgstr "Ver en el sitio"
+msgstr "Xem trên trang"
 
 #: src/ui/components/reader/readerView.vala:116
 msgid "Loading reader view…"
-msgstr "Cargando vista de lectura…"
+msgstr "Đang tải chế độ đọc…"
 
 #: src/ui/components/reader/readerView.vala:124
 msgid ""
 "Couldn't extract a reader view for this article.\n"
 "Turn off reader view above to read it on the live webpage instead."
 msgstr ""
-"No se pudo extraer una vista de lectura de este artículo.\n"
-"Desactiva la vista de lectura arriba para leerlo en la página web original."
+"Không thể tạo chế độ đọc cho bài viết này.\n"
+"Hãy tắt chế độ đọc ở trên để đọc trên trang web gốc."
 
 #: src/ui/components/reader/readerView.vala:482
 msgid "Open note"
-msgstr "Abrir nota"
+msgstr "Mở ghi chú"
 
 #: src/ui/components/reader/readerView.vala:511
 msgid "Reader view settings"
-msgstr "Ajustes de la vista de lectura"
+msgstr "Cài đặt chế độ đọc"
 
 #. ---- Text size ----
 #: src/ui/components/reader/readerView.vala:524
 msgid "Text size"
-msgstr "Tamaño del texto"
+msgstr "Cỡ chữ"
 
 #: src/ui/components/reader/readerView.vala:531
 msgid "Decrease text size"
-msgstr "Reducir el tamaño del texto"
+msgstr "Giảm cỡ chữ"
 
 #: src/ui/components/reader/readerView.vala:536
 msgid "Increase text size"
-msgstr "Aumentar el tamaño del texto"
+msgstr "Tăng cỡ chữ"
 
 #. ---- Font family ----
 #: src/ui/components/reader/readerView.vala:555
 msgid "Font"
-msgstr "Fuente"
+msgstr "Phông chữ"
 
 #: src/ui/components/reader/readerView.vala:562
 msgid "Sans"
-msgstr "Sans"
+msgstr "Không chân"
 
 #: src/ui/components/reader/readerView.vala:563
 msgid "Serif"
-msgstr "Serif"
+msgstr "Có chân"
 
 #: src/ui/components/reader/readerView.vala:564
 msgid "Mono"
-msgstr "Mono"
+msgstr "Đơn cách"
 
 #. ---- Color scheme ----
 #: src/ui/components/reader/readerView.vala:584
 msgid "Color"
-msgstr "Color"
+msgstr "Màu"
 
 #: src/ui/components/reader/readerView.vala:628
 #: src/ui/dialogs/app/onboardingDialog.vala:335
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
 msgid "Light"
-msgstr "Claro"
+msgstr "Sáng"
 
 #: src/ui/components/reader/readerView.vala:629
 msgid "Sepia"
-msgstr "Sepia"
+msgstr "Nâu đỏ"
 
 #: src/ui/components/reader/readerView.vala:630
 msgid "Gray"
-msgstr "Gris"
+msgstr "Xám"
 
 #: src/ui/components/reader/readerView.vala:631
 #: src/ui/dialogs/app/onboardingDialog.vala:336
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
 msgid "Dark"
-msgstr "Oscuro"
+msgstr "Tối"
 
 #: src/ui/components/reader/readerView.vala:632
 msgid "Night"
-msgstr "Noche"
+msgstr "Ban đêm"
 
 #: src/ui/components/reader/readerView.vala:633
 msgid "Auto (match app theme)"
-msgstr "Automático (según el tema de la aplicación)"
+msgstr "Tự động (theo chủ đề ứng dụng)"
 
 #: src/ui/components/reader/readerView.vala:649
 #, c-format
 msgid "%d%%"
-msgstr "%d %%"
+msgstr "%d%%"
 
 #: src/ui/components/reader/readerView.vala:847
 msgid "Untitled article"
-msgstr "Artículo sin título"
+msgstr "Bài viết không có tiêu đề"
 
 #: src/ui/components/reader/readerView.vala:992
 #: src/ui/components/reader/readerView.vala:1001
 msgid "Add note"
-msgstr "Añadir nota"
+msgstr "Thêm ghi chú"
 
 #: src/ui/components/reader/readerView.vala:1075
 msgid "View full size"
-msgstr "Ver a tamaño completo"
+msgstr "Xem kích thước đầy đủ"
 
 #. TRANSLATORS: %s is the article's author
 #: src/ui/components/reader/readerView.vala:1094
 #, c-format
 msgid "By %s"
-msgstr "Por %s"
+msgstr "Tác giả: %s"
 
 #: src/ui/components/sports/leagueBadgeCarousel.vala:203
 msgid "Add more leagues"
-msgstr "Añadir más ligas"
+msgstr "Thêm giải đấu"
 
 #: src/ui/components/sports/leagueBadgeCarousel.vala:210
 msgid "Settings"
-msgstr "Ajustes"
+msgstr "Cài đặt"
 
 #: src/ui/components/sports/scoreCard.vala:115
 msgid "LIVE"
-msgstr "EN VIVO"
+msgstr "TRỰC TIẾP"
 
 #: src/ui/components/sports/scoreCard.vala:169
 msgid "TBD"
-msgstr "Por definir"
+msgstr "Chưa xác định"
 
 #: src/ui/components/sports/scoreCard.vala:180
 msgid "Today"
-msgstr "Hoy"
+msgstr "Hôm nay"
 
 #: src/ui/components/sports/scoreCard.vala:181
 msgid "Yesterday"
-msgstr "Ayer"
+msgstr "Hôm qua"
 
 #: src/ui/components/sports/scoreCard.vala:182
 msgid "Tomorrow"
-msgstr "Mañana"
+msgstr "Ngày mai"
 
 #: src/ui/contentView.vala:241
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:48
 msgid "Organize Rack"
-msgstr "Organizar el revistero"
+msgstr "Sắp xếp kệ"
 
 #: src/ui/contentView.vala:342
 msgid "<span size='26000'><b>START LISTENING</b></span>"
-msgstr "<span size='26000'><b>EMPIEZA A ESCUCHAR</b></span>"
+msgstr "<span size='26000'><b>BẮT ĐẦU NGHE</b></span>"
 
 #: src/ui/contentView.vala:386
 msgid "TRENDING"
-msgstr "TENDENCIAS"
+msgstr "THỊNH HÀNH"
 
 #: src/ui/contentView.vala:458
 msgid "MY TEAMS"
-msgstr "MIS EQUIPOS"
+msgstr "ĐỘI CỦA TÔI"
 
 #: src/ui/contentView.vala:689
 msgid "Personalize My Feed"
-msgstr "Personalizar Mi feed"
+msgstr "Cá nhân hóa nguồn cấp của tôi"
 
 #: src/ui/contentView.vala:711
 msgid "To See Local News, Set Your Location in Preferences"
-msgstr "Para ver noticias locales, configura tu ubicación en Preferencias"
+msgstr "Để xem tin địa phương, hãy đặt vị trí trong Tùy chỉnh"
 
 #: src/ui/contentView.vala:720
 msgid ""
 "Open the main menu (☰) → choose 'Manage locations' to configure your city or "
 "postal code."
 msgstr ""
-"Abre el menú principal (☰) → elige «Gestionar ubicaciones» para configurar "
-"tu ciudad o código postal."
+"Mở menu chính (☰) → chọn 'Quản lý vị trí' để đặt thành phố hoặc mã bưu chính "
+"của bạn."
 
 #: src/ui/contentView.vala:728
 msgid "Set Location"
-msgstr "Configurar ubicación"
+msgstr "Đặt vị trí"
 
 #: src/ui/contentView.vala:754
 msgid "Something went wrong. Try refreshing..."
-msgstr "Algo salió mal. Intenta actualizar..."
+msgstr "Đã xảy ra lỗi. Hãy thử làm mới..."
 
 #: src/ui/contentView.vala:762 src/ui/dialogs/app/prefsDialog.vala:82
 msgid "Refresh"
-msgstr "Actualizar"
+msgstr "Làm mới"
 
 #: src/ui/contentView.vala:846
 msgid "Select all"
-msgstr "Seleccionar todo"
+msgstr "Chọn tất cả"
 
 #: src/ui/contentView.vala:942 src/ui/contentView.vala:1017
 msgid "Load more articles"
-msgstr "Cargar más artículos"
+msgstr "Tải thêm bài viết"
 
 #. Search spans every category, not just the one on screen (e.g.
 #. "Sports") - keeping that category's name/icon while showing
@@ -1376,65 +1359,62 @@ msgstr "Cargar más artículos"
 #. it's already correct for every keystroke after the first.
 #: src/ui/contentView.vala:1155 src/ui/contentView.vala:1156
 msgid "Search results"
-msgstr "Resultados de búsqueda"
+msgstr "Kết quả tìm kiếm"
 
 #: src/ui/contentView.vala:1193
 #, c-format
 msgid "No articles found matching \"%s\""
-msgstr "No se encontraron artículos que coincidan con «%s»"
+msgstr "Không tìm thấy bài viết nào khớp với \"%s\""
 
 #. Special switch when only one matching article is found
 #: src/ui/contentView.vala:1196
 #, c-format
 msgid "Search results: found %d article matching \"%s\""
 msgid_plural "Search results: found %d articles matching \"%s\""
-msgstr[0] ""
-"Resultados de búsqueda: se encontró %d artículo que coincide con «%s»"
-msgstr[1] ""
-"Resultados de búsqueda: se encontraron %d artículos que coinciden con «%s»"
+msgstr[0] "Kết quả tìm kiếm: tìm thấy %d bài viết khớp với “%s”"
 
 #: src/ui/dialogs/app/aboutDialog.vala:73
 msgid "Country detection and the Portuguese (Brazil) translation"
-msgstr "Detección del país y la traducción al portugués (Brasil)"
+msgstr "Nhận diện quốc gia và bản dịch tiếng Bồ Đào Nha (Brazil)"
 
 #. Contributors get their own page, so the list can grow without
 #. making this one longer
 #: src/ui/dialogs/app/aboutDialog.vala:93
 #: src/ui/dialogs/app/aboutDialog.vala:197
 msgid "Contributors"
-msgstr "Colaboradores"
+msgstr "Người đóng góp"
 
 #: src/ui/dialogs/app/aboutDialog.vala:124
 #: src/ui/dialogs/app/aboutDialog.vala:127
 msgid "Release notes not available"
-msgstr "Las notas de la versión no están disponibles"
+msgstr "Không có ghi chú phát hành"
 
 #: src/ui/dialogs/app/aboutDialog.vala:141
 #: src/ui/dialogs/app/aboutDialog.vala:187
 msgid "Release notes"
-msgstr "Notas de la versión"
+msgstr "Ghi chú phát hành"
 
 #: src/ui/dialogs/app/aboutDialog.vala:174
 msgid "An all-in-one news app written in Vala, built with GTK4 and Libadwaita."
 msgstr ""
-"Una aplicación de noticias todo en uno escrita en Vala y creada con GTK4 y "
+"Ứng dụng tin tức tất cả trong một, viết bằng Vala, xây dựng với GTK4 và "
 "Libadwaita."
 
 #: src/ui/dialogs/app/aboutDialog.vala:205
 msgid "Links"
-msgstr "Enlaces"
+msgstr "Liên kết"
 
 #: src/ui/dialogs/app/aboutDialog.vala:234
 msgid "GitHub Repository"
-msgstr "Repositorio en GitHub"
+msgstr "Kho mã GitHub"
 
 #: src/ui/dialogs/app/aboutDialog.vala:235
 msgid "Releases"
-msgstr "Versiones"
+msgstr "Các bản phát hành"
 
 #: src/ui/dialogs/app/aboutDialog.vala:236
 msgid "Report an issue"
-msgstr "Informar de un problema"
+msgstr "Báo cáo sự cố"
 
 #: src/ui/dialogs/app/aboutDialog.vala:240
 msgid "© 2025 thecalamityjoe87 (Isaac Joseph)"
@@ -1443,107 +1423,104 @@ msgstr "© 2025 thecalamityjoe87 (Isaac Joseph)"
 #: src/ui/dialogs/app/locationDialog.vala:81
 #: src/ui/dialogs/notes/noteEditorDialog.vala:51
 msgid "Save"
-msgstr "Guardar"
+msgstr "Lưu"
 
 #: src/ui/dialogs/app/locationDialog.vala:83
 msgid "Add city"
-msgstr "Añadir ciudad"
+msgstr "Thêm thành phố"
 
 #: src/ui/dialogs/app/locationDialog.vala:83 src/ui/menus/sidebarMenu.vala:56
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:417
 msgid "Change location"
-msgstr "Cambiar ubicación"
+msgstr "Đổi vị trí"
 
 #: src/ui/dialogs/app/locationDialog.vala:84
 msgid ""
 "Enter a city name or a postal code, or use your current location.\n"
 "Examples: \"San Francisco, CA\", \"Manchester\" or \"10115\""
 msgstr ""
-"Introduce el nombre de una ciudad o un código postal, o usa tu ubicación "
-"actual.\n"
-"Ejemplos: «San Francisco, CA», «Manchester» o «10115»"
+"Nhập tên thành phố hoặc mã bưu chính, hoặc dùng vị trí hiện tại của bạn.\n"
+"Ví dụ: \"Hà Nội\", \"Manchester\" hoặc \"10115\""
 
 #: src/ui/dialogs/app/locationDialog.vala:88
 msgid "City name or postal code"
-msgstr "Nombre de la ciudad o código postal"
+msgstr "Tên thành phố hoặc mã bưu chính"
 
 #: src/ui/dialogs/app/locationDialog.vala:104
 #, c-format
 msgid "Current location: <b>%s</b>"
-msgstr "Ubicación actual: <b>%s</b>"
+msgstr "Vị trí hiện tại: <b>%s</b>"
 
 #: src/ui/dialogs/app/locationDialog.vala:140
 msgid "Searching..."
-msgstr "Buscando..."
+msgstr "Đang tìm..."
 
 #: src/ui/dialogs/app/locationDialog.vala:155
 msgid "Search"
-msgstr "Buscar"
+msgstr "Tìm"
 
 #: src/ui/dialogs/app/locationDialog.vala:157
 msgid "Use my location"
-msgstr "Usar mi ubicación"
+msgstr "Dùng vị trí của tôi"
 
 #: src/ui/dialogs/app/locationDialog.vala:214
 #, c-format
 msgid "You can save up to %d location."
 msgid_plural "You can save up to %d locations."
-msgstr[0] "Puedes guardar hasta %d ubicación."
-msgstr[1] "Puedes guardar hasta %d ubicaciones."
+msgstr[0] "Bạn có thể lưu tối đa %d vị trí."
 
 #: src/ui/dialogs/app/locationDialog.vala:248
 msgid ""
 "Couldn't resolve a location for that. Try a different city name or postal "
 "code."
 msgstr ""
-"No se pudo encontrar una ubicación. Prueba con otro nombre de ciudad o "
-"código postal."
+"Không thể xác định vị trí cho nội dung đó. Hãy thử tên thành phố hoặc mã bưu "
+"chính khác."
 
 #. TRANSLATORS: the first %s is a city, the second the dialog's save button label
 #: src/ui/dialogs/app/locationDialog.vala:268
 #, c-format
 msgid "Detected: <b>%s</b> — click %s to use this location"
-msgstr "Detectado: <b>%s</b>; pulsa «%s» para usar esta ubicación"
+msgstr "Đã phát hiện: <b>%s</b> — nhấn “%s” để dùng vị trí này"
 
 #: src/ui/dialogs/app/locationDialog.vala:273
 #, c-format
 msgid "Detected: <b>%s</b> — choose which news to add:"
-msgstr "Detectado: <b>%s</b>; elige qué noticias añadir:"
+msgstr "Đã phát hiện: <b>%s</b> — chọn tin cần thêm:"
 
 #: src/ui/dialogs/app/locationDialog.vala:274
 msgid "Smaller towns may have limited coverage."
-msgstr "Es posible que la cobertura de las localidades pequeñas sea limitada."
+msgstr "Các thị trấn nhỏ có thể ít tin tức."
 
 #: src/ui/dialogs/app/locationDialog.vala:275
 msgid "Nearby metro area"
-msgstr "Área metropolitana cercana"
+msgstr "Vùng đô thị lân cận"
 
 #: src/ui/dialogs/app/locationDialog.vala:283
 msgid "1 location slot left — pick one, or remove a location to add both."
 msgstr ""
-"Queda 1 espacio para ubicaciones: elige una o elimina una ubicación para "
-"añadir ambas."
+"Còn 1 chỗ cho vị trí — hãy chọn một, hoặc xóa một vị trí để thêm cả hai."
 
 #: src/ui/dialogs/app/locationDialog.vala:315
 msgid "Enter a city name or postal code and press Search."
-msgstr "Introduce el nombre de una ciudad o un código postal y pulsa Buscar."
+msgstr "Nhập tên thành phố hoặc mã bưu chính rồi nhấn Tìm."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:64
 msgid "Skip"
-msgstr "Omitir"
+msgstr "Bỏ qua"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:76
 #: src/ui/dialogs/app/onboardingDialog.vala:109
 msgid "Next"
-msgstr "Siguiente"
+msgstr "Tiếp"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:109
 msgid "Get Started"
-msgstr "Empezar"
+msgstr "Bắt đầu"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:158
 msgid "Welcome to Paperboy"
-msgstr "Te damos la bienvenida a Paperboy"
+msgstr "Chào mừng đến với Paperboy"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:165
 msgid ""
@@ -1552,14 +1529,14 @@ msgid ""
 "\n"
 "Let's set a few things up before you get started."
 msgstr ""
-"Paperboy reúne las noticias de las fuentes en las que confías en un lector "
-"limpio y sin distracciones.\n"
+"Paperboy tập hợp tin tức từ các nguồn bạn tin cậy vào một trình đọc gọn "
+"gàng, không gây xao nhãng.\n"
 "\n"
-"Vamos a configurar algunas cosas antes de empezar."
+"Hãy thiết lập vài thứ trước khi bắt đầu."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:203
 msgid "Where Are You Reading From?"
-msgstr "¿Desde dónde lees?"
+msgstr "Bạn đang đọc từ đâu?"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:209
 msgid ""
@@ -1567,38 +1544,38 @@ msgid ""
 "from your system settings - change it if it's not right. You can change this "
 "anytime from Preferences."
 msgstr ""
-"Tus noticias nacionales y la Portada provienen de este país. Lo hemos "
-"elegido a partir de la configuración de tu sistema; cámbialo si no es "
-"correcto. Puedes cambiarlo en cualquier momento desde Preferencias."
+"Tin trong nước và Trang nhất của bạn đến từ quốc gia này. Chúng tôi đã chọn "
+"dựa trên cài đặt hệ thống - hãy đổi nếu chưa đúng. Bạn có thể thay đổi bất "
+"cứ lúc nào trong Tùy chỉnh."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:240
 msgid "Pick a Theme"
-msgstr "Elige un tema"
+msgstr "Chọn chủ đề"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:246
 msgid "You can change this anytime from Preferences."
-msgstr "Puedes cambiarlo en cualquier momento desde Preferencias."
+msgstr "Bạn có thể thay đổi bất cứ lúc nào trong Tùy chỉnh."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:334
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:60
 msgid "Follow System"
-msgstr "Seguir al sistema"
+msgstr "Theo hệ thống"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:467
 msgid "What Do You Want to Read?"
-msgstr "¿Qué quieres leer?"
+msgstr "Bạn muốn đọc gì?"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:472
 msgid ""
 "Pick the topics you care about. They show up in the sidebar and make up My "
 "Feed - you can change them anytime from Preferences."
 msgstr ""
-"Elige los temas que te interesan. Aparecen en la barra lateral y forman Mi "
-"feed; puedes cambiarlos en cualquier momento desde Preferencias."
+"Chọn các chủ đề bạn quan tâm. Chúng sẽ xuất hiện ở thanh bên và tạo nên "
+"Nguồn cấp của tôi - bạn có thể thay đổi bất cứ lúc nào trong Tùy chỉnh."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:533
 msgid "Choose Your Sources"
-msgstr "Elige tus fuentes"
+msgstr "Chọn nguồn tin"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:538
 msgid ""
@@ -1606,13 +1583,13 @@ msgid ""
 "any you'd rather not see to hide their articles everywhere - you can change "
 "these anytime from Preferences."
 msgstr ""
-"Paperboy recopila artículos de toda la web, incluidos estos medios. Toca los "
-"que prefieras no ver para ocultar sus artículos en todas partes; puedes "
-"cambiarlos en cualquier momento desde Preferencias."
+"Paperboy lấy bài viết từ khắp nơi trên web, bao gồm cả các tờ báo này. Nhấn "
+"vào tờ nào bạn không muốn xem để ẩn bài viết của họ ở mọi nơi - bạn có thể "
+"thay đổi bất cứ lúc nào trong Tùy chỉnh."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:596
 msgid "Live Sports Scores"
-msgstr "Resultados deportivos en vivo"
+msgstr "Tỷ số thể thao trực tiếp"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:601
 msgid ""
@@ -1620,93 +1597,92 @@ msgid ""
 "Choose which leagues to follow - you can change this, and the order their "
 "sections appear in, anytime from Preferences."
 msgstr ""
-"Consulta los resultados en vivo de tus ligas favoritas directamente en la "
-"categoría Deportes. Elige qué ligas seguir: puedes cambiarlo, junto con el "
-"orden en que aparecen sus secciones, en cualquier momento desde Preferencias."
+"Xem tỷ số trực tiếp của các giải đấu yêu thích ngay trong danh mục Thể thao. "
+"Chọn giải đấu để theo dõi – bạn có thể thay đổi điều này, cùng thứ tự các "
+"mục, bất cứ lúc nào trong Tùy chỉnh."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:609
 msgid "Show Score Cards"
-msgstr "Mostrar tarjetas de resultados"
+msgstr "Hiện thẻ tỷ số"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:656
 msgid "Local News, Too"
-msgstr "También noticias locales"
+msgstr "Cả tin địa phương"
 
 #: src/ui/dialogs/app/onboardingDialog.vala:663
 msgid ""
 "Set your location to get a Local News feed for your area. You can do this "
 "now or anytime later from the main menu."
 msgstr ""
-"Configura tu ubicación para obtener un feed de noticias locales de tu zona. "
-"Puedes hacerlo ahora o más adelante desde el menú principal."
+"Đặt vị trí để nhận nguồn cấp Tin địa phương cho khu vực của bạn. Bạn có thể "
+"làm ngay hoặc sau này từ menu chính."
 
 #: src/ui/dialogs/app/onboardingDialog.vala:670
 msgid "Set My Location"
-msgstr "Configurar mi ubicación"
+msgstr "Đặt vị trí của tôi"
 
 #: src/ui/dialogs/app/prefsDialog.vala:78
 msgid "Refresh Content?"
-msgstr "¿Actualizar el contenido?"
+msgstr "Làm mới nội dung?"
 
 #: src/ui/dialogs/app/prefsDialog.vala:79
 msgid ""
 "Changes have been made to your news sources. Would you like to refresh the "
 "content now?"
 msgstr ""
-"Se han realizado cambios en tus fuentes de noticias. ¿Quieres actualizar el "
-"contenido ahora?"
+"Nguồn tin của bạn đã thay đổi. Bạn có muốn làm mới nội dung ngay không?"
 
 #: src/ui/dialogs/app/prefsDialog.vala:81
 msgid "Not Now"
-msgstr "Ahora no"
+msgstr "Để sau"
 
 #: src/ui/dialogs/content/feedRenameDialog.vala:34
 msgid "Rename feed"
-msgstr "Cambiar el nombre de la fuente"
+msgstr "Đổi tên nguồn cấp"
 
 #: src/ui/dialogs/content/feedRenameDialog.vala:34
 msgid "Leave empty to use the default name."
-msgstr "Déjalo vacío para usar el nombre predeterminado."
+msgstr "Để trống để dùng tên mặc định."
 
 #: src/ui/dialogs/content/feedRenameDialog.vala:43
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:332
 #: src/ui/menus/sidebarMenu.vala:100
 msgid "Rename"
-msgstr "Cambiar nombre"
+msgstr "Đổi tên"
 
 #: src/ui/dialogs/content/imageViewerDialog.vala:312
 msgid "Zoom Out"
-msgstr "Alejar"
+msgstr "Thu nhỏ"
 
 #: src/ui/dialogs/content/imageViewerDialog.vala:317
 msgid "Zoom In"
-msgstr "Acercar"
+msgstr "Phóng to"
 
 #: src/ui/dialogs/content/shareDialog.vala:34
 msgid "Share Article"
-msgstr "Compartir artículo"
+msgstr "Chia sẻ bài viết"
 
 #. Email section
 #: src/ui/dialogs/content/shareDialog.vala:40
 msgid "Share via email"
-msgstr "Compartir por correo electrónico"
+msgstr "Chia sẻ qua email"
 
 #: src/ui/dialogs/content/shareDialog.vala:49
 msgid "Send link"
-msgstr "Enviar enlace"
+msgstr "Gửi liên kết"
 
 #: src/ui/dialogs/content/shareDialog.vala:55
 msgid "Opening email client"
-msgstr "Abriendo el cliente de correo"
+msgstr "Đang mở ứng dụng email"
 
 #: src/ui/dialogs/content/shareDialog.vala:59
 msgid "Failed to open email client"
-msgstr "No se pudo abrir el cliente de correo"
+msgstr "Không thể mở ứng dụng email"
 
 #. Social media section
 #: src/ui/dialogs/content/shareDialog.vala:66
 msgid "Share on social media"
-msgstr "Compartir en redes sociales"
+msgstr "Chia sẻ lên mạng xã hội"
 
 #: src/ui/dialogs/content/shareDialog.vala:75
 msgid "Reddit"
@@ -1714,11 +1690,11 @@ msgstr "Reddit"
 
 #: src/ui/dialogs/content/shareDialog.vala:81
 msgid "Opening browser to Reddit"
-msgstr "Abriendo Reddit en el navegador"
+msgstr "Đang mở Reddit trong trình duyệt"
 
 #: src/ui/dialogs/content/shareDialog.vala:85
 msgid "Failed to share on Reddit"
-msgstr "No se pudo compartir en Reddit"
+msgstr "Không thể chia sẻ lên Reddit"
 
 #: src/ui/dialogs/content/shareDialog.vala:94
 msgid "X (Twitter)"
@@ -1726,11 +1702,11 @@ msgstr "X (Twitter)"
 
 #: src/ui/dialogs/content/shareDialog.vala:100
 msgid "Opening browser to X"
-msgstr "Abriendo X en el navegador"
+msgstr "Đang mở X trong trình duyệt"
 
 #: src/ui/dialogs/content/shareDialog.vala:104
 msgid "Failed to share on X"
-msgstr "No se pudo compartir en X"
+msgstr "Không thể chia sẻ lên X"
 
 #: src/ui/dialogs/content/shareDialog.vala:113
 msgid "Facebook"
@@ -1738,16 +1714,16 @@ msgstr "Facebook"
 
 #: src/ui/dialogs/content/shareDialog.vala:119
 msgid "Opening browser to Facebook"
-msgstr "Abriendo Facebook en el navegador"
+msgstr "Đang mở Facebook trong trình duyệt"
 
 #: src/ui/dialogs/content/shareDialog.vala:123
 msgid "Failed to share on Facebook"
-msgstr "No se pudo compartir en Facebook"
+msgstr "Không thể chia sẻ lên Facebook"
 
 #. Messaging apps section
 #: src/ui/dialogs/content/shareDialog.vala:130
 msgid "Share via messaging app"
-msgstr "Compartir por una aplicación de mensajería"
+msgstr "Chia sẻ qua ứng dụng nhắn tin"
 
 #: src/ui/dialogs/content/shareDialog.vala:139
 msgid "Telegram"
@@ -1755,11 +1731,11 @@ msgstr "Telegram"
 
 #: src/ui/dialogs/content/shareDialog.vala:145
 msgid "Opening browser to Telegram"
-msgstr "Abriendo Telegram en el navegador"
+msgstr "Đang mở Telegram trong trình duyệt"
 
 #: src/ui/dialogs/content/shareDialog.vala:149
 msgid "Failed to share on Telegram"
-msgstr "No se pudo compartir en Telegram"
+msgstr "Không thể chia sẻ qua Telegram"
 
 #: src/ui/dialogs/content/shareDialog.vala:158
 msgid "WhatsApp"
@@ -1767,11 +1743,11 @@ msgstr "WhatsApp"
 
 #: src/ui/dialogs/content/shareDialog.vala:164
 msgid "Opening browser to WhatsApp"
-msgstr "Abriendo WhatsApp en el navegador"
+msgstr "Đang mở WhatsApp trong trình duyệt"
 
 #: src/ui/dialogs/content/shareDialog.vala:168
 msgid "Failed to share on WhatsApp"
-msgstr "No se pudo compartir en WhatsApp"
+msgstr "Không thể chia sẻ qua WhatsApp"
 
 #: src/ui/dialogs/content/shareDialog.vala:178
 msgid "Signal"
@@ -1779,20 +1755,20 @@ msgstr "Signal"
 
 #: src/ui/dialogs/content/shareDialog.vala:187
 msgid "Signal isn't installed"
-msgstr "Signal no está instalado"
+msgstr "Chưa cài đặt Signal"
 
 #. Copy link section
 #: src/ui/dialogs/content/shareDialog.vala:194
 msgid "Share via copied link"
-msgstr "Compartir con un enlace copiado"
+msgstr "Chia sẻ bằng liên kết đã sao chép"
 
 #: src/ui/dialogs/content/shareDialog.vala:203
 msgid "Copy link to clipboard"
-msgstr "Copiar el enlace al portapapeles"
+msgstr "Sao chép liên kết vào bảng tạm"
 
 #: src/ui/dialogs/content/shareDialog.vala:209
 msgid "Link copied to clipboard"
-msgstr "Enlace copiado al portapapeles"
+msgstr "Đã sao chép liên kết vào bảng tạm"
 
 #. Undoes all organizing - category order, grid/row choice, and
 #. every magazine's category. Click handler wired below, after
@@ -1800,15 +1776,15 @@ msgstr "Enlace copiado al portapapeles"
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:94
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:190
 msgid "Reset View"
-msgstr "Restablecer vista"
+msgstr "Đặt lại chế độ xem"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:105
 msgid "Show uncategorized magazines as a grid"
-msgstr "Mostrar las revistas sin categoría como cuadrícula"
+msgstr "Hiện tạp chí chưa phân loại dạng lưới"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:188
 msgid "Reset view?"
-msgstr "¿Restablecer la vista?"
+msgstr "Đặt lại chế độ xem?"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:189
 msgid ""
@@ -1816,294 +1792,287 @@ msgid ""
 "order, and switches back to the grid view. This can't be undone, though no "
 "magazines themselves are removed from your library."
 msgstr ""
-"Devuelve todas las revistas a Sin categoría, borra tu orden personalizado de "
-"categorías y vuelve a la vista de cuadrícula. Esta acción no se puede "
-"deshacer, aunque no se elimina ninguna revista de tu biblioteca."
+"Chuyển mọi tạp chí về Chưa phân loại, xóa thứ tự danh mục tùy chọn và quay "
+"lại chế độ lưới. Không thể hoàn tác, nhưng không có tạp chí nào bị xóa khỏi "
+"thư viện."
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:222
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:299
 #, c-format
 msgid "%d magazine"
 msgid_plural "%d magazines"
-msgstr[0] "%d revista"
-msgstr[1] "%d revistas"
+msgstr[0] "%d tạp chí"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:284
 #: src/ui/dialogs/app/prefs/prefsRows.vala:180
 msgid "Drag to reorder"
-msgstr "Arrastra para reordenar"
+msgstr "Kéo để sắp xếp lại"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:306
 msgid "Rename category"
-msgstr "Cambiar el nombre de la categoría"
+msgstr "Đổi tên danh mục"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:312
 msgid "Delete category"
-msgstr "Eliminar categoría"
+msgstr "Xóa danh mục"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:322
 msgid "Rename Category"
-msgstr "Cambiar el nombre de la categoría"
+msgstr "Đổi tên danh mục"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:323
 #, c-format
 msgid "Choose a new name for \"%s\"."
-msgstr "Elige un nombre nuevo para «%s»."
+msgstr "Chọn tên mới cho \"%s\"."
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:362
 #, c-format
 msgid "Delete \"%s\"?"
-msgstr "¿Eliminar «%s»?"
+msgstr "Xóa \"%s\"?"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:363
 msgid ""
 "Moves its magazines back to Uncategorized. This can't be undone, though no "
 "magazines themselves are removed from your library."
 msgstr ""
-"Devuelve sus revistas a Sin categoría. Esta acción no se puede deshacer, "
-"aunque no se elimina ninguna revista de tu biblioteca."
+"Chuyển các tạp chí của danh mục này về Chưa phân loại. Không thể hoàn tác, "
+"nhưng không có tạp chí nào bị xóa khỏi thư viện."
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:457
 msgid "New category name"
-msgstr "Nombre de la nueva categoría"
+msgstr "Tên danh mục mới"
 
 #: src/ui/dialogs/media/magazineOrganizeDialog.vala:489
 msgid ""
 "Type a name above and tap Add to create a category row first, then drag "
 "magazines into it. Drag a row's handle to reorder categories."
 msgstr ""
-"Escribe un nombre arriba y toca Añadir para crear primero una fila de "
-"categoría; después arrastra revistas a ella. Arrastra el asa de una fila "
-"para reordenar las categorías."
+"Nhập tên ở trên rồi nhấn Thêm để tạo hàng danh mục trước, sau đó kéo tạp chí "
+"vào. Kéo tay cầm của hàng để sắp xếp lại danh mục."
 
 #. Rough heuristic for "probably got truncated by the 4-line cap
 #. above" - good enough to decide whether "See more" is worth
 #. showing without measuring the actual Pango layout.
 #: src/ui/dialogs/media/podcastDetailDialog.vala:146
 msgid "See more"
-msgstr "Ver más"
+msgstr "Xem thêm"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:32
 msgid "Choose Podcasts"
-msgstr "Elegir pódcasts"
+msgstr "Chọn podcast"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:33
 msgid "This site publishes more than one podcast - select which ones to add."
-msgstr ""
-"Este sitio publica más de un pódcast: selecciona cuáles quieres añadir."
+msgstr "Trang này đăng nhiều podcast - hãy chọn podcast cần thêm."
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:59
 #, c-format
 msgid "%d episode"
 msgid_plural "%d episodes"
-msgstr[0] "%d episodio"
-msgstr[1] "%d episodios"
+msgstr[0] "%d tập"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:63
 #, c-format
 msgid "%s · Already subscribed"
-msgstr "%s · Ya suscrito"
+msgstr "%s · Đã đăng ký"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:63
 msgid "Already subscribed"
-msgstr "Ya suscrito"
+msgstr "Đã đăng ký"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:130
 msgid "Podcast added"
-msgstr "Pódcast añadido"
+msgstr "Đã thêm podcast"
 
 #: src/ui/dialogs/media/podcastPickerDialog.vala:130
 #, c-format
 msgid "%d podcast added"
 msgid_plural "%d podcasts added"
-msgstr[0] "%d pódcast añadido"
-msgstr[1] "%d pódcasts añadidos"
+msgstr[0] "Đã thêm %d podcast"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:48
 msgid "Edit note"
-msgstr "Editar nota"
+msgstr "Sửa ghi chú"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:57
 msgid "Delete note"
-msgstr "Eliminar nota"
+msgstr "Xóa ghi chú"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:68
 msgid "Title (optional)"
-msgstr "Título (opcional)"
+msgstr "Tiêu đề (không bắt buộc)"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:159
 msgid "Bold"
-msgstr "Negrita"
+msgstr "Đậm"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:160
 msgid "Italic"
-msgstr "Cursiva"
+msgstr "Nghiêng"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:161
 msgid "Underline"
-msgstr "Subrayado"
+msgstr "Gạch chân"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:162
 msgid "Strikethrough"
-msgstr "Tachado"
+msgstr "Gạch ngang"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:166
 msgid "Highlight"
-msgstr "Resaltar"
+msgstr "Tô sáng"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:181
 msgid "Yellow"
-msgstr "Amarillo"
+msgstr "Vàng"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:182
 msgid "Green"
-msgstr "Verde"
+msgstr "Xanh lá"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:183
 msgid "Blue"
-msgstr "Azul"
+msgstr "Xanh dương"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:184
 msgid "Pink"
-msgstr "Rosa"
+msgstr "Hồng"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:185
 msgid "Orange"
-msgstr "Naranja"
+msgstr "Cam"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:201
 msgid "Remove highlight"
-msgstr "Quitar resaltado"
+msgstr "Bỏ tô sáng"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:211
 msgid "Bulleted list"
-msgstr "Lista con viñetas"
+msgstr "Danh sách dấu đầu dòng"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:212
 msgid "Numbered list"
-msgstr "Lista numerada"
+msgstr "Danh sách đánh số"
 
 #: src/ui/dialogs/notes/noteEditorDialog.vala:213
 msgid "Clear formatting"
-msgstr "Borrar formato"
+msgstr "Xóa định dạng"
 
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:59
 msgid ""
 "No notes yet.\n"
 "Open an article and tap the notes icon to add one."
 msgstr ""
-"Aún no hay notas.\n"
-"Abre un artículo y toca el icono de notas para añadir una."
+"Chưa có ghi chú.\n"
+"Mở một bài viết và nhấn biểu tượng ghi chú để thêm."
 
 #: src/ui/dialogs/notes/notesBrowserDialog.vala:167
 msgid "Open article"
-msgstr "Abrir artículo"
+msgstr "Mở bài viết"
 
 #. View in app
 #: src/ui/menus/articleMenu.vala:52
 msgid "View article in app"
-msgstr "Ver el artículo en la aplicación"
+msgstr "Xem bài viết trong ứng dụng"
 
 #. Open in browser
 #: src/ui/menus/articleMenu.vala:61
 msgid "Open article in browser"
-msgstr "Abrir el artículo en el navegador"
+msgstr "Mở bài viết trong trình duyệt"
 
 #: src/ui/menus/articleMenu.vala:81
 msgid "Built-in source"
-msgstr "Fuente integrada"
+msgstr "Nguồn có sẵn"
 
 #: src/ui/menus/articleMenu.vala:81
 msgid "Enable built-in source"
-msgstr "Activar fuente integrada"
+msgstr "Bật nguồn có sẵn"
 
 #: src/ui/menus/articleMenu.vala:86
 msgid "This is a built-in source. You can enable or disable it in preferences."
-msgstr ""
-"Esta es una fuente integrada. Puedes activarla o desactivarla en "
-"Preferencias."
+msgstr "Đây là nguồn có sẵn. Bạn có thể bật hoặc tắt trong Tùy chỉnh."
 
 #: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:151
 msgid "Remove from saved"
-msgstr "Quitar de guardados"
+msgstr "Xóa khỏi mục đã lưu"
 
 #: src/ui/menus/articleMenu.vala:98 src/ui/menus/articleMenu.vala:175
 msgid "Add to saved"
-msgstr "Añadir a guardados"
+msgstr "Lưu bài viết"
 
 #. Mark as unread (only active when article is currently viewed)
 #: src/ui/menus/articleMenu.vala:107
 msgid "Mark as unread"
-msgstr "Marcar como no leído"
+msgstr "Đánh dấu chưa đọc"
 
 #. Share
 #: src/ui/menus/articleMenu.vala:117
 msgid "Share this article"
-msgstr "Compartir este artículo"
+msgstr "Chia sẻ bài viết này"
 
 #: src/ui/menus/podcastMenu.vala:60
 msgid "More info"
-msgstr "Más información"
+msgstr "Thêm thông tin"
 
 #: src/ui/menus/podcastMenu.vala:69
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:266
 msgid "Remove podcast"
-msgstr "Eliminar pódcast"
+msgstr "Xóa podcast"
 
 #: src/ui/menus/sidebarMenu.vala:65
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:418
 msgid "Remove location"
-msgstr "Eliminar ubicación"
+msgstr "Xóa vị trí"
 
 #. Mark all as read
 #: src/ui/menus/sidebarMenu.vala:85
 msgid "Mark all as read"
-msgstr "Marcar todo como leído"
+msgstr "Đánh dấu tất cả đã đọc"
 
 #. Mark all as unread
 #: src/ui/menus/sidebarMenu.vala:93
 msgid "Mark all as unread"
-msgstr "Marcar todo como no leído"
+msgstr "Đánh dấu tất cả chưa đọc"
 
 #. Remove this source
 #: src/ui/menus/sidebarMenu.vala:110
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:160
 msgid "Remove this source"
-msgstr "Eliminar esta fuente"
+msgstr "Xóa nguồn này"
 
 #: src/ui/menus/sidebarMenu.vala:155
 msgid "Marked all articles as read"
-msgstr "Todos los artículos se marcaron como leídos"
+msgstr "Đã đánh dấu tất cả bài viết là đã đọc"
 
 #: src/ui/menus/sidebarMenu.vala:169
 msgid "Marked all articles as unread"
-msgstr "Todos los artículos se marcaron como no leídos"
+msgstr "Đã đánh dấu tất cả bài viết là chưa đọc"
 
 #: src/ui/menus/sidebarMenu.vala:178
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:162
 msgid "Remove this source?"
-msgstr "¿Eliminar esta fuente?"
+msgstr "Xóa nguồn này?"
 
 #: src/ui/menus/sidebarMenu.vala:179
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:163
 #, c-format
 msgid "Are you sure you want to remove \"%s\" and all of its articles?"
-msgstr "¿Seguro que quieres eliminar «%s» y todos sus artículos?"
+msgstr "Bạn có chắc muốn xóa \"%s\" và tất cả bài viết của nó?"
 
 #: src/ui/menus/sidebarMenu.vala:179
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:164
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:346
 msgid "Remove"
-msgstr "Eliminar"
+msgstr "Xóa"
 
 #: src/ui/menus/sidebarMenu.vala:184
 msgid "Feed removed"
-msgstr "Fuente eliminada"
+msgstr "Đã xóa nguồn cấp"
 
 #: src/ui/sidebarView.vala:261
 msgid "Manage Categories"
-msgstr "Gestionar categorías"
+msgstr "Quản lý danh mục"
 
 #. "Open" pill shown to the left of the Business category's count badge
 #. while MarketStatusManager reports the US market as in its regular
@@ -2111,98 +2080,97 @@ msgstr "Gestionar categorías"
 #. own green ".market-open-pill" class instead of that pill's red.
 #: src/ui/sidebarView.vala:566
 msgid "Open"
-msgstr "Abrir"
+msgstr "Mở cửa"
 
 #: src/ui/sidebarView.vala:699 src/ui/sidebarView.vala:718
 msgid "Add RSS Feed"
-msgstr "Añadir fuente RSS"
+msgstr "Thêm nguồn cấp RSS"
 
 #: src/ui/sidebarView.vala:719
 msgid "Enter the RSS feed URL:"
-msgstr "Introduce la URL de la fuente RSS:"
+msgstr "Nhập URL nguồn cấp RSS:"
 
 #: src/ui/sidebarView.vala:730
 msgid "Feed name (optional)"
-msgstr "Nombre de la fuente (opcional)"
+msgstr "Tên nguồn cấp (không bắt buộc)"
 
 #: src/ui/sidebarView.vala:735
 msgid "Add Feed"
-msgstr "Añadir fuente"
+msgstr "Thêm nguồn cấp"
 
 #. Use the centralized ToastManager instead of creating Adw.Toast directly
 #: src/ui/sidebarView.vala:755
 msgid "Discovering feed..."
-msgstr "Buscando la fuente..."
+msgstr "Đang dò tìm nguồn cấp..."
 
 #: src/ui/sidebarView.vala:761
 #, c-format
 msgid "RSS feed added: %s"
-msgstr "Fuente RSS añadida: %s"
+msgstr "Đã thêm nguồn cấp RSS: %s"
 
 #: src/ui/sidebarView.vala:768
 msgid "Failed to add RSS feed"
-msgstr "No se pudo añadir la fuente RSS"
+msgstr "Không thể thêm nguồn cấp RSS"
 
 #: src/ui/sidebarView.vala:816 src/ui/sidebarView.vala:835
 msgid "Add a Podcast"
-msgstr "Añadir un pódcast"
+msgstr "Thêm podcast"
 
 #: src/ui/sidebarView.vala:836
 msgid "Enter the podcast's RSS feed URL:"
-msgstr "Introduce la URL de la fuente RSS del pódcast:"
+msgstr "Nhập URL nguồn cấp RSS của podcast:"
 
 #: src/ui/sidebarView.vala:848
 msgid "Add Podcast"
-msgstr "Añadir pódcast"
+msgstr "Thêm podcast"
 
 #: src/ui/sidebarView.vala:865
 msgid "Resolving podcast feed..."
-msgstr "Buscando la fuente del pódcast..."
+msgstr "Đang kiểm tra nguồn cấp podcast..."
 
 #: src/ui/sidebarView.vala:881
 msgid "Failed to add podcast"
-msgstr "No se pudo añadir el pódcast"
+msgstr "Không thể thêm podcast"
 
 #: src/ui/sidebarView.vala:1269
 msgid "Now Playing"
-msgstr "Reproduciendo"
+msgstr "Đang phát"
 
 #: src/ui/controllers/myFeedExtrasController.vala:278
 msgid "Your Scores"
-msgstr "Tus resultados"
+msgstr "Tỷ số của bạn"
 
 #: src/ui/controllers/myFeedExtrasController.vala:336
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:365
 msgid "Magazines"
-msgstr "Revistas"
+msgstr "Tạp chí"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:37
 msgid "App"
-msgstr "Aplicación"
+msgstr "Ứng dụng"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:53
 msgid "Appearance"
-msgstr "Apariencia"
+msgstr "Giao diện"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:56
 msgid "Theme"
-msgstr "Tema"
+msgstr "Chủ đề"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:57
 msgid "Follow the system theme, or force light or dark mode"
-msgstr "Sigue el tema del sistema o fuerza el modo claro u oscuro"
+msgstr "Theo chủ đề hệ thống, hoặc luôn dùng chế độ sáng hay tối"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:87
 msgid "Update Interval"
-msgstr "Intervalo de actualización"
+msgstr "Khoảng thời gian cập nhật"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:88
 msgid ""
 "Short update intervals can trigger rate limits or cause requests to be "
 "blocked."
 msgstr ""
-"Los intervalos de actualización cortos pueden alcanzar límites de "
-"solicitudes o hacer que se bloqueen."
+"Khoảng cập nhật ngắn có thể vượt giới hạn yêu cầu hoặc khiến yêu cầu bị chặn."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:89
 msgid ""
@@ -2210,235 +2178,230 @@ msgid ""
 "temporarily block requests or refuse articles if too many are made in a "
 "short time. Choose a longer interval to avoid this."
 msgstr ""
-"Actualizar las fuentes con demasiada frecuencia puede parecer tráfico "
-"automatizado. Los sitios podrían bloquear temporalmente las solicitudes o "
-"rechazar artículos si se hacen demasiadas en poco tiempo. Elige un intervalo "
-"más largo para evitarlo."
+"Cập nhật nguồn cấp quá thường xuyên có thể trông giống lưu lượng tự động. "
+"Các trang có thể tạm chặn yêu cầu hoặc từ chối bài viết nếu có quá nhiều yêu "
+"cầu trong thời gian ngắn. Hãy chọn khoảng dài hơn để tránh điều này."
 
 #. "Manual" and "Sync Every" are radio-style check buttons.
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:93
 msgid "Manual"
-msgstr "Manual"
+msgstr "Thủ công"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:94
 msgid "No automatic synchronization"
-msgstr "Sin sincronización automática"
+msgstr "Không đồng bộ tự động"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:101
 msgid "Sync Every"
-msgstr "Sincronizar cada"
+msgstr "Đồng bộ mỗi"
 
 #. from_strings() needs a NULL-terminated array: a fresh Vala string[]
 #. is one, the const array isn't. Literal _() here so xgettext sees them.
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:110
 msgid "15 Minutes"
-msgstr "15 minutos"
+msgstr "15 phút"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:111
 msgid "30 Minutes"
-msgstr "30 minutos"
+msgstr "30 phút"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:112
 msgid "1 Hour"
-msgstr "1 hora"
+msgstr "1 giờ"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:113
 msgid "2 Hours"
-msgstr "2 horas"
+msgstr "2 giờ"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:114
 msgid "4 Hours"
-msgstr "4 horas"
+msgstr "4 giờ"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:171
 msgid "Data"
-msgstr "Datos"
+msgstr "Dữ liệu"
 
 #. Article content cache (MetaCache)
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:175
 msgid "Article content cache"
-msgstr "Caché del contenido de los artículos"
+msgstr "Bộ nhớ đệm nội dung bài viết"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:178
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:210
 msgid "Clear"
-msgstr "Borrar"
+msgstr "Xóa"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:182
 msgid "Clear article content cache?"
-msgstr "¿Borrar la caché del contenido de los artículos?"
+msgstr "Xóa bộ nhớ đệm nội dung bài viết?"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:183
 msgid ""
 "This will delete cached article content and images. Previously read articles "
 "will need to be re-downloaded."
 msgstr ""
-"Se eliminarán el contenido y las imágenes de los artículos en caché. Habrá "
-"que volver a descargar los artículos ya leídos."
+"Thao tác này sẽ xóa nội dung và hình ảnh bài viết trong bộ nhớ đệm. Các bài "
+"đã đọc sẽ cần được tải lại."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:184
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:216
 msgid "Clear Cache"
-msgstr "Borrar caché"
+msgstr "Xóa bộ nhớ đệm"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:187
 msgid "0 bytes"
-msgstr "0 bytes"
+msgstr "0 byte"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:188
 msgid "Cache cleared successfully"
-msgstr "La caché se borró correctamente"
+msgstr "Đã xóa bộ nhớ đệm"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:198
 msgid "RSS feed cache"
-msgstr "Caché de fuentes RSS"
+msgstr "Bộ nhớ đệm nguồn cấp RSS"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:214
 msgid "Clear RSS Feed Cache?"
-msgstr "¿Borrar la caché de fuentes RSS?"
+msgstr "Xóa bộ nhớ đệm nguồn cấp RSS?"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:215
 msgid ""
 "This will delete all cached RSS feed listings. Feeds will load from the "
 "network next time."
 msgstr ""
-"Se eliminarán todas las listas de fuentes RSS en caché. Las fuentes se "
-"cargarán de la red la próxima vez."
+"Thao tác này sẽ xóa mọi danh sách nguồn cấp RSS trong bộ nhớ đệm. Lần sau "
+"nguồn cấp sẽ được tải từ mạng."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:218
 msgid "0 bytes (0 articles)"
-msgstr "0 bytes (0 artículos)"
+msgstr "0 byte (0 bài viết)"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:219
 msgid "RSS feed cache cleared"
-msgstr "Caché de fuentes RSS borrada"
+msgstr "Đã xóa bộ nhớ đệm nguồn cấp RSS"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:232
 msgid "Backup &amp; Restore"
-msgstr "Copia de seguridad y restauración"
+msgstr "Sao lưu và khôi phục"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:235
 msgid ""
 "Export or import your custom RSS feeds and podcast subscriptions as an OPML "
 "file."
 msgstr ""
-"Exporta o importa tus fuentes RSS personalizadas y tus suscripciones a "
-"pódcasts como un archivo OPML."
+"Xuất hoặc nhập các nguồn cấp RSS tùy chọn và đăng ký podcast dưới dạng tệp "
+"OPML."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:237
 msgid "Export Feeds & Podcasts"
-msgstr "Exportar fuentes y pódcasts"
+msgstr "Xuất nguồn cấp và podcast"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:238
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:245
 msgid "OPML files"
-msgstr "Archivos OPML"
+msgstr "Tệp OPML"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:240
 msgid "Exported feeds and podcasts"
-msgstr "Fuentes y pódcasts exportados"
+msgstr "Đã xuất nguồn cấp và podcast"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:244
 msgid "Import Feeds & Podcasts"
-msgstr "Importar fuentes y pódcasts"
+msgstr "Nhập nguồn cấp và podcast"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:246
 msgid "Importing feeds and podcasts…"
-msgstr "Importando fuentes y pódcasts…"
+msgstr "Đang nhập nguồn cấp và podcast…"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:252
 #, c-format
 msgid "%d feed"
 msgid_plural "%d feeds"
-msgstr[0] "%d fuente"
-msgstr[1] "%d fuentes"
+msgstr[0] "%d nguồn cấp"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:253
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:250
 #, c-format
 msgid "%d podcast"
 msgid_plural "%d podcasts"
-msgstr[0] "%d pódcast"
-msgstr[1] "%d pódcasts"
+msgstr[0] "%d podcast"
 
 #. TRANSLATORS: e.g. "Imported 3 feeds and 1 podcast"
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:255
 #, c-format
 msgid "Imported %s and %s"
-msgstr "Se importaron %s y %s"
+msgstr "Đã nhập %s và %s"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:262
 msgid "Export or import your article notes as a JSON file."
-msgstr "Exporta o importa las notas de tus artículos como un archivo JSON."
+msgstr "Xuất hoặc nhập ghi chú bài viết dưới dạng tệp JSON."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:264
 msgid "Export Notes"
-msgstr "Exportar notas"
+msgstr "Xuất ghi chú"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:265
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:272
 msgid "JSON files"
-msgstr "Archivos JSON"
+msgstr "Tệp JSON"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:267
 msgid "Exported notes"
-msgstr "Notas exportadas"
+msgstr "Đã xuất ghi chú"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:271
 msgid "Import Notes"
-msgstr "Importar notas"
+msgstr "Nhập ghi chú"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:274
 #, c-format
 msgid "Imported %d note"
 msgid_plural "Imported %d notes"
-msgstr[0] "Se importó %d nota"
-msgstr[1] "Se importaron %d notas"
+msgstr[0] "Đã nhập %d ghi chú"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:284
 msgid "Danger Zone"
-msgstr "Zona de peligro"
+msgstr "Vùng nguy hiểm"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:287
 msgid "Reset app to factory settings"
-msgstr "Restablecer la aplicación a los valores de fábrica"
+msgstr "Đặt lại ứng dụng về cài đặt gốc"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:288
 msgid ""
 "Erases all sources, saved articles, notes, settings, and cached data, then "
 "restarts Paperboy as if freshly installed."
 msgstr ""
-"Borra todas las fuentes, artículos guardados, notas, ajustes y datos en "
-"caché, y reinicia Paperboy como si estuviera recién instalado."
+"Xóa mọi nguồn, bài viết đã lưu, ghi chú, cài đặt và dữ liệu đệm, rồi khởi "
+"động lại Paperboy như vừa cài đặt."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:290
 msgid "Reset"
-msgstr "Restablecer"
+msgstr "Đặt lại"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:294
 msgid "Reset to factory settings?"
-msgstr "¿Restablecer a los valores de fábrica?"
+msgstr "Đặt lại về cài đặt gốc?"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:295
 msgid ""
 "This permanently deletes all sources, saved articles, notes, and settings, "
 "and cannot be undone. Paperboy will restart as if freshly installed."
 msgstr ""
-"Esto elimina permanentemente todas las fuentes, artículos guardados, notas y "
-"ajustes, y no se puede deshacer. Paperboy se reiniciará como si estuviera "
-"recién instalado."
+"Thao tác này xóa vĩnh viễn mọi nguồn, bài viết đã lưu, ghi chú và cài đặt, "
+"và không thể hoàn tác. Paperboy sẽ khởi động lại như vừa cài đặt."
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:296
 msgid "Reset App"
-msgstr "Restablecer la aplicación"
+msgstr "Đặt lại ứng dụng"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:312
 msgid "Experimental"
-msgstr "Experimental"
+msgstr "Thử nghiệm"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:315
 msgid "Show article comments"
-msgstr "Mostrar comentarios de los artículos"
+msgstr "Hiện bình luận bài viết"
 
 #: src/ui/dialogs/app/prefs/appPrefsPage.vala:316
 msgid ""
@@ -2446,69 +2409,65 @@ msgid ""
 "comment source (native feed, Disqus, or Hacker News discussion). Coverage is "
 "limited - many sites don't expose comments through any of these."
 msgstr ""
-"Muestra un botón de comentarios en la página de lectura para los artículos "
-"con una fuente de comentarios detectable (fuente nativa, Disqus o debate de "
-"Hacker News). La cobertura es limitada: muchos sitios no ofrecen comentarios "
-"por ninguna de estas vías."
+"Hiện nút bình luận trên trang đọc cho các bài viết có nguồn bình luận tìm "
+"được (nguồn cấp riêng, Disqus hoặc thảo luận trên Hacker News). Phạm vi còn "
+"hạn chế - nhiều trang không cung cấp bình luận theo cách nào trong số này."
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:31
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:177
 msgid "Personalization"
-msgstr "Personalización"
+msgstr "Cá nhân hóa"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:52
 msgid "Region"
-msgstr "Región"
+msgstr "Khu vực"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:53
 msgid "Your national news and Front Page come from this country"
-msgstr "Tus noticias nacionales y la Portada provienen de este país"
+msgstr "Tin trong nước và Trang nhất của bạn đến từ quốc gia này"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:79
 msgid "The categories shown in the sidebar and used for My Feed"
-msgstr ""
-"Las categorías que se muestran en la barra lateral y se usan en Mi feed"
+msgstr "Các danh mục hiện ở thanh bên và dùng cho Nguồn cấp của tôi"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:82
 msgid "Shown categories"
-msgstr "Categorías mostradas"
+msgstr "Danh mục hiển thị"
 
 #. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:93
 #, c-format
 msgid "All %d category"
 msgid_plural "All %d categories"
-msgstr[0] "La %d categoría"
-msgstr[1] "Las %d categorías"
+msgstr[0] "Cả %d danh mục"
 
 #. if/else, not a ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:94
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:139
 msgid "None"
-msgstr "Ninguna"
+msgstr "Không có"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:95
 #, c-format
 msgid "%d of %d category"
 msgid_plural "%d of %d categories"
-msgstr[0] "%d de %d categoría"
-msgstr[1] "%d de %d categorías"
+msgstr[0] "%d / %d danh mục"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:104
 msgid ""
 "Choose the categories shown in the sidebar and used for My Feed. Drag a row "
 "by its handle to reorder."
 msgstr ""
-"Elige las categorías que se muestran en la barra lateral y se usan en Mi "
-"feed. Arrastra una fila por su asa para reordenarla."
+"Chọn các danh mục hiện ở thanh bên và dùng cho Nguồn cấp của tôi. Kéo tay "
+"cầm của hàng để sắp xếp lại."
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:180
 msgid "Enable personalized feed"
-msgstr "Activar feed personalizado"
+msgstr "Bật nguồn cấp cá nhân hóa"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:181
 msgid "Enable a personalized feed based on your reading habits"
-msgstr "Activa un feed personalizado basado en tus hábitos de lectura"
+msgstr "Bật nguồn cấp cá nhân hóa dựa trên thói quen đọc của bạn"
 
 #. Choosing which followed feeds show up in My Feed gets its own
 #. slide-in subpage. Rebuilt on each open so it reflects feeds
@@ -2516,314 +2475,301 @@ msgstr "Activa un feed personalizado basado en tus hábitos de lectura"
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:207
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:336
 msgid "Custom feeds in My Feed"
-msgstr "Fuentes personalizadas en Mi feed"
+msgstr "Nguồn cấp tùy chọn trong Nguồn cấp của tôi"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:208
 msgid "Choose which followed RSS feeds appear in My Feed"
-msgstr "Elige qué fuentes RSS seguidas aparecen en Mi feed"
+msgstr "Chọn nguồn cấp RSS đang theo dõi nào sẽ hiện trong Nguồn cấp của tôi"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:213
 msgid "Custom feeds only in My Feed"
-msgstr "Solo fuentes personalizadas en Mi feed"
+msgstr "Chỉ nguồn cấp tùy chọn trong Nguồn cấp của tôi"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:214
 msgid "Only show followed RSS feeds in My Feed, hide built-in sources"
 msgstr ""
-"Muestra solo las fuentes RSS seguidas en Mi feed y oculta las fuentes "
-"integradas"
+"Chỉ hiện nguồn cấp RSS đang theo dõi trong Nguồn cấp của tôi, ẩn nguồn có sẵn"
 
 #. ActionRow rather than SwitchRow, to fit a settings button
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:238
 msgid "Show unread count badges"
-msgstr "Mostrar insignias de no leídos"
+msgstr "Hiện huy hiệu số chưa đọc"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:239
 msgid "Display unread article counts in the sidebar"
-msgstr "Muestra el número de artículos no leídos en la barra lateral"
+msgstr "Hiện số bài viết chưa đọc ở thanh bên"
 
 #. Popover with per-area badge visibility options
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:242
 msgid "Badge visibility settings"
-msgstr "Ajustes de visibilidad de las insignias"
+msgstr "Cài đặt hiển thị huy hiệu"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:253
 msgid "Show on special categories"
-msgstr "Mostrar en categorías especiales"
+msgstr "Hiện ở danh mục đặc biệt"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:261
 msgid "Show on Feeds"
-msgstr "Mostrar en Fuentes RSS"
+msgstr "Hiện ở Nguồn cấp"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:269
 msgid "Show on categories"
-msgstr "Mostrar en categorías"
+msgstr "Hiện ở danh mục"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:298
 msgid "Choose which of your followed RSS feeds appear in My Feed"
-msgstr "Elige cuáles de tus fuentes RSS seguidas aparecen en Mi feed"
+msgstr ""
+"Chọn nguồn cấp RSS bạn đang theo dõi nào sẽ hiện trong Nguồn cấp của tôi"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:307
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:131
 msgid "No feeds followed yet"
-msgstr "Aún no sigues ninguna fuente"
+msgstr "Chưa theo dõi nguồn cấp nào"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:308
 msgid ""
 "Follow a custom RSS feed in Preferences -> Feeds first, then come back here "
 "to include it in My Feed."
 msgstr ""
-"Primero sigue una fuente RSS personalizada en Preferencias -> Fuentes RSS y "
-"luego vuelve aquí para incluirla en Mi feed."
+"Hãy theo dõi một nguồn cấp RSS tùy chọn trong Tùy chỉnh -> Nguồn cấp trước, "
+"rồi quay lại đây để đưa nó vào Nguồn cấp của tôi."
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:343
 msgid "My Feed Extras"
-msgstr "Extras de Mi feed"
+msgstr "Phần bổ sung của Nguồn cấp của tôi"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:344
 msgid ""
 "Show a preview row for other features at the top of My Feed, with a button "
 "to jump to the full page"
 msgstr ""
-"Muestra una fila de vista previa de otras funciones en la parte superior de "
-"Mi feed, con un botón para ir a la página completa"
+"Hiện một hàng xem trước các tính năng khác ở đầu Nguồn cấp của tôi, kèm nút "
+"để chuyển tới trang đầy đủ"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:345
 msgid "Sports scores"
-msgstr "Resultados deportivos"
+msgstr "Tỷ số thể thao"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:380
 msgid "Show recommendations"
-msgstr "Mostrar recomendaciones"
+msgstr "Hiện đề xuất"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:381
 msgid ""
 "Suggest articles based on your reading history. This stays on your device."
 msgstr ""
-"Sugiere artículos según tu historial de lectura. Esto se queda en tu "
-"dispositivo."
+"Gợi ý bài viết dựa trên lịch sử đọc của bạn. Dữ liệu này chỉ lưu trên thiết "
+"bị của bạn."
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:397
 msgid "Reading"
-msgstr "Lectura"
+msgstr "Đọc"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:400
 msgid "Open articles in reader view"
-msgstr "Abrir los artículos en vista de lectura"
+msgstr "Mở bài viết ở chế độ đọc"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:401
 msgid ""
 "Show an extracted, distraction-free view of the article text instead of the "
 "full webpage by default. You can still switch views per article."
 msgstr ""
-"Muestra de forma predeterminada una vista extraída y sin distracciones del "
-"texto del artículo en lugar de la página web completa. Puedes cambiar de "
-"vista en cada artículo."
+"Mặc định hiện văn bản bài viết đã trích xuất, không gây xao nhãng thay cho "
+"toàn bộ trang web. Bạn vẫn có thể chuyển chế độ cho từng bài."
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:409
 msgid "Clicking an article opens reader view directly"
-msgstr "Al hacer clic en un artículo se abre directamente la vista de lectura"
+msgstr "Nhấn vào bài viết sẽ mở ngay chế độ đọc"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:410
 msgid ""
 "Skip the preview pane and jump straight into reader view when you click an "
 "article card"
 msgstr ""
-"Omite el panel de vista previa y pasa directamente a la vista de lectura al "
-"hacer clic en la tarjeta de un artículo"
+"Bỏ qua khung xem trước và vào thẳng chế độ đọc khi bạn nhấn vào thẻ bài viết"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:418
 msgid "Show quick-open buttons on hover"
-msgstr "Mostrar botones de apertura rápida al pasar el cursor"
+msgstr "Hiện nút mở nhanh khi di chuột"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:419
 msgid ""
 "Show reader view / preview buttons over an article card's image when you "
 "hover it"
 msgstr ""
-"Muestra los botones de vista de lectura y vista previa sobre la imagen de la "
-"tarjeta de un artículo al pasar el cursor por encima"
+"Hiện nút chế độ đọc / xem trước trên ảnh của thẻ bài viết khi bạn di chuột "
+"lên"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:436
 msgid "Market Cards"
-msgstr "Tarjetas de mercado"
+msgstr "Thẻ thị trường"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:437
 msgid "Choose whether the Business category shows live market index cards"
 msgstr ""
-"Elige si la categoría Negocios muestra tarjetas de índices bursátiles en vivo"
+"Chọn xem danh mục Kinh doanh có hiện thẻ chỉ số thị trường trực tiếp không"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:440
 msgid "Show market cards"
-msgstr "Mostrar tarjetas de mercado"
+msgstr "Hiện thẻ thị trường"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:441
 msgid "Turn off to hide the live market index cards from the Business category"
-msgstr ""
-"Desactívalo para ocultar las tarjetas de índices bursátiles en vivo de la "
-"categoría Negocios"
+msgstr "Tắt để ẩn thẻ chỉ số thị trường trực tiếp khỏi danh mục Kinh doanh"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:455
 msgid "Show market status pill"
-msgstr "Mostrar indicador del estado del mercado"
+msgstr "Hiện nhãn trạng thái thị trường"
 
 #: src/ui/dialogs/app/prefs/personalizationPrefsPage.vala:456
 msgid ""
 "Show an \"Open\" pill next to the Business sidebar count while the market is "
 "open"
 msgstr ""
-"Muestra una etiqueta «Abierto» junto al contador de Negocios en la barra "
-"lateral mientras el mercado está abierto"
+"Hiện nhãn \"Mở cửa\" cạnh số đếm Kinh doanh ở thanh bên khi thị trường đang "
+"mở cửa"
 
 #. TRANSLATORS: %s is the detected country, e.g. "Automatic (Germany)"
 #: src/ui/dialogs/app/prefs/prefsRows.vala:64
 #, c-format
 msgid "Automatic (%s)"
-msgstr "Automático (%s)"
+msgstr "Tự động (%s)"
 
 #: src/ui/dialogs/app/prefs/prefsRows.vala:76
 msgid "Country"
-msgstr "País"
+msgstr "Quốc gia"
 
 #: src/ui/dialogs/app/prefs/prefsRows.vala:207
 msgid "Export"
-msgstr "Exportar"
+msgstr "Xuất"
 
 #: src/ui/dialogs/app/prefs/prefsRows.vala:211
 msgid "Import"
-msgstr "Importar"
+msgstr "Nhập"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:42
 msgid "Sources"
-msgstr "Fuentes"
+msgstr "Nguồn"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:71
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:74
 msgid "Built-in sources"
-msgstr "Fuentes integradas"
+msgstr "Nguồn có sẵn"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:75
 msgid "News outlets that come with Paperboy"
-msgstr "Medios de noticias incluidos con Paperboy"
+msgstr "Các cơ quan báo chí đi kèm Paperboy"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:77
 msgid "News outlets"
-msgstr "Medios de noticias"
+msgstr "Cơ quan báo chí"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:78
 msgid "Choose which outlets to follow"
-msgstr "Elige qué medios seguir"
+msgstr "Chọn cơ quan báo chí để theo dõi"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:110
 msgid "Followed feeds"
-msgstr "Fuentes seguidas"
+msgstr "Nguồn cấp đang theo dõi"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:119
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:122
 msgid "Custom feeds"
-msgstr "Fuentes personalizadas"
+msgstr "Nguồn cấp tùy chọn"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:123
 msgid "RSS feeds you've followed"
-msgstr "Fuentes RSS que sigues"
+msgstr "Nguồn cấp RSS bạn đang theo dõi"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:132
 msgid "No feeds followed yet. Add one from the sidebar's Feeds section."
-msgstr ""
-"Aún no sigues ninguna fuente. Añade una desde la sección Fuentes RSS de la "
-"barra lateral."
+msgstr "Chưa theo dõi nguồn cấp nào. Hãy thêm từ mục Nguồn cấp ở thanh bên."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:134
 #, c-format
 msgid "%d followed feed"
 msgid_plural "%d followed feeds"
-msgstr[0] "%d fuente seguida"
-msgstr[1] "%d fuentes seguidas"
+msgstr[0] "%d nguồn cấp đang theo dõi"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:153
 msgid "Rename this source"
-msgstr "Cambiar el nombre de esta fuente"
+msgstr "Đổi tên nguồn này"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:237
 msgid "Subscribed podcasts"
-msgstr "Pódcasts suscritos"
+msgstr "Podcast đã đăng ký"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:240
 msgid "Remove all podcasts"
-msgstr "Eliminar todos los pódcasts"
+msgstr "Xóa tất cả podcast"
 
 #. if/else, not a nested ternary: Vala frees the printf() temp in that form before it's used.
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:249
 msgid "No podcasts yet"
-msgstr "Aún no hay pódcasts"
+msgstr "Chưa có podcast"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:251
 msgid "No podcasts yet. Find some from the sidebar's Podcasts section."
-msgstr ""
-"Aún no hay pódcasts. Busca algunos en la sección Pódcasts de la barra "
-"lateral."
+msgstr "Chưa có podcast. Hãy tìm trong mục Podcast ở thanh bên."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:268
 msgid "Remove podcast?"
-msgstr "¿Eliminar el pódcast?"
+msgstr "Xóa podcast?"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:269
 #, c-format
 msgid "\"%s\" will be removed from your podcasts."
-msgstr "«%s» se eliminará de tus pódcasts."
+msgstr "\"%s\" sẽ bị xóa khỏi danh sách podcast của bạn."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
 msgid "Your 1 podcast will be removed."
-msgstr "Se eliminará tu único pódcast."
+msgstr "Podcast duy nhất của bạn sẽ bị xóa."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:286
 #, c-format
 msgid "All %d of your podcasts will be removed."
 msgid_plural "All %d of your podcasts will be removed."
-msgstr[0] "Se eliminarán tus %d pódcasts."
-msgstr[1] "Se eliminarán tus %d pódcasts."
+msgstr[0] "Cả %d podcast của bạn sẽ bị xóa."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Remove all podcasts?"
-msgstr "¿Eliminar todos los pódcasts?"
+msgstr "Xóa tất cả podcast?"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:287
 msgid "Remove all"
-msgstr "Eliminar todos"
+msgstr "Xóa tất cả"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:301
 msgid "Shows you've subscribed to"
-msgstr "Programas a los que te has suscrito"
+msgstr "Chương trình bạn đã đăng ký"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:315
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:362
 msgid "Magazine sources"
-msgstr "Fuentes de revistas"
+msgstr "Nguồn tạp chí"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:319
 msgid "No sources yet"
-msgstr "Aún no hay fuentes"
+msgstr "Chưa có nguồn"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:320
 #, c-format
 msgid "%d source"
 msgid_plural "%d sources"
-msgstr[0] "%d fuente"
-msgstr[1] "%d fuentes"
+msgstr[0] "%d nguồn"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:321
 msgid "No sources yet. Websites you add from the Magazines page show up here."
-msgstr ""
-"Aún no hay fuentes. Los sitios web que añadas desde la página Revistas "
-"aparecerán aquí."
+msgstr "Chưa có nguồn. Các trang web bạn thêm từ trang Tạp chí sẽ hiện ở đây."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:334
 msgid "Remove source"
-msgstr "Eliminar fuente"
+msgstr "Xóa nguồn"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:339
 #, c-format
 msgid "\"%s\" will be removed."
-msgstr "«%s» se eliminará."
+msgstr "\"%s\" sẽ bị xóa."
 
 #. TRANSLATORS: %1$s is a magazine source's name, %2$d how many magazines were added from it
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:342
@@ -2835,152 +2781,143 @@ msgid_plural ""
 "\"%1$s\" and the %2$d magazines added from it will be removed, including "
 "their downloaded files."
 msgstr[0] ""
-"Se eliminarán «%1$s» y %2$d revista añadida desde ella, incluido su archivo "
-"descargado."
-msgstr[1] ""
-"Se eliminarán «%1$s» y las %2$d revistas añadidas desde ella, incluidos sus "
-"archivos descargados."
+"\"%1$s\" và %2$d tạp chí đã thêm từ đó sẽ bị xóa, kèm theo các tệp đã tải về."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:346
 msgid "Remove source?"
-msgstr "¿Eliminar la fuente?"
+msgstr "Xóa nguồn?"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:366
 msgid "Websites scanned for magazine PDFs"
-msgstr "Sitios web en los que se buscan PDF de revistas"
+msgstr "Các trang web được quét để tìm PDF tạp chí"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:378
 msgid "Add a location"
-msgstr "Añadir una ubicación"
+msgstr "Thêm vị trí"
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:403
 #, c-format
 msgid "%d of %d location added. Remove one to add another."
 msgid_plural "%d of %d locations added. Remove one to add another."
-msgstr[0] "%d de %d ubicación añadida. Elimina una para añadir otra."
-msgstr[1] "%d de %d ubicaciones añadidas. Elimina una para añadir otra."
+msgstr[0] "Đã thêm %d / %d vị trí. Hãy xóa một vị trí để thêm vị trí khác."
 
 #: src/ui/dialogs/app/prefs/sourcesPrefsPage.vala:405
 #, c-format
 msgid "Up to %d location · %d added"
 msgid_plural "Up to %d locations · %d added"
-msgstr[0] "Hasta %d ubicación · %d añadidas"
-msgstr[1] "Hasta %d ubicaciones · %d añadidas"
+msgstr[0] "Tối đa %d vị trí · đã thêm %d"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:36
 msgid "Sports Score Cards"
-msgstr "Tarjetas de resultados deportivos"
+msgstr "Thẻ tỷ số thể thao"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:37
 msgid ""
 "Choose which leagues show score cards in the Sports category, and the order "
 "their sections appear in"
 msgstr ""
-"Elige qué ligas muestran tarjetas de resultados en la categoría Deportes y "
-"en qué orden aparecen sus secciones"
+"Chọn giải đấu nào hiện thẻ tỷ số trong danh mục Thể thao và thứ tự xuất hiện "
+"các mục của chúng"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:40
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:306
 msgid "Favorite Teams"
-msgstr "Equipos favoritos"
+msgstr "Đội yêu thích"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:41
 msgid "Follow specific teams to show their own score cards"
-msgstr ""
-"Sigue equipos concretos para mostrar sus propias tarjetas de resultados"
+msgstr "Theo dõi các đội cụ thể để hiện thẻ tỷ số riêng của họ"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:45
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:148
 msgid "Leagues"
-msgstr "Ligas"
+msgstr "Giải đấu"
 
 #. Rebuilt each time it opens, so it lists the leagues that are on now.
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:51
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:192
 msgid "Section Order"
-msgstr "Orden de las secciones"
+msgstr "Thứ tự mục"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:52
 msgid "Drag leagues into the order their sections appear in"
-msgstr "Arrastra las ligas en el orden en que aparecen sus secciones"
+msgstr "Kéo các giải đấu theo thứ tự mà mục của chúng sẽ xuất hiện"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:56
 msgid "Show score cards"
-msgstr "Mostrar tarjetas de resultados"
+msgstr "Hiện thẻ tỷ số"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:57
 msgid "Turn off to hide all live score cards from the Sports category"
-msgstr ""
-"Desactívalo para ocultar todas las tarjetas de resultados en vivo de la "
-"categoría Deportes"
+msgstr "Tắt để ẩn tất cả thẻ tỷ số trực tiếp khỏi danh mục Thể thao"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:63
 msgid "Show live indicator"
-msgstr "Mostrar indicador en vivo"
+msgstr "Hiện chỉ báo trực tiếp"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:64
 msgid ""
 "Show a \"Live\" pill next to the Sports sidebar count while a game is in "
 "progress"
 msgstr ""
-"Muestra una etiqueta «En vivo» junto al contador de Deportes en la barra "
-"lateral mientras hay un partido en curso"
+"Hiện nhãn \"Trực tiếp\" cạnh số đếm Thể thao ở thanh bên khi có trận đang "
+"diễn ra"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:108
 msgid "Europe"
-msgstr "Europa"
+msgstr "Châu Âu"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:109
 msgid "United States and Canada"
-msgstr "Estados Unidos y Canadá"
+msgstr "Hoa Kỳ và Canada"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:110
 msgid "Latin America"
-msgstr "Latinoamérica"
+msgstr "Mỹ Latinh"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:111
 msgid "Asia and Oceania"
-msgstr "Asia y Oceanía"
+msgstr "Châu Á và Châu Đại Dương"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:112
 msgid "International"
-msgstr "Internacional"
+msgstr "Quốc tế"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:119
 msgid "Soccer"
-msgstr "Fútbol"
+msgstr "Bóng đá"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:120
 msgid "American football"
-msgstr "Fútbol americano"
+msgstr "Bóng bầu dục Mỹ"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:121
 msgid "Basketball"
-msgstr "Baloncesto"
+msgstr "Bóng rổ"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:122
 msgid "Baseball"
-msgstr "Béisbol"
+msgstr "Bóng chày"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:123
 msgid "Hockey"
-msgstr "Hockey"
+msgstr "Khúc côn cầu"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:124
 msgid "Rugby"
-msgstr "Rugby"
+msgstr "Bóng bầu dục"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:125
 msgid "Cricket"
-msgstr "Críquet"
+msgstr "Cricket"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:126
 msgid "Mixed martial arts"
-msgstr "Artes marciales mixtas"
+msgstr "Võ tổng hợp"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:127
 msgid "Tennis"
-msgstr "Tenis"
+msgstr "Quần vợt"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:128
 msgid "Golf"
@@ -2988,50 +2925,49 @@ msgstr "Golf"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:129
 msgid "Motor racing"
-msgstr "Automovilismo"
+msgstr "Đua xe"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:140
 #, c-format
 msgid "%d of %d league on"
 msgid_plural "%d of %d leagues on"
-msgstr[0] "%d de %d liga activada"
-msgstr[1] "%d de %d ligas activadas"
+msgstr[0] "Đã bật %d / %d giải đấu"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:189
 msgid ""
 "Drag a league by its handle to set where its section appears in the Sports "
 "category. Only leagues that are on are listed."
 msgstr ""
-"Arrastra una liga por su asa para elegir dónde aparece su sección en la "
-"categoría Deportes. Solo se muestran las ligas activadas."
+"Kéo tay cầm của giải đấu để đặt vị trí mục của nó trong danh mục Thể thao. "
+"Chỉ liệt kê các giải đấu đang bật."
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:261
 msgid "No leagues are on"
-msgstr "No hay ligas activadas"
+msgstr "Chưa bật giải đấu nào"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:262
 msgid "Turn some on in Leagues"
-msgstr "Activa algunas en Ligas"
+msgstr "Hãy bật vài giải trong Giải đấu"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:286
 msgid ""
 "Pick a league, then choose teams to follow - each followed team gets its own "
 "score-card row in \"My Teams\""
 msgstr ""
-"Elige una liga y luego los equipos que quieres seguir: cada equipo seguido "
-"tiene su propia fila de tarjetas de resultados en «Mis equipos»"
+"Chọn một giải đấu, rồi chọn đội để theo dõi - mỗi đội được theo dõi có một "
+"hàng thẻ tỷ số riêng trong \"Đội của tôi\""
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:318
 msgid "Loading teams…"
-msgstr "Cargando equipos…"
+msgstr "Đang tải các đội…"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:329
 msgid "Couldn't load teams"
-msgstr "No se pudieron cargar los equipos"
+msgstr "Không thể tải các đội"
 
 #: src/ui/dialogs/app/prefs/sportsPrefsGroup.vala:330
 msgid "Check your connection and try again later."
-msgstr "Comprueba tu conexión e inténtalo de nuevo más tarde."
+msgstr "Hãy kiểm tra kết nối và thử lại sau."
 
 #. Source name for Google's own aggregated feeds; their items each carry
 #. a <source>, which RssFeedProcessor uses instead.
@@ -3043,103 +2979,103 @@ msgstr "Comprueba tu conexión e inténtalo de nuevo más tarde."
 #. splits the country off at the parenthesis.
 #: src/utils/net/googleNewsUtils.vala:45
 msgid "United States"
-msgstr "Estados Unidos"
+msgstr "Hoa Kỳ"
 
 #: src/utils/net/googleNewsUtils.vala:45
 msgid "United States (Spanish)"
-msgstr "Estados Unidos (español)"
+msgstr "Hoa Kỳ (tiếng Tây Ban Nha)"
 
 #: src/utils/net/googleNewsUtils.vala:46
 msgid "United Kingdom"
-msgstr "Reino Unido"
+msgstr "Vương quốc Anh"
 
 #: src/utils/net/googleNewsUtils.vala:46
 msgid "Ireland"
-msgstr "Irlanda"
+msgstr "Ireland"
 
 #: src/utils/net/googleNewsUtils.vala:47
 msgid "Canada (English)"
-msgstr "Canadá (inglés)"
+msgstr "Canada (tiếng Anh)"
 
 #: src/utils/net/googleNewsUtils.vala:47
 msgid "Canada (French)"
-msgstr "Canadá (francés)"
+msgstr "Canada (tiếng Pháp)"
 
 #: src/utils/net/googleNewsUtils.vala:48
 msgid "Australia"
-msgstr "Australia"
+msgstr "Úc"
 
 #: src/utils/net/googleNewsUtils.vala:48
 msgid "New Zealand"
-msgstr "Nueva Zelanda"
+msgstr "New Zealand"
 
 #: src/utils/net/googleNewsUtils.vala:49
 msgid "India (English)"
-msgstr "India (inglés)"
+msgstr "Ấn Độ (tiếng Anh)"
 
 #: src/utils/net/googleNewsUtils.vala:49
 msgid "India (Hindi)"
-msgstr "India (hindi)"
+msgstr "Ấn Độ (tiếng Hindi)"
 
 #: src/utils/net/googleNewsUtils.vala:49
 msgid "India (Bengali)"
-msgstr "India (bengalí)"
+msgstr "Ấn Độ (tiếng Bengal)"
 
 #: src/utils/net/googleNewsUtils.vala:49
 msgid "India (Marathi)"
-msgstr "India (maratí)"
+msgstr "Ấn Độ (tiếng Marathi)"
 
 #: src/utils/net/googleNewsUtils.vala:50
 msgid "India (Tamil)"
-msgstr "India (tamil)"
+msgstr "Ấn Độ (tiếng Tamil)"
 
 #: src/utils/net/googleNewsUtils.vala:50
 msgid "India (Telugu)"
-msgstr "India (telugu)"
+msgstr "Ấn Độ (tiếng Telugu)"
 
 #: src/utils/net/googleNewsUtils.vala:50
 msgid "India (Malayalam)"
-msgstr "India (malayalam)"
+msgstr "Ấn Độ (tiếng Malayalam)"
 
 #: src/utils/net/googleNewsUtils.vala:50
 msgid "India (Gujarati)"
-msgstr "India (guyaratí)"
+msgstr "Ấn Độ (tiếng Gujarat)"
 
 #: src/utils/net/googleNewsUtils.vala:51
 msgid "Pakistan"
-msgstr "Pakistán"
+msgstr "Pakistan"
 
 #: src/utils/net/googleNewsUtils.vala:51
 msgid "Bangladesh"
-msgstr "Bangladés"
+msgstr "Bangladesh"
 
 #: src/utils/net/googleNewsUtils.vala:52
 msgid "Singapore"
-msgstr "Singapur"
+msgstr "Singapore"
 
 #: src/utils/net/googleNewsUtils.vala:52
 msgid "Malaysia (English)"
-msgstr "Malasia (inglés)"
+msgstr "Malaysia (tiếng Anh)"
 
 #: src/utils/net/googleNewsUtils.vala:52
 msgid "Malaysia (Malay)"
-msgstr "Malasia (malayo)"
+msgstr "Malaysia (tiếng Mã Lai)"
 
 #: src/utils/net/googleNewsUtils.vala:53
 msgid "Philippines"
-msgstr "Filipinas"
+msgstr "Philippines"
 
 #: src/utils/net/googleNewsUtils.vala:53
 msgid "Indonesia (Indonesian)"
-msgstr "Indonesia (indonesio)"
+msgstr "Indonesia (tiếng Indonesia)"
 
 #: src/utils/net/googleNewsUtils.vala:53
 msgid "Indonesia (English)"
-msgstr "Indonesia (inglés)"
+msgstr "Indonesia (tiếng Anh)"
 
 #: src/utils/net/googleNewsUtils.vala:54
 msgid "South Africa"
-msgstr "Sudáfrica"
+msgstr "Nam Phi"
 
 #: src/utils/net/googleNewsUtils.vala:54
 msgid "Nigeria"
@@ -3147,7 +3083,7 @@ msgstr "Nigeria"
 
 #: src/utils/net/googleNewsUtils.vala:54
 msgid "Kenya"
-msgstr "Kenia"
+msgstr "Kenya"
 
 #: src/utils/net/googleNewsUtils.vala:54
 msgid "Ghana"
@@ -3163,11 +3099,11 @@ msgstr "Tanzania"
 
 #: src/utils/net/googleNewsUtils.vala:55
 msgid "Ethiopia"
-msgstr "Etiopía"
+msgstr "Ethiopia"
 
 #: src/utils/net/googleNewsUtils.vala:55
 msgid "Zimbabwe"
-msgstr "Zimbabue"
+msgstr "Zimbabwe"
 
 #: src/utils/net/googleNewsUtils.vala:56
 msgid "Namibia"
@@ -3175,35 +3111,35 @@ msgstr "Namibia"
 
 #: src/utils/net/googleNewsUtils.vala:56
 msgid "Botswana"
-msgstr "Botsuana"
+msgstr "Botswana"
 
 #: src/utils/net/googleNewsUtils.vala:57
 msgid "Israel (Hebrew)"
-msgstr "Israel (hebreo)"
+msgstr "Israel (tiếng Do Thái)"
 
 #: src/utils/net/googleNewsUtils.vala:57
 msgid "Israel (English)"
-msgstr "Israel (inglés)"
+msgstr "Israel (tiếng Anh)"
 
 #: src/utils/net/googleNewsUtils.vala:58
 msgid "Egypt"
-msgstr "Egipto"
+msgstr "Ai Cập"
 
 #: src/utils/net/googleNewsUtils.vala:58
 msgid "Saudi Arabia"
-msgstr "Arabia Saudí"
+msgstr "Ả Rập Xê Út"
 
 #: src/utils/net/googleNewsUtils.vala:58
 msgid "United Arab Emirates"
-msgstr "Emiratos Árabes Unidos"
+msgstr "Các Tiểu vương quốc Ả Rập Thống nhất"
 
 #: src/utils/net/googleNewsUtils.vala:58
 msgid "Lebanon"
-msgstr "Líbano"
+msgstr "Liban"
 
 #: src/utils/net/googleNewsUtils.vala:59
 msgid "Morocco"
-msgstr "Marruecos"
+msgstr "Maroc"
 
 #: src/utils/net/googleNewsUtils.vala:59
 msgid "Senegal"
@@ -3211,15 +3147,15 @@ msgstr "Senegal"
 
 #: src/utils/net/googleNewsUtils.vala:60
 msgid "Brazil"
-msgstr "Brasil"
+msgstr "Brazil"
 
 #: src/utils/net/googleNewsUtils.vala:60
 msgid "Portugal"
-msgstr "Portugal"
+msgstr "Bồ Đào Nha"
 
 #: src/utils/net/googleNewsUtils.vala:61
 msgid "Mexico"
-msgstr "México"
+msgstr "Mexico"
 
 #: src/utils/net/googleNewsUtils.vala:61
 msgid "Argentina"
@@ -3235,7 +3171,7 @@ msgstr "Colombia"
 
 #: src/utils/net/googleNewsUtils.vala:62
 msgid "Peru"
-msgstr "Perú"
+msgstr "Peru"
 
 #: src/utils/net/googleNewsUtils.vala:62
 msgid "Venezuela"
@@ -3247,75 +3183,75 @@ msgstr "Cuba"
 
 #: src/utils/net/googleNewsUtils.vala:64
 msgid "Spain"
-msgstr "España"
+msgstr "Tây Ban Nha"
 
 #: src/utils/net/googleNewsUtils.vala:64
 msgid "France"
-msgstr "Francia"
+msgstr "Pháp"
 
 #: src/utils/net/googleNewsUtils.vala:64
 msgid "Italy"
-msgstr "Italia"
+msgstr "Ý"
 
 #: src/utils/net/googleNewsUtils.vala:65
 msgid "Germany"
-msgstr "Alemania"
+msgstr "Đức"
 
 #: src/utils/net/googleNewsUtils.vala:65
 msgid "Austria"
-msgstr "Austria"
+msgstr "Áo"
 
 #: src/utils/net/googleNewsUtils.vala:65
 msgid "Switzerland (German)"
-msgstr "Suiza (alemán)"
+msgstr "Thụy Sĩ (tiếng Đức)"
 
 #: src/utils/net/googleNewsUtils.vala:65
 msgid "Switzerland (French)"
-msgstr "Suiza (francés)"
+msgstr "Thụy Sĩ (tiếng Pháp)"
 
 #: src/utils/net/googleNewsUtils.vala:66
 msgid "Netherlands"
-msgstr "Países Bajos"
+msgstr "Hà Lan"
 
 #: src/utils/net/googleNewsUtils.vala:66
 msgid "Belgium (Dutch)"
-msgstr "Bélgica (neerlandés)"
+msgstr "Bỉ (tiếng Hà Lan)"
 
 #: src/utils/net/googleNewsUtils.vala:66
 msgid "Belgium (French)"
-msgstr "Bélgica (francés)"
+msgstr "Bỉ (tiếng Pháp)"
 
 #: src/utils/net/googleNewsUtils.vala:67
 msgid "Sweden"
-msgstr "Suecia"
+msgstr "Thụy Điển"
 
 #: src/utils/net/googleNewsUtils.vala:67
 msgid "Norway"
-msgstr "Noruega"
+msgstr "Na Uy"
 
 #: src/utils/net/googleNewsUtils.vala:67
 msgid "Finland"
-msgstr "Finlandia"
+msgstr "Phần Lan"
 
 #: src/utils/net/googleNewsUtils.vala:68
 msgid "Poland"
-msgstr "Polonia"
+msgstr "Ba Lan"
 
 #: src/utils/net/googleNewsUtils.vala:68
 msgid "Czechia"
-msgstr "Chequia"
+msgstr "Séc"
 
 #: src/utils/net/googleNewsUtils.vala:68
 msgid "Slovakia"
-msgstr "Eslovaquia"
+msgstr "Slovakia"
 
 #: src/utils/net/googleNewsUtils.vala:68
 msgid "Hungary"
-msgstr "Hungría"
+msgstr "Hungary"
 
 #: src/utils/net/googleNewsUtils.vala:69
 msgid "Romania"
-msgstr "Rumanía"
+msgstr "Romania"
 
 #: src/utils/net/googleNewsUtils.vala:69
 msgid "Bulgaria"
@@ -3323,11 +3259,11 @@ msgstr "Bulgaria"
 
 #: src/utils/net/googleNewsUtils.vala:69
 msgid "Greece"
-msgstr "Grecia"
+msgstr "Hy Lạp"
 
 #: src/utils/net/googleNewsUtils.vala:69
 msgid "Slovenia"
-msgstr "Eslovenia"
+msgstr "Slovenia"
 
 #: src/utils/net/googleNewsUtils.vala:70
 msgid "Serbia"
@@ -3335,11 +3271,11 @@ msgstr "Serbia"
 
 #: src/utils/net/googleNewsUtils.vala:70
 msgid "Lithuania"
-msgstr "Lituania"
+msgstr "Litva"
 
 #: src/utils/net/googleNewsUtils.vala:70
 msgid "Latvia"
-msgstr "Letonia"
+msgstr "Latvia"
 
 #: src/utils/net/googleNewsUtils.vala:70
 msgid "Estonia"
@@ -3347,47 +3283,47 @@ msgstr "Estonia"
 
 #: src/utils/net/googleNewsUtils.vala:71
 msgid "Ukraine (Ukrainian)"
-msgstr "Ucrania (ucraniano)"
+msgstr "Ukraina (tiếng Ukraina)"
 
 #: src/utils/net/googleNewsUtils.vala:71
 msgid "Ukraine (Russian)"
-msgstr "Ucrania (ruso)"
+msgstr "Ukraina (tiếng Nga)"
 
 #: src/utils/net/googleNewsUtils.vala:71
 msgid "Russia"
-msgstr "Rusia"
+msgstr "Nga"
 
 #: src/utils/net/googleNewsUtils.vala:71
 msgid "Turkey"
-msgstr "Turquía"
+msgstr "Thổ Nhĩ Kỳ"
 
 #: src/utils/net/googleNewsUtils.vala:72
 msgid "China"
-msgstr "China"
+msgstr "Trung Quốc"
 
 #: src/utils/net/googleNewsUtils.vala:72
 msgid "Taiwan"
-msgstr "Taiwán"
+msgstr "Đài Loan"
 
 #: src/utils/net/googleNewsUtils.vala:72
 msgid "Hong Kong"
-msgstr "Hong Kong"
+msgstr "Hồng Kông"
 
 #: src/utils/net/googleNewsUtils.vala:73
 msgid "Japan"
-msgstr "Japón"
+msgstr "Nhật Bản"
 
 #: src/utils/net/googleNewsUtils.vala:73
 msgid "South Korea"
-msgstr "Corea del Sur"
+msgstr "Hàn Quốc"
 
 #: src/utils/net/googleNewsUtils.vala:73
 msgid "Thailand"
-msgstr "Tailandia"
+msgstr "Thái Lan"
 
 #: src/utils/net/googleNewsUtils.vala:73
 msgid "Vietnam"
-msgstr "Vietnam"
+msgstr "Việt Nam"
 
 #. "US News", "Germany News", "Canada News".
 #. TRANSLATORS: the national news category in the United States edition
@@ -3395,7 +3331,7 @@ msgstr "Vietnam"
 #: src/services/fetchers/bbcFetcher.vala:77
 #: src/services/fetchers/pbsFetcher.vala:72
 msgid "US News"
-msgstr "Noticias de EE. UU."
+msgstr "Tin Mỹ"
 
 #. TRANSLATORS: date before the time in an article's byline, a
 #. strftime format ("man strftime"): %b is the abbreviated month,
@@ -3403,12 +3339,12 @@ msgstr "Noticias de EE. UU."
 #: src/utils/text/dateUtils.vala:46
 #, no-c-format
 msgid "%b %-d, %Y"
-msgstr "%-d %b %Y"
+msgstr "%-d/%-m/%Y"
 
 #. clock skew / future timestamp
 #: src/utils/text/dateUtils.vala:102
 msgid "Just now"
-msgstr "Ahora mismo"
+msgstr "Vừa xong"
 
 #. TRANSLATORS: compact relative times on article cards, where space
 #. is tight - abbreviate if your language allows it
@@ -3416,22 +3352,19 @@ msgstr "Ahora mismo"
 #, c-format
 msgid "%dm ago"
 msgid_plural "%dm ago"
-msgstr[0] "hace %d min"
-msgstr[1] "hace %d min"
+msgstr[0] "%d phút trước"
 
 #: src/utils/text/dateUtils.vala:108
 #, c-format
 msgid "%dh ago"
 msgid_plural "%dh ago"
-msgstr[0] "hace %d h"
-msgstr[1] "hace %d h"
+msgstr[0] "%d giờ trước"
 
 #: src/utils/text/dateUtils.vala:110
 #, c-format
 msgid "%dd ago"
 msgid_plural "%dd ago"
-msgstr[0] "hace %d día"
-msgstr[1] "hace %d días"
+msgstr[0] "%d ngày trước"
 
 #. Older than a week: fall back to a short absolute date ("Aug 27").
 #. TRANSLATORS: short date on article cards older than a week, a
@@ -3440,7 +3373,7 @@ msgstr[1] "hace %d días"
 #: src/utils/text/dateUtils.vala:117
 #, no-c-format
 msgid "%b %-d"
-msgstr "%-d %b"
+msgstr "%-d/%-m"
 
 #. Page header date, e.g. "Monday, October 5".
 #. TRANSLATORS: date in page headers, a strftime format ("man strftime"):
@@ -3449,7 +3382,7 @@ msgstr "%-d %b"
 #: src/utils/text/dateUtils.vala:126
 #, no-c-format
 msgid "%A, %B %-d"
-msgstr "%A, %-d de %B"
+msgstr "%A, %-d %B"
 
 #. Weekday and numeric date for game times, e.g. "Mon 10/5".
 #. TRANSLATORS: weekday and date on sports score cards, a strftime
@@ -3464,40 +3397,40 @@ msgstr "%a %-d/%-m"
 #: src/managers/content/articleManager.vala:157
 #: src/managers/content/articleManager.vala:172
 msgid "You're offline. Enable internet connection to view articles"
-msgstr "No tienes conexión. Conéctate a internet para ver los artículos"
+msgstr "Bạn đang ngoại tuyến. Hãy bật kết nối internet để xem bài viết"
 
 #: src/managers/ui/layoutManager.vala:555
 msgid "More Stories"
-msgstr "Más noticias"
+msgstr "Tin khác"
 
 #: src/services/fetchers/fetcherUtils.vala:23
 msgid "The Frontpage"
-msgstr "La Portada"
+msgstr "Trang nhất"
 
 #. Don't show error if we have cached articles
 #: src/services/fetchers/paperboyFetcher.vala:201
 msgid "Paperboy: Error loading frontpage"
-msgstr "Paperboy: error al cargar la portada"
+msgstr "Paperboy: Lỗi tải trang nhất"
 
 #: src/services/fetchers/paperboyFetcher.vala:484
 msgid "Paperboy: Error loading Top Ten"
-msgstr "Paperboy: error al cargar el Top 10"
+msgstr "Paperboy: Lỗi tải Top 10"
 
 #: src/services/magazines/magazineSourceScanner.vala:62
 msgid "Couldn't reach that page"
-msgstr "No se pudo acceder a esa página"
+msgstr "Không thể truy cập trang đó"
 
 #: src/ui/controllers/fetchNewsController.vala:296
 #: src/ui/controllers/fetchNewsController.vala:662
 msgid "Offline - showing cached articles"
-msgstr "Sin conexión: mostrando artículos en caché"
+msgstr "Ngoại tuyến - đang hiện bài viết từ bộ nhớ đệm"
 
 #. time_text replaces the "Viewed ..." caption when the row is reused outside History (e.g. Recommended for you).
 #. TRANSLATORS: %s is a relative time, e.g. "Viewed 3h ago"
 #: src/ui/components/articles/historyCard.vala:157
 #, c-format
 msgid "Viewed %s"
-msgstr "Visto %s"
+msgstr "Đã xem %s"
 
 #. Prices are in US dollars (the index ETFs and crypto all trade in USD),
 #. with the locale's decimal separator and digit grouping.
@@ -3507,18 +3440,18 @@ msgstr "Visto %s"
 #: src/ui/components/markets/marketIndexCard.vala:263
 #, c-format
 msgid "$%s"
-msgstr "%s US$"
+msgstr "%s US$"
 
 #. TRANSLATORS: a price change and percent change, e.g. "+1.25 (+0.42%)"
 #: src/ui/components/markets/marketIndexCard.vala:269
 #, c-format
 msgid "%s (%s%%)"
-msgstr "%s (%s %%)"
+msgstr "%s (%s%%)"
 
 #: src/ui/components/markets/marketIndexCard.vala:272
 #, c-format
 msgid "Updated %s"
-msgstr "Actualizado %s"
+msgstr "Cập nhật %s"
 
 #. TRANSLATORS: chart hover: a price, time of day, and time zone, e.g. "$512.30 · 2:45 PM ET"
 #: src/ui/components/markets/marketIndexCard.vala:420
@@ -3532,162 +3465,159 @@ msgstr "%s · %s %s"
 #, c-format
 msgid "%d min read"
 msgid_plural "%d min read"
-msgstr[0] "%d min de lectura"
-msgstr[1] "%d min de lectura"
+msgstr[0] "%d phút đọc"
 
 #: src/builders/placeholderBuilder.vala:296
 msgid "News Source"
-msgstr "Fuente de noticias"
+msgstr "Nguồn tin"
 
 #: src/managers/content/feedUpdateManager.vala:251
 #, c-format
 msgid "RSS feeds: %d updated"
 msgid_plural "RSS feeds: %d updated"
-msgstr[0] "Fuentes RSS: %d actualizada"
-msgstr[1] "Fuentes RSS: %d actualizadas"
+msgstr[0] "Nguồn cấp RSS: đã cập nhật %d"
 
 #: src/managers/content/sourceManager.vala:408
 #, c-format
 msgid "Enabled %s"
-msgstr "%s activada"
+msgstr "Đã bật %s"
 
 #: src/managers/content/sourceManager.vala:422
 msgid "Couldn't find this article's source"
-msgstr "No se pudo encontrar la fuente de este artículo"
+msgstr "Không tìm thấy nguồn của bài viết này"
 
 #: src/managers/content/sourceManager.vala:552
 #, c-format
 msgid "Following %s"
-msgstr "Siguiendo %s"
+msgstr "Đang theo dõi %s"
 
 #: src/managers/content/sourceManager.vala:557
 #: src/managers/content/sourceManager.vala:693
 msgid "Source already followed"
-msgstr "Ya sigues esta fuente"
+msgstr "Đã theo dõi nguồn này"
 
 #: src/managers/content/sourceManager.vala:585
 msgid "Failed to discover RSS feed"
-msgstr "No se pudo detectar la fuente RSS"
+msgstr "Không thể dò tìm nguồn cấp RSS"
 
 #: src/managers/content/sourceManager.vala:593
 msgid "Generating feed for this source..."
-msgstr "Generando una fuente para este sitio..."
+msgstr "Đang tạo nguồn cấp cho nguồn này..."
 
 #: src/managers/content/sourceManager.vala:606
 msgid "Generated feed has no articles"
-msgstr "La fuente generada no tiene artículos"
+msgstr "Nguồn cấp được tạo không có bài viết"
 
 #: src/managers/content/sourceManager.vala:688
 #, c-format
 msgid "Following %s (%d article)"
 msgid_plural "Following %s (%d articles)"
-msgstr[0] "Siguiendo %s (%d artículo)"
-msgstr[1] "Siguiendo %s (%d artículos)"
+msgstr[0] "Đang theo dõi %s (%d bài viết)"
 
 #: src/managers/content/sourceManager.vala:700
 msgid "No RSS feeds found"
-msgstr "No se encontraron fuentes RSS"
+msgstr "Không tìm thấy nguồn cấp RSS"
 
 #: src/managers/content/sourceManager.vala:709
 msgid "Error discovering RSS feed"
-msgstr "Error al detectar la fuente RSS"
+msgstr "Lỗi khi dò tìm nguồn cấp RSS"
 
 #: src/services/articles/articleShareService.vala:37
 msgid "Check out this article"
-msgstr "Mira este artículo"
+msgstr "Xem bài viết này"
 
 #: src/services/articles/articleShareService.vala:39
 msgid "I thought you might find this interesting:"
-msgstr "Creo que esto te puede interesar:"
+msgstr "Mình nghĩ bạn có thể thấy bài này thú vị:"
 
 #: src/services/feeds/builtinSources.vala:41
 msgid "Independent global news and analysis"
-msgstr "Noticias y análisis independientes de todo el mundo"
+msgstr "Tin tức và phân tích toàn cầu độc lập"
 
 #: src/services/feeds/builtinSources.vala:44
 msgid "Comprehensive international and UK reporting"
-msgstr "Información completa del mundo y del Reino Unido"
+msgstr "Đưa tin toàn diện về thế giới và Vương quốc Anh"
 
 #: src/services/feeds/builtinSources.vala:47
 msgid "In-depth journalism across major categories"
-msgstr "Periodismo en profundidad en las principales categorías"
+msgstr "Báo chí chuyên sâu trên các chuyên mục chính"
 
 #: src/services/feeds/builtinSources.vala:50
 msgid "Market, business, and finance coverage"
-msgstr "Mercados, negocios y finanzas"
+msgstr "Tin thị trường, kinh doanh và tài chính"
 
 #: src/services/feeds/builtinSources.vala:53
 msgid "Business, economic, and political reporting"
-msgstr "Información económica, empresarial y política"
+msgstr "Tin kinh doanh, kinh tế và chính trị"
 
 #: src/services/feeds/builtinSources.vala:56
 msgid "US network coverage across politics, business, and more"
-msgstr "Cadena estadounidense con política, negocios y más"
+msgstr "Kênh truyền hình Mỹ về chính trị, kinh doanh và nhiều hơn"
 
 #: src/services/feeds/builtinSources.vala:59
 msgid "Public radio news and feature storytelling"
-msgstr "Noticias y reportajes de la radio pública"
+msgstr "Tin tức và phóng sự từ đài phát thanh công cộng"
 
 #: src/services/feeds/builtinSources.vala:62
 msgid "U.S. politics, headlines, and commentary"
-msgstr "Política, titulares y opinión de EE. UU."
+msgstr "Chính trị, tiêu điểm và bình luận về Mỹ"
 
 #: src/services/feeds/builtinSources.vala:65
 msgid "Neutral, in-depth public affairs reporting"
-msgstr "Información neutral y en profundidad sobre asuntos públicos"
+msgstr "Đưa tin trung lập, chuyên sâu về các vấn đề công"
 
 #: src/services/magazines/magazinePdfImportService.vala:48
 #: src/services/magazines/magazinePdfImportService.vala:82
 msgid "Already in your library"
-msgstr "Ya está en tu biblioteca"
+msgstr "Đã có trong thư viện của bạn"
 
 #: src/services/magazines/magazinePdfImportService.vala:57
 #: src/services/magazines/magazinePdfImportService.vala:91
 msgid "Failed to save that magazine"
-msgstr "No se pudo guardar la revista"
+msgstr "Không thể lưu tạp chí đó"
 
 #. TRANSLATORS: %u is an HTTP status code, e.g. 404
 #: src/services/magazines/magazinePdfImportService.vala:111
 #, c-format
 msgid "Server returned status %u"
-msgstr "El servidor devolvió el estado %u"
+msgstr "Máy chủ trả về trạng thái %u"
 
 #: src/services/magazines/magazinePdfImportService.vala:116
 msgid "That link doesn't point to a PDF"
-msgstr "Ese enlace no lleva a un PDF"
+msgstr "Liên kết đó không trỏ tới PDF"
 
 #. TRANSLATORS: %s is the file type the server sent, e.g. "text/html"
 #: src/services/magazines/magazinePdfImportService.vala:118
 #, c-format
 msgid "That link doesn't point to a PDF (got %s)"
-msgstr "Ese enlace no lleva a un PDF (se recibió %s)"
+msgstr "Liên kết đó không trỏ tới PDF (nhận được: %s)"
 
 #. TRANSLATORS: %s is the file's size, e.g. "212.4 MB"
 #: src/services/magazines/magazinePdfImportService.vala:126
 #: src/services/magazines/magazinePdfImportService.vala:156
 #, c-format
 msgid "File is too large (%s, limit is 150 MB)"
-msgstr "El archivo es demasiado grande (%s; el límite es 150 MB)"
+msgstr "Tệp quá lớn (%s, giới hạn là 150 MB)"
 
 #: src/services/magazines/magazinePdfImportService.vala:142
 msgid "File exceeded the 150 MB size limit"
-msgstr "El archivo superó el límite de 150 MB"
+msgstr "Tệp vượt quá giới hạn 150 MB"
 
 #: src/services/magazines/magazinePdfImportService.vala:167
 msgid "That doesn't look like a valid PDF file"
-msgstr "No parece un archivo PDF válido"
+msgstr "Có vẻ đây không phải tệp PDF hợp lệ"
 
 #: src/services/magazines/magazinePdfImportService.vala:226
 msgid "Untitled magazine"
-msgstr "Revista sin título"
+msgstr "Tạp chí không có tiêu đề"
 
 #: src/services/podcasts/podcastFeedResolver.vala:53
 msgid "Couldn't reach that feed"
-msgstr "No se pudo acceder a la fuente"
+msgstr "Không thể truy cập nguồn cấp đó"
 
 #: src/services/podcasts/podcastFeedResolver.vala:56
 msgid "That doesn't look like a valid podcast feed"
-msgstr "No parece una fuente de pódcast válida"
+msgstr "Có vẻ đây không phải nguồn cấp podcast hợp lệ"
 
 #. card_container=false: no wrapping bordered panel behind the
 #. row - these cards are already fully self-contained (colored
@@ -3698,21 +3628,20 @@ msgstr "No parece una fuente de pódcast válida"
 #. circular-logo treatment.
 #: src/ui/controllers/stocksTickerController.vala:243
 msgid "Markets Today"
-msgstr "Mercados hoy"
+msgstr "Thị trường hôm nay"
 
 #. If either piece of data failed, return Unknown
 #: src/services/cache/metaCache.vala:315 src/services/cache/metaCache.vala:374
 #: src/services/cache/rssArticleCache.vala:541
 msgid "Unknown"
-msgstr "Desconocido"
+msgstr "Không xác định"
 
 #. TRANSLATORS: RSS feed cache size and article count, e.g. "2.5 MB (134 articles)"
 #: src/services/cache/rssArticleCache.vala:545
 #, c-format
 msgid "%s (%d article)"
 msgid_plural "%s (%d articles)"
-msgstr[0] "%s (%d artículo)"
-msgstr[1] "%s (%d artículos)"
+msgstr[0] "%s (%d bài viết)"
 
 #: data/io.github.thecalamityjoe87.Paperboy.desktop.in:2
 msgid "Paperboy"
@@ -3720,13 +3649,13 @@ msgstr "Paperboy"
 
 #: data/io.github.thecalamityjoe87.Paperboy.desktop.in:3
 msgid "News Reader"
-msgstr "Lector de noticias"
+msgstr "Trình đọc tin tức"
 
 #: data/io.github.thecalamityjoe87.Paperboy.desktop.in:4
 msgid "Read news from the sources you trust in one place"
-msgstr "Lee noticias de las fuentes en las que confías en un solo lugar"
+msgstr "Đọc tin từ các nguồn bạn tin cậy ở một nơi"
 
 #. Translators: search terms for finding Paperboy, separated by semicolons; keep the ending semicolon. Don't translate them literally if your language has better words
 #: data/io.github.thecalamityjoe87.Paperboy.desktop.in:10
 msgid "news;rss;reader;feed;aggregator;"
-msgstr "noticias;rss;lector;fuente;feed;periódico;agregador;"
+msgstr "tin tức;news;rss;trình đọc;nguồn cấp;báo;tổng hợp;"

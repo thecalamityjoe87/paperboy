@@ -57,7 +57,6 @@ public class LoadingStateManager : GLib.Object {
     public bool initial_items_populated = false;
     public uint initial_reveal_timeout_id = 0;
     public uint absolute_reveal_timeout_id = 0;
-    public bool network_failure_detected = false;
     public bool awaiting_adaptive_layout = false;
     // Front Page fires two independent backend fetches (frontpage list +
     // Trending) - held true until both report done, so the initial reveal
@@ -144,7 +143,6 @@ public class LoadingStateManager : GLib.Object {
         hero_image_loaded = false;
         pending_images = 0;
         initial_items_populated = false;
-        network_failure_detected = false;
         initial_phase_start_time = GLib.get_monotonic_time();
 
         pending_backfills = 0;

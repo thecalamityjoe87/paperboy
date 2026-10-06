@@ -107,19 +107,23 @@ namespace Paperboy {
 
             var input_stream = session.send(msg, null);
             if (msg.get_status() != Soup.Status.OK || input_stream == null) {
-                throw new GLib.IOError.FAILED("Server returned status %u".printf(msg.get_status()));
+                // TRANSLATORS: %u is an HTTP status code, e.g. 404
+                throw new GLib.IOError.FAILED(_("Server returned status %u").printf(msg.get_status()));
             }
 
             string? content_type = msg.get_response_headers().get_one("Content-Type");
             if (!PdfValidatorUtils.content_type_looks_like_pdf(content_type)) {
-                throw new GLib.IOError.FAILED("That link doesn't point to a PDF (got %s)".printf(content_type ?? "an unknown content type"));
+                if (content_type == null) throw new GLib.IOError.FAILED(_("That link doesn't point to a PDF"));
+                // TRANSLATORS: %s is the file type the server sent, e.g. "text/html"
+                throw new GLib.IOError.FAILED(_("That link doesn't point to a PDF (got %s)").printf(content_type));
             }
 
             string? content_length_str = msg.get_response_headers().get_one("Content-Length");
             if (content_length_str != null) {
                 int64 declared_length = int64.parse(content_length_str);
                 if (declared_length > MAX_PDF_BYTES) {
-                    throw new GLib.IOError.FAILED("File is too large (%s, limit is 150MB)".printf(GLib.format_size((uint64) declared_length)));
+                    // TRANSLATORS: %s is the file's size, e.g. "212.4 MB"
+                    throw new GLib.IOError.FAILED(_("File is too large (%s, limit is 150 MB)").printf(GLib.format_size((uint64) declared_length)));
                 }
             }
 
@@ -135,7 +139,7 @@ namespace Paperboy {
                 buffer.append(chunk[0:(int) bytes_read]);
                 if (buffer.len > MAX_PDF_BYTES) {
                     input_stream.close(null);
-                    throw new GLib.IOError.FAILED("File exceeded the 150MB size limit");
+                    throw new GLib.IOError.FAILED(_("File exceeded the 150 MB size limit"));
                 }
             }
             input_stream.close(null);
@@ -149,7 +153,7 @@ namespace Paperboy {
             source_file.load_contents(null, out data, null);
 
             if (data.length > MAX_PDF_BYTES) {
-                throw new GLib.IOError.FAILED("File is too large (%s, limit is 150MB)".printf(GLib.format_size((uint64) data.length)));
+                throw new GLib.IOError.FAILED(_("File is too large (%s, limit is 150 MB)").printf(GLib.format_size((uint64) data.length)));
             }
 
             return finish_import(data, source_url, title_override, source_id);

@@ -945,7 +945,7 @@ namespace Managers {
                     if (category != null && category.strip().length > 0) {
                         Paperboy.MagazineLibraryStore.get_instance().update_category(entry.id, category);
                     }
-                    window.toast_manager.show_toast(_("Added: ") + entry.title);
+                    window.toast_manager.show_toast(_("Added: %s").printf(entry.title));
                 } else {
                     window.toast_manager.show_toast(error_message ?? _("Failed to add magazine"));
                 }
@@ -965,7 +965,7 @@ namespace Managers {
                     if (category != null && category.strip().length > 0) {
                         Paperboy.MagazineLibraryStore.get_instance().update_category(entry.id, category);
                     }
-                    window.toast_manager.show_toast(_("Added: ") + entry.title);
+                    window.toast_manager.show_toast(_("Added: %s").printf(entry.title));
                 } else {
                     window.toast_manager.show_toast(error_message ?? _("Failed to add magazine"));
                 }

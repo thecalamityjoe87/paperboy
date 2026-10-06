@@ -160,7 +160,8 @@ public class PodcastPane : GLib.Object {
 
         int64 remaining_seconds = (int64) ((effective_duration_ns - position_ns) / 1000000000);
         if (remaining_seconds < 0) remaining_seconds = 0;
-        string duration_text = format_duration(remaining_seconds) + _(" left");
+        // TRANSLATORS: %s is the time remaining in an episode, e.g. "12:34 left"
+        string duration_text = _("%s left").printf(format_duration(remaining_seconds));
         row.meta_label.set_text(duration_text.length > 0 ? _("%s · %s").printf(row.when_text, duration_text) : row.when_text);
     }
 
@@ -517,7 +518,7 @@ public class PodcastPane : GLib.Object {
             && progress.position_ns < progress.duration_ns - 10000000000;
 
         string duration_text = has_progress
-            ? format_duration((int64) ((progress.duration_ns - progress.position_ns) / 1000000000)) + _(" left")
+            ? _("%s left").printf(format_duration((int64) ((progress.duration_ns - progress.position_ns) / 1000000000)))
             : format_duration(episode.duration_seconds);
         string when_text = DateUtils.time_ago(episode.published);
         var meta_label = new Gtk.Label(duration_text.length > 0 ? _("%s · %s").printf(when_text, duration_text) : when_text);

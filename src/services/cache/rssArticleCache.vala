@@ -530,7 +530,7 @@ namespace Paperboy {
 
         /*
         * Get formatted cache information (size and article count)
-        * Returns a user-friendly string like "2.5 MB (1,234 articles)" or "Unknown"
+        * Returns a translated string like "2.5 MB (134 articles)" or "Unknown"
         */
         public string get_cache_info_formatted() {
             int article_count = get_total_article_count();
@@ -538,19 +538,11 @@ namespace Paperboy {
 
             // If either piece of data failed, return Unknown
             if (article_count < 0 || cache_size < 0) {
-                return "Unknown";
+                return _("Unknown");
             }
 
-            string size_text;
-            if (cache_size < 1024) {
-                size_text = "%lld bytes".printf(cache_size);
-            } else if (cache_size < 1024 * 1024) {
-                size_text = "%.1f KB".printf(cache_size / 1024.0);
-            } else {
-                size_text = "%.1f MB".printf(cache_size / (1024.0 * 1024.0));
-            }
-
-            return "%s (%d articles)".printf(size_text, article_count);
+            // TRANSLATORS: RSS feed cache size and article count, e.g. "2.5 MB (134 articles)"
+            return ngettext("%s (%d article)", "%s (%d articles)", article_count).printf(GLib.format_size(cache_size), article_count);
         }
 
         /**

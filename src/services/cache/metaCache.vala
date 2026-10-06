@@ -310,11 +310,9 @@ public class MetaCache : GLib.Object {
     }
 
     public string get_metacache_info() {
-        string cache_size_text = "Calculating...";
-
         var cache_base = Environment.get_user_cache_dir();
         if (cache_base == null) {
-            return "Unknown";
+            return _("Unknown");
         }
 
         try {
@@ -365,23 +363,15 @@ public class MetaCache : GLib.Object {
                 img_enum.close();
             }
 
-            // Format size
-            if (total_size < 1024) {
-                cache_size_text = "%lld bytes".printf(total_size);
-            } else if (total_size < 1024 * 1024) {
-                cache_size_text = "%.1f KB".printf(total_size / 1024.0);
-            } else {
-                cache_size_text = "%.1f MB".printf(total_size / (1024.0 * 1024.0));
-            }
-
-            return cache_size_text;
+            // Translated by GLib, e.g. "2.5 MB" or "2,5 MB"
+            return GLib.format_size(total_size);
 
         } catch (GLib.Error e) {
             GLib.warning(
                 "MetaCache: Failed to get formatted cache info: %s",
                 e.message
             );
-            return "Unknown";
+            return _("Unknown");
         }
     }
 

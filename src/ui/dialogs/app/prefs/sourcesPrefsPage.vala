@@ -337,10 +337,11 @@ public class SourcesPrefsPage : Adw.PreferencesPage {
                 string body;
                 if (n_entries == 0) {
                     body = _("\"%s\" will be removed.").printf(source_name);
-                } else if (n_entries == 1) {
-                    body = "\"%s\" and the 1 magazine added from it will be removed, including its downloaded file.".printf(source_name);
                 } else {
-                    body = "\"%s\" and the %d magazines added from it will be removed, including their downloaded files.".printf(source_name, n_entries);
+                    // TRANSLATORS: %1$s is a magazine source's name, %2$d how many magazines were added from it
+                    body = ngettext("\"%1$s\" and the %2$d magazine added from it will be removed, including its downloaded file.",
+                                    "\"%1$s\" and the %2$d magazines added from it will be removed, including their downloaded files.",
+                                    n_entries).printf(source_name, n_entries);
                 }
                 DialogUtils.confirm_destructive(ctx.dialog, _("Remove source?"), body, _("Remove"), () => {
                     magazine_store.remove_source(source_id);

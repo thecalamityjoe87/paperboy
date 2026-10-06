@@ -197,7 +197,8 @@ public class CardBuilder : GLib.Object {
         if (logo_wrapper != null) {
             box.append(logo_wrapper);
         }
-        var lbl = create_source_badge_label(display_text);
+        // The untranslated Local News key (see SourceManager) is shown translated
+        var lbl = create_source_badge_label(display_text == SourceManager.LOCAL_NEWS_SOURCE ? _("Local News") : display_text);
         box.append(lbl);
         return box;
     }
@@ -281,7 +282,7 @@ public class CardBuilder : GLib.Object {
 
         badge_box.set_data("follow-source-btn", follow_btn);
         badge_box.set_data("follow-source-revealer", revealer);
-        badge_box.set_data<string>("follow-source-name", source_label ?? "this source");
+        badge_box.set_data<string>("follow-source-name", source_label);
         badge_box.set_data<string>("follow-source-url", url);
         if (name_label != null) badge_box.set_data("follow-source-label", name_label);
         card_root.set_data("source-badge", badge_box);
@@ -417,9 +418,14 @@ public class CardBuilder : GLib.Object {
         }
 
         bool followed = is_source_followed(url);
-        string name = badge.get_data<string>("follow-source-name");
+        string? name = badge.get_data<string>("follow-source-name");
         btn.set_icon_name(followed ? CheckIconUtils.icon_name() : "list-add-symbolic");
-        btn.set_tooltip_text(followed ? "Following " + name : "Follow " + name);
+        if (name == null) {
+            btn.set_tooltip_text(followed ? C_("follow button tooltip", "Following this source") : _("Follow this source"));
+        } else {
+            // TRANSLATORS: %s is a news source, e.g. "Follow BBC News"
+            btn.set_tooltip_text(followed ? C_("follow button tooltip", "Following %s").printf(name) : _("Follow %s").printf(name));
+        }
         if (followed) {
             btn.add_css_class("following");
         } else {

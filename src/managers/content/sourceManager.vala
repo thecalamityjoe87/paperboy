@@ -27,6 +27,11 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
 
  public class SourceManager : GLib.Object {
 
+    // Source name for Local News articles when no city is set. It's a
+    // tracking key (ArticleStateStore, feedback, follows), so it stays in
+    // English; CardBuilder translates it for display.
+    public const string LOCAL_NEWS_SOURCE = "Local News";
+
     // Currently enabled sources (references prefs)
     private weak NewsPreferences prefs;
     private weak NewsWindow window;
@@ -128,7 +133,7 @@ public delegate void RssFeedAddCallback(bool success, string feed_name);
         if (result == null || result.length == 0) {
             if (category_id == "local_news") {
                 var local_area = NewsPreferences.get_instance().get_active_local_area();
-                result = local_area != null ? local_area.city : "Local News";
+                result = local_area != null ? local_area.city : LOCAL_NEWS_SOURCE;
             } else {
                 result = BuiltinSources.short_name(BuiltinSources.from_url(url));
             }

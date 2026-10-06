@@ -97,8 +97,17 @@ public class MarqueeLabel : Gtk.Widget {
         int text_w, text_h;
         layout.get_pixel_size(out text_w, out text_h);
 
+        // Right-to-left text (e.g. an Arabic title) starts at the right edge
+        // and scrolls rightward; offset still runs 0..text_w - w either way.
+        double x;
+        if (text_w > w) {
+            x = layout.get_direction(0) == Pango.Direction.RTL ? w - text_w + offset : -offset;
+        } else {
+            x = get_direction() == Gtk.TextDirection.RTL ? w - text_w : 0;
+        }
+
         snapshot.push_clip(Graphene.Rect().init(0, 0, w, h));
-        snapshot.translate(Graphene.Point().init((float) (-offset), (float) (h - text_h) / 2.0f));
+        snapshot.translate(Graphene.Point().init((float) x, (float) (h - text_h) / 2.0f));
         snapshot.append_layout(layout, get_color());
         snapshot.pop();
     }

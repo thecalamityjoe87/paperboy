@@ -876,7 +876,7 @@ public class SidebarView : GLib.Object {
                 // the terminal state change, and SidebarManager already
                 // listens to PodcastSubscriptionStore.subscription_added
                 // and rebuilds on its own.
-                window.toast_manager.show_toast(_("Podcast added: ") + show.title);
+                window.toast_manager.show_toast(_("Podcast added: %s").printf(show.title));
             } else {
                 window.toast_manager.show_toast(error_message ?? _("Failed to add podcast"));
             }

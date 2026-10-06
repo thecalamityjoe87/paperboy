@@ -254,12 +254,19 @@ public class MarketIndexCard : GLib.Object {
         apply_quote_text(quote);
     }
 
-    private void apply_quote_text(MarketIndexQuote quote) {
-        bool positive = quote.change >= 0;
-        string sign = positive ? "+" : "";
+    // Prices are in US dollars (the index ETFs and crypto all trade in USD),
+    // with the locale's decimal separator and digit grouping.
+    private static string format_usd(double price) {
+        // TRANSLATORS: a price in US dollars; %s is the number, already formatted
+        // for your locale. Put the dollar sign where your language does, e.g. "%s $"
+        // or "US$ %s"
+        return _("$%s").printf("%'.2f".printf(price));
+    }
 
-        price_label.set_text("$%.2f".printf(quote.price));
-        change_label.set_text("%s%.2f (%s%.2f%%)".printf(sign, quote.change, sign, quote.change_percent));
+    private void apply_quote_text(MarketIndexQuote quote) {
+        price_label.set_text(format_usd(quote.price));
+        // TRANSLATORS: a price change and percent change, e.g. "+1.25 (+0.42%)"
+        change_label.set_text(_("%s (%s%%)").printf("%+'.2f".printf(quote.change), "%+'.2f".printf(quote.change_percent)));
 
         string updated = DateUtils.time_ago(quote.last_updated);
         updated_label.set_text(updated.length > 0 ? _("Updated %s").printf(updated) : "");
@@ -409,7 +416,8 @@ public class MarketIndexCard : GLib.Object {
             dt = new GLib.DateTime.from_unix_utc((int64) p.t);
             zone_label = "UTC";
         }
-        hover_label.set_text("$%.2f · %s %s".printf(p.price, dt.format("%-I:%M %p"), zone_label));
+        // TRANSLATORS: chart hover: a price, time of day, and time zone, e.g. "$512.30 · 2:45 PM ET"
+        hover_label.set_text(_("%s · %s %s").printf(format_usd(p.price), dt.format(DateUtils.clock_time_format()), zone_label));
         hover_label.set_visible(true);
 
         int label_width = hover_label.get_allocated_width();

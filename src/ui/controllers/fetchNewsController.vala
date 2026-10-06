@@ -157,7 +157,6 @@ public class FetchNewsController {
         // With several sources, one failure isn't the whole view's; INITIAL_MAX_WAIT_MS covers all of them failing.
         if (text != null && !ctx.is_multi_source) {
             if (is_error) {
-                if (win.loading_state != null) win.loading_state.network_failure_detected = true;
                 win.hide_loading_spinner();
                 win.show_error_message(text);
                 if (win.loading_state != null) ViewSession.remove_source(ref win.loading_state.initial_reveal_timeout_id);
@@ -306,16 +305,6 @@ public class FetchNewsController {
             ctx.session.idle(() => {
                 var w = ctx.window;
                 if (w == null) return false;
-                if (text != null) {
-                    string lower = text.down();
-                    if (lower.index_of("error") >= 0 || lower.index_of("failed") >= 0) {
-                        var ls = w.loading_state;
-                        if (ls != null) {
-                            ls.network_failure_detected = true;
-                        }
-                    }
-                }
-
                 w.update_content_header();
                 return false;
             });
@@ -669,10 +658,10 @@ public class FetchNewsController {
             // Update label to show we're displaying cached content
             var network_monitor = GLib.NetworkMonitor.get_default();
             if (!network_monitor.get_network_available()) {
-                sink.set_label(_("%s — Offline, showing %d cached articles").printf(feed_name_plain, cached_articles.size));
+                sink.set_label("%s — Offline, showing %d cached articles".printf(feed_name_plain, cached_articles.size));
                 win.show_toast(_("Offline - showing cached articles"));
             } else {
-                sink.set_label(_("%s — Loaded %d articles from cache").printf(feed_name_plain, cached_articles.size));
+                sink.set_label("%s — Loaded %d articles from cache".printf(feed_name_plain, cached_articles.size));
             }
         }
 
