@@ -220,9 +220,9 @@ public class LoadingStateManager : GLib.Object {
                 window.sidebar_manager.refresh_all_badge_counts();
             }
 
-            if (window.article_manager.remaining_articles != null && window.article_manager.remaining_articles.size > 0 && window.article_manager.articles_shown >= Managers.ArticleManager.INITIAL_ARTICLE_LIMIT) {
+            if (window.article_manager.remaining_count() > 0 && window.article_manager.articles_shown >= Managers.ArticleManager.INITIAL_ARTICLE_LIMIT) {
                 window.article_manager.show_load_more_button();
-            } else if (window.article_manager.remaining_articles == null || window.article_manager.remaining_articles.size == 0) {
+            } else if (window.article_manager.remaining_count() == 0) {
                 ViewSession.view_timeout(800, () => {
                     if (window == null) return false; // weak ref; window may be gone
                     if (loading_container == null || !loading_container.get_visible()) {

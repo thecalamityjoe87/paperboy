@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:media="http://search.yahoo.com/mrss/"
+  xmlns:wfw="http://wellformedweb.org/CommentAPI/">
+<channel>
+  <title>Example News</title>
+  <link>https://news.example.com/</link>
+  <image><url>https://news.example.com/icon.png</url></image>
+  <item>
+    <title>El Ni&amp;ntilde;o returns</title>
+    <link>https://news.example.com/el-nino</link>
+    <pubDate>Mon, 06 Oct 2026 10:00:00 +0000</pubDate>
+    <description><![CDATA[<p>Forecasters say <b>warmer</b> waters are back.</p>]]></description>
+    <media:thumbnail url="https://img.example.com/elnino-small.jpg" width="150"/>
+    <media:thumbnail url="https://img.example.com/elnino-large.jpg" width="1200"/>
+    <media:thumbnail url="https://img.example.com/elnino-medium.jpg" width="600"/>
+    <wfw:commentRss>https://news.example.com/el-nino/feed/</wfw:commentRss>
+  </item>
+  <item>
+    <title>Media content image</title>
+    <link>https://news.example.com/media</link>
+    <pubDate>Mon, 06 Oct 2026 09:00:00 +0000</pubDate>
+    <media:content url="//cdn.example.com/photo.jpg" medium="image"/>
+  </item>
+  <item>
+    <title>Image only inside content:encoded</title>
+    <link>https://news.example.com/encoded</link>
+    <pubDate>Mon, 06 Oct 2026 08:00:00 +0000</pubDate>
+    <content:encoded><![CDATA[<p>Lead.</p><img src="https://img.example.com/inline.jpg" alt=""><p>Body.</p>]]></content:encoded>
+  </item>
+  <item>
+    <title>Dated only with dc:date</title>
+    <link>https://news.example.com/dc-date</link>
+    <dc:date>2026-10-06T07:00:00Z</dc:date>
+  </item>
+  <item>
+    <title>Missing link is dropped</title>
+    <pubDate>Mon, 06 Oct 2026 06:00:00 +0000</pubDate>
+  </item>
+</channel>
+</rss>

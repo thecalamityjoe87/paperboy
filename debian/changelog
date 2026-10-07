@@ -1,3 +1,23 @@
+paperboy (0.14.2a-1) unstable; urgency=low
+
+  * Atom feeds: use each entry's rel="alternate" link instead of the last <link>, which for WordPress was the comments feed
+  * RSS 1.0 (RDF) feeds: read <item>s that sit beside <channel>, which were all being skipped
+  * Ignore non-image <enclosure>s, so podcast audio is no longer fetched as a thumbnail
+  * Read <dc:date> in RSS 2.0 items, as the Atom branch already did
+  * Image upgrade pass no longer re-requests images already above 1600px at a smaller size
+  * Deferred image loads reschedule correctly: pictures that became visible after the first check never loaded
+  * "Recommended for you": only take a reserve pick when the disliked card can be swapped, so the pick isn't removed from its row and lost
+  * Restore the viewed badge on heroes and carousel slides without a thumbnail
+  * Guard against a missing carousel container when placing the first hero
+  * Remove the Local News image-load cap, which was never enforced, and a debug-log file write on every hero placement
+  * Refactor ImageManager and ArticleManager: remove duplicated code, dead fields and stale comments
+  * Build all code except main() as an internal static library and add a unit test suite (meson test) for text utils, the image cache and the RSS parser
+  * Move ArticleManager's overflow queue, row caps and "Recommended for you" shortlist into placementManager.vala, and its view rules into static methods, with tests
+  * Clearing the overflow queue from FetchNewsController now also resets its per-row counts, which left Front Page rows offering "load more" with nothing queued
+  * Make LayoutManager.FRONTPAGE_SECTION_CATEGORIES const, so Front Page row grouping doesn't depend on a LayoutManager having been created first
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Wed, 07 Oct 2026 00:00:00 +0000
+
 paperboy (0.14.1a-1) unstable; urgency=low
 
   * "Recommended for you" appears after the first read or thumbs up and always fills with the best-matching articles

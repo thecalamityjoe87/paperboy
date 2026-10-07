@@ -1,3 +1,17 @@
+# v0.14.2a - Fixes for Atom and RSS 1.0 Feeds, Sharper Hero Images, and Recommendations
+
+- Articles from WordPress sites that publish Atom feeds now open the article itself, instead of its comments feed
+- Feeds in the older RSS 1.0 format now show their articles, instead of appearing empty
+- Podcast episodes in your feeds no longer have their audio file downloaded as if it were the article's picture, which used a lot of data and memory for nothing
+- Articles in feeds that give their date in a less common format now show when they were published, and sort correctly in Local News
+- Large hero pictures stay sharp, instead of sometimes being swapped for a smaller, softer copy a moment after the page loads
+- Pictures on cards that start out of view now always load once they come into view
+- Disliking an article in "Recommended for you" no longer sometimes makes another article disappear from its category row
+- Articles you've already read now show as read on the large featured cards even when they have no picture
+- Fixed a possible crash when placing the first featured article on a page
+- A Front Page row's arrow no longer offers more articles after switching away and back when there are none left to load
+- Paperboy no longer writes to its debug log every time it shows a featured article
+
 # v0.14.1a - My Library for Your Podcasts, Recommendations From Your First Article, and a Feed Freeze Fix
 
 - "Recommended for you" now appears on the Front Page as soon as you open or give a thumbs up to your first article, instead of after ten. It always fills with the articles that best match what you read and like, starting broad and getting more personal the more you read and rate

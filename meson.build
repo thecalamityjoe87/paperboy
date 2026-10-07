@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.14.1a',
+  version : '0.14.2a',
   meson_version : '>=0.59.0'
 )
 
@@ -36,9 +36,14 @@ gst_audio = dependency('gstreamer-audio-1.0')
 poppler = dependency('poppler-glib')
 cairo = dependency('cairo')
 
-  executable('paperboy', [
-    'src/main.vala',
+deps = [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, gst, gst_player, gst_audio, poppler, cairo]
+
+# Everything except main() lives in an internal static library so the test
+# executables under tests/ can link the same code. Not installed; the app
+# pulls it in whole (link_whole) so the binary's contents are unchanged.
+paperboy_core = static_library('paperboy-core', [
     config_vala,
+    'src/paperboyApp.vala',
 
     # UI
     'src/ui/appWindow.vala',
@@ -111,6 +116,7 @@ cairo = dependency('cairo')
 
     # Managers
     'src/managers/content/articleManager.vala',
+    'src/managers/content/placementManager.vala',
     'src/managers/content/categoryManager.vala',
     'src/managers/content/feedUpdateManager.vala',
     'src/managers/content/imageManager.vala',
@@ -251,10 +257,22 @@ cairo = dependency('cairo')
     # Sandboxed magazine-PDF thumbnail renderer; main.vala re-execs into it
     'src/tools/magazineThumbnailerTool.vala',
   ],
-  dependencies : [gtk, libsoup, json, gdkpixbuf, adw, xml2, gee, gio, sqlite, webkit, geoclue, gst, gst_player, gst_audio, poppler, cairo],
-  install : true,
-  link_args : ['-lm']
+  dependencies : deps,
 )
+
+paperboy_core_dep = declare_dependency(
+  link_whole : paperboy_core,
+  include_directories : include_directories('.'),
+  dependencies : deps,
+  link_args : ['-lm'],
+)
+
+executable('paperboy', 'src/main.vala',
+  dependencies : paperboy_core_dep,
+  install : true,
+)
+
+subdir('tests')
 
 # Translations (gettext): the po/ subdir carries LINGUAS, POTFILES.in and the
 # .po catalogs; po/meson.build calls i18n.gettext().
