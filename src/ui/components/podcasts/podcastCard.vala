@@ -219,6 +219,22 @@ public class PodcastCard : GLib.Object {
         root.append(title_box);
     }
 
+    // "3 New" pill in the cover's top-right corner - My Library's show
+    // cards only (unplayed episodes since the show was last opened).
+    public void show_new_count(int count) {
+        if (count <= 0) return;
+        // TRANSLATORS: count of new episodes on a podcast card, e.g. "3 New"
+        var badge = new Gtk.Label(ngettext("%d New", "%d New", count).printf(count));
+        badge.add_css_class("podcast-episode-new-badge");
+        badge.add_css_class("podcast-card-new-count");
+        badge.set_halign(Gtk.Align.END);
+        badge.set_valign(Gtk.Align.START);
+        badge.set_margin_top(8);
+        badge.set_margin_end(8);
+        badge.set_can_target(false);
+        overlay.add_overlay(badge);
+    }
+
     // Reflects the current subscription state on subscribe_button's icon
     // and CSS - called once at build() and again after every successful
     // toggle in wire_interactions()/the context menu, so the badge never

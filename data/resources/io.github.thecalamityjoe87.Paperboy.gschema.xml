@@ -27,6 +27,12 @@
       <description>Whether the Podcasts section in the sidebar is expanded</description>
     </key>
 
+    <key name="sidebar-podcast-shows-expanded" type="b">
+      <default>true</default>
+      <summary>Podcast shows list expanded state</summary>
+      <description>Whether the Shows list inside the sidebar's Podcasts section is expanded</description>
+    </key>
+
     <!-- Window State -->
     <key name="window-width" type="i">
       <default>1400</default>

@@ -32,6 +32,7 @@ public struct SidebarItemData {
     public int unread_count;       // Badge count
     public bool is_selected;       // Currently active
     public SidebarItemType item_type;
+    public string? image_url;      // Podcast show rows: cover art instead of an icon_key glyph
 }
 
 public struct RssSourceItemData {
@@ -69,6 +70,8 @@ public class SidebarManager : GLib.Object {
     private bool local_news_expanded = true;
     private bool popular_categories_expanded = true;
     private bool podcasts_expanded = true;
+    // The "Shows" sub-list nested inside the Podcasts section.
+    private bool podcast_shows_expanded = true;
 
     // Track currently selected item ID (data only)
     private string? currently_selected_id = null;
@@ -175,6 +178,7 @@ public class SidebarManager : GLib.Object {
             Idle.add(() => {
                 podcast_subscription_removed("podcastshow:" + feed_id.to_string());
                 podcast_new_counts.unset(feed_id);
+                update_library_badge();
                 return false;
             });
         });
@@ -187,6 +191,7 @@ public class SidebarManager : GLib.Object {
             Idle.add(() => {
                 podcast_new_counts.set(feed_id, 0);
                 badge_updated("podcastshow:" + feed_id.to_string(), 0, false);
+                update_library_badge();
                 return false;
             });
         });
@@ -237,6 +242,7 @@ public class SidebarManager : GLib.Object {
         local_news_expanded = prefs.sidebar_local_news_expanded;
         popular_categories_expanded = prefs.sidebar_popular_categories_expanded;
         podcasts_expanded = prefs.sidebar_podcasts_expanded;
+        podcast_shows_expanded = prefs.sidebar_podcast_shows_expanded;
     }
 
     private void save_followed_sources_state() {
@@ -263,6 +269,18 @@ public class SidebarManager : GLib.Object {
         prefs.save_config();
     }
 
+    private void save_podcast_shows_expanded_state() {
+        var prefs = NewsPreferences.get_instance();
+        prefs.sidebar_podcast_shows_expanded = podcast_shows_expanded;
+        prefs.save_config();
+    }
+
+    // Whether the nested "Shows" sub-list starts expanded - SidebarView
+    // builds it inside the Podcasts section, so it isn't a section of its own.
+    public bool get_podcast_shows_expanded() {
+        return podcast_shows_expanded;
+    }
+
     /**
      * Save a section's expanded state. No-op when unchanged, so the view's
      * own programmatic set_expanded() calls don't write anything.
@@ -284,6 +302,10 @@ public class SidebarManager : GLib.Object {
             if (podcasts_expanded == expanded) return;
             podcasts_expanded = expanded;
             save_podcasts_expanded_state();
+        } else if (section_id == "podcast_shows") {
+            if (podcast_shows_expanded == expanded) return;
+            podcast_shows_expanded = expanded;
+            save_podcast_shows_expanded_state();
         } else {
             return;
         }
@@ -363,16 +385,19 @@ public class SidebarManager : GLib.Object {
 
         sections.add(followed_section);
 
-        // Section 4: Podcasts - "Discover" (the main browse/hero page,
-        // same destination the old flat "Podcasts" item pointed to) plus
-        // one row per subscribed show. Expandable like Feeds, since it can
-        // grow the same way as the user subscribes to more shows.
+        // Section 4: Podcasts - "My Library" (subscribed shows' page, badged
+        // with the total of new episodes), "Find Podcasts" (the discovery
+        // page), then one row per subscribed show - SidebarView nests
+        // those "podcastshow:" rows in their own collapsible "Shows" list.
         var podcasts_section = SidebarSectionData();
         podcasts_section.section_id = "podcasts_entry";
         podcasts_section.title = _("Podcasts");
         podcasts_section.is_expandable = true;
         podcasts_section.is_expanded = podcasts_expanded;
         podcasts_section.items = new Gee.ArrayList<SidebarItemData?>();
+        var library_item = create_item_data(_("My Library"), Managers.PodcastLibraryManager.CATEGORY_ID, SidebarItemType.SPECIAL);
+        library_item.unread_count = total_podcast_new_count();
+        podcasts_section.items.add(library_item);
         // id stays "podcasts" (the routing key) - only title/icon change.
         var discover_item = create_item_data(_("Find Podcasts"), "podcasts", SidebarItemType.SPECIAL);
         discover_item.icon_key = "podcasts_discover";
@@ -451,6 +476,7 @@ public class SidebarManager : GLib.Object {
         item.id = "podcastshow:" + sub.feed_id.to_string();
         item.title = sub.title;
         item.icon_key = "podcasts";
+        item.image_url = sub.image_url;
         item.item_type = SidebarItemType.SPECIAL;
         item.is_selected = (currently_selected_id == item.id);
         item.unread_count = podcast_new_counts.has_key(sub.feed_id) ? podcast_new_counts.get(sub.feed_id) : 0;
@@ -517,6 +543,17 @@ public class SidebarManager : GLib.Object {
         if (podcast_new_counts.has_key(feed_id) && podcast_new_counts.get(feed_id) == count) return;
         podcast_new_counts.set(feed_id, count);
         badge_updated("podcastshow:" + feed_id.to_string(), count, false);
+        update_library_badge();
+    }
+
+    private int total_podcast_new_count() {
+        int total = 0;
+        foreach (int count in podcast_new_counts.values) total += count;
+        return total;
+    }
+
+    private void update_library_badge() {
+        badge_updated(Managers.PodcastLibraryManager.CATEGORY_ID, total_podcast_new_count(), false);
     }
 
     private Paperboy.PodcastSubscription? find_subscription_by_feed_id(int64 feed_id) {
@@ -752,7 +789,8 @@ public class SidebarManager : GLib.Object {
         if (category_id == "frontpage" ||
             category_id == "myfeed" || category_id == "local_news" ||
             category_id == "saved" || category_id == "history" ||
-            category_id == "podcasts" || category_id == "magazines") {
+            category_id == "podcasts" || category_id == "podcasts_library" ||
+            category_id == "magazines") {
             return false;
         }
         // RSS feeds are not categories

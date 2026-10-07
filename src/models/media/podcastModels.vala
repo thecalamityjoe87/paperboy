@@ -99,6 +99,10 @@ namespace Paperboy {
         public string? image_url;
         public string feed_url;
         public int64 subscribed_at;
+        // Top-level group for My Library's category rows (see
+        // PodcastCategoryUtils). null = never looked up (subscribed before
+        // categories were persisted); "" = looked up, the feed has none.
+        public string? category;
 
         public PodcastSubscription() {
             feed_id = 0;
@@ -108,6 +112,7 @@ namespace Paperboy {
             image_url = null;
             feed_url = "";
             subscribed_at = 0;
+            category = null;
         }
 
         public PodcastSubscription.from_show(Paperboy.PodcastShow show) {
@@ -118,11 +123,12 @@ namespace Paperboy {
             image_url = show.image_url;
             feed_url = show.feed_url;
             subscribed_at = GLib.get_real_time() / 1000000;
+            category = show.category;
         }
 
         // Reconstructs enough of a PodcastShow to open PodcastPane from a
         // stored subscription (e.g. clicking it in the sidebar) - no
-        // category/episode_count since those aren't persisted here.
+        // episode_count since that isn't persisted here.
         // feed_id < 0 reliably means "added by direct feed URL" (see
         // PodcastShow.from_direct_feed): real PodcastIndex feed_ids are
         // always positive, synthetic ones are always negative.
@@ -134,6 +140,7 @@ namespace Paperboy {
             show.description = description;
             show.image_url = image_url;
             show.feed_url = feed_url;
+            show.category = category != null && category.length > 0 ? category : null;
             show.from_direct_feed = feed_id < 0;
             return show;
         }

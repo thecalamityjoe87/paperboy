@@ -85,6 +85,7 @@ public class NewsWindow : Adw.ApplicationWindow {
     public PodcastPane podcast_pane;
     public MagazineReaderSheet magazine_reader_sheet;
     public Managers.PodcastManager podcast_manager;
+    public Managers.PodcastLibraryManager podcast_library_manager;
     public Managers.MagazineLibraryManager magazine_manager;
     private Gtk.Widget? current_toast_widget;
     public Gtk.Widget dim_overlay;
@@ -361,6 +362,10 @@ public class NewsWindow : Adw.ApplicationWindow {
             if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
             return;
         }
+        if (prefs.category == Managers.PodcastLibraryManager.CATEGORY_ID) {
+            if (podcast_library_manager != null) podcast_library_manager.search(search_entry.get_text());
+            return;
+        }
         if (prefs.category == "magazines") {
             if (magazine_manager != null) magazine_manager.search(search_entry.get_text());
             return;
@@ -376,6 +381,10 @@ public class NewsWindow : Adw.ApplicationWindow {
     ulong stop_search_handler_id = search_entry.stop_search.connect(() => {
         if (prefs.category == "podcasts") {
             if (podcast_manager != null) podcast_manager.search(search_entry.get_text());
+            return;
+        }
+        if (prefs.category == Managers.PodcastLibraryManager.CATEGORY_ID) {
+            if (podcast_library_manager != null) podcast_library_manager.search(search_entry.get_text());
             return;
         }
         if (prefs.category == "magazines") {
@@ -509,6 +518,17 @@ public class NewsWindow : Adw.ApplicationWindow {
             GLib.SignalHandler.unblock(search_entry, stop_search_handler_id);
             if (magazine_manager != null) magazine_manager.set_header_buttons_visible(false);
             if (podcast_manager != null) podcast_manager.show();
+            return;
+        }
+        if (category == Managers.PodcastLibraryManager.CATEGORY_ID) {
+            // Same containers and same reasoning as Find Podcasts above.
+            search_entry.set_placeholder_text(_("Search your library…"));
+            search_entry.set_text("");
+            if (search_manager != null) search_manager.reset_query_state();
+            GLib.SignalHandler.unblock(search_entry, search_changed_handler_id);
+            GLib.SignalHandler.unblock(search_entry, stop_search_handler_id);
+            if (magazine_manager != null) magazine_manager.set_header_buttons_visible(false);
+            if (podcast_library_manager != null) podcast_library_manager.show();
             return;
         }
         // Leaving Podcasts for a news category - the detail pane is an
@@ -655,6 +675,8 @@ public class NewsWindow : Adw.ApplicationWindow {
     // to tear down podcast content when the user navigates to a news
     // category - see the category_selected handler above.
     podcast_manager = new Managers.PodcastManager(this, content_view, podcast_playback, podcast_pane);
+    // My Library - same containers/approach as Find Podcasts above.
+    podcast_library_manager = new Managers.PodcastLibraryManager(this, content_view, podcast_playback);
     magazine_manager = new Managers.MagazineLibraryManager(this, content_view);
     magazine_reader_sheet = new MagazineReaderSheet(this);
 
@@ -1013,6 +1035,9 @@ public class NewsWindow : Adw.ApplicationWindow {
                 // recognizes "podcasts" or ever calls fetch_finished().
                 search_entry.set_placeholder_text(_("Search podcasts…"));
                 if (podcast_manager != null) podcast_manager.show();
+            } else if (prefs_local != null && prefs_local.category == Managers.PodcastLibraryManager.CATEGORY_ID) {
+                search_entry.set_placeholder_text(_("Search your library…"));
+                if (podcast_library_manager != null) podcast_library_manager.show();
             } else if (prefs_local != null && prefs_local.category == "magazines") {
                 // Same reasoning as the podcasts branch above - Magazines
                 // isn't a FetchNewsController category either.
@@ -1348,15 +1373,9 @@ public class NewsWindow : Adw.ApplicationWindow {
         // let requested_image_sizes grow without bound for the life of the
         // window (this used to happen: cleanup_old_content() cleared its own
         // now-removed copies of these maps instead of image_manager's real ones).
-        if (image_manager != null) {
-            image_manager.download_mutex.lock();
-            image_manager.pending_downloads.clear();
-            image_manager.download_mutex.unlock();
-            image_manager.hero_requests.clear();
-            image_manager.deferred_downloads.clear();
-            image_manager.requested_image_sizes.clear();
-            image_manager.pending_local_placeholder.clear();
-        }
+        // Context-free requests (sidebar podcast covers, the mini player's
+        // cover) are kept - see ImageManager.clear_view_requests().
+        if (image_manager != null) image_manager.clear_view_requests();
         
         // Clear the centralized ImageCache (pixbufs) and preview cache.
         // Suppress clearing here to avoid excessive eviction when switching
@@ -1485,6 +1504,10 @@ public class NewsWindow : Adw.ApplicationWindow {
         // category and never resolves it.
         if (prefs.category == "podcasts") {
             if (podcast_manager != null) podcast_manager.show();
+            return;
+        }
+        if (prefs.category == Managers.PodcastLibraryManager.CATEGORY_ID) {
+            if (podcast_library_manager != null) podcast_library_manager.show();
             return;
         }
         if (prefs.category == "magazines") {

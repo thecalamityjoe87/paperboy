@@ -1,4 +1,4 @@
-# v0.14.1a - Recommendations From Your First Article, and a Feed Freeze Fix
+# v0.14.1a - My Library for Your Podcasts, Recommendations From Your First Article, and a Feed Freeze Fix
 
 - "Recommended for you" now appears on the Front Page as soon as you open or give a thumbs up to your first article, instead of after ten. It always fills with the articles that best match what you read and like, starting broad and getting more personal the more you read and rate
 - Fixed Paperboy freezing while loading a feed whose articles contain certain malformed character codes
@@ -12,6 +12,13 @@
 - Right-clicking a single selected word in reader view also offers "Define …", which shows its definition in a small popup right under the word, with its pronunciation and meanings grouped by noun, verb, and so on. Definitions come from Wiktionary through the Free Dictionary API, and are in English
 - The add-note button in reader view, and the right-click menus in the sidebar and on article and podcast cards, now have a deeper shadow, so they stand out from what's behind them
 - Fixed podcast cover art sometimes missing from the player bar and your desktop's media controls after reopening Paperboy in the middle of an episode. If the cover hasn't finished downloading when the episode loads, it now appears as soon as it arrives, and the media controls no longer show the previous episode's cover after you switch
+- Added My Library, a new page for the podcasts you subscribe to, under Podcasts in the sidebar. Its badge counts the new episodes across all your shows
+- My Library opens with Up Next: up to four episodes to listen to next, starting with ones you're partway through, then the newest unplayed episode from each show. Each card shows when the episode came out, a "New" tag for episodes released since you last opened the show, and a play button with the time left, such as "42m". Once you start an episode, a small progress bar slides out next to the time. Clicking a card plays it, and right-clicking it offers more info or removing the show
+- Below Up Next, Your Shows lists every show you subscribe to as a grid of cover art, most recently updated first. Each card shows who makes the show, when it last had a new episode, and how many new episodes you haven't heard
+- Searching on the My Library page searches your own shows by name, publisher, or category
+- Your subscribed shows now appear in their own "Shows" list in the sidebar, which you can collapse, and each one shows its cover art instead of a generic microphone icon
+- Sidebar icons now line up in a single column. Category icons sat slightly left of feed logos and podcast cover art, and the "+" on "Add RSS Feed" and "Add a Podcast" was off-center
+- Fixed podcast cover art in the sidebar sometimes not appearing at startup, especially when an episode was loaded in the player
 
 # v0.14.0a - Paperboy Goes International: Your Country's News, a Per-Country Front Page, and Translations in Twenty Languages
 

@@ -328,6 +328,14 @@ namespace Paperboy {
             show.image_url = json_get_string(obj, "image") ?? json_get_string(obj, "artwork");
             show.feed_url = json_get_string(obj, "url") ?? "";
             show.category = json_get_string(obj, "category");
+            // The backend passes PodcastIndex's own {"<id>": "<name>"} map
+            // through as "categories" - fold it into one top-level group.
+            if (show.category == null && obj.has_member("categories")) {
+                var node = obj.get_member("categories");
+                if (node != null && node.get_node_type() == Json.NodeType.OBJECT) {
+                    show.category = PodcastCategoryUtils.from_podcastindex_json(node.get_object());
+                }
+            }
             show.episode_count = obj.has_member("episodeCount") ? (int) obj.get_int_member("episodeCount") : 0;
             show.language = json_get_string(obj, "language");
             return show;

@@ -344,8 +344,13 @@ public class ImageManager : GLib.Object {
     // they're still in flight (near-guaranteed at app startup). Otherwise
     // deliver it (or the fallback placeholder, if the fetch failed) to every
     // picture waiting on this url.
+    // ignore_fetch_context is the flag of whichever request STARTED the
+    // download, so protected_download_urls is checked too: a context-free
+    // request (e.g. a sidebar podcast cover) that joined a download a
+    // view-bound one started (that show's card on My Library) must still
+    // get its image after the view moves on.
     private void deliver_download_outcome(string url, int target_w, int target_h, uint gen_seq, DownloadOutcome outcome, bool ignore_fetch_context = false) {
-        if (!ignore_fetch_context && FetchContext.current != gen_seq) {
+        if (!ignore_fetch_context && !protected_download_urls.contains(url) && FetchContext.current != gen_seq) {
             pending_downloads.remove(url);
             forget_requested_size(url);
             return;
@@ -752,6 +757,41 @@ public class ImageManager : GLib.Object {
             }
         }
         download_mutex.unlock();
+    }
+
+    // View-switch cleanup (see NewsWindow.cleanup_old_content()): forgets
+    // every pending/deferred request tied to the outgoing view, but keeps
+    // context-free ones (protected_download_urls / ignore_fetch_context),
+    // such as sidebar podcast covers and the mini player's cover. Those
+    // aren't part of any view; clearing them while their download was
+    // still in flight left the picture blank for good, since the finished
+    // download then had no picture left to paint.
+    public void clear_view_requests() {
+        download_mutex.lock();
+        try {
+            var drop = new Gee.ArrayList<string>();
+            foreach (var key in pending_downloads.keys) {
+                if (!protected_download_urls.contains(key)) drop.add(key);
+            }
+            foreach (var key in drop) pending_downloads.unset(key);
+        } finally {
+            download_mutex.unlock();
+        }
+
+        var drop_sizes = new Gee.ArrayList<string>();
+        foreach (var key in requested_image_sizes.keys) {
+            if (!protected_download_urls.contains(key)) drop_sizes.add(key);
+        }
+        foreach (var key in drop_sizes) requested_image_sizes.unset(key);
+
+        var drop_deferred = new Gee.ArrayList<Gtk.Picture>();
+        foreach (var entry in deferred_downloads.entries) {
+            if (!entry.value.ignore_fetch_context) drop_deferred.add(entry.key);
+        }
+        foreach (var pic in drop_deferred) deferred_downloads.unset(pic);
+
+        hero_requests.clear();
+        pending_local_placeholder.clear();
     }
 
     // Process deferred download requests: if a deferred widget becomes visible, start its download

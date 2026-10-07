@@ -158,6 +158,11 @@ public class NewsPreferences : GLib.Object {
         set { settings.set_boolean("sidebar-podcasts-expanded", value); }
     }
 
+    public bool sidebar_podcast_shows_expanded {
+        get { return settings.get_boolean("sidebar-podcast-shows-expanded"); }
+        set { settings.set_boolean("sidebar-podcast-shows-expanded", value); }
+    }
+
     // Legacy single-location keys, only read to migrate into local-areas.
     public string user_location {
         owned get { return settings.get_string("user-location"); }
