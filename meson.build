@@ -116,6 +116,7 @@ paperboy_core = static_library('paperboy-core', [
 
     # Managers
     'src/managers/content/articleManager.vala',
+    'src/managers/content/placementManager.vala',
     'src/managers/content/categoryManager.vala',
     'src/managers/content/feedUpdateManager.vala',
     'src/managers/content/imageManager.vala',

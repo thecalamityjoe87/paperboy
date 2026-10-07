@@ -80,7 +80,7 @@ namespace Managers {
         public RecommendedSection? recommended_section = null;
         // These are the actual category ids the Paperboy frontpage API sends;
         // anything else falls through to the "more" catch-all.
-        private static string[] FRONTPAGE_SECTION_CATEGORIES = {
+        private const string[] FRONTPAGE_SECTION_CATEGORIES = {
             "headlines", "world", "nation", "politics", "business",
             "technology", "science", "health", "sports", "entertainment",
             "lifestyle", "general", "us", "markets", "industries",

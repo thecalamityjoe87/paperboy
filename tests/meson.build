@@ -5,6 +5,7 @@ test_names = [
   'textUtils',
   'imageCache',
   'rssFeedProcessor',
+  'articleManager',
 ]
 
 # Some code under test writes caches/databases under the XDG dirs; point

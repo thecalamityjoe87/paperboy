@@ -47,13 +47,11 @@ namespace Managers {
         // Articles shown this view, kept as a fallback for ArticleSnippetService
         // when its live fetch of an article page fails.
         public Gee.ArrayList<ArticleItem> article_buffer;
-        // Overflow queue for "load more", and per-key counts of it (kept in sync).
-        public Gee.ArrayList<ArticleItem> remaining_articles;
-        private Gee.HashMap<string, int> remaining_category_counts;
+        private OverflowQueue overflow = new OverflowQueue();
         public int articles_shown = 0;
 
         // Real-card counts per My Feed / Front Page row, so each row has its own cap.
-        private Gee.HashMap<string, int>? row_card_counts = null;
+        private RowCardCounts row_cards = new RowCardCounts();
 
         // Dedup sets for this view. Trending has its own: it's a second fetch on the
         // Front Page and its stories often share URLs with the main stream.
@@ -73,26 +71,8 @@ namespace Managers {
 
         // "Recommended for you": candidates are held until arrivals settle,
         // then ranked into the panel.
-        private const int RECOMMENDED_MAX_PICKS = 8;
-        private const int RECOMMENDED_MAX_PER_CATEGORY = 2;
-        private const int RECOMMENDED_FILL_PER_CATEGORY = 4;   // looser cap, only to top up a short panel
         private const uint RECOMMENDED_SETTLE_MS = 500;
-        // A full panel plus as many dislike replacements. Bounded so the rest of the
-        // Front Page still gets its normal rows.
-        private const int RECOMMENDED_SHORTLIST = RECOMMENDED_MAX_PICKS * 2;
-
-        private class RecommendedPick {
-            public ArticleItem item;
-            public double score;
-            // Source name before normalization, for row caps if it's evicted.
-            public string? raw_source_name;
-            public RecommendedPick(ArticleItem item, double score, string? raw_source_name) {
-                this.item = item;
-                this.score = score;
-                this.raw_source_name = raw_source_name;
-            }
-        }
-        private Gee.ArrayList<RecommendedPick> recommended_picks = new Gee.ArrayList<RecommendedPick>();
+        private RecommendedShortlist shortlist = new RecommendedShortlist();
         private bool recommendations_finalized = false;
         private uint recommendations_settle_id = 0;
         // What the panel shows (in slot order), and the next-best picks for dislikes.
@@ -131,8 +111,6 @@ namespace Managers {
         public ArticleManager(NewsWindow w) {
             window = w;
             article_buffer = new Gee.ArrayList<ArticleItem>();
-            remaining_articles = new Gee.ArrayList<ArticleItem>();
-            remaining_category_counts = new Gee.HashMap<string, int>();
             seen_urls = new Gee.HashSet<string>();
             trending_seen_urls = new Gee.HashSet<string>();
         }
@@ -169,7 +147,7 @@ namespace Managers {
 
         // On the Front Page category_id is always "frontpage"; the real category
         // travels in source_name's SourceLabel.
-        private string resolve_display_category(string category_id, string? source_name) {
+        public static string resolve_display_category(string category_id, string? source_name) {
             if (category_id != "frontpage") return category_id;
             // Bound to a local first: Vala frees a temporary struct's fields
             // before a ?? on them is used.
@@ -177,7 +155,7 @@ namespace Managers {
             return label.category ?? category_id;
         }
 
-        private string extract_display_category(ArticleItem item) {
+        private static string extract_display_category(ArticleItem item) {
             return resolve_display_category(item.category_id, item.source_name);
         }
 
@@ -217,12 +195,15 @@ namespace Managers {
 
         // ---- Adding articles ----
 
-        // Gate for every card, keyed on the on-screen category so it also covers
-        // the gap before a new fetch starts.
         private bool view_allows_item(string category_id) {
-            string? cat = window.prefs != null ? window.prefs.category : null;
-            bool local_only = cat == "saved" || cat == "history";
-            return !local_only || category_id == cat;
+            return view_allows(window.prefs != null ? window.prefs.category : null, category_id);
+        }
+
+        // Gate for every card, keyed on the on-screen category so it also covers
+        // the gap before a new fetch starts: Saved and History show only their own.
+        public static bool view_allows(string? view_category, string category_id) {
+            bool local_only = view_category == "saved" || view_category == "history";
+            return !local_only || category_id == view_category;
         }
 
         // True if the URL was already seen in its stream (Trending or the rest);
@@ -266,7 +247,7 @@ namespace Managers {
             bool recommended = recommended_score > 0;
             if (recommended) {
                 recommended_score = rank_recommendation(recommended_score, title, published);
-                recommended = shortlist_accepts(recommended_score);
+                recommended = shortlist.accepts(recommended_score);
             }
 
             // Past the cap, articles queue for "load more". Exempt: Trending (capped
@@ -394,7 +375,7 @@ namespace Managers {
                         queue_overflow(title, url, thumbnail_url, category_id, SourceManager.normalize_source_name(source_name, category_id, url), published, snippet, true);
                         return;
                     }
-                    count_frontpage_row_card(row_key);
+                    row_cards.add(row_key);
                 }
             } else if (CategoryManager.is_limited_category(original_category ?? window.prefs.category) && !bypass_limit && !is_trending && window.prefs.category != "myfeed") {
                 lock (articles_shown) {
@@ -441,13 +422,16 @@ namespace Managers {
 
         // ---- Hero and carousel ----
 
-        // The first article of most views is the hero; Trending has two.
         private bool should_be_hero(bool is_trending) {
-            string cat = window.prefs.category;
-            if (cat == "saved" || cat == "history") return false;
-            if (is_trending) return trending_hero_count < 2;
-            if (cat == "frontpage") return !featured_used;
-            if (window.category_manager.is_rssfeed_view()) return false;
+            return takes_hero_slot(window.prefs.category, window.category_manager.is_rssfeed_view(), is_trending, featured_used, trending_hero_count);
+        }
+
+        // Whether the next article becomes a hero: the first article of most views,
+        // the first two on Trending, none on Saved, History or an RSS feed.
+        public static bool takes_hero_slot(string view_category, bool is_rss_view, bool is_trending, bool featured_used, int trending_heroes) {
+            if (view_category == "saved" || view_category == "history") return false;
+            if (is_trending) return trending_heroes < 2;
+            if (is_rss_view) return false;
             return !featured_used;
         }
 
@@ -484,15 +468,22 @@ namespace Managers {
             if (window.loading_state != null && window.loading_state.initial_phase) window.mark_initial_items_populated();
         }
 
-        // Which articles may join the hero carousel as slides.
         private bool carousel_accepts(string category_id) {
-            if (window.prefs.category == "myfeed" && window.prefs.personalized_feed_enabled) {
-                if (category_id == "myfeed" || category_id == featured_carousel_category) return true;
-                var followed = window.prefs.categories;
+            bool personalized_myfeed = window.prefs.category == "myfeed" && window.prefs.personalized_feed_enabled;
+            return carousel_accepts_for(category_id, window.prefs.category, personalized_myfeed,
+                window.category_manager.is_rssfeed_view(), personalized_myfeed ? window.prefs.categories : null, featured_carousel_category);
+        }
+
+        // Which articles may join the hero carousel as slides. followed: My Feed's
+        // categories (any if empty); carousel_category: the hero's category.
+        public static bool carousel_accepts_for(string category_id, string view_category, bool personalized_myfeed, bool is_rss_view,
+                                                Gee.Collection<string>? followed, string? carousel_category) {
+            if (personalized_myfeed) {
+                if (category_id == "myfeed" || category_id == carousel_category) return true;
                 return followed == null || followed.size == 0 || followed.contains(category_id);
             }
-            if (window.category_manager.is_rssfeed_view()) return category_id.has_prefix("rssfeed:") || category_id == "myfeed";
-            return category_id == window.prefs.category;
+            if (is_rss_view) return category_id.has_prefix("rssfeed:") || category_id == "myfeed";
+            return category_id == view_category;
         }
 
         private void add_carousel_slide(string decoded_title, string url, string? thumbnail_url, string category_id, string? source_name, string? published) {
@@ -549,15 +540,6 @@ namespace Managers {
 
         // ---- Row caps ----
 
-        // Claims one of a My Feed row's MYFEED_ROW_CARD_CAP slots; false once it's full.
-        private bool try_take_myfeed_row_slot(string row_key) {
-            if (row_card_counts == null) row_card_counts = new Gee.HashMap<string, int>();
-            int count = row_card_counts.has_key(row_key) ? row_card_counts.get(row_key) : 0;
-            if (count >= MYFEED_ROW_CARD_CAP) return false;
-            row_card_counts.set(row_key, count + 1);
-            return true;
-        }
-
         // Front Page row for an article, e.g. "football" -> "sports".
         private string frontpage_row_key(string category_id, string? source_name) {
             return LayoutManager.frontpage_row_for(resolve_display_category(category_id, source_name));
@@ -569,13 +551,7 @@ namespace Managers {
         }
 
         private bool frontpage_row_full(string row_key) {
-            int count = (row_card_counts != null && row_card_counts.has_key(row_key)) ? row_card_counts.get(row_key) : 0;
-            return count >= window.layout_manager.frontpage_row_initial_cards();
-        }
-
-        private void count_frontpage_row_card(string row_key) {
-            if (row_card_counts == null) row_card_counts = new Gee.HashMap<string, int>();
-            row_card_counts.set(row_key, (row_card_counts.has_key(row_key) ? row_card_counts.get(row_key) : 0) + 1);
+            return row_cards.get_count(row_key) >= window.layout_manager.frontpage_row_initial_cards();
         }
 
         // ---- Overflow and "load more" ----
@@ -597,9 +573,7 @@ namespace Managers {
             string? normalized_source = SourceManager.normalize_source_name(source_name, category_id, url);
             var queued_item = new ArticleItem(title, url, thumbnail_url, category_id, normalized_source, published);
             queued_item.snippet = snippet;
-            remaining_articles.add(queued_item);
-            string key = overflow_key_for(queued_item);
-            remaining_category_counts.set(key, remaining_category_counts.get(key) + 1);
+            overflow.add(overflow_key_for(queued_item), queued_item);
 
             // Register now so unread counts include queued articles.
             string norm = url.strip();
@@ -620,20 +594,31 @@ namespace Managers {
             return true;
         }
 
-        // Front Page overflow is grouped by row, so each row's arrow finds its own articles.
         private string overflow_key_for(ArticleItem item) {
-            string cat = extract_display_category(item);
-            return window.prefs.category == "frontpage" ? LayoutManager.frontpage_row_for(cat) : cat;
+            return overflow_key(window.prefs.category, item.category_id, item.source_name);
+        }
+
+        // Front Page overflow is grouped by row, so each row's arrow finds its own
+        // articles; elsewhere by category.
+        public static string overflow_key(string? view_category, string category_id, string? source_name) {
+            string cat = resolve_display_category(category_id, source_name);
+            return view_category == "frontpage" ? LayoutManager.frontpage_row_for(cat) : cat;
         }
 
         public int remaining_count_for_category(string cat) {
-            return remaining_category_counts.get(cat);
+            return overflow.count_for(cat);
         }
 
-        // Moves one queued article onto the page. The caller removes it from the queue.
+        public int remaining_count() {
+            return overflow.size;
+        }
+
+        public void clear_overflow() {
+            overflow.clear();
+        }
+
+        // Places an article taken from the overflow queue.
         private void place_queued(ArticleItem item) {
-            string key = overflow_key_for(item);
-            remaining_category_counts.set(key, remaining_category_counts.get(key) - 1);
             article_buffer.add(item);
             add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, true, item.published);
         }
@@ -670,33 +655,21 @@ namespace Managers {
             return gate;
         }
 
-        // A Front Page row's "load more": pulls that row's articles out of the
-        // shared queue (load_more_articles() draws from it too).
+        // A Front Page row's "load more": that row's articles from the queue.
         public void load_more_for_category(string cat, int max_to_load = LOAD_MORE_BATCH_SIZE) {
             Gtk.Widget? row = window.layout_manager != null ? window.layout_manager.get_category_section_row(cat) : null;
             var containers = new Gee.ArrayList<Gtk.Widget>();
             if (row != null) containers.add(row);
 
             var gate = place_batch(containers, () => {
-                int loaded = 0;
-                int i = 0;
-                while (i < remaining_articles.size && loaded < max_to_load) {
-                    var item = remaining_articles.get(i);
-                    if (overflow_key_for(item) != cat) {
-                        i++;
-                        continue;
-                    }
-                    remaining_articles.remove_at(i);
-                    place_queued(item);
-                    loaded++;
-                }
+                foreach (var item in overflow.take_for(cat, max_to_load)) place_queued(item);
             });
             gate.begin();
         }
 
         // The global "load more" button.
         public void load_more_articles() {
-            if (remaining_articles.size == 0) {
+            if (overflow.size == 0) {
                 if (load_more_button_visible) {
                     request_hide_load_more_button();
                     load_more_button_visible = false;
@@ -713,17 +686,15 @@ namespace Managers {
             if (lm != null && lm.featured_box != null) containers.add(lm.featured_box);
             if (lm != null && lm.columns_row != null) containers.add(lm.columns_row);
 
-            int to_load = int.min(LOAD_MORE_BATCH_SIZE, remaining_articles.size);
             var gate = place_batch(containers, () => {
-                // From the front: load_more_for_category() takes from this queue out of order.
-                for (int i = 0; i < to_load; i++) place_queued(remaining_articles.remove_at(0));
+                foreach (var item in overflow.take(LOAD_MORE_BATCH_SIZE)) place_queued(item);
             });
 
             // Settle the button (spinner back to normal, or hidden at the end of the
             // feed) when the new cards are revealed.
             gate.ready.connect(() => {
                 if (!load_more_button_visible) return;
-                if (remaining_articles.size > 0) {
+                if (overflow.size > 0) {
                     request_reset_load_more_button();
                     return;
                 }
@@ -783,40 +754,14 @@ namespace Managers {
         // Ordering only: a qualifying pick is never dropped for having been shown before.
         private double rank_recommendation(double score, string title, string? published) {
             var profile = window.layout_manager.recommendation_profile;
-            int impressions = window.article_state_store != null ? window.article_state_store.get_recommendation_impressions(story_key(title)) : 0;
+            int impressions = window.article_state_store != null ? window.article_state_store.get_recommendation_impressions(RecommendedShortlist.story_key(title)) : 0;
             return profile.adjust(score, published, impressions);
-        }
-
-        // The same story can arrive under several URLs.
-        private static string story_key(string title) {
-            return title.strip().down();
-        }
-
-        private static int by_score_desc(RecommendedPick a, RecommendedPick b) {
-            return a.score < b.score ? 1 : (a.score > b.score ? -1 : 0);
-        }
-
-        private bool shortlist_accepts(double score) {
-            if (recommended_picks.size < RECOMMENDED_SHORTLIST) return true;
-            return score > weakest_held_pick().score;
-        }
-
-        private RecommendedPick weakest_held_pick() {
-            var weakest = recommended_picks.get(0);
-            foreach (var p in recommended_picks) {
-                if (p.score < weakest.score) weakest = p;
-            }
-            return weakest;
         }
 
         // Holds a candidate and restarts the settle timer.
         private void hold_recommended_pick(RecommendedPick pick) {
-            recommended_picks.add(pick);
-            if (recommended_picks.size > RECOMMENDED_SHORTLIST) {
-                var evicted = weakest_held_pick();
-                recommended_picks.remove(evicted);
-                place_evicted_pick(evicted);
-            }
+            var evicted = shortlist.hold(pick);
+            if (evicted != null) place_evicted_pick(evicted);
             ViewSession.remove_source(ref recommendations_settle_id);
             recommendations_settle_id = ViewSession.view_timeout(RECOMMENDED_SETTLE_MS, () => {
                 recommendations_settle_id = 0;
@@ -843,30 +788,11 @@ namespace Managers {
             recommendations_finalized = true;
             ViewSession.remove_source(ref recommendations_settle_id);
 
-            var picks = recommended_picks;
-            recommended_picks = new Gee.ArrayList<RecommendedPick>();
+            var picks = shortlist.take_all();
             if (picks.size == 0) return;
-            picks.sort(by_score_desc);
-
-            // Best first, at most RECOMMENDED_MAX_PER_CATEGORY per category, then
-            // topped up with the looser cap. One card per story.
-            var chosen = new Gee.ArrayList<RecommendedPick>();
-            var per_category = new Gee.HashMap<string, int>();
-            var chosen_titles = new Gee.HashSet<string>();
-            foreach (int cap in new int[] { RECOMMENDED_MAX_PER_CATEGORY, RECOMMENDED_FILL_PER_CATEGORY }) {
-                foreach (var pick in picks) {
-                    string cat = extract_display_category(pick.item);
-                    string title_key = story_key(pick.item.title);
-                    if (chosen.size < RECOMMENDED_MAX_PICKS && !chosen.contains(pick) && !chosen_titles.contains(title_key) && per_category.get(cat) < cap) {
-                        chosen.add(pick);
-                        chosen_titles.add(title_key);
-                        per_category.set(cat, per_category.get(cat) + 1);
-                    }
-                }
-            }
-            chosen.sort(by_score_desc);
-            // Trim to a size that fills the layout; the rest wait as dislike replacements.
-            while (chosen.size > RecommendedSection.panel_size_for(chosen.size)) chosen.remove_at(chosen.size - 1);
+            picks.sort(RecommendedShortlist.by_score_desc);
+            // Picks that don't make the panel wait as dislike replacements.
+            var chosen = RecommendedShortlist.choose(picks);
 
             var leftovers = new Gee.ArrayList<ArticleItem>();
             var reserve = new Gee.ArrayList<RecommendedPick>();
@@ -895,7 +821,7 @@ namespace Managers {
         private void record_impressions(Gee.List<RecommendedPick> shown) {
             if (window.article_state_store == null) return;
             var keys = new Gee.ArrayList<string>();
-            foreach (var pick in shown) keys.add(story_key(pick.item.title));
+            foreach (var pick in shown) keys.add(RecommendedShortlist.story_key(pick.item.title));
             window.article_state_store.record_recommendation_impressions(keys);
         }
 
@@ -1008,7 +934,7 @@ namespace Managers {
             for (int r = 0; r < panel_reserve.size; r++) {
                 var pick = panel_reserve.get(r);
                 string norm = window.normalize_article_url(pick.item.url);
-                if (per_category.get(extract_display_category(pick.item)) >= RECOMMENDED_MAX_PER_CATEGORY) continue;
+                if (per_category.get(extract_display_category(pick.item)) >= RecommendedShortlist.MAX_PER_CATEGORY) continue;
                 panel_reserve.remove_at(r--);
                 if (window.article_state_store != null && window.article_state_store.get_feedback(norm) < 0) continue;
 
@@ -1043,11 +969,11 @@ namespace Managers {
             string? src_key = window.layout_manager.resolve_myfeed_source_key(myfeed_row_key_hint);
 
             bool placed = false;
-            if (cat_key != null && try_take_myfeed_row_slot(cat_key)) {
+            if (cat_key != null && row_cards.try_claim(cat_key, MYFEED_ROW_CARD_CAP)) {
                 place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, cat_key, true);
                 placed = true;
             }
-            if (src_key != null && try_take_myfeed_row_slot(src_key)) {
+            if (src_key != null && row_cards.try_claim(src_key, MYFEED_ROW_CARD_CAP)) {
                 place_regular_article_card(decoded_title, url, thumbnail_url, category_id, source_name, bypass_limit, published, src_key, true);
                 placed = true;
             }
@@ -1395,10 +1321,9 @@ namespace Managers {
         // Keeps view/saved state: unread counts persist across category switches.
         public void clear_articles() {
             article_buffer.clear();
-            remaining_articles.clear();
-            remaining_category_counts.clear();
+            overflow.clear();
             articles_shown = 0;
-            if (row_card_counts != null) row_card_counts.clear();
+            row_cards.clear();
             seen_urls.clear();
             trending_seen_urls.clear();
             trending_hero_count = 0;
@@ -1418,7 +1343,7 @@ namespace Managers {
             if (window.layout_manager != null) window.layout_manager.clear_featured_box();
             // Its idle may have been dropped with the previous view's session.
             reveal_pending = false;
-            recommended_picks.clear();
+            shortlist.clear();
             recommendations_finalized = false;
             panel_picks = new Gee.ArrayList<RecommendedPick>();
             panel_reserve = new Gee.ArrayList<RecommendedPick>();

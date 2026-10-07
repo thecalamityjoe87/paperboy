@@ -9,6 +9,7 @@
 - Disliking an article in "Recommended for you" no longer sometimes makes another article disappear from its category row
 - Articles you've already read now show as read on the large featured cards even when they have no picture
 - Fixed a possible crash when placing the first featured article on a page
+- A Front Page row's arrow no longer offers more articles after switching away and back when there are none left to load
 - Paperboy no longer writes to its debug log every time it shows a featured article
 
 # v0.14.1a - My Library for Your Podcasts, Recommendations From Your First Article, and a Feed Freeze Fix

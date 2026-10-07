@@ -12,6 +12,9 @@ paperboy (0.14.2a-1) unstable; urgency=low
   * Remove the Local News image-load cap, which was never enforced, and a debug-log file write on every hero placement
   * Refactor ImageManager and ArticleManager: remove duplicated code, dead fields and stale comments
   * Build all code except main() as an internal static library and add a unit test suite (meson test) for text utils, the image cache and the RSS parser
+  * Move ArticleManager's overflow queue, row caps and "Recommended for you" shortlist into placementManager.vala, and its view rules into static methods, with tests
+  * Clearing the overflow queue from FetchNewsController now also resets its per-row counts, which left Front Page rows offering "load more" with nothing queued
+  * Make LayoutManager.FRONTPAGE_SECTION_CATEGORIES const, so Front Page row grouping doesn't depend on a LayoutManager having been created first
 
  -- Isaac Joseph <calamityjoe87@gmail.com>  Wed, 07 Oct 2026 00:00:00 +0000
 

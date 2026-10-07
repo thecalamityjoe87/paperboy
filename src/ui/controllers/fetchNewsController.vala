@@ -360,9 +360,7 @@ public class FetchNewsController {
                 }
 
                 if (article_mgr != null) {
-                    if (article_mgr.remaining_articles != null) {
-                        article_mgr.remaining_articles.clear();
-                    }
+                    article_mgr.clear_overflow();
                     article_mgr.articles_shown = 0;
                 }
                 
