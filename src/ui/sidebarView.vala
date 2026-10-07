@@ -227,6 +227,10 @@ public class SidebarView : GLib.Object {
             expander.set_enable_expansion(true);
             expander.set_show_enable_switch(false);
 
+            // Podcasts only: subscribed shows go in their own collapsible
+            // "Shows" list, created on the first show row.
+            Adw.ExpanderRow? shows_expander = null;
+
             // Add items directly to the expander for smooth native animations
             foreach (var item in section.items) {
                 Gtk.Widget item_widget;
@@ -242,14 +246,20 @@ public class SidebarView : GLib.Object {
                 row.set_activatable(false);
                 row.set_selectable(false);
                 row.add_css_class("sidebar-expander-item");
-                expander.add_row(row);
 
                 // Track podcast subscription rows individually so a later
                 // unsubscribe can remove just this one row (see
                 // on_podcast_subscription_removed) instead of a full rebuild.
                 if (section.section_id == "podcasts_entry" && item.id.has_prefix("podcastshow:")) {
+                    if (shows_expander == null) {
+                        shows_expander = build_podcast_shows_expander();
+                        expander.add_row(shows_expander);
+                    }
+                    shows_expander.add_row(row);
                     podcast_subscription_rows.set(item.id, row);
+                    continue;
                 }
+                expander.add_row(row);
             }
 
             Gtk.Button? manage_button = null;
@@ -344,6 +354,11 @@ public class SidebarView : GLib.Object {
         icon_holder.set_hexpand(false);
         icon_holder.set_vexpand(false);
         icon_holder.set_size_request(CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE, CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE);
+        // Homogeneous so the child is given the slot's full 26px - a plain
+        // Box packs a 22px glyph at its left edge, putting glyph rows' icons
+        // 2px left of the full-width favicons/cover art in other rows.
+        // Gtk.Image draws its icon centered in whatever it's allocated.
+        icon_holder.set_homogeneous(true);
         icon_holder.set_halign(Gtk.Align.CENTER);
         icon_holder.set_valign(Gtk.Align.CENTER);
         if (circular) icon_holder.add_css_class("circular-logo");
@@ -412,6 +427,60 @@ public class SidebarView : GLib.Object {
             if (area.id == item_id) return area;
         }
         return null;
+    }
+
+    // The Podcasts section's nested "Shows" list. Its header is laid out
+    // like a regular row (glyph in the icon column, plain-weight label) so
+    // it reads as one more entry under Podcasts, not a second section.
+    private Adw.ExpanderRow build_podcast_shows_expander() {
+        var shows = new Adw.ExpanderRow();
+        shows.set_title(_("Shows"));
+        shows.add_css_class("sidebar-expander");
+        shows.add_css_class("sidebar-nested-expander");
+        shows.add_css_class("flat");
+        shows.set_enable_expansion(true);
+        shows.set_show_enable_switch(false);
+        shows.set_expanded(manager.get_podcast_shows_expanded());
+
+        var icon_holder = build_icon_slot();
+        icon_holder.set_margin_start(ROW_INSET);
+        var icon = CategoryIconsUtils.create_category_icon("podcasts");
+        if (icon != null) icon_holder.append(icon);
+        shows.add_prefix(icon_holder);
+        icon_holders.set("podcast_shows", icon_holder);
+        icon_keys_by_id.set("podcast_shows", "podcasts");
+
+        var header_dot = build_new_dot();
+        shows.add_suffix(header_dot);
+        section_header_dots.set("podcast_shows", header_dot);
+
+        shows.notify["expanded"].connect(() => {
+            manager.set_section_expanded("podcast_shows", shows.get_expanded());
+            update_header_dot("podcast_shows");
+        });
+
+        section_containers.set("podcast_shows", shows);
+        // Rows' own dots aren't built yet - sync once the section is done.
+        Idle.add(() => {
+            update_header_dot("podcast_shows");
+            return false;
+        });
+        return shows;
+    }
+
+    // A show's cover art in the row's icon slot, rounded rather than
+    // circular - podcast art is square artwork, not a logo.
+    private Gtk.Widget build_podcast_cover(string image_url) {
+        int size = CategoryIconsUtils.SIDEBAR_SOURCE_ICON_SIZE;
+        var cover = new Gtk.Picture();
+        cover.add_css_class("sidebar-podcast-cover");
+        cover.set_content_fit(Gtk.ContentFit.COVER);
+        cover.set_can_shrink(true);
+        cover.set_size_request(size, size);
+        cover.set_overflow(Gtk.Overflow.HIDDEN);
+        // Not tied to any news fetch - see ImageManager.load_image_async.
+        if (window.image_manager != null) window.image_manager.load_image_async(cover, image_url, size, size, false, true);
+        return cover;
     }
 
     // Right-click menu for a podcast subscription row - always
@@ -487,10 +556,15 @@ public class SidebarView : GLib.Object {
         row_box.set_margin_start(ROW_INSET);
         row_box.set_margin_end(ROW_INSET);
 
+        bool has_cover = item.id.has_prefix("podcastshow:") && item.image_url != null && item.image_url.length > 0;
         var icon_holder = build_icon_slot();
-        var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
-        if (icon != null) {
-            icon_holder.append(icon);
+        if (has_cover) {
+            icon_holder.append(build_podcast_cover(item.image_url));
+        } else {
+            var icon = CategoryIconsUtils.create_category_icon(item.icon_key);
+            if (icon != null) {
+                icon_holder.append(icon);
+            }
         }
         if (item.id.has_prefix("podcastshow:")) {
             var icon_overlay = new Gtk.Overlay();
@@ -507,8 +581,12 @@ public class SidebarView : GLib.Object {
         } else {
             row_box.append(icon_holder);
         }
-        icon_holders.set(item.id, icon_holder);
-        icon_keys_by_id.set(item.id, item.icon_key);
+        // Cover art doesn't change with the theme, so update_icons_for_theme()
+        // must not swap it back to a glyph.
+        if (!has_cover) {
+            icon_holders.set(item.id, icon_holder);
+            icon_keys_by_id.set(item.id, item.icon_key);
+        }
 
         var label = new Gtk.Label(item.title);
         label.set_xalign(0);
@@ -897,7 +975,7 @@ public class SidebarView : GLib.Object {
         return id == "frontpage" ||
                id == "myfeed" || id == "local_news" ||
                id.has_prefix(LocalArea.ID_PREFIX) ||
-               id == "saved";
+               id == "saved" || id == Managers.PodcastLibraryManager.CATEGORY_ID;
     }
 
     // Whether badges are turned on for this row's type (source, special
@@ -1002,7 +1080,8 @@ public class SidebarView : GLib.Object {
         if (header_dot == null) return;
         var expander = section_containers.get(section_id) as Adw.ExpanderRow;
         bool expanded = expander != null && expander.get_expanded();
-        var indicators = section_id == "podcasts_entry" ? podcast_new_dots.values : live_pill_widgets.values;
+        bool podcasts = section_id == "podcasts_entry" || section_id == "podcast_shows";
+        var indicators = podcasts ? podcast_new_dots.values : live_pill_widgets.values;
         bool active = false;
         foreach (var indicator in indicators) {
             if (indicator.get_visible()) { active = true; break; }
@@ -1011,7 +1090,12 @@ public class SidebarView : GLib.Object {
     }
 
     private void on_podcast_subscription_removed(string item_id) {
-        var expander = section_containers.get("podcasts_entry") as Adw.ExpanderRow;
+        // The last show going takes its (now empty) "Shows" list with it.
+        if (podcast_subscription_rows.size <= 1 && podcast_subscription_rows.has_key(item_id)) {
+            manager.rebuild_sidebar();
+            return;
+        }
+        var expander = section_containers.get("podcast_shows") as Adw.ExpanderRow;
         var row = podcast_subscription_rows.get(item_id);
         if (expander != null && row != null) {
             expander.remove(row);
@@ -1022,6 +1106,7 @@ public class SidebarView : GLib.Object {
         badge_widgets.unset(item_id);
         podcast_new_dots.unset(item_id);
         update_header_dot("podcasts_entry");
+        update_header_dot("podcast_shows");
     }
 
     // Removes every child of `container`. Has to go through the
@@ -1060,6 +1145,7 @@ public class SidebarView : GLib.Object {
         if (podcast_new_dots.has_key(item_id)) {
             podcast_new_dots.get(item_id).set_visible(count > 0);
             update_header_dot("podcasts_entry");
+            update_header_dot("podcast_shows");
         }
         if (badge_widgets.has_key(item_id)) {
             var badge = badge_widgets.get(item_id);

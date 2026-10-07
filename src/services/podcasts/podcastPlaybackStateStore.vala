@@ -55,6 +55,10 @@ namespace Paperboy {
         // (i.e. its episode list was just opened), so the sidebar badge
         // for that show can clear immediately.
         public signal void show_viewed(int64 feed_id);
+        // Emitted when an episode's cover copy lands after its session was
+        // already saved or restored (see download_cover()), so whatever's
+        // showing that episode can switch to the local file.
+        public signal void cover_saved(int64 episode_id, string path);
 
         private static PodcastPlaybackStateStore? instance = null;
         private Sqlite.Database? db = null;
@@ -67,6 +71,11 @@ namespace Paperboy {
         // same episode's cover on every one of those ticks.
         private int64 cover_saved_for_episode_id = -1;
         private string? cover_saved_path = null;
+        // Episode whose cover is being downloaded directly (MetaCache didn't
+        // have it) - one download per episode, and a late result for an
+        // episode that's no longer current is discarded.
+        private int64 cover_download_for_episode_id = -1;
+        private int64 cover_wanted_episode_id = -1;
 
         private PodcastPlaybackStateStore() {
             db_path = get_database_path();
@@ -283,14 +292,7 @@ namespace Paperboy {
         public void save_last_session(Paperboy.PodcastEpisode episode, uint64 position_ns, double rate) {
             if (db == null) return;
 
-            if (episode.episode_id != cover_saved_for_episode_id) {
-                string? copied = save_cover_locally(episode.image_url);
-                if (copied != null) {
-                    cover_saved_path = copied;
-                    cover_saved_for_episode_id = episode.episode_id;
-                }
-            }
-            string? local_cover_path = episode.episode_id == cover_saved_for_episode_id ? cover_saved_path : null;
+            string? local_cover_path = ensure_cover_saved(episode);
 
             string sql = """
                 INSERT OR REPLACE INTO podcast_last_session
@@ -318,35 +320,150 @@ namespace Paperboy {
             }
         }
 
+        // Returns this episode's dedicated on-disk cover, making it if needed.
+        // A restored episode already points at its copy - adopted as-is,
+        // since the cover was loaded from that copy rather than downloaded,
+        // so MetaCache often no longer has it to copy again. Otherwise it's
+        // copied from MetaCache, or downloaded directly if MetaCache doesn't
+        // have it yet (that result lands later, see download_cover()).
+        private string? ensure_cover_saved(Paperboy.PodcastEpisode episode) {
+            cover_wanted_episode_id = episode.episode_id;
+            if (episode.episode_id == cover_saved_for_episode_id
+                    && cover_saved_path != null && GLib.FileUtils.test(cover_saved_path, GLib.FileTest.EXISTS)) {
+                return cover_saved_path;
+            }
+
+            string? path = null;
+            if (episode.cover_local_path != null && GLib.FileUtils.test(episode.cover_local_path, GLib.FileTest.EXISTS)) {
+                path = episode.cover_local_path;
+            } else {
+                path = copy_cover_from_meta_cache(episode);
+            }
+            if (path == null) {
+                download_cover(episode);
+                return null;
+            }
+            adopt_cover(episode.episode_id, path);
+            return path;
+        }
+
+        private void adopt_cover(int64 episode_id, string path) {
+            cover_saved_path = path;
+            cover_saved_for_episode_id = episode_id;
+            remove_cover_files(path);
+        }
+
+        private static string? cover_dir() {
+            string? data_dir = DataPathsUtils.get_user_data_dir();
+            if (data_dir == null) return null;
+            string dir = GLib.Path.build_filename(data_dir, "paperboy");
+            if (!GLib.FileUtils.test(dir, GLib.FileTest.EXISTS)) GLib.DirUtils.create_with_parents(dir, 0755);
+            return dir;
+        }
+
+        // Named per episode so desktop media controls, which cache art by
+        // URI, never keep showing the previous episode's cover.
+        private static string? cover_path_for(int64 episode_id, string ext) {
+            string? dir = cover_dir();
+            if (dir == null) return null;
+            // Direct-feed episode ids can be negative.
+            string id = episode_id.to_string().replace("-", "n");
+            return GLib.Path.build_filename(dir, "last_session_cover-" + id + ext);
+        }
+
+        // Deletes every saved session cover except `keep` (null deletes all).
+        private static void remove_cover_files(string? keep) {
+            string? dir = cover_dir();
+            if (dir == null) return;
+            try {
+                var d = GLib.Dir.open(dir);
+                string? name;
+                while ((name = d.read_name()) != null) {
+                    if (!name.has_prefix("last_session_cover")) continue;
+                    string p = GLib.Path.build_filename(dir, name);
+                    if (keep == null || p != keep) GLib.FileUtils.remove(p);
+                }
+            } catch (GLib.FileError e) { }
+        }
+
         // Copies whatever MetaCache already has on disk for this cover into
         // a dedicated, non-evictable file - MetaCache is a shared, capped
         // cache other browsing can push this exact file out of, so it's not
         // safe to just point the saved session at a MetaCache path directly.
-        private string? save_cover_locally(string? image_url) {
-            if (image_url == null || image_url.length == 0) return null;
+        private static string? copy_cover_from_meta_cache(Paperboy.PodcastEpisode episode) {
+            if (episode.image_url == null || episode.image_url.length == 0) return null;
 
-            string? cached_path = MetaCache.get_instance().get_cached_path(image_url);
+            string? cached_path = MetaCache.get_instance().get_cached_path(episode.image_url);
             if (cached_path == null) return null;
-
-            string? data_dir = DataPathsUtils.get_user_data_dir();
-            if (data_dir == null) return null;
-            string dir = GLib.Path.build_filename(data_dir, "paperboy");
-            try {
-                if (!GLib.FileUtils.test(dir, GLib.FileTest.EXISTS)) GLib.DirUtils.create_with_parents(dir, 0755);
-            } catch (GLib.Error e) { return null; }
 
             string basename = GLib.Path.get_basename(cached_path);
             int dot = basename.last_index_of(".");
-            string ext = dot >= 0 ? basename.substring(dot) : "";
-            string dest = GLib.Path.build_filename(dir, "last_session_cover" + ext);
+            string? dest = cover_path_for(episode.episode_id, dot >= 0 ? basename.substring(dot) : "");
+            if (dest == null) return null;
             try {
-                var src_file = GLib.File.new_for_path(cached_path);
-                var dest_file = GLib.File.new_for_path(dest);
-                src_file.copy(dest_file, GLib.FileCopyFlags.OVERWRITE, null, null);
+                GLib.File.new_for_path(cached_path).copy(GLib.File.new_for_path(dest), GLib.FileCopyFlags.OVERWRITE, null, null);
                 return dest;
             } catch (GLib.Error e) {
                 return null;
             }
+        }
+
+        // Fallback when MetaCache doesn't have the cover (yet): fetch it
+        // straight into the dedicated file, so a session paused or closed
+        // before any view happened to cache the cover still gets one.
+        private void download_cover(Paperboy.PodcastEpisode episode) {
+            if (episode.image_url == null || episode.image_url.length == 0) return;
+            if (cover_download_for_episode_id == episode.episode_id) return;
+            cover_download_for_episode_id = episode.episode_id;
+
+            int64 episode_id = episode.episode_id;
+            var options = new Paperboy.HttpClientUtils.RequestOptions().with_image_headers();
+            Paperboy.HttpClientUtils.get_default().fetch_bytes(episode.image_url, options, (response) => {
+                // Worker thread: only the file write happens here.
+                string? written = null;
+                if (response.is_success() && response.body != null && response.body.get_size() > 0) {
+                    string? dest = cover_path_for(episode_id, extension_for(response.get_header("content-type")));
+                    if (dest != null) {
+                        try {
+                            GLib.FileUtils.set_data(dest, response.body.get_data());
+                            written = dest;
+                        } catch (GLib.FileError e) { }
+                    }
+                }
+                GLib.Idle.add(() => {
+                    if (cover_download_for_episode_id == episode_id) cover_download_for_episode_id = -1;
+                    if (written == null) return GLib.Source.REMOVE;
+                    if (episode_id != cover_wanted_episode_id) {
+                        GLib.FileUtils.remove(written);
+                        return GLib.Source.REMOVE;
+                    }
+                    adopt_cover(episode_id, written);
+                    set_last_session_cover(episode_id, written);
+                    cover_saved(episode_id, written);
+                    return GLib.Source.REMOVE;
+                });
+            });
+        }
+
+        private static string extension_for(string? content_type) {
+            if (content_type == null) return ".jpg";
+            string ct = content_type.split(";")[0].strip().ascii_down();
+            switch (ct) {
+                case "image/png": return ".png";
+                case "image/webp": return ".webp";
+                case "image/gif": return ".gif";
+                case "image/avif": return ".avif";
+                default: return ".jpg";
+            }
+        }
+
+        private void set_last_session_cover(int64 episode_id, string path) {
+            if (db == null) return;
+            Sqlite.Statement stmt;
+            if (db.prepare_v2("UPDATE podcast_last_session SET image_local_path = ? WHERE id = 1 AND episode_id = ?;", -1, out stmt) != Sqlite.OK) return;
+            stmt.bind_text(1, path);
+            stmt.bind_int64(2, episode_id);
+            stmt.step();
         }
 
         public Paperboy.PodcastLastSession? get_last_session() {
@@ -368,6 +485,9 @@ namespace Paperboy {
             episode.duration_seconds = stmt.column_int64(6);
             string? local_path = stmt.column_text(9);
             episode.cover_local_path = (local_path != null && GLib.FileUtils.test(local_path, GLib.FileTest.EXISTS)) ? local_path : null;
+            // No usable saved copy (never made, or since lost): make one now,
+            // so the restored session isn't left on the network path.
+            if (episode.cover_local_path == null) episode.cover_local_path = ensure_cover_saved(episode);
 
             var session = new Paperboy.PodcastLastSession();
             session.episode = episode;
@@ -379,6 +499,10 @@ namespace Paperboy {
         public void clear_last_session() {
             if (db == null) return;
             db.exec("DELETE FROM podcast_last_session; DELETE FROM podcast_last_queue;", null, null);
+            cover_saved_for_episode_id = -1;
+            cover_saved_path = null;
+            cover_wanted_episode_id = -1;
+            remove_cover_files(null);
         }
 
         // The playing show's episode list, so Next/Previous work right after a restart.

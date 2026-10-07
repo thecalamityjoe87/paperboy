@@ -107,6 +107,8 @@ public class CategoryIconsUtils : GLib.Object {
             // above (used by subscription rows) so this icon swap doesn't
             // affect them.
             case "podcasts_discover": return "antenna-mono.svg";
+            // Sidebar's "My Library" row and its page header.
+            case "podcasts_library": return "library-mono.svg";
             // Sidebar footer's "Now Playing" row (podcast controls toggle).
             case "nowplaying": return "nowplaying-mono.svg";
             case "general": return "world-mono.svg";
@@ -265,6 +267,7 @@ public class CategoryIconsUtils : GLib.Object {
             // Header only - subscription rows keep the mic icon (see
             // create_category_icon above).
             case "podcasts": filename = "antenna-mono.svg"; break;
+            case "podcasts_library": filename = "library-mono.svg"; break;
             case "general": filename = "world-mono.svg"; break;
             case "us": filename = national_icon_file(); break;
             case "local_news": filename = "local-mono.svg"; break;

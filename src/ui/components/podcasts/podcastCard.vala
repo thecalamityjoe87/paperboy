@@ -219,26 +219,54 @@ public class PodcastCard : GLib.Object {
         root.append(title_box);
     }
 
+    // "3 New" pill in the cover's top-right corner - My Library's show
+    // cards only (unplayed episodes since the show was last opened).
+    public void show_new_count(int count) {
+        if (count <= 0) return;
+        // TRANSLATORS: count of new episodes on a podcast card, e.g. "3 New"
+        var badge = new Gtk.Label(ngettext("%d New", "%d New", count).printf(count));
+        badge.add_css_class("podcast-episode-new-badge");
+        badge.add_css_class("podcast-card-new-count");
+        badge.set_halign(Gtk.Align.END);
+        badge.set_valign(Gtk.Align.START);
+        badge.set_margin_top(8);
+        badge.set_margin_end(8);
+        badge.set_can_target(false);
+        overlay.add_overlay(badge);
+    }
+
     // Reflects the current subscription state on subscribe_button's icon
     // and CSS - called once at build() and again after every successful
     // toggle in wire_interactions()/the context menu, so the badge never
     // goes stale after the user acts on it.
     private void update_subscribe_button_state() {
-        if (subscribe_button == null) return;
+        if (subscribe_button != null) update_subscribe_button(subscribe_button, feed_id);
+    }
+
+    // Static so closures can refresh a card's button without holding the
+    // PodcastCard itself.
+    public static void update_subscribe_button(Gtk.Button button, int64 feed_id) {
         bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(feed_id);
-        subscribe_button.set_icon_name(subscribed ? CheckIconUtils.icon_name() : "list-add-symbolic");
-        subscribe_button.set_tooltip_text(subscribed ? _("Subscribed") : _("Subscribe"));
+        button.set_icon_name(subscribed ? CheckIconUtils.icon_name() : "list-add-symbolic");
+        button.set_tooltip_text(subscribed ? _("Subscribed") : _("Subscribe"));
         if (subscribed) {
-            subscribe_button.add_css_class("subscribed");
+            button.add_css_class("subscribed");
         } else {
-            subscribe_button.remove_css_class("subscribed");
+            button.remove_css_class("subscribed");
         }
     }
 
     // Static to avoid a root -> controller -> closure -> self -> root
-    // cycle (see ArticleCard.wire_interactions). `card` is passed so
-    // closures can call back into its own update_subscribe_button_state().
+    // cycle (see ArticleCard.wire_interactions). Static alone isn't enough:
+    // Vala refs every captured variable, parameters included, so no lambda
+    // here may touch `card` or `root_widget` - they use the unowned aliases
+    // below instead. Those are safe because every closure lives on a
+    // controller or button that root owns, so none can outlive it.
     public static void wire_interactions(Gtk.Box root_widget, PodcastCard card, bool is_episode, int64 feed_id, int64 episode_id, Managers.PodcastPlaybackManager? playback, owned ShowActivatedCallback? on_show_activated, owned EpisodeActivatedCallback? on_episode_activated, owned ShowActivatedCallback? on_play_requested = null) {
+        unowned Gtk.Box r = root_widget;
+        unowned Gtk.Button? subscribe_btn = card.subscribe_button;
+        var show = card.show;
+
         if (!is_episode && card.play_button != null) {
             card.play_button.clicked.connect(() => {
                 if (playback != null) {
@@ -273,25 +301,23 @@ public class PodcastCard : GLib.Object {
             }
         }
 
-        if (!is_episode && card.subscribe_button != null && card.show != null) {
-            var show = card.show;
-            card.subscribe_button.clicked.connect(() => {
+        if (!is_episode && subscribe_btn != null && show != null) {
+            subscribe_btn.clicked.connect((btn) => {
                 var store = Paperboy.PodcastSubscriptionStore.get_instance();
                 if (store.is_subscribed(feed_id)) {
                     store.unsubscribe(feed_id);
                 } else {
                     store.subscribe(show);
                 }
-                card.update_subscribe_button_state();
+                update_subscribe_button(btn, feed_id);
             });
         }
 
-        if (!is_episode && card.show != null) {
-            var show = card.show;
+        if (!is_episode && show != null) {
             var right_click = new Gtk.GestureClick();
             right_click.set_button(3);
             right_click.pressed.connect((n_press, x, y) => {
-                show_context_menu(root_widget, card, show, feed_id, x, y, on_play_requested);
+                show_context_menu(r, subscribe_btn, show, feed_id, x, y, on_play_requested);
             });
             root_widget.add_controller(right_click);
         }
@@ -308,14 +334,14 @@ public class PodcastCard : GLib.Object {
         root_widget.add_controller(gesture);
 
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        motion.enter.connect(() => { r.add_css_class("card-hover"); });
+        motion.leave.connect(() => { r.remove_css_class("card-hover"); });
         root_widget.add_controller(motion);
     }
 
     // Static for the same self-reference-cycle reason as wire_interactions()
     // itself (see ArticleCard.show_context_menu, the template this follows).
-    private static void show_context_menu(Gtk.Box root_widget, PodcastCard card, Paperboy.PodcastShow show, int64 feed_id, double x, double y, owned ShowActivatedCallback? on_play_requested) {
+    private static void show_context_menu(Gtk.Box root_widget, Gtk.Button? subscribe_btn, Paperboy.PodcastShow show, int64 feed_id, double x, double y, owned ShowActivatedCallback? on_play_requested) {
         var store = Paperboy.PodcastSubscriptionStore.get_instance();
         var menu = new PodcastMenu(store.is_subscribed(feed_id));
 
@@ -324,11 +350,11 @@ public class PodcastCard : GLib.Object {
         });
         menu.subscribe_requested.connect(() => {
             store.subscribe(show);
-            card.update_subscribe_button_state();
+            if (subscribe_btn != null) update_subscribe_button(subscribe_btn, feed_id);
         });
         menu.unsubscribe_requested.connect(() => {
             store.unsubscribe(feed_id);
-            card.update_subscribe_button_state();
+            if (subscribe_btn != null) update_subscribe_button(subscribe_btn, feed_id);
         });
 
         var popover = menu.create_popover(root_widget, x, y);

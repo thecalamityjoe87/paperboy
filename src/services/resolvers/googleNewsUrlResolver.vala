@@ -23,12 +23,15 @@
 public class GoogleNewsUrlResolver : GLib.Object {
     private const string BATCH_URL = "https://news.google.com/_/DotsSplashUi/data/batchexecute";
 
-    private static Gee.HashMap<string, string>? _cache = null;
+    // Article id -> decoded URL. Bounded: a plain map grew by one entry per
+    // Google News article for the life of the app.
+    private const int CACHE_CAPACITY = 2000;
+    private static LruCache<string, string>? _cache = null;
     private static GLib.Mutex cache_mutex;
 
-    private static Gee.HashMap<string, string> cache {
+    private static LruCache<string, string> cache {
         get {
-            if (_cache == null) _cache = new Gee.HashMap<string, string>();
+            if (_cache == null) _cache = new LruCache<string, string>(CACHE_CAPACITY);
             return _cache;
         }
     }

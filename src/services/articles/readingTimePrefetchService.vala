@@ -27,10 +27,14 @@ public class ReadingTimePrefetchService : GLib.Object {
         if (_queue == null) _queue = new Gee.ArrayList<string>();
         return _queue;
     }
-    // Normalized URLs already queued or tried this session, so failed fetches aren't retried.
-    private static Gee.HashSet<string>? _seen = null;
-    private static Gee.HashSet<string> seen() {
-        if (_seen == null) _seen = new Gee.HashSet<string>();
+    // Normalized URLs already queued or tried, so failed fetches aren't
+    // retried. Values are unused. Bounded: an unbounded set grew by one URL
+    // per excerpt-only article for the life of the app; past the cap only
+    // the oldest URLs become eligible again.
+    private const int SEEN_CAPACITY = 2000;
+    private static LruCache<string, string>? _seen = null;
+    private static LruCache<string, string> seen() {
+        if (_seen == null) _seen = new LruCache<string, string>(SEEN_CAPACITY);
         return _seen;
     }
     private static int in_flight = 0;
@@ -40,9 +44,9 @@ public class ReadingTimePrefetchService : GLib.Object {
     public static void enqueue(string url) {
         if (!url.has_prefix("http://") && !url.has_prefix("https://")) return;
         string normalized = UrlUtils.normalize_article_url(url);
-        if (seen().contains(normalized)) return;
+        if (seen().get(normalized) != null) return;
         if (ArticleReadingTimeCache.get_instance().get_minutes(normalized) != 0) return;
-        seen().add(normalized);
+        seen().set(normalized, "");
         queue().add(url);
 
         // Deferred so thumbnail backfill for the same card is queued first.

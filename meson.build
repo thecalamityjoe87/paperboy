@@ -1,5 +1,5 @@
 project('paperboy', 'vala',
-  version : '0.14.0a',
+  version : '0.14.1a',
   meson_version : '>=0.59.0'
 )
 
@@ -120,6 +120,7 @@ cairo = dependency('cairo')
     'src/managers/sports/sportsLiveIndicatorManager.vala',
     'src/managers/media/magazineLibraryManager.vala',
     'src/managers/media/podcastManager.vala',
+    'src/managers/media/podcastLibraryManager.vala',
     'src/managers/media/podcastPlaybackManager.vala',
     'src/managers/ui/animationManager.vala',
     'src/managers/ui/headerManager.vala',
@@ -134,6 +135,7 @@ cairo = dependency('cairo')
     'src/services/articles/articleShareService.vala',
     'src/services/articles/articleSnippetService.vala',
     'src/services/articles/articleStateStore.vala',
+    'src/services/articles/dictionaryService.vala',
     'src/services/articles/interestProfile.vala',
     'src/services/articles/renderedPageFetcher.vala',
     'src/services/articles/thumbnailBackfillService.vala',
@@ -220,6 +222,7 @@ cairo = dependency('cairo')
     # Utils
     'src/utils/core/appDebugger.vala',
     'src/utils/core/dataPathsUtils.vala',
+    'src/utils/core/memoryUtils.vala',
     'src/utils/core/regionUtils.vala',
     'src/utils/core/workerPool.vala',
     'src/utils/lookup/majorCitiesUtils.vala',
@@ -230,6 +233,7 @@ cairo = dependency('cairo')
     'src/utils/net/webViewUtils.vala',
     'src/utils/text/dateUtils.vala',
     'src/utils/text/sortUtils.vala',
+    'src/utils/text/podcastCategoryUtils.vala',
     'src/utils/text/stripHtmlUtils.vala',
     'src/utils/ui/categoryIconsUtils.vala',
     'src/utils/ui/checkIconUtils.vala',
@@ -296,6 +300,7 @@ install_data(
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-comments-symbolic.svg',
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-check-symbolic.svg',
   'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-check-bold-symbolic.svg',
+  'data/icons/hicolor/scalable/actions/io.github.thecalamityjoe87.Paperboy-country-symbolic.svg',
   install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'actions')
 )
 

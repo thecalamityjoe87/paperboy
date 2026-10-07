@@ -39,6 +39,14 @@ public class PodcastHeroCard : GLib.Object {
     public int64 feed_id;
     public string? feed_url;
     public Paperboy.PodcastShow show;
+    // for_episode() (My Library's Up Next row) only - that variant has no
+    // play_button/subscribe_button badges; time_pill plays instead.
+    public Paperboy.PodcastEpisode? episode = null;
+    public Gtk.Button? time_pill = null;
+    private Gtk.Image? time_pill_icon = null;
+    private Gtk.Label? time_pill_label = null;
+    private Gtk.ProgressBar? time_pill_progress = null;
+    private Gtk.Revealer? time_pill_reveal = null;
 
     // Plain callback type, mirroring HeroCard/ArticleCard's own delegate -
     // avoids a GObject signal owned by this object's own root widget.
@@ -52,6 +60,55 @@ public class PodcastHeroCard : GLib.Object {
         string title = show.title;
         string? author = show.author;
 
+        var text_box = build_frame(max_total_height, 0.45);
+
+        title_label = new Gtk.Label(title);
+        title_label.add_css_class("hero-title");
+        title_label.set_ellipsize(Pango.EllipsizeMode.END);
+        title_label.set_xalign(0);
+        title_label.set_wrap(true);
+        title_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
+        title_label.set_lines(2);
+        text_box.append(title_label);
+
+        if (author != null && author.strip().length > 0) {
+            author_label = new Gtk.Label(author);
+            author_label.add_css_class("hero-podcast-author");
+            author_label.set_xalign(0);
+            author_label.set_ellipsize(Pango.EllipsizeMode.END);
+            text_box.append(author_label);
+        }
+
+        overlay.add_overlay(title_box);
+
+        // Play/subscribe badges, bottom-right corner - added after
+        // title_box so it layers on top of the scrim there, matching
+        // PodcastCard's own bottom-right badge placement.
+        var badge_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        badge_row.add_css_class("card-corner-badges");
+        badge_row.set_halign(Gtk.Align.END);
+        badge_row.set_valign(Gtk.Align.END);
+        badge_row.set_margin_bottom(8);
+        badge_row.set_margin_end(8);
+
+        play_button = new Gtk.Button.from_icon_name("media-playback-start-symbolic");
+        play_button.add_css_class("podcast-card-badge-btn");
+        play_button.set_tooltip_text(_("Play"));
+        badge_row.append(play_button);
+
+        subscribe_button = new Gtk.Button();
+        subscribe_button.add_css_class("podcast-card-badge-btn");
+        update_subscribe_button_state();
+        badge_row.append(subscribe_button);
+
+        overlay.add_overlay(badge_row);
+
+        root.append(overlay);
+    }
+
+    // Cover art + bottom scrim shared by both variants - returns the
+    // scrim's inner text column for the caller to fill.
+    private Gtk.Box build_frame(int max_total_height, double scrim_fraction) {
         root = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         root.add_css_class("card");
         root.add_css_class("hero-card-podcast");
@@ -99,7 +156,7 @@ public class PodcastHeroCard : GLib.Object {
         // runway above the text. Padding for the text itself lives on the
         // inner text_box below instead of on this box, so the background
         // isn't inset from the edges too.
-        int scrim_height = (int) (max_total_height * 0.45);
+        int scrim_height = (int) (max_total_height * scrim_fraction);
         title_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
         title_box.add_css_class("hero-podcast-scrim");
         title_box.set_hexpand(true);
@@ -115,9 +172,44 @@ public class PodcastHeroCard : GLib.Object {
         text_box.set_valign(Gtk.Align.END);
         text_box.set_vexpand(true);
         title_box.append(text_box);
+        return text_box;
+    }
 
-        title_label = new Gtk.Label(title);
+    // Up Next card: one episode, not a show. Eyebrow ("New" pill + when it
+    // came out) and episode title, then a bottom line pairing the show name
+    // (left) with an Apple-style play pill (right) carrying the time
+    // left as "#m", with a thin progress bar sliding out beside it while
+    // it's actually playing. The whole card plays it too.
+    public PodcastHeroCard.for_episode(Paperboy.PodcastShow show, Paperboy.PodcastEpisode episode, int max_total_height, bool is_new) {
+        GLib.Object();
+        this.feed_id = show.feed_id;
+        this.feed_url = show.feed_url;
+        this.show = show;
+        this.episode = episode;
+
+        // Taller scrim than the show variant - four lines of text, not two.
+        var text_box = build_frame(max_total_height, 0.62);
+        text_box.set_spacing(6);
+
+        var eyebrow = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        if (is_new) {
+            var new_badge = new Gtk.Label(_("New"));
+            new_badge.add_css_class("podcast-episode-new-badge");
+            new_badge.set_valign(Gtk.Align.CENTER);
+            eyebrow.append(new_badge);
+        }
+        string when = DateUtils.time_ago(episode.published);
+        if (when.length > 0) {
+            var when_label = new Gtk.Label(when.up());
+            when_label.add_css_class("hero-podcast-eyebrow");
+            when_label.set_valign(Gtk.Align.CENTER);
+            eyebrow.append(when_label);
+        }
+        if (eyebrow.get_first_child() != null) text_box.append(eyebrow);
+
+        title_label = new Gtk.Label(episode.title);
         title_label.add_css_class("hero-title");
+        title_label.add_css_class("hero-podcast-episode-title");
         title_label.set_ellipsize(Pango.EllipsizeMode.END);
         title_label.set_xalign(0);
         title_label.set_wrap(true);
@@ -125,59 +217,184 @@ public class PodcastHeroCard : GLib.Object {
         title_label.set_lines(2);
         text_box.append(title_label);
 
-        if (author != null && author.strip().length > 0) {
-            author_label = new Gtk.Label(author);
-            author_label.add_css_class("hero-podcast-author");
-            author_label.set_xalign(0);
-            author_label.set_ellipsize(Pango.EllipsizeMode.END);
-            text_box.append(author_label);
-        }
+        // Show name and play pill share the card's bottom line, the name
+        // vertically centered on the pill so the two read as one row.
+        var bottom_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+
+        author_label = new Gtk.Label(show.title);
+        author_label.add_css_class("hero-podcast-author");
+        author_label.set_xalign(0);
+        author_label.set_hexpand(true);
+        author_label.set_valign(Gtk.Align.CENTER);
+        author_label.set_ellipsize(Pango.EllipsizeMode.END);
+        bottom_row.append(author_label);
+
+        var pill_content = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+        time_pill_icon = new Gtk.Image.from_icon_name("media-playback-start-symbolic");
+        pill_content.append(time_pill_icon);
+        time_pill_progress = new Gtk.ProgressBar();
+        time_pill_progress.add_css_class("hero-podcast-time-progress");
+        time_pill_progress.set_valign(Gtk.Align.CENTER);
+        time_pill_progress.set_size_request(20, -1);
+        // Slides out only while this episode is actually playing - same
+        // reveal as the source badge's hover follow button
+        // (CardBuilder.make_badge_followable).
+        time_pill_reveal = new Gtk.Revealer();
+        time_pill_reveal.set_transition_type(Gtk.RevealerTransitionType.SLIDE_LEFT);
+        time_pill_reveal.set_transition_duration(200);
+        time_pill_reveal.set_child(time_pill_progress);
+        // Hidden once collapsed, so the pill's spacing doesn't leave a gap.
+        time_pill_reveal.set_visible(false);
+        time_pill_reveal.notify["child-revealed"].connect((obj, pspec) => {
+            var rv = (Gtk.Revealer) obj;
+            if (!rv.get_reveal_child() && !rv.get_child_revealed()) rv.set_visible(false);
+        });
+        pill_content.append(time_pill_reveal);
+        time_pill_label = new Gtk.Label("");
+        pill_content.append(time_pill_label);
+
+        time_pill = new Gtk.Button();
+        time_pill.set_child(pill_content);
+        time_pill.add_css_class("hero-podcast-time-pill");
+        time_pill.set_halign(Gtk.Align.END);
+        time_pill.set_valign(Gtk.Align.CENTER);
+        time_pill.set_tooltip_text(_("Play"));
+        bottom_row.append(time_pill);
+
+        bottom_row.set_margin_top(2);
+        text_box.append(bottom_row);
+
+        refresh_time_pill(time_pill_label, time_pill_reveal, time_pill_progress, episode, false, false, 0, 0);
 
         overlay.add_overlay(title_box);
-
-        // Play/subscribe badges, bottom-right corner - added after
-        // title_box so it layers on top of the scrim there, matching
-        // PodcastCard's own bottom-right badge placement.
-        var badge_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-        badge_row.add_css_class("card-corner-badges");
-        badge_row.set_halign(Gtk.Align.END);
-        badge_row.set_valign(Gtk.Align.END);
-        badge_row.set_margin_bottom(8);
-        badge_row.set_margin_end(8);
-
-        play_button = new Gtk.Button.from_icon_name("media-playback-start-symbolic");
-        play_button.add_css_class("podcast-card-badge-btn");
-        play_button.set_tooltip_text(_("Play"));
-        badge_row.append(play_button);
-
-        subscribe_button = new Gtk.Button();
-        subscribe_button.add_css_class("podcast-card-badge-btn");
-        update_subscribe_button_state();
-        badge_row.append(subscribe_button);
-
-        overlay.add_overlay(badge_row);
-
         root.append(overlay);
     }
 
-    // See PodcastCard.update_subscribe_button_state() - identical logic,
-    // duplicated rather than shared since these are two separate widget
-    // classes with no common base to hang it on.
-    private void update_subscribe_button_state() {
-        bool subscribed = Paperboy.PodcastSubscriptionStore.get_instance().is_subscribed(feed_id);
-        subscribe_button.set_icon_name(subscribed ? CheckIconUtils.icon_name() : "list-add-symbolic");
-        subscribe_button.set_tooltip_text(subscribed ? _("Subscribed") : _("Subscribe"));
-        if (subscribed) {
-            subscribe_button.add_css_class("subscribed");
-        } else {
-            subscribe_button.remove_css_class("subscribed");
+    // Time left as "#m" - the full length until it's been started. The
+    // progress bar slides out once there's progress to show: while this
+    // episode is actually playing (is_playing), or paused/unloaded partway
+    // through. A fresh or finished episode is just the time.
+    // is_current: this card's episode is the one loaded in the player, and
+    // position_ns/duration_ns are the player's live values; otherwise its
+    // persisted progress is used.
+    // Static over the pill's own widgets (not the card) - see
+    // wire_episode_interactions() for why the card can't be relied on.
+    private static void refresh_time_pill(Gtk.Label label, Gtk.Revealer reveal, Gtk.ProgressBar bar, Paperboy.PodcastEpisode episode, bool is_current, bool is_playing, uint64 position_ns, uint64 duration_ns) {
+        var progress = Paperboy.PodcastPlaybackStateStore.get_instance().get_episode_progress(episode.episode_id);
+        if (!is_current) {
+            position_ns = progress != null ? progress.position_ns : 0;
+            duration_ns = progress != null ? progress.duration_ns : 0;
+        } else if (position_ns == 0 && progress != null) {
+            // load_and_play() starts at 0 until its resume seek lands -
+            // hold the saved spot meanwhile instead of flashing back to 0.
+            position_ns = progress.position_ns;
+        }
+        if (duration_ns == 0 && episode.duration_seconds > 0) {
+            duration_ns = (uint64) episode.duration_seconds * 1000000000;
+        }
+        if (position_ns > duration_ns) position_ns = duration_ns;
+
+        string text = PodcastCategoryUtils.format_time_estimate((int64) ((duration_ns - position_ns) / 1000000000));
+        label.set_visible(text.length > 0);
+        if (label.get_text() != text) label.set_text(text);
+
+        // Same "started" thresholds as PodcastPane's episode rows: past the
+        // first 5s and not within 10s of the end.
+        bool started = position_ns > 5000000000 && position_ns + 10000000000 < duration_ns;
+        bool show_bar = duration_ns > 0 && (is_playing || started);
+        if (show_bar) bar.set_fraction((double) position_ns / (double) duration_ns);
+        if (reveal.get_reveal_child() != show_bar) {
+            if (show_bar) reveal.set_visible(true);
+            reveal.set_reveal_child(show_bar);
         }
     }
 
-    // Static to avoid a root -> controller -> closure -> self -> root
-    // cycle (see ArticleCard.wire_interactions). `card` is passed so
-    // closures can call back into its own update_subscribe_button_state().
+    // Episode-card counterpart of wire_interactions(). Static, same reason.
+    // on_play only has to start the episode - toggling it once it's the
+    // current one is handled here.
+    public static void wire_episode_interactions(Gtk.Box root_widget, PodcastHeroCard card, Managers.PodcastPlaybackManager playback, owned ActivatedCallback on_play, owned ActivatedCallback on_info) {
+        unowned Gtk.Box r = root_widget;
+        int64 feed_id = card.feed_id;
+        int64 episode_id = card.episode.episode_id;
+
+        // One shared handler for the pill and the card body.
+        ActivatedCallback activate = (id) => {
+            var current = playback.get_current_episode();
+            if (current != null && current.episode_id == episode_id) {
+                playback.toggle_play_pause();
+            } else {
+                on_play(id);
+            }
+        };
+
+        card.time_pill.clicked.connect(() => { activate(episode_id); });
+
+        // Tick callback rather than playback signals, same as
+        // wire_interactions(): it stops on its own once the card is gone.
+        // Captures the pill's own children (unowned - the pill owning this
+        // callback keeps them alive), never `card`: callers drop the
+        // PodcastHeroCard object right after building it.
+        unowned Gtk.Image icon = card.time_pill_icon;
+        unowned Gtk.Label label = card.time_pill_label;
+        unowned Gtk.ProgressBar bar = card.time_pill_progress;
+        unowned Gtk.Revealer reveal = card.time_pill_reveal;
+        var episode = card.episode;
+        bool was_current = false;
+        card.time_pill.add_tick_callback((widget, frame_clock) => {
+            var current = playback.get_current_episode();
+            bool is_current = current != null && current.episode_id == episode_id;
+            string wanted = (is_current && playback.is_playing()) ? "media-playback-pause-symbolic" : "media-playback-start-symbolic";
+            if (icon.get_icon_name() != wanted) icon.set_from_icon_name(wanted);
+            // Live while current, plus one last refresh as it stops being
+            // current (another episode started) to fall back to saved progress.
+            if (is_current || was_current) {
+                refresh_time_pill(label, reveal, bar, episode, is_current, is_current && playback.is_playing(), playback.get_position_ns(), playback.get_duration_ns());
+            }
+            was_current = is_current;
+            return true;
+        });
+
+        var right_click = new Gtk.GestureClick();
+        right_click.set_button(3);
+        right_click.pressed.connect((n_press, x, y) => {
+            var menu = new PodcastMenu(true);
+            menu.show_info_item = true;
+            menu.play_requested.connect(() => { activate(episode_id); });
+            menu.info_requested.connect(() => { on_info(feed_id); });
+            menu.unsubscribe_requested.connect(() => {
+                Paperboy.PodcastSubscriptionStore.get_instance().unsubscribe(feed_id);
+            });
+            var popover = menu.create_popover(r, x, y);
+            r.set_data("podcast-current-menu", menu);
+            r.set_data("podcast-current-popover", popover);
+            popover.popup();
+        });
+        root_widget.add_controller(right_click);
+
+        // Released on the card body only - the pill is a Button, which
+        // claims its own clicks before this sees them.
+        var gesture = new Gtk.GestureClick();
+        gesture.set_button(1);
+        gesture.released.connect(() => { activate(episode_id); });
+        root_widget.add_controller(gesture);
+
+        var motion = new Gtk.EventControllerMotion();
+        motion.enter.connect(() => { r.add_css_class("card-hover"); });
+        motion.leave.connect(() => { r.remove_css_class("card-hover"); });
+        root_widget.add_controller(motion);
+    }
+
+    private void update_subscribe_button_state() {
+        PodcastCard.update_subscribe_button(subscribe_button, feed_id);
+    }
+
+    // Static, and no lambda touches `card` or `root_widget` - see
+    // PodcastCard.wire_interactions for why both matter.
     public static void wire_interactions(Gtk.Box root_widget, PodcastHeroCard card, int64 feed_id, Managers.PodcastPlaybackManager? playback, owned ActivatedCallback? on_activated, owned ActivatedCallback? on_play_requested = null) {
+        unowned Gtk.Box r = root_widget;
+        unowned Gtk.Button subscribe_btn = card.subscribe_button;
+        var show = card.show;
+
         card.play_button.clicked.connect(() => {
             if (playback != null) {
                 var current = playback.get_current_episode();
@@ -206,21 +423,20 @@ public class PodcastHeroCard : GLib.Object {
             });
         }
 
-        var show = card.show;
-        card.subscribe_button.clicked.connect(() => {
+        subscribe_btn.clicked.connect((btn) => {
             var store = Paperboy.PodcastSubscriptionStore.get_instance();
             if (store.is_subscribed(feed_id)) {
                 store.unsubscribe(feed_id);
             } else {
                 store.subscribe(show);
             }
-            card.update_subscribe_button_state();
+            PodcastCard.update_subscribe_button(btn, feed_id);
         });
 
         var right_click = new Gtk.GestureClick();
         right_click.set_button(3);
         right_click.pressed.connect((n_press, x, y) => {
-            show_context_menu(root_widget, card, show, feed_id, x, y, on_play_requested);
+            show_context_menu(r, subscribe_btn, show, feed_id, x, y, on_play_requested);
         });
         root_widget.add_controller(right_click);
 
@@ -232,14 +448,14 @@ public class PodcastHeroCard : GLib.Object {
         root_widget.add_controller(gesture);
 
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        motion.enter.connect(() => { r.add_css_class("card-hover"); });
+        motion.leave.connect(() => { r.remove_css_class("card-hover"); });
         root_widget.add_controller(motion);
     }
 
     // Static for the same reason wire_interactions() is - see PodcastCard's
     // own show_context_menu, the template this follows.
-    private static void show_context_menu(Gtk.Box root_widget, PodcastHeroCard card, Paperboy.PodcastShow show, int64 feed_id, double x, double y, owned ActivatedCallback? on_play_requested) {
+    private static void show_context_menu(Gtk.Box root_widget, Gtk.Button subscribe_btn, Paperboy.PodcastShow show, int64 feed_id, double x, double y, owned ActivatedCallback? on_play_requested) {
         var store = Paperboy.PodcastSubscriptionStore.get_instance();
         var menu = new PodcastMenu(store.is_subscribed(feed_id));
 
@@ -248,11 +464,11 @@ public class PodcastHeroCard : GLib.Object {
         });
         menu.subscribe_requested.connect(() => {
             store.subscribe(show);
-            card.update_subscribe_button_state();
+            PodcastCard.update_subscribe_button(subscribe_btn, feed_id);
         });
         menu.unsubscribe_requested.connect(() => {
             store.unsubscribe(feed_id);
-            card.update_subscribe_button_state();
+            PodcastCard.update_subscribe_button(subscribe_btn, feed_id);
         });
 
         var popover = menu.create_popover(root_widget, x, y);

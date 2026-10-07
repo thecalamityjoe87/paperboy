@@ -375,6 +375,55 @@ dialog.video-player floating-sheet > sheet {
     font-weight: 500;
 }
 
+/* My Library's Up Next cards (PodcastHeroCard.for_episode): release-time
+   eyebrow, an episode title a step smaller than a show title (episode
+   titles run long), and an Apple-style light play pill carrying the time
+   estimate - light-on-dark so it stands out from the scrim's text. */
+.hero-podcast-eyebrow {
+    color: alpha(white, 0.8);
+    font-size: 0.78em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.hero-podcast-scrim .hero-podcast-episode-title {
+    font-size: 1.3em;
+    line-height: 1.15;
+}
+
+.hero-podcast-time-pill {
+    /* Hugs its content - Adwaita's button min-width would pad it out. */
+    min-width: 0;
+    background-color: alpha(white, 0.9);
+    color: black;
+    border-radius: 999px;
+    padding: 4px 12px;
+    min-height: 0;
+    font-size: 0.85em;
+    font-weight: 700;
+    box-shadow: 0 2px 6px alpha(black, 0.3);
+}
+
+.hero-podcast-time-pill:hover {
+    background-color: white;
+}
+
+.hero-podcast-time-progress,
+.hero-podcast-time-progress > trough {
+    min-height: 4px;
+    min-width: 0;
+}
+
+.hero-podcast-time-progress > trough {
+    background-color: alpha(black, 0.2);
+    border-radius: 2px;
+}
+
+.hero-podcast-time-progress > trough > progress {
+    background-color: black;
+    border-radius: 2px;
+}
+
 /* Magazine Library grid cards reuse the podcast hero card's full-bleed +
    scrim look, but the card itself is much smaller than a Podcasts hero
    (220px vs. a hero row's ~300-400px), so .hero-title's 2.1em (which only
@@ -619,6 +668,17 @@ dialog.video-player floating-sheet > sheet {
     font-weight: 600;
     padding: 1px 6px;
     border-radius: 8px;
+}
+
+/* "3 New" pill on a My Library show card's cover - a little larger than
+   the inline episode-row pill, and shadowed to lift it off the artwork. */
+.podcast-card-new-count {
+    font-size: 0.78em;
+    padding: 2px 8px;
+    /* Rounded-rect, not pill - same corners as the app's other small
+       badges at this size (.live-pill-header, .league-badge-live-pill). */
+    border-radius: 5px;
+    box-shadow: 0 2px 6px alpha(black, 0.3);
 }
 
 /* Thin "how far into this episode" indicator under a partially-listened
@@ -1569,6 +1629,52 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
     min-height: 8px;
 }
 
+/* The "Shows" list nested in the sidebar's Podcasts section: its header
+   reads as one more row (plain weight, no second indent from the parent
+   expander's own margins), and its show rows sit one step in under it. */
+.navigation-sidebar .sidebar-expander.sidebar-nested-expander {
+    margin-left: 0;
+    margin-right: 0;
+    /* Undo .sidebar-expander's 0.966em - it would compound with the parent
+       section's own, and the show rows inside size off this too. */
+    font-size: 1em;
+}
+
+/* libadwaita separates rows in an expander's nested list with a bottom
+   border - the plain rows here clear it via .sidebar-expander-item, this
+   one needs it cleared too (it was a stray line above "Add a Podcast"). */
+.navigation-sidebar row.expander list.nested > row.sidebar-nested-expander {
+    border-bottom: none;
+}
+
+/* Line the header's icon and text up with the sibling rows' columns. Those
+   are flat buttons (Adwaita's 10px side padding) + the row's own 4px inset,
+   with a 10px icon-to-text gap; libadwaita lays this header out with a 12px
+   side margin and a 6px + 6px prefix gap instead, which left the icon 2px
+   and the text 4px right of everything else. */
+.navigation-sidebar .sidebar-nested-expander row.header > box.header {
+    margin-left: 10px;
+}
+
+.navigation-sidebar .sidebar-nested-expander row.header > box.header > .prefixes {
+    margin-right: 4px;
+}
+
+/* Header text matches the sibling rows (.sidebar-item-row's weight/size). */
+.navigation-sidebar .sidebar-nested-expander row.header label {
+    font-weight: 600;
+    font-size: 0.924em;
+}
+
+.navigation-sidebar .sidebar-nested-expander list row.sidebar-expander-item {
+    margin-left: 10px;
+}
+
+/* Show rows' cover art: rounded square, not the circular favicon crop. */
+.navigation-sidebar .sidebar-podcast-cover {
+    border-radius: 4px;
+}
+
 /* Podcast show rows: dot pinned to the icon's top-right corner. */
 .navigation-sidebar .sidebar-expander box.sidebar-new-dot-corner {
     box-shadow: 0 0 0 2px @sidebar_bg_color;
@@ -1792,6 +1898,29 @@ navigation-split-view>widget.sidebar-pane headerbar:backdrop {
 
 .reader-add-note-btn image {
     -gtk-icon-size: 14px;
+}
+
+/* Deeper shadow than the stock popover's faint one, so Paperboy's own
+   popovers - the reader view's add-note button and dictionary, plus the
+   sidebar/article/podcast context menus - read as sitting above whatever
+   they overlap. GTK's standard menus (e.g. a text view's right-click menu)
+   are left stock on purpose, to match the rest of the desktop. GtkPopover
+   sizes its surface from the contents' shadow extents, so this doesn't get
+   clipped. The last layer is a hairline edge for dark backgrounds, where a
+   black shadow alone barely shows. */
+.reader-add-note-popover contents,
+.reader-definition-popover contents,
+.paperboy-menu-popover contents {
+    box-shadow: 0 4px 12px 0 alpha(black, 0.26),
+                0 12px 32px 4px alpha(black, 0.18),
+                0 0 0 1px alpha(black, 0.10);
+}
+
+/* Part-of-speech label ("noun", "verb") heading each group of senses in
+   the reader view's dictionary popover. */
+.reader-definition-pos {
+    font-style: italic;
+    font-size: 0.9em;
 }
 
 /* Small numbered marker button dropped right after a highlighted quote in

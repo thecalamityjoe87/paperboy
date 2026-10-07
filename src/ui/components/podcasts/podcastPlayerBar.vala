@@ -40,6 +40,9 @@ public class PodcastPlayerBar : GLib.Object {
     public bool has_episode { get; private set; default = false; }
 
     private Gtk.Picture cover;
+    // Square cover thumbnail, logical px - also the size covers are
+    // decoded/requested at (see set_cover()).
+    private const int COVER_SIZE = 48;
     private MarqueeLabel title_label;
     private Gtk.Scale scrubber;
     private Gtk.Adjustment scrubber_adjustment;
@@ -84,7 +87,8 @@ public class PodcastPlayerBar : GLib.Object {
         var title_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
 
         cover = new Gtk.Picture();
-        cover.set_size_request(36, 36);
+        cover.set_size_request(COVER_SIZE, COVER_SIZE);
+        cover.set_valign(Gtk.Align.CENTER);
         cover.set_content_fit(Gtk.ContentFit.COVER);
         // See PodcastCard/PodcastHeroCard for why - both dimensions are
         // already fixed, so the aspect-ratio-driven natural size isn't
@@ -104,6 +108,7 @@ public class PodcastPlayerBar : GLib.Object {
         // itself at a controllable offset - see its class doc comment.
         title_label = new MarqueeLabel();
         title_label.add_css_class("podcast-player-title");
+        title_label.set_valign(Gtk.Align.CENTER);
         title_row.append(title_label);
 
         // Slides the bar away without touching playback - same as the
@@ -119,6 +124,7 @@ public class PodcastPlayerBar : GLib.Object {
         // Own box (not title_row's 8px spacing) so minimize and close read
         // as one tight pair of window-style controls.
         var window_buttons = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        window_buttons.set_valign(Gtk.Align.CENTER);
         window_buttons.append(minimize_button);
 
         var close_button = new Gtk.Button.from_icon_name("window-close-symbolic");
@@ -197,17 +203,21 @@ public class PodcastPlayerBar : GLib.Object {
         if (window != null && window.animation_manager != null) {
             window.animation_manager.stop_title_marquee(title_label);
         }
+        set_cover(episode);
+        revealer.set_reveal_child(reveal);
+    }
+
+    private void set_cover(Paperboy.PodcastEpisode episode) {
         if (window != null) {
-            // set_size_request(36,36) is only a minimum, not a cap - loading
+            // set_size_request(COVER_SIZE, COVER_SIZE) is only a minimum, not a cap - loading
             // the local cover file directly (full resolution) made Picture
             // report that huge intrinsic size as its natural size, blowing
             // up the whole bar's height. Scale it down first instead, same
             // as the network path's pre-scaled texture already does.
             if (episode.cover_local_path != null) {
                 try {
-                    var pixbuf = new Gdk.Pixbuf.from_file_at_scale(episode.cover_local_path, 36, 36, false);
+                    var pixbuf = new Gdk.Pixbuf.from_file_at_scale(episode.cover_local_path, COVER_SIZE, COVER_SIZE, false);
                     cover.set_paintable(Gdk.Texture.for_pixbuf(pixbuf));
-                    revealer.set_reveal_child(reveal);
                     return;
                 } catch (GLib.Error e) {
                     // Fall through to the network path below.
@@ -226,10 +236,9 @@ public class PodcastPlayerBar : GLib.Object {
                 // flight when that lands - so without this flag the cover
                 // was getting silently dropped almost every time on restart
                 // despite the download itself succeeding.
-                window.image_manager.load_image_async(cover, art_url, 36, 36, false, true);
+                window.image_manager.load_image_async(cover, art_url, COVER_SIZE, COVER_SIZE, false, true);
             }
         }
-        revealer.set_reveal_child(reveal);
     }
 
     private static string format_speed(double rate) {
@@ -298,6 +307,7 @@ public class PodcastPlayerBar : GLib.Object {
         playback.episode_queue_changed.connect(() => {
             update_skip_buttons(playback, skip_back_button, skip_forward_button);
         });
+        playback.cover_changed.connect((episode) => { set_cover(episode); });
         update_skip_buttons(playback, skip_back_button, skip_forward_button);
 
         playback.playback_state_changed.connect((is_playing) => {

@@ -378,8 +378,8 @@ namespace Paperboy {
                 GLib.print("GeneratedFeedService: removing child and destroying window\n");
                 win.set_child(null);
                 win.destroy();
-                GLib.print("GeneratedFeedService: trimming malloc\n");
-                malloc_trim(0);
+                GLib.print("GeneratedFeedService: trimming heap\n");
+                MemoryUtils.trim_heap();
                 GLib.Idle.add(() => { start_next(); return false; });
                 GLib.print("GeneratedFeedService: finish() complete\n");
             }

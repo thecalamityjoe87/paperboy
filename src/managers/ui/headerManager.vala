@@ -478,6 +478,7 @@ public class HeaderManager : GLib.Object {
                 var local_area = NewsPreferences.get_instance().get_active_local_area();
                 return local_area != null ? local_area.display_name : _("Local News");
             case "podcasts": return _("Find Podcasts");
+            case "podcasts_library": return _("My Library");
             case "magazines": return _("Magazine Rack");
             default: break;
         }

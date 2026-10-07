@@ -86,13 +86,7 @@ public class ReaderVideoEmbed : Gtk.Box {
             return;
         }
 
-        var sheet = new ArticleSheet(parent_window);
-        parent_window.root_overlay.add_overlay(sheet.get_widget());
-        sheet.closed.connect(() => {
-            parent_window.root_overlay.remove_overlay(sheet.get_widget());
-            sheet.destroy();
-        });
         // Web view, not reader view: an in-house player won't survive the reader extractor.
-        sheet.open(video_url, false);
+        ArticleSheet.show_standalone(parent_window).open(video_url, false);
     }
 }

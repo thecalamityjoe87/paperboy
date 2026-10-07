@@ -59,7 +59,6 @@ public class ScoreCard : GLib.Object {
 
     public ScoreCard(GameScore game, bool preview = false, bool show_league = false) {
         GLib.Object();
-        this.url = game.espn_link;
         this.preview = preview;
         this.show_league = show_league;
 
@@ -77,6 +76,7 @@ public class ScoreCard : GLib.Object {
         // layout inside the card, not the row of cards it sits in.
         root.set_hexpand(false);
         root.set_size_request(CARD_WIDTH, -1);
+        set_url(game.espn_link);
 
         status_label = new Gtk.Label("");
         status_label.set_xalign(0);
@@ -100,16 +100,25 @@ public class ScoreCard : GLib.Object {
 
         apply_game(game);
 
-        wire_interactions(root, this);
+        wire_interactions(root);
     }
 
     // Refresh this card's status/scores/logos in place - no widgets are
     // created or destroyed, so this can be called every poll without the
     // rebuild-from-scratch leak described in the class doc.
     public void update(GameScore game) {
-        this.url = game.espn_link;
+        set_url(game.espn_link);
         apply_game(game);
     }
+
+    // Also kept on root, where the click handler reads it - see
+    // wire_interactions() for why it can't read this.url.
+    private void set_url(string link) {
+        url = link;
+        root.set_data<string>(URL_DATA_KEY, link);
+    }
+
+    private const string URL_DATA_KEY = "score-card-url";
 
     private void apply_game(GameScore game) {
         string status_text = (preview && game.status == GameStatus.LIVE) ? _("LIVE") : status_text_for(game);
@@ -185,22 +194,24 @@ public class ScoreCard : GLib.Object {
 
     // Must stay static: Vala folds a strong ref to `self` into the shared
     // closure block of any instance method that defines a lambda, even one
-    // that never touches `self`. Connecting these controllers here instead
-    // of in the constructor means root -> controller -> closure -> self ->
-    // root never chains back to a ScoreCard -> root reference cycle. Reads
-    // `card.url` dynamically (rather than capturing a copy) so a link
+    // that never touches `self`. It also refs captured parameters, so the
+    // lambdas use an unowned alias of root rather than root_widget or a
+    // ScoreCard - either would close a root -> controller -> closure ->
+    // root cycle. The link is read from root on each click, so one
     // updated via update() is reflected on the next click.
-    private static void wire_interactions(Gtk.Box root_widget, ScoreCard card) {
+    private static void wire_interactions(Gtk.Box root_widget) {
+        unowned Gtk.Box r = root_widget;
         var gesture = new Gtk.GestureClick();
         gesture.set_button(1);
         gesture.released.connect(() => {
-            BrowserUtils.open_url_in_browser(card.url);
+            string? link = r.get_data<string>(URL_DATA_KEY);
+            if (link != null) BrowserUtils.open_url_in_browser(link);
         });
         root_widget.add_controller(gesture);
 
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        motion.enter.connect(() => { r.add_css_class("card-hover"); });
+        motion.leave.connect(() => { r.remove_css_class("card-hover"); });
         root_widget.add_controller(motion);
     }
 

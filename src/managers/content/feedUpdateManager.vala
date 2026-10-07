@@ -513,16 +513,16 @@ public class FeedUpdateManager : GLib.Object {
                 }
 
                 changed = content_changed;
-                malloc_trim(0);
+                MemoryUtils.trim_heap();
                 return true;
             } else {
                 GLib.warning("  ✗ Generated invalid RSS for %s: %s", source.name, error);
-                malloc_trim(0);
+                MemoryUtils.trim_heap();
                 return false;
             }
         } catch (Error e) {
             GLib.warning("  ✗ Error regenerating feed for %s: %s", source.name, e.message);
-            malloc_trim(0);
+            MemoryUtils.trim_heap();
             return false;
         }
     }

@@ -1,3 +1,25 @@
+# v0.14.1a - My Library for Your Podcasts, Recommendations From Your First Article, and a Feed Freeze Fix
+
+- "Recommended for you" now appears on the Front Page as soon as you open or give a thumbs up to your first article, instead of after ten. It always fills with the articles that best match what you read and like, starting broad and getting more personal the more you read and rate
+- Fixed Paperboy freezing while loading a feed whose articles contain certain malformed character codes
+- Article cards appear faster, especially on busy pages or when you have many saved articles
+- Feeds and article images are processed faster
+- Preferences opens faster and no longer lags while opening, especially when you follow many feeds or have a large article cache. Your feed lists in Preferences also open without a pause, with each feed's logo appearing as it loads
+- Fixed memory that kept growing while browsing podcasts, the Magazine Rack, and sports scores, and each time a right-click menu was opened, a link or video opened in its own page, or an article was saved
+- Paperboy now logs an error when it can't save which articles you've read, or can't back up a damaged settings file, instead of failing silently
+- The icon on onboarding's "Where Are You Reading From?" page is now the same soft grey as the large icons on the other pages, instead of solid black or white
+- In reader view, right-clicking selected text now offers "Search Google for …", which opens a Google search for it in your browser
+- Right-clicking a single selected word in reader view also offers "Define …", which shows its definition in a small popup right under the word, with its pronunciation and meanings grouped by noun, verb, and so on. Definitions come from Wiktionary through the Free Dictionary API, and are in English
+- The add-note button in reader view, and the right-click menus in the sidebar and on article and podcast cards, now have a deeper shadow, so they stand out from what's behind them
+- Fixed podcast cover art sometimes missing from the player bar and your desktop's media controls after reopening Paperboy in the middle of an episode. If the cover hasn't finished downloading when the episode loads, it now appears as soon as it arrives, and the media controls no longer show the previous episode's cover after you switch
+- Added My Library, a new page for the podcasts you subscribe to, under Podcasts in the sidebar. Its badge counts the new episodes across all your shows
+- My Library opens with Up Next: up to four episodes to listen to next, starting with ones you're partway through, then the newest unplayed episode from each show. Each card shows when the episode came out, a "New" tag for episodes released since you last opened the show, and a play button with the time left, such as "42m". Once you start an episode, a small progress bar slides out next to the time. Clicking a card plays it, and right-clicking it offers more info or removing the show
+- Below Up Next, Your Shows lists every show you subscribe to as a grid of cover art, most recently updated first. Each card shows who makes the show, when it last had a new episode, and how many new episodes you haven't heard
+- Searching on the My Library page searches your own shows by name, publisher, or category
+- Your subscribed shows now appear in their own "Shows" list in the sidebar, which you can collapse, and each one shows its cover art instead of a generic microphone icon
+- Sidebar icons now line up in a single column. Category icons sat slightly left of feed logos and podcast cover art, and the "+" on "Add RSS Feed" and "Add a Podcast" was off-center
+- Fixed podcast cover art in the sidebar sometimes not appearing at startup, especially when an episode was loaded in the player
+
 # v0.14.0a - Paperboy Goes International: Your Country's News, a Per-Country Front Page, and Translations in Twenty Languages
 
 - Paperboy now works outside the US. A new Country setting (Preferences → Personalization → Region) picks which country your news comes from, out of the 87 country and language editions Google News offers. It's searchable, and set to "Automatic" by default, which picks your country from your system's time zone and language
@@ -41,7 +63,7 @@
 - Preferences → Personalization → Sports Score Cards has two new pages. Leagues lists every league under a region heading (International, Europe, United States and Canada, Latin America, and Asia and Oceania), with its sport underneath, so you can switch each one on or off. Section Order lets you drag the leagues that are on into the order their sections appear in the Sports category
 - NFL, NBA, MLB, NHL, and MLS score cards are now on by default only in the US and Canada, and college leagues only in the US. Elsewhere they're off until you switch them on in Preferences → Personalization → Sports Score Cards → Leagues. If you already switched a league on or off yourself, your choice is kept
 - Onboarding's Live Sports Scores page now groups leagues by region, with each league's sport underneath, the same as Preferences' Leagues page. Drag-to-reorder moved out of onboarding; set the order of league sections anytime in Preferences → Section Order
-- Fixed Trending sometimes showing 9 stories instead of 10 when it first loads, with the last one appearing about 20 seconds later
+- Fixed Trending sometimes showing fewer than 10 articles when it first loads, with the rest appearing later
 
 # v0.13.1a - Sidebar Footer with Notes and Now Playing
 

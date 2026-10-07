@@ -186,6 +186,7 @@ public class ReaderView : GLib.Object {
         // at show-time - scrolling would leave it pointing at stale
         // coordinates, so just hide it instead of trying to track it.
         scroller.get_vadjustment().value_changed.connect(hide_add_note_popover);
+        scroller.get_vadjustment().value_changed.connect(hide_definition_popover);
 
         // Same rubber-band bounce as the main feed (see ContentView.set_window()).
         var reader_vadj = scroller.get_vadjustment();
@@ -786,6 +787,7 @@ public class ReaderView : GLib.Object {
         anchor_shift_by_tv.clear();
         highlights_by_note_id.clear();
         hide_add_note_popover();
+        hide_definition_popover();
     }
 
     public void show_article(ExtractedArticle article, string article_url, string? source_name_encoded = null) {
@@ -937,7 +939,275 @@ public class ReaderView : GLib.Object {
             if (!body_buffer.has_selection) hide_add_note_popover();
         });
 
+        add_selection_menu_items(body_view);
+
         text_run.clear();
+    }
+
+    // Appends "Search with Google…" and "Define" to the TextView's own
+    // right-click menu via extra_menu. Each TextView gets its own action
+    // group (rather than one shared on content_box) so the actions always
+    // act on the selection in the TextView that was right-clicked - every
+    // run keeps its own independent selection.
+    private void add_selection_menu_items(Gtk.TextView tv) {
+        var group = new GLib.SimpleActionGroup();
+
+        var search_action = new GLib.SimpleAction("search-google", null);
+        search_action.activate.connect(() => {
+            string? text = selected_text_in(tv);
+            if (text == null) return;
+            // Long selections make for an unwieldy query URL; the first few
+            // hundred characters say more than enough for a search.
+            if (text.char_count() > 300) text = text.substring(0, text.index_of_nth_char(300));
+            BrowserUtils.open_url_in_browser("https://www.google.com/search?q=" + Uri.escape_string(text, null, false));
+        });
+        group.add_action(search_action);
+
+        var define_action = new GLib.SimpleAction("define", null);
+        define_action.activate.connect(() => {
+            // Deferred so the context menu has fully closed first - popping
+            // up a popover in the same cycle as GTK's own menu teardown is
+            // the same realize race the add-note popover hit (see
+            // setup_drag_autoscroll).
+            GLib.Idle.add(() => {
+                show_definition_popover(tv);
+                return false;
+            });
+        });
+        group.add_action(define_action);
+
+        tv.insert_action_group("reader-sel", group);
+
+        var menu = new GLib.Menu();
+        var section = new GLib.Menu();
+        menu.append_section(null, section);
+        tv.set_extra_menu(menu);
+
+        // Labels name the selection itself ("Define “word”", "Search Google
+        // for “…”"), so they're rebuilt on every selection change - which
+        // also keeps them right however the menu gets opened (right-click,
+        // Menu key, Shift+F10). Define is left out entirely, not just
+        // greyed, when the selection isn't a single word. Only touches the
+        // menu when a label actually changes, since mark-set fires
+        // continuously during a drag.
+        string last_search_label = "";
+        string last_define_label = "";
+        var buffer = tv.get_buffer();
+        buffer.mark_set.connect((loc, mark) => {
+            if (mark != buffer.get_insert() && mark != buffer.get_selection_bound()) return;
+            string? text = selected_text_in(tv);
+            string? word = text != null ? definable_word(text) : null;
+            search_action.set_enabled(text != null);
+            define_action.set_enabled(word != null);
+
+            // TRANSLATORS: %s is the selected text, already shortened
+            string search_label = text != null ? _("Search Google for “%s”").printf(menu_label_text(text, 24)) : "";
+            // TRANSLATORS: %s is the selected word
+            string define_label = word != null ? _("Define “%s”").printf(menu_label_text(word, 24)) : "";
+            if (search_label == last_search_label && define_label == last_define_label) return;
+            last_search_label = search_label;
+            last_define_label = define_label;
+
+            section.remove_all();
+            if (search_label.length > 0) section.append(search_label, "reader-sel.search-google");
+            if (define_label.length > 0) section.append(define_label, "reader-sel.define");
+        });
+        search_action.set_enabled(false);
+        define_action.set_enabled(false);
+    }
+
+    // Selection text made safe and short enough for a menu label: newlines
+    // collapsed, cut to max_chars with an ellipsis, and underscores doubled
+    // since GTK menu labels treat a single "_" as a mnemonic marker.
+    private static string menu_label_text(string text, int max_chars) {
+        string flat = string.joinv(" ", text.split_set("\n\r\t")).strip();
+        try {
+            flat = new GLib.Regex(" {2,}").replace(flat, -1, 0, " ");
+        } catch (GLib.RegexError e) { }
+        if (flat.char_count() > max_chars) {
+            flat = flat.substring(0, flat.index_of_nth_char(max_chars)).strip() + "…";
+        }
+        return flat.replace("_", "__");
+    }
+
+    private string? selected_text_in(Gtk.TextView tv) {
+        Gtk.TextIter start, end;
+        if (!tv.get_buffer().get_selection_bounds(out start, out end)) return null;
+        // Same U+FFFC marker-button stripping as get_selected_text().
+        string text = tv.get_buffer().get_text(start, end, false).replace("￼", "").strip();
+        return text.length > 0 ? text : null;
+    }
+
+    // The selection trimmed of surrounding punctuation if it's a single
+    // word (hyphens/apostrophes allowed, e.g. "well-being", "don't"),
+    // otherwise null - the dictionary only looks up single words.
+    private static string? definable_word(string text) {
+        int start = 0;
+        int end = text.length;
+        unichar c;
+        int i = 0;
+        // Leading punctuation.
+        while (i < end) {
+            int next = i;
+            text.get_next_char(ref next, out c);
+            if (c.isalpha()) break;
+            i = next;
+        }
+        start = i;
+        // Trailing punctuation.
+        while (end > start) {
+            int prev = end;
+            text.get_prev_char(ref prev, out c);
+            if (c.isalpha()) break;
+            end = prev;
+        }
+        if (end <= start) return null;
+
+        string word = text.substring(start, end - start);
+        if (word.char_count() > 48) return null;
+        int pos = 0;
+        while (word.get_next_char(ref pos, out c)) {
+            if (!(c.isalpha() || c == '-' || c == '\'' || c == 0x2019)) return null;
+        }
+        return word;
+    }
+
+    // Small popover anchored right under the selected word, filled in once
+    // the lookup comes back. Like the add-note popover it's parented to
+    // content_box and rebuilt if clear_content() has since unparented it.
+    private Gtk.Popover? definition_popover = null;
+    // Bumped per lookup so a slow response for a previous word can't
+    // overwrite the popover after it's been reopened for a new one.
+    private uint definition_request_id = 0;
+
+    private void show_definition_popover(Gtk.TextView tv) {
+        string? text = selected_text_in(tv);
+        if (text == null) return;
+        string? word = definable_word(text);
+        if (word == null) return;
+
+        Gtk.TextIter sel_start, sel_end;
+        if (!tv.get_buffer().get_selection_bounds(out sel_start, out sel_end)) return;
+
+        // Span the whole word when it sits on one line, so the popover
+        // centers under it; a word wrapped across lines just points at its
+        // start.
+        Gdk.Rectangle start_rect, end_rect;
+        tv.get_iter_location(sel_start, out start_rect);
+        tv.get_iter_location(sel_end, out end_rect);
+        int width = (end_rect.y == start_rect.y && end_rect.x > start_rect.x) ? end_rect.x - start_rect.x : 1;
+        int wx, wy;
+        tv.buffer_to_window_coords(Gtk.TextWindowType.WIDGET, start_rect.x, start_rect.y, out wx, out wy);
+        double cx, cy;
+        if (!tv.translate_coordinates(content_box, wx, wy, out cx, out cy)) return;
+
+        hide_add_note_popover();
+
+        if (definition_popover != null && definition_popover.get_parent() != content_box) {
+            definition_popover.unparent();
+            definition_popover = null;
+        }
+        if (definition_popover == null) {
+            definition_popover = new Gtk.Popover();
+            definition_popover.add_css_class("reader-definition-popover");
+            definition_popover.set_position(Gtk.PositionType.BOTTOM);
+            definition_popover.set_parent(content_box);
+        }
+
+        var spinner_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+        spinner_box.set_margin_top(4);
+        spinner_box.set_margin_bottom(4);
+        var lookup_spinner = new Gtk.Spinner();
+        lookup_spinner.start();
+        spinner_box.append(lookup_spinner);
+        var looking_label = new Gtk.Label(_("Looking up “%s”…").printf(word));
+        looking_label.add_css_class("dim-label");
+        spinner_box.append(looking_label);
+        definition_popover.set_child(spinner_box);
+
+        Gdk.Rectangle point_to = { (int) cx, (int) cy, width, start_rect.height };
+        definition_popover.set_pointing_to(point_to);
+        definition_popover.popup();
+
+        uint request_id = ++definition_request_id;
+        DictionaryService.lookup(word, (entry) => {
+            if (request_id != definition_request_id || definition_popover == null) return;
+            definition_popover.set_child(build_definition_content(word, entry));
+        });
+    }
+
+    private Gtk.Widget build_definition_content(string word, DictionaryEntry? entry) {
+        var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+        box.add_css_class("reader-definition");
+        box.set_margin_top(4);
+        box.set_margin_bottom(4);
+        box.set_margin_start(4);
+        box.set_margin_end(4);
+
+        var title_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+        var title = new Gtk.Label(entry != null ? entry.word : word);
+        title.add_css_class("title-4");
+        title.set_xalign(0);
+        title_row.append(title);
+        if (entry != null && entry.phonetic != null) {
+            var phonetic = new Gtk.Label(entry.phonetic);
+            phonetic.add_css_class("dim-label");
+            phonetic.set_valign(Gtk.Align.BASELINE);
+            title_row.append(phonetic);
+        }
+        box.append(title_row);
+
+        if (entry == null) {
+            var none = new Gtk.Label(_("No definition found."));
+            none.add_css_class("dim-label");
+            none.set_xalign(0);
+            box.append(none);
+        } else {
+            foreach (var meaning in entry.meanings) {
+                if (meaning.part_of_speech.length > 0) {
+                    var pos = new Gtk.Label(meaning.part_of_speech);
+                    pos.add_css_class("reader-definition-pos");
+                    pos.add_css_class("dim-label");
+                    pos.set_xalign(0);
+                    pos.set_margin_top(4);
+                    box.append(pos);
+                }
+                int n = 1;
+                foreach (var def in meaning.definitions) {
+                    var label = new Gtk.Label(meaning.definitions.size > 1 ? "%d. %s".printf(n++, def) : def);
+                    label.set_xalign(0);
+                    label.set_wrap(true);
+                    label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);
+                    label.set_max_width_chars(48);
+                    label.set_width_chars(36);
+                    box.append(label);
+                }
+            }
+        }
+
+        var search_btn = new Gtk.Button.with_label(_("Search with Google"));
+        search_btn.add_css_class("flat");
+        search_btn.set_halign(Gtk.Align.START);
+        search_btn.set_margin_top(2);
+        search_btn.clicked.connect(() => {
+            hide_definition_popover();
+            BrowserUtils.open_url_in_browser("https://www.google.com/search?q=" + Uri.escape_string("define " + word, null, false));
+        });
+        box.append(search_btn);
+
+        // Many-sense words (e.g. "set") would otherwise grow the popover
+        // past the window - cap it and let the rest scroll.
+        var def_scroller = new Gtk.ScrolledWindow();
+        def_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        def_scroller.set_propagate_natural_height(true);
+        def_scroller.set_max_content_height(320);
+        def_scroller.set_child(box);
+        return def_scroller;
+    }
+
+    public void hide_definition_popover() {
+        definition_request_id++;
+        if (definition_popover != null) definition_popover.popdown();
     }
 
     // Shown near an active text selection so creating a note anchored to

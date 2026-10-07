@@ -86,6 +86,9 @@ namespace Paperboy {
             // Added after the initial release - existing databases need this
             // column added on top of their already-created table.
             db.exec("ALTER TABLE podcast_subscriptions ADD COLUMN description TEXT;", null, null);
+            // Same for category - NULL on older rows until
+            // update_category() backfills it (see PodcastLibraryManager).
+            db.exec("ALTER TABLE podcast_subscriptions ADD COLUMN category TEXT;", null, null);
         }
 
         public bool is_subscribed(int64 feed_id) {
@@ -118,8 +121,8 @@ namespace Paperboy {
             }
 
             string sql = """
-                INSERT INTO podcast_subscriptions (feed_id, title, author, image_url, feed_url, subscribed_at, description)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO podcast_subscriptions (feed_id, title, author, image_url, feed_url, subscribed_at, description, category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             """;
 
             Sqlite.Statement stmt;
@@ -136,6 +139,7 @@ namespace Paperboy {
             stmt.bind_text(5, show.feed_url);
             stmt.bind_int64(6, GLib.get_real_time() / 1000000);
             if (show.description != null) stmt.bind_text(7, show.description); else stmt.bind_null(7);
+            if (show.category != null) stmt.bind_text(8, show.category); else stmt.bind_null(8);
 
             rc = stmt.step();
             if (rc != Sqlite.DONE) {
@@ -165,6 +169,27 @@ namespace Paperboy {
             stmt.bind_int64(2, feed_id);
             if (stmt.step() != Sqlite.DONE) {
                 GLib.warning("Failed to update podcast subscription description: %s", db.errmsg());
+                return;
+            }
+            cached_subscriptions = null;
+        }
+
+        // Records a show's top-level category once looked up - "" for a feed
+        // that has none, so it isn't looked up again on every Library visit.
+        public void update_category(int64 feed_id, string category) {
+            if (db == null) return;
+
+            string sql = "UPDATE podcast_subscriptions SET category = ? WHERE feed_id = ?;";
+            Sqlite.Statement stmt;
+            int rc = db.prepare_v2(sql, -1, out stmt);
+            if (rc != Sqlite.OK) {
+                GLib.warning("Failed to prepare statement: %s", db.errmsg());
+                return;
+            }
+            stmt.bind_text(1, category);
+            stmt.bind_int64(2, feed_id);
+            if (stmt.step() != Sqlite.DONE) {
+                GLib.warning("Failed to update podcast subscription category: %s", db.errmsg());
                 return;
             }
             cached_subscriptions = null;
@@ -207,7 +232,7 @@ namespace Paperboy {
                 return subscriptions;
             }
 
-            string sql = "SELECT feed_id, title, author, image_url, feed_url, subscribed_at, description FROM podcast_subscriptions ORDER BY subscribed_at DESC;";
+            string sql = "SELECT feed_id, title, author, image_url, feed_url, subscribed_at, description, category FROM podcast_subscriptions ORDER BY subscribed_at DESC;";
             Sqlite.Statement stmt;
             int rc = db.prepare_v2(sql, -1, out stmt);
             if (rc != Sqlite.OK) {
@@ -224,6 +249,7 @@ namespace Paperboy {
                 subscription.feed_url = stmt.column_text(4);
                 subscription.subscribed_at = stmt.column_int64(5);
                 subscription.description = stmt.column_text(6);
+                subscription.category = stmt.column_text(7);
                 subscriptions.add(subscription);
             }
 

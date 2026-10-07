@@ -289,6 +289,8 @@ namespace Managers {
             // so clear any empty-state/error overlay from the previous view.
             if (window != null && window.loading_state != null) window.loading_state.hide_error_message();
 
+            // Shared with My Library, which titles this row "Up Next".
+            content_view.podcasts_hero_title.set_markup(_("<span size='26000'><b>START LISTENING</b></span>"));
             content_view.podcasts_hero_title.set_visible(true);
             content_view.hero_container.set_visible(true);
             content_view.category_sections_container.set_visible(true);

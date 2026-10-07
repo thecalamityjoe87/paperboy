@@ -1,3 +1,26 @@
+paperboy (0.14.1a-1) unstable; urgency=low
+
+  * "Recommended for you" appears after the first read or thumbs up and always fills with the best-matching articles
+  * Fixed a freeze when a feed's articles contain malformed numeric character entities
+  * Faster article card rendering: viewed and saved checks no longer read the disk or scan every saved article
+  * Feed and image processing compile their regular expressions once instead of on every call
+  * Log failures to save viewed state or back up a damaged config file instead of ignoring them
+  * The onboarding country page icon now matches the dimmed color of the large icons on the other pages
+  * Preferences opens faster: its source, feed, podcast, magazine and category subpages are built on first open, the article cache size is measured off the main thread, and followed-feed logos load on a background thread pool
+  * Fixed reference-cycle leaks that kept every podcast, podcast hero, magazine and score card alive, and every article, podcast and sidebar context-menu popover, after they were removed
+  * Free closed pop-up article sheets and per-card save-animation state, and cap the Google News URL and reading-time prefetch caches at 2000 entries
+  * Fixed the restored podcast session losing its cover art: keep the saved cover copy instead of overwriting its path with NULL when it isn't in MetaCache, download the cover directly when it isn't cached, name each copy per episode, and update the player bar and MPRIS when a late cover arrives
+  * Added a My Library podcasts page with an Up Next row of in-progress and newest unplayed episodes, and a grid of subscribed shows sorted by latest episode
+  * Up Next cards show the release time, a "New" tag, and a play button with the time left, with a progress bar once an episode has been started
+  * Library show cards show the publisher, last update time, and a count of new episodes
+  * Searching on My Library filters subscribed shows by name, publisher, or category
+  * Podcast categories are read from PodcastIndex and stored with each subscription, and existing subscriptions get theirs from their feed
+  * The sidebar's Podcasts section has My Library with a total new-episode badge, and subscribed shows in a collapsible "Shows" list with cover art
+  * Sidebar icons are centered in a single column, fixing glyph icons and the "+" on Add RSS Feed and Add a Podcast sitting off-center
+  * Fixed sidebar podcast covers sometimes missing at startup: switching pages no longer drops image downloads that aren't tied to a page, such as sidebar and player covers
+
+ -- Isaac Joseph <calamityjoe87@gmail.com>  Mon, 05 Oct 2026 00:00:00 +0000
+
 paperboy (0.14.0a-1) unstable; urgency=low
 
   * Added a Country setting (Preferences > Personalization > Region) with the 87 Google News country and language editions, set to Automatic by default from the system's time zone and language

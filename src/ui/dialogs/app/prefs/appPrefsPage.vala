@@ -173,7 +173,18 @@ public class AppPrefsPage : Adw.PreferencesPage {
         // Article content cache (MetaCache)
         var cache_row = new Adw.ActionRow();
         cache_row.set_title(_("Article content cache"));
-        cache_row.set_subtitle(MetaCache.get_instance().get_metacache_info());
+        // Sized off the main thread: it stats every cached file, which
+        // held up the dialog opening.
+        cache_row.set_subtitle(_("Calculating…"));
+        bool cache_cleared = false;
+        new GLib.Thread<void*>("prefs-metacache-size", () => {
+            string info = MetaCache.get_instance().get_metacache_info();
+            GLib.Idle.add(() => {
+                if (!cache_cleared) cache_row.set_subtitle(info);
+                return false;
+            });
+            return null;
+        });
 
         var clear_cache_btn = new Gtk.Button.with_label(_("Clear"));
         clear_cache_btn.set_valign(Gtk.Align.CENTER);
@@ -184,6 +195,7 @@ public class AppPrefsPage : Adw.PreferencesPage {
                 _("Clear Cache"), () => {
                 if (win != null && win.meta_cache != null) {
                     win.meta_cache.clear();
+                    cache_cleared = true;
                     cache_row.set_subtitle(_("0 bytes"));
                     if (win.toast_manager != null) win.toast_manager.show_toast(_("Cache cleared successfully"));
                 }

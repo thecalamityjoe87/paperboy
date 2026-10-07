@@ -54,6 +54,8 @@ namespace Managers {
         public signal void playback_error(string message);
         // Explicit position jumps (not normal playback progress), for MPRIS's Seeked signal.
         public signal void seeked(uint64 position_ns);
+        // The current episode's cover_local_path was just filled in.
+        public signal void cover_changed(Paperboy.PodcastEpisode episode);
 
         public PodcastPlaybackManager() {
             GLib.Object();
@@ -64,6 +66,14 @@ namespace Managers {
             // codebase assumes it's always on the GLib main loop.
             var dispatcher = new Gst.PlayerGMainContextSignalDispatcher(null);
             player = new Gst.Player(null, dispatcher);
+
+            // A cover still downloading when the episode was loaded (e.g. a
+            // restored session whose copy was never made) arrives here.
+            Paperboy.PodcastPlaybackStateStore.get_instance().cover_saved.connect((episode_id, path) => {
+                if (current_episode == null || current_episode.episode_id != episode_id) return;
+                current_episode.cover_local_path = path;
+                cover_changed(current_episode);
+            });
 
             player.position_updated.connect((pos) => {
                 uint64 duration = player.get_duration();

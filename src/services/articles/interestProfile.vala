@@ -24,9 +24,9 @@ using Gee;
  * the recurring topics in its title.
  */
 public class InterestProfile : GLib.Object {
-    // Reads needed before the profile is trusted enough to show anything.
-    public const int MIN_READS = 10;
-    public const double MATCH_THRESHOLD = 0.4;
+    // Recommendations start from the first read or thumbs up; picks are
+    // ranked by score, so they sharpen as history grows instead of waiting for it.
+    public const int MIN_READS = 1;
 
     private const double HALF_LIFE_DAYS = 10.0;
     // Older articles lose up to half their score, so newer ones win close matches.
@@ -174,7 +174,7 @@ public class InterestProfile : GLib.Object {
         dislikes.finish(1);
     }
 
-    // MATCH_THRESHOLD and above counts as a "Recommended for you" pick.
+    // Higher is a closer match; 0 means no link to anything read or liked, so never a pick.
     public double score(string title, string url, string? category_id, string? source) {
         return history.score(title, url, category_id, source)
             + LIKE_WEIGHT * likes.score(title, url, category_id, source)

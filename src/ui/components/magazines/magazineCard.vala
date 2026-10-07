@@ -198,8 +198,13 @@ public class MagazineCard : GLib.Object {
     }
 
     // Static to avoid a root -> closure -> self reference cycle, same
-    // reasoning as PodcastCard.wire_interactions.
+    // reasoning as PodcastCard.wire_interactions - which also covers why no
+    // lambda here may capture root_widget.
     public static void wire_interactions(Gtk.Box root_widget, int64 entry_id, owned EntryActivatedCallback on_activated, owned EntryRemoveRequestedCallback on_remove_requested, owned EntrySetCategoryRequestedCallback on_set_category_requested, owned EntryReorderRequestedCallback on_reorder_requested, owned DragStateChangedCallback on_drag_state_changed, owned EntrySelectRequestedCallback on_select_requested) {
+        // Lambdas use this unowned alias, never root_widget itself: Vala
+        // refs captured parameters, and every closure here lives on a
+        // controller root owns, so a strong capture would close a cycle.
+        unowned Gtk.Box r = root_widget;
         var gesture = new Gtk.GestureClick();
         gesture.set_button(1);
         unowned Gtk.GestureClick click_ref = gesture;
@@ -219,7 +224,7 @@ public class MagazineCard : GLib.Object {
         var drag_source = new Gtk.DragSource();
         drag_source.set_actions(Gdk.DragAction.MOVE);
         drag_source.prepare.connect((source, x, y) => {
-            if (root_widget.has_css_class("magazine-selecting")) return null;
+            if (r.has_css_class("magazine-selecting")) return null;
 
             var val = GLib.Value(typeof(string));
             val.set_string(entry_id.to_string());
@@ -239,7 +244,7 @@ public class MagazineCard : GLib.Object {
             // relative point it was picked up from.
             int mini_w = (int) (IMAGE_WIDTH * 0.4);
             int mini_h = (int) (IMAGE_HEIGHT * 0.4);
-            var widget_paintable = new Gtk.WidgetPaintable(root_widget);
+            var widget_paintable = new Gtk.WidgetPaintable(r);
             var snapshot = new Gtk.Snapshot();
             // Semi-transparent so the trash zone (or whatever's under the
             // cursor) stays visible through the dragged card instead of
@@ -248,32 +253,32 @@ public class MagazineCard : GLib.Object {
             widget_paintable.snapshot(snapshot, mini_w, mini_h);
             snapshot.pop();
             var node = snapshot.to_node();
-            var native = root_widget.get_native();
+            var native = r.get_native();
             if (node != null && native != null) {
                 var texture = native.get_renderer().render_texture(node, null);
-                drag_source.set_icon(texture, (int) (x * 0.4), (int) (y * 0.4));
+                source.set_icon(texture, (int) (x * 0.4), (int) (y * 0.4));
             }
 
             return new Gdk.ContentProvider.for_value(val);
         });
         drag_source.drag_begin.connect((source, drag) => {
-            root_widget.add_css_class("magazine-dragging");
+            r.add_css_class("magazine-dragging");
             on_drag_state_changed(true);
         });
         drag_source.drag_end.connect((source, drag, delete_data) => {
-            root_widget.remove_css_class("magazine-dragging");
+            r.remove_css_class("magazine-dragging");
             on_drag_state_changed(false);
         });
         root_widget.add_controller(drag_source);
 
         var drop_target = new Gtk.DropTarget(typeof(string), Gdk.DragAction.MOVE);
         drop_target.enter.connect((x, y) => {
-            root_widget.add_css_class("magazine-drop-target");
+            r.add_css_class("magazine-drop-target");
             return Gdk.DragAction.MOVE;
         });
-        drop_target.leave.connect(() => { root_widget.remove_css_class("magazine-drop-target"); });
+        drop_target.leave.connect(() => { r.remove_css_class("magazine-drop-target"); });
         drop_target.drop.connect((value, x, y) => {
-            root_widget.remove_css_class("magazine-drop-target");
+            r.remove_css_class("magazine-drop-target");
             string? dragged_id_str = value.get_string();
             if (dragged_id_str == null) return false;
             int64 dragged_id = int64.parse(dragged_id_str);
@@ -291,7 +296,7 @@ public class MagazineCard : GLib.Object {
             menu.append(_("Set Category…"), "magazine.set-category");
             menu.append(_("Remove from Library"), "magazine.remove");
             var popover = new Gtk.PopoverMenu.from_model(menu);
-            popover.set_parent(root_widget);
+            popover.set_parent(r);
             Gdk.Rectangle rect = { (int) x, (int) y, 1, 1 };
             popover.set_pointing_to(rect);
 
@@ -305,16 +310,16 @@ public class MagazineCard : GLib.Object {
             var select_action = new GLib.SimpleAction("select", null);
             select_action.activate.connect(() => { on_select_requested(entry_id); });
             action_group.add_action(select_action);
-            root_widget.insert_action_group("magazine", action_group);
+            r.insert_action_group("magazine", action_group);
 
-            root_widget.set_data("magazine-current-popover", popover);
+            r.set_data("magazine-current-popover", popover);
             popover.popup();
         });
         root_widget.add_controller(right_click);
 
         var motion = new Gtk.EventControllerMotion();
-        motion.enter.connect(() => { root_widget.add_css_class("card-hover"); });
-        motion.leave.connect(() => { root_widget.remove_css_class("card-hover"); });
+        motion.enter.connect(() => { r.add_css_class("card-hover"); });
+        motion.leave.connect(() => { r.remove_css_class("card-hover"); });
         root_widget.add_controller(motion);
     }
 }

@@ -117,10 +117,20 @@ namespace Managers {
         // Looser cap used only to top up a short panel.
         private const int RECOMMENDED_FILL_PER_CATEGORY = 4;
         private const uint RECOMMENDED_SETTLE_MS = 500;
+        // Best candidates held for the panel: a full panel plus as many dislike
+        // replacements. Any match counts as a candidate, so this bound keeps the
+        // rest of the Front Page under its normal row caps.
+        private const int RECOMMENDED_SHORTLIST = RECOMMENDED_MAX_PICKS * 2;
         private class RecommendedPick {
             public ArticleItem item;
             public double score;
-            public RecommendedPick(ArticleItem item, double score) { this.item = item; this.score = score; }
+            // Pre-normalization source name, for the row cap/overflow queue if evicted.
+            public string? raw_source_name;
+            public RecommendedPick(ArticleItem item, double score, string? raw_source_name) {
+                this.item = item;
+                this.score = score;
+                this.raw_source_name = raw_source_name;
+            }
         }
         private Gee.ArrayList<RecommendedPick> recommended_picks = new Gee.ArrayList<RecommendedPick>();
         private bool recommendations_finalized = false;
@@ -375,8 +385,11 @@ namespace Managers {
             bool is_myfeed = window.category_manager.is_myfeed_view();
             // "Recommended for you" picks get their own budget instead of the Front Page cap.
             double recommended_score = is_trending ? -1 : score_recommendation(title, url, category_id, source_name);
-            bool recommended = recommended_score >= InterestProfile.MATCH_THRESHOLD;
-            if (recommended) recommended_score = rank_recommendation(recommended_score, title, published);
+            bool recommended = recommended_score > 0;
+            if (recommended) {
+                recommended_score = rank_recommendation(recommended_score, title, published);
+                recommended = shortlist_accepts(recommended_score);
+            }
 
             // My Feed doesn't use the flat article-count cap: its rows are
             // independent scrolling strips, not one shared grid, and several
@@ -500,7 +513,7 @@ namespace Managers {
             if (recommended) {
                 var held = new ArticleItem(title, url, thumbnail_url, category_id, final_source_name, published);
                 held.snippet = snippet;
-                hold_recommended_pick(new RecommendedPick(held, recommended_score));
+                hold_recommended_pick(new RecommendedPick(held, recommended_score, source_name));
                 return;
             }
 
@@ -548,14 +561,46 @@ namespace Managers {
             return title.strip().down();
         }
 
+        // Whether a candidate with this ranked score makes the shortlist.
+        private bool shortlist_accepts(double score) {
+            if (recommended_picks.size < RECOMMENDED_SHORTLIST) return true;
+            return score > weakest_held_pick().score;
+        }
+
+        private RecommendedPick weakest_held_pick() {
+            var weakest = recommended_picks.get(0);
+            foreach (var p in recommended_picks) {
+                if (p.score < weakest.score) weakest = p;
+            }
+            return weakest;
+        }
+
         private void hold_recommended_pick(RecommendedPick pick) {
             recommended_picks.add(pick);
+            if (recommended_picks.size > RECOMMENDED_SHORTLIST) {
+                var evicted = weakest_held_pick();
+                recommended_picks.remove(evicted);
+                place_evicted_pick(evicted);
+            }
             ViewSession.remove_source(ref recommendations_settle_id);
             recommendations_settle_id = ViewSession.view_timeout(RECOMMENDED_SETTLE_MS, () => {
                 recommendations_settle_id = 0;
                 finalize_recommendations();
                 return false;
             });
+        }
+
+        // A candidate bumped off the shortlist goes to its row like any Front Page
+        // article, row cap included. It already passed add_item()'s dedupe and filters.
+        private void place_evicted_pick(RecommendedPick pick) {
+            var item = pick.item;
+            if (frontpage_featured_full() && frontpage_row_full(frontpage_row_key(item.category_id, pick.raw_source_name))) {
+                if (queue_overflow_article(item.title, item.url, item.thumbnail_url, item.category_id, pick.raw_source_name, item.published, item.snippet, true)) {
+                    show_load_more_button();
+                }
+                return;
+            }
+            add_item_immediate_to_column(item.title, item.url, item.thumbnail_url, item.category_id, null, item.source_name, false, item.published, item.snippet);
         }
 
         // Ranks the held picks into the "Recommended for you" panel; the rest go back to their category rows.

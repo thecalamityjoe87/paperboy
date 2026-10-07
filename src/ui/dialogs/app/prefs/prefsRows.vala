@@ -148,20 +148,80 @@ public class PrefsRows : GLib.Object {
 
     // Followed-feed icon: its saved local logo if there is one,
     // otherwise SourceMetadata.pick_logo_url()'s network fallback.
+    // Returns a placeholder at once and resolves the logo on a pool
+    // thread: the metadata lookups read JSON files and the logo is decoded
+    // from disk, which stalled long feed lists when done per row.
     public static Gtk.Image rss_source_icon(Paperboy.RssSource rss_source) {
-        string? icon_filename = SourceMetadata.get_saved_filename_for_source(rss_source.name);
-        string? logos_dir = SourceMetadata.get_user_logos_dir();
-        if (icon_filename != null && icon_filename.length > 0 && logos_dir != null) {
-            var icon_path = GLib.Path.build_filename(logos_dir, icon_filename);
-            if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-                var image = PixbufUtils.make_circular_logo_placeholder(ROW_ICON_SIZE);
-                PixbufUtils.load_circular_logo_from_file(image, icon_path, ROW_ICON_SIZE);
+        var image = PixbufUtils.make_circular_logo_placeholder(ROW_ICON_SIZE);
+        if (icon_pool == null) {
+            icon_targets = new Gee.HashMap<uint, Gtk.Image>();
+            try {
+                icon_pool = new ThreadPool<RssIconJob>.with_owned_data((job) => resolve_rss_source_icon(job), 2, false);
+            } catch (ThreadError e) {
+                warning("Failed to start feed icon loader: %s", e.message);
                 return image;
             }
         }
 
-        return favicon_image(SourceMetadata.pick_logo_url(
-            SourceMetadata.get_logo_url_for_source(rss_source.name), rss_source.url, rss_source.favicon_url));
+        var job = new RssIconJob();
+        job.id = ++next_icon_id;
+        job.name = rss_source.name;
+        job.url = rss_source.url;
+        job.favicon_url = rss_source.favicon_url;
+        // Only the main thread touches the image; the job carries its id
+        icon_targets.set(job.id, image);
+        try {
+            icon_pool.add(job);
+        } catch (ThreadError e) {
+            icon_targets.unset(job.id);
+            warning("Failed to queue feed icon: %s", e.message);
+        }
+        return image;
+    }
+
+    // Plain data owned by the pool, not a captured closure - WorkerPool
+    // drops closure ownership and use-after-frees (see imageManager.vala).
+    private class RssIconJob {
+        public uint id;
+        public string name;
+        public string url;
+        public string? favicon_url;
+    }
+
+    private static ThreadPool<RssIconJob>? icon_pool = null;
+    private static Gee.HashMap<uint, Gtk.Image>? icon_targets = null;
+    private static uint next_icon_id = 0;
+
+    // Runs on an icon_pool thread; hands the result back on the main loop.
+    private static void resolve_rss_source_icon(RssIconJob job) {
+        Gdk.Pixbuf? logo = null;
+        string? logo_url = null;
+
+        string? icon_filename = SourceMetadata.get_saved_filename_for_source(job.name);
+        string? logos_dir = SourceMetadata.get_user_logos_dir();
+        if (icon_filename != null && icon_filename.length > 0 && logos_dir != null) {
+            var icon_path = GLib.Path.build_filename(logos_dir, icon_filename);
+            if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
+                logo = PixbufUtils.circular_logo_from_file(icon_path, ROW_ICON_SIZE);
+            }
+        }
+        if (logo == null) {
+            logo_url = SourceMetadata.pick_logo_url(
+                SourceMetadata.get_logo_url_for_source(job.name), job.url, job.favicon_url);
+        }
+
+        uint id = job.id;
+        GLib.Idle.add(() => {
+            Gtk.Image? image = null;
+            icon_targets.unset(id, out image);
+            if (image == null) return false;
+            if (logo != null) {
+                image.set_from_paintable(Gdk.Texture.for_pixbuf(logo));
+            } else if (logo_url != null && logo_url.length > 0) {
+                PixbufUtils.load_circular_logo_async(image, logo_url, ROW_ICON_SIZE);
+            }
+            return false;
+        });
     }
 
     public static string elide(string s, int max) {

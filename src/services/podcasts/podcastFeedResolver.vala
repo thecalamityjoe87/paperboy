@@ -160,6 +160,10 @@ namespace Paperboy {
                         string? content = n->get_content();
                         if (content != null) show.author = content.strip();
                     }
+                } else if (n->name == "category" && n->ns != null && n->ns->prefix == "itunes" && show.category == null) {
+                    // First top-level <itunes:category text="..."/> - nested
+                    // subcategories live inside it, not as siblings here.
+                    show.category = PodcastCategoryUtils.from_itunes(attr(n, "text"));
                 } else if (n->name == "image") {
                     if (n->ns != null && n->ns->prefix == "itunes") {
                         // <itunes:image href="..."/>
