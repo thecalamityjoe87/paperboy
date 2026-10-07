@@ -11,6 +11,7 @@
 - In reader view, right-clicking selected text now offers "Search Google for …", which opens a Google search for it in your browser
 - Right-clicking a single selected word in reader view also offers "Define …", which shows its definition in a small popup right under the word, with its pronunciation and meanings grouped by noun, verb, and so on. Definitions come from Wiktionary through the Free Dictionary API, and are in English
 - The add-note button in reader view, and the right-click menus in the sidebar and on article and podcast cards, now have a deeper shadow, so they stand out from what's behind them
+- Fixed podcast cover art sometimes missing from the player bar and your desktop's media controls after reopening Paperboy in the middle of an episode. If the cover hasn't finished downloading when the episode loads, it now appears as soon as it arrives, and the media controls no longer show the previous episode's cover after you switch
 
 # v0.14.0a - Paperboy Goes International: Your Country's News, a Per-Country Front Page, and Translations in Twenty Languages
 

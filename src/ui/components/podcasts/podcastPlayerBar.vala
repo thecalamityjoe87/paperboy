@@ -197,6 +197,11 @@ public class PodcastPlayerBar : GLib.Object {
         if (window != null && window.animation_manager != null) {
             window.animation_manager.stop_title_marquee(title_label);
         }
+        set_cover(episode);
+        revealer.set_reveal_child(reveal);
+    }
+
+    private void set_cover(Paperboy.PodcastEpisode episode) {
         if (window != null) {
             // set_size_request(36,36) is only a minimum, not a cap - loading
             // the local cover file directly (full resolution) made Picture
@@ -207,7 +212,6 @@ public class PodcastPlayerBar : GLib.Object {
                 try {
                     var pixbuf = new Gdk.Pixbuf.from_file_at_scale(episode.cover_local_path, 36, 36, false);
                     cover.set_paintable(Gdk.Texture.for_pixbuf(pixbuf));
-                    revealer.set_reveal_child(reveal);
                     return;
                 } catch (GLib.Error e) {
                     // Fall through to the network path below.
@@ -229,7 +233,6 @@ public class PodcastPlayerBar : GLib.Object {
                 window.image_manager.load_image_async(cover, art_url, 36, 36, false, true);
             }
         }
-        revealer.set_reveal_child(reveal);
     }
 
     private static string format_speed(double rate) {
@@ -298,6 +301,7 @@ public class PodcastPlayerBar : GLib.Object {
         playback.episode_queue_changed.connect(() => {
             update_skip_buttons(playback, skip_back_button, skip_forward_button);
         });
+        playback.cover_changed.connect((episode) => { set_cover(episode); });
         update_skip_buttons(playback, skip_back_button, skip_forward_button);
 
         playback.playback_state_changed.connect((is_playing) => {
