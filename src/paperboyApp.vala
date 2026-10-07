@@ -1,0 +1,108 @@
+/* Paperboy - An all-in-one news app written in Vala, built with GTK4 and Libadwaita.
+ * 
+ * Copyright (C) 2025  Isaac Joseph <calamityjoe87@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+public class PaperboyApp : Adw.Application {
+    private Paperboy.PodcastMprisService? mpris = null;
+
+    public PaperboyApp() {
+        GLib.Object(application_id: "io.github.thecalamityjoe87.Paperboy", flags: ApplicationFlags.FLAGS_NONE);
+    }
+
+    // Launches a fresh Paperboy process and quits this one. Looked up by
+    // name (rather than re-exec'ing /proc/self/exe) so it works the same
+    // whether installed via .deb or Flatpak.
+    public void restart() {
+        string? exe_path = GLib.Environment.find_program_in_path("paperboy");
+        if (exe_path != null) {
+            try {
+                GLib.Process.spawn_async(null, { exe_path }, null, GLib.SpawnFlags.SEARCH_PATH, null, null);
+            } catch (GLib.Error e) {
+                warning("Failed to restart Paperboy: %s", e.message);
+            }
+        } else {
+            warning("Failed to restart Paperboy: could not locate the 'paperboy' executable");
+        }
+
+        quit();
+    }
+
+    protected override void shutdown() {
+        if (mpris != null) mpris.unregister();
+        WebViewUtils.terminate_all();
+        base.shutdown();
+    }
+
+    protected override void activate() {
+        // Ensure global HttpClient is constructed on the main thread
+        // before any other subsystem can spawn worker threads.
+        Paperboy.HttpClientUtils.ensure_initialized();
+
+        // Apply the user's saved color scheme before the window is built
+        // so it opens with the right theme instead of flashing the
+        // libadwaita default and then switching.
+        var prefs = NewsPreferences.get_instance();
+        prefs.apply_color_scheme();
+
+        var win = new NewsWindow(this);
+        win.present();
+        if (mpris == null) mpris = new Paperboy.PodcastMprisService(this, win.podcast_playback);
+
+        // Warms up GSK's opacity-compositing path off-screen before the real entrance animation needs it.
+        var warmup = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        warmup.set_size_request(1, 1);
+        warmup.set_halign(Gtk.Align.START);
+        warmup.set_valign(Gtk.Align.START);
+        warmup.add_css_class("card");
+        win.root_overlay.add_overlay(warmup);
+        var warmup_list = new Gee.ArrayList<Gtk.Widget>();
+        warmup_list.add(warmup);
+        win.animation_manager.animate_cards_entrance_batch(warmup_list);
+        GLib.Timeout.add(400, () => {
+            win.root_overlay.remove_overlay(warmup);
+            return false;
+        });
+        // On first run, show the welcome/onboarding dialog so users can
+        // get an introduction and immediately pick a few sources.
+        if (!prefs.onboarding_completed) OnboardingDialog.show(win);
+
+        var change_source_action = new SimpleAction("change-source", null);
+        change_source_action.activate.connect(() => {
+            PrefsDialog.show_source_dialog(win);
+        });
+        this.add_action(change_source_action);
+        
+        var about_action = new SimpleAction("about", null);
+        about_action.activate.connect(() => {
+            AboutDialog.show(win);
+        });
+        this.add_action(about_action);
+
+        var manage_locations_action = new SimpleAction("manage-locations", null);
+        manage_locations_action.activate.connect(() => {
+            PrefsDialog.show_preferences_dialog(win, false, false, true);
+        });
+        this.add_action(manage_locations_action);
+
+        var onboarding_action = new SimpleAction("show-onboarding", null);
+        onboarding_action.activate.connect(() => {
+            OnboardingDialog.show(win);
+        });
+        this.add_action(onboarding_action);
+    }
+
+}

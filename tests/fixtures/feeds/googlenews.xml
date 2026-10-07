@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Google News</title>
+  <item>
+    <title>Council approves budget - Springfield Gazette</title>
+    <link>https://news.google.com/rss/articles/abc</link>
+    <pubDate>Sun, 05 Oct 2026 10:00:00 GMT</pubDate>
+    <source url="https://www.springfieldgazette.com">Springfield Gazette</source>
+  </item>
+  <item>
+    <title>Newest story - Daily Herald</title>
+    <link>https://news.google.com/rss/articles/def</link>
+    <pubDate>Tue, 07 Oct 2026 10:00:00 GMT</pubDate>
+    <source url="https://dailyherald.example">Daily Herald</source>
+  </item>
+  <item>
+    <title>Undated story - Daily Herald</title>
+    <link>https://news.google.com/rss/articles/ghi</link>
+    <source url="https://dailyherald.example">Daily Herald</source>
+  </item>
+</channel>
+</rss>

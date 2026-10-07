@@ -66,6 +66,39 @@ public class RssFeedProcessor {
         while (items.size > max) items.remove_at(items.size - 1);
     }
 
+    // Atom entries can carry several <link>s (alternate, replies, edit,
+    // enclosure...). The article is rel="alternate" - also the default when
+    // rel is absent - so other rels are only a fallback; WordPress lists
+    // rel="replies" (the comments feed) after the article link. RSS <link>
+    // has the URL as text content instead of an href.
+    private static void consider_link(Xml.Node* c, ref string? link, ref bool have_alternate) {
+        if (have_alternate) return;
+        string? href = c->get_prop("href");
+        if (href == null) {
+            link = c->get_content();
+            have_alternate = link != null;
+            return;
+        }
+        string? rel = c->get_prop("rel");
+        if (rel == null || rel == "alternate") {
+            link = href;
+            have_alternate = true;
+        } else if (link == null) {
+            link = href;
+        }
+    }
+
+    // URL of an <enclosure> if it's an image, else null. Podcast feeds put
+    // their audio (often tens of MB) here, which must not become a thumbnail.
+    private static string? enclosure_image_url(Xml.Node* c) {
+        string? type = c->get_prop("type");
+        if (type != null && type.length > 0 && !type.down().has_prefix("image/")) return null;
+        string? url = c->get_prop("url");
+        if (url == null) return null;
+        if (url.has_prefix("//")) url = "https:" + url;
+        return url.replace("&amp;", "&");
+    }
+
     public static void parse_rss_and_display(
         string body,
         string source_name,
@@ -129,6 +162,7 @@ public class RssFeedProcessor {
                         if (it->type == Xml.ElementType.ELEMENT_NODE && (it->name == "item" || it->name == "entry")) {
                             string? title = null;
                             string? link = null;
+                            bool have_alternate_link = false;
                             string? thumb = null;
                             string? pub_date = null;
                             string? updated_date = null; // Atom fallback, only used if no pubDate/published found
@@ -157,31 +191,10 @@ public class RssFeedProcessor {
                                     string? content = c->get_content();
                                     if (content != null && content.strip().length > 0) updated_date = content.strip();
                                 } else if (c->name == "link") {
-                                    Xml.Attr* href = c->properties;
-                                    while (href != null) {
-                                        if (href->name == "href") {
-                                            link = href->children != null ? (string) href->children->content : null;
-                                            break;
-                                        }
-                                        href = href->next;
-                                    }
-                                    if (link == null) link = c->get_content();
+                                    consider_link(c, ref link, ref have_alternate_link);
                                 } else if (c->name == "enclosure") {
                                     // Skip enclosure if we already have media:content (higher quality)
-                                    if (thumb == null) {
-                                        Xml.Attr* a = c->properties;
-                                        while (a != null) {
-                                            if (a->name == "url") {
-                                                thumb = a->children != null ? (string) a->children->content : null;
-                                                if (thumb != null) {
-                                                    if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                    thumb = thumb.replace("&amp;", "&");
-                                                }
-                                                break;
-                                            }
-                                            a = a->next;
-                                        }
-                                    }
+                                    if (thumb == null) thumb = enclosure_image_url(c);
                                 } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
                                     // some feeds emit multiple media:thumbnail entries at different resolutions; keep the widest
                                     if (thumb == null || thumb_is_thumbnail_tag) {
@@ -319,9 +332,12 @@ public class RssFeedProcessor {
                     }
                 }
             } else if (root != null) {
-                // RSS-style parsing: look for <channel> or nested <feed> containers
-                for (Xml.Node* ch = root->children; ch != null; ch = ch->next) {
-                    if (ch->type == Xml.ElementType.ELEMENT_NODE && (ch->name == "channel" || ch->name == "feed")) {
+                // RSS-style parsing: look for <channel> or nested <feed> containers.
+                // RSS 1.0 (RDF) puts <item>s (and <image>) beside <channel> as
+                // children of the root, so there the root itself is the container.
+                bool is_rdf = root->name == "RDF";
+                for (Xml.Node* ch = is_rdf ? root : root->children; ch != null; ch = is_rdf ? null : ch->next) {
+                    if (ch->type == Xml.ElementType.ELEMENT_NODE && (is_rdf || ch->name == "channel" || ch->name == "feed")) {
                         for (Xml.Node* it = ch->children; it != null; it = it->next) {
                             if (it->type == Xml.ElementType.ELEMENT_NODE) {
                                 if (it->name == "image") { // RSS 2.0 <image>
@@ -347,6 +363,7 @@ public class RssFeedProcessor {
                             if (it->type == Xml.ElementType.ELEMENT_NODE && (it->name == "item" || it->name == "entry")) {
                                 string? title = null;
                                 string? link = null;
+                                bool have_alternate_link = false;
                                 string? thumb = null;
                                 string? pub_date = null;
                                 string? updated_date = null; // Atom fallback, only used if no pubDate/published found
@@ -375,38 +392,18 @@ public class RssFeedProcessor {
                                     } else if (c->name == "commentRss" && c->ns != null && c->ns->prefix == "wfw") {
                                         string? content = c->get_content();
                                         if (content != null && content.strip().length > 0) comments_url = content.strip();
-                                    } else if ((c->name == "pubDate" || c->name == "published") && pub_date == null) {
+                                    } else if ((c->name == "pubDate" || c->name == "published" ||
+                                                (c->name == "date" && c->ns != null && c->ns->prefix == "dc")) && pub_date == null) {
                                         string? content = c->get_content();
                                         if (content != null && content.strip().length > 0) pub_date = content.strip();
                                     } else if (c->name == "updated" && updated_date == null) {
                                         string? content = c->get_content();
                                         if (content != null && content.strip().length > 0) updated_date = content.strip();
                                     } else if (c->name == "link") {
-                                        Xml.Attr* href = c->properties;
-                                        while (href != null) {
-                                            if (href->name == "href") {
-                                                link = href->children != null ? (string) href->children->content : null;
-                                                break;
-                                            }
-                                            href = href->next;
-                                        }
-                                        if (link == null) link = c->get_content();
+                                        consider_link(c, ref link, ref have_alternate_link);
                                     } else if (c->name == "enclosure") {
                                         // Skip enclosure if we already have media:content (higher quality)
-                                        if (thumb == null) {
-                                            Xml.Attr* a = c->properties;
-                                            while (a != null) {
-                                                if (a->name == "url") {
-                                                    thumb = a->children != null ? (string) a->children->content : null;
-                                                    if (thumb != null) {
-                                                        if (thumb.has_prefix("//")) thumb = "https:" + thumb;
-                                                        thumb = thumb.replace("&amp;", "&");
-                                                    }
-                                                    break;
-                                                }
-                                                a = a->next;
-                                            }
-                                        }
+                                        if (thumb == null) thumb = enclosure_image_url(c);
                                     } else if (c->name == "thumbnail" && c->ns != null && c->ns->prefix == "media") {
                                         // some feeds emit multiple media:thumbnail entries at different resolutions; keep the widest
                                         if (thumb == null || thumb_is_thumbnail_tag) {
